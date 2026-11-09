@@ -9,8 +9,8 @@ import (
 	"aigw-cli/internal/secret"
 )
 
-// AdmitSetup requires an installation without providers before first-time
-// setup, which would otherwise replace an existing provider's label,
+// AdmitSetup requires an installation without providers before setup from
+// flags, which would otherwise replace an existing provider's label,
 // endpoints, balance probe and Token. A configuration may hold providers
 // without models, so providers, not models, mark an installation as
 // configured. Its fix is the status, which names each client's next step.
@@ -21,16 +21,18 @@ func (Synchronizer) AdmitSetup(before domain.Config) error {
 	return nil
 }
 
-// Setup commits first-time configuration, optional Account Tokens and the selected
-// client projections as one operation. Configuration, Account ownership and
-// client scope are admitted before writes; downstream failure compensates only
-// the operation's unchanged postimages.
+// Setup commits a setup's configuration, optional provider Tokens and client
+// files as one operation: the files of the named clients, which it activates,
+// and of every other client whose files the change affects. Configuration,
+// provider ownership and client scope are admitted before writes; downstream
+// failure compensates only the operation's unchanged postimages. It runs on
+// an empty or a configured home alike.
 // Callers hold the configuration mutation lock, as for other transactions.
 func (s Synchronizer) Setup(ctx context.Context, before, after domain.Config, tokens map[string]string, clients ...string) (_ domain.Config, resultErr error) {
 	if err := ctx.Err(); err != nil {
 		return domain.Config{}, err
 	}
-	after, err := s.admitSetupTransition(before, after, tokens, clients...)
+	after, err := s.admitSetupTransition(after, tokens, clients...)
 	if err != nil {
 		return domain.Config{}, err
 	}
@@ -54,20 +56,32 @@ func (s Synchronizer) Setup(ctx context.Context, before, after domain.Config, to
 			return domain.Config{}, err
 		}
 	}
-	if _, err := s.commit(ctx, before, after, "setup", len(clients) > 0, clients...); err != nil {
+	reconciled := s.setupClients(before, after, clients)
+	if _, err := s.commit(ctx, before, after, "setup", len(reconciled) > 0, reconciled...); err != nil {
 		return domain.Config{}, err
 	}
 	return after, nil
 }
 
-// admitSetupTransition admits first-time setup before any write: an
-// installation without Routes, a valid configuration, a configured Account
-// for each Token, and an admitted adapter with a selected Route for each
-// client, which it enables in the returned configuration.
-func (s Synchronizer) admitSetupTransition(before, after domain.Config, tokens map[string]string, clients ...string) (domain.Config, error) {
-	if err := s.AdmitSetup(before); err != nil {
-		return domain.Config{}, err
+// setupClients returns, in admission order, the clients whose files a setup
+// reconciles: the ones that it activates, and every other client whose files
+// change, such as one that lists a model that a team file relabels.
+func (s Synchronizer) setupClients(before, after domain.Config, activated []string) []string {
+	changed := s.registry().ChangedClients(before, after)
+	clients := make([]string, 0, len(changed)+len(activated))
+	for _, id := range s.ClientIDs() {
+		if slices.Contains(activated, id) || slices.Contains(changed, id) {
+			clients = append(clients, id)
+		}
 	}
+	return clients
+}
+
+// admitSetupTransition admits a setup before any write: a valid
+// configuration, a configured provider for each Token, and an admitted
+// adapter with a selected model for each client, which it enables in the
+// returned configuration.
+func (s Synchronizer) admitSetupTransition(after domain.Config, tokens map[string]string, clients ...string) (domain.Config, error) {
 	if err := after.Validate(); err != nil {
 		return domain.Config{}, err
 	}

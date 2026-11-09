@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -9,6 +10,10 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 )
+
+// ErrTeamFileClients refuses a team file with a [clients] section: each
+// machine keeps its own client selections, which a team file never sets.
+var ErrTeamFileClients = errors.New("the team file has a [clients] section, and a team file never sets a client's selection")
 
 var credentialKey = regexp.MustCompile(`(?i)(^|[_-])(token|secret|password|api[_-]?key|auth|authorization(?:[_-]?header)?|credential)($|[_-])`)
 
@@ -21,6 +26,9 @@ func Parse(data []byte, admission domain.Admission) (domain.Manifest, error) {
 	}
 	if key := findCredentialKey(raw, ""); key != "" {
 		return domain.Manifest{}, fmt.Errorf("configuration manifest contains forbidden credential field %q", key)
+	}
+	if _, clients := raw["clients"]; clients {
+		return domain.Manifest{}, ErrTeamFileClients
 	}
 	var header struct {
 		Version int `toml:"version"`

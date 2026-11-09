@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
-	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
 	builtinclients "aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -55,6 +54,8 @@ func setupConfiguration() domain.Config {
 	return cfg
 }
 
+// Setup on a configured home writes no Token, discovers no client and
+// changes no native credential when it is given none.
 func TestSetupPreservesAlreadyConfiguredState(t *testing.T) {
 	dir := t.TempDir()
 	cfg := testConfig(filepath.Join(dir, "config.toml"))
@@ -78,9 +79,11 @@ func TestSetupPreservesAlreadyConfiguredState(t *testing.T) {
 			return nil
 		}),
 	}
-	_, err = syncer.Setup(t.Context(), cfg, cfg.Clone(), map[string]string{"gateway": "replacement-token"}, codex.ID)
-	if err == nil || !strings.Contains(err.Error(), "already configured") {
-		t.Fatalf("setup error = %v; want rejection of an already configured installation", err)
+	// Setup runs again on a configured home, and changes only what it is
+	// given: no Token, no client and an unchanged configuration change
+	// nothing.
+	if _, err = syncer.Setup(t.Context(), cfg, cfg.Clone(), nil); err != nil {
+		t.Fatal(err)
 	}
 	storedToken, tokenErr := credentials.Get("gateway")
 	if tokenErr != nil || storedToken != "old-token" || credentials.writes != 0 {

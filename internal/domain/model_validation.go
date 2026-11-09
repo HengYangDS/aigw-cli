@@ -95,7 +95,14 @@ func (c *Config) validateRecommendations() error {
 			return fmt.Errorf("client recommendation %q has no primary route", client)
 		}
 		for index, selection := range append([]ClientSelection{recommendation.Primary}, recommendation.Alternatives...) {
-			if err := c.validateSelection(client, selection); err != nil {
+			// A recommended protocol that the provider has no endpoint for
+			// waits for one: selection skips the choice until then.
+			err := c.validateSelection(client, selection)
+			if unusableSelection(err) {
+				spec, _ := c.admission.Spec(client)
+				err = selection.validate(spec, c.admission)
+			}
+			if err != nil {
 				return fmt.Errorf("client recommendation %q choice %d: %w", client, index+1, err)
 			}
 			if c.Models[selection.Model].LifecycleState() == ModelDeprecated {
@@ -166,6 +173,13 @@ func (c *Config) validateSelection(client string, selection ClientSelection) err
 		return fmt.Errorf("route %q: %w", selection.Model, err)
 	}
 	return selection.validate(spec, c.admission)
+}
+
+// unusableSelection reports a selection that fails only because its
+// provider has no endpoint for its protocol.
+func unusableSelection(err error) bool {
+	_, missing := errors.AsType[*RuntimeMissingEndpointError](err)
+	return missing
 }
 
 func (selection ClientSelection) validate(spec ClientSpec, admission Admission) error {
@@ -262,6 +276,11 @@ func (family Family) validate(name string) error {
 	return nil
 }
 
+// validate checks one model against the providers and families. A model may
+// declare a protocol for which its provider has no endpoint, as a team file
+// leaves one whose provider keeps its local endpoints: the protocol is
+// unusable until the provider has the endpoint, because no client selection
+// resolves on it.
 func (model Model) validate(name string, providers map[string]Provider, families map[string]Family) error {
 	if !ValidIdentifier(name) {
 		return fmt.Errorf("invalid route name %q; use letters, numbers, dot, dash, or underscore", name)
@@ -269,8 +288,7 @@ func (model Model) validate(name string, providers map[string]Provider, families
 	if model.Provider == "" {
 		return fmt.Errorf("route %q must reference an account", name)
 	}
-	provider, ok := providers[model.Provider]
-	if !ok {
+	if _, ok := providers[model.Provider]; !ok {
 		return fmt.Errorf("route %q references unknown account %q", name, model.Provider)
 	}
 	if strings.TrimSpace(model.Family) == "" {
@@ -299,9 +317,6 @@ func (model Model) validate(name string, providers map[string]Provider, families
 		}
 		if seen[protocol] {
 			return fmt.Errorf("route %q repeats protocol %q", name, protocol)
-		}
-		if provider.Endpoints.For(protocol) == "" {
-			return fmt.Errorf("route %q: %w", name, &RuntimeMissingEndpointError{ProviderID: model.Provider, Protocol: protocol})
 		}
 		seen[protocol] = true
 	}

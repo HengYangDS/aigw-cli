@@ -53,8 +53,9 @@ func ManifestProviderIDs(incoming Manifest) []string {
 }
 
 // Admit validates a decoded team manifest for the admitted clients and returns
-// its normalized form: it recommends Routes only for admitted clients and
-// declared Routes, and validates as a configuration. Like a configuration, it
+// its normalized form: it recommends models only for admitted clients, and
+// validates as a configuration. A recommendation may name a model that only
+// the configuration defines, which the merge checks. Like a configuration, it
 // may declare providers without Routes, which is what `aigw config export`
 // writes for a configuration without models.
 func (m Manifest) Admit(admission Admission) (Manifest, error) {
@@ -71,17 +72,26 @@ func (m Manifest) Admit(admission Admission) (Manifest, error) {
 	check.Normalize()
 	m.Families = check.Families
 	m.Models = check.Models
+	check.Recommendations = make(map[string]ClientRecommendation, len(m.Recommendations))
 	for client, recommendation := range m.Recommendations {
 		if !admission.Admits(client) {
 			return Manifest{}, fmt.Errorf("recommendation uses unsupported client %q", client)
 		}
-		for _, selection := range append([]ClientSelection{recommendation.Primary}, recommendation.Alternatives...) {
-			if _, ok := m.Models[selection.Model]; !ok {
-				return Manifest{}, fmt.Errorf("%s recommendation references unknown route %q", client, selection.Model)
+		if recommendation.Primary.Model == "" {
+			return Manifest{}, fmt.Errorf("client recommendation %q has no primary route", client)
+		}
+		// A choice of a model that only the configuration defines is checked
+		// when the file is merged into it.
+		var defined []ClientSelection
+		for _, selection := range recommendation.Selections() {
+			if _, ok := m.Models[selection.Model]; ok {
+				defined = append(defined, selection)
 			}
 		}
+		if len(defined) > 0 {
+			check.Recommendations[client] = ClientRecommendation{Primary: defined[0], Alternatives: defined[1:]}
+		}
 	}
-	check.Recommendations = m.Recommendations
 	if err := check.Validate(); err != nil {
 		return Manifest{}, fmt.Errorf("invalid configuration manifest: %w", err)
 	}

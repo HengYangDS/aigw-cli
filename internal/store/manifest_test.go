@@ -2,7 +2,6 @@ package store
 
 import (
 	"bytes"
-	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -280,29 +279,6 @@ func TestExportRejectsModelThatCannotBeParsedBack(t *testing.T) {
 	}
 }
 
-func TestParseRejectsModelWithoutItsClientProtocol(t *testing.T) {
-	_, err := Parse([]byte(`version = 7
-
-[recommendations.codex.primary]
-route = "codex"
-
-[accounts.gateway]
-label = "Gateway"
-[accounts.gateway.endpoints]
-anthropic = "https://gateway.test"
-
-[routes.codex]
-label = "Codex"
-account = "gateway"
-model = "model"
-interfaces = { openai_responses = [] }
-`), testAdmission())
-	var missing *domain.RuntimeMissingEndpointError
-	if !errors.As(err, &missing) || missing.ProviderID != "gateway" || missing.Protocol != domain.ProtocolOpenAIResponses {
-		t.Fatalf("manifest protocol validation = %v", err)
-	}
-}
-
 func TestParseRejectsCredentialShapedFields(t *testing.T) {
 	for _, key := range []string{"token", "api_key", "password", "auth_header", "client_secret"} {
 		raw := []byte("version = 7\n" + key + " = \"must-not-exist\"\n")
@@ -421,24 +397,6 @@ model = "claude-team"
 `)
 	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "unsupported client") {
 		t.Fatalf("unsupported recommended route client error = %v", err)
-	}
-}
-
-func TestParseRejectsRecommendedModelReferencingUnknownModel(t *testing.T) {
-	raw := []byte(`version = 7
-[recommendations.claude.primary]
-route = "missing"
-[accounts.team]
-label = "Team"
-[accounts.team.endpoints]
-anthropic = "https://team.test"
-[routes.team]
-label = "Team"
-account = "team"
-model = "claude-team"
-`)
-	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "references unknown route") {
-		t.Fatalf("unknown recommended Route error = %v", err)
 	}
 }
 

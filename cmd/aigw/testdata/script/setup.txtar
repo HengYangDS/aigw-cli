@@ -1,6 +1,8 @@
 # setup refuses a Token that the provider rejects and connects the first
-# Account from flags. In a second home it sets up every Route of a manifest
-# as JSON, then refuses to set up a configured home.
+# provider from flags. In other homes it applies a team file: a preview, Token
+# input for one provider, a refused Token, a rerun on a configured home with
+# what stays local, pruning, deferred and empty Tokens, and the refusals of a
+# team file that sets clients, has another version or cannot be read.
 exec aigw setup --help
 cmp stdout help.txt
 
@@ -35,21 +37,134 @@ stdin token.txt
 exec aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 cmp stdout connected.txt
 
+# Team setup: a preview reads no Token and writes nothing.
 mkdir $WORK/second
 env HOME=$WORK/second USERPROFILE=$WORK/second XDG_CONFIG_HOME=$WORK/second XDG_DATA_HOME=$WORK/second APPDATA=$WORK/second LOCALAPPDATA=$WORK/second
-envsubst manifest.in manifest.toml
+envsubst team.in team.toml
 snapshot $HOME second-before.txt
-exec aigw setup --from manifest.toml --account spare --dry-run --json
-cmp stdout manifest-preview.json
+# The credential reader's path differs by platform.
+exec aigw setup --from team.toml --dry-run --json
+normalize stdout team-preview.out '\$HOME[^"\n]*credential[^"\n]*'
+cmp team-preview.out team-preview.json
+exec aigw setup --from team.toml --dry-run
+normalize stdout team-preview-text.out '\$HOME[^"\n]*credential[^"\n]*'
+cmp team-preview-text.out team-preview.txt
 snapshot $HOME second-after.txt
 cmp second-after.txt second-before.txt
+
+# Token input belongs to one provider, before anything is read.
+exitcode 1 aigw setup --from team.toml --provider team --provider spare --token-stdin --json
+normalize stdout two-providers.out
+cmp two-providers.out two-providers.json
+fixloop -input stdout aigw setup --from team.toml --provider team --provider spare --token-stdin --json
+exitcode 1 aigw setup --prune --json
+normalize stdout prune-alone.out
+cmp prune-alone.out prune-alone.json
+fixloop -input stdout aigw setup --prune --json
+
+# A Token that the provider rejects refuses the whole apply.
+stdin rejected.txt
+exitcode 1 aigw setup --from team.toml --provider team --token-stdin --json
+normalize stdout team-rejected.out
+cmp team-rejected.out team-rejected.json
+[darwin] ! exists $HOME/'Library/Application Support/aigw/config.toml'
+[darwin] ! exists $HOME/'Library/Application Support/aigw/secrets/tokens/team'
+[!darwin] ! exists $HOME/aigw/config.toml
+[!darwin] ! exists $HOME/aigw/secrets/tokens/team
 stdin token.txt
-exec aigw setup --from manifest.toml --account spare --token-stdin --json
-cmp stdout manifest.json
+fixloop -did 'piped a Token that the provider accepts' stdout aigw setup --from team.toml --provider team --token-stdin --json
+normalize stdout team-connected.out
+cmp team-connected.out team-connected.json
+
+# A named provider's Token comes from --token-stdin without a terminal.
+exitcode 1 aigw setup --from team.toml --provider team --json
+normalize stdout named-without-input.out
+cmp named-without-input.out named-without-input.json
 stdin token.txt
-exitcode 1 aigw setup --from manifest.toml --account spare --token-stdin --json
-cmp stdout configured.json
-fixloop -input stdout aigw setup --from manifest.toml --account spare --token-stdin --json
+fixloop -input stdout aigw setup --from team.toml --provider team --json
+
+# Setup runs again: the file's models, families and recommendations win, an
+# existing provider keeps its endpoints and Token, and no selection changes.
+envsubst again.in again.toml
+exec aigw setup --from again.toml --dry-run --json
+normalize stdout again-preview.out '\$HOME[^"\n]*credential[^"\n]*'
+cmp again-preview.out again-preview.json
+exec aigw setup --from again.toml --json
+normalize stdout again.out
+cmp again.out again.json
+exec aigw setup --from again.toml
+normalize stdout again-text.out
+cmp again-text.out again.txt
+exec aigw model show team/team-model --protocol anthropic --json
+stdout '"label": "Team Gateway Again · Team Model Again"'
+exec aigw status --json
+stdout '"claude": \{\n\s+"state": "configured"'
+exec aigw setup --from again.toml --prune --json
+normalize stdout pruned.out
+cmp pruned.out pruned.json
+# A file whose model would take the protocol of Claude's selection keeps the
+# local model, and a differing balance probe stays local.
+envsubst away.in away.toml
+exec aigw setup --from away.toml --json
+normalize stdout away.out
+cmp away.out away.json
+
+# Without a terminal, a provider that a recommendation needs waits for its
+# Token, and an empty stored Token is none; its fix stores one.
+mkdir $WORK/deferred
+env HOME=$WORK/deferred USERPROFILE=$WORK/deferred XDG_CONFIG_HOME=$WORK/deferred XDG_DATA_HOME=$WORK/deferred APPDATA=$WORK/deferred LOCALAPPDATA=$WORK/deferred
+exec aigw setup --from team.toml --json
+normalize stdout deferred.out
+cmp deferred.out deferred.json
+stdin token.txt
+exec aigw provider rotate team --token-stdin
+[darwin] exists $HOME/'Library/Application Support/aigw/secrets/tokens/team'
+[darwin] cp empty-file $HOME/'Library/Application Support/aigw/secrets/tokens/team'
+[!darwin] exists $HOME/aigw/secrets/tokens/team
+[!darwin] cp empty-file $HOME/aigw/secrets/tokens/team
+exec aigw setup --from team.toml --json
+normalize stdout deferred-empty.out
+cmp deferred-empty.out deferred-empty.json
+stdin token.txt
+exec aigw provider rotate team --token-stdin
+exec aigw setup --from team.toml --json
+stdout '"state": "stored"|"state": "present"'
+stdout '"id": "claude",\n\s+"state": "configured"'
+
+# A team file that sets clients, or of another version, is refused.
+exitcode 1 aigw setup --from clients.toml --json
+normalize stdout clients-refusal.out
+cmp clients-refusal.out clients-refusal.json
+cp team.toml clients.toml
+fixloop -did 'removed the [clients] section from the team file' stdout aigw setup --from clients.toml --json
+exitcode 1 aigw setup --from old.toml --json
+normalize stdout old-refusal.out
+cmp old-refusal.out old-refusal.json
+cp team.toml old.toml
+fixloop -did 'exported the team file again with the release that wrote it' stdout aigw setup --from old.toml --json
+
+# A team file that cannot be read names the one classification and its fix.
+exitcode 1 aigw setup --from missing.toml --json
+normalize stdout missing.out
+cmp missing.out missing.json
+cp team.toml missing.toml
+fixloop -did 'named a team file that exists' stdout aigw setup --from missing.toml --json
+exitcode 1 aigw setup --from team.toml/team.toml --json
+normalize stdout in-the-way.out
+cmp in-the-way.out in-the-way.json
+symlink dangling.toml -> nowhere.toml
+exitcode 1 aigw setup --from dangling.toml --json
+normalize stdout dangling.out
+cmp dangling.out dangling.json
+cp team.toml nowhere.toml
+fixloop -did 'named a team file that exists' stdout aigw setup --from dangling.toml --json
+[!windows] cp team.toml unreadable.toml
+[!windows] chmod 000 unreadable.toml
+[!windows] exitcode 1 aigw setup --from unreadable.toml --json
+[!windows] normalize stdout unreadable.out
+[!windows] cmp unreadable.out unreadable.json
+[!windows] chmod 600 unreadable.toml
+[!windows] fixloop -did 'made the team file readable' stdout aigw setup --from unreadable.toml --json
 
 mkdir $WORK/third
 env HOME=$WORK/third USERPROFILE=$WORK/third XDG_CONFIG_HOME=$WORK/third XDG_DATA_HOME=$WORK/third APPDATA=$WORK/third LOCALAPPDATA=$WORK/third
@@ -159,25 +274,6 @@ fixloop -input stdout aigw setup --json
   },
   "next_detail": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
 }
--- manifest-preview.json --
-{
-  "schema_version": 2,
-  "ok": true,
-  "dry_run": true,
-  "imported": {
-    "accounts": [
-      "spare"
-    ],
-    "routes": [
-      "spare-route"
-    ]
-  },
-  "connected_accounts": [],
-  "selections": {},
-  "projected_clients": [],
-  "online_verification": "not_checked",
-  "next_detail": "aigw setup --account spare --from manifest.toml"
-}
 -- spellings.txt --
 AIGW  Action required
 ────────────────────────────────────────
@@ -191,42 +287,35 @@ Fix
 sk-rejected-token
 -- token.txt --
 sk-team-token-0001
--- manifest.in --
-version = 7
-[accounts.spare]
-label = "Spare Gateway"
-[accounts.spare.endpoints]
-anthropic = "$UPSTREAM"
-[models.spare-model]
-label = "Spare Model"
-[routes.spare-route]
-label = "Spare Route"
-account = "spare"
-model = "spare-model"
-upstream_model = "spare-model"
-interfaces = { anthropic = ["text"] }
 -- help.txt --
 AIGW  aigw setup
 ────────────────────────────────────────
-  Complete first-time setup
+  Complete first-time setup, or apply a team file
 
 Usage
   aigw setup [flags]
 
+Examples
+  aigw setup --from team.toml --dry-run
+  aigw setup --from team.toml --provider dmxapi --token-stdin
+  aigw setup --from team.toml --prune --json
+
 Options
-      --account string          Account ID; guided setup uses the first Route ID when omitted, --from connects only this Account
+      --account string          Account ID; guided setup uses the first Route ID when omitted
       --anthropic-url string    Anthropic base URL
       --chat-url string         OpenAI Chat Completions base URL
-      --dry-run                 Show the Accounts, Routes and Client Bindings that setup would create without reading a Token or writing anything
+      --dry-run                 Show what setup would change without reading a Token or writing anything
       --for string              Client for the first route: claude, claude-desktop, codex, or hermes
-      --from string             Set up all routes from a token-free configuration manifest
+      --from string             Apply a team file: its providers, models, families and recommendations
   -h, --help                    help for setup
       --json                    Write the setup result as JSON
       --label string            Provider display name
       --openai-url string       OpenAI Responses base URL
       --protocol string         Endpoint protocol when more than one URL is configured: anthropic, responses, or chat
+      --provider stringArray    With --from, a provider whose Token to read, at a prompt or from --token-stdin; repeatable
+      --prune                   With --from, remove the local models that no client selects and no recommendation names, and unused families
       --route string            First route ID
-      --token-stdin             Read one token line from standard input
+      --token-stdin             Read one Token from standard input; with --from, the one --provider's
       --upstream-model string   Exact provider model ID for --for
 -- refusal.txt --
 AIGW  Action required
@@ -255,36 +344,6 @@ Clients
 
 Next
   aigw check
--- manifest.json --
-{
-  "schema_version": 2,
-  "ok": true,
-  "imported": {
-    "accounts": [
-      "spare"
-    ],
-    "routes": [
-      "spare-route"
-    ]
-  },
-  "connected_accounts": [
-    "spare"
-  ],
-  "selections": {},
-  "projected_clients": [],
-  "online_verification": "not_checked",
-  "deferred_actions": [
-    "aigw use --help"
-  ],
-  "next_action": "aigw use --help"
-}
--- configured.json --
-{
-  "schema_version": 3,
-  "ok": false,
-  "error": "AIGW is already configured, and setup does not change an existing provider; run `aigw status` for each client's next step, or `aigw provider add` to add a provider",
-  "next_action": "aigw status"
-}
 -- flags.json --
 {
   "schema_version": 2,
@@ -315,4 +374,729 @@ Next
   "ok": false,
   "error": "--json requires --route or --from; run `aigw setup --help`",
   "next_action": "aigw setup --help"
+}
+-- team.in --
+version = 7
+[recommendations.claude.primary]
+route = "team-route"
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "$UPSTREAM"
+[accounts.spare]
+label = "Spare Gateway"
+[accounts.spare.endpoints]
+anthropic = "$UPSTREAM/spare"
+[models.team-model]
+label = "Team Model"
+[routes.team-route]
+account = "team"
+model = "team-model"
+upstream_model = "team-model"
+interfaces = { anthropic = ["text"] }
+[routes.spare-route]
+account = "spare"
+model = "team-model"
+upstream_model = "spare-model"
+interfaces = { anthropic = [] }
+-- again.in --
+version = 7
+[recommendations.claude.primary]
+route = "team-route"
+[accounts.team]
+label = "Team Gateway Again"
+[accounts.team.endpoints]
+anthropic = "$UPSTREAM/elsewhere"
+openai_responses = "$UPSTREAM/v1"
+[accounts.team.account_probe]
+kind = "dmxapi"
+base_url = "$UPSTREAM"
+[models.team-model]
+label = "Team Model Again"
+[routes.team-route]
+account = "team"
+model = "team-model"
+upstream_model = "team-model"
+interfaces = { anthropic = ["text", "tool_search"] }
+[routes.team-responses]
+account = "team"
+model = "team-model"
+upstream_model = "team-model"
+interfaces = { openai_responses = [] }
+-- away.in --
+version = 7
+[accounts.team]
+label = "Team Gateway Again"
+[accounts.team.endpoints]
+anthropic = "$UPSTREAM"
+openai_responses = "$UPSTREAM/v1"
+[accounts.team.account_probe]
+kind = "dmxapi"
+base_url = "$UPSTREAM/elsewhere"
+[models.team-model]
+label = "Team Model Again"
+[routes.team-route]
+account = "team"
+model = "team-model"
+upstream_model = "team-model"
+interfaces = { openai_responses = [] }
+-- clients.toml --
+version = 7
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "https://team.invalid"
+[clients.claude]
+route = "team-route"
+-- old.toml --
+version = 6
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "https://team.invalid"
+-- empty-file --
+-- team-preview.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "dry_run": true,
+  "added": {
+    "providers": [
+      "spare",
+      "team"
+    ],
+    "models": [
+      "spare/spare-model",
+      "team/team-model"
+    ],
+    "families": [
+      "team-model"
+    ],
+    "recommendations": [
+      "claude"
+    ]
+  },
+  "changed": {
+    "providers": [],
+    "models": [],
+    "families": []
+  },
+  "tokens": [
+    {
+      "provider": "team",
+      "state": "not_read"
+    }
+  ],
+  "clients": [
+    {
+      "id": "claude",
+      "state": "configured",
+      "model": "team/team-model"
+    },
+    {
+      "id": "claude-desktop",
+      "state": "not_selected"
+    },
+    {
+      "id": "codex",
+      "state": "not_selected"
+    },
+    {
+      "id": "hermes",
+      "state": "not_selected"
+    }
+  ],
+  "client_files": [
+    {
+      "client": "claude",
+      "file": "~/.claude/settings.json",
+      "action": "project"
+    }
+  ],
+  "credential_reader": {
+    "path": "<varies>",
+    "action": "install"
+  },
+  "next_action": "aigw setup --from team.toml"
+}
+-- team-preview.txt --
+AIGW  Team file preview
+────────────────────────────────────────
+
+Added
+  Providers            spare, team
+  Models               spare/spare-model, team/team-model
+  Families             team-model
+  Recommendations      claude
+
+Tokens
+  · team               Not read in a preview
+
+Clients
+  ✓ Claude             team/team-model
+  · Claude Desktop     No model selected
+  · Codex              No model selected
+  · Hermes             No model selected
+
+Client files
+  Claude ~/.claude/settings.json  project
+
+Credential reader
+  Install <varies>
+  ✓ Nothing was written: configuration, credentials and client files are unchanged
+
+Next
+  aigw setup --from team.toml
+-- two-providers.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "--token-stdin reads one Token, so it needs exactly one --provider; run `aigw setup --help`",
+  "next_action": "aigw setup --help"
+}
+-- prune-alone.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "--provider and --prune apply a team file, so they need --from; run `aigw setup --help`",
+  "next_action": "aigw setup --help"
+}
+-- team-rejected.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Token validation failed: Claude authentication was rejected (HTTP 401)",
+  "impact": "No Token was stored. The team file was not applied.",
+  "next_detail": "Pipe a Token that provider team accepts into `aigw setup --from team.toml --json --provider team --token-stdin`."
+}
+-- team-connected.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "added": {
+    "providers": [
+      "spare",
+      "team"
+    ],
+    "models": [
+      "spare/spare-model",
+      "team/team-model"
+    ],
+    "families": [
+      "team-model"
+    ],
+    "recommendations": [
+      "claude"
+    ]
+  },
+  "changed": {
+    "providers": [],
+    "models": [],
+    "families": []
+  },
+  "tokens": [
+    {
+      "provider": "team",
+      "state": "stored"
+    }
+  ],
+  "clients": [
+    {
+      "id": "claude",
+      "state": "configured",
+      "model": "team/team-model"
+    },
+    {
+      "id": "claude-desktop",
+      "state": "not_selected"
+    },
+    {
+      "id": "codex",
+      "state": "not_selected"
+    },
+    {
+      "id": "hermes",
+      "state": "not_selected"
+    }
+  ],
+  "next_action": "aigw check"
+}
+-- named-without-input.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "a named provider's Token is read from --token-stdin without a terminal or with --json; pipe the Token to `aigw setup --from team.toml --provider team --token-stdin`",
+  "next_action": "aigw setup --from team.toml --provider team --token-stdin"
+}
+-- again-preview.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "dry_run": true,
+  "added": {
+    "providers": [],
+    "models": [
+      "team/team-model"
+    ],
+    "families": []
+  },
+  "changed": {
+    "providers": [
+      "team"
+    ],
+    "models": [],
+    "families": [
+      "team-model"
+    ]
+  },
+  "kept_endpoints": [
+    {
+      "provider": "team",
+      "protocol": "anthropic",
+      "local": "$UPSTREAM",
+      "file": "$UPSTREAM/elsewhere"
+    },
+    {
+      "provider": "team",
+      "protocol": "responses",
+      "file": "$UPSTREAM/v1"
+    }
+  ],
+  "dropped_capabilities": [
+    {
+      "model": "team/team-model",
+      "protocol": "anthropic",
+      "capabilities": [
+        "tool_search"
+      ]
+    }
+  ],
+  "unusable": [
+    {
+      "model": "team/team-model",
+      "protocol": "responses",
+      "next_detail": "aigw provider edit team --endpoint responses=\u003curl\u003e"
+    }
+  ],
+  "tokens": [
+    {
+      "provider": "team",
+      "state": "not_read"
+    }
+  ],
+  "clients": [
+    {
+      "id": "claude",
+      "state": "configured",
+      "model": "team/team-model"
+    },
+    {
+      "id": "claude-desktop",
+      "state": "not_selected"
+    },
+    {
+      "id": "codex",
+      "state": "not_selected"
+    },
+    {
+      "id": "hermes",
+      "state": "not_selected"
+    }
+  ],
+  "client_files": [
+    {
+      "client": "claude",
+      "file": "~/.claude/settings.json",
+      "action": "already_converged"
+    }
+  ],
+  "next_action": "aigw setup --from again.toml"
+}
+-- again.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "added": {
+    "providers": [],
+    "models": [
+      "team/team-model"
+    ],
+    "families": []
+  },
+  "changed": {
+    "providers": [
+      "team"
+    ],
+    "models": [],
+    "families": [
+      "team-model"
+    ]
+  },
+  "kept_endpoints": [
+    {
+      "provider": "team",
+      "protocol": "anthropic",
+      "local": "$UPSTREAM",
+      "file": "$UPSTREAM/elsewhere"
+    },
+    {
+      "provider": "team",
+      "protocol": "responses",
+      "file": "$UPSTREAM/v1"
+    }
+  ],
+  "dropped_capabilities": [
+    {
+      "model": "team/team-model",
+      "protocol": "anthropic",
+      "capabilities": [
+        "tool_search"
+      ]
+    }
+  ],
+  "unusable": [
+    {
+      "model": "team/team-model",
+      "protocol": "responses",
+      "next_detail": "aigw provider edit team --endpoint responses=\u003curl\u003e"
+    }
+  ],
+  "tokens": [
+    {
+      "provider": "team",
+      "state": "present"
+    }
+  ],
+  "clients": [
+    {
+      "id": "claude",
+      "state": "configured",
+      "model": "team/team-model"
+    },
+    {
+      "id": "claude-desktop",
+      "state": "not_selected"
+    },
+    {
+      "id": "codex",
+      "state": "not_selected"
+    },
+    {
+      "id": "hermes",
+      "state": "not_selected"
+    }
+  ],
+  "next_action": "aigw check"
+}
+-- again.txt --
+AIGW  Team file applied
+────────────────────────────────────────
+
+Team file
+  ✓ Configuration      Already holds everything that the team file sets
+
+Kept local
+  · team anthropic endpoint    Kept $UPSTREAM; the team file has $UPSTREAM/elsewhere
+  · team responses endpoint    Not added; the team file has $UPSTREAM/v1, and `aigw provider edit` adds an endpoint
+  · team/team-model anthropic  Dropped tool_search, qualified on the team file's endpoint
+  ! team/team-model responses  Unusable until the provider has the endpoint: aigw provider edit team --endpoint responses=<url>
+
+Tokens
+  ✓ team               Stored
+
+Clients
+  ✓ Claude             team/team-model
+  · Claude Desktop     No model selected
+  · Codex              No model selected
+  · Hermes             No model selected
+  ✓ Saved; no client was run, so whether each one works is unchecked
+
+Next
+  aigw check
+-- pruned.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "added": {
+    "providers": [],
+    "models": [],
+    "families": []
+  },
+  "changed": {
+    "providers": [],
+    "models": [],
+    "families": []
+  },
+  "pruned": {
+    "providers": [],
+    "models": [
+      "spare/spare-model"
+    ],
+    "families": []
+  },
+  "kept_endpoints": [
+    {
+      "provider": "team",
+      "protocol": "anthropic",
+      "local": "$UPSTREAM",
+      "file": "$UPSTREAM/elsewhere"
+    },
+    {
+      "provider": "team",
+      "protocol": "responses",
+      "file": "$UPSTREAM/v1"
+    }
+  ],
+  "dropped_capabilities": [
+    {
+      "model": "team/team-model",
+      "protocol": "anthropic",
+      "capabilities": [
+        "tool_search"
+      ]
+    }
+  ],
+  "unusable": [
+    {
+      "model": "team/team-model",
+      "protocol": "responses",
+      "next_detail": "aigw provider edit team --endpoint responses=\u003curl\u003e"
+    }
+  ],
+  "tokens": [
+    {
+      "provider": "team",
+      "state": "present"
+    }
+  ],
+  "clients": [
+    {
+      "id": "claude",
+      "state": "configured",
+      "model": "team/team-model"
+    },
+    {
+      "id": "claude-desktop",
+      "state": "not_selected"
+    },
+    {
+      "id": "codex",
+      "state": "not_selected"
+    },
+    {
+      "id": "hermes",
+      "state": "not_selected"
+    }
+  ],
+  "next_action": "aigw check"
+}
+-- deferred.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "added": {
+    "providers": [
+      "spare",
+      "team"
+    ],
+    "models": [
+      "spare/spare-model",
+      "team/team-model"
+    ],
+    "families": [
+      "team-model"
+    ],
+    "recommendations": [
+      "claude"
+    ]
+  },
+  "changed": {
+    "providers": [],
+    "models": [],
+    "families": []
+  },
+  "tokens": [
+    {
+      "provider": "team",
+      "state": "missing",
+      "next_detail": "aigw provider rotate team"
+    }
+  ],
+  "clients": [
+    {
+      "id": "claude",
+      "state": "not_selected"
+    },
+    {
+      "id": "claude-desktop",
+      "state": "not_selected"
+    },
+    {
+      "id": "codex",
+      "state": "not_selected"
+    },
+    {
+      "id": "hermes",
+      "state": "not_selected"
+    }
+  ],
+  "next_detail": "Choose one compatible provider: aigw provider rotate team"
+}
+-- deferred-empty.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "added": {
+    "providers": [],
+    "models": [],
+    "families": []
+  },
+  "changed": {
+    "providers": [],
+    "models": [],
+    "families": []
+  },
+  "tokens": [
+    {
+      "provider": "team",
+      "state": "missing",
+      "next_detail": "aigw provider rotate team"
+    }
+  ],
+  "clients": [
+    {
+      "id": "claude",
+      "state": "not_selected"
+    },
+    {
+      "id": "claude-desktop",
+      "state": "not_selected"
+    },
+    {
+      "id": "codex",
+      "state": "not_selected"
+    },
+    {
+      "id": "hermes",
+      "state": "not_selected"
+    }
+  ],
+  "next_detail": "Choose one compatible provider: aigw provider rotate team"
+}
+-- away.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "added": {
+    "providers": [],
+    "models": [],
+    "families": []
+  },
+  "changed": {
+    "providers": [],
+    "models": [],
+    "families": []
+  },
+  "kept_endpoints": [
+    {
+      "provider": "team",
+      "protocol": "responses",
+      "file": "$UPSTREAM/v1"
+    }
+  ],
+  "kept_balance_probes": [
+    {
+      "provider": "team",
+      "local": {
+        "kind": "dmxapi",
+        "url": "$UPSTREAM"
+      },
+      "file": {
+        "kind": "dmxapi",
+        "url": "$UPSTREAM/elsewhere"
+      }
+    }
+  ],
+  "kept_models": [
+    {
+      "model": "team/team-model",
+      "client": "claude",
+      "protocol": "anthropic",
+      "file": "team/team-model"
+    }
+  ],
+  "tokens": [
+    {
+      "provider": "team",
+      "state": "present"
+    }
+  ],
+  "clients": [
+    {
+      "id": "claude",
+      "state": "configured",
+      "model": "team/team-model"
+    },
+    {
+      "id": "claude-desktop",
+      "state": "not_selected"
+    },
+    {
+      "id": "codex",
+      "state": "not_selected"
+    },
+    {
+      "id": "hermes",
+      "state": "not_selected"
+    }
+  ],
+  "next_action": "aigw check"
+}
+-- unreadable.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Cannot read the team file unreadable.toml: permission denied",
+  "impact": "Nothing changed.",
+  "next_detail": "Make unreadable.toml and its folder readable and writable, then run the same command again."
+}
+-- clients-refusal.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "the team file has a [clients] section, and a team file never sets a client's selection",
+  "impact": "Nothing changed.",
+  "next_detail": "Remove the [clients] section from the team file, or write the file again with `aigw config export`, then run the same command again."
+}
+-- old-refusal.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unsupported configuration manifest version 6; expected 7; AIGW does not reinterpret schema versions; export the manifest with the matching AIGW release, then review and import that canonical output",
+  "impact": "Nothing changed.",
+  "next_detail": "Export the team file again with the AIGW release that wrote it, then run the same command again."
+}
+-- missing.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Cannot read the team file missing.toml: no such file or directory",
+  "impact": "Nothing changed.",
+  "next_detail": "Name a team file that exists, then run the same command again."
+}
+-- in-the-way.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Cannot read the team file team.toml/team.toml: not a directory",
+  "impact": "Nothing changed.",
+  "next_detail": "Name a team file that exists, then run the same command again."
+}
+-- dangling.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Cannot read the team file dangling.toml: broken symbolic link",
+  "impact": "Nothing changed.",
+  "next_detail": "Name a team file that exists, then run the same command again."
 }

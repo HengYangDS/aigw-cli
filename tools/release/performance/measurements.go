@@ -339,7 +339,7 @@ func (c Workload) Review(selected *Identity) error {
 			valid = len(args) == 3 && args[0] == "use" && args[1] != "" && strings.Contains(args[2], "/")
 		}
 	case "setup":
-		valid = len(args) == 5 && slices.Equal(args[:2], []string{"setup", "--from"}) && args[2] != "" && args[3] == "--account" && args[4] != ""
+		valid = len(args) == 3 && slices.Equal(args[:2], []string{"setup", "--from"}) && args[2] != ""
 	case "sync":
 		valid = slices.Equal(args, []string{"sync"})
 	case "version":

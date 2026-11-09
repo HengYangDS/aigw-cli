@@ -2,8 +2,6 @@ package cli_test
 
 import (
 	"aigw-cli/internal/adapter/claude"
-	"aigw-cli/internal/adapter/codex"
-	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -14,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -28,11 +27,11 @@ func assertManifestSetupLeavesNoConfig(t *testing.T, app *cli.App) {
 }
 
 func TestSetupFromConfigurationManifestRejectsUnknownSelectedProviderBeforeMutation(t *testing.T) {
-	app, _, secretStore, _, _ := testApp(t, "")
+	app, _, secretStore, _, _ := testApp(t, "sk-unread\n")
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
-	err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "missing"})
-	if err == nil || !strings.Contains(err.Error(), "unknown Account") {
+	err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--provider", "missing", "--token-stdin"})
+	if err == nil || !strings.Contains(err.Error(), `unknown provider "missing"`) {
 		t.Fatalf("error = %v", err)
 	}
 	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
@@ -47,6 +46,11 @@ func TestSetupAdmitsArgumentsBeforeCreatingConfiguration(t *testing.T) {
 		{"--from", " "},
 		{"--from", "team.toml", "--account="},
 		{"--from", "team.toml", "--account", "\t"},
+		{"--from", "team.toml", "--provider="},
+		{"--from", "team.toml", "--provider", "Bad ID", "--token-stdin"},
+		{"--from", "team.toml", "--provider", "one", "--provider", "two", "--token-stdin"},
+		{"--provider", "one"},
+		{"--prune"},
 		{"--from", "team.toml", "--route="},
 		{"--from", "team.toml", "--label="},
 		{"--from", "team.toml", "--openai-url="},
@@ -69,7 +73,9 @@ func TestSetupAdmitsArgumentsBeforeCreatingConfiguration(t *testing.T) {
 	}
 }
 
-func TestSetupFromConfigurationManifestDefersOnlineAuthenticationToCheck(t *testing.T) {
+// A Token that setup reads is validated as `aigw provider add` validates one,
+// and one that the provider rejects refuses the whole apply.
+func TestSetupFromATeamFileValidatesAPromptedToken(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-dmxapi-token"}}
@@ -78,71 +84,51 @@ func TestSetupFromConfigurationManifestDefersOnlineAuthenticationToCheck(t *test
 		requests++
 		return &http.Response{StatusCode: http.StatusUnauthorized, Body: io.NopCloser(strings.NewReader("{}")), Request: req}, nil
 	}}
-	target := filepath.Join(t.TempDir(), "codex", "configuration.toml")
-	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{codex.ID: executableFixture(t, "codex")},
-		Surfaces: []discovery.Surface{{
-			ID:          string(codex.HomeDefault),
-			ConfigPath:  target,
-			Present:     true,
-			AutoManaged: true,
-		}},
-	}}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
-	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "dmxapi"}); err != nil {
-		t.Fatalf("declarative setup: %v\n%s", err, out)
+	err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--provider", "dmxapi"})
+	if err == nil || !strings.Contains(err.Error(), "Token validation failed") {
+		t.Fatalf("a rejected Token = %v\n%s", err, out)
 	}
-	if requests != 0 {
-		t.Fatalf("setup made %d online authentication requests", requests)
+	if requests == 0 || strings.Contains(out.String(), "aigw-test-dmxapi-token") {
+		t.Fatalf("setup did not validate the Token safely: requests=%d output=%s", requests, out)
 	}
-	if secretExists(t, secretStore, "aihubmix") || !secretExists(t, secretStore, "dmxapi") {
-		t.Fatal("declarative setup did not preserve only the selected Account Token")
+	if secretExists(t, secretStore, "dmxapi") || secretExists(t, secretStore, "aihubmix") {
+		t.Fatal("a rejected Token was stored")
 	}
-	out.Reset()
-	if err := cli.Execute(app, []string{"check", "--json"}); err == nil {
-		t.Fatal("explicit check accepted rejected authentication")
-	}
-	if requests == 0 || !strings.Contains(out.String(), "invalid_token") || strings.Contains(out.String(), "aigw-test-dmxapi-token") {
-		t.Fatalf("check did not diagnose authentication safely: requests=%d output=%s", requests, out)
-	}
+	assertManifestSetupLeavesNoConfig(t, app)
 }
 
-func TestSetupFromConfigurationManifestDefersValidationWhenClientIsAbsent(t *testing.T) {
-	for _, status := range []int{http.StatusFound, http.StatusNotFound} {
+// Setup stores only the named provider's Token once the provider accepts it,
+// and an endpoint that does not answer as one refuses it.
+func TestSetupFromATeamFileStoresOnlyTheNamedProvidersAcceptedToken(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusFound, http.StatusNotFound} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			app, _, secretStore, _, _ := testApp(t, "")
 			app.Interactive = true
 			app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-aihubmix-token"}}
 			app.HTTP = &fakeHTTP{handler: func(req *http.Request) (*http.Response, error) {
-				responseStatus := http.StatusOK
-				if req.Header.Get("X-Api-Key") != "" {
-					responseStatus = status
-				}
-				return &http.Response{StatusCode: responseStatus, Body: io.NopCloser(strings.NewReader("{}")), Request: req}, nil
+				return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader("{}")), Request: req}, nil
 			}}
 			manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
-			if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "aihubmix"}); err != nil {
-				t.Fatal(err)
+			err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--provider", "aihubmix"})
+			if accepted := status == http.StatusOK; accepted != (err == nil) || accepted != secretExists(t, secretStore, "aihubmix") {
+				t.Fatalf("status %d: error = %v", status, err)
 			}
-			if !secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
-				t.Fatal("setup did not preserve only the explicitly connected Account")
+			if secretExists(t, secretStore, "dmxapi") {
+				t.Fatal("setup stored a Token of a provider that was not named")
 			}
 		})
 	}
 }
 
-func TestSetupFromConfigurationManifestRejectsUnreferencedProviderBeforePrompt(t *testing.T) {
+// In a terminal, setup asks only for the Tokens that the recommended setup
+// would select, and a provider that no model names is added without one.
+func TestSetupFromATeamFilePromptsOnlyForTheRecommendedProvider(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
-	prompt := &scriptedPrompt{secrets: []string{"must-not-be-read"}}
+	prompt := &scriptedPrompt{secrets: []string{"aigw-test-used-token"}}
 	app.Prompt = prompt
 	manifestPath := writeConfigurationManifest(t, `version = 7
 [recommendations.claude.primary]
@@ -165,14 +151,16 @@ upstream_model = "claude-test"
 interfaces = { anthropic = ["text"] }
 `)
 
-	err := cli.Execute(app, []string{"setup", "--from", manifestPath})
-	if err == nil || !strings.Contains(err.Error(), "Account \"unused\" is not referenced") {
-		t.Fatalf("error = %v", err)
+	if err := cli.Execute(app, []string{"setup", "--from", manifestPath}); err != nil {
+		t.Fatal(err)
 	}
-	if len(prompt.secretCalls) != 0 || secretExists(t, secretStore, "used") || secretExists(t, secretStore, "unused") {
-		t.Fatalf("unreferenced Account preflight touched credentials: prompts=%#v", prompt.secretCalls)
+	if !slices.Equal(prompt.secretCalls, []string{"Paste the Used Token: "}) || !secretExists(t, secretStore, "used") || secretExists(t, secretStore, "unused") {
+		t.Fatalf("prompts=%#v", prompt.secretCalls)
 	}
-	assertManifestSetupLeavesNoConfig(t, app)
+	cfg, err := app.Config.Load()
+	if err != nil || cfg.Providers["unused"].Label != "Unused" || cfg.Clients[claude.ID].Model != "used" {
+		t.Fatalf("configuration = %+v, %v", cfg, err)
+	}
 }
 
 func TestSetupFromConfigurationManifestRejectsModelWithoutFamily(t *testing.T) {
@@ -191,7 +179,7 @@ account = "team"
 interfaces = { anthropic = ["text"] }
 `)
 
-	err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "team"})
+	err := cli.Execute(app, []string{"setup", "--from", manifestPath})
 	if err == nil || !strings.Contains(err.Error(), `route "team" must reference a model`) {
 		t.Fatalf("error = %v", err)
 	}
@@ -226,13 +214,21 @@ func TestManifestSetupSurfacesManifestAndConfigFailures(t *testing.T) {
 		}
 	})
 
+	// A configured home takes the team file, and its own selection stays.
 	t.Run("already configured", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		before, err := app.Config.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
 		path := writeConfigurationManifest(t, configurationManifestFixture)
-		err := cli.Execute(app, []string{"setup", "--from", path})
-		if err == nil || !strings.Contains(err.Error(), "already configured") {
-			t.Fatalf("error = %v", err)
+		if err := cli.Execute(app, []string{"setup", "--from", path}); err != nil {
+			t.Fatal(err)
+		}
+		after, err := app.Config.Load()
+		if err != nil || after.Clients[claude.ID].Model != before.Clients[claude.ID].Model || len(after.Providers) != len(before.Providers)+2 {
+			t.Fatalf("configured home after setup = %+v, %v", after, err)
 		}
 	})
 

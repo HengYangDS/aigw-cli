@@ -277,10 +277,10 @@ func (assessment *inactiveClientAssessment) finish() Activation {
 		assessment.result.CredentialPrerequisite = assessment.firstMissing
 	case len(assessment.alternatives) > 0:
 		slices.Sort(assessment.alternatives)
-		prefix, continuation := "Choose one compatible Account: ", ""
+		prefix, continuation := "Choose one compatible provider: ", ""
 		if assessment.readOnly {
 			// Only synchronization adopts an environment Token that appears later.
-			prefix, continuation = "Set one compatible Account variable: ", ", then run `aigw sync`"
+			prefix, continuation = "Set one compatible provider's variable: ", ", then run `aigw sync`"
 		}
 		assessment.result.CredentialPrerequisite = prefix + strings.Join(assessment.alternatives, " or ") + continuation
 	case assessment.backendMissing:

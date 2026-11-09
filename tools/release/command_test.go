@@ -31,7 +31,7 @@ func TestSyncPreviewIncludesMissingCredentialEntrypointWithoutWriting(t *testing
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, program, server.URL, true)
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
-	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	journey.run("setup", "--from", journey.manifest)
 	target := journey.credentialEntrypoint()
 	if err := errors.Join(os.Remove(target), os.Remove(target+".sha256")); err != nil {
 		t.Fatal(err)

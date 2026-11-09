@@ -166,7 +166,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		t.Fatal(err)
 	}
 	journey.setEnvironment(secret.EnvironmentKey(route.Provider), token)
-	journey.run("setup", "--from", journey.manifest, "--account", route.Provider)
+	journey.run("setup", "--from", journey.manifest)
 	journey.enableNativeClient(client, executable)
 	retainedCredential := journey.retainedCredential(client)
 	before := journey.preserveClientFiles(client)

@@ -59,7 +59,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		Mutability:   "read_write",
 		Persistence:  "explicit",
 	}
-	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", sourceAccount, "--token-stdin")
+	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--provider", sourceAccount, "--token-stdin")
 	journey.requireCredentialBackend(token, backend)
 	journey.requireClaudeCredential(token)
 	// The successor reads the predecessor's exact item without staging another Token.
@@ -484,7 +484,7 @@ func runLinuxSecureFileFallback(t *testing.T, candidate, endpoint string) {
 		"unix:path="+filepath.Join(journey.root, "missing-session-bus.sock"),
 	)
 	const token = "native-secure-file-token"
-	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
+	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--provider", "native-system-keyring-probe", "--token-stdin")
 	journey.requireCredentialBackend(token, secret.BackendSelection{
 		Kind:         "file",
 		Availability: "available",

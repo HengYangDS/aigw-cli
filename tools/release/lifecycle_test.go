@@ -123,7 +123,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	oldVersion := journey.predecessorVersion(newVersion)
 	t.Logf("baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(t, baseline)), newVersion, sha256.Sum256(readFile(t, newArtifact)))
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
-	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	journey.run("setup", "--from", journey.manifest)
 	before, err := store.NewStore(journey.config, clients.Admission()).Load()
 	if err != nil {
 		t.Fatal(err)

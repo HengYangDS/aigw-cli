@@ -50,7 +50,7 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		{[]string{"use"}, "aigw use without a terminal needs a <client> and a <provider/model> argument", "aigw use --help"},
 		{[]string{"use", "codex"}, "aigw use without a terminal needs a <provider/model> argument after the client", "aigw use --help"},
 		{[]string{"use", "codx", "one/gpt"}, `unknown client "codx"; did you mean codex?`, "aigw client list"},
-		{[]string{"setup", "--from", "missing-manifest.toml", "--token-stdin"}, "--token-stdin requires --account", "aigw setup --help"},
+		{[]string{"setup", "--from", "missing-manifest.toml", "--token-stdin"}, "--token-stdin reads one Token, so it needs exactly one --provider", "aigw setup --help"},
 		{[]string{"account", "rename", "old", "--finalize"}, "requires explicit <old> <new>", "aigw account rename --help"},
 		{[]string{"account", "rename"}, "requires <old> <new>", "aigw account rename --help"},
 		{[]string{"account", "rename", "old"}, "requires <old> <new>", "aigw account rename --help"},

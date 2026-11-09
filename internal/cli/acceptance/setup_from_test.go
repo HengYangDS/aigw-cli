@@ -43,13 +43,13 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 		t.Fatalf("catalog import activated absent clients: adapters=%#v plans=%#v", cfg.Clients, runner.plans)
 	}
 	for _, want := range []string{
-		"Configuration catalog imported",
-		"Imported capability",
-		"Connected accounts",
-		"0 of 2",
-		"Selected Client Bindings",
-		"Projected clients",
-		"Choose one compatible Account",
+		"Team file applied",
+		"Added",
+		"aihubmix, dmxapi",
+		"Tokens",
+		"Clients",
+		"No model selected",
+		"Choose one compatible provider",
 		"aigw provider rotate aihubmix",
 		"aigw provider rotate dmxapi",
 	} {
@@ -110,26 +110,19 @@ interfaces = { openai_responses = ["text", "reasoning", "streaming", "tools"] }
 		t.Fatalf("setup client-native Codex: %v", err)
 	}
 	if len(credentials.getCalls)+len(credentials.existsCalls)+len(credentials.setCalls)+len(credentials.deleteCalls) != 0 {
-		t.Fatal("client-native setup accessed AIGW credentials")
+		t.Fatalf("client-native setup accessed AIGW credentials: get %q exists %q set %q", credentials.getCalls, credentials.existsCalls, credentials.setCalls)
 	}
 	if httpCalls != 0 {
 		t.Fatalf("setup made %d account-token probes", httpCalls)
 	}
-	var result struct {
-		ConnectedAccounts []string          `json:"connected_accounts"`
-		SelectedBindings  map[string]string `json:"selections"`
-		ProjectedClients  []string          `json:"projected_clients"`
-		DeferredActions   []string          `json:"deferred_actions"`
-		NextAction        string            `json:"next_action"`
-		NextDetail        string            `json:"next_detail"`
-	}
+	var result teamSetupDocument
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode setup result: %v\n%s", err, out.String())
 	}
-	if len(result.ConnectedAccounts) != 0 || result.SelectedBindings[codex.ID] != "bedrock" || !slices.Equal(result.ProjectedClients, []string{codex.ID}) {
+	if len(result.Tokens) != 0 || result.client(codex.ID).Model != "aws/openai.gpt-5.6-sol" || result.client(codex.ID).State != "configured" {
 		t.Fatalf("setup state = %#v", result)
 	}
-	if len(result.DeferredActions) != 0 || !wantNext(result.NextAction, result.NextDetail, "aigw check") {
+	if !wantNext(result.NextAction, result.NextDetail, "aigw check") {
 		t.Fatalf("setup continuation = %#v", result)
 	}
 	projection := string(readFile(t, target))
@@ -146,42 +139,29 @@ func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *test
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--json"}); err != nil {
 		t.Fatal(err)
 	}
-	var result struct {
-		Imported struct {
-			Accounts []string `json:"accounts"`
-			Routes   []string `json:"routes"`
-		} `json:"imported"`
-		ConnectedAccounts []string          `json:"connected_accounts"`
-		SelectedBindings  map[string]string `json:"selections"`
-		ProjectedClients  []string          `json:"projected_clients"`
-		DeferredActions   []string          `json:"deferred_actions"`
-		NextAction        string            `json:"next_action"`
-		NextDetail        string            `json:"next_detail"`
-	}
+	var result teamSetupDocument
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
 	}
-	if strings.Contains(out.String(), `"selected_routes"`) {
-		t.Fatalf("setup JSON retained the removed Route authority: %s", out.String())
-	}
-	if !slices.Equal(result.Imported.Accounts, []string{"aihubmix", "dmxapi"}) ||
-		!slices.Equal(result.Imported.Routes, []string{"aihubmix-claude", "dmxapi-claude", "dmxapi-gpt"}) ||
-		len(result.ConnectedAccounts) != 0 {
+	if !slices.Equal(result.Added.Providers, []string{"aihubmix", "dmxapi"}) ||
+		!slices.Equal(result.Added.Models, []string{"aihubmix/claude-test", "dmxapi/claude-test", "dmxapi/gpt-test"}) {
 		t.Fatalf("setup JSON catalog state = %#v", result)
 	}
-	if len(result.SelectedBindings) != 0 {
-		t.Fatalf("setup turned unavailable recommendations into selections: %#v", result.SelectedBindings)
+	for _, token := range result.Tokens {
+		if token.State != "missing" || token.NextDetail != "aigw provider rotate "+token.Provider {
+			t.Fatalf("setup JSON tokens = %#v", result.Tokens)
+		}
 	}
-	if len(result.ProjectedClients) != 0 {
-		t.Fatalf("setup JSON projected clients = %#v", result.ProjectedClients)
+	for _, client := range result.Clients {
+		if client.State != "not_selected" {
+			t.Fatalf("setup turned unavailable recommendations into selections: %#v", result.Clients)
+		}
 	}
-	wantDeferred := []string{
-		"Choose one compatible Account: aigw provider rotate aihubmix or aigw provider rotate dmxapi",
-	}
-	if !slices.Equal(result.DeferredActions, wantDeferred) || !wantNext(result.NextAction, result.NextDetail, wantDeferred[0]) {
+	want := "Choose one compatible provider: aigw provider rotate aihubmix or aigw provider rotate dmxapi"
+	if !wantNext(result.NextAction, result.NextDetail, want) {
 		t.Fatalf("setup JSON continuation = %#v", result)
 	}
-	for _, forbidden := range []string{"aigw-test", "token", "secret"} {
+	for _, forbidden := range []string{"aigw-test", "secret"} {
 		if strings.Contains(strings.ToLower(out.String()), forbidden) {
 			t.Fatalf("setup JSON exposed credential material %q: %s", forbidden, out.String())
 		}
@@ -230,15 +210,12 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 			if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--json"}); err != nil {
 				t.Fatal(err)
 			}
-			var result struct {
-				SelectedBindings map[string]string `json:"selections"`
-				ProjectedClients []string          `json:"projected_clients"`
-			}
+			var result teamSetupDocument
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 				t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
 			}
-			if result.SelectedBindings[claude.ID] != "dmxapi-claude" || result.SelectedBindings[codex.ID] != "dmxapi-gpt" {
-				t.Fatalf("selected bindings = %#v", result.SelectedBindings)
+			if result.client(claude.ID).Model != "dmxapi/claude-test" || result.client(codex.ID).Model != "dmxapi/gpt-test" {
+				t.Fatalf("selected models = %#v", result.Clients)
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
@@ -250,8 +227,8 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 				if cfg.Clients[client].Enabled != selected {
 					t.Errorf("%s enabled intent = %v, want %v", client, cfg.Clients[client].Enabled, selected)
 				}
-				if slices.Contains(result.ProjectedClients, client) != installed {
-					t.Errorf("%s projected = %v, want %v", client, slices.Contains(result.ProjectedClients, client), installed)
+				if configured := result.client(client).State == "configured"; configured != installed {
+					t.Errorf("%s configured = %v, want %v", client, configured, installed)
 				}
 			}
 		})
@@ -268,14 +245,12 @@ func TestSetupFromConfigurationManifestAcceptsOneConnectedProvider(t *testing.T)
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--json"}); err != nil {
 		t.Fatal(err)
 	}
-	var result struct {
-		ConnectedAccounts []string `json:"connected_accounts"`
-	}
+	var result teamSetupDocument
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
 	}
-	if !slices.Equal(result.ConnectedAccounts, []string{"dmxapi"}) {
-		t.Fatalf("connected Accounts = %#v", result.ConnectedAccounts)
+	if result.token("dmxapi").State != "present" || result.token("aihubmix").State != "missing" {
+		t.Fatalf("Tokens = %#v", result.Tokens)
 	}
 	if secretExists(t, store, "aihubmix") {
 		t.Fatal("setup required an unrelated Account Token")
@@ -292,7 +267,7 @@ func TestSetupFromConfigurationManifestReportsInstalledClientWaitingForAProvider
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Choose one compatible Account: aigw provider rotate aihubmix or aigw provider rotate dmxapi") {
+	if !strings.Contains(out.String(), "Choose one compatible provider: aigw provider rotate aihubmix or aigw provider rotate dmxapi") {
 		t.Fatalf("installed but deferred client is not explained:\n%s", out.String())
 	}
 }
@@ -302,7 +277,7 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 		t.Run(backend, func(t *testing.T) {
 			app, _, _, runner, _ := testApp(t, "")
 			const token = "aigw-test-dmxapi-token"
-			args := []string{"setup", "--from", writeConfigurationManifest(t, configurationManifestFixture), "--account", "dmxapi"}
+			args := []string{"setup", "--from", writeConfigurationManifest(t, configurationManifestFixture), "--provider", "dmxapi"}
 			if backend == "environment" {
 				app.Secrets = secret.NewEnvironmentStore(func(key string) string {
 					if key == secret.EnvironmentKey("dmxapi") {
@@ -371,7 +346,7 @@ func TestSetupFromConfigurationManifestOutputFailureKeepsCommittedAutomaticBacke
 	app.Out = failingOutput{err: want}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
-	err = cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "dmxapi", "--token-stdin", "--json"})
+	err = cli.Execute(app, []string{"setup", "--from", manifestPath, "--provider", "dmxapi", "--token-stdin", "--json"})
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}
@@ -422,7 +397,7 @@ func TestSetupFromConfigurationManifestProjectionFailureRestoresOwnedFiles(t *te
 		}},
 	}}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
-	err = cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "dmxapi"})
+	err = cli.Execute(app, []string{"setup", "--from", manifestPath, "--provider", "dmxapi"})
 	if err == nil || !strings.Contains(err.Error(), "preflight failed") || strings.Contains(err.Error(), "configuration was rolled back") {
 		t.Fatalf("setup error = %v, want rejection before configuration commit", err)
 	}
@@ -457,4 +432,53 @@ func TestSetupFromConfigurationManifestProjectionFailureRestoresOwnedFiles(t *te
 	if err != nil || string(gotExecutable) != string(originalExecutable) || len(runner.plans) != 0 {
 		t.Fatalf("foreign client changed or executed: error=%v calls=%d", err, len(runner.plans))
 	}
+}
+
+// teamSetupDocument is the part of `aigw setup --from`'s document that these
+// tests read.
+type teamSetupDocument struct {
+	Added struct {
+		Providers []string `json:"providers"`
+		Models    []string `json:"models"`
+	} `json:"added"`
+	Tokens []struct {
+		Provider   string `json:"provider"`
+		State      string `json:"state"`
+		NextDetail string `json:"next_detail"`
+	} `json:"tokens"`
+	Clients []struct {
+		ID    string `json:"id"`
+		State string `json:"state"`
+		Model string `json:"model"`
+	} `json:"clients"`
+	NextAction string `json:"next_action"`
+	NextDetail string `json:"next_detail"`
+}
+
+// client is the document's row for one client.
+func (document teamSetupDocument) client(id string) (row struct {
+	ID    string `json:"id"`
+	State string `json:"state"`
+	Model string `json:"model"`
+}) {
+	for _, client := range document.Clients {
+		if client.ID == id {
+			return client
+		}
+	}
+	return row
+}
+
+// token is the document's row for one provider's Token.
+func (document teamSetupDocument) token(provider string) (row struct {
+	Provider   string `json:"provider"`
+	State      string `json:"state"`
+	NextDetail string `json:"next_detail"`
+}) {
+	for _, token := range document.Tokens {
+		if token.Provider == provider {
+			return token
+		}
+	}
+	return row
 }

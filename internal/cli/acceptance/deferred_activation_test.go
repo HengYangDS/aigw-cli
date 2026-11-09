@@ -111,22 +111,16 @@ func TestShippedTeamManifestWithoutProviderOrClientIsDeferred(t *testing.T) {
 	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
 		t.Fatalf("setup shipped catalog: %v\n%s", err, out)
 	}
-	var setup struct {
-		SelectedBindings map[string]string `json:"selections"`
-		DeferredActions  []string          `json:"deferred_actions"`
-		NextAction       string            `json:"next_action"`
-		NextDetail       string            `json:"next_detail"`
-	}
+	var setup teamSetupDocument
 	if err := json.Unmarshal(out.Bytes(), &setup); err != nil {
 		t.Fatalf("decode setup: %v\n%s", err, out)
 	}
-	if len(setup.SelectedBindings) != 0 || len(setup.DeferredActions) != 1 {
-		t.Fatalf("setup activation = %+v", setup)
+	for _, client := range setup.Clients {
+		if client.State != "not_selected" {
+			t.Fatalf("setup activation = %+v", setup)
+		}
 	}
-	wantAction := "Set one compatible Account variable: " + secret.EnvironmentKey("dmxapi") + " or " + secret.EnvironmentKey("ucloud") + ", then run `aigw sync`"
-	if setup.DeferredActions[0] != wantAction {
-		t.Fatalf("setup deferred action = %q, want %q", setup.DeferredActions[0], wantAction)
-	}
+	wantAction := "Set one compatible provider's variable: " + secret.EnvironmentKey("dmxapi") + " or " + secret.EnvironmentKey("ucloud") + ", then run `aigw sync`"
 	if !wantNext(setup.NextAction, setup.NextDetail, wantAction) {
 		t.Fatalf("setup next action %q differs from prerequisite %q", (setup.NextAction + setup.NextDetail), wantAction)
 	}
@@ -176,21 +170,11 @@ func TestShippedTeamManifestImportsWithAnOfflineProvider(t *testing.T) {
 	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
 		t.Fatalf("offline catalog import: %v\n%s", err, out)
 	}
-	var setup struct {
-		ConnectedAccounts  []string          `json:"connected_accounts"`
-		SelectedBindings   map[string]string `json:"selections"`
-		ProjectedClients   []string          `json:"projected_clients"`
-		OnlineVerification string            `json:"online_verification"`
-		NextAction         string            `json:"next_action"`
-		NextDetail         string            `json:"next_detail"`
-	}
+	var setup teamSetupDocument
 	if err := json.Unmarshal(out.Bytes(), &setup); err != nil {
 		t.Fatalf("decode setup: %v\n%s", err, out)
 	}
-	if len(setup.ConnectedAccounts) != 1 || setup.ConnectedAccounts[0] != "dmxapi" ||
-		setup.SelectedBindings[codex.ID] == "" ||
-		len(setup.ProjectedClients) != 1 || setup.ProjectedClients[0] != codex.ID ||
-		setup.OnlineVerification != "not_checked" ||
+	if setup.token("dmxapi").State != "environment" || setup.client(codex.ID).State != "configured" ||
 		!strings.Contains((setup.NextAction+setup.NextDetail), "aigw sync") {
 		t.Fatalf("offline import state = %+v", setup)
 	}
@@ -215,19 +199,16 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneProviderChoice(t *testin
 	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
 		t.Fatalf("setup shipped catalog: %v\n%s", err, out)
 	}
-	var setup struct {
-		SelectedBindings map[string]string `json:"selections"`
-		DeferredActions  []string          `json:"deferred_actions"`
-		NextAction       string            `json:"next_action"`
-		NextDetail       string            `json:"next_detail"`
-	}
+	var setup teamSetupDocument
 	if err := json.Unmarshal(out.Bytes(), &setup); err != nil {
 		t.Fatalf("decode setup: %v\n%s", err, out)
 	}
-	if len(setup.SelectedBindings) != 0 || len(setup.DeferredActions) != 1 || !wantNext(setup.NextAction, setup.NextDetail, setup.DeferredActions[0]) {
-		t.Fatalf("setup activation = %+v", setup)
+	for _, client := range setup.Clients {
+		if client.State != "not_selected" {
+			t.Fatalf("setup activation = %+v", setup)
+		}
 	}
-	wantAction := "Choose one compatible Account: aigw provider rotate dmxapi or aigw provider rotate ucloud"
+	wantAction := "Choose one compatible provider: aigw provider rotate dmxapi or aigw provider rotate ucloud"
 	if !wantNext(setup.NextAction, setup.NextDetail, wantAction) {
 		t.Fatalf("setup Account choices = %q, want %q", (setup.NextAction + setup.NextDetail), wantAction)
 	}

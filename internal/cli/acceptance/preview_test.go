@@ -51,7 +51,7 @@ func TestSetupAndAddPreviewsUseNoCredential(t *testing.T) {
 		discovered bool
 	}{
 		{"setup", []string{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--dry-run", "--json"}, false},
-		{"setup from a manifest", []string{"setup", "--from", manifest, "--account", "team", "--dry-run", "--json"}, true},
+		{"setup from a team file", []string{"setup", "--from", manifest, "--dry-run", "--json"}, true},
 		{"add", []string{"add", "team", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--dry-run", "--json"}, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -74,13 +74,17 @@ func TestSetupAndAddPreviewsUseNoCredential(t *testing.T) {
 			if calls := len(store.getCalls) + len(store.existsCalls) + len(store.setCalls) + len(store.deleteCalls); calls != 0 {
 				t.Fatalf("preview used the credential store %d times: get %q, exists %q, set %q", calls, store.getCalls, store.existsCalls, store.setCalls)
 			}
+			// Team setup names the reader as the newer documents do.
 			var document struct {
 				DryRun               bool `json:"dry_run"`
 				CredentialEntrypoint struct {
 					Path string `json:"path"`
 				} `json:"credential_entrypoint"`
+				CredentialReader struct {
+					Path string `json:"path"`
+				} `json:"credential_reader"`
 			}
-			if err := json.Unmarshal(out.Bytes(), &document); err != nil || !document.DryRun || document.CredentialEntrypoint.Path != reader {
+			if err := json.Unmarshal(out.Bytes(), &document); err != nil || !document.DryRun || document.CredentialEntrypoint.Path+document.CredentialReader.Path != reader {
 				t.Fatalf("preview document = %s, %v; want the reader %s", out.String(), err, reader)
 			}
 			for _, path := range []string{app.Config.Path(), reader} {
@@ -117,10 +121,9 @@ interfaces = { anthropic = ["text"] }
 	return manifest
 }
 
-// TestSetupManifestPreviewInText shows the human preview of setup --from
-// without --account, which connects the Accounts that a recommendation needs,
-// and its refusals of an unknown Account and of --token-stdin with a
-// read-only backend.
+// TestSetupManifestPreviewInText shows the human preview of setup --from,
+// which plans as if every provider's Token were stored, and its refusals of
+// an unknown provider and of --token-stdin with a read-only backend.
 func TestSetupManifestPreviewInText(t *testing.T) {
 	manifest := recommendingManifest(t)
 	app, out, _, _, _ := testApp(t, "")
@@ -128,21 +131,24 @@ func TestSetupManifestPreviewInText(t *testing.T) {
 	if err := cli.Execute(app, []string{"setup", "--from", manifest, "--dry-run"}); err != nil {
 		t.Fatalf("manifest preview failed: %v\n%s", err, out.String())
 	}
-	for _, want := range []string{"Configuration catalog preview", "Would connect", "team-route", "Preview did not write configuration"} {
+	for _, want := range []string{"Team file preview", "Not read in a preview", "team/team-model", "Nothing was written"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("manifest preview lacks %q:\n%s", want, out.String())
 		}
 	}
-	if err := cli.Execute(app, []string{"setup", "--from", manifest, "--account", "missing", "--dry-run"}); err == nil || !strings.Contains(err.Error(), `unknown Account "missing"`) {
-		t.Fatalf("unknown Account preview = %v", err)
+	if err := cli.Execute(app, []string{"setup", "--from", manifest, "--provider", "missing", "--dry-run"}); err == nil || !strings.Contains(err.Error(), `unknown provider "missing"`) {
+		t.Fatalf("unknown provider preview = %v", err)
 	}
 	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
-	for _, args := range [][]string{
-		{"setup", "--from", manifest, "--account", "team", "--token-stdin", "--dry-run"},
-		{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--token-stdin", "--dry-run"},
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"setup", "--from", manifest, "--provider", "team", "--token-stdin", "--dry-run"}, "the environment backend reads the team Token"},
+		{[]string{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--token-stdin", "--dry-run"}, "read-only"},
 	} {
-		if err := cli.Execute(app, args); err == nil || !strings.Contains(err.Error(), "read-only") {
-			t.Fatalf("%s with a read-only backend = %v", strings.Join(args, " "), err)
+		if err := cli.Execute(app, test.args); err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Fatalf("%s with a read-only backend = %v", strings.Join(test.args, " "), err)
 		}
 	}
 	if _, err := os.Stat(app.Config.Path()); !errors.Is(err, os.ErrNotExist) {

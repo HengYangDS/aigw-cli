@@ -110,7 +110,7 @@ func TestRetainedCredentialCommandDoesNotReloadClientProjection(t *testing.T) {
 				projection = journey.settings
 			}
 			journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
-			journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+			journey.run("setup", "--from", journey.manifest)
 			retained := journey.retainedCredential(client)
 			journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "changed-after-capture")
 			if err := os.Remove(projection); err != nil {
@@ -209,7 +209,7 @@ func TestRetainedCredentialSurvivesInstalledExecutableUnlink(t *testing.T) {
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, program, server.URL, true)
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
-	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	journey.run("setup", "--from", journey.manifest)
 	retained := journey.retainedCredential(claude.ID)
 	journey.requireCredential(retained, "native-journey-token")
 	if err := os.Remove(journey.binary); err != nil {
@@ -248,7 +248,7 @@ func TestSyncPreservesRetainedEntrypointAfterInterruptedLastClientWithdrawal(t *
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, program, server.URL, true)
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
-	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	journey.run("setup", "--from", journey.manifest)
 	retained := journey.retainedCredential(claude.ID)
 	configStore := store.NewStore(journey.config, clients.Admission())
 	before, err := configStore.Load()
@@ -305,7 +305,7 @@ func TestClientDisablePreservesRetainedEntrypointAcrossReenable(t *testing.T) {
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, program, server.URL, true)
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
-	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	journey.run("setup", "--from", journey.manifest)
 	configStore := store.NewStore(journey.config, clients.Admission())
 	cfg, err := configStore.Load()
 	if err != nil {

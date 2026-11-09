@@ -7,13 +7,16 @@ import (
 
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
+	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 )
 
-func TestManifestSetupOffersEqualCompatibleProvidersWithoutTokens(t *testing.T) {
+// Without a Token, each provider that a recommendation would select is an
+// equal choice, and each names the command that stores its Token.
+func TestTeamSetupOffersEqualCompatibleProvidersWithoutTokens(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	for _, account := range []string{"ucloud", "dmx"} {
 		cfg.Providers[account] = domain.Provider{Label: account, Endpoints: domain.Endpoints{Anthropic: "https://" + account + ".test"}}
@@ -23,16 +26,18 @@ func TestManifestSetupOffersEqualCompatibleProvidersWithoutTokens(t *testing.T) 
 	recommendation := cfg.Recommendations[claude.ID]
 	recommendation.Alternatives = []domain.ClientSelection{{Model: "dmx"}}
 	cfg.Recommendations[claude.ID] = recommendation
-	output := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), Out: output}
-	result := buildManifestSetupResult(runtime, cfg, []string{"ucloud", "dmx"}, "", nil, nil)
-	want := "Choose one compatible Account: aigw provider rotate dmx or aigw provider rotate ucloud"
-	if result.NextAction != want || len(result.DeferredActions) != 1 || result.DeferredActions[0] != want {
-		t.Fatalf("zero-Token setup decision = %+v, want %q", result, want)
+	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}
+	team := teamSetup{runtime: runtime, merged: cfg}
+	document := team.document(cfg, map[string]string{"dmx": tokenMissing, "ucloud": tokenMissing}, nil)
+	for _, token := range document.Tokens {
+		if token.State != tokenMissing || token.NextDetail != "aigw provider rotate "+token.Provider {
+			t.Errorf("token %+v", token)
+		}
 	}
-	renderManifestSetupResult(runtime, result)
-	if !strings.Contains(output.String(), want) || strings.Contains(output.String(), "Next: aigw sync") {
-		t.Fatalf("zero-Token setup rendered a different or no-op action: %q", output.String())
+	want := "Choose one compatible provider: aigw provider rotate dmx or aigw provider rotate ucloud"
+	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
+	if got := activation.NextActionFor(nil); got != want {
+		t.Fatalf("zero-Token setup decision = %q, want %q", got, want)
 	}
 }
 
@@ -51,12 +56,16 @@ func TestGuidedSetupDefersMissingClientBeforeVerification(t *testing.T) {
 	}
 }
 
-func TestManifestSetupReportsSelectedCredentialBeforeDeferredProjection(t *testing.T) {
+// A selected client without its provider's Token waits for the Token before
+// its installation, because a client installed later reads it.
+func TestTeamSetupReportsTheTokenBeforeTheClient(t *testing.T) {
 	cfg := manifestSetupConfig()
-	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}
-	result := buildManifestSetupResult(runtime, cfg, []string{"team"}, "", nil, nil)
-	want := "run `aigw provider rotate team`"
-	if result.NextAction != want || len(result.DeferredActions) == 0 || result.DeferredActions[0] != want {
-		t.Fatalf("selected credential prerequisite is missing or out of order: %+v", result)
+	team := teamSetup{runtime: invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}, merged: cfg}
+	spec, _ := cfg.Admission().Spec(codex.ID)
+	if item := team.client(cfg, spec, nil); item.State != clientWaitsForToken || item.NextDetail != "aigw provider rotate team" {
+		t.Fatalf("client without a Token = %+v", item)
+	}
+	if item := team.client(cfg, spec, []string{"team"}); item.State != clientWaitsForClient || item.NextDetail != "Install Codex if needed, then run `aigw sync`" {
+		t.Fatalf("client without its installation = %+v", item)
 	}
 }

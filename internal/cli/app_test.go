@@ -392,7 +392,7 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{args: []string{"setup", "--help"}, want: []string{"Account ID; guided setup uses the first Route ID when omitted, --from connects only this Account", "First route ID", "Read one token line from standard input"}},
+		{args: []string{"setup", "--help"}, want: []string{"With --from, a provider whose Token to read", "First route ID", "Read one Token from standard input"}},
 		{args: []string{"test", "--help"}, want: []string{"model-free HTTP request", "does not prove model inference or real-client behavior", "Client whose selected Route to test: claude, claude-desktop, codex, or hermes"}},
 		{args: []string{"check", "--help"}, want: []string{"Check the enabled clients, or the named ones, enabled or not; <client> is claude, claude-desktop, codex, or hermes", "one bounded inference request, which may use quota", "client runs a real client session", "How far to check: local, endpoint, model or client (default model)", "Print every local check"}},
 		{args: []string{"models", "--help"}, want: []string{"Compare configured model IDs with provider catalogs", "does not test inference"}},

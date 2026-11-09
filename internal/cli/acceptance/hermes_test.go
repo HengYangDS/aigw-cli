@@ -114,7 +114,7 @@ func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
-	if err := cli.Execute(app, []string{"setup", "--from", manifest, "--account", "dmxapi"}); err != nil {
+	if err := cli.Execute(app, []string{"setup", "--from", manifest}); err != nil {
 		t.Fatalf("shipped setup: %v\n%s", err, output.String())
 	}
 	output.Reset()

@@ -42,23 +42,30 @@ func (s Synchronizer) PreviewProjection(before, after domain.Config, clientIDs .
 }
 
 // PreviewSetup reports what Setup would write for the named clients, as if the
-// named Accounts' Tokens were stored: the configuration after the same
-// admission, desired client configuration and validation, and its projection.
-// It reads, checks and stores no Token of those Accounts and writes nothing.
-func (s Synchronizer) PreviewSetup(before, after domain.Config, accounts []string, clients ...string) (domain.Config, Projection, error) {
+// named providers' Tokens were stored: the configuration after the same
+// admission, desired client configuration and validation, and the files of
+// the named clients and of every other client whose files change. It reads,
+// checks and stores no Token of those providers and writes nothing.
+func (s Synchronizer) PreviewSetup(before, after domain.Config, providers []string, clients ...string) (domain.Config, Projection, error) {
 	planner := s
-	planner.Secrets = presumedTokens{providers: accounts, store: s.Secrets}
-	after, err := planner.admitSetupTransition(before, after, nil, clients...)
-	if err != nil || len(clients) == 0 {
+	planner.Secrets = presumedTokens{providers: providers, store: s.Secrets}
+	after, err := planner.admitSetupTransition(after, nil, clients...)
+	if err != nil {
 		return after, Projection{}, err
 	}
-	if after, _, err = planner.DesiredClientConfiguration(after, clients...); err != nil {
-		return domain.Config{}, Projection{}, err
+	if len(clients) > 0 {
+		if after, _, err = planner.DesiredClientConfiguration(after, clients...); err != nil {
+			return domain.Config{}, Projection{}, err
+		}
 	}
 	if err := validateTransition(after); err != nil {
 		return domain.Config{}, Projection{}, err
 	}
-	projection, err := project(planner, before, after, clients...)
+	reconciled := planner.setupClients(before, after, clients)
+	if len(reconciled) == 0 {
+		return after, Projection{}, nil
+	}
+	projection, err := project(planner, before, after, reconciled...)
 	return after, projection, err
 }
 

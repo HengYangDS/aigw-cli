@@ -141,117 +141,9 @@ func manifestSetupConfig() domain.Config {
 	return cfg
 }
 
-func TestManifestSetupCredentialObservation(t *testing.T) {
-	cfg := manifestSetupConfig()
-
-	t.Run("secret backend error", func(t *testing.T) {
-		want := errors.New("backend failed")
-		app := invocation.Context{Clients: clients.Registry(),
-			Executable: filepath.Join(t.TempDir(), "aigw"), Secrets: &scriptedSecretStore{existsErr: want}}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); !errors.Is(err, want) {
-			t.Fatalf("error = %v, want %v", err, want)
-		}
-	})
-
-	t.Run("missing token is observed without reading", func(t *testing.T) {
-		store := &scriptedSecretStore{values: map[string]string{}}
-		app := invocation.Context{Clients: clients.Registry(), Secrets: store, Interactive: true, Prompt: scriptedSetupPrompt{value: "new-token"}}
-		credentials, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false)
-		if err != nil || len(credentials) != 1 || credentials[0].token != "new-token" {
-			t.Fatalf("credentials=%#v error=%v", credentials, err)
-		}
-		if store.existsCalls != 1 || store.getCalls != 0 {
-			t.Fatalf("exists calls=%d get calls=%d, want 1 and 0", store.existsCalls, store.getCalls)
-		}
-	})
-
-	t.Run("connected token is read once", func(t *testing.T) {
-		store := &scriptedSecretStore{values: map[string]string{"team": "existing-token"}}
-		credentials, err := collectManifestSetupCredentials(invocation.Context{Clients: clients.Registry(), Secrets: store}, cfg, []string{"team"}, "team", false)
-		if err != nil || len(credentials) != 1 || credentials[0].token != "existing-token" {
-			t.Fatalf("credentials=%#v error=%v", credentials, err)
-		}
-		if store.existsCalls != 1 || store.getCalls != 1 {
-			t.Fatalf("exists calls=%d get calls=%d, want 1 and 1", store.existsCalls, store.getCalls)
-		}
-	})
-
-	t.Run("connected token read failure", func(t *testing.T) {
-		want := errors.New("credential read failed")
-		store := &scriptedSecretStore{values: map[string]string{"team": "existing-token"}, getErr: want}
-		if _, err := collectManifestSetupCredentials(invocation.Context{Clients: clients.Registry(), Secrets: store}, cfg, []string{"team"}, "team", false); !errors.Is(err, want) {
-			t.Fatalf("error = %v, want %v", err, want)
-		}
-		if store.existsCalls != 1 || store.getCalls != 1 {
-			t.Fatalf("exists calls=%d get calls=%d, want 1 and 1", store.existsCalls, store.getCalls)
-		}
-	})
-}
-
-func TestManifestSetupCredentialInput(t *testing.T) {
-	cfg := manifestSetupConfig()
-	t.Run("stdin read-only", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewEnvironmentStore(func(string) string { return "" }), In: strings.NewReader("token\n")}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", true); err == nil || !strings.Contains(err.Error(), "read-only") {
-			t.Fatalf("error = %v", err)
-		}
-	})
-
-	t.Run("stdin read", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), In: strings.NewReader("")}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", true); err == nil {
-			t.Fatal("expected stdin read failure")
-		}
-	})
-
-	t.Run("missing read-only", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewEnvironmentStore(func(string) string { return "" })}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); err == nil || !strings.Contains(err.Error(), "AIGW_TOKEN_TEAM") {
-			t.Fatalf("error = %v", err)
-		}
-	})
-
-	t.Run("prompt error", func(t *testing.T) {
-		want := errors.New("cancelled")
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), Interactive: true, Prompt: scriptedSetupPrompt{err: want}}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); !errors.Is(err, want) {
-			t.Fatalf("error = %v, want %v", err, want)
-		}
-	})
-
-	t.Run("empty prompt", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), Interactive: true, Prompt: scriptedSetupPrompt{}}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); err == nil || !strings.Contains(err.Error(), "empty Token") {
-			t.Fatalf("error = %v", err)
-		}
-	})
-
-	t.Run("stdin success", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), In: strings.NewReader("new-token\n")}
-		credentials, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", true)
-		if err != nil || len(credentials) != 1 || !credentials[0].write || credentials[0].token != "new-token" {
-			t.Fatalf("credentials=%#v error=%v", credentials, err)
-		}
-	})
-
-	t.Run("unknown selected account", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "missing", false); err == nil || !strings.Contains(err.Error(), "unknown Account") {
-			t.Fatalf("error = %v", err)
-		}
-	})
-
-	t.Run("selected account needs an explicit token outside an interactive terminal", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}
-		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); err == nil || !strings.Contains(err.Error(), "not connected") {
-			t.Fatalf("error = %v", err)
-		}
-	})
-}
-
 func TestManifestSetupClientSelectionRequiresConnectedModelAndUsableSurface(t *testing.T) {
 	cfg := manifestSetupConfig()
-	connected := map[string]setupCredential{"team": {provider: "team", token: "token"}}
+	connected := []string{"team"}
 
 	withoutCodexSurface := manifestSetupSelectedClients(cfg, connected, map[string]bool{
 		claude.ID: true,
@@ -260,7 +152,7 @@ func TestManifestSetupClientSelectionRequiresConnectedModelAndUsableSurface(t *t
 		t.Fatalf("clients without Codex surface = %#v", withoutCodexSurface)
 	}
 
-	if clients := manifestSetupSelectedClients(cfg, map[string]setupCredential{}, map[string]bool{
+	if clients := manifestSetupSelectedClients(cfg, nil, map[string]bool{
 		claude.ID: true,
 	}); len(clients) != 0 {
 		t.Fatalf("unconnected route selected clients = %#v", clients)
@@ -403,35 +295,23 @@ interfaces = { openai_responses = ["text"] }
 				AutoManaged: true,
 			}},
 		}},
+		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
+		}),
 		In:  strings.NewReader("token\n"),
 		Out: io.Discard,
 	}
 
-	err := runManifestSetup(context.Background(), runtime, setupRequest{From: manifestPath, Provider: "team", TokenStdin: true})
+	cmd := NewCommand(runtime)
+	cmd.SetContext(context.Background())
+	cmd.SilenceUsage, cmd.SilenceErrors = true, true
+	cmd.SetArgs([]string{"--from", manifestPath, "--provider", "team", "--token-stdin"})
+	err := cmd.Execute()
 	if err == nil || !strings.Contains(err.Error(), "setup failed") || !strings.Contains(err.Error(), "credential rollback also failed") || !strings.Contains(err.Error(), "credential postimage changed") {
 		t.Fatalf("error = %v, want configuration failure with rollback drift", err)
 	}
 	if secretExists(t, secretStore, "team") {
 		t.Fatal("rollback recreated a credential removed before compensation")
-	}
-}
-
-func TestConfiguredClientsForProvider(t *testing.T) {
-	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["legacy"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://legacy.test/v1"}}
-	cfg.Providers["other"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://other.test"}}
-	cfg.Models["legacy"] = domain.Model{
-		Provider: "legacy", Family: "model",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
-	}
-	cfg.Models["other"] = domain.Model{
-		Provider: "other", Family: "model",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
-	}
-
-	clients := configuredClientsForProvider(cfg, "legacy")
-	if len(clients) != 2 || clients[0] != codex.ID || clients[1] != hermes.ID {
-		t.Fatalf("clients = %#v", clients)
 	}
 }
 

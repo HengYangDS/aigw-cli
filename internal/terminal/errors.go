@@ -196,18 +196,23 @@ func pathTitle(path *platform.PathConditionError, at platform.PathContext) strin
 	return fmt.Sprintf("Local file access failed (%s: %s)", path.Op, pathReason(path))
 }
 
-// ManifestReadFailure presents a configuration manifest that cannot be read,
-// naming the path as the user gave it, with the step that resolves the error.
-func ManifestReadFailure(path string, err error) error {
+// ManifestReadFailure presents a team file that cannot be read, naming the
+// path as every path failure does, under the home directory as ~/…, with the
+// step that resolves the error.
+func ManifestReadFailure(path string, at platform.PathContext, err error) error {
 	failure := platform.ClassifyPath(path, platform.FileExpected, err).Owned(false)
 	reason := pathReason(failure)
-	fix := platform.PathFix(failure, platform.PathContext{})
+	fix := platform.PathFix(failure, at)
 	// A team file is an input that the operator names, not one to create: a
 	// path that holds none, or that a file in the way blocks, names another.
 	if failure.Absent() || failure.Blocked() {
 		fix = "Name a team file that exists, then run the same command again."
 	}
-	return ProblemError("Cannot read the team file "+path+": "+reason, "", "Nothing was imported.", fix, err)
+	name := at.Name(failure, path)
+	if name == "" {
+		name = "it"
+	}
+	return ProblemError("Cannot read the team file "+name+": "+reason, "", "Nothing changed.", fix, err)
 }
 
 // fileErrorReason names an operating-system file error from a closed set, so

@@ -78,7 +78,7 @@ func runNativeResourceCase(t *testing.T, program, client, mode string) {
 	if err := os.WriteFile(journey.manifest, []byte(nativeResourceManifest(client)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	journey.run("setup", "--from", journey.manifest)
 	if mode == "refusal" {
 		verifyNativeClientRefusal(t, journey, client)
 		return

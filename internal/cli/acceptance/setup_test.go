@@ -208,7 +208,7 @@ func TestSetupRejectsInvalidAutomaticBackendSelectionBeforeCredentialInput(t *te
 		{
 			name: "manifest setup",
 			args: func(t *testing.T) []string {
-				return []string{"setup", "--from", writeConfigurationManifest(t, configurationManifestFixture), "--account", "dmxapi", "--token-stdin"}
+				return []string{"setup", "--from", writeConfigurationManifest(t, configurationManifestFixture), "--provider", "dmxapi", "--token-stdin"}
 			},
 		},
 	}

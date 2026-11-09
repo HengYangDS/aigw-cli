@@ -222,12 +222,12 @@ interfaces = { anthropic = ["text"] }
 	}
 	j.preparePerformanceCredentials(backend, account, credentialWorker)
 	t.Cleanup(j.uninstallAndRequireInstallationRemoved)
-	args := []string{"setup", "--from", j.manifest, "--account", account}
+	args := []string{"setup", "--from", j.manifest}
 	if backend == "env" {
 		j.setEnvironment(secret.EnvironmentKey(account), token)
 		j.run(args...)
 	} else {
-		j.runWithInput(j.binary, token+"\n", append(args, "--token-stdin")...)
+		j.runWithInput(j.binary, token+"\n", append(args, j.tokenOwner(j.binary), account, "--token-stdin")...)
 	}
 	j.requireClaudeCredential(token)
 	var catalog struct {
@@ -363,7 +363,7 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 	commands := map[string]performance.Workload{
 		"credential": {Command: helper},
 		"projection": {Command: selectArgs, Prepare: resetArgs},
-		"setup":      {Command: []string{j.binary, "setup", "--from", j.manifest, "--account", "native-system-keyring-probe"}, Prepare: []string{preparer, "prepare-performance-setup", filepath.Dir(j.config), filepath.Dir(j.settings), j.config, j.settings}},
+		"setup":      {Command: []string{j.binary, "setup", "--from", j.manifest}, Prepare: []string{preparer, "prepare-performance-setup", filepath.Dir(j.config), filepath.Dir(j.settings), j.config, j.settings}},
 		"sync":       {Command: []string{j.binary, "sync"}, Prepare: resetArgs},
 		"version":    {Command: []string{j.binary, "--version"}},
 		"help":       {Command: []string{j.binary, "--help"}},
@@ -455,7 +455,7 @@ func TestNativePerformanceCases(t *testing.T) {
 	want := []performance.Workload{
 		{Name: "credential", Command: []string{"projected helper"}, Budget: 0.1},
 		{Name: "projection", Command: []string{journey.binary, "use", "claude", "native-system-keyring-probe/claude-second"}, Prepare: reset, Budget: 0.25},
-		{Name: "setup", Command: []string{journey.binary, "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe"}, Prepare: []string{"test preparer", "prepare-performance-setup", "owned config directory", "owned settings directory", journey.config, journey.settings}, Budget: 0.25},
+		{Name: "setup", Command: []string{journey.binary, "setup", "--from", journey.manifest}, Prepare: []string{"test preparer", "prepare-performance-setup", "owned config directory", "owned settings directory", journey.config, journey.settings}, Budget: 0.25},
 		{Name: "sync", Command: []string{journey.binary, "sync"}, Prepare: reset, Budget: 0.25},
 	}
 	for _, args := range [][]string{{"version", "--version"}, {"help", "--help"}, {"status", "status", "--json"}, {"export", "config", "export"}} {

@@ -184,7 +184,7 @@ func TestAssessActivationListsUnselectedCompatibleEnvironmentProviders(t *testin
 	cfg.Recommendations[claude.ID] = recommendation
 
 	got := AssessActivation(cfg, secret.NewEnvironmentStore(func(string) string { return "" }))
-	want := "Set one compatible Account variable: " + secret.EnvironmentKey("dmx") + " or " + secret.EnvironmentKey("ucloud") + ", then run `aigw sync`"
+	want := "Set one compatible provider's variable: " + secret.EnvironmentKey("dmx") + " or " + secret.EnvironmentKey("ucloud") + ", then run `aigw sync`"
 	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != want {
 		t.Fatalf("unselected alternatives = %+v, want %q", got, want)
 	}
@@ -196,7 +196,7 @@ func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T)
 	cfg.Models["claude"] = domain.Model{Provider: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetRecommendedModel(claude.ID, "claude")
 	got := AssessActivation(cfg, unobservedWritableStore{})
-	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != "Choose one compatible Account: aigw provider rotate team" || got.CredentialPrerequisite == "" {
+	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != "Choose one compatible provider: aigw provider rotate team" || got.CredentialPrerequisite == "" {
 		t.Fatalf("native backend activation = %+v", got)
 	}
 

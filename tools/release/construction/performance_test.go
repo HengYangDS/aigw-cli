@@ -424,7 +424,7 @@ func writeQualifiedPerformanceSummary(t *testing.T, output string) performance.S
 				case "projection":
 					row.Command = []string{selected.Path, "use", "claude", "account/claude-selected"}
 				case "setup":
-					row.Command = []string{selected.Path, "setup", "--from", "team.toml", "--account", "account"}
+					row.Command = []string{selected.Path, "setup", "--from", "team.toml"}
 				case "version", "help":
 					row.Command[1] = "--" + name
 				case "status":

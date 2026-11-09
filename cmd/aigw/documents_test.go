@@ -239,7 +239,7 @@ func documentValueProblems(path, key string, value any) []string {
 
 // runnable reports whether a script can run command as it stands: an aigw
 // command without a placeholder or prose that asks no person for a value.
-// Setup asks for an Account's Token unless it only imports a manifest, and
+// Setup asks for a named provider's Token unless --token-stdin supplies it, and
 // add, rotate, provider add, provider rotate and account diagnostics enable
 // ask for their secret unless their standard-input flag supplies it; help
 // asks for nothing.
@@ -253,7 +253,7 @@ func runnable(command string) bool {
 	case has("--help") || has("-h"):
 		return true
 	case words[1] == "setup":
-		return has("--token-stdin") || has("--from") && !has("--account")
+		return has("--token-stdin") || has("--from") && !has("--provider")
 	case words[1] == "add" || words[1] == "rotate":
 		return has("--token-stdin")
 	case len(words) >= 3 && words[1] == "provider" && (words[2] == "add" || words[2] == "rotate"):

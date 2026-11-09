@@ -1,5 +1,7 @@
-// Package setup implements `aigw setup`, the first-time setup of an Account,
-// its Token and its first Route, from flags, a manifest or a guided wizard.
+// Package setup implements `aigw setup`: guided setup of a provider, a
+// client and a model in a terminal, and team setup, which applies a team
+// file. Until the command tree's last step it also sets up a first provider
+// from flags.
 package setup
 
 import (
@@ -25,9 +27,13 @@ type setupRequest struct {
 	OpenAIURL, AnthropicURL, ChatURL string
 	Client, UpstreamModel            string
 	Protocol                         domain.EndpointProtocol
-	TokenStdin                       bool
-	PromptToken                      bool
-	JSON                             bool
+	// Providers are the providers whose Tokens team setup reads, and Prune
+	// removes the unused local-only models and families.
+	Providers   []string
+	Prune       bool
+	TokenStdin  bool
+	PromptToken bool
+	JSON        bool
 	// DryRun previews setup; apply is the command that applies the preview.
 	DryRun bool
 	apply  string
@@ -38,26 +44,23 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	request := setupRequest{}
 	cmd := &cobra.Command{
 		Use:   "setup",
-		Short: "Complete first-time setup",
+		Short: "Complete first-time setup, or apply a team file",
+		Example: "aigw setup --from team.toml --dry-run\n" +
+			"aigw setup --from team.toml --provider dmxapi --token-stdin\n" +
+			"aigw setup --from team.toml --prune --json",
 		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
 			request.From = strings.TrimSpace(request.From)
 			request.Provider = strings.TrimSpace(request.Provider)
-			if !cmd.Flags().Changed("from") {
-				// Setup with --json never prompts, so the guided flow needs its
-				// first Route as a flag, before anything is read or created.
-				if request.JSON && strings.TrimSpace(request.Model) == "" {
-					return fmt.Errorf("--json requires --route or --from; run `%s --help`", cmd.CommandPath())
-				}
-				return nil
+			if cmd.Flags().Changed("from") {
+				return admitTeamRequest(cmd, runtime, request)
 			}
-			if request.From == "" {
-				return fmt.Errorf("--from requires a configuration manifest path")
+			if len(request.Providers) > 0 || request.Prune {
+				return fmt.Errorf("--provider and --prune apply a team file, so they need --from; run `%s --help`", cmd.CommandPath())
 			}
-			if cmd.Flags().Changed("account") && request.Provider == "" {
-				return fmt.Errorf("--account requires an Account ID from the configuration manifest")
-			}
-			if request.TokenStdin && request.Provider == "" {
-				return fmt.Errorf("--token-stdin requires --account so one Token has one unambiguous owner; run `%s --help`", cmd.CommandPath())
+			// Setup with --json never prompts, so the guided flow needs its
+			// first Route as a flag, before anything is read or created.
+			if request.JSON && strings.TrimSpace(request.Model) == "" {
+				return fmt.Errorf("--json requires --route or --from; run `%s --help`", cmd.CommandPath())
 			}
 			return nil
 		}),
@@ -70,9 +73,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			// A JSON caller reads one document, so setup never prompts for it.
 			operation.Interactive = operation.Interactive && !request.JSON
 			if cmd.Flags().Changed("from") {
-				return invocation.CancelledPrompt(cmd, nil, runManifestSetup(cmd.Context(), operation, request))
+				return invocation.CancelledPrompt(cmd, nil, runTeamSetup(cmd, operation, request))
 			}
-			if operation.Interactive && request == (setupRequest{}) {
+			if operation.Interactive && cmd.Flags().NFlag() == 0 {
 				cfg, err := operation.Config.Load()
 				if err != nil {
 					return err
@@ -85,8 +88,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return invocation.CancelledPrompt(cmd, nil, runSetup(cmd.Context(), operation, request))
 		},
 	}
-	cmd.Flags().StringVar(&request.From, "from", "", "Set up all routes from a token-free configuration manifest")
-	cmd.Flags().StringVar(&request.Provider, "account", "", "Account ID; guided setup uses the first Route ID when omitted, --from connects only this Account")
+	cmd.Flags().StringVar(&request.From, "from", "", "Apply a team file: its providers, models, families and recommendations")
+	cmd.Flags().StringArrayVar(&request.Providers, "provider", nil, "With --from, a provider whose Token to read, at a prompt or from --token-stdin; repeatable")
+	cmd.Flags().BoolVar(&request.Prune, "prune", false, "With --from, remove the local models that no client selects and no recommendation names, and unused families")
+	cmd.Flags().StringVar(&request.Provider, "account", "", "Account ID; guided setup uses the first Route ID when omitted")
 	cmd.Flags().StringVar(&request.Model, "route", "", "First route ID")
 	cmd.Flags().StringVar(&request.Label, "label", "", "Provider display name")
 	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")
@@ -95,13 +100,78 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first route: "+runtime.Clients.Admission().Usage())
 	cmd.Flags().StringVar(&request.UpstreamModel, "upstream-model", "", "Exact provider model ID for --for")
 	invocation.BindProtocol(cmd, &request.Protocol, "Endpoint protocol when more than one URL is configured")
-	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
+	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one Token from standard input; with --from, the one --provider's")
 	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the setup result as JSON")
-	cmd.Flags().BoolVar(&request.DryRun, "dry-run", false, "Show the Accounts, Routes and Client Bindings that setup would create without reading a Token or writing anything")
-	for _, name := range []string{"route", "label", "openai-url", "anthropic-url", "chat-url", "for", "upstream-model", "protocol"} {
+	cmd.Flags().BoolVar(&request.DryRun, "dry-run", false, "Show what setup would change without reading a Token or writing anything")
+	for _, name := range []string{"account", "route", "label", "openai-url", "anthropic-url", "chat-url", "for", "upstream-model", "protocol"} {
 		cmd.MarkFlagsMutuallyExclusive("from", name)
 	}
+	invocation.CompleteFlag(cmd, "provider", cobra.NoFileCompletions)
 	return cmd
+}
+
+// admitTeamRequest refuses, before the team file or standard input is read, a
+// team setup whose Token input cannot run: a blank path, an invalid provider
+// ID, standard input without exactly one provider or with the read-only
+// environment backend, and a named provider whose Token would need a prompt
+// where none may appear.
+func admitTeamRequest(cmd *cobra.Command, runtime invocation.Context, request setupRequest) error {
+	path := cmd.CommandPath()
+	if request.From == "" {
+		return fmt.Errorf("--from requires a team file path; run `%s --help`", path)
+	}
+	for _, id := range request.Providers {
+		if !domain.ValidIdentifier(id) || id != strings.ToLower(id) {
+			return fmt.Errorf("--provider %q is not a provider ID; use lowercase letters, numbers, dots, hyphens or underscores; run `%s --help`", id, path)
+		}
+	}
+	readOnly := secret.IsReadOnly(runtime.Secrets)
+	switch {
+	case request.TokenStdin && len(request.Providers) != 1:
+		return fmt.Errorf("--token-stdin reads one Token, so it needs exactly one --provider; run `%s --help`", path)
+	case request.TokenStdin && readOnly:
+		return readOnlyTokenInput(request.Providers[0], invocation.Rerun(cmd, nil, []string{"token-stdin"}))
+	case len(request.Providers) > 0 && !request.TokenStdin && !request.DryRun && !readOnly && (!runtime.Interactive || request.JSON):
+		reason := "a named provider's Token is read from --token-stdin without a terminal or with --json"
+		if len(request.Providers) == 1 {
+			if line := invocation.Rerun(cmd, nil, nil, "--token-stdin"); line != "" {
+				return fmt.Errorf("%s; pipe the Token to `%s`", reason, line)
+			}
+		}
+		return fmt.Errorf("%s, one provider at a time; run `%s --help`", reason, path)
+	}
+	return nil
+}
+
+// flagSchemaVersion is the version of flag-driven setup's JSON document, which
+// the command tree's last step removes with flag-driven setup.
+const flagSchemaVersion = 2
+
+type manifestSetupImported struct {
+	Providers []string `json:"accounts"`
+	Models    []string `json:"routes"`
+}
+
+// manifestSetupResult is flag-driven setup's JSON document.
+type manifestSetupResult struct {
+	DryRun             bool                  `json:"dry_run,omitempty"`
+	Imported           manifestSetupImported `json:"imported"`
+	ConnectedProviders []string              `json:"connected_accounts"`
+	Selections         map[string]string     `json:"selections"`
+	ProjectedClients   []string              `json:"projected_clients"`
+	OnlineVerification string                `json:"online_verification"`
+	DeferredActions    []string              `json:"deferred_actions,omitempty"`
+	// Preview is what a preview's setup would change beyond the configuration.
+	invocation.Preview
+	NextAction string `json:"next_action,omitempty"`
+	NextDetail string `json:"next_detail,omitempty"`
+}
+
+// writeSetupDocument writes an applied setup's document, whose next step is
+// a command that a script can run as it stands, or guidance.
+func writeSetupDocument(runtime invocation.Context, result manifestSetupResult) error {
+	result.NextAction, result.NextDetail = terminal.NextSteps(result.NextAction)
+	return terminal.WriteDocument(runtime.Out, flagSchemaVersion, true, result)
 }
 
 type setupPlan struct {
@@ -256,7 +326,7 @@ func writeSetupPreview(runtime invocation.Context, plan setupPlan) error {
 			Preview:            preview,
 		}
 		result.NextAction, result.NextDetail = terminal.NextSteps(plan.request.apply)
-		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
+		return terminal.WriteDocument(runtime.Out, flagSchemaVersion, true, result)
 	}
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("First-time setup preview")

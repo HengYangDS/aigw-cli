@@ -43,7 +43,7 @@ Usage
   aigw [command]
 
 Connect
-  setup                Complete first-time setup
+  setup                Complete first-time setup, or apply a team file
 
 Use every day
   check                Check that each client works, as deep as --depth asks

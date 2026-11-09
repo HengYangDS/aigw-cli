@@ -285,7 +285,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 		t.Fatal(err)
 	}
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
-	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+	journey.run("setup", "--from", journey.manifest)
 	predecessor := readFile(t, journey.config)
 	if !bytes.HasPrefix(predecessor, []byte(fmt.Sprintf("version = %d\n", domain.ConfigVersion))) {
 		t.Fatal("published predecessor did not create its own schema")

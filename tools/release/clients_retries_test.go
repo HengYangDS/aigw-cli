@@ -91,7 +91,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 		t.Fatal(err)
 	}
 	journey.setEnvironment(secret.EnvironmentKey(route.Provider), token)
-	journey.run("setup", "--from", journey.manifest, "--account", route.Provider)
+	journey.run("setup", "--from", journey.manifest)
 	journey.enableNativeClient(codex.ID, executable)
 	retained := journey.retainedCredential(codex.ID)
 	journey.runWith(p.candidate, "sync")

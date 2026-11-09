@@ -12,6 +12,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
 
@@ -91,7 +92,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 	}), RunE: func(cmd *cobra.Command, args []string) error {
 		data, err := os.ReadFile(args[0])
 		if err != nil {
-			return terminal.ManifestReadFailure(args[0], err)
+			return terminal.ManifestReadFailure(args[0], platform.PathContext{Home: invocation.Home(runtime.Dependencies)}, err)
 		}
 		incoming, err := store.Parse(data, runtime.Config.Admission())
 		if err != nil {

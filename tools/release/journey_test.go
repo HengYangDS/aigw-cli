@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -99,7 +100,7 @@ func TestNativeProductJourney(t *testing.T) {
 		journey := newNativeJourney(t, currentProgram(t), server.URL+"/v1", true)
 		journey.prepareCodexLifecycle()
 		journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
-		journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
+		journey.run("setup", "--from", journey.manifest)
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 		journey.requireClaudeProjection()
 		journey.run("check")
@@ -339,6 +340,21 @@ func (j *journeyFixture) installClientFixture(client string) {
 	if err := os.WriteFile(target, readFile(j.testing, program), 0o700); err != nil {
 		j.testing.Fatal(err)
 	}
+}
+
+// tokenOwner is the flag with which program's team setup names the provider
+// whose Token it reads from standard input: --provider from 0.7.0, and
+// --account in a published release before it, so that a journey that starts
+// from a published release keeps that release's words.
+func (j *journeyFixture) tokenOwner(program string) string {
+	j.testing.Helper()
+	probe := exec.CommandContext(context.WithoutCancel(j.testing.Context()), program, "setup", "--help")
+	probe.Env = j.environment
+	help, _ := probe.Output()
+	if bytes.Contains(help, []byte("--provider")) {
+		return "--provider"
+	}
+	return "--account"
 }
 
 func (j *journeyFixture) run(args ...string) []byte {
