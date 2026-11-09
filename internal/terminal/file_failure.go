@@ -124,8 +124,9 @@ func fileFix(failed *platform.FileError, name, home string) string {
 	if failed.Changed {
 		return "Run the same command again; it reads " + name + " as it is now."
 	}
-	// A client file that AIGW writes, which the operator configured.
-	path := platform.ClassifyPath(failed.Path, platform.FileExpected, failed.Err).Owned(false)
+	// A client file that AIGW writes, which the operator configured: a flag on
+	// the file or on its folder may refuse the write.
+	path := platform.ClassifyPath(failed.Path, platform.FileExpected, failed.Err).Owned(false).Written()
 	return platform.PathFix(path, platform.PathContext{Home: home})
 }
 

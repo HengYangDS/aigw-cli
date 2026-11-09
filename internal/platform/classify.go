@@ -66,9 +66,50 @@ type PathConditionError struct {
 	// that brings back what the folder held when no copy of it does, such as
 	// the Tokens of AIGW's Token folder.
 	Restore string
+	// Locked, for a write that a permission error refused, is the file or
+	// the folder holding it whose own entry carries a flag that forbids the
+	// change, such as macOS's uchg or Linux's immutable attribute; Writing
+	// says that the operation wrote rather than read, which no flag forbids.
+	Locked  string
+	Writing bool
 	// toFile marks a link that leads to a regular file where a folder is
 	// needed: no broken link, but no folder either.
 	toFile bool
+}
+
+// Written is the failure of an operation that wrote path, as opposed to one
+// that read it: a write that a permission error refused may be locked by a
+// flag on the file or on the folder holding it, which a read never is.
+func (e *PathConditionError) Written() *PathConditionError {
+	written := *e
+	written.Writing = true
+	if written.Condition == PathPermission {
+		written.Locked = lockedEntry(written.Path)
+	}
+	return &written
+}
+
+// writingOperation reports an operation that changes the file system, which a
+// lock flag can refuse; open and the reads are left to the surface, which knows
+// whether it wrote.
+func writingOperation(op string) bool {
+	switch op {
+	case "createtemp", "mkdir", "chmod", "rename", "remove", "unlinkat", "write", "symlink", "link":
+		return true
+	}
+	return false
+}
+
+// lockedEntry is path or the folder holding it, whichever carries a flag that
+// forbids changing it, and nothing when neither does.
+func lockedEntry(path string) string {
+	path = filepath.Clean(path)
+	for _, entry := range []string{path, filepath.Dir(path)} {
+		if lockFlagged(entry) {
+			return entry
+		}
+	}
+	return ""
 }
 
 // Restoring is the failure of a folder of AIGW's own whose contents restore
@@ -118,6 +159,11 @@ func ClassifyPath(path string, kind PathKind, err error) *PathConditionError {
 	switch {
 	case errors.Is(err, fs.ErrPermission):
 		failure.Condition = PathPermission
+		// An operation that can only write, such as a rename, is a write
+		// whatever its surface says, and only a write meets a lock flag.
+		if writingOperation(failure.Op) {
+			return failure.Written()
+		}
 	case errors.Is(err, fs.ErrNotExist):
 		failure.Condition = PathMissingFolder
 		if kind == FileExpected && folderExists(filepath.Dir(filepath.Clean(path))) {
@@ -187,7 +233,7 @@ func (e *PathConditionError) Unwrap() error {
 func (e *PathConditionError) Reason() string {
 	switch e.Condition {
 	case PathPermission:
-		return PermissionReason(e.Err)
+		return permissionReason(e.Err)
 	case PathFileInTheWay:
 		return ErrFileAsFolder.Error()
 	case PathDanglingLink:
@@ -212,19 +258,21 @@ func (e *PathConditionError) Reason() string {
 }
 
 // PermissionReason is the reason of a permission error, the operating
-// system's: an operation that a flag forbids, such as macOS's uchg or Linux's
-// immutable attribute, is not permitted, and any other is denied, as Windows'
-// ERROR_ACCESS_DENIED is.
-func PermissionReason(err error) string {
-	if locked(err) {
+// system's own: EPERM, which a lock flag, a sandbox or system protection
+// returns, is not permitted, and any other is denied, as EACCES and Windows'
+// ERROR_ACCESS_DENIED are.
+func PermissionReason(err error) string { return permissionReason(err) }
+
+func permissionReason(err error) string {
+	if notPermitted(err) {
 		return "operation not permitted"
 	}
 	return "permission denied"
 }
 
-// locked reports an operation that a flag on the file forbids, whatever its
-// mode allows.
-func locked(err error) bool { return errors.Is(err, syscall.EPERM) }
+// notPermitted reports EPERM, an operation that something other than the
+// file's mode forbids: a lock flag, a sandbox or system protection.
+func notPermitted(err error) bool { return errors.Is(err, syscall.EPERM) }
 
 // Blocked reports a file in the way or a dangling link, which no operation at
 // the path gets past.

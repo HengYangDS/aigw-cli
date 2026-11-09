@@ -37,11 +37,19 @@ const ConfigurationReadFix = "Restore read access to the configuration file; `ai
 func PathFix(failure *PathConditionError, at PathContext) string {
 	switch failure.Condition {
 	case PathPermission:
-		if locked(failure.Err) {
-			return "Clear the flag that locks " + at.name(failure, failure.Path, theFile) + " (such as macOS's uchg or Linux's immutable attribute), then " + at.step() + "."
+		// Only a write that a flag on the file or its folder refused clears a
+		// flag; any other EPERM is a sandbox, system protection or a lock that
+		// the operator allows, and a mode change would help neither.
+		if failure.Locked != "" {
+			return "Clear the flag that locks " + at.name(failure, failure.Locked, theFile) + " (such as macOS's uchg or Linux's immutable attribute), then " + at.step() + "."
 		}
-		if at.configurationFile(failure.Path) {
+		// A read of the configuration file keeps its own fix, whatever denied
+		// it, as `aigw config path` locates the file in every state.
+		if at.configurationFile(failure.Path) && !failure.Writing {
 			return ConfigurationReadFix
+		}
+		if notPermitted(failure.Err) {
+			return "A lock, a sandbox or system protection forbids this operation on " + at.name(failure, failure.Path, theFile) + "; allow it, then " + at.step() + "."
 		}
 		if at.unnamed(failure, failure.Path) {
 			return "Make AIGW's folder and its files readable and writable; `aigw config path` prints where the folder is. Then " + at.step() + "."
