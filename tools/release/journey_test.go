@@ -66,8 +66,15 @@ func TestNativeProductJourney(t *testing.T) {
 		if err := json.Unmarshal(journey.run("sync", "--dry-run", "--json"), &preview); err != nil {
 			t.Fatal(err)
 		}
-		if preview.Selections[claude.ID] != "native-system-keyring-probe-claude" || !bytes.Equal(beforePreview, readFile(t, journey.config)) {
-			t.Fatalf("late sync preview did not plan the available Account without writing: %+v", preview)
+		// sync names a client's model as provider/model, which the configured
+		// model's provider and ID make.
+		configured, err := store.NewStore(journey.config, builtinclients.Admission()).Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := configured.Models["native-system-keyring-probe-claude"].Ref().String()
+		if preview.Selections[claude.ID] != want || !bytes.Equal(beforePreview, readFile(t, journey.config)) {
+			t.Fatalf("late sync preview did not plan the available Account without writing: %+v, want %s", preview, want)
 		}
 		journey.run("sync")
 		journey.requireClaudeProjection()

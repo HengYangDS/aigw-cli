@@ -182,8 +182,14 @@ func (plan teamManifestJourney) runProvider(t *testing.T, account string, client
 	}
 	for _, client := range plan.clients {
 		route := selected.SelectedModel(client)
-		if planned, got := preview.Selections[client], actual.SelectedModel(client); planned != route || got != route {
-			t.Fatalf("late sync selected %s Route %q after preview %q, want %q", client, got, planned, route)
+		// sync names the model as provider/model, which the selected model's
+		// provider and ID make; the configuration keeps its key.
+		reference := ""
+		if route != "" {
+			reference = selected.Models[route].Ref().String()
+		}
+		if planned, got := preview.Selections[client], actual.SelectedModel(client); planned != reference || got != route {
+			t.Fatalf("late sync selected %s Route %q after preview %q, want %q as %q", client, got, planned, route, reference)
 		}
 		if _, isManual := manual[client]; isManual && actual.Clients[client].Enabled {
 			t.Fatalf("sync activated manually selected %s for Account %q", client, account)
