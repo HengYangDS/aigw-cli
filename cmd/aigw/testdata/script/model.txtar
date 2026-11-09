@@ -28,16 +28,21 @@ exec aigw model list gateway --provider team --client claude --protocol anthropi
 cmp stdout list-filtered.json
 exitcode 1 aigw model list --client codx --json
 cmp stdout list-client-refusal.json
+fixloop -input stdout aigw model list --client codx --json
 
 exec aigw model show team/team-model --json
 normalize stdout show.out
 cmp show.out show.json
 exitcode 1 aigw model show team-model
 cmp stdout show-bare.txt
+exitcode 1 aigw model show team-model --json
+fixloop -input stdout aigw model show team-model --json
 exitcode 1 aigw model show tem/team-model --json
 cmp stdout show-provider.json
+fixloop -input stdout aigw model show tem/team-model --json
 exitcode 1 aigw model show team/team-mdl --json
 cmp stdout show-model.json
+fixloop -input stdout aigw model show team/team-mdl --json
 
 # Previews read no catalog and write nothing below the private home.
 snapshot $HOME before.txt
@@ -57,13 +62,19 @@ cmp after.txt before.txt
 # provider's catalog cannot be read.
 exitcode 1 aigw model add team/spare-mdl
 cmp stdout add-unlisted.txt
+exitcode 1 aigw model add team/spare-mdl --json
+fixloop -input stdout aigw model add team/spare-mdl --json
+exec aigw model remove team/spare-model
 exec aigw model add team/spare-model --capability tool_search --json
 cmp stdout added.json
 # A typo of an added model names that model; it is never added as typed.
 exitcode 1 aigw model add team/team-modl --json
 cmp stdout add-added-typo.json
+fixloop -input stdout aigw model add team/team-modl --json
 exitcode 1 aigw model add mixed/new-model --protocol chat --json
 cmp stdout add-unreadable.json
+fixloop stdout aigw model add mixed/new-model --protocol chat --json
+exec aigw model remove mixed/new-model
 exec aigw model add mixed/new-model --protocol chat --unlisted --family new-family --json
 cmp stdout add-forced.json
 
@@ -72,12 +83,22 @@ cmp stdout add-forced.json
 # model is refused.
 exitcode 1 aigw model add mixed/other-model --unlisted
 cmp stdout add-protocol.txt
+exitcode 1 aigw model add mixed/other-model --unlisted --json
+cp stdout add-protocol.json
+exec aigw model add mixed/other-model --unlisted --protocol chat
+fixloop -input -did 'added mixed/other-model on OpenAI Chat Completions' add-protocol.json aigw model add mixed/other-model --unlisted --json
+exec aigw model remove mixed/other-model
 exitcode 1 aigw model add team/other-model --protocol responses --unlisted --json
 cmp stdout add-endpoint.json
+fixloop -input stdout aigw model add team/other-model --protocol responses --unlisted --json
+exec aigw model remove team/other-model
 exitcode 1 aigw model add team/other-model --protocol openai_responses --unlisted
 cmp stdout add-spelling.txt
+exitcode 1 aigw model add team/other-model --json --protocol openai_responses --unlisted
+fixloop -input stdout aigw model add team/other-model --json --protocol openai_responses --unlisted
 exitcode 1 aigw model add team/team-model --unlisted --json
 cmp stdout add-exists.json
+fixloop -input stdout aigw model add team/team-model --unlisted --json
 
 # An edit replaces each set that it is given and keeps the protocol that a
 # client uses.
@@ -87,12 +108,20 @@ exec aigw model edit mixed/new-model --capability '' --label '' --json
 cmp stdout cleared.json
 exitcode 1 aigw model edit team/team-model --json
 cmp stdout edit-nothing.json
+fixloop -input stdout aigw model edit team/team-model --json
 exitcode 1 aigw model edit team/team-model --json --protocol openai_chat_completions
 cmp stdout edit-spelling.json
+fixloop -input stdout aigw model edit team/team-model --json --protocol openai_chat_completions
 exitcode 1 aigw model edit mixed/chat-only --capability tool_search
 cmp stdout edit-capability.txt
+exitcode 1 aigw model edit mixed/chat-only --capability tool_search --json
+fixloop stdout aigw model edit mixed/chat-only --capability tool_search --json
+exec aigw model edit mixed/chat-only --protocol chat --capability ''
 exitcode 1 aigw model edit mixed/spare-chat --protocol anthropic --json
 cmp stdout edit-recommended.json
+# fixloop does not follow this fix: it exports the team file whose
+# recommendation must change, and `aigw setup --from` refuses to apply the
+# changed file to a configured home until setup can run again.
 stdin mixed-token.txt
 exec aigw rotate mixed --token-stdin
 exec aigw use hermes mixed/chat-only
@@ -106,6 +135,7 @@ cmp stdout show-twin.json
 exec aigw model show mixed/twin --protocol anthropic --json
 normalize stdout show-twin-anthropic.out
 cmp show-twin-anthropic.out show-twin-anthropic.json
+fixloop -input -did 'showed mixed/twin with --protocol anthropic' show-twin.json aigw model show mixed/twin --json
 exec aigw model list twin
 cmp stdout list-twin.txt
 
@@ -116,6 +146,7 @@ cmp stdout remove-selected.json
 # --protocol selects only a model that declares it.
 exitcode 1 aigw model remove mixed/chat-only --protocol anthropic --json
 cmp stdout remove-protocol.json
+fixloop -input stdout aigw model remove mixed/chat-only --protocol anthropic --json
 exec aigw client disable hermes
 exitcode 1 aigw model remove mixed/chat-only
 cmp stdout remove-disabled.txt
@@ -147,14 +178,29 @@ cmp search-failed.out search-failed.txt
 exitcode 1 aigw model search --provider fresh --json
 normalize stdout search-partial.out
 cmp search-partial.out search-partial.json
+# fixloop does not follow this fix: it retries an HTTP 503, which this
+# script's provider returns on every request.
 exitcode 1 aigw model search --provider tem --json
 cmp stdout search-unknown.json
+fixloop -input stdout aigw model search --provider tem --json
 # The environment backend supplies broken's Token, and its catalog fails.
 env AIGW_SECRET_BACKEND=env
 env AIGW_TOKEN_BROKEN=sk-broken-token-0001
 exitcode 1 aigw model search --provider broken --json
 normalize stdout search-unreadable.out
 cmp search-unreadable.out search-unreadable.json
+# fixloop does not follow this fix either: it retries an HTTP 503.
+env AIGW_SECRET_BACKEND=file
+env AIGW_TOKEN_BROKEN=
+
+# A model that a client uses is removed once the client moves to another
+# one, as the refusals above name, even when the client is disabled.
+exec aigw use claude team/spare-model
+fixloop -did 'moved Claude to team/spare-model' remove-selected.json aigw model remove team/team-model --json
+exitcode 1 aigw model remove mixed/chat-only --json
+cp stdout remove-disabled.json
+exec aigw use hermes mixed/twin --protocol chat
+fixloop -did 'moved Hermes to mixed/twin' remove-disabled.json aigw model remove mixed/chat-only --json
 
 -- token.txt --
 sk-team-token-0001
