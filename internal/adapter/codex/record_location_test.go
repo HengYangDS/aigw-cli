@@ -93,9 +93,21 @@ func TestAWriteMovesARecordLeftBesideALink(t *testing.T) {
 		t.Fatalf("a failed move left a record beside the file: %v", err)
 	}
 
+	// The old record goes only once the new one is in place, so a crash
+	// between the two steps leaves a record either way.
+	removeFileIfUnchanged = func(path string, before platform.FileSnapshot) (platform.FileSnapshot, error) {
+		if path == codexStatePath(alias) {
+			if _, err := os.Stat(codexStatePath(resolved)); err != nil {
+				t.Errorf("the record beside the link was removed before the new one existed: %v", err)
+			}
+		}
+		return original(path, before)
+	}
+	t.Cleanup(func() { removeFileIfUnchanged = original })
 	if _, err := ReconcileConfigs([]TargetRef{HomeTarget(alias)}, []TargetRef{HomeTarget(alias)}, runtime, changed, true); err != nil {
 		t.Fatal(err)
 	}
+	removeFileIfUnchanged = original
 	if _, err := os.Stat(codexStatePath(resolved)); err != nil {
 		t.Fatalf("the write did not move the record beside the file: %v", err)
 	}
