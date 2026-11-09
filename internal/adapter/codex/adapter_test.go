@@ -326,7 +326,7 @@ func TestACodexAdapterInspectsAFileInTheWay(t *testing.T) {
 	runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
 	deps := adapter.Dependencies{Discovery: fixedDiscoverer{}, Host: discovery.Host{Home: root}}
 	status := (codexAdapter{}).Inspect(context.Background(), deps, cfg, runtime)
-	want := "Move the file ~/work, or choose another path, then run the same command again."
+	want := "Move the file ~/work, then create ~/work/config.toml and the folder that holds it, or choose another path, then run the same command again."
 	if status.Ready || status.RepairAction != want {
 		t.Fatalf("a file in the way = %#v", status)
 	}

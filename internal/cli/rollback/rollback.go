@@ -47,7 +47,11 @@ func unavailable(runtime invocation.Context, cause error) error {
 		absent, refusal := platform.MissingAt(runtime.Config.Path(), err)
 		switch {
 		case refusal != nil:
-			fix = "Move the file " + refusal.Error() + ", then run the same command again."
+			// The classification names the file; the error's own text would read
+			// "mkdir /Users/…: not a directory". A configuration that loaded means
+			// its folder is there, so this holds only when a file replaced the
+			// folder between the load and this observation.
+			fix = terminal.FileAccessFix(refusal, runtime.Config.Path(), invocation.Home(runtime.Dependencies))
 		case absent:
 			fix = "aigw setup"
 		}

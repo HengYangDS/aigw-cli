@@ -105,7 +105,7 @@ func LocalFailure(version string, err error) error {
 		return err
 	}
 	evidence, _ := ConfigurationLoadEvidence("AIGW "+version, err)
-	if fix, blocked := blockedConfigurationFix(err); blocked {
+	if fix, blocked := blockedFileFix(err); blocked {
 		return ProblemError(configurationLoadTitle(failure.Phase), evidence, "", fix, err)
 	}
 	return ProblemError(configurationLoadTitle(failure.Phase), evidence, "", configurationLoadFix(failure.Phase), err)
@@ -159,17 +159,13 @@ func ConfigurationLoadFix(err error) string {
 	return configurationLoadFix(phase)
 }
 
-// blockedConfigurationFix names, for a configuration that could not be read
-// because its folder or a folder above it is a regular file, that file to move.
-// A read permission or a parse fix acts on nothing there, and on Windows the
-// same failure reads as a missing file.
-func blockedConfigurationFix(err error) (string, bool) {
-	// The command's own home, which its environment names: no configuration
-	// loaded, so no record of it is available.
-
-	if !errors.Is(err, platform.ErrFileAsFolder) {
-		return "", false
-	}
+// blockedFileFix names the file that stands where a folder is needed, for any
+// presentation of a file-access failure: a configuration that could not be
+// read, a command that failed at AIGW's own folder, and a fix that would
+// otherwise name a permission to restore. It classifies from the file system,
+// never from the error's number, because on Windows a path through a regular
+// file reads as a missing file, and it names a file inside home as ~/….
+func blockedFileFix(err error) (string, bool) {
 	failure, atPath := errors.AsType[*os.PathError](err)
 	if !atPath {
 		return "", false
@@ -178,11 +174,12 @@ func blockedConfigurationFix(err error) (string, bool) {
 	if !atFile {
 		return "", false
 	}
-	name, _ := platform.HomeTarget(blocking.Path, HomeDirectory(os.Environ()))
+	home := HomeDirectory(os.Environ())
+	name, _ := platform.HomeTarget(blocking.Path, home)
 	if name == "" {
-		return "Move the file that stands where AIGW's folder belongs, then run the same command again.", true
+		return "Move the file that stands where AIGW's folder belongs, then restore the folder and the configuration in it, then run the same command again.", true
 	}
-	return "Move the file " + name + ", or choose another path, then run the same command again.", true
+	return "Move the file " + name + ", then restore the folder it stands in and the configuration in it, then run the same command again.", true
 }
 
 func configurationLoadFix(phase store.LoadPhase) string {
@@ -507,6 +504,9 @@ func errorFix(err error, message string) string {
 	if usage, ok := errors.AsType[*usageError](err); ok {
 		return usage.command + " --help"
 	}
+	if fix, blocked := blockedFileFix(err); blocked {
+		return fix
+	}
 	if fileAccess(err) {
 		return localFileAccessFix
 	}
@@ -529,8 +529,12 @@ func StatesFix(err error) bool {
 	if user, ok := errors.AsType[*userError](err); ok {
 		return user.problem.Fix != ""
 	}
-	// Only err's own next action counts, never a wrapped cause's.
+	// Only err's own fix counts, never a wrapped cause's. A refusal that renders
+	// its fix against the home directory states one as well.
 	if refusal, ok := err.(interface{ NextAction() string }); ok && refusal.NextAction() != "" {
+		return true
+	}
+	if refusal, ok := err.(interface{ TargetFix(string) string }); ok && refusal.TargetFix("") != "" {
 		return true
 	}
 	return mentionedAIGWCommand(ownMessage(err)) != ""
@@ -572,7 +576,7 @@ func typedErrorFix(err error) (string, bool) {
 		return fmt.Sprintf("aigw use %s <provider/model>", unselected.Client), true
 	}
 	if failure, ok := errors.AsType[*store.LoadError](err); ok {
-		if fix, blocked := blockedConfigurationFix(err); blocked {
+		if fix, blocked := blockedFileFix(err); blocked {
 			return fix, true
 		}
 		return configurationLoadFix(failure.Phase), true

@@ -1,6 +1,7 @@
 package client
 
 import (
+	"aigw-cli/internal/platform"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -499,5 +500,44 @@ func TestEditWithTheEnvironmentBackend(t *testing.T) {
 	}
 	if projected := readTarget(t, target); !strings.Contains(projected, `base_url = "`+forwardingEndpoint+`"`) {
 		t.Fatalf("Codex's file does not forward:\n%s", projected)
+	}
+}
+
+// A target whose folder is a link that leads nowhere names that link to remove,
+// and what to create in its place, rather than another edit that fails the
+// same way. Removing the link and creating the folder and file lets the same
+// edit pass.
+func TestEditNamesADanglingLinkToRemove(t *testing.T) {
+	runtime, _, target, _ := enabledCodex(t)
+	home := invocation.Home(runtime.Dependencies)
+	link := filepath.Join(filepath.Dir(target), "dlink")
+	if err := os.Symlink(filepath.Join(filepath.Dir(target), "nowhere"), link); err != nil {
+		t.Skipf("symbolic links are unavailable: %v", err)
+	}
+	gone := filepath.Join(link, "config.toml")
+	err := executeAdapter(t, runtime, "edit", codex.ID, "--target", gone)
+	// The test home is not the process's, so the fix names each file by its own
+	// name and exposes no private folder; the real command names ~/… inside home.
+	named := func(path string) string {
+		if name, _ := platform.HomeTarget(path, home); name != "" {
+			return name
+		}
+		return filepath.Base(path)
+	}
+	problem := terminal.ProblemFor(err)
+	if want := "Remove the link " + named(link) + ", then create " + named(gone) + " and the folder that holds it, or choose another path, then run the same command again."; problem.Fix != want {
+		t.Fatalf("the fix = %q, want %q", problem.Fix, want)
+	}
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(link, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(gone, []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := executeAdapter(t, runtime, "edit", codex.ID, "--target", gone); err != nil {
+		t.Fatalf("the edit after its fix: %v", err)
 	}
 }

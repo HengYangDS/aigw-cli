@@ -198,7 +198,7 @@ func TestFileAccessFailureNamesTheFileInTheWay(t *testing.T) {
 		t.Fatal(err)
 	}
 	target := filepath.Join(blocking, "aigw")
-	want := "Move the file " + blocking + ", or choose another path, then run the same command again."
+	want := "Move the file " + blocking + ", then create " + filepath.Dir(blocking) + " and the file " + target + ", or choose another path, then run the same command again."
 	for name, err := range map[string]error{
 		"the refusal":   platform.RefuseFileAsFolder(target),
 		"a raw ENOTDIR": &os.PathError{Op: "open", Path: target, Err: syscall.ENOTDIR},
@@ -211,7 +211,7 @@ func TestFileAccessFailureNamesTheFileInTheWay(t *testing.T) {
 	// MkdirAll names the file in the way as its own path, so a create at a
 	// regular file is refused as that file, never as a file to create.
 	problem := ProblemFor(FileAccessFailure(&os.PathError{Op: "mkdir", Path: blocking, Err: syscall.ENOTDIR}, blocking, ""))
-	if problem.Fix != "Move the file "+blocking+", or choose another path, then run the same command again." {
+	if problem.Fix != "Move the file "+blocking+", then create "+filepath.Dir(blocking)+" and the file "+blocking+", or choose another path, then run the same command again." {
 		t.Fatalf("a create at the file in the way = %+v", problem)
 	}
 	missing := filepath.Join(t.TempDir(), "gone", "aigw")

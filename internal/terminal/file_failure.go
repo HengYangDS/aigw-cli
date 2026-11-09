@@ -71,6 +71,12 @@ func targetProblem(failure *adapter.TargetError, err error) Problem {
 	return problem
 }
 
+// FileAccessFix is the fix of a file-access failure at file, rendered against
+// home, for a caller that presents the failure itself rather than this problem.
+func FileAccessFix(err error, file, home string) string {
+	return ProblemFor(FileAccessFailure(err, file, home)).Fix
+}
+
 // FileAccessFailure presents an operating-system error at file, which the
 // operator named, with the step that resolves it and the same command again.
 // A file inside home is named as ~/…, and one outside it as configured, which
@@ -91,9 +97,11 @@ func FileAccessFailure(err error, file, home string) error {
 	case errors.Is(err, fs.ErrPermission):
 		fix = "Make " + name + " and its folder writable, then run the same command again."
 	case throughFile:
-		// Before a missing path, which Windows' ENOTDIR also counts as.
+		// Before a missing path, which Windows' ENOTDIR also counts as. The folder
+		// and the file are named to create after the move, so that one round of
+		// following the fix lets the same command run.
 		reason = platform.ErrFileAsFolder.Error()
-		fix = "Move the file " + namedFile(inTheWay, home) + ", or choose another path, then run the same command again."
+		fix = "Move the file " + namedFile(inTheWay, home) + ", then create " + namedFile(filepath.Dir(inTheWay), home) + " and the file " + name + ", or choose another path, then run the same command again."
 	case errors.Is(err, fs.ErrNotExist):
 		fix = "Create " + namedFile(filepath.Dir(file), home) + ", or choose another path, then run the same command again."
 	}
@@ -151,8 +159,10 @@ func targetFix(err error, target *adapter.TargetError) string {
 	case errors.Is(err, fs.ErrPermission):
 		return "Make " + name + " readable, then run the same command again."
 	case throughFile:
-		// Before a missing path, which Windows' ENOTDIR also counts as.
-		return "Move the file " + fileName(blocking, target.Home) + ", or choose another path, then run the same command again."
+		// Before a missing path, which Windows' ENOTDIR also counts as. The file
+		// and the folder that follows the move are named, so one round of
+		// following the fix lets the same command run.
+		return "Move the file " + fileName(blocking, target.Home) + ", then create " + name + " and the folder that holds it, or choose another path, then run the same command again."
 	case atPath:
 		return "Resolve " + fileErrorReason(err) + " on " + name + ", then run the same command again."
 	default:

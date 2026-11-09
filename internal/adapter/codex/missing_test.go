@@ -124,7 +124,7 @@ func TestAMissingTargetUnderAFileNamesTheFileToMove(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := missingTargetError{path: filepath.Join(file, "config.toml")}.NextAction()
-	if want := "Move the file " + file + ", or choose another path, then run the same command again."; got != want {
+	if want := "Move the file " + file + ", then create " + filepath.Join(file, "config.toml") + " and the folder that holds it, or choose another path, then run the same command again."; got != want {
 		t.Fatalf("the fix = %q, want %q", got, want)
 	}
 }
@@ -139,7 +139,7 @@ func TestAMissingTargetsRepairNamesTheFolderItCannotCreate(t *testing.T) {
 	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := missingTargetRepair(deps, filepath.Join(file, "config.toml")), "Move the file ~/work, or choose another path, then run the same command again."; got != want {
+	if got, want := missingTargetRepair(deps, filepath.Join(file, "config.toml")), "Move the file ~/work, then create ~/work/config.toml and the folder that holds it, or choose another path, then run the same command again."; got != want {
 		t.Fatalf("a file where the folder belongs = %q, want %q", got, want)
 	}
 	link := filepath.Join(root, "dlink")

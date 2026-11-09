@@ -148,7 +148,7 @@ func TestALoadFailureThroughAFileNamesTheFileToMove(t *testing.T) {
 	config := filepath.Join(blocking, "config.toml")
 	err := &store.LoadError{Phase: store.LoadPhaseRead, Err: platform.FileInTheWay(config)}
 	problem := ProblemFor(LocalFailure("9.8.7", err))
-	if want := "Move the file ~/Library/Application Support/aigw, or choose another path, then run the same command again."; problem.Fix != want {
+	if want := "Move the file ~/Library/Application Support/aigw, then restore the folder it stands in and the configuration in it, then run the same command again."; problem.Fix != want {
 		t.Fatalf("the fix = %q, want %q", problem.Fix, want)
 	}
 	if strings.Contains(problem.Fix, home) {

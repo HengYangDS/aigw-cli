@@ -37,7 +37,7 @@ func TestMissingTargetFixNamesWhatIsInTheWay(t *testing.T) {
 	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := MissingTargetFix(filepath.Join(file, "config.toml"), root), "Move the file ~/file, or choose another path, then run the same command again."; got != want {
+	if got, want := MissingTargetFix(filepath.Join(file, "config.toml"), root), "Move the file ~/file, then create ~/file/config.toml and the folder that holds it, or choose another path, then run the same command again."; got != want {
 		t.Fatalf("a file in the way = %q, want %q", got, want)
 	}
 	link := filepath.Join(root, "dlink")

@@ -20,10 +20,10 @@ import (
 // exposes no private path.
 func MissingTargetFix(path, home string) string {
 	path = filepath.Clean(path)
-	if failure, atFile := errors.AsType[*os.PathError](platform.FileInTheWay(path)); atFile {
-		return "Move the file " + namedPath(failure.Path, home) + ", or choose another path, then run the same command again."
-	}
 	file := namedPath(path, home)
+	if failure, atFile := errors.AsType[*os.PathError](platform.FileInTheWay(path)); atFile {
+		return "Move the file " + namedPath(failure.Path, home) + ", then create " + file + " and the folder that holds it, or choose another path, then run the same command again."
+	}
 	if link, atLink := platform.DanglingLinkInPath(filepath.Dir(path)); atLink {
 		return "Remove the link " + namedPath(link, home) + ", then create " + file + " and the folder that holds it, or choose another path, then run the same command again."
 	}

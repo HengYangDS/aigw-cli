@@ -512,7 +512,7 @@ func TestCollectNamesTheCodexRepairItsFolderNeeds(t *testing.T) {
 	deps.Env = []string{"HOME=" + home}
 	deps.Host = hostAt(home)
 	check = findCheck(t, collectChecks(context.Background(), deps.Dependencies), "codex:target-1")
-	if got, want := check.Fix, "Move the file ~/work, or choose another path, then run the same command again."; check.OK || got != want {
+	if got, want := check.Fix, "Move the file ~/work, then create ~/work/config.toml and the folder that holds it, or choose another path, then run the same command again."; check.OK || got != want {
 		t.Fatalf("projection check of a file in the way = %#v", check)
 	}
 }
