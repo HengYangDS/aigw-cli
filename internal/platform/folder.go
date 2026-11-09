@@ -1,6 +1,8 @@
 package platform
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -26,14 +28,41 @@ func (fileAsFolderError) Is(target error) bool { return target == syscall.ENOTDI
 // through a file for a path that does not exist yet on Windows. A symbolic
 // link is left to the operation that follows it.
 func RefuseFileAsFolder(path string) error {
-	for folder := filepath.Dir(filepath.Clean(path)); ; folder = filepath.Dir(folder) {
-		if info, err := os.Lstat(folder); err == nil {
-			if info.Mode().IsRegular() {
-				return &os.PathError{Op: "mkdir", Path: folder, Err: ErrFileAsFolder}
-			}
-			return nil
+	return fileOnPath(path, false)
+}
+
+// MissingAt classifies err, the failure of an operation at path, as a missing
+// path: absent reports that path holds nothing yet, and refusal, when err reads
+// as missing but a regular file stands on the path, names that file with
+// ErrFileAsFolder. An error that is not about a missing path returns both
+// false. Windows reports a path through a regular file as ERROR_PATH_NOT_FOUND
+// and a missing folder the same way, so only the file system tells them apart,
+// and the answer is right on a host whose error text differs from its files.
+func MissingAt(path string, err error) (absent bool, refusal error) {
+	if !errors.Is(err, fs.ErrNotExist) && !errors.Is(err, syscall.ENOTDIR) {
+		return false, nil
+	}
+	if failure := fileOnPath(path, true); failure != nil {
+		return false, failure
+	}
+	return errors.Is(err, fs.ErrNotExist), nil
+}
+
+// fileOnPath finds the regular file that stands where a folder is needed on
+// path, naming it with ErrFileAsFolder, or returns nil. withPath includes path
+// itself, which an operation that creates it reports, while a path that only
+// names a file to read or replace starts at its folder.
+func fileOnPath(path string, withPath bool) error {
+	path = filepath.Clean(path)
+	if !withPath {
+		path = filepath.Dir(path)
+	}
+	for folder := path; ; folder = filepath.Dir(folder) {
+		info, err := os.Lstat(folder)
+		if err == nil && info.Mode().IsRegular() {
+			return &os.PathError{Op: "mkdir", Path: folder, Err: ErrFileAsFolder}
 		}
-		if parent := filepath.Dir(folder); parent == folder {
+		if err == nil || filepath.Dir(folder) == folder {
 			return nil
 		}
 	}
