@@ -1,0 +1,167 @@
+# self installs, updates, rolls back, removes and reports this portable
+# program, in text and as JSON. Previews write nothing, a folder as the target
+# asks for the program file inside it, an update without a release source
+# names a local archive, and a rollback preview reads the retained program's
+# version from its build information without running it.
+exec aigw self --help
+cmp stdout help.txt
+exec aigw self rollback --help
+cmp stdout rollback-help.txt
+
+# status reports the running program.
+exec aigw self status --json
+stdout '"schema_version": 2'
+stdout '"version": "0.1.0-dev"'
+exec aigw self status
+stdout 'Version +0\.1\.0-dev'
+exitcode 1 aigw self status extra --json
+cmp stdout status-refusal.json
+fixloop -input stdout aigw self status extra --json
+
+# install copies the running program, and a preview writes neither the
+# program nor its folder.
+snapshot $HOME home-before.txt
+exec aigw self install --path $WORK/preview/aigw$exe --dry-run --json
+stdout '"schema_version": 2'
+stdout '"dry_run": true'
+stdout '"creates_folder": '
+! exists $WORK/preview
+snapshot $HOME home-after.txt
+cmp home-after.txt home-before.txt
+exec aigw self install --path $WORK/bin/aigw$exe --json
+stdout '"schema_version": 2'
+exists $WORK/bin/aigw$exe
+exec aigw self install --path $WORK/text/aigw$exe
+stdout 'Installed '
+# A folder as the target names the program file inside it, in prose, because
+# `aigw` on PATH may be another program; installed there, the folder stays
+# refused.
+exitcode 1 aigw self install --path $WORK
+stdout 'with this same program'
+exitcode 1 aigw self install --path $WORK --json
+cp stdout install-folder.json
+exec aigw self install --path $WORK${/}aigw$exe
+fixloop -input -did 'installed the program file inside the folder' install-folder.json aigw self install --path $WORK --json
+
+# Without a release source, an update names a local archive, which this
+# script does not build, so fixloop does not follow it; a preview names the
+# preview of one.
+exitcode 1 aigw self update --json
+cmp stdout update-unconfigured.json
+exitcode 1 aigw self update --dry-run
+stdout 'aigw self update --dry-run --archive <archive> --checksums <checksums>'
+exitcode 1 aigw self update --archive '' --checksums sums.txt --json
+stdout '"error": "--archive requires a non-empty path; run `aigw self update --help`"'
+fixloop -input stdout aigw self update --archive '' --checksums sums.txt --json
+env AIGW_GITHUB_RELEASE_ORIGIN=$UPSTREAM
+env AIGW_GITHUB_RELEASE_REPOSITORY=team/aigw
+exec aigw self update --json
+stdout '"schema_version": 2'
+stdout '"next_action": "aigw sync"'
+snapshot $BIN bin-before.txt
+exec aigw self update --dry-run --json
+stdout '"dry_run": true'
+snapshot $BIN bin-after.txt
+cmp bin-after.txt bin-before.txt
+env AIGW_GITHUB_RELEASE_ORIGIN=
+env AIGW_GITHUB_RELEASE_REPOSITORY=
+
+# Installed over another program, the copy retains it. Run from its own
+# folder, its rollback preview names that program, says that its version
+# cannot be read, since it is no program that Go built, names the
+# configuration file that the rollback's check stages, and writes nothing. The
+# rollback then refuses the retained file, which is no program.
+mkdir $WORK/other
+cp old-program.txt $WORK/other/aigw$exe
+exec aigw self install --path $WORK/other/aigw$exe
+env PATH=$WORK/other
+snapshot $WORK/other other-before.txt
+exec aigw self rollback --dry-run --json
+stdout '"dry_run": true'
+stdout '"version_unread": "its build information cannot be read"'
+stdout '"configuration": '
+exec aigw self rollback --dry-run
+stdout 'Program rollback preview'
+stdout 'Unknown: its build information cannot be read'
+snapshot $WORK/other other-after.txt
+cmp other-after.txt other-before.txt
+exitcode 1 aigw self rollback --json
+stdout '"error": "Program rollback did not complete"'
+fixloop -input stdout aigw self rollback --json
+env PATH=$BIN
+# The running test program retains nothing, so its preview has nothing to
+# name.
+exitcode 1 aigw self rollback --dry-run --json
+stdout '"error": "No previous program to roll back to"'
+
+# uninstall removes a copy and its rollback copy; a preview keeps both.
+exec aigw self install --path $WORK/remove/aigw$exe
+snapshot $WORK/remove remove-before.txt
+exec aigw self uninstall --path $WORK/remove/aigw$exe --dry-run --json
+stdout '"dry_run": true'
+snapshot $WORK/remove remove-after.txt
+cmp remove-after.txt remove-before.txt
+exec aigw self uninstall --path $WORK/remove/aigw$exe --json
+stdout '"program_found": true'
+! exists $WORK/remove/aigw$exe
+exec aigw self uninstall --path $WORK/bin/aigw$exe
+stdout 'Removed AIGW''s client settings, the program and its rollback copy'
+exitcode 1 aigw self uninstall --path $WORK --json
+cp stdout uninstall-folder.json
+exec aigw self uninstall --path $WORK${/}aigw$exe
+fixloop -input -did 'uninstalled the program file inside the folder' uninstall-folder.json aigw self uninstall --path $WORK --json
+
+-- old-program.txt --
+another program
+-- help.txt --
+AIGW  aigw self
+────────────────────────────────────────
+  Install, update, roll back, remove or inspect this program
+
+Usage
+  aigw self [command]
+
+Commands
+  install              Install this portable program
+  rollback             Restore the retained previous program, not the configuration
+  status               Show this program's files and the retained predecessor
+  uninstall            Remove AIGW's client settings and this portable program
+  update               Update this portable program to a verified newer release
+
+Options
+  -h, --help   help for self
+-- rollback-help.txt --
+AIGW  aigw self rollback
+────────────────────────────────────────
+  Activate the program that the last update or installation retained.
+  Its check stages the configuration file that the previous program reads,
+  and a configuration that it cannot read blocks the rollback without
+  changing files. Before Homebrew installs an earlier release, this returns
+  macOS Keychain items to that release's reader.
+
+Usage
+  aigw self rollback [flags]
+
+Examples
+  aigw self rollback --dry-run
+  aigw self rollback
+  aigw self rollback --json
+
+Options
+      --dry-run   Show the retained program, its version and the configuration file that a rollback would use, without running or changing anything
+  -h, --help      help for rollback
+      --json      Write the program transition as JSON
+-- status-refusal.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "next_action": "aigw self status --help"
+}
+-- update-unconfigured.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "release source is not configured; install an official release or use `aigw self update --archive \u003carchive\u003e --checksums \u003cchecksums\u003e`",
+  "next_detail": "aigw self update --archive \u003carchive\u003e --checksums \u003cchecksums\u003e"
+}

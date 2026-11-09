@@ -19,7 +19,7 @@ var ErrHomebrewManaged error = homebrewManagedError{}
 type homebrewManagedError struct{}
 
 func (homebrewManagedError) Error() string {
-	return "Homebrew manages this executable; upgrade, roll back or remove it with Homebrew, such as `brew upgrade --cask aigw`, instead of portable installation commands, and run `aigw update --rollback` before Homebrew installs an earlier release"
+	return "Homebrew manages this executable; upgrade, roll back or remove it with Homebrew, such as `brew upgrade --cask aigw`, instead of portable installation commands, and run `aigw self rollback` before Homebrew installs an earlier release"
 }
 
 // NextAction is the Homebrew command that keeps the program current.

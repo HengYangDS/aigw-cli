@@ -83,7 +83,7 @@ func validateReleaseSources(sources ...ReleaseSource) error {
 type unconfiguredSourceError struct{}
 
 func (unconfiguredSourceError) Error() string {
-	return "release source is not configured; install an official release or use `aigw update --candidate <archive> --checksums <checksums>`"
+	return "release source is not configured; install an official release or use `aigw self update --archive <archive> --checksums <checksums>`"
 }
 
 // Is reports the error as a failure of the release sources.

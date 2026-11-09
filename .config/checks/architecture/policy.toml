@@ -99,6 +99,7 @@ used_exports_only = [
   "internal/cli/rollback",
   "internal/cli/rotate",
   "internal/cli/route",
+  "internal/cli/self",
   "internal/cli/setup",
   "internal/cli/status",
   "internal/cli/sync",

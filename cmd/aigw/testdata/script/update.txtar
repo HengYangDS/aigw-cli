@@ -89,10 +89,10 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  release source is not configured; install an official release or use `aigw update --candidate <archive> --checksums <checksums>`
+  release source is not configured; install an official release or use `aigw self update --archive <archive> --checksums <checksums>`
 
 Fix
-  aigw update --candidate <archive> --checksums <checksums>
+  aigw self update --archive <archive> --checksums <checksums>
 -- rollback.txt --
 AIGW  Action required
 ────────────────────────────────────────
@@ -120,8 +120,8 @@ Next
 {
   "schema_version": 3,
   "ok": false,
-  "error": "release source is not configured; install an official release or use `aigw update --candidate \u003carchive\u003e --checksums \u003cchecksums\u003e`",
-  "next_detail": "aigw update --candidate \u003carchive\u003e --checksums \u003cchecksums\u003e"
+  "error": "release source is not configured; install an official release or use `aigw self update --archive \u003carchive\u003e --checksums \u003cchecksums\u003e`",
+  "next_detail": "aigw self update --archive \u003carchive\u003e --checksums \u003cchecksums\u003e"
 }
 -- current.json --
 {

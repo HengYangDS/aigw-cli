@@ -38,6 +38,7 @@ import (
 	"aigw-cli/internal/cli/rollback"
 	"aigw-cli/internal/cli/rotate"
 	"aigw-cli/internal/cli/route"
+	selfcli "aigw-cli/internal/cli/self"
 	"aigw-cli/internal/cli/setup"
 	"aigw-cli/internal/cli/status"
 	synccli "aigw-cli/internal/cli/sync"
@@ -395,7 +396,7 @@ func NewRoot(app *App) *cobra.Command {
 	recoveryCommands := []*cobra.Command{
 		doctor.NewCommand(runtime), repair.NewCommand(runtime), synccli.NewCommand(runtime),
 		rollback.NewCommand(runtime), updatecli.NewCommand(runtime),
-		installcli.NewCommand(runtime), uninstall.NewCommand(runtime),
+		installcli.NewCommand(runtime), uninstall.NewCommand(runtime), selfcli.NewCommand(runtime),
 	}
 	advanced := []*cobra.Command{
 		installation.NewCommand(runtime),
