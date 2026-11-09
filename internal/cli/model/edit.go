@@ -125,7 +125,11 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, opti
 
 // keepSelectedProtocols refuses protocols that omit the protocol of a client
 // that selects the model: `aigw use` moves the client to one of the protocols
-// that remain first, after which the edit can run.
+// that remain first, after which the edit can run. A protocol that the model
+// declares already is named first. One that it does not declare yet is one
+// that the selection gains, and `aigw use` reads the provider's catalog to
+// gain it, which this edit never needs, so the fix skips that read with
+// --unlisted.
 func keepSelectedProtocols(cfg domain.Config, key string, ref domain.ModelRef, protocols []domain.EndpointProtocol) error {
 	for _, client := range cfg.SelectedClientsForModel(key) {
 		selected, err := cfg.ResolveRuntime(client, "")
@@ -133,19 +137,28 @@ func keepSelectedProtocols(cfg domain.Config, key string, ref domain.ModelRef, p
 			continue
 		}
 		spec, _ := cfg.Admission().Spec(client)
-		var remaining []string
+		var declared, gained []string
 		for _, protocol := range protocols {
-			if slices.Contains(spec.EndpointProtocols, protocol) {
-				remaining = append(remaining, protocol.Name())
+			if !slices.Contains(spec.EndpointProtocols, protocol) {
+				continue
 			}
+			if _, declares := cfg.Models[key].Protocols[protocol]; declares {
+				declared = append(declared, protocol.Name())
+			} else {
+				gained = append(gained, protocol.Name())
+			}
+		}
+		remaining, unlisted := declared, ""
+		if len(remaining) == 0 && len(gained) > 0 {
+			remaining, unlisted = gained, " --unlisted"
 		}
 		fix := fmt.Sprintf("aigw use %s <provider/model>", client)
 		switch len(remaining) {
 		case 0:
 		case 1:
-			fix = fmt.Sprintf("aigw use %s %s --protocol %s", client, ref, remaining[0])
+			fix = fmt.Sprintf("aigw use %s %s --protocol %s%s", client, ref, remaining[0], unlisted)
 		default:
-			fix = fmt.Sprintf("aigw use %s %s --protocol <%s>", client, ref, strings.Join(remaining, "|"))
+			fix = fmt.Sprintf("aigw use %s %s --protocol <%s>%s", client, ref, strings.Join(remaining, "|"), unlisted)
 		}
 		return terminal.ProblemError(
 			fmt.Sprintf("%s uses %s on %s, which this edit would remove", spec.Label, ref, domain.ProtocolLabel(selected.Protocol)),

@@ -171,7 +171,8 @@ func TestEditKeepsTheProtocolThatAClientUses(t *testing.T) {
 	if p := problem(f.run("edit", "team/team-model", "--protocol", "responses")); p.Fix != "aigw use claude <provider/model>" {
 		t.Fatalf("a fix without a remaining protocol for the client = %q", p.Fix)
 	}
-	// Hermes speaks all three, so a choice is offered.
+	// Hermes speaks all three: anthropic, which the model declares, is named
+	// before responses, which it does not.
 	cfg = f.load(t)
 	cfg.Providers["mixed"] = domain.Provider{Label: "Mixed", Endpoints: domain.Endpoints{
 		Anthropic: "https://mixed.test", OpenAIChatCompletions: "https://mixed.test/v1", OpenAIResponses: "https://mixed.test/v1",
@@ -179,8 +180,23 @@ func TestEditKeepsTheProtocolThatAClientUses(t *testing.T) {
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if p := problem(f.run("edit", "mixed/Chat-Only", "--protocol", "anthropic", "--protocol", "responses")); p.Fix != "aigw use hermes mixed/Chat-Only --protocol <anthropic|responses>" {
-		t.Fatalf("a fix with a choice = %q", p.Fix)
+	if p := problem(f.run("edit", "mixed/Chat-Only", "--protocol", "anthropic", "--protocol", "responses")); p.Fix != "aigw use hermes mixed/Chat-Only --protocol anthropic" {
+		t.Fatalf("a fix with a declared protocol = %q", p.Fix)
+	}
+	// A model that declares none of them offers the choice, which the
+	// selection gains without the catalog read that this edit never needs.
+	cfg = f.load(t)
+	model := cfg.Models["mixed-chat"]
+	model.Protocols = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}
+	cfg.Models["mixed-chat"] = model
+	if err := f.runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if p := problem(f.run("edit", "mixed/Chat-Only", "--protocol", "anthropic", "--protocol", "responses")); p.Fix != "aigw use hermes mixed/Chat-Only --protocol <anthropic|responses> --unlisted" {
+		t.Fatalf("a fix with a choice to gain = %q", p.Fix)
+	}
+	if p := problem(f.run("edit", "mixed/Chat-Only", "--protocol", "anthropic")); p.Fix != "aigw use hermes mixed/Chat-Only --protocol anthropic --unlisted" {
+		t.Fatalf("a fix that gains a protocol = %q", p.Fix)
 	}
 	if err := f.run("edit", "mixed/Chat-Only", "--protocol", "chat", "--protocol", "anthropic"); err != nil {
 		t.Fatalf("an edit that keeps the client's protocol: %v", err)

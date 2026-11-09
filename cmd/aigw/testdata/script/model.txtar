@@ -127,6 +127,12 @@ exec aigw rotate mixed --token-stdin
 exec aigw use hermes mixed/chat-only
 exitcode 1 aigw model edit mixed/chat-only --protocol anthropic --json
 cmp stdout edit-selected.json
+# Its fix gains Anthropic Messages for Hermes without reading the catalog,
+# which does not list chat-only. The edit then stops at Hermes's
+# recommendation, as above, and the script moves Hermes back.
+fixloop stdout aigw model edit mixed/chat-only --protocol anthropic --json
+exec aigw use hermes mixed/chat-only --protocol chat
+exec aigw model edit mixed/chat-only --protocol chat
 
 # The team file gives mixed/twin a Route on each of two protocols: show
 # refuses the name and names --protocol, which selects one.
@@ -778,7 +784,7 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "Hermes uses mixed/chat-only on OpenAI Chat Completions, which this edit would remove",
-  "next_action": "aigw use hermes mixed/chat-only --protocol anthropic"
+  "next_action": "aigw use hermes mixed/chat-only --protocol anthropic --unlisted"
 }
 -- remove-selected.json --
 {
