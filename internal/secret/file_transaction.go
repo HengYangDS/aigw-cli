@@ -60,7 +60,7 @@ func openSecureRoot(path string, create bool) (*os.Root, error) {
 		}
 	}
 	before, err := os.Lstat(path)
-	if absent, refusal := platform.MissingAt(path, err); refusal != nil {
+	if absent, refusal := platform.MissingAt(path, platform.FolderExpected, err); refusal != nil {
 		return nil, fmt.Errorf("inspect Token directory: %w", refusal)
 	} else if absent && !create {
 		return nil, nil

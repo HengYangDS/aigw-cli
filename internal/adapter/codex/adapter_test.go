@@ -111,7 +111,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		// creates both. Outside this test's home it names the file by its own
 		// name, no private path.
 		if status.Ready || len(status.Checks) != 1 || status.Checks[0].Detail != "Codex configuration target is unavailable" ||
-			status.RepairAction != "Create config.toml and the folder that holds it, or choose another path, then run the same command again." {
+			status.RepairAction != "Create the file outside the home directory and the folder that holds it, then run `aigw sync`." {
 			t.Fatalf("status = %#v", status)
 		}
 	})
@@ -326,7 +326,7 @@ func TestACodexAdapterInspectsAFileInTheWay(t *testing.T) {
 	runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
 	deps := adapter.Dependencies{Discovery: fixedDiscoverer{}, Host: discovery.Host{Home: root}}
 	status := (codexAdapter{}).Inspect(context.Background(), deps, cfg, runtime)
-	want := "Move the file ~/work, then create ~/work/config.toml and the folder that holds it, or choose another path, then run the same command again."
+	want := "Move the file ~/work, then create ~/work/config.toml and the folder that holds it, then run `aigw sync`."
 	if status.Ready || status.RepairAction != want {
 		t.Fatalf("a file in the way = %#v", status)
 	}

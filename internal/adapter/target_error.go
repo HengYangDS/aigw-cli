@@ -3,6 +3,7 @@ package adapter
 import (
 	"errors"
 
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 )
 
@@ -18,6 +19,10 @@ type TargetError struct {
 	Path    string
 	Desired bool
 	Err     error
+	// OperatorCreates, which the registry adds from the client's spec, says
+	// that the operator creates the file and its folder, as AIGW does not
+	// create a Codex home, unless the failure itself says who does.
+	OperatorCreates bool
 }
 
 // Error names the file, when there is one, and why it failed.
@@ -32,10 +37,11 @@ func (e *TargetError) Error() string {
 func (e *TargetError) Unwrap() error { return e.Err }
 
 // namedTarget names, in err, the client and the home directory of a client
-// file that client's adapter failed on, as ApplyError does for a write.
-func namedTarget(client ClientLabel, home string, err error) error {
+// file that spec's adapter failed on, as ApplyError does for a write, and who
+// creates the client's files.
+func namedTarget(spec domain.ClientSpec, home string, err error) error {
 	if failed, atTarget := errors.AsType[*TargetError](err); atTarget && failed.Client == "" {
-		failed.Client, failed.Home = string(client), home
+		failed.Client, failed.Home, failed.OperatorCreates = spec.Label, home, spec.OperatorCreatesTargets
 	}
 	return err
 }

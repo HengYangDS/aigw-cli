@@ -75,7 +75,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			_, targetErr := os.Stat(target)
-			absentTarget, refusal := platform.MissingAt(target, targetErr)
+			absentTarget, refusal := platform.MissingAt(target, platform.FileExpected, targetErr)
 			if refusal != nil {
 				return fmt.Errorf("inspect installed AIGW executable: %w", refusal)
 			}
@@ -84,7 +84,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			programFound := targetErr == nil
 			_, statErr := os.Stat(runtime.Config.Path())
-			if absent, refusal := platform.MissingAt(runtime.Config.Path(), statErr); refusal != nil {
+			if absent, refusal := platform.MissingAt(runtime.Config.Path(), platform.FileExpected, statErr); refusal != nil {
 				return fmt.Errorf("inspect AIGW configuration: %w", refusal)
 			} else if !absent && statErr != nil {
 				return fmt.Errorf("inspect AIGW configuration: %w", statErr)

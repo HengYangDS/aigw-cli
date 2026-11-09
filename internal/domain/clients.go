@@ -89,6 +89,11 @@ type ClientSpec struct {
 	// reads one but finds it through discovery when none is given, such as
 	// Hermes's configuration file.
 	OptionalTarget string
+	// OperatorCreatesTargets marks a client whose explicit target file and its
+	// folder the operator creates, because AIGW does not create the client's
+	// home, as for Codex; AIGW creates every other client's target as it
+	// writes it.
+	OperatorCreatesTargets bool
 	// RetryBudgets marks a client that honors per-connection retry budgets.
 	RetryBudgets bool
 	// DefaultModelProvider is the model provider that a selection uses when it

@@ -66,7 +66,7 @@ func TestUnreadableRecordNamesTheRecordToRestore(t *testing.T) {
 func TestUnreadableStatusNamesTheFile(t *testing.T) {
 	home := filepath.Join(string(filepath.Separator)+"home", "user")
 	status, unreadable := UnreadableStatus(fmt.Errorf("read: %w", fs.ErrPermission), filepath.Join(home, ".codex", "config.toml"), home)
-	if !unreadable || status.RepairAction != "Make ~/.codex/config.toml readable, then run the same command again." {
+	if !unreadable || status.RepairAction != "Make ~/.codex/config.toml and its folder readable and writable, then run `aigw sync`." {
 		t.Fatalf("status = %#v, %t", status, unreadable)
 	}
 	if _, unreadable := UnreadableStatus(fs.ErrNotExist, filepath.Join(home, "x"), home); unreadable {

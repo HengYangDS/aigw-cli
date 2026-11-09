@@ -260,8 +260,8 @@ func TestPlanInstallRefusesAPathThroughAFile(t *testing.T) {
 	}
 	for _, target := range []string{filepath.Join(blocked, "aigw"), filepath.Join(blocked, "nested", "aigw")} {
 		_, err := PlanInstall(source, target)
-		failure, atFile := errors.AsType[*os.PathError](err)
-		if !atFile || failure.Path != blocked || !errors.Is(err, syscall.ENOTDIR) {
+		failure, classified := errors.AsType[*platform.PathConditionError](err)
+		if !classified || failure.Culprit != blocked || !errors.Is(err, syscall.ENOTDIR) {
 			t.Fatalf("%s = %v", target, err)
 		}
 	}

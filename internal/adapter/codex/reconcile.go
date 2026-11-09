@@ -372,7 +372,7 @@ func missingCodexTarget(target codexReconciliationTarget, recorded bool, statePa
 	case target.desired && target.ref.CreateIfAbsent:
 		return codexPreparedTarget{}, adapter.MissingWithRecord("Codex", target.ref.Path, statePath, "")
 	case target.desired:
-		return codexPreparedTarget{}, missingTargetError{path: target.ref.configured}
+		return codexPreparedTarget{}, newMissingTargetError(target.ref.configured)
 	case recorded:
 		return codexPreparedTarget{}, recordedMissingTargetError{record: filepath.Base(statePath)}
 	}

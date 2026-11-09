@@ -128,7 +128,7 @@ func executableAvailable(goos, path string) (bool, error) {
 		return false, nil
 	}
 	info, err := os.Stat(path)
-	if absent, refusal := platform.MissingAt(path, err); refusal != nil {
+	if absent, refusal := platform.MissingAt(path, platform.FileExpected, err); refusal != nil {
 		return false, refusal
 	} else if absent {
 		return false, nil

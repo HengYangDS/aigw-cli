@@ -2,12 +2,14 @@ package codex
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/terminal"
 )
 
@@ -73,7 +75,7 @@ func TestAMissingTargetIsRefusedWithItsInspection(t *testing.T) {
 	kept := filepath.Join(t.TempDir(), "gone", "config.toml")
 	_, err = ReconcileConfigs([]TargetRef{HomeTarget(kept)}, []TargetRef{HomeTarget(kept)}, atomicTestRuntime(), atomicTestRuntime(), false)
 	problem = terminal.ProblemFor(err)
-	if want := "Create " + kept + " and the folder that holds it, or choose another path, then run the same command again."; problem.Fix != want {
+	if want := "Create " + kept + " and the folder that holds it, then run the same command again."; problem.Fix != want {
 		t.Fatalf("a kept file that is gone = %q, fix %q", problem.Title, problem.Fix)
 	}
 	if target, ok := errors.AsType[*adapter.TargetError](err); !ok || !target.Desired {
@@ -81,23 +83,29 @@ func TestAMissingTargetIsRefusedWithItsInspection(t *testing.T) {
 	}
 }
 
-// Codex's default home is created again by a sync, so only a configuration
-// file elsewhere that is gone names the move to another file.
+// missing classifies a configured Codex file that a check found absent.
+func missing(path string) *platform.PathConditionError {
+	return platform.ClassifyPath(path, platform.FileExpected, &fs.PathError{Op: "stat", Path: path, Err: fs.ErrNotExist})
+}
+
+// Codex's default home is created again by a sync, which a check names. A
+// configuration file elsewhere is not, and AIGW creates no Codex file either,
+// so the check names the file to create, with its folder when that is gone,
+// and the sync that completes the repair.
 func TestAMissingTargetsRepairFollowsItsHome(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home", "config.toml")
 	deps := adapter.Dependencies{Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(HomeDefault), ConfigPath: home, AutoManaged: true}}}}, Host: discovery.Host{Home: root}}
-	if got := missingTargetRepair(deps, home); got != "aigw sync" {
+	if got := missingTargetRepair(deps, missing(home)); got != "aigw sync" {
 		t.Fatalf("the default home = %q", got)
 	}
-	// A file elsewhere whose folder is there needs only the file: AIGW does not
-	// create a Codex file, so naming another edit would be refused the same way.
+	// Outside the home directory a check names no path.
 	other := filepath.Join(t.TempDir(), "config.toml")
-	if got, want := missingTargetRepair(deps, other), "Create config.toml, or choose another path, then run the same command again."; got != want {
+	if got, want := missingTargetRepair(deps, missing(other)), "Create the file outside the home directory, then run `aigw sync`."; got != want {
 		t.Fatalf("a file whose folder exists = %q, want %q", got, want)
 	}
 	gone := filepath.Join(root, "gone", "config.toml")
-	if got, want := missingTargetRepair(deps, gone), "Create ~/gone/config.toml and the folder that holds it, or choose another path, then run the same command again."; got != want {
+	if got, want := missingTargetRepair(deps, missing(gone)), "Create ~/gone/config.toml and the folder that holds it, then run `aigw sync`."; got != want {
 		t.Fatalf("a file in a missing folder = %q, want %q", got, want)
 	}
 }
@@ -110,28 +118,30 @@ func TestAMissingTargetsRepairNamesARecordThatRemains(t *testing.T) {
 	writeCodexFixture(t, codexStatePath(home), "{}")
 	deps := adapter.Dependencies{Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(HomeDefault), ConfigPath: home, AutoManaged: true}}}}}
 	want := "Restore config.toml, or delete config.toml.aigw-state.json in its folder if config.toml is gone for good, then run `aigw sync`"
-	if got := missingTargetRepair(deps, home); got != want {
+	if got := missingTargetRepair(deps, missing(home)); got != want {
 		t.Fatalf("the default home with its record = %q", got)
 	}
 }
 
-// A missing target whose folder is a regular file names that file to move,
-// never a folder to create, which Windows reaches because it reports such a
-// path as missing.
-func TestAMissingTargetUnderAFileNamesTheFileToMove(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "file")
-	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
+// A missing target that the configuration keeps is the operator's to create:
+// its refusal says why, and wraps the classification from which every surface
+// renders the fix, here for a command.
+func TestAMissingTargetIsTheOperatorsToCreate(t *testing.T) {
+	root := t.TempDir()
+	refusal := newMissingTargetError(filepath.Join(root, "gone", "config.toml"))
+	failure, classified := errors.AsType[*platform.PathConditionError](refusal)
+	if !classified || failure.Condition != platform.PathMissingFolder || !failure.OperatorCreates || !failure.Given ||
+		refusal.Error() != "Codex config does not exist, and AIGW does not create a Codex home" {
+		t.Fatalf("the refusal = %v, %+v", refusal, failure)
 	}
-	got := missingTargetError{path: filepath.Join(file, "config.toml")}.NextAction()
-	if want := "Move the file " + file + ", then create " + filepath.Join(file, "config.toml") + " and the folder that holds it, or choose another path, then run the same command again."; got != want {
+	if got, want := platform.PathFix(failure, platform.PathContext{Home: root}), "Create ~/gone/config.toml and the folder that holds it, then run the same command again."; got != want {
 		t.Fatalf("the fix = %q, want %q", got, want)
 	}
 }
 
 // A folder that is a regular file, or a link that leads nowhere, is named to
 // move or remove before a folder to create, which no create through it can
-// satisfy.
+// satisfy, and the check then names what the operator creates and the sync.
 func TestAMissingTargetsRepairNamesTheFolderItCannotCreate(t *testing.T) {
 	root := t.TempDir()
 	deps := adapter.Dependencies{Host: discovery.Host{Home: root}}
@@ -139,15 +149,15 @@ func TestAMissingTargetsRepairNamesTheFolderItCannotCreate(t *testing.T) {
 	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := missingTargetRepair(deps, filepath.Join(file, "config.toml")), "Move the file ~/work, then create ~/work/config.toml and the folder that holds it, or choose another path, then run the same command again."; got != want {
+	if got, want := missingTargetRepair(deps, missing(filepath.Join(file, "config.toml"))), "Move the file ~/work, then create ~/work/config.toml and the folder that holds it, then run `aigw sync`."; got != want {
 		t.Fatalf("a file where the folder belongs = %q, want %q", got, want)
 	}
 	link := filepath.Join(root, "dlink")
 	if err := os.Symlink(filepath.Join(root, "nowhere"), link); err != nil {
 		t.Skipf("symbolic links are unavailable: %v", err)
 	}
-	got := missingTargetRepair(deps, filepath.Join(link, "config.toml"))
-	if want := "Remove the link ~/dlink, then create ~/dlink/config.toml and the folder that holds it, or choose another path, then run the same command again."; got != want {
+	got := missingTargetRepair(deps, missing(filepath.Join(link, "config.toml")))
+	if want := "Remove the link ~/dlink, then create ~/dlink/config.toml and the folder that holds it, then run `aigw sync`."; got != want {
 		t.Fatalf("a link where the folder belongs = %q, want %q", got, want)
 	}
 }

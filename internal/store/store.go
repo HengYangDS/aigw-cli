@@ -383,7 +383,7 @@ func (s Store) Load() (domain.Config, error) {
 // credential reader.
 func (s Store) LoadCredentialConfig() (domain.Config, error) {
 	data, err := os.ReadFile(s.path)
-	if absent, refusal := platform.MissingAt(s.path, err); absent || refusal != nil {
+	if absent, refusal := platform.MissingAt(s.path, platform.FileExpected, err); absent || refusal != nil {
 		if refusal != nil {
 			return domain.Config{}, newLoadError(LoadPhaseRead, refusal)
 		}

@@ -150,7 +150,7 @@ func TestAFailedWriteNamesTheFileAndWhatWasRestored(t *testing.T) {
 		Title:    "Codex could not write ~/b/config.toml: permission denied",
 		Evidence: "~/a/config.toml.aigw-state.json was restored. ~/a/config.toml was restored. ~/b/config.toml is unchanged.",
 		Impact:   "The configuration was restored.",
-		Fix:      "Make ~/b/config.toml and its folder writable, then run the same command again.",
+		Fix:      "Make ~/b/config.toml and its folder readable and writable, then run the same command again.",
 	}
 	if problem := terminal.ProblemFor(err); problem != want {
 		t.Fatalf("a failed write = %#v\nwant %#v", problem, want)

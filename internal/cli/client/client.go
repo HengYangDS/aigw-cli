@@ -113,7 +113,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		}
 		// A file that no client can read is refused before any validator,
 		// discovery or route check, which would report it otherwise.
-		return refuseTargetsUnderFiles(absolute, invocation.Home(runtime.Dependencies))
+		return refuseTargetsUnderFiles(absolute, spec, invocation.Home(runtime.Dependencies))
 	}, RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
 		spec, _ := runtime.Clients.Admission().Spec(client)
@@ -166,7 +166,8 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 func admitEnablement(runtime invocation.Context, cfg domain.Config, client string, targets []string) error {
 	// A file that no client can read is refused before anything else that
 	// enabling needs, such as a selected model.
-	if err := refuseTargetsUnderFiles(targets, invocation.Home(runtime.Dependencies)); err != nil {
+	spec, _ := cfg.Admission().Spec(client)
+	if err := refuseTargetsUnderFiles(targets, spec, invocation.Home(runtime.Dependencies)); err != nil {
 		return err
 	}
 	clientRuntime, err := cfg.ResolveRuntime(client, "")

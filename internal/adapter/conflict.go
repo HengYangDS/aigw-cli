@@ -2,9 +2,10 @@ package adapter
 
 import (
 	"errors"
-	"io/fs"
 	"path/filepath"
 	"strings"
+
+	"aigw-cli/internal/platform"
 )
 
 // ConflictError reports that a client file holds something that AIGW refuses
@@ -75,20 +76,18 @@ func (e *ConflictError) ProjectionConflict() bool { return true }
 func (e *ConflictError) NextAction() string { return e.next }
 
 // UnreadableStatus returns the status of a client file at path that the user
-// cannot read, and whether err is that failure. Synchronization cannot read
-// it either, so the repair names the file and the same check again. home names
-// the file as ~/... where it lies under it.
+// cannot read, and whether err is that failure. Synchronization cannot read it
+// either, so the repair is the one fix of its path condition, rendered for a
+// check against home: inside home the file is named ~/…, outside it not at all.
 func UnreadableStatus(err error, path, home string) (Status, bool) {
-	if !errors.Is(err, fs.ErrPermission) {
+	failure := platform.ClassifyPath(path, platform.FileExpected, err).Owned(false)
+	if failure.Condition != platform.PathPermission {
 		return Status{}, false
 	}
-	name := path
-	if relative, relErr := filepath.Rel(home, path); relErr == nil && home != "" && !strings.HasPrefix(relative, "..") {
-		name = "~/" + filepath.ToSlash(relative)
-	}
+	at := platform.PathContext{Home: home, Check: true}
 	return Status{
-		Issue:        "AIGW cannot read " + name + ": permission denied",
-		RepairAction: "Make " + name + " readable, then run the same command again.",
+		Issue:        "AIGW cannot read " + at.Name(failure, path) + ": permission denied",
+		RepairAction: platform.PathFix(failure, at),
 	}, true
 }
 

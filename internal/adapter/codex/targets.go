@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -62,7 +63,7 @@ func normalizeCodexTargets(values []TargetRef, desired bool) ([]TargetRef, error
 		}
 		path, err := canonicalCodexTargetPath(sourcePath)
 		if err != nil {
-			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: err}
+			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: ownedTarget(err, target)}
 		}
 		if slices.ContainsFunc(normalized, func(kept TargetRef) bool { return kept.Path == path || sameTargetFile(kept.configured, sourcePath) }) {
 			// A configuration from before sync converged one file's names, which
@@ -74,7 +75,7 @@ func normalizeCodexTargets(values []TargetRef, desired bool) ([]TargetRef, error
 		}
 		folder, err := canonicalCodexTargetPath(filepath.Dir(sourcePath))
 		if err != nil {
-			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: err}
+			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: ownedTarget(err, target)}
 		}
 		target.Path = path
 		target.statePath = preferredCodexStatePath(sourcePath, path)
@@ -83,6 +84,15 @@ func normalizeCodexTargets(values []TargetRef, desired bool) ([]TargetRef, error
 	}
 	sort.Slice(normalized, func(left, right int) bool { return normalized[left].Path < normalized[right].Path })
 	return normalized, nil
+}
+
+// ownedTarget marks a path failure of target as a file that the operator gave,
+// and creates unless sync creates it again in Codex's default home.
+func ownedTarget(err error, target TargetRef) error {
+	if failure, classified := errors.AsType[*platform.PathConditionError](err); classified {
+		return failure.Owned(!target.CreateIfAbsent)
+	}
+	return err
 }
 
 // duplicateTargetError refuses two configured targets that name one file. A
@@ -117,19 +127,10 @@ func sameTargetFile(left, right string) bool {
 	return leftErr == nil && rightErr == nil && os.SameFile(leftInfo, rightInfo)
 }
 
-// brokenTargetLinkError refuses a Codex target whose folder, or one above it,
-// is a symbolic link that leads nowhere: AIGW neither follows it nor creates a
-// folder through it, because a create there fails with "file exists". The fix
-// names the link to remove and the folder and file to create in its place.
-type brokenTargetLinkError struct{ link, target string }
-
-func (brokenTargetLinkError) Error() string { return "Codex target is a broken symlink" }
-
-// TargetFix renders the fix against home, which names a file inside it as ~/….
-func (e brokenTargetLinkError) TargetFix(home string) string {
-	return "Remove the link " + adapter.Named(e.link, home) + ", then create " + adapter.Named(e.target, home) + " and the folder that holds it, or choose another path, then run the same command again."
-}
-
+// canonicalCodexTargetPath resolves path's symbolic links, keeping the names of
+// the parts that do not exist yet. A file in the way or a link that leads
+// nowhere refuses it, classified at path, the target as given: AIGW neither
+// walks past nor creates a folder through either one.
 func canonicalCodexTargetPath(path string) (string, error) {
 	absolute, err := absoluteCodexTargetPath(path)
 	if err != nil {
@@ -145,16 +146,15 @@ func canonicalCodexTargetPath(path string) (string, error) {
 			return filepath.Clean(resolved), nil
 		}
 		// A path through a regular file resolves to nothing, and on Windows it
-		// reads as a missing path, so the file in the way is named to move
-		// rather than walked past.
-		if absent, refusal := platform.MissingAt(absolute, err); !absent {
-			if refusal != nil {
-				return "", refusal
-			}
+		// reads as a missing path; the file system tells it from a missing one.
+		failure := platform.ClassifyPath(absolute, platform.FileExpected, err)
+		switch {
+		case failure.Blocked():
+			blocked := *failure
+			blocked.Path = path
+			return "", &blocked
+		case !failure.Absent():
 			return "", fmt.Errorf("resolve Codex target symlinks: %w", err)
-		}
-		if _, err := os.Lstat(absolute); err == nil {
-			return "", brokenTargetLinkError{link: absolute, target: path}
 		}
 		missing = append(missing, filepath.Base(absolute))
 		absolute = filepath.Dir(absolute)

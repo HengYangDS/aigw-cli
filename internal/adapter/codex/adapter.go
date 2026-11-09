@@ -32,7 +32,7 @@ func New() adapter.Adapter { return codexAdapter{} }
 func (codexAdapter) Spec() domain.ClientSpec {
 	return domain.ClientSpec{
 		ID: ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses},
-		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true,
+		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
 		DefaultModelProvider: modelProviderAIGW, ClientNativeAuthentication: true,
 		PublishedProfileProtocol: domain.ProtocolOpenAIResponses,
 		Doctor:                   domain.DoctorWording{AdapterStates: true, ModelBinding: true},
@@ -167,12 +167,12 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 // selection, with its issue and repair, or no detail when it matches.
 func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, target string) (issue, detail, repair string) {
 	issue, repair = "Codex configuration projection drift: ", "aigw sync"
-	// A missing file, or a path through a regular file, which Windows reports as
-	// missing, is found before the credential reader that it names is read
-	// through it, which would only fail.
+	// A missing file, or a path that a file in the way or a link that leads
+	// nowhere blocks, which Windows reports as missing, is found before the
+	// credential reader that it names is read through it, which would only fail.
 	if _, err := os.Stat(target); err != nil {
-		if absent, refusal := platform.MissingAt(target, err); absent || refusal != nil {
-			return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, target)
+		if failure := platform.ClassifyPath(target, platform.FileExpected, err); failure.Absent() || failure.Blocked() {
+			return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, failure)
 		}
 	}
 	if _, err := adapter.CaptureTarget(target, true); err != nil {
@@ -201,32 +201,30 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 	case err == nil:
 		return issue, "", repair
 	case errors.Is(err, os.ErrNotExist):
-		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, target)
+		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, platform.ClassifyPath(target, platform.FileExpected, err))
 	default:
 		return issue, "Codex configuration target does not match selected binding", repair
 	}
 }
 
-// missingTargetRepair is the step for a configured Codex file that does not
-// exist: sync creates it again in Codex's default home, unless AIGW's record
-// of it remains, and anywhere else Codex moves to another file, because sync
-// does not create a Codex home.
-func missingTargetRepair(deps adapter.Dependencies, path string) string {
-	// A file in the way is named before the default home, which a sync cannot
-	// create either.
-	if _, atLink := platform.DanglingLinkInPath(filepath.Dir(path)); atLink || platform.FileInTheWay(path) != nil {
-		return missingTargetError{path: path, home: deps.Host.Home}.TargetFix(deps.Host.Home)
-	}
+// missingTargetRepair is the step, for a check, of a configured Codex file that
+// failure classifies as missing or blocked. AIGW's record of a missing file in
+// Codex's default home is decided first; otherwise the one fix of the path's
+// condition: sync creates the default home's file again, and anywhere else the
+// operator creates it, because AIGW does not create a Codex home.
+func missingTargetRepair(deps adapter.Dependencies, failure *platform.PathConditionError) string {
+	path := failure.Path
+	autoManaged := false
 	if discovered, err := discover(deps); err == nil {
-		if surface, ok := discovered.SurfaceForConfigPath(path); ok && surface.AutoManaged {
-			record := codexRecordPath(path)
-			if _, statErr := os.Lstat(record); statErr == nil {
-				return adapter.MissingWithRecord("Codex", path, record, "").NextAction()
-			}
-			return "aigw sync"
+		surface, ok := discovered.SurfaceForConfigPath(path)
+		autoManaged = ok && surface.AutoManaged
+	}
+	if record := codexRecordPath(path); autoManaged && failure.Absent() {
+		if _, statErr := os.Lstat(record); statErr == nil {
+			return adapter.MissingWithRecord("Codex", path, record, "").NextAction()
 		}
 	}
-	return missingTargetError{path: path, home: deps.Host.Home}.NextAction()
+	return platform.PathFix(failure.Owned(!autoManaged), platform.PathContext{Home: deps.Host.Home, Check: true})
 }
 
 func (codexAdapter) Withdraw(cfg *domain.Config) {

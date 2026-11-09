@@ -94,7 +94,7 @@ func resolveExistingParent(path string) (string, error) {
 		return path, nil
 	}
 	resolved, err := filepath.EvalSymlinks(parent)
-	if absent, refusal := platform.MissingAt(parent, err); refusal != nil {
+	if absent, refusal := platform.MissingAt(parent, platform.FolderExpected, err); refusal != nil {
 		return "", fmt.Errorf("resolve installation parent: %w", refusal)
 	} else if absent {
 		resolved, err = resolveExistingParent(parent)

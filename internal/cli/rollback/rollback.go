@@ -44,15 +44,13 @@ func rollbackFailureImpact(err error) string {
 func unavailable(runtime invocation.Context, cause error) error {
 	fix := "aigw check --depth local"
 	if _, err := os.Stat(runtime.Config.Path()); err != nil {
-		absent, refusal := platform.MissingAt(runtime.Config.Path(), err)
+		// A configuration that loaded means its folder is there, so a blocked
+		// path holds only when a file replaced the folder since the load.
+		failure := platform.ClassifyPath(runtime.Config.Path(), platform.FileExpected, err)
 		switch {
-		case refusal != nil:
-			// The classification names the file; the error's own text would read
-			// "mkdir /Users/…: not a directory". A configuration that loaded means
-			// its folder is there, so this holds only when a file replaced the
-			// folder between the load and this observation.
-			fix = terminal.FileAccessFix(refusal, runtime.Config.Path(), invocation.Home(runtime.Dependencies))
-		case absent:
+		case failure.Blocked():
+			fix = platform.PathFix(failure, platform.PathContext{Home: invocation.Home(runtime.Dependencies), Configuration: runtime.Config.Path()})
+		case failure.Absent():
 			fix = "aigw setup"
 		}
 	}

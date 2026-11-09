@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"strings"
 	"syscall"
 
@@ -96,7 +95,7 @@ func RenderCredentialError(renderer *Renderer, err error) {
 // file, never the process's. Structured problems, configuration recovery
 // outcomes, an unsupported configuration version, which carries its own
 // guidance, and any other error return unchanged.
-func LocalFailure(version string, at PathContext, err error) error {
+func LocalFailure(version string, at platform.PathContext, err error) error {
 	if _, structured := errors.AsType[*userError](err); structured {
 		return err
 	}
@@ -119,9 +118,9 @@ func LocalFailure(version string, at PathContext, err error) error {
 
 // configurationFix is the fix of a configuration that did not load at phase:
 // the fix of the path failure that stopped its read, or the stage's own.
-func configurationFix(phase store.LoadPhase, path *platform.PathConditionError, at PathContext) string {
+func configurationFix(phase store.LoadPhase, path *platform.PathConditionError, at platform.PathContext) string {
 	if path != nil && path.Condition != platform.PathOther {
-		return pathFix(path, false, at)
+		return platform.PathFix(path, at)
 	}
 	return configurationLoadFix(phase)
 }
@@ -177,7 +176,7 @@ func ConfigurationLoadFix(err error) string {
 func configurationLoadFix(phase store.LoadPhase) string {
 	switch phase {
 	case store.LoadPhaseRead:
-		return "Restore read access to the configuration file; `aigw config path` prints its location."
+		return platform.ConfigurationReadFix
 	case store.LoadPhaseParse:
 		return "Correct the configuration file at that parse position, or restore it from a backup; `aigw config path` prints its location."
 	case store.LoadPhaseValidate:
@@ -187,26 +186,26 @@ func configurationLoadFix(phase store.LoadPhase) string {
 	}
 }
 
-// localFileAccessMessage is the title of a failure at a path of AIGW's own:
-// the operation and its reason, the same on every platform.
-func localFileAccessMessage(path *platform.PathConditionError) string {
+// pathTitle is the title of a path failure, whose reason reads the same on
+// every platform: a path that the operator gave by its name, and a path of
+// AIGW's own by the operation that failed there.
+func pathTitle(path *platform.PathConditionError, at platform.PathContext) string {
+	if path.Given {
+		return "AIGW cannot use " + at.Name(path, path.Path) + ": " + pathReason(path)
+	}
 	return fmt.Sprintf("Local file access failed (%s: %s)", path.Op, pathReason(path))
 }
 
 // ManifestReadFailure presents a configuration manifest that cannot be read,
 // naming the path as the user gave it, with the step that resolves the error.
 func ManifestReadFailure(path string, err error) error {
-	reason := fileErrorReason(err)
-	fix := "Resolve " + reason + " on " + path + ", then run the same command again."
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
+	failure := platform.ClassifyPath(path, platform.FileExpected, err).Owned(false)
+	reason := pathReason(failure)
+	fix := platform.PathFix(failure, platform.PathContext{})
+	// A team file is an input that the operator names, not one to create: a
+	// path that holds none, or that a file in the way blocks, names another.
+	if failure.Absent() || failure.Blocked() {
 		fix = "Name a team file that exists, then run the same command again."
-	case errors.Is(err, fs.ErrPermission):
-		fix = "Make " + path + " readable by you, then run the same command again."
-	}
-	if failure, atFile := errors.AsType[*os.PathError](platform.FileInTheWay(path)); atFile {
-		reason = platform.ErrFileAsFolder.Error()
-		fix = "Move the file " + failure.Path + ", or choose another path, then run the same command again."
 	}
 	return ProblemError("Cannot read the team file "+path+": "+reason, "", "Nothing was imported.", fix, err)
 }
@@ -301,13 +300,13 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 // impact states each undo that err reports as failed, with its cause, after
 // any impact of its own. A typed problem states what its raiser reported.
 func ProblemFor(err error) Problem {
-	return problemIn(err, PathContext{})
+	return problemIn(err, platform.PathContext{})
 }
 
 // problemIn is err's problem in at, the run that presents it, whose home
 // directory and configuration file a path failure's fix names. A run that does
 // not pass its own names no path.
-func problemIn(err error, at PathContext) Problem {
+func problemIn(err error, at platform.PathContext) Problem {
 	// A nil error is a caller's mistake; it is reported, never dereferenced.
 	if err == nil {
 		return Problem{Title: "AIGW reported a failure without a cause", Fix: "aigw check"}
@@ -361,7 +360,9 @@ func capitalized(clause string) string {
 	return strings.ToUpper(clause[:1]) + clause[1:]
 }
 
-func problemFor(err error, at PathContext) Problem {
+func problemFor(err error, at platform.PathContext) Problem {
+	// A path failure states its condition's fix, whatever wraps it, unless an
+	// outer error states its own.
 	user, structured := errors.AsType[*userError](err)
 	failure, atFile := errors.AsType[*adapter.ApplyError](err)
 	target, atTarget := errors.AsType[*adapter.TargetError](err)
@@ -390,18 +391,18 @@ func problemFor(err error, at PathContext) Problem {
 		}
 		return Problem{Title: "Updating the client files failed", Impact: impact, Fix: fix}
 	}
-	message := localizedErrorMessage(err)
+	message := localizedErrorMessage(err, at)
 	return Problem{Title: message, Fix: errorFix(err, message, at)}
 }
 
-func localizedErrorMessage(err error) string {
-	if message, ok := typedErrorMessage(err); ok {
+func localizedErrorMessage(err error, at platform.PathContext) string {
+	if message, ok := typedErrorMessage(err, at); ok {
 		return message
 	}
 	return localizeCobraError(err.Error())
 }
 
-func typedErrorMessage(err error) (string, bool) {
+func typedErrorMessage(err error, at platform.PathContext) (string, bool) {
 	if conflict, ok := errors.AsType[interface {
 		error
 		ProjectionConflict() bool
@@ -430,8 +431,10 @@ func typedErrorMessage(err error) (string, bool) {
 		}
 		return message, true
 	}
-	if path := pathFailureIn(err); path != nil {
-		return localFileAccessMessage(path), true
+	// An operating-system error at a path is titled by its condition; a
+	// refusal that wraps a classification keeps its own text, which says why.
+	if path := pathFailureIn(err); path != nil && atOperatingSystem(err) {
+		return pathTitle(path, at), true
 	}
 	if document, ok := errors.AsType[*toml.DecodeError](err); ok {
 		line, column := document.Position()
@@ -486,7 +489,7 @@ func cobraUnknownFlag(message string) (string, string, bool) {
 // that AIGW recognizes by its type has a known fix, and a usage error names
 // the help of the command that refused it. Any other error names
 // `aigw check`, a diagnostic that does not fail the same way.
-func errorFix(err error, message string, at PathContext) string {
+func errorFix(err error, message string, at platform.PathContext) string {
 	if fix, ok := statedFix(err, message); ok {
 		return fix
 	}
@@ -498,7 +501,7 @@ func errorFix(err error, message string, at PathContext) string {
 	}
 	// A path of AIGW's own, which AIGW creates as it writes it.
 	if path := pathFailureIn(err); path != nil {
-		return pathFix(path, false, at)
+		return platform.PathFix(path, at)
 	}
 	return "aigw check"
 }
@@ -512,12 +515,13 @@ func StatesFix(err error) bool {
 	if user, ok := errors.AsType[*userError](err); ok {
 		return user.problem.Fix != ""
 	}
-	// Only err's own fix counts, never a wrapped cause's. A refusal that renders
-	// its fix against the home directory states one as well.
+	// Only err's own fix counts, never a wrapped cause's, except a path failure
+	// that the operation classified, whose condition decides the fix wherever
+	// it is presented.
 	if refusal, ok := err.(interface{ NextAction() string }); ok && refusal.NextAction() != "" {
 		return true
 	}
-	if refusal, ok := err.(interface{ TargetFix(string) string }); ok && refusal.TargetFix("") != "" {
+	if path, classified := errors.AsType[*platform.PathConditionError](err); classified && path.Condition != platform.PathOther {
 		return true
 	}
 	return mentionedAIGWCommand(ownMessage(err)) != ""
@@ -554,7 +558,7 @@ func statedFix(err error, message string) (string, bool) {
 // typedErrorFix is the fix of a failure that AIGW recognizes by its type,
 // independent of its text: a client without a selected Route, a configuration
 // that does not load, and a TOML document that does not decode.
-func typedErrorFix(err error, at PathContext) (string, bool) {
+func typedErrorFix(err error, at platform.PathContext) (string, bool) {
 	if unselected, ok := errors.AsType[*domain.RuntimeBindingUnselectedError](err); ok {
 		return fmt.Sprintf("aigw use %s <provider/model>", unselected.Client), true
 	}

@@ -177,7 +177,7 @@ func checkEdit(cmd *cobra.Command, admission domain.Admission, spec domain.Clien
 		return err
 	}
 	// As enable does, before any validator or discovery.
-	return refuseTargetsUnderFiles(absolute, home)
+	return refuseTargetsUnderFiles(absolute, spec, home)
 }
 
 // absoluteTargets returns each --target as an absolute path, so that the
@@ -284,7 +284,8 @@ func admitConnection(cmd *cobra.Command, cfg domain.Config, spec domain.ClientSp
 func checkTargets(cmd *cobra.Command, runtime invocation.Context, id string, targets []string) error {
 	// Every client that takes a file is refused one under another file, with
 	// or without a validator of its own.
-	if err := refuseTargetsUnderFiles(targets, invocation.Home(runtime.Dependencies)); err != nil {
+	spec, _ := runtime.Clients.Admission().Spec(id)
+	if err := refuseTargetsUnderFiles(targets, spec, invocation.Home(runtime.Dependencies)); err != nil {
 		return err
 	}
 	if len(targets) == 0 || !runtime.Clients.ValidatesTargets(id) {
@@ -302,13 +303,15 @@ func checkTargets(cmd *cobra.Command, runtime invocation.Context, id string, tar
 	return nil
 }
 
-// refuseTargetsUnderFiles refuses a configuration file whose path runs through
-// another file, which no client can read and no sync can write, naming that
-// file and the fix there, before anything changes.
-func refuseTargetsUnderFiles(targets []string, home string) error {
+// refuseTargetsUnderFiles refuses a configuration file whose path a file in the
+// way or a link that leads nowhere blocks, which no client can read and no sync
+// can write, before anything changes, with the one fix of its condition. spec
+// says whether the operator creates the client's file, as AIGW does not create
+// a Codex home, or AIGW does.
+func refuseTargetsUnderFiles(targets []string, spec domain.ClientSpec, home string) error {
 	for _, target := range targets {
-		if err := platform.RefuseFileAsFolder(target); err != nil {
-			return terminal.FileAccessFailure(err, target, home)
+		if err := platform.RefuseBlockedFile(target); err != nil {
+			return terminal.GivenPathFailure(err, platform.PathContext{Home: home}, spec.OperatorCreatesTargets)
 		}
 	}
 	return nil

@@ -33,16 +33,12 @@ func planInstall(source, target string) (InstallPlan, []byte, []byte, error) {
 	if err := RequirePortableOwnership(source); err != nil {
 		return InstallPlan{}, nil, nil, err
 	}
-	// Before the ownership check, whose symbolic-link resolution reports a
-	// file used as a folder differently on Windows.
-	if err := platform.RefuseFileAsFolder(target); err != nil {
+	// Before the ownership check, whose symbolic-link resolution reports a file
+	// used as a folder differently on Windows: a file in the way, or a link that
+	// leads nowhere, which a create through it cannot pass, refuses the target,
+	// and the preview promises no folder that the install cannot create.
+	if err := platform.RefuseBlockedFile(target); err != nil {
 		return InstallPlan{}, nil, nil, err
-	}
-	// A link that leads nowhere holds no folder and cannot become one: creating
-	// through it fails with "file exists", so the preview refuses rather than
-	// promise a folder that the install cannot create.
-	if link, atLink := platform.DanglingLinkInPath(filepath.Dir(target)); atLink {
-		return InstallPlan{}, nil, nil, &TargetLinkError{Path: link}
 	}
 	if err := RequirePortableOwnership(target); err != nil {
 		return InstallPlan{}, nil, nil, err
@@ -129,7 +125,7 @@ func presentProgramFiles(target string) ([]string, error) {
 			present = append(present, path)
 			continue
 		}
-		if absent, refusal := platform.MissingAt(path, err); refusal != nil {
+		if absent, refusal := platform.MissingAt(path, platform.FileExpected, err); refusal != nil {
 			return nil, fmt.Errorf("inspect portable AIGW file %s: %w", path, refusal)
 		} else if !absent {
 			return nil, fmt.Errorf("inspect portable AIGW file %s: %w", path, err)
@@ -146,22 +142,6 @@ func RefuseDirectories(target string) error {
 		return &TargetDirectoryError{Path: target}
 	}
 	return refuseRollbackDirectory(RollbackPath(target))
-}
-
-// TargetLinkError is a symbolic link that leads nowhere where the portable
-// program's folder belongs. An install through it fails with "file exists",
-// so the link is named to remove, by the name that every link to that folder
-// would share and never its private folder.
-type TargetLinkError struct{ Path string }
-
-// Error says what stands where the program's folder belongs, naming no path.
-func (e *TargetLinkError) Error() string {
-	return "portable AIGW folder is a symbolic link that leads nowhere"
-}
-
-// NextAction is the step after which the command succeeds.
-func (e *TargetLinkError) NextAction() string {
-	return "Remove the link " + e.Path[strings.LastIndexAny(e.Path, `/\`)+1:] + ", then run the same command again."
 }
 
 // samePathError is an installation of the running program onto its own file.

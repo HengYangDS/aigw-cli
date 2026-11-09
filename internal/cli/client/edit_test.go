@@ -288,7 +288,7 @@ func TestEditRefusesWhatTheClientCannotUse(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing", "config.toml")
 	err = executeAdapter(t, runtime, "edit", codex.ID, "--target", missing)
 	if problem := terminal.ProblemFor(err); !strings.Contains(problem.Title, "does not exist") ||
-		problem.Fix != "Create config.toml and the folder that holds it, or choose another path, then run the same command again." {
+		problem.Fix != "Create "+missing+" and the folder that holds it, then run the same command again." {
 		t.Fatalf("a missing configuration file = %q, fix %q", problem.Title, problem.Fix)
 	}
 	if after, err := runtime.Config.CaptureSnapshot(); err != nil || !reflect.DeepEqual(before, after) {
@@ -516,16 +516,16 @@ func TestEditNamesADanglingLinkToRemove(t *testing.T) {
 	}
 	gone := filepath.Join(link, "config.toml")
 	err := executeAdapter(t, runtime, "edit", codex.ID, "--target", gone)
-	// The test home is not the process's, so the fix names each file by its own
-	// name and exposes no private folder; the real command names ~/… inside home.
+	// A command names a file that the operator gave as ~/… inside home and as
+	// given outside it.
 	named := func(path string) string {
 		if name, _ := platform.HomeTarget(path, home); name != "" {
 			return name
 		}
-		return filepath.Base(path)
+		return path
 	}
 	problem := terminal.ProblemFor(err)
-	if want := "Remove the link " + named(link) + ", then create " + named(gone) + " and the folder that holds it, or choose another path, then run the same command again."; problem.Fix != want {
+	if want := "Remove the link " + named(link) + ", then create " + named(gone) + " and the folder that holds it, then run the same command again."; problem.Fix != want {
 		t.Fatalf("the fix = %q, want %q", problem.Fix, want)
 	}
 	if err := os.Remove(link); err != nil {

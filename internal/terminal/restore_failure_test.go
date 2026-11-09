@@ -36,7 +36,7 @@ func TestAFailedUndoIsReportedWithTheClientFileFailure(t *testing.T) {
 	problem := ProblemFor(err)
 	want := "The configuration was restored. Removing the credential reader that this command installed failed: permission denied. " +
 		"Removing the Token that this command stored for provider team failed: credential rollback also failed: the credential store is locked."
-	if problem.Impact != want || problem.Fix != "Make ~/b/config.toml and its folder writable, then run the same command again." {
+	if problem.Impact != want || problem.Fix != "Make ~/b/config.toml and its folder readable and writable, then run the same command again." {
 		t.Fatalf("ProblemFor() = %#v\nwant the impact %q", problem, want)
 	}
 	var document bytes.Buffer

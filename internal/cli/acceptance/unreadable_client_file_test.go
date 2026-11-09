@@ -44,7 +44,8 @@ func TestAnUnreadableClientFileNamesThatFile(t *testing.T) {
 				strings.Contains(failure.NextDetail, "AIGW's folder") || !strings.HasSuffix(failure.NextDetail, "then run the same command again.") {
 				t.Fatalf("the failure = %+v", failure)
 			}
-			// check and status name the same file, never a sync that fails the
+			// check and status name the same file to make readable, and then the
+			// sync that completes the repair, never a sync alone, which fails the
 			// same way.
 			for _, command := range [][]string{{"check", id, "--depth", "local", "--json"}, {"status", "--json"}} {
 				client.output.Reset()
@@ -56,8 +57,11 @@ func TestAnUnreadableClientFileNamesThatFile(t *testing.T) {
 				if err := json.Unmarshal(client.output.Bytes(), &document); err != nil {
 					t.Fatalf("%v: %v\n%s", command, err, client.output)
 				}
+				// A check names no file outside the home directory, and says that
+				// it lies there.
 				next := document.Clients[id].NextDetail
-				if !strings.Contains(next, name) || strings.Contains(next, "aigw sync") {
+				named := strings.Contains(next, name) || strings.Contains(next, "the file outside the home directory")
+				if !strings.HasPrefix(next, "Make ") || !named || !strings.HasSuffix(next, "then run `aigw sync`.") {
 					t.Fatalf("%v names %q for the unreadable file", command, next)
 				}
 			}

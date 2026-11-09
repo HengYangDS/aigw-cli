@@ -42,7 +42,7 @@ func InspectInstallation(executable, version string) (Installation, error) {
 	result := Installation{SchemaVersion: 1, Version: version, CommandPath: command, Payload: payload}
 	previous := RollbackPath(command)
 	if _, err := os.Lstat(previous); err != nil {
-		if absent, refusal := platform.MissingAt(previous, err); refusal != nil {
+		if absent, refusal := platform.MissingAt(previous, platform.FileExpected, err); refusal != nil {
 			return Installation{}, fmt.Errorf("observe retained portable program: %w", refusal)
 		} else if absent {
 			return result, nil

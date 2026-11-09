@@ -46,7 +46,7 @@ func TestAClientFileFailureNamesEachFile(t *testing.T) {
 		Evidence: "~/a/config.toml.aigw-state.json was restored. ~/a/config.toml was restored. " +
 			"~/c/config.toml could not be restored: permission denied. " + filepath.Join(elsewhere, "config.toml") + " was restored. ~/b/config.toml is unchanged.",
 		Impact: "The configuration was restored.",
-		Fix:    "Make ~/b/config.toml and its folder writable, then run the same command again.",
+		Fix:    "Make ~/b/config.toml and its folder readable and writable, then run the same command again.",
 	}
 	if problem != want {
 		t.Fatalf("ProblemFor() = %#v\nwant %#v", problem, want)
@@ -92,7 +92,7 @@ func TestAClientFileFailureNamesEachFile(t *testing.T) {
 		}
 	}
 	failure.Failed = &platform.FileError{Path: outside, Err: &os.PathError{Op: "createtemp", Path: outside, Err: os.ErrPermission}}
-	if problem = ProblemFor(failure); problem.Fix != "Make "+outside+" and its folder writable, then run the same command again." {
+	if problem = ProblemFor(failure); problem.Fix != "Make "+outside+" and its folder readable and writable, then run the same command again." {
 		t.Fatalf("a permission error outside home = %#v", problem)
 	}
 }
@@ -148,7 +148,7 @@ func TestAPlanningFailureNamesTheConfiguredFile(t *testing.T) {
 	unreadable := &adapter.TargetError{Client: "Codex", Home: home, Path: outside, Err: fmt.Errorf("read Codex config: %w", &os.PathError{Op: "open", Path: resolved, Err: os.ErrPermission})}
 	problem := ProblemFor(presentationProjectionError{restored: true, cause: unreadable})
 	if problem.Title != "Codex cannot use "+outside+": permission denied" || problem.Impact != "The configuration was restored." ||
-		problem.Fix != "Make "+outside+" readable, then run the same command again." {
+		problem.Fix != "Make "+outside+" and its folder readable and writable, then run the same command again." {
 		t.Fatalf("an unreadable file outside the home directory = %#v", problem)
 	}
 	var out bytes.Buffer
@@ -158,10 +158,10 @@ func TestAPlanningFailureNamesTheConfiguredFile(t *testing.T) {
 	}
 }
 
-// An operating-system error at a file that the operator named says which file
-// and why, and its fix acts on that file. A local check would inspect neither.
+// A failure at a path that the operator gave names that path and why, the
+// reason reading the same on every platform, and its fix acts on that path.
 // The inputs read the same on every platform.
-func TestFileAccessFailureNamesTheFileAndTheStepThatResolvesIt(t *testing.T) {
+func TestGivenPathFailureNamesThePathAndTheStepThatResolvesIt(t *testing.T) {
 	file := filepath.FromSlash("/opt/tools/aigw")
 	folder := filepath.Dir(file)
 	for _, test := range []struct {
@@ -169,70 +169,77 @@ func TestFileAccessFailureNamesTheFileAndTheStepThatResolvesIt(t *testing.T) {
 		err          error
 		title, fixed string
 	}{
-		{"permission", &os.PathError{Op: "mkdir", Path: folder, Err: os.ErrPermission},
-			"AIGW cannot use " + file + ": permission denied", "Make " + file + " and its folder writable, then run the same command again."},
+		{"a folder that cannot be created", &os.PathError{Op: "mkdir", Path: folder, Err: os.ErrPermission},
+			"AIGW cannot use " + folder + ": permission denied", "Make " + folder + " and its folder readable and writable, then run the same command again."},
 		{"other error", fmt.Errorf("read: %w", &os.PathError{Op: "open", Path: file, Err: syscall.EIO}),
 			"AIGW cannot use " + file + ": " + syscall.EIO.Error(), "Resolve " + syscall.EIO.Error() + " on " + file + ", then run the same command again."},
 		{"replacing the file", &os.LinkError{Op: "rename", Old: filepath.Join(folder, ".aigw-write-1"), New: file, Err: os.ErrPermission},
-			"AIGW cannot use " + file + ": permission denied", "Make " + file + " and its folder writable, then run the same command again."},
+			"AIGW cannot use " + file + ": permission denied", "Make " + file + " and its folder readable and writable, then run the same command again."},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			problem := ProblemFor(FileAccessFailure(test.err, file, ""))
+			problem := ProblemFor(GivenPathFailure(test.err, platform.PathContext{}, false))
 			if problem.Title != test.title || problem.Fix != test.fixed {
 				t.Fatalf("problem = %+v", problem)
 			}
 		})
 	}
 	other := errors.New("not a file failure")
-	if err := FileAccessFailure(other, file, ""); !errors.Is(err, other) || err.Error() != other.Error() {
+	if err := GivenPathFailure(other, platform.PathContext{}, false); !errors.Is(err, other) || err.Error() != other.Error() {
 		t.Fatalf("another failure became %v", err)
 	}
 }
 
-// A path through a regular file names that file to move, whether the refusal
-// came from RefuseFileAsFolder or an operation reported a raw ENOTDIR, on
-// every platform. With no file in the way, ENOTDIR never names one.
-func TestFileAccessFailureNamesTheFileInTheWay(t *testing.T) {
-	blocking := filepath.Join(t.TempDir(), "file")
+// A path through a regular file names that file to move, whether the
+// operation's refusal classified it or an operation reported a raw ENOTDIR, on
+// every platform, and then what completes the repair: the same command for a
+// path that AIGW creates, and the file and its folder for one that the
+// operator creates. An operation that creates a folder at the file in the way
+// names that file. With no file in the way, ENOTDIR never names one.
+func TestGivenPathFailureNamesTheFileInTheWay(t *testing.T) {
+	home := t.TempDir()
+	blocking := filepath.Join(home, "work2")
 	if err := os.WriteFile(blocking, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(blocking, "aigw")
-	want := "Move the file " + blocking + ", then create " + filepath.Dir(blocking) + " and the file " + target + ", or choose another path, then run the same command again."
+	target := filepath.Join(blocking, "config.toml")
+	at := platform.PathContext{Home: home}
 	for name, err := range map[string]error{
-		"the refusal":   platform.RefuseFileAsFolder(target),
+		"the refusal":   platform.RefuseBlockedFile(target),
 		"a raw ENOTDIR": &os.PathError{Op: "open", Path: target, Err: syscall.ENOTDIR},
 	} {
-		problem := ProblemFor(FileAccessFailure(err, target, ""))
-		if problem.Title != "AIGW cannot use "+target+": not a directory" || problem.Fix != want {
+		problem := ProblemFor(GivenPathFailure(err, at, true))
+		want := Problem{Title: "AIGW cannot use ~/work2/config.toml: not a directory",
+			Fix: "Move the file ~/work2, then create ~/work2/config.toml and the folder that holds it, then run the same command again."}
+		if problem != want {
 			t.Fatalf("%s = %+v", name, problem)
 		}
+		if fix := ProblemFor(GivenPathFailure(err, at, false)).Fix; fix != "Move the file ~/work2, then run the same command again." {
+			t.Fatalf("%s, a path that AIGW creates = %q", name, fix)
+		}
 	}
-	// MkdirAll names the file in the way as its own path, so a create at a
-	// regular file is refused as that file, never as a file to create.
-	problem := ProblemFor(FileAccessFailure(&os.PathError{Op: "mkdir", Path: blocking, Err: syscall.ENOTDIR}, blocking, ""))
-	if problem.Fix != "Move the file "+blocking+", then create "+filepath.Dir(blocking)+" and the file "+blocking+", or choose another path, then run the same command again." {
+	// MkdirAll names the file in the way as its own path.
+	problem := ProblemFor(GivenPathFailure(&os.PathError{Op: "mkdir", Path: blocking, Err: syscall.ENOTDIR}, at, false))
+	if problem.Fix != "Move the file ~/work2, then run the same command again." {
 		t.Fatalf("a create at the file in the way = %+v", problem)
 	}
 	missing := filepath.Join(t.TempDir(), "gone", "aigw")
-	if problem := ProblemFor(FileAccessFailure(&os.PathError{Op: "open", Path: missing, Err: syscall.ENOTDIR}, missing, "")); strings.Contains(problem.Fix, "Move the file") {
+	if problem := ProblemFor(GivenPathFailure(&os.PathError{Op: "open", Path: missing, Err: syscall.ENOTDIR}, at, false)); strings.Contains(problem.Fix, "Move the file") {
 		t.Fatalf("a missing folder was named a file in the way: %+v", problem)
 	}
 }
 
-// A client file inside home is named as ~/… in a failure that the operator
-// named, so a local check exposes no absolute private path. A file outside it
-// stays as configured.
-func TestFileAccessFailureNamesAClientFileUnderHome(t *testing.T) {
+// A path that the operator gave is named as ~/… inside the run's home and as
+// given outside it, so a command exposes no absolute home.
+func TestGivenPathFailureNamesAPathUnderHome(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "home")
 	file := filepath.Join(home, "work", "config.toml")
 	err := &os.PathError{Op: "open", Path: file, Err: syscall.EIO}
-	problem := ProblemFor(FileAccessFailure(err, file, home))
-	if strings.Contains(problem.Title, home) || !strings.Contains(problem.Title, "~/work/config.toml") {
+	problem := ProblemFor(GivenPathFailure(err, platform.PathContext{Home: home}, false))
+	if strings.Contains(problem.Title+problem.Fix, home) || !strings.Contains(problem.Title, "~/work/config.toml") {
 		t.Fatalf("a file under home = %+v", problem)
 	}
 	outside := filepath.Join(t.TempDir(), "work", "config.toml")
-	problem = ProblemFor(FileAccessFailure(&os.PathError{Op: "open", Path: outside, Err: syscall.EIO}, outside, home))
+	problem = ProblemFor(GivenPathFailure(&os.PathError{Op: "open", Path: outside, Err: syscall.EIO}, platform.PathContext{Home: home}, false))
 	if !strings.Contains(problem.Title, outside) {
 		t.Fatalf("a file outside home = %+v", problem)
 	}

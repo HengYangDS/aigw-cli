@@ -94,7 +94,7 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/json=%t", name, jsonMode), func(t *testing.T) {
 				var out bytes.Buffer
 				renderer := NewRenderer(&out, false)
-				RenderError(renderer, LocalFailure("9.8.7", PathContext{Configuration: "/private/config.toml"}, fmt.Errorf("load: %w", test.err)), jsonMode)
+				RenderError(renderer, LocalFailure("9.8.7", platform.PathContext{Configuration: "/private/config.toml"}, fmt.Errorf("load: %w", test.err)), jsonMode)
 				rendered := out.String()
 				if renderer.Err() != nil || strings.Contains(rendered, content) || strings.Contains(rendered, "/private/config.toml") {
 					t.Fatalf("configuration diagnostic exposed private detail: %q, %v", rendered, renderer.Err())
@@ -120,13 +120,13 @@ func TestLocalFailureKeepsOtherErrorsUnchanged(t *testing.T) {
 	recovery := presentationProjectionError{restored: true, cause: &os.PathError{Op: "write", Path: "/private/x", Err: os.ErrPermission}}
 	unsupported := &store.LoadError{Phase: store.LoadPhaseValidate, Err: &domain.UnsupportedConfigVersionError{Version: 0, ExpectedVersion: domain.ConfigVersion}}
 	for _, err := range []error{nil, errors.New("plain failure"), ProblemError("Problem", "", "", "", nil), recovery, unsupported} {
-		if got := LocalFailure("1.2.3", PathContext{}, err); !errors.Is(got, err) || !errors.Is(err, got) {
+		if got := LocalFailure("1.2.3", platform.PathContext{}, err); !errors.Is(got, err) || !errors.Is(err, got) {
 			t.Fatalf("LocalFailure changed %#v into %#v", err, got)
 		}
 	}
 	// An unsupported version that the configuration carries keeps its own
 	// problem, and its fix is the validate stage's.
-	if got := ProblemFor(LocalFailure("1.2.3", PathContext{}, unsupported)).Fix; got != ConfigurationLoadFix(unsupported) || !strings.Contains(got, "aigw config path") {
+	if got := ProblemFor(LocalFailure("1.2.3", platform.PathContext{}, unsupported)).Fix; got != ConfigurationLoadFix(unsupported) || !strings.Contains(got, "aigw config path") {
 		t.Fatalf("unsupported configuration version fix = %q", got)
 	}
 }
@@ -144,7 +144,7 @@ func TestALoadFailureThroughAFileNamesTheFileToMove(t *testing.T) {
 	config := filepath.Join(folder, "config.toml")
 	windows := &fs.PathError{Op: "open", Path: config, Err: fs.ErrNotExist}
 	err := &store.LoadError{Phase: store.LoadPhaseRead, Err: platform.ClassifyPath(config, platform.FileExpected, windows)}
-	problem := ProblemFor(LocalFailure("9.8.7", PathContext{Home: home, Configuration: config}, err))
+	problem := ProblemFor(LocalFailure("9.8.7", platform.PathContext{Home: home, Configuration: config}, err))
 	if want := "Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again."; problem.Fix != want {
 		t.Fatalf("the fix = %q, want %q", problem.Fix, want)
 	}
@@ -166,8 +166,8 @@ func TestAnUnreadableConfigurationKeepsTheReadAccessFix(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := &store.LoadError{Phase: store.LoadPhaseRead, Err: &fs.PathError{Op: "open", Path: config, Err: fs.ErrPermission}}
-	problem := ProblemFor(LocalFailure("9.8.7", PathContext{Home: home, Configuration: config}, err))
-	if problem.Fix != configurationReadFix || strings.Contains(problem.Fix, "Move") {
+	problem := ProblemFor(LocalFailure("9.8.7", platform.PathContext{Home: home, Configuration: config}, err))
+	if problem.Fix != platform.ConfigurationReadFix || strings.Contains(problem.Fix, "Move") {
 		t.Fatalf("the fix = %q", problem.Fix)
 	}
 }
@@ -184,7 +184,7 @@ func TestALocalFileFailureNamesItsPathAgainstTheRunsHome(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("USERPROFILE", t.TempDir())
 	err := fmt.Errorf("create config directory for lock: %w", &fs.PathError{Op: "mkdir", Path: folder, Err: syscall.ENOTDIR})
-	problem := ProblemFor(LocalFailure("9.8.7", PathContext{Home: home, Configuration: filepath.Join(folder, "config.toml")}, err))
+	problem := ProblemFor(LocalFailure("9.8.7", platform.PathContext{Home: home, Configuration: filepath.Join(folder, "config.toml")}, err))
 	want := Problem{
 		Title: "Local file access failed (mkdir: not a directory)",
 		Fix:   "Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again.",
@@ -473,11 +473,11 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			wrapped := rewrittenOutputError{cause: test.err}
-			got, ok := typedErrorMessage(wrapped)
+			got, ok := typedErrorMessage(wrapped, platform.PathContext{})
 			if !ok || got != test.want {
 				t.Fatalf("typedErrorMessage() = %q, %v, want %q, true", got, ok, test.want)
 			}
-			if got := localizedErrorMessage(wrapped); got != test.want {
+			if got := localizedErrorMessage(wrapped, platform.PathContext{}); got != test.want {
 				t.Fatalf("localizedErrorMessage() = %q, want %q", got, test.want)
 			}
 		})
@@ -496,10 +496,10 @@ func TestTypedErrorLocalizationRejectsTextualLookalikes(t *testing.T) {
 		"validate config: details changed",
 	} {
 		err := errors.New(message)
-		if got, ok := typedErrorMessage(err); ok {
+		if got, ok := typedErrorMessage(err, platform.PathContext{}); ok {
 			t.Errorf("typedErrorMessage(%q) = %q, true", message, got)
 		}
-		if got := localizedErrorMessage(err); got != message {
+		if got := localizedErrorMessage(err, platform.PathContext{}); got != message {
 			t.Errorf("localizedErrorMessage(%q) = %q", message, got)
 		}
 	}

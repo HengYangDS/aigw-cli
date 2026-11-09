@@ -2,11 +2,7 @@ package terminal
 
 import (
 	"errors"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"strings"
-	"syscall"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/platform"
@@ -28,7 +24,7 @@ func clientFileProblem(failure *adapter.ApplyError, err error) Problem {
 	failed := fileName(failure.Failed.Path, failure.Home)
 	problem := Problem{
 		Title: failure.Client + " could not write " + failed + ": " + writeReason(failure.Failed),
-		Fix:   fileFix(failure.Failed, failed),
+		Fix:   fileFix(failure.Failed, failed, failure.Home),
 	}
 	evidence := make([]string, 0, len(failure.Restored)+1)
 	for _, outcome := range failure.Restored {
@@ -71,118 +67,52 @@ func targetProblem(failure *adapter.TargetError, err error) Problem {
 	return problem
 }
 
-// FileAccessFix is the fix of a file-access failure at file, rendered against
-// home, for a caller that presents the failure itself rather than this problem.
-func FileAccessFix(err error, file, home string) string {
-	return ProblemFor(FileAccessFailure(err, file, home)).Fix
-}
-
-// FileAccessFailure presents an operating-system error at file, which the
-// operator named, with the step that resolves it and the same command again.
-// A file inside home is named as ~/…, and one outside it as configured, which
-// the operator chose. Resolving a path can report a bare error number, with no
-// path around it. Any other error returns unchanged.
-func FileAccessFailure(err error, file, home string) error {
-	_, atPath := errors.AsType[*fs.PathError](err)
-	_, atLink := errors.AsType[*os.LinkError](err)
-	_, known := knownFileErrorReason(err)
-	if !atPath && !atLink && !known {
+// GivenPathFailure presents err, a failure at a path that the operator gave,
+// such as a --path or a --target, which the operation classified or which an
+// operating-system error names, as a problem whose title names the path and
+// its reason, the same on every platform, and whose fix is the one that the
+// path's condition needs in at. operatorCreates says that the operator creates
+// what is missing, as for a client's file that AIGW does not create. Any other
+// error returns unchanged.
+func GivenPathFailure(err error, at platform.PathContext, operatorCreates bool) error {
+	path := pathFailureIn(err)
+	if path == nil {
 		return err
 	}
-	name := namedFile(file, home)
-	reason := fileErrorReason(err)
-	fix := "Resolve " + reason + " on " + name + ", then run the same command again."
-	inTheWay, throughFile := fileInTheWay(err, file)
-	switch {
-	case errors.Is(err, fs.ErrPermission):
-		fix = "Make " + name + " and its folder writable, then run the same command again."
-	case throughFile:
-		// Before a missing path, which Windows' ENOTDIR also counts as. The folder
-		// and the file are named to create after the move, so that one round of
-		// following the fix lets the same command run.
-		reason = platform.ErrFileAsFolder.Error()
-		fix = "Move the file " + namedFile(inTheWay, home) + ", then create " + namedFile(filepath.Dir(inTheWay), home) + " and the file " + name + ", or choose another path, then run the same command again."
-	case errors.Is(err, fs.ErrNotExist):
-		fix = "Create " + namedFile(filepath.Dir(file), home) + ", or choose another path, then run the same command again."
-	}
-	return ProblemError("AIGW cannot use "+name+": "+reason, "", "", fix, err)
-}
-
-// fileInTheWay is the regular file that stands where a folder is needed in
-// err, and whether there is one. RefuseFileAsFolder names it. A raw ENOTDIR
-// from an operation means the same on POSIX, but on Windows it is
-// ERROR_PATH_NOT_FOUND, which a missing folder gives too, so the file is
-// looked for on the path rather than inferred from the error.
-func fileInTheWay(err error, file string) (string, bool) {
-	failure, atPath := errors.AsType[*fs.PathError](err)
-	if errors.Is(err, platform.ErrFileAsFolder) && atPath {
-		return failure.Path, true
-	}
-	if !errors.Is(err, syscall.ENOTDIR) {
-		return "", false
-	}
-	path := file
-	if atPath && failure.Path != "" {
-		path = failure.Path
-	}
-	// The path itself is included, because an operation that creates it reports
-	// the file in the way as its path.
-	if found, atFile := errors.AsType[*fs.PathError](platform.FileInTheWay(path)); atFile {
-		return found.Path, true
-	}
-	return "", false
+	path = path.Owned(operatorCreates)
+	return ProblemError(pathTitle(path, at), "", "", platform.PathFix(path, at), err)
 }
 
 // targetReason says why a client file could not be used: an operating-system
-// error by its reason, which names no path, or else the failure's own text.
+// error at a path by its condition's reason, which names no path and reads the
+// same on every platform, or else the failure's own text, such as a refusal
+// that says why AIGW does not create the file.
 func targetReason(err error) string {
-	if _, atPath := errors.AsType[*fs.PathError](err); atPath {
-		return fileErrorReason(err)
+	if atOperatingSystem(err) {
+		return pathReason(pathFailureIn(err))
 	}
 	return err.Error()
 }
 
-// targetFix is the fix that a failure to use a client file names for itself,
-// or else, for an operating-system error, the file made readable or the error
-// resolved, and the same command again. A file that stands where a folder is
-// needed is named to move, and a client file that does not exist is named with
-// the folder that holds it to create, both against home, so a local check
-// names no private path.
+// targetFix is the fix of a client file that a command could not use: the
+// fix that an outer refusal states for itself, or else the one that the file's
+// path condition needs, named against target's home directory; the path
+// failure's own owner says who creates what is missing.
 func targetFix(err error, target *adapter.TargetError) string {
-	if fix, stated := refusedFix(err, target.Home); stated {
+	if fix, stated := statedFix(err, ""); stated {
 		return fix
 	}
-	name := fileName(target.Path, target.Home)
-	_, atPath := errors.AsType[*fs.PathError](err)
-	blocking, throughFile := fileInTheWay(err, target.Path)
-	switch {
-	case errors.Is(err, fs.ErrPermission):
-		return "Make " + name + " readable, then run the same command again."
-	case throughFile:
-		// Before a missing path, which Windows' ENOTDIR also counts as. The file
-		// and the folder that follows the move are named, so one round of
-		// following the fix lets the same command run.
-		return "Move the file " + fileName(blocking, target.Home) + ", then create " + name + " and the folder that holds it, or choose another path, then run the same command again."
-	case atPath:
-		return "Resolve " + fileErrorReason(err) + " on " + name + ", then run the same command again."
-	default:
-		return errorFix(err, err.Error(), PathContext{Home: target.Home})
+	at := platform.PathContext{Home: target.Home}
+	// The file is named as configured, never as its links resolve, so the
+	// classification is the operation's own, or else made at that file.
+	if pathFailureIn(err) != nil {
+		path := platform.ClassifyPath(target.Path, platform.FileExpected, err)
+		if !path.Given {
+			path = path.Owned(target.OperatorCreates)
+		}
+		return platform.PathFix(path, at)
 	}
-}
-
-// refusedFix is the fix of a refusal that renders itself against home, then
-// any other fix that err states for itself.
-func refusedFix(err error, home string) (string, bool) {
-	if homed, ok := errors.AsType[interface {
-		error
-		TargetFix(string) string
-	}](err); ok {
-		return homed.TargetFix(home), true
-	}
-	if fix, stated := statedFix(err, ""); stated {
-		return fix, true
-	}
-	return "", false
+	return errorFix(err, err.Error(), at)
 }
 
 // fileFix is the fix of a file that could not be written, which name names: a
@@ -190,15 +120,13 @@ func refusedFix(err error, home string) (string, bool) {
 // a file that changed while AIGW wrote it, which the command then reads as it
 // is, and any other operating-system error resolved first. It never names a
 // check, whose probes may use quota and fix nothing here.
-func fileFix(failed *platform.FileError, name string) string {
-	switch {
-	case errors.Is(failed, fs.ErrPermission):
-		return "Make " + name + " and its folder writable, then run the same command again."
-	case failed.Changed:
+func fileFix(failed *platform.FileError, name, home string) string {
+	if failed.Changed {
 		return "Run the same command again; it reads " + name + " as it is now."
-	default:
-		return "Resolve " + fileErrorReason(failed) + " on " + name + ", then run the same command again."
 	}
+	// A client file that AIGW writes, which the operator configured.
+	path := platform.ClassifyPath(failed.Path, platform.FileExpected, failed.Err).Owned(false)
+	return platform.PathFix(path, platform.PathContext{Home: home})
 }
 
 // restoreOutcome says what undoing a failed application did to one file that
@@ -227,10 +155,6 @@ func writeReason(failed *platform.FileError) string {
 	}
 	return fileErrorReason(failed)
 }
-
-// namedFile names a path as the operator names it: relative to the home
-// directory as ~/…, or else as configured.
-func namedFile(path, home string) string { return fileName(path, home) }
 
 // fileName names a file relative to the home directory, or else by its full
 // path, as the operator configured it.

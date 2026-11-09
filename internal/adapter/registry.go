@@ -218,7 +218,7 @@ func (registry Registry) Plan(deps Dependencies, before, after domain.Config, cl
 	for _, adapter := range adapters {
 		adapterPlans, err := adapter.Plan(deps, before, after)
 		if err != nil {
-			return nil, namedTarget(ClientLabel(adapter.Spec().Label), deps.Host.Home, err)
+			return nil, namedTarget(adapter.Spec(), deps.Host.Home, err)
 		}
 		plans = append(plans, adapterPlans...)
 	}
@@ -335,7 +335,7 @@ func (registry Registry) AdoptSelections(deps Dependencies, cfg *domain.Config) 
 	for _, id := range registry.ids {
 		routeID, err := registry.byID[id].AdoptSelection(deps, cfg)
 		if err != nil {
-			return nil, namedTarget(ClientLabel(registry.byID[id].Spec().Label), deps.Host.Home, err)
+			return nil, namedTarget(registry.byID[id].Spec(), deps.Host.Home, err)
 		}
 		if routeID != "" {
 			adopted[id] = routeID

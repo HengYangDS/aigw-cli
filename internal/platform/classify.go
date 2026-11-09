@@ -49,14 +49,35 @@ const (
 // or the link that Culprit names, and the operation and error that failed. A
 // file in the way reads as ErrFileAsFolder on every platform, never as the
 // missing path that Windows reports, and a dangling link as neither missing
-// nor existing.
+// nor existing. The surface that classified it says whether the operator gave
+// Path, as a --path or a client's file is given, which a command may then
+// name outside the home directory, and whether the operator creates what is
+// missing, as for a client's file that AIGW does not create.
 type PathConditionError struct {
-	Condition PathCondition
-	Path      string
-	Kind      PathKind
-	Culprit   string
-	Op        string
-	Err       error
+	Condition       PathCondition
+	Path            string
+	Kind            PathKind
+	Culprit         string
+	Op              string
+	Err             error
+	Given           bool
+	OperatorCreates bool
+}
+
+// Owned is the failure as given by the operator, who creates what is missing
+// when operatorCreates, as the surface that knows the path's owner says.
+func (e *PathConditionError) Owned(operatorCreates bool) *PathConditionError {
+	owned := *e
+	owned.Given, owned.OperatorCreates = true, operatorCreates
+	return &owned
+}
+
+// reasonOr is the failure's reason, or fallback for a failure without one.
+func (e *PathConditionError) reasonOr(fallback string) string {
+	if reason := e.Reason(); reason != "" {
+		return reason
+	}
+	return fallback
 }
 
 // ClassifyPath classifies err, the failure of an operation at path, which the
@@ -134,8 +155,9 @@ func (e *PathConditionError) Unwrap() error {
 	return e.Err
 }
 
-// Reason says why the operation failed, the same on every platform. Any other
-// failure has no reason of its own.
+// Reason says why the operation failed, the same on every platform, naming no
+// path: its condition's reason, or the operating system's number for any other
+// failure, which otherwise has no reason of its own.
 func (e *PathConditionError) Reason() string {
 	switch e.Condition {
 	case PathPermission:
@@ -147,7 +169,14 @@ func (e *PathConditionError) Reason() string {
 	case PathMissingFolder, PathMissingFile:
 		return "no such file or directory"
 	case PathOther:
-		return ""
+		// The operating system's own number, which names no path; any other
+		// error's text may, and has no reason here.
+		if number, ok := errors.AsType[syscall.Errno](e.Err); ok {
+			return number.Error()
+		}
+		if errors.Is(e.Err, fs.ErrExist) {
+			return "file exists"
+		}
 	}
 	return ""
 }

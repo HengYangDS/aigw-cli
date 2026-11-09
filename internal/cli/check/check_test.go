@@ -244,7 +244,7 @@ func TestCheckStopsAtALocalFailureBeforeAnyRequest(t *testing.T) {
 				delete(secrets(t, runtime).tokens, "one")
 			}},
 		{name: "removed client file", problem: "Codex configuration target is unavailable",
-			fix: "Create ~/.codex/config.toml, or choose another path, then run the same command again.", state: domainreadiness.Invalid,
+			fix: "Create ~/.codex/config.toml, then run `aigw sync`.", state: domainreadiness.Invalid,
 			prepare: func(t *testing.T, runtime invocation.Context) {
 				if err := os.Remove(filepath.Join(runtime.Host.Home, ".codex", "config.toml")); err != nil {
 					t.Fatal(err)
