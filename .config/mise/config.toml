@@ -48,7 +48,7 @@ glab = "1.128.0"
 
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.20.0"
-"github:anchore/syft" = "1.56.0"
+"github:anchore/syft" = "1.57.0"
 # Cross-host ad-hoc macOS artifact signing.
 "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]" = "0.29.0"
 

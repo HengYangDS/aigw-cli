@@ -401,7 +401,7 @@ nativeArtifactScope: {
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
-	mise:     "jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c"         // v5.2.6
+	mise:     "jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b"         // v5.2.7
 	upload:   "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" // v7.0.2
 }
 
