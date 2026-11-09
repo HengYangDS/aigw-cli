@@ -450,3 +450,19 @@ func TestNextActionForWithoutClientInspectionHonorsKnownPrerequisites(t *testing
 		})
 	}
 }
+
+// A store that a blocked path keeps from being observed names, as the next
+// step, the fix that a client's observation rendered for it, not only the
+// local check.
+func TestAnUnobservableStoreNamesTheFixThatAClientRendered(t *testing.T) {
+	activation := Activation{CredentialPrerequisite: domainreadiness.CredentialBackendRecovery}
+	rendered := "Move the file ~/aigw/secrets. If it replaced AIGW's folder, put that folder back from a copy; otherwise store each provider's Token again with `aigw provider rotate <provider>`. Then run `aigw sync`."
+	clients := []domainreadiness.Client{{State: domainreadiness.Unavailable, NextAction: rendered}}
+	if got := activation.NextActionFor(clients); got != rendered {
+		t.Fatalf("the next step = %q", got)
+	}
+	unclassified := []domainreadiness.Client{{State: domainreadiness.Unavailable, NextAction: domainreadiness.CredentialBackendRecovery}}
+	if got := activation.NextActionFor(unclassified); got != domainreadiness.CredentialBackendRecovery {
+		t.Fatalf("an unclassified failure = %q", got)
+	}
+}

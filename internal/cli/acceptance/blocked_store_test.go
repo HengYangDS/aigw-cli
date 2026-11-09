@@ -150,6 +150,16 @@ func TestABlockedTokenFolderNamesItsFixOnEverySurface(t *testing.T) {
 				if got := client.next(t, surface.command); got != want {
 					t.Fatalf("%v names %q\nwant         %q", surface.command, got, want)
 				}
+				// status's own next step is the same fix, not only the local check.
+				if surface.command[0] == "status" {
+					var document struct {
+						NextAction string `json:"next_action"`
+						NextDetail string `json:"next_detail"`
+					}
+					if err := json.Unmarshal(client.output.Bytes(), &document); err != nil || document.NextAction+document.NextDetail != want {
+						t.Fatalf("status's next step = %+v, %v", document, err)
+					}
+				}
 				blocking.clear(t, client.secrets)
 				if err := os.Rename(copied, client.secrets); err != nil {
 					t.Fatal(err)

@@ -105,10 +105,13 @@ func TestShowNamesTheEnvironmentAndAFailedBackend(t *testing.T) {
 	}
 	var document showDocument
 	f.decode(t, &document)
-	if document.Token != credentialUnobserved {
-		t.Fatalf("a failed backend = %q", document.Token)
+	// A backend that cannot tell whether it holds the Token is not ticked as
+	// available beside a Token that reads unknown.
+	if document.Token != credentialUnobserved || document.CredentialBackend.Availability != "unavailable" {
+		t.Fatalf("a failed backend = %q, %+v", document.Token, document.CredentialBackend)
 	}
-	if err := f.run("", "show", "mixed"); err != nil || !strings.Contains(f.text(), "! Token Unknown: the credential backend could not tell") {
+	if err := f.run("", "show", "mixed"); err != nil || !strings.Contains(f.text(), "! Token Unknown: the credential backend could not tell") ||
+		strings.Contains(f.text(), "✓ Credential backend") || !strings.Contains(f.text(), "! Credential backend") {
 		t.Fatalf("a failed backend = %v %s", err, f.text())
 	}
 }

@@ -55,6 +55,11 @@ func (a *Activation) NextActionFor(clients []domainreadiness.Client) string {
 		return a.CapabilityPrerequisite
 	}
 	if a.CredentialPrerequisite != "" {
+		// A store that a blocked path keeps from being observed names the fix
+		// that a client's observation rendered for it.
+		if action := unobservedAction(clients); action != domainreadiness.CredentialBackendRecovery {
+			return action
+		}
 		return a.CredentialPrerequisite
 	}
 	if a.SelectionPrerequisite != "" {

@@ -84,6 +84,11 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 				Token:             credentialState(runtime.Secrets.Exists, provider.ID),
 				CredentialBackend: credentialBackend{Kind: backend.Kind, Availability: backend.Availability, Mutability: backend.Mutability},
 			}
+			// A store that cannot tell whether it holds the Token, such as one
+			// whose folder a file replaced, does not answer either.
+			if document.Token == credentialUnobserved {
+				document.CredentialBackend.Availability = "unavailable"
+			}
 			if provider.BalanceProbe != nil {
 				document.BalanceCredential = credentialState(runtime.Providers.Exists, provider.ID)
 			}
