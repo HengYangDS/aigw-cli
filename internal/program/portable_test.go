@@ -2,6 +2,7 @@ package program
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -288,5 +289,25 @@ func TestPlanInstallRefusesAProgramThroughAFile(t *testing.T) {
 	_, err := PlanUninstall(filepath.Join(file, "aigw"))
 	if err == nil || !errors.Is(err, syscall.ENOTDIR) {
 		t.Fatalf("an uninstall through a file = %v", err)
+	}
+}
+
+// Windows reports a program file under a regular file as a missing path, so a
+// plan that took it for absent would remove nothing and say nothing. Both
+// paths are classified from the file system instead, so the plan refuses here
+// as on POSIX. The error mapping is Windows', given to this host.
+func TestPresentProgramFilesRefusesAProgramUnderAFileAsWindowsReportsIt(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	original := lstatProgramFile
+	t.Cleanup(func() { lstatProgramFile = original })
+	lstatProgramFile = func(path string) (os.FileInfo, error) {
+		return nil, &os.PathError{Op: "lstat", Path: path, Err: fs.ErrNotExist}
+	}
+	present, err := presentProgramFiles(filepath.Join(file, "aigw"))
+	if err == nil || !errors.Is(err, platform.ErrFileAsFolder) || !errors.Is(err, syscall.ENOTDIR) {
+		t.Fatalf("a program under a file = %v, %v", present, err)
 	}
 }

@@ -138,17 +138,39 @@ func TestInstallCommandNamesTheTargetThatItCannotUse(t *testing.T) {
 
 // A preview into a folder that does not exist yet says that installing
 // creates it, as the write does, and creates nothing.
-// A preview's derived paths are written with "/" in its document, as every
-// document writes a path, while the human rows name the operator's own
-// spelling. A Windows separator in the document would break a script that reads
-// it as JSON, and the goldens cannot show it on this host.
-func TestInstallPreviewWritesDerivedPathsWithSlashes(t *testing.T) {
+// The folder that a preview creates keeps the operator's own spelling, as its
+// path and rollback copy do, never the host's: on Windows a --path that names
+// its folders with "/" would otherwise come back with "\\". Windows' rule is
+// given here as its separators, so this host checks it too.
+func TestGivenFolderKeepsTheOperatorsSpelling(t *testing.T) {
+	posix := func(c uint8) bool { return c == '/' }
+	windows := func(c uint8) bool { return c == '/' || c == '\\' }
+	for _, test := range []struct {
+		name, target, folder, want string
+		isSeparator                func(uint8) bool
+	}{
+		{"posix", "/w/preview/aigw", "/w/preview", "/w/preview", posix},
+		{"posix, spelled with a doubled separator", "/w//preview/aigw", "/w/preview", "/w//preview", posix},
+		{"windows, folders named with /", `C:\w/preview/aigw.exe`, `C:\w\preview`, `C:\w/preview`, windows},
+		{"windows, native", `C:\w\preview\aigw.exe`, `C:\w\preview`, `C:\w\preview`, windows},
+		{"a prefix that names another folder", "/w/preview/aigw", "/elsewhere", "/elsewhere", posix},
+	} {
+		if got := givenFolder(test.target, test.folder, test.isSeparator); got != test.want {
+			t.Errorf("%s: givenFolder(%q, %q) = %q, want %q", test.name, test.target, test.folder, got, test.want)
+		}
+	}
+}
+
+// The preview's document names the folder that it creates as the --path spells
+// it, on this host as well.
+func TestInstallPreviewNamesTheFolderAsGiven(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "aigw")
 	if err := os.WriteFile(source, []byte("current"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(root, "new", "aigw")
+	separator := string(filepath.Separator)
+	target := root + separator + separator + "new" + separator + "aigw"
 	out := new(bytes.Buffer)
 	command := NewCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target, Out: out})
 	command.SetArgs([]string{"--dry-run", "--json"})
@@ -161,30 +183,8 @@ func TestInstallPreviewWritesDerivedPathsWithSlashes(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &document); err != nil {
 		t.Fatalf("%v\n%s", err, out)
 	}
-	if want := filepath.ToSlash(filepath.Dir(target)); document.CreatesFolder != want || strings.Contains(document.CreatesFolder, `\`) {
+	if want := root + separator + separator + "new"; document.CreatesFolder != want {
 		t.Fatalf("creates_folder = %q, want %q", document.CreatesFolder, want)
-	}
-	previous := filepath.Join(root, "old", "aigw")
-	if err := os.MkdirAll(filepath.Dir(previous), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(previous, []byte("previous"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	out.Reset()
-	command = NewCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: previous, Out: out})
-	command.SetArgs([]string{"--dry-run", "--json"})
-	if err := command.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	var replaced struct {
-		Rollback string `json:"rollback"`
-	}
-	if err := json.Unmarshal(out.Bytes(), &replaced); err != nil {
-		t.Fatalf("%v\n%s", err, out)
-	}
-	if strings.Contains(replaced.Rollback, `\`) || replaced.Rollback != filepath.ToSlash(replaced.Rollback) {
-		t.Fatalf("rollback = %q", replaced.Rollback)
 	}
 }
 

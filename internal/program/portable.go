@@ -105,15 +105,26 @@ func Install(source, target string) error {
 	return os.Chmod(plan.Path, 0o755)
 }
 
+// lstatProgramFile reads a program file's own entry. A test replaces it to
+// report a path through a regular file as Windows does, as a missing path.
+var lstatProgramFile = os.Lstat
+
 // PlanUninstall returns the files among the portable executable and its owned
 // rollback copy that Uninstall would remove, and removes nothing.
 func PlanUninstall(target string) ([]string, error) {
 	if err := admitUninstall(target); err != nil {
 		return nil, err
 	}
+	return presentProgramFiles(target)
+}
+
+// presentProgramFiles returns the program file and its rollback copy that
+// exist, refusing either one whose path runs through a regular file, which
+// Windows reports as a missing path rather than as an error.
+func presentProgramFiles(target string) ([]string, error) {
 	present := []string{}
 	for _, path := range []string{target, RollbackPath(target)} {
-		_, err := os.Lstat(path)
+		_, err := lstatProgramFile(path)
 		if err == nil {
 			present = append(present, path)
 			continue

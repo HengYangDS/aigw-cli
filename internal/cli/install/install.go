@@ -5,6 +5,7 @@ package install
 import (
 	"errors"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -85,17 +86,16 @@ func previewInstall(cmd *cobra.Command, runtime invocation.Context, target strin
 	if plan.Unchanged {
 		next = installedNext
 	}
-	// Path is the operator's own spelling. Every derived path in the document is
-	// written with "/", as every other document writes one: a Windows separator
-	// would otherwise reach a script that reads the document as JSON.
+	// Every path in the preview keeps the operator's own spelling, as Path and
+	// RollbackPath do, so that a script compares it with the --path it gave.
 	rollback := ""
 	if plan.Rollback != "" {
-		rollback = filepath.ToSlash(program.RollbackPath(target))
+		rollback = program.RollbackPath(target)
 	}
 	// The write creates a missing folder, so the preview says that it will.
 	creates := ""
 	if folder := filepath.Dir(target); !folderExists(folder) {
-		creates = filepath.ToSlash(folder)
+		creates = givenFolder(target, folder, os.IsPathSeparator)
 	}
 	if jsonMode {
 		document := installDocument{DryRun: true, Path: target, Version: runtime.Version, Rollback: rollback, Unchanged: plan.Unchanged, CreatesFolder: creates, NextDetail: next}
@@ -114,12 +114,40 @@ func previewInstall(cmd *cobra.Command, runtime invocation.Context, target strin
 		rows = append(rows, terminal.Field{Label: "Rollback copy", Value: rollback})
 	}
 	if creates != "" {
-		rows = append(rows, terminal.Field{Label: "Creates folder", Value: filepath.FromSlash(creates)})
+		rows = append(rows, terminal.Field{Label: "Creates folder", Value: creates})
 	}
 	r.Rows(rows...)
 	r.Success("Preview did not write the program, a rollback copy or a directory")
 	r.Text(next)
 	return nil
+}
+
+// givenFolder spells folder, the folder of target, as the operator spelled it
+// in target: target up to its last separator, which isSeparator tells, as
+// RollbackPath keeps the operator's separators. A path that filepath derives
+// takes the host's separators instead, which on Windows differ from a --path
+// that names its folders with "/". A prefix that does not name that folder,
+// compared with every separator alike, leaves folder as it is.
+func givenFolder(target, folder string, isSeparator func(uint8) bool) string {
+	same := func(value string) string {
+		spelled := []byte(value)
+		for index := range spelled {
+			if isSeparator(spelled[index]) {
+				spelled[index] = '/'
+			}
+		}
+		return path.Clean(string(spelled))
+	}
+	for index := len(target) - 1; index > 0; index-- {
+		if !isSeparator(target[index]) {
+			continue
+		}
+		if given := target[:index]; same(given) == same(folder) {
+			return given
+		}
+		break
+	}
+	return folder
 }
 
 // folderExists reports whether path names a folder.
