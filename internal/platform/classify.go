@@ -66,15 +66,25 @@ type PathConditionError struct {
 	// that brings back what the folder held when no copy of it does, such as
 	// the Tokens of AIGW's Token folder.
 	Restore string
-	// Locked, for a write that a permission error refused, is the file or
-	// the folder holding it whose own entry carries a flag that forbids the
-	// change, such as macOS's uchg or Linux's immutable attribute; Writing
-	// says that the operation wrote rather than read, which no flag forbids.
-	Locked  string
+	// Locked, for a write that a permission error refused, lists the entries
+	// that carry a flag that forbids the change, such as macOS's uchg or
+	// Linux's immutable attribute: the file, read through a link to the file
+	// that it leads to, and the folder that holds it, whose flag refuses the
+	// rename that replaces the file. Writing says that the operation wrote
+	// rather than read, which no flag forbids.
+	Locked  []LockedEntry
 	Writing bool
 	// toFile marks a link that leads to a regular file where a folder is
 	// needed: no broken link, but no folder either.
 	toFile bool
+}
+
+// LockedEntry is one entry whose flag forbids a write: Path as the operator
+// named it, such as a link, and Through, when Path is a link, the file that it
+// leads to, whose own flag is the one that forbids the change.
+type LockedEntry struct {
+	Path    string
+	Through string
 }
 
 // Written is the failure of an operation that wrote path, as opposed to one
@@ -84,7 +94,7 @@ func (e *PathConditionError) Written() *PathConditionError {
 	written := *e
 	written.Writing = true
 	if written.Condition == PathPermission {
-		written.Locked = lockedEntry(written.Path)
+		written.Locked = lockedEntries(written.Path)
 	}
 	return &written
 }
@@ -100,16 +110,38 @@ func writingOperation(op string) bool {
 	return false
 }
 
-// lockedEntry is path or the folder holding it, whichever carries a flag that
-// forbids changing it, and nothing when neither does.
-func lockedEntry(path string) string {
+// lockedEntries are the entries of a write at path that carry a flag that
+// forbids it: the file, followed through a link to the file that it leads to,
+// and the folder that holds the file as named, whose flag refuses the rename
+// that replaces it. Both are listed when both carry one, so that one fix
+// clears every flag in the way.
+func lockedEntries(path string) []LockedEntry {
 	path = filepath.Clean(path)
-	for _, entry := range []string{path, filepath.Dir(path)} {
-		if lockFlagged(entry) {
-			return entry
+	var entries []LockedEntry
+	file := LockedEntry{Path: path}
+	// Only the file's own entry being a link sends the lookup elsewhere; a
+	// link among its folders, such as macOS's /var, leaves the file itself.
+	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		if resolved, err := filepath.EvalSymlinks(path); err == nil {
+			file.Through = resolved
 		}
 	}
-	return ""
+	if lockFlagged(file.flagged()) {
+		entries = append(entries, file)
+	}
+	if folder := filepath.Dir(path); lockFlagged(folder) {
+		entries = append(entries, LockedEntry{Path: folder})
+	}
+	return entries
+}
+
+// flagged is the entry whose flag counts: the file that a link leads to, or
+// else the entry itself.
+func (e LockedEntry) flagged() string {
+	if e.Through != "" {
+		return e.Through
+	}
+	return e.Path
 }
 
 // Restoring is the failure of a folder of AIGW's own whose contents restore

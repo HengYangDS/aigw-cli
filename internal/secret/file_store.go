@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 )
 
 // fileStore persists every credential purpose beneath one selected backend
@@ -61,8 +63,10 @@ func (store *fileStore) set(kind Kind, account, value string) error {
 	if err := validateOptionalOwnedFile(root, slotName(kind, account)); err != nil {
 		return err
 	}
+	// A failure names the Token file that the write replaces, as a full
+	// path, never the staging file that it goes through.
 	if err := writeSecureFile(root, slotName(kind, account), encoded); err != nil {
-		return fmt.Errorf("write Token file: %w", err)
+		return fmt.Errorf("write Token file: %w", platform.AtTarget(filepath.Join(store.root, slotName(kind, account)), err))
 	}
 	return nil
 }
@@ -78,7 +82,7 @@ func (store *fileStore) delete(kind Kind, account string) error {
 	defer func() { _ = root.Close() }()
 	name := slotName(kind, account)
 	if err := deleteSecureFile(root, name); err != nil {
-		return fmt.Errorf("delete Token file: %w", err)
+		return fmt.Errorf("delete Token file: %w", platform.AtTarget(filepath.Join(store.root, name), err))
 	}
 	return nil
 }

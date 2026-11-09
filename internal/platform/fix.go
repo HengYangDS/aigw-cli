@@ -40,8 +40,8 @@ func PathFix(failure *PathConditionError, at PathContext) string {
 		// Only a write that a flag on the file or its folder refused clears a
 		// flag; any other EPERM is a sandbox, system protection or a lock that
 		// the operator allows, and a mode change would help neither.
-		if failure.Locked != "" {
-			return "Clear the flag that locks " + at.name(failure, failure.Locked, theFile) + " (such as macOS's uchg or Linux's immutable attribute), then " + at.step() + "."
+		if len(failure.Locked) > 0 {
+			return "Clear the lock flag, such as macOS's uchg or Linux's immutable attribute, on " + at.lockedNames(failure) + ", then " + at.step() + "."
 		}
 		// A read of the configuration file keeps its own fix, whatever denied
 		// it, as `aigw config path` locates the file in every state.
@@ -221,4 +221,27 @@ func (at PathContext) blocksConfiguration(culprit string) bool {
 	}
 	relative, err := filepath.Rel(filepath.Clean(culprit), filepath.Dir(filepath.Clean(at.Configuration)))
 	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
+}
+
+// lockedNames names the entries whose flags forbid a write, joined so that one
+// fix clears them all: a link by its name as configured, with the file that it
+// leads to inside home, or as "the file that <link> leads to" outside it, so
+// that no path outside home that the operator did not give appears.
+func (at PathContext) lockedNames(failure *PathConditionError) string {
+	names := make([]string, 0, len(failure.Locked))
+	for _, entry := range failure.Locked {
+		name := at.name(failure, entry.Path, theFile)
+		if entry.Through != "" {
+			if target, _ := HomeTarget(entry.Through, at.Home); target != "" {
+				name = target + " (which " + name + " leads to)"
+			} else {
+				name = "the file that " + name + " leads to"
+			}
+		}
+		names = append(names, name)
+	}
+	if len(names) == 2 {
+		return names[0] + " and " + names[1]
+	}
+	return strings.Join(names, ", ")
 }

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -243,6 +244,9 @@ func WriteFileAtomicExactMode(path string, data []byte, mode os.FileMode) error 
 }
 
 func writeFileAtomic(path string, data []byte, defaultMode os.FileMode, preserveExistingMode bool) (result error) {
+	// A failure names the file that the write replaces, never the temporary
+	// file that it goes through, whose name changes with every run.
+	defer func() { result = AtTarget(path, result) }()
 	mode := defaultMode
 	if preserveExistingMode {
 		if info, err := os.Stat(path); err == nil {
@@ -267,6 +271,40 @@ func writeFileAtomic(path string, data []byte, defaultMode os.FileMode, preserve
 		}
 	}()
 	return commitTemporaryFile(tmp, path, data, mode)
+}
+
+// AtTarget reports err, the failure of a write that replaces target through a
+// temporary file, as an operating-system error at target, its operation's
+// intended destination, as a write there, keeping the error. A failure that
+// names no path, or already names target, returns unchanged.
+func AtTarget(target string, err error) error {
+	if err == nil {
+		return nil
+	}
+	failure, atPath := errors.AsType[*fs.PathError](err)
+	if link, atLink := errors.AsType[*os.LinkError](err); atLink && (!atPath || failure.Path != target) {
+		return &targetError{target: target, err: err, cause: link.Err}
+	}
+	if !atPath || filepath.Clean(failure.Path) == filepath.Clean(target) {
+		return err
+	}
+	return &targetError{target: target, err: err, cause: failure.Err}
+}
+
+// targetError is a write's failure at its intended target: a path error at
+// the target for every reader, which keeps the message and chain of the
+// failure that it reports. It is a write, which a flag on the target or its
+// folder can refuse.
+type targetError struct {
+	target     string
+	err, cause error
+}
+
+func (e *targetError) Error() string { return e.err.Error() }
+
+// Unwrap returns the path error at the target, and the failure as it was.
+func (e *targetError) Unwrap() []error {
+	return []error{&fs.PathError{Op: "write", Path: e.target, Err: e.cause}, e.err}
 }
 
 func commitTemporaryFile(tmp temporaryFile, path string, data []byte, mode os.FileMode) (result error) {

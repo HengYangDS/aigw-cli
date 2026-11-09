@@ -25,6 +25,9 @@ func TestPathFixFollowsTheConditionWhoCreatesAndTheStep(t *testing.T) {
 	failure := func(condition PathCondition, path, culprit string) *PathConditionError {
 		return &PathConditionError{Condition: condition, Path: path, Culprit: culprit, Err: fs.ErrPermission, Given: true}
 	}
+	locked := func(entries ...LockedEntry) *PathConditionError {
+		return &PathConditionError{Condition: PathPermission, Path: in("work", "config.toml"), Err: syscall.EPERM, Given: true, Writing: true, Locked: entries}
+	}
 	own := func(condition PathCondition, path, culprit string) *PathConditionError {
 		return &PathConditionError{Condition: condition, Path: path, Culprit: culprit, Err: fs.ErrPermission}
 	}
@@ -41,10 +44,16 @@ func TestPathFixFollowsTheConditionWhoCreatesAndTheStep(t *testing.T) {
 			"Make " + out("config.toml") + " and its folder readable and writable, then run the same command again."},
 		{"permission, check, outside home", failure(PathPermission, out("config.toml"), ""), true, check,
 			"Make the file outside the home directory and its folder readable and writable, then run `aigw sync`."},
-		{"a write that a flag on the file refuses", &PathConditionError{Condition: PathPermission, Path: in("work", "config.toml"), Err: syscall.EPERM, Given: true, Writing: true, Locked: in("work", "config.toml")}, true, command,
-			"Clear the flag that locks ~/work/config.toml (such as macOS's uchg or Linux's immutable attribute), then run the same command again."},
-		{"a write that a flag on the folder refuses", &PathConditionError{Condition: PathPermission, Path: in("work", "config.toml"), Err: syscall.EPERM, Given: true, Writing: true, Locked: in("work")}, true, command,
-			"Clear the flag that locks ~/work (such as macOS's uchg or Linux's immutable attribute), then run the same command again."},
+		{"a write that a flag on the file refuses", locked(LockedEntry{Path: in("work", "config.toml")}), true, command,
+			"Clear the lock flag, such as macOS's uchg or Linux's immutable attribute, on ~/work/config.toml, then run the same command again."},
+		{"a write that a flag on the folder refuses", locked(LockedEntry{Path: in("work")}), true, command,
+			"Clear the lock flag, such as macOS's uchg or Linux's immutable attribute, on ~/work, then run the same command again."},
+		{"a write that flags on the file and the folder refuse", locked(LockedEntry{Path: in("work", "config.toml")}, LockedEntry{Path: in("work")}), true, command,
+			"Clear the lock flag, such as macOS's uchg or Linux's immutable attribute, on ~/work/config.toml and ~/work, then run the same command again."},
+		{"a link to a locked file inside home", locked(LockedEntry{Path: in("work", "config.toml"), Through: in("dotfiles", "config.toml")}), true, command,
+			"Clear the lock flag, such as macOS's uchg or Linux's immutable attribute, on ~/dotfiles/config.toml (which ~/work/config.toml leads to), then run the same command again."},
+		{"a link to a locked file outside home", locked(LockedEntry{Path: in("work", "config.toml"), Through: out("dotfiles", "config.toml")}), true, command,
+			"Clear the lock flag, such as macOS's uchg or Linux's immutable attribute, on the file that ~/work/config.toml leads to, then run the same command again."},
 		{"an EPERM that no flag causes", &PathConditionError{Condition: PathPermission, Path: in("work", "config.toml"), Err: syscall.EPERM, Given: true, Writing: true}, true, command,
 			"A lock, a sandbox or system protection forbids this operation on ~/work/config.toml; allow it, then run the same command again."},
 		{"a read of the configuration that EPERM refuses keeps its read fix", &PathConditionError{Condition: PathPermission, Path: in("aigw", "config.toml"), Err: syscall.EPERM}, false,
