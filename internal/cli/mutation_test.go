@@ -210,6 +210,17 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 		{name: "config migration rollback", args: []string{"config", "migrate", "--rollback"}, want: true},
 		{name: "config migration rollback preview", args: []string{"config", "migrate", "--rollback", "--dry-run"}, want: false},
 		{name: "config export", args: []string{"config", "export"}, want: false},
+		{name: "config rollback", args: []string{"config", "rollback"}, want: true},
+		{name: "config rollback dry-run", args: []string{"config", "rollback", "--dry-run"}, want: false},
+		{name: "self update", args: []string{"self", "update"}, want: true},
+		{name: "self update dry-run", args: []string{"self", "update", "--dry-run"}, want: false},
+		{name: "self rollback", args: []string{"self", "rollback"}, want: true},
+		{name: "self rollback dry-run", args: []string{"self", "rollback", "--dry-run"}, want: false},
+		{name: "self uninstall", args: []string{"self", "uninstall"}, want: true},
+		{name: "self uninstall dry-run", args: []string{"self", "uninstall", "--dry-run"}, want: false},
+		{name: "self install", args: []string{"self", "install"}, want: false},
+		{name: "self status", args: []string{"self", "status"}, want: false},
+		{name: "bare aigw", args: []string{}, want: false},
 		{name: "status", args: []string{"status"}, want: false},
 	}
 
@@ -223,7 +234,7 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 			if err := command.ParseFlags(args); err != nil {
 				t.Fatal(err)
 			}
-			if got := requiresConfigurationLock(app, command); got != tt.want {
+			if got := requiresConfigurationLock(command); got != tt.want {
 				t.Fatalf("requiresConfigurationLock(%q) = %v, want %v", tt.args, got, tt.want)
 			}
 		})
@@ -246,17 +257,10 @@ func TestConfigImportPreviewDoesNotCreateConfigurationDirectoryOrLock(t *testing
 	}
 }
 
-func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
-	emptyStore := App{Config: store.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission()), Interactive: true}
-	if !requiresConfigurationLock(&emptyStore, NewRoot(&emptyStore)) {
-		t.Fatal("an interactive terminal with no routes should trigger the onboarding wizard lock")
-	}
-
-	nonInteractive := App{Config: store.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission()), Interactive: false}
-	if requiresConfigurationLock(&nonInteractive, NewRoot(&nonInteractive)) {
-		t.Fatal("a non-interactive session with no routes must not take a mutation lock")
-	}
-
+// TestBareAigwTakesNoConfigurationLock: bare aigw is aigw status, which writes
+// nothing, in an empty home at a terminal, without one, and in a configured
+// home.
+func TestBareAigwTakesNoConfigurationLock(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	configStore := store.NewStore(path, clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
@@ -269,8 +273,13 @@ func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	populated := App{Config: configStore, Interactive: true}
-	if requiresConfigurationLock(&populated, NewRoot(&populated)) {
-		t.Fatal("an already-configured store must not trigger the onboarding wizard lock")
+	for name, app := range map[string]App{
+		"an empty home at a terminal":     {Config: store.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission()), Interactive: true},
+		"an empty home without one":       {Config: store.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission())},
+		"a configured home at a terminal": {Config: configStore, Interactive: true},
+	} {
+		if requiresConfigurationLock(NewRoot(&app)) {
+			t.Fatalf("bare aigw in %s takes the configuration lock", name)
+		}
 	}
 }

@@ -136,7 +136,7 @@ func Execute(app *App, args []string) error {
 		if err := command.ValidateFlagGroups(); err != nil {
 			return refusedFlag(command, err)
 		}
-		if !requiresConfigurationLock(app, command) {
+		if !requiresConfigurationLock(command) {
 			return nil
 		}
 		locked, err := app.Config.Lock(command.Context())
@@ -221,11 +221,9 @@ func credentialInvocation(args []string) bool {
 	return len(args) > 0 && args[0] == "credential"
 }
 
-func requiresConfigurationLock(app *App, command *cobra.Command) bool {
-	if command == command.Root() {
-		cfg, err := app.Config.Load()
-		return err == nil && len(cfg.Providers) == 0 && app.Interactive
-	}
+func requiresConfigurationLock(command *cobra.Command) bool {
+	// Bare aigw is aigw status, which writes nothing; self install writes the
+	// program file, never the configuration.
 	path := strings.TrimPrefix(command.CommandPath(), command.Root().Name()+" ")
 	switch path {
 	case "rotate", "provider rotate", "account diagnostics enable", "account diagnostics disable":
@@ -233,7 +231,8 @@ func requiresConfigurationLock(app *App, command *cobra.Command) bool {
 	case "setup", "add", "rollback", "uninstall", "update", "account edit",
 		"route add", "route edit", "route remove", "model add", "model edit", "model remove", "client enable", "client disable", "client edit",
 		"provider add", "provider edit", "provider remove",
-		"use", "sync", "repair", "account rename", "route rename", "config import", "config migrate":
+		"use", "sync", "repair", "account rename", "route rename", "config import", "config migrate",
+		"config rollback", "self update", "self rollback", "self uninstall":
 		dryRun, err := command.Flags().GetBool("dry-run")
 		return err != nil || !dryRun
 	default:
