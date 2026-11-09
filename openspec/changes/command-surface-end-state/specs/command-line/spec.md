@@ -439,11 +439,10 @@ stdout SHALL contain only credential output.
 
 When an AIGW command fails at a local file operation or while loading its
 configuration, its human and JSON diagnostic SHALL name the failed operation
-and the operating-system error, or the configuration stage that failed: a parse
-failure names its line and column, and a validation failure the running AIGW
-version. It SHALL name a failed client file as `~/…`, or as configured outside
-the home directory, and SHALL contain no other path, configuration content,
-credential or internal error.
+and the operating-system error, or the configuration stage that failed. It
+SHALL name a failed client file as `~/…`, or as configured outside the home
+directory, and SHALL contain no other path than one its Fix acts on, and no
+configuration content, credential or internal error.
 
 #### Scenario: A local file operation fails
 
@@ -451,7 +450,15 @@ credential or internal error.
   operating-system error
 - **THEN** the diagnostic SHALL name the operation and the error
 - **AND** it SHALL name a client file as `~/…` inside the home directory, or as
-  configured outside it, and SHALL contain no other path.
+  configured outside it, and SHALL contain no other path than one its Fix acts
+  on.
+
+#### Scenario: A regular file stands where a folder is needed
+
+- **WHEN** a file operation fails because its path runs through a regular file
+- **THEN** the diagnostic SHALL give the reason `not a directory` on every
+  platform, and its Fix SHALL name that file to move
+- **AND** the Fix for a missing folder SHALL name the folder to create.
 
 #### Scenario: The configuration cannot be parsed
 

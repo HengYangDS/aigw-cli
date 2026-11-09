@@ -23,6 +23,12 @@
       protocols, depths, families and capabilities that read only local
       configuration; a test whose secret store and HTTP client fail on any use
       shows that they read no Token and send no request.
+- [ ] 2.5 Refuse a path that runs through a regular file as `not a directory`,
+      naming that file, at every product check that takes a missing path for
+      an absent file, through one `internal/platform` function; Windows reports
+      such a path as ERROR_PATH_NOT_FOUND, and tests that map an error to it
+      show the refusal for the file snapshot, the configuration load, the file
+      Token store and the install checks.
 
 ## 3. Model, provider and client commands
 
