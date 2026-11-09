@@ -185,7 +185,7 @@ func admitEnablement(runtime invocation.Context, cfg domain.Config, client strin
 			return err
 		}
 	}
-	return nil
+	return refuseTargetsUnderFiles(targets)
 }
 
 // checkTargetsRead refuses --target for a client whose adapter reads no

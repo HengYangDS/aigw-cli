@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 )
 
 var writeFileAtomic = platform.WriteFileAtomic
@@ -36,7 +35,7 @@ func planInstall(source, target string) (InstallPlan, []byte, []byte, error) {
 	}
 	// Before the ownership check, whose symbolic-link resolution reports a
 	// file used as a folder differently on Windows.
-	if err := refuseFileAsFolder(filepath.Clean(target)); err != nil {
+	if err := platform.RefuseFileAsFolder(target); err != nil {
 		return InstallPlan{}, nil, nil, err
 	}
 	if err := RequirePortableOwnership(target); err != nil {
@@ -135,30 +134,6 @@ func (samePathError) Error() string { return "source and target resolve to the s
 // NextAction is the step after which the command succeeds.
 func (samePathError) NextAction() string {
 	return "This program is already at that path. To install it elsewhere, run the same command with --path naming another file."
-}
-
-// refuseFileAsFolder refuses a target whose path runs through a file, which
-// can hold no program. POSIX reports it as ENOTDIR, but Windows reports
-// ERROR_PATH_NOT_FOUND, which Go maps to a missing path, so a preview would
-// otherwise pass and only the write would fail.
-func refuseFileAsFolder(target string) error {
-	for folder := filepath.Dir(target); ; folder = filepath.Dir(folder) {
-		// Lstat of the nearest folder that exists ends the walk; a folder
-		// that cannot be read, or that runs through a file, is passed by.
-		if info, err := os.Lstat(folder); err == nil {
-			if info.IsDir() {
-				return nil
-			}
-			if info.Mode().IsRegular() {
-				return &os.PathError{Op: "mkdir", Path: folder, Err: syscall.ENOTDIR}
-			}
-			// A symbolic link is followed by the install itself.
-			return nil
-		}
-		if parent := filepath.Dir(folder); parent == folder {
-			return nil
-		}
-	}
 }
 
 // TargetDirectoryError is a directory at the path of the portable program,

@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
@@ -285,6 +286,18 @@ func checkTargets(cmd *cobra.Command, runtime invocation.Context, id string, tar
 	for _, target := range targets {
 		if err := runtime.Clients.ValidateTarget(id, discovered, target); err != nil {
 			return fmt.Errorf("--target %s: %w; run `%s --help`", target, err, cmd.CommandPath())
+		}
+	}
+	return refuseTargetsUnderFiles(targets)
+}
+
+// refuseTargetsUnderFiles refuses a configuration file whose path runs through
+// another file, which no client can read and no sync can write, naming that
+// file and the fix there, before anything changes.
+func refuseTargetsUnderFiles(targets []string) error {
+	for _, target := range targets {
+		if err := platform.RefuseFileAsFolder(target); err != nil {
+			return terminal.FileAccessFailure(err, target)
 		}
 	}
 	return nil
