@@ -201,6 +201,20 @@ func TestUseClearsForwardingAndRetriesOnlyForAnotherProvider(t *testing.T) {
 		kept.Endpoint != "http://127.0.0.1:8792/v1" || kept.ProviderEndpoint != "https://gateway.example.test/v1" {
 		t.Fatalf("selection within the provider = %s, %v", out.Bytes(), err)
 	}
+	// A person sees the kept budget and both endpoints that the client now
+	// uses: the forwarding endpoint, and the provider's behind it.
+	out.Reset()
+	if err := execute(runtime, codex.ID, "gateway/gpt-test"); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Stream retries", "3", "http://127.0.0.1:8792/v1", "Provider endpoint", "https://gateway.example.test/v1"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("selection within the provider lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out.String(), "Cleared") || strings.Contains(out.String(), "Request retries") {
+		t.Fatalf("selection within the provider cleared a setting or invented a budget:\n%s", out)
+	}
 	out.Reset()
 	if err := execute(runtime, codex.ID, "other/gpt-test"); err != nil {
 		t.Fatal(err)
