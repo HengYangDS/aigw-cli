@@ -77,10 +77,10 @@ top:
 7. **[Readiness](../../internal/app/readiness/):** The operational state vocabulary that setup, synchronization, inspection and verification share
 8. **[Diagnostics](../../internal/app/diagnostics/):** Bounded, redacted endpoint and authentication health observations
 9. **[Client orchestration](../../internal/adapter/) and [Upgrades](../../internal/program/):** The adapter seam: admitted client discovery, projection, inspection, verification, compensation, and withdrawal. Adapters share the seam's [discovery](../../internal/adapter/discovery/), [surface](../../internal/adapter/surface/) and [verification](../../internal/adapter/verification/) packages and never import each other, and each adapter runs the seam's [contract suite](../../internal/adapter/contract/) from its tests. Independent-Forge update verification and installation own the [release artifact format](../../internal/program/artifact/).
-    - **[Claude Code](../../internal/adapter/claude/):** Settings projection, credential-safe process plans, and readiness
-    - **[Claude Desktop](../../internal/adapter/claudedesktop/):** Its separate third-party inference library
-    - **[Codex](../../internal/adapter/codex/):** Projection planning and reconciliation, and its [model catalog](../../internal/adapter/codex/modelcatalog/)
-    - **[Hermes](../../internal/adapter/hermes/):** Its native provider catalog, explicit protocol and model selection, and credential commands
+   - **[Claude Code](../../internal/adapter/claude/):** Settings projection, credential-safe process plans, and readiness
+   - **[Claude Desktop](../../internal/adapter/claudedesktop/):** Its separate third-party inference library
+   - **[Codex](../../internal/adapter/codex/):** Projection planning and reconciliation, and its [model catalog](../../internal/adapter/codex/modelcatalog/)
+   - **[Hermes](../../internal/adapter/hermes/):** Its native provider catalog, explicit protocol and model selection, and credential commands
 10. **[Balance probes](../../internal/balanceprobe/), [Secret](../../internal/secret/) and [Store](../../internal/store/):** Optional provider-native diagnostics behind their [diagnostic contract](../../internal/balanceprobe/diagnostic/); Account credential backends, typed diagnostic credentials and replacement, the private credential reader that native clients run, and the [Token probes](../../internal/secret/probe/); schema migration, persistence, checkpoints and the team manifest's TOML encoding
 11. **[Domain](../../internal/domain/) and [Platform](../../internal/platform/):** Account, Route, recommendation, Client Binding, the admitted client specifications, validation, the endpoint requests that prove an Account's Token, and the team manifest semantics, with standard-library imports only; portable AIGW-owned paths, guarded filesystem mutation and rollback, and bounded [child processes](../../internal/platform/process/)
 
