@@ -5,6 +5,7 @@ package client
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
@@ -34,6 +35,31 @@ func clientArgument(cmd *cobra.Command, admission domain.Admission, args []strin
 	default:
 		return domain.ClientSpec{}, fmt.Errorf("%s takes one <client> argument, not %d; run `%s --help`", cmd.CommandPath(), len(args), cmd.CommandPath())
 	}
+}
+
+// enableExamples enables a client that finds its own configuration file, and
+// previews enabling one that is told its file with --target.
+func enableExamples(admission domain.Admission) string {
+	var lines []string
+	specs := admission.Specs()
+	if index := slices.IndexFunc(specs, func(spec domain.ClientSpec) bool { return spec.TargetFile == "" }); index >= 0 {
+		id := specs[index].ID
+		lines = append(lines, "aigw client enable "+id+" --executable ~/.local/bin/"+id)
+	}
+	if index := slices.IndexFunc(specs, func(spec domain.ClientSpec) bool { return spec.TargetFile != "" }); index >= 0 {
+		id := specs[index].ID
+		lines = append(lines, "aigw client enable "+id+" --executable ~/.local/bin/"+id+" --target ~/."+id+"/"+specs[index].TargetFile+" --dry-run")
+	}
+	return strings.Join(lines, "\n")
+}
+
+// disableExamples previews and then disables the first client.
+func disableExamples(admission domain.Admission) string {
+	specs := admission.Specs()
+	if len(specs) == 0 {
+		return ""
+	}
+	return "aigw client disable " + specs[0].ID + " --dry-run\naigw client disable " + specs[0].ID
 }
 
 // completeClient completes the one <client> argument of a command, and
@@ -118,6 +144,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		renderEnabled(invocation.Renderer(runtime), spec)
 		return nil
 	}}
+	cmd.Example = enableExamples(runtime.Clients.Admission())
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the client files that enabling would change without writing them")
 	cmd.Flags().StringVar(&executable, "executable", "", "Path to the real client executable")
 	cmd.Flags().StringArrayVar(&targets, "target", nil, targetHelp(runtime.Clients.Admission()))
@@ -241,6 +268,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		renderDisabled(invocation.Renderer(runtime), spec)
 		return nil
 	}}
+	cmd.Example = disableExamples(runtime.Clients.Admission())
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the client files that disabling would change without writing them")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the disabled projection as JSON")
 	return cmd

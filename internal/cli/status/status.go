@@ -16,7 +16,8 @@ const schemaVersion = 3
 // NewCommand constructs the read-only configuration and client readiness command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
-	cmd := &cobra.Command{Use: "status", Short: "Show each client's model and local readiness", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "status", Short: "Show each client's model and local readiness", Args: cobra.NoArgs,
+		Example: "aigw status\naigw status --json"}
 	cmd.RunE = func(_ *cobra.Command, _ []string) error { return RunStatus(runtime, jsonMode) }
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
 	return cmd

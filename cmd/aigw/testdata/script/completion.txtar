@@ -26,6 +26,11 @@ AIGW  aigw completion
 Usage
   aigw completion <bash|zsh|fish|powershell> [flags]
 
+Examples
+  aigw completion zsh > "${fpath[1]}/_aigw"
+  aigw completion bash > ~/.local/share/bash-completion/completions/aigw
+  aigw completion fish > ~/.config/fish/completions/aigw.fish
+
 Options
   -h, --help   help for completion
 -- refusal.txt --

@@ -19,6 +19,9 @@ func NewCommand() *cobra.Command {
 	}
 	return &cobra.Command{
 		Use: "completion <bash|zsh|fish|powershell>", Short: "Generate shell completion",
+		Example: "aigw completion zsh > \"${fpath[1]}/_aigw\"\n" +
+			"aigw completion bash > ~/.local/share/bash-completion/completions/aigw\n" +
+			"aigw completion fish > ~/.config/fish/completions/aigw.fish",
 		// The shell is an argument, so an unsupported one is refused with the
 		// command's other argument errors, before anything is written.
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(_ *cobra.Command, args []string) error {

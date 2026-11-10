@@ -79,6 +79,10 @@ AIGW  aigw status
 Usage
   aigw status [flags]
 
+Examples
+  aigw status
+  aigw status --json
+
 Options
   -h, --help   help for status
       --json   Write machine-readable JSON

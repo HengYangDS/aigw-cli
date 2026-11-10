@@ -37,6 +37,7 @@ func newPathCommand(runtime invocation.Context) *cobra.Command {
 		_, err := fmt.Fprintln(runtime.Out, runtime.Config.Path())
 		return err
 	}}
+	cmd.Example = "aigw config path\naigw config path --json"
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the configuration path as JSON")
 	return cmd
 }
