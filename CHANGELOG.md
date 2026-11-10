@@ -25,6 +25,69 @@ signing, and GA status remain separate evidence.
   Every new route passed a native Hermes tool turn and a resumed recall.
   Claude stays at 5.5 and GPT at 6.1.
 
+- `aigw use --for <client> <route>` is `aigw use <client> <provider/model>`.
+  A model is named `provider/model`, where the part after the first `/` is the
+  provider's own model ID, and `use` adds a model that the provider's catalog
+  lists, or one that it does not with `--unlisted`. Its connection flags move
+  to `aigw client edit <client>`: `--forwarding-endpoint <url>` is
+  `--via <url>`, `--request-max-retries` and `--stream-max-retries` are
+  `--request-retries` and `--stream-retries`, and `--direct` and
+  `--native-retries` keep their names.
+- `aigw check --for <client>` is `aigw check <client>`, and `--endpoint-only`
+  is `--depth endpoint`. `--depth` takes `local`, `endpoint`, `model`, the
+  default, or `client`; with one named client, `--model <provider/model>`
+  replaces `--route`.
+- `aigw setup --from <file> --account <id>` is
+  `aigw setup --from <file> --provider <id>`, which repeats.
+- A protocol on the command line is `anthropic`, `responses` or `chat`;
+  `openai_responses` and `openai_chat_completions` are refused.
+- `--openai-url`, `--chat-url` and `--anthropic-url` are
+  `--endpoint responses=<url>`, `--endpoint chat=<url>` and
+  `--endpoint anthropic=<url>` on `aigw provider add` and `aigw provider edit`.
+- `--token-stdin` takes the raw Token, and `--token-format` is refused.
+- These flags are refused without a replacement: `--all`, as a query and
+  `--provider` narrow `aigw model search`; `--upstream-model`, as a model's
+  name carries the provider's model ID; `--purpose`, `--config`, `--finalize`,
+  and the `--confirm-*`, `--keep-*`, `--replace-*` and `--retire-*` families.
+- The previews of `aigw client enable`, `client disable`, `sync`,
+  `config rollback` and `self uninstall` list their files as `client_files` of
+  `client`, `file` and `action`, which replaces `projections` of `client`,
+  `surface`, `target` and `action`. The documents of `client enable` and
+  `client disable` move to `schema_version` 2.
+
+### Removed
+
+- `aigw doctor`: run `aigw check --depth local --verbose`.
+- `aigw test`: run `aigw check --depth endpoint`; name one client and
+  `--model <provider/model>` to try a model that the client does not select.
+- `aigw verify --for <client>`: run `aigw check <client> --depth client`.
+  `aigw check --depth client` checks every enabled client and writes the
+  verified snapshot that `aigw config rollback` restores.
+- `aigw catalog` and `aigw models`: run `aigw model search`.
+- `aigw route list`, `route show`, `route add`, `route edit` and `route remove`:
+  run `aigw model list`, `model show`, `model add`, `model edit` and
+  `model remove`. `aigw route rename` has no replacement.
+- `aigw account list` and `account edit`: run `aigw provider list` and
+  `provider edit`. `aigw account diagnostics` is
+  `aigw provider edit <provider> --balance-token-stdin --balance-user-id <id>`,
+  or `--no-balance-token`. `aigw account rename` has no replacement: add the
+  provider under its new ID with `aigw provider add`, point each client at its
+  models with `aigw use`, then remove the old one with `aigw provider remove`.
+- `aigw add` and flag-driven `aigw setup`: run
+  `aigw provider add <provider> --endpoint <protocol>=<url> --token-stdin`, then
+  `aigw use <client> <provider/model>`.
+- `aigw rotate` and `aigw balance`: run `aigw provider rotate <provider>` and
+  `aigw provider balance`, which reports every provider unless you name some.
+- `aigw repair`: run `aigw sync`.
+- `aigw rollback`: run `aigw config rollback`, which keeps `--last-change`.
+- `aigw client discover`: run `aigw client list`.
+- `aigw config import`: run `aigw setup --from <file>`.
+- `aigw config migrate`, without a replacement.
+- `aigw install`, `aigw update`, `aigw uninstall` and `aigw installation`: run
+  `aigw self install`, `self update`, `self uninstall` and `self status`.
+  `aigw update --rollback` is `aigw self rollback`, and `update --candidate` is
+  `self update --archive`.
+
 ### Fixed
 
 - `aigw sync` no longer breaks Codex's configuration when AIGW's record of it
@@ -36,8 +99,9 @@ signing, and GA status remain separate evidence.
   already holds two tables is now refused by name, with the fix to keep the
   one between AIGW's markers. Every Codex write now refuses settings that
   would not parse as TOML.
-- `aigw verify --for hermes` no longer starts the operator's Hermes MCP
-  servers or shell hooks inside the verification turn. The private
+- `aigw verify --for hermes`, the 0.6.1 spelling of
+  `aigw check hermes --depth client`, no longer starts the operator's Hermes
+  MCP servers or shell hooks inside the verification turn. The private
   verification home now names none and carries no hook consent, as the
   verification contract already required. The operator's own Hermes
   configuration does not change.
@@ -45,16 +109,17 @@ signing, and GA status remain separate evidence.
   fails with "Access is denied" when it exits at once. The child now joins the
   Job Object that owns its cleanup before it runs any code, so the processes it
   starts itself are cleaned up with it.
-- When `aigw verify --for hermes` ends while the Hermes gateway it launched is
-  still starting, AIGW now keeps the private verification home until that
-  gateway ends, or retains and names it once its time limits pass. Before,
-  AIGW deleted the home, and the gateway re-created it and ran for ten minutes
-  in a home that AIGW reported as reclaimed.
-- `aigw sync --dry-run` and `aigw repair --dry-run` now check a configuration
-  change as `aigw sync` and `aigw repair` do, so a preview refuses what its
-  write refuses, with the same error and no plan. Before, `aigw sync --dry-run`
-  printed a plan for a home without a configuration, which `aigw sync`
-  refuses.
+- When `aigw check hermes --depth client`, 0.6.1's `aigw verify --for hermes`,
+  ends while the Hermes gateway it launched is still starting, AIGW now keeps
+  the private verification home until that gateway ends, or retains and names
+  it once its time limits pass. Before, AIGW deleted the home, and the gateway
+  re-created it and ran for ten minutes in a home that AIGW reported as
+  reclaimed.
+- `aigw sync --dry-run`, which also replaces 0.6.1's `aigw repair --dry-run`,
+  now checks a configuration change as `aigw sync` does, so a preview refuses
+  what its write refuses, with the same error and no plan. Before,
+  `aigw sync --dry-run` printed a plan for a home without a configuration,
+  which `aigw sync` refuses.
 
 ## [0.6.1] - 2026-11-05
 

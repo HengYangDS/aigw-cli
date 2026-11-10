@@ -3,24 +3,24 @@ subject: aigw:product-vocabulary
 role: reference
 state: canonical
 relations:
-  canonical_for: The product glossary and the Account, Model, Route, Client Binding, and Native Projection vocabulary
+  canonical_for: The product glossary and the provider, model, family, client and Token vocabulary
 ---
 
 # Product Concepts
 
-AIGW has five operational concepts: Account, Model, Route, Client Binding, and
-Native Projection. A Client Binding selects one reusable Route for one client. The
-Route refers to an Account, and the projection writes only AIGW-owned native
-configuration. Account Tokens stay in a separate credential backend.
+AIGW speaks of three nouns: provider, model and client. A client selects one
+model, named `provider/model`. The provider holds the endpoints and the Token,
+and AIGW writes only its own settings into the client's files. Tokens stay in a
+separate credential backend.
 
 ```mermaid
 flowchart TB
-    accTitle: References among the four configuration entities
-    accDescr: A Client Binding selects a reusable Route, which names an Account. The binding is projected into one native client while Account Tokens remain in a separate backend.
-    B["Client Binding"] -->|selects| R["Route"]
-    R -->|uses| A["Account"]
-    R -->|exposes| M["Model"]
-    B -->|produces| N["Native Projection"]
+    accTitle: References among providers, models, families and clients
+    accDescr: A client selects one model, which a provider serves and which may belong to a family. AIGW writes the selection into the client's files while the provider's Token stays in a separate backend.
+    C["Client"] -->|selects| M["Model"]
+    P["Provider"] -->|serves| M
+    M -->|belongs to| F["Family"]
+    C -->|AIGW writes| N["Client files"]
 ```
 
 ## Glossary
@@ -29,98 +29,100 @@ Each concept has one canonical term. Code identifiers, package names,
 specifications, documentation and human output use it. The spelling gate
 refuses a rejected synonym outside history and reports the canonical term.
 
-| Term              | Meaning                                                                                | Rejected synonyms         |
-| ----------------- | -------------------------------------------------------------------------------------- | ------------------------- |
-| Account           | A provider's endpoints, with one Account Token slot                                    |                           |
-| Account Token     | The secret that authenticates an Account; it stays in the credential backend           |                           |
-| Model             | One canonical upstream product, independent of Account, protocol and client            |                           |
-| Route             | One Account and Model, the exact upstream model ID and its qualified protocols         |                           |
-| Client            | An AI tool that AIGW supports: Claude Code, Codex, Claude Desktop or Hermes            |                           |
-| Client Binding    | One client's selected Route and its client-specific options                            |                           |
-| Native Projection | The AIGW-owned part of a client's native configuration                                 |                           |
-| Adapter           | The code that supports one client behind the `internal/adapter` seam                   |                           |
-| Provider          | A service whose endpoints an Account holds, such as AIHubMix, DMXAPI or UCloud         |                           |
-| Catalog           | The model IDs that one Account lists for one protocol, as `aigw catalog` observes them | `catalogue`, `catalogues` |
+| Term         | Meaning                                                                                                     | Rejected synonyms         |
+| ------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------- |
+| Provider     | A service you hold a Token for: an ID, a label, one endpoint per protocol and a Token                       |                           |
+| Token        | The provider's API credential; it stays in the credential backend                                           |                           |
+| Model        | What a provider serves, named `provider/model`; the part after the first `/` is the provider's own model ID |                           |
+| Family       | Optional: which canonical model a provider's model is, so that variants and providers can be compared       |                           |
+| Client       | An AI tool that AIGW supports: Claude Code, Codex, Claude Desktop or Hermes                                 |                           |
+| Protocol     | An endpoint protocol: `anthropic`, `responses` or `chat`                                                    |                           |
+| Client files | The AIGW-owned part of a client's native configuration                                                      |                           |
+| Adapter      | The code that supports one client behind the `internal/adapter` seam                                        |                           |
+| Catalog      | The model IDs that a provider lists for one protocol, as `aigw model search` reads them                     | `catalogue`, `catalogues` |
 
 ## Core entities
 
-### Account
+### Provider
 
-An Account contains:
+A provider contains:
 
-- a human label;
-- OpenAI Responses, OpenAI Chat Completions, or Anthropic endpoints as supported
-  by the Account;
-- an Account Token slot in the selected backend when authentication requires it;
-- an optional provider-native diagnostic declaration.
+- an ID and a human label;
+- an Anthropic, OpenAI Responses or OpenAI Chat Completions endpoint for each
+  protocol that it serves;
+- a Token slot in the selected backend when authentication requires it;
+- an optional balance probe.
 
-Accounts can be imported before a Token is available. A client-native Route
-delegates authentication to its client instead of requiring that Account slot.
-Configuration and manifests never contain the Token.
-The reviewed distribution is [`manifests/team.toml`](../../manifests/team.toml);
+A team file can add a provider before its Token is available. A client that
+uses client-native authentication delegates authentication to the client
+instead of requiring that slot. Configuration and team files never contain the
+Token. The reviewed distribution is [`manifests/team.toml`](../../manifests/team.toml);
 it is the sole tracked team configuration and is directly consumable by
 `aigw setup --from`.
 
 ### Model
 
-A Model identifies one canonical upstream product independently of Account,
-wire protocol, provider channel, recommendation, and client state.
+A model is what one provider serves, named `provider/model`: the text before
+the first `/` names the provider, and the rest is the provider's own model ID,
+byte for byte, so `aihubmix/openai/gpt-oss` is model `openai/gpt-oss` of
+provider `aihubmix`. AIGW never invents a model name. A model declares the
+protocols on which AIGW may use it; AIGW never infers a protocol from a catalog
+or a model's name.
 
-### Route
+Model IDs are the provider's own strings. AIGW does not infer a capability or
+version policy from their spelling.
 
-A Route identifies one Account, one canonical Model, the exact upstream model
-identifier, and the protocol interfaces qualified for that pairing. The team
-manifest carries reviewed Models and Routes; operators may bind the same
-compatible Route to more than one client.
-
-Route and Model IDs are transparent operator-defined strings. AIGW does not
-infer a provider, capability, or version policy from their spelling.
-
-Authentication defaults to `account-token`, which uses the Account's selected
-Token backend. A client binding may instead select admitted client-native
+Authentication defaults to `account-token`, which uses the provider's Token in
+the selected backend. A client may instead select admitted client-native
 authentication and its native provider identity. That client then owns
-credentials and any signing, so AIGW does not require an Account Token. This
+credentials and any signing, so AIGW does not require a Token. This
 declaration is not evidence that the client or provider supports the selected
-combination; verify the actual invocation.
+combination; check the actual invocation.
 
-### Client Binding
+### Family
+
+A family identifies one canonical model independently of provider, wire
+protocol, provider channel, recommendation, and client state. A variant such as
+`dmxapi/gpt-6.1-sol-cdx` belongs to family `gpt-6.1-sol`.
+
+### Client selection
 
 ```bash
-aigw use --for codex dmxapi-gpt-6.1-sol-cdx
-aigw use --for claude dmxapi-claude-opus-5-5
+aigw use codex dmxapi/gpt-6.1-sol-cdx
+aigw use claude dmxapi/claude-opus-5-5
 ```
 
-Each binding owns one client's Route selection, enabled intent, native target,
-protocol, authentication mode, and genuinely client-specific options. There is
-no global default, inheritance, or cross-client fallback. AIGW selects before
-the request; it does not retry traffic through another endpoint or model.
+Each client owns its selected model, enabled intent, client files, protocol,
+authentication mode, and genuinely client-specific options. There is no global
+default, inheritance, or cross-client fallback. AIGW selects before the
+request; it does not retry traffic through another endpoint or model.
 
-Team recommendations are not local bindings. Import retains them separately.
-Setup may bind recommendations for Accounts it connects or whose Token already
-exists. Later `sync`
-may select an unbound reviewed recommendation when its Account Token appears in
-the read-only environment backend; it does not search unselected native
-credentials. An existing binding survives a missing Token or a newly connected
-Account. See [team activation](../guides/team-rollout.md#local-choices) for
-deliberate selection changes.
+Team recommendations are not local selections. A team file stores them
+separately. Setup may select recommendations for providers it connects or whose
+Token already exists. Later `sync` may select an unselected client's reviewed
+recommendation when its provider's Token appears in the read-only environment
+backend; it does not search unused native credentials. An existing selection
+survives a missing Token or a newly connected provider. See
+[team activation](../guides/team-rollout.md#local-choices) for deliberate
+selection changes.
 
-### Native Projection
+### Client files
 
-- **Codex:** recorded provider/model configuration, with an Account Token helper
-  or explicit client-native authentication.
-- **Claude Code:** official user-settings endpoint/model projection and
-  credential helper.
+- **Codex:** recorded provider and model configuration, with a Token helper or
+  explicit client-native authentication.
+- **Claude Code:** official user-settings endpoint and model, and a credential
+  helper.
 - **Claude Desktop:** its separate third-party inference library.
-- **Hermes:** its native provider catalog, explicit protocol/model selection,
-  and credential commands.
+- **Hermes:** its native provider catalog, explicit protocol and model
+  selection, and credential commands.
 
-An admitted client adapter produces and withdraws only its AIGW-owned native
-projection; it does not own provider behavior. Missing and unbound clients
-remain untouched.
+An admitted client adapter writes and withdraws only AIGW's settings in its
+client's files; it does not own provider behavior. Missing and unselected
+clients remain untouched.
 
 `aigw sync` adopts a model chosen in Hermes or Codex when it names exactly one
-Route of the projected Account and protocol and nothing else that AIGW owns in
-that client changed; the result reports the adopted Route, and an unknown or
+model of the selected provider and protocol and nothing else that AIGW owns in
+that client changed; the result reports the adopted model, and an unknown or
 ambiguous choice names `aigw use` commands instead. Explicit `use` replaces a
 native choice only after proving that the owned providers and credential
 commands are intact. Selection is not permission to overwrite a changed
@@ -128,104 +130,82 @@ provider definition.
 
 ## Endpoint
 
-- Claude Code consumes the Account's Anthropic endpoint.
-- Codex consumes the Account's OpenAI Responses endpoint.
-- HTTPS is required except for an explicit loopback Account.
+- Claude Code consumes the provider's Anthropic endpoint.
+- Codex consumes the provider's OpenAI Responses endpoint.
+- HTTPS is required except for an explicit loopback endpoint.
 - A loopback process remains external to AIGW lifecycle ownership.
 
-## Provider diagnostics
+## Provider balance
 
-Routing and endpoint checks are provider-neutral. Exact balance or account state
-is an optional leaf capability declared by `account_probe` and implemented by a
-bundled diagnostic provider.
+Endpoint checks are provider-neutral. An exact balance or Token state is an
+optional leaf capability, declared by a provider's balance probe and
+implemented by a bundled diagnostic provider. `aigw provider balance` reports
+it; `aigw provider edit --balance-token-stdin --balance-user-id <id>` stores
+the precise balance credentials that some probes need.
 
-An unknown diagnostic kind does not invalidate the Account or Client Binding. It makes
-only the optional diagnostic unavailable.
+An unknown probe kind does not invalidate the provider or a client's
+selection. It makes only the optional balance unavailable.
 
 ## Provider catalog lifecycle
 
-Provider catalogs are observations, not configuration. `aigw catalog`
-queries each configured Anthropic Messages, OpenAI Chat Completions, and OpenAI
-Responses catalog surface independently. Its source endpoint and content
-identity make the result reproducible; membership proves neither inference nor
-any capability.
+Provider catalogs are observations, not configuration. `aigw model search`
+reads each selected provider's Anthropic Messages, OpenAI Chat Completions, and
+OpenAI Responses catalogs, merges them into one row per model, and keeps in
+`--json` which protocol listed each model. Membership proves neither inference
+nor any capability.
 
-The lifecycle uses existing owners rather than another state store:
+| State        | Meaning                                                                                       |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| `available`  | The provider lists the model, and it is not added                                             |
+| `added`      | The model is in the configuration, and the provider lists it                                  |
+| `missing`    | The model is in the configuration, and the provider no longer lists it                        |
+| `deprecated` | A team file marks the model deprecated; it keeps an existing selection but is not recommended |
 
-| State      | Owner and meaning                                                                                               |
-| ---------- | --------------------------------------------------------------------------------------------------------------- |
-| Observed   | One successful, protocol-scoped catalog response                                                                |
-| Candidate  | An observed upstream ID with no matching Route on that Account and protocol                                     |
-| Qualified  | Explicit protocol and real-client evidence for named capabilities                                               |
-| Admitted   | A reviewed Route in configuration; omitted `lifecycle` means `admitted`                                         |
-| Deprecated | A retained Route with `lifecycle = "deprecated"`; it may preserve an existing binding but cannot be recommended |
-| Retired    | The Route has been explicitly removed after bindings and recommendations no longer require it                   |
+Qualification is separate evidence: explicit protocol and real-client evidence
+for named capabilities. Removal is explicit, with `aigw model remove`, once no
+client selects the model. Search compares the provider's own model ID, never
+the family. A missing model is reported for requalification; it is not
+renamed, deprecated, or removed automatically. Chat Completions success does
+not qualify Responses, and Responses text success does not qualify reasoning,
+tools, continuation, or compaction.
 
-Catalog comparison uses `Route.upstream_model`, never the canonical Model ID.
-A missing Route is reported for requalification; it is not renamed, deprecated,
-retired, or removed automatically. Chat Completions success does not qualify
-Responses, and Responses text success does not qualify reasoning, tools,
-continuation, or compaction.
+## Team files
 
-## Manifest import
+`aigw setup --from` applies a token-free team file. For models, families and
+recommendations, what the file names wins, and local-only entries stay unless
+`--prune` removes the unused ones. A team file never changes an existing
+provider's endpoints or Token and never replaces a client's selection: a
+differing endpoint stays local and is reported. `aigw provider edit` changes an
+endpoint deliberately.
 
-A token-free team manifest adds or reconciles public metadata. Same-named
-Accounts and Routes must match or import stops before mutation. Explicit
-replacement changes metadata only; it never changes the Token slot.
+## No rename
 
-## Rename
-
-- **`route rename`**
-  - **Changes:** Route ID, Client Bindings and recommendations
-  - **Preserves:** Account and Token
-- **`account rename`**
-  - **Changes:** Account ID and Route references
-  - **Preserves:** Token through a two-phase migration
-- **`account rename --finalize`**
-  - **Changes:** Removes verified old credential slots
-  - **Preserves:** Current configuration and checkpoint
-
-Finalize fails closed if credential equality or checkpoint proof is incomplete.
+No command renames a provider or a model: a model's name follows from its
+provider and the provider's own ID. To move a provider to a new ID, add it
+under that ID with `aigw provider add`, point each client at its models with
+`aigw use`, then remove the old provider with `aigw provider remove`.
 
 ## Installation lifecycle
 
 Portable archives for macOS, Linux, and Windows use the CLI-owned lifecycle:
-`aigw install`, `aigw update`, `aigw update --rollback`, and `aigw uninstall`.
-Replacement retains one immediate predecessor and restores the current program
-if activation fails. It is recoverable replacement, not uninterrupted atomic
-visibility or power-loss recovery. The macOS Homebrew Cask is a separate
-installation owner: Homebrew upgrades or removes its program, and AIGW's
-portable update and uninstall commands refuse to overwrite it. Linux and
-Windows currently use the published portable archives, not an npm or native
-package-manager channel.
+`aigw self install`, `aigw self update`, `aigw self rollback`, and
+`aigw self uninstall`. Replacement retains one immediate predecessor and
+restores the current program if activation fails. It is recoverable
+replacement, not uninterrupted atomic visibility or power-loss recovery. The
+macOS Homebrew Cask is a separate installation owner: Homebrew upgrades or
+removes its program, and AIGW's portable update and uninstall commands refuse
+to overwrite it. Linux and Windows currently use the published portable
+archives, not an npm or native package-manager channel.
 
 Before rollback, the retained program must start and read an isolated copy of
 the current configuration. Incompatibility preserves the active program and
-configuration. `aigw config migrate --rollback` restores the exact retained
-predecessor configuration; it does not reconstruct old state or touch client
-files, sessions, or credentials. See the [rollback journey](../../README.md#update-and-rollback).
+configuration; `aigw config rollback` restores a configuration that the
+retained program may read. See the [rollback journey](../../README.md#update-and-rollback).
 
-`aigw installation --json` observes the command path, running version, resolved
+`aigw self status --json` observes the command path, running version, resolved
 program file and optional retained predecessor through one schema-versioned
 file-identity contract. This is computed from existing files: no installation
-registry, source checkout or Account configuration is needed. Digests describe
+registry, source checkout or provider configuration is needed. Digests describe
 observed bytes; they do not certify release trust, rollback readiness or client
 connectivity. Install, update, rollback, uninstall and inspection share one
 predecessor-path rule.
-
-## Configuration migration
-
-Normal commands read only the current schema. The explicit
-`aigw config migrate --dry-run` operation accepts the published 0.1.0
-configuration schema and the immediate pre-convergence schema. For 0.1.0,
-the declared Claude and Codex clients determine their published wire protocols;
-model names never do. The later predecessor must declare its protocols explicitly.
-
-The preview lists retained Accounts, Routes,
-recommendations, Client Bindings and native targets without reading Tokens or
-writing client files. `aigw config migrate` commits the new schema with the
-existing guarded configuration writer and retains the exact predecessor as the
-single backup through unchanged synchronization and verification. A substantive
-configuration edit supersedes that one-version backup. Run
-`aigw config migrate --rollback` before program rollback while the predecessor
-backup is retained; AIGW never reconstructs historical configuration.

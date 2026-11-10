@@ -8,15 +8,15 @@ relations:
 
 # Team Rollout
 
-A team distributes reviewed public configuration; each member supplies Tokens
-locally. Import does not require Tokens or installed clients; activate each
-client when its prerequisites are available.
+A team distributes a reviewed public team file; each member supplies Tokens
+locally. Applying the file with `aigw setup --from` requires neither Tokens nor
+installed clients; activate each client when its prerequisites are available.
 
 ## Maintainer
 
 1. Download the reviewed token-free
    [`manifests/team.toml`](../../manifests/team.toml).
-2. Add only reviewed Account endpoints and admitted Routes.
+2. Add only reviewed provider endpoints and qualified models.
 3. Keep Tokens, personal paths, identities, and release credentials out.
 4. Validate the manifest in a clean repository environment.
 5. Publish it through the team's ordinary configuration channel.
@@ -28,11 +28,11 @@ HTML page. The portable program archive does not include this team-specific
 configuration. Keep the selected revision with the team's rollout instructions
 so members receive the same public configuration without cloning the repository.
 
-A manifest should contain the minimum Route set users need. Provider catalogs
-are discovery input, not automatic routing policy. Teams own model choice;
-AIGW does not infer capability, quality or version policy from a model ID.
-Adding a compatible model to an existing Account and admitted client changes
-configuration, not the Adapter implementation. New client or authentication
+A team file should contain the minimum set of models that users need. Provider
+catalogs are discovery input, not automatic routing policy. Teams own model
+choice; AIGW does not infer capability, quality or version policy from a model
+ID. Adding a compatible model to an existing provider and supported client
+changes configuration, not the Adapter implementation. New client or authentication
 boundaries follow [Adapter admission](../governance/adapter-admission.md).
 
 ### Manifest authoring contract
@@ -94,13 +94,13 @@ Hermes loads the declared names and model order, but its native picker still
 ranks the current provider first and other providers by model count. AIGW does
 not modify that client behavior.
 
-Verify exact provider identifiers before admitting Routes. `aigw catalog`
-observes every configured catalog surface separately and records its Account,
-protocol, endpoint, normalized IDs, and deterministic observation identity.
-The default human view expands admitted and deprecated IDs and counts other
-candidates. Use `aigw catalog --all` to see every observed candidate, or
-`aigw catalog --json` for the complete machine-readable observation. Neither
-view promises every model a provider can serve through private routes.
+Verify exact provider identifiers before adding models. `aigw model search`
+reads every configured catalog of each selected provider, one read per
+protocol, and prints one row per model with its state: `added`, `available`,
+`missing` (added, but no longer listed) or `deprecated`. A query and
+`--provider` narrow the list, and `aigw model search --json` keeps each
+protocol's endpoint and which protocols listed each model. Neither view
+promises every model a provider can serve privately.
 Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses observations
 are not interchangeable. A Chat Completions result cannot qualify Responses;
 a Responses text call cannot qualify reasoning, tools, continuation, or
@@ -108,53 +108,53 @@ compaction. Judge a dated or suffixed identifier by the vendor's release notes,
 not its name: a dated refresh such as `deepseek-v4.1-flash-1017` can be the
 stronger model, while a serving tier such as `-cc` or `-free` is not.
 
-`aigw models` compares each configured Route's exact `upstream_model` against
-the observation for that Route's protocol. `Listed` and `Not listed` describe
-catalog membership only. New IDs are candidates; missing admitted Routes are
-reported for requalification without changing configuration. Missing
-credentials, a failed request, an incomplete response, or an absent catalog
-endpoint remain unknown observations, not unavailable models.
+Search compares each added model's exact provider model ID with the catalogs.
+`available` and `missing` describe catalog membership only: a missing model is
+reported for requalification without changing configuration. A provider
+without a Token, or whose catalog cannot be read, gets one line with its fix
+while the other providers still print, and the command exits 1; that is an
+unknown observation, not an unavailable model.
 
-Route admission requires a successful authenticated inference call carrying
-the exact Account, protocol, and `upstream_model`, plus compatibility with the
-selected client and its native verification where required. A directory
-listing alone never admits a Route. Admission is a reviewed Model and Route
-change. Deprecation sets `lifecycle = "deprecated"`, removes the Route
-from recommendations, and preserves existing explicit bindings. Retirement is
-an explicit Route removal after no binding or recommendation depends on it.
-Catalog refresh performs none of those transitions.
+Adding a model to the team file requires a successful authenticated inference
+call carrying the exact provider, protocol, and model ID, plus compatibility
+with the selected client and its native verification where required. A
+catalog listing alone never qualifies a model. Deprecation sets
+`lifecycle = "deprecated"` in the team file, removes the model from
+recommendations, and preserves existing selections. Retirement removes the
+model explicitly, with `aigw model remove` locally, after no selection or
+recommendation depends on it. A search performs none of those transitions.
 
 ### Reviewed model defaults
 
-The tracked [team manifest](../../manifests/team.toml) is the current Route
+The tracked [team file](../../manifests/team.toml) is the current model
 inventory. It currently contains qualified GPT-6.1 Sol and Terra and Claude
-Opus, Sonnet, and Haiku 5.5, plus one reviewed general Model per other admitted
-vendor. Fable, Astra, and Luna await qualified identities meeting the version
+Opus, Sonnet, and Haiku 5.5, plus one reviewed general family per other
+qualified vendor. Fable, Astra, and Luna await qualified identities meeting the version
 floors.
 The [dated qualification
 evidence](../research/provider-model-qualification.md) explains the observed
 IDs, protocol tests, exclusions, and limits. A catalog listing is not a live
-Route or native-client availability guarantee.
+model or native-client availability guarantee.
 
 Claude Code and Claude Desktop recommend DMXAPI Opus 5.5 before UCloud Opus 5.5.
-Codex recommends DMXAPI's GPT-6.1 Sol CDX Route before UCloud GPT-6.1 Sol;
-Hermes recommends DMXAPI's base GPT-6.1 Sol Route before the UCloud base Route.
-AIHubMix Routes remain available but are manual-only, not automatic alternatives.
-The Codex and Hermes DMXAPI Routes bind to the same canonical Model, but are
-distinct Routes. A shared model name does not make every Account/client pair
-interchangeable. A sole DMXAPI or UCloud Account is enough for the declared
-recommendation; select an AIHubMix Route explicitly with `aigw use --for`.
+Codex recommends `dmxapi/gpt-6.1-sol-cdx` before `ucloud/gpt-6.1-sol`; Hermes
+recommends DMXAPI's base `dmxapi/gpt-6.1-sol` before the UCloud base model.
+AIHubMix models remain available but are manual-only, not automatic
+alternatives. The Codex and Hermes DMXAPI models belong to the same family,
+but are distinct models. A shared family does not make every provider and
+client pair interchangeable. A sole DMXAPI or UCloud provider is enough for the declared
+recommendation; select an AIHubMix model explicitly with `aigw use`.
 Display order never creates automatic recovery when the selected provider fails.
 
-A local Account endpoint override is not silently replaced by the team's
-direct endpoint. Re-importing the team manifest
-against that differing Account fails closed; inspect it with
-`aigw config export` and replace the Account only when intentionally adopting
+A local provider endpoint override is not silently replaced by the team's
+direct endpoint. Applying the team file again with `aigw setup --from` keeps
+the local endpoint and reports the difference; change it deliberately with
+`aigw provider edit <provider> --endpoint <protocol>=<url>` only when adopting
 the team's direct endpoint.
 
-Codex can run a compatible Responses Route even when the model is absent
+Codex can run a compatible Responses model even when the model is absent
 from its native `/model` chooser. Select it with
-[`aigw use --for codex`](../../README.md#use-it-every-day), then verify through
+[`aigw use codex`](../../README.md#use-it-every-day), then verify through
 Codex; the [dated client observation](../research/provider-model-qualification.md#codex-native-chooser)
 does not establish current upstream availability. For an AIGW-managed custom
 Provider, AIGW uses the installed Codex client's complete native catalog when
@@ -166,21 +166,21 @@ Codex. AIGW preserves that setting; if Codex reports fallback model metadata,
 review the catalog before deliberately updating or removing it.
 
 Recommendations apply only to unselected clients at setup or sync; they do not
-switch a running request or replace an explicit Client Binding. AIHubMix uses the
+switch a running request or replace a client's explicit selection. AIHubMix uses the
 [documented API endpoint](https://docs.aihubmix.com/en/quick-start),
 `api.inferera.com`: `/v1` is the Responses and Chat Completions base path; the
 Anthropic base is the domain root. A successful minimal request remains narrower than full real-client
 tool, continuation, streaming, and long-context acceptance.
 
-Setup selects only a usable declared primary Route or ordered alternative.
-Other Routes remain available for explicit use, not automatic fallback by
-Model or identifier. No provider Token is mandatory, and import preserves
-existing personal Client Bindings.
+Setup selects only a usable declared primary model or ordered alternative.
+Other models remain available for explicit use, not automatic fallback by
+family or identifier. No provider Token is mandatory, and a team file
+preserves each client's existing selection.
 
 Reasoning effort remains a native client preference, outside manifest schema
 version 7. Choose a level supported by the selected model through Codex's
 `model_reasoning_effort` or Claude Code's `effortLevel` in their active settings.
-Merge those fields; do not replace either document. Importing the team manifest
+Merge those fields; do not replace either document. Applying the team file
 does not set these preferences.
 
 Context capacity and compaction are also client settings. Retain the installed
@@ -209,8 +209,8 @@ provider's maximum context capacity or prove that compaction has executed.
 ### Client compatibility
 
 Check `codex --version`, `claude --version`, or `hermes --version` for the
-installed CLI, then run `aigw verify --for <client>` for each enabled client
-before rollout. Verification runs Codex in a private home with your settings
+installed CLI, then run `aigw check <client> --depth client` for each enabled
+client before rollout. The `client` depth runs Codex in a private home with your settings
 but without your MCP servers, plugins, hooks, memories and notifications, so
 those extensions neither start nor decide the result. Claude Desktop needs
 separate application-version and native verification evidence.
@@ -220,8 +220,8 @@ require a newer client even when an API request works. Update through the
 existing installation owner rather than adding a second executable. Claude Code's
 [`stable` and `latest` channels](https://code.claude.com/docs/en/setup#update-claude-code)
 are distinct; choose deliberately when compatibility requires a channel change.
-A passing request for one model does not qualify another Route; verify the
-selected Route with the actual client version that team members will use.
+A passing request for one model does not qualify another model; verify the
+selected model with the actual client version that team members will use.
 
 If a gateway rejects `context_management` with `Extra inputs are not permitted`,
 set `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` in Claude Code's native settings
@@ -231,9 +231,10 @@ removes pre-release request fields and beta tool-schema fields, including MCP
 tool search and structured-output formatting. Ordinary tools, effort, and
 supported extended-context headers remain. AIGW preserves this native preference;
 it does not silently disable capabilities or edit the client. The isolated
-`aigw verify` invocation supplies a nonempty system prompt in `--bare` mode.
+`aigw check --depth client` invocation supplies a nonempty system prompt in
+`--bare` mode.
 
-A successful short request proves only that client, Route and invocation.
+A successful short request proves only that client, model and invocation.
 It does not establish Desktop behavior, other operating systems, full-window
 capacity, tool replay, or installation and update correctness. Verify those
 journeys separately when the rollout depends on them.
@@ -242,10 +243,10 @@ journeys separately when the rollout depends on them.
 
 First follow [installation and command discovery](../../README.md#install).
 The examples below use `aigw` after its installed directory is on `PATH`; the
-installed executable's explicit path works with the same arguments. Importing
-team configuration does not install the program or change shell discovery.
+installed executable's explicit path works with the same arguments. Applying a
+team file does not install the program or change shell discovery.
 
-Import the reviewed catalog without requiring every provider Token or any
+Apply the reviewed team file without requiring every provider Token or any
 installed client. Save the maintainer's `team.toml` in the current directory,
 or pass its actual path to `--from`:
 
@@ -256,127 +257,121 @@ aigw setup --from team.toml
 Setup:
 
 - validates all public metadata first;
-- preserves every reviewed Account and Route;
-- connects no Account unless a Token already exists or the user selects one;
-- configures only installed admitted clients;
-- compensates failed projections only where its owned writes remain unchanged,
-  preserving newer external edits and reporting recovery conflicts.
+- keeps every reviewed provider and model;
+- connects no provider unless a Token already exists or the user names one;
+- configures only installed supported clients;
+- compensates failed client-file writes only where its owned writes remain
+  unchanged, preserving newer external edits and reporting recovery conflicts.
 
-To connect one Account during first-time setup, use this form **instead of**
-the import-only command above. The rest remain optional:
+To connect one provider during first-time setup, use this form **instead of**
+the command above. The rest remain optional:
 
 ```bash
-aigw setup --from team.toml --account dmxapi
+aigw setup --from team.toml --provider dmxapi
 aigw status
 ```
 
-The interactive command prompts only for the selected Account with a writable
-backend. In read-only `env` mode, set `AIGW_TOKEN_DMXAPI` in the invoking process;
-`--token-stdin` cannot store it. With a writable backend, automation may pipe
-exactly one Token by adding `--token-stdin`; it must keep `--account` so the
-Token owner is explicit. The input is read through EOF and is limited to
-64 KiB, including an optional terminal LF or CRLF. A Token contains only visible
-ASCII characters; embedded whitespace, extra lines and control characters fail
-before validation or storage.
+The interactive command prompts only for the named provider's Token with a
+writable backend. In read-only `env` mode, set `AIGW_TOKEN_DMXAPI` in the
+invoking process; setup cannot store a Token there. With a writable backend,
+automation may pipe exactly one Token by adding `--token-stdin`; it must keep
+`--provider` so the Token's provider is explicit. The input is read through EOF
+and is limited to 64 KiB, including an optional terminal LF or CRLF. A Token
+contains only visible ASCII characters; embedded whitespace, extra lines and
+control characters fail before validation or storage.
 
-For a one-time endpoint test,
-`aigw test --for <client> --route <route> --token-stdin` consumes that Token
-without reading or writing the credential store. Supply
-`--config /absolute/path/to/config.toml` when the calling process intentionally
-has no ordinary user HOME. One explicit Route or client is required so input
-cannot be reused across unrelated Accounts. This command reports HTTP endpoint
-observation only; use the ordinary native-client `verify` journey for inference.
+For a one-time endpoint check,
+`aigw check <client> --model <provider/model> --depth endpoint --token-stdin`
+consumes that Token without reading or writing the credential store. One named
+client and one model are required, so input cannot be reused across unrelated
+providers. The `endpoint` depth reports an authenticated request that names no
+model; the `model` depth adds one bounded inference request.
 
-Raw stdin is the default. A broker that reads the native macOS bytes written by
-the pinned `go-keyring` backend must select `--token-format go-keyring-base64`:
-those bytes contain a storage envelope, not the API Token. AIGW accepts one
-canonical envelope, validates the decoded Token, and rejects malformed or nested
-encoding before HTTP. It does not infer a format, recursively decode, or rewrite
-Keychain items. Linux and Windows native stores do not imply this macOS format.
+The Token is the raw value. A broker that reads the native macOS bytes written
+by the pinned `go-keyring` backend decodes that storage envelope itself before
+it pipes the Token: AIGW does not infer a format, decode an envelope, or
+rewrite Keychain items.
 
-If the catalog is already imported, do not repeat setup. With the
-environment backend, supplying one compatible Account variable and running
-`aigw sync` selects unbound reviewed recommendations and projects available
-clients. With a writable backend, store the Token and select its Route
+If the team file is already applied, do not repeat setup. With the
+environment backend, supplying one compatible provider variable and running
+`aigw sync` selects unselected reviewed recommendations and writes the files of
+available clients. With a writable backend, store the Token and select a model
 explicitly:
 
 ```bash
-aigw rotate dmxapi
-aigw use --for codex dmxapi-gpt-6.1-sol-cdx
+aigw provider rotate dmxapi
+aigw use codex dmxapi/gpt-6.1-sol-cdx
 aigw status
 ```
 
-One connected Account is enough to begin. Accounts without Tokens remain
-available but do not make another Account fail. With no enabled client, `check`
-returns a deferred, nonzero result without probing a provider. `doctor` may
-pass local diagnostics, but reports zero enabled clients and does not claim
-client or inference readiness. Neither command requires Tokens for unselected
-recommended Routes.
+One connected provider is enough to begin. Providers without Tokens remain
+available but do not make another provider fail. With no enabled client,
+`check` exits 1 without probing a provider; `aigw check --depth local` reports
+zero enabled clients and does not claim client or inference readiness.
+Neither requires Tokens for unselected recommended models.
 
 If none is connected yet, setup, status, check, and sync preview present the
-same choice of compatible Accounts. A writable credential store names each
-`aigw rotate <account>` command; the environment backend names each variable.
-With a writable store, rotation only writes the Token; follow its explicit
-`aigw use --for ...` action to select a client Route. With the environment
-backend, set a compatible variable before synchronizing. Import alone does not
-make `aigw sync` useful work.
+same choice of compatible providers. A writable credential store names each
+`aigw provider rotate <provider>` command; the environment backend names each
+variable. With a writable store, rotation only writes the Token; follow its
+explicit `aigw use` step to point a client at a model. With the environment
+backend, set a compatible variable before synchronizing. A team file alone
+does not make `aigw sync` useful work.
 
-When a Route is selected but its native client projection is deferred, setup,
-`use`, sync preview, status, check, and doctor retain that selection. If its
-Account Token is available, install the client if needed, then run `aigw sync`.
-If the Token has disappeared, restore that selected Account's Token first;
-the missing Token and deferred projection remain distinct in machine-readable
-status. `check` does not probe a provider until an enabled client has a usable
-projection; `doctor` can pass local diagnostics without claiming client
-readiness.
+When a model is selected but its client files are deferred, setup, `use`, sync
+preview, status, and check retain that selection. If its provider's Token is
+available, install the client if needed, then run `aigw sync`. If the Token has
+disappeared, restore that provider's Token first; the missing Token and the
+deferred client files remain distinct in machine-readable status. `check` stops
+each client at the missing Token, which comes before the client files that wait
+for it.
 
-Interactive `aigw use --for <client> <route>` can also prompt for that
-Account's missing Token. Interactive use may prompt for the client or Route;
+Interactive `aigw use <client> <provider/model>` can also prompt for that
+provider's missing Token. Interactive use may prompt for the client or model;
 non-interactive use requires both explicitly. If the Token is already available
-and the binding is unchanged, selection performs no writes. A cancelled or
+and the selection is unchanged, selection performs no writes. A cancelled or
 failed selection compensates its own credential writes; it preserves a newer
 credential and reports any incomplete recovery. An output error after commit
 does not undo the selection. Run `aigw status` before retrying.
 
 ### Hermes protocol and model selection
 
-With Hermes installed and a connected DMXAPI Account using the team's direct
-Responses endpoint, select and verify its GPT-6.1 Sol Route without changing
-Codex or Claude bindings:
+With Hermes installed and a connected DMXAPI provider using the team's direct
+Responses endpoint, select and check its GPT-6.1 Sol model without changing
+Codex or Claude selections:
 
 ```bash
-aigw use --for hermes dmxapi-gpt-6.1-sol
-aigw verify --for hermes
+aigw use hermes dmxapi/gpt-6.1-sol
+aigw check hermes --depth client
 ```
 
-If this machine explicitly points the DMXAPI Account at an external Proxy,
-qualify that endpoint separately before selecting this Route; importing the
-team manifest does not silently replace the local endpoint.
+If this machine explicitly points the DMXAPI provider at an external Proxy,
+qualify that endpoint separately before selecting this model; applying the
+team file does not silently replace the local endpoint.
 
-The Hermes projection includes compatible models from connected Accounts;
-selecting one active model does not remove the others. A Route may expose more
-than one protocol to Hermes. If no previous binding or team recommendation
-resolves that choice, interactive `use` asks which protocol to use;
-non-interactive use requires one explicitly:
+Hermes's files include compatible models from connected providers; selecting
+one active model does not remove the others. A model may be usable on more than
+one protocol that Hermes speaks. If no previous selection or team
+recommendation resolves that choice, interactive `use` asks which protocol to
+use; non-interactive use requires one explicitly:
 
 ```bash
-aigw use --for hermes --protocol openai_responses <route>
+aigw use hermes <provider/model> --protocol responses
 ```
 
-The choice uses the same `anthropic`, `openai_responses`, and
-`openai_chat_completions` names as `team.toml`; AIGW never guesses from a Model
-name. Direct single-Route `setup` also accepts `--protocol` when more than one
-endpoint URL is supplied. Its `--chat-url` supplies an OpenAI Chat Completions
-endpoint for Hermes; the protocol is stored in that Client Binding.
-Guided single-Route setup and interactive selection validate the selected
-protocol and endpoint before activation. Manifest setup is declarative: it
-imports the catalog and projects installed clients with a locally available
-Token without contacting the provider. This does not prove that the Token is
-accepted or that inference works. Run `aigw check` after import; it reports
-unreachable endpoints and rejected Tokens without exposing credential values.
+The choice is `anthropic`, `responses` or `chat`; AIGW never guesses from a
+model name. A script that adds a provider for Hermes's chat protocol names
+`aigw provider add <provider> --endpoint chat=<url> --token-stdin`, and the
+protocol is stored in the client's selection. Guided setup and interactive
+selection validate the selected protocol and endpoint before activation.
+Team-file setup is declarative: it applies the file and writes the files of
+installed clients with a locally available Token without contacting the
+provider. This does not prove that the Token is accepted or that inference
+works. Run `aigw check` afterwards; it reports unreachable endpoints and
+rejected Tokens without exposing credential values.
 
-Rotation validates and replaces only the selected Account's Token. It does not
-select a Route, rewrite client configuration or invoke a native client. The
+Rotation validates and replaces only the named provider's Token. It does not
+select a model, rewrite client configuration or invoke a native client. The
 credential helper reads the new Token when next invoked; client caching may
 require a reload. Use `aigw sync` for configuration changes. Failed storage
 updates use guarded compensation, preserving newer Tokens rather than
@@ -385,134 +380,113 @@ overwriting them.
 ## Install a client later
 
 Claude Code, Claude Desktop, Codex, and Hermes are not setup prerequisites.
-After installing a selected client, run `aigw sync`; AIGW rediscovers admitted
+After installing a selected client, run `aigw sync`; AIGW rediscovers supported
 clients and converges only its owned configuration. Claude Desktop uses
 `Claude-3p/configLibrary`, independently of Claude Code's `~/.claude` settings.
-If a client has a selected Client Binding and usable authentication, sync
-enables its Adapter and writes only that Adapter's owned projection.
-Account-Token Client Bindings receive a credential helper; client-native bindings continue
-to use the client's own authentication:
+If a client has a selected model and usable authentication, sync enables it
+and writes only AIGW's settings in its files. A client that uses a provider's
+Token receives a credential helper; client-native authentication continues to
+use the client's own:
 
 ```bash
 aigw sync
 aigw check
-aigw verify --for <client>
+aigw check <client> --depth client
 ```
 
-`aigw status` observes selection and projection readiness without client
+`aigw status` observes selections and client-file readiness without client
 execution or Token reads. `aigw check` adds one bounded inference request per
-eligible selected Route by default; `--endpoint-only` keeps the model-free
-authentication check. Real-client verification remains separate. Configuration
+checked client by default; `--depth endpoint` keeps the model-free
+authentication check, and `--depth client` runs the real client. Configuration
 success alone is not authentication or inference proof.
 
-Optional balance credentials do not participate in `aigw check`, in either
-human or JSON output. Use `aigw account diagnostics enable <account>` to configure them
-and `aigw balance <account>` to request provider diagnostics. An unavailable
-balance service does not make a working Client Binding unhealthy.
+Optional balance credentials do not take part in `aigw check`, in either human
+or JSON output. Use
+`aigw provider edit <provider> --balance-token-stdin --balance-user-id <id>` to
+store them, which prompts with echo off in a terminal, and
+`aigw provider balance <provider>` to request the provider's balance. An
+unavailable balance service does not make a working client unhealthy. For
+unattended setup, pipe the balance token line to the same edit; it is separate
+from the provider's API Token, and the two flags go together, refused before
+standard input is read. `--no-balance-token` removes them.
 
-For unattended setup, pipe one platform system-token line to
-`aigw account diagnostics enable <account> --system-token-stdin --user-id <id>`.
-This optional credential is separate from the Account API Token; incomplete
-flag pairs fail before standard input is read.
-
-Claude Code, Hermes, and Account-Token Codex bindings use
-projection-matching helpers.
-Changing Account or endpoint invalidates a retained helper invocation: run
-`aigw sync` and reload the client's configuration. The helper does not return a
-new Account's Token to a client retaining the old endpoint.
+Claude Code, Hermes, and Codex clients that use a provider's Token call
+credential helpers that match their client files. Changing the provider or
+endpoint invalidates a retained helper invocation: run `aigw sync` and reload
+the client's configuration. The helper does not return another provider's
+Token to a client retaining the old endpoint.
 
 ## Existing member
 
-Export local public metadata for comparison, then import the reviewed manifest:
+Export local public metadata for comparison, then preview the reviewed team
+file before applying it:
 
 ```bash
-aigw config export > local-manifest.toml
-aigw config import manifest.toml
+aigw config export > local-team.toml
+aigw setup --from team.toml --dry-run --json
+aigw setup --from team.toml
 ```
 
-Review the exported file against the incoming manifest before importing.
-Preview the exact merge before writing:
+The preview applies the same validation as the write. It names the client
+files that would change, not files that have been written or verified, and it
+reads no Token and writes no configuration or client file.
 
-```bash
-aigw config import manifest.toml --dry-run --json
-```
+For models, families and recommendations, what the file names wins, and
+local-only entries stay unless `--prune` removes the models that no client
+selects and no recommendation names, and then the families that no model uses.
+A team file never changes an existing provider's endpoints or Token and never
+replaces a client's selection:
 
-The preview uses the same merge validation as import. Its
-`projection_candidates` list identifies clients whose desired projection
-would change, not clients that have been written or verified. It does not read
-Tokens or write configuration or client files. An Account collision stops the
-preview until you choose which public metadata owns that Account. For example,
-if this machine intentionally routes DMXAPI through a local optional proxy,
-retain that local endpoint while importing team Routes:
+| Difference                              | Behavior                                                           |
+| --------------------------------------- | ------------------------------------------------------------------ |
+| A provider that only the file has       | Added, without a Token                                             |
+| An existing provider's label            | The file's label wins                                              |
+| An existing provider's endpoint         | The local endpoint stays and is reported                           |
+| A balance probe that the provider lacks | Added from the file; a differing probe stays local and is reported |
+| A model, family or recommendation       | The file's version wins                                            |
+| A local-only model or family            | Kept, unless `--prune` removes the unused ones                     |
+| A client's selection or a stored Token  | Never changed                                                      |
 
-```bash
-aigw config import manifest.toml --keep-account dmxapi --dry-run --json
-aigw config import manifest.toml --keep-account dmxapi
-```
-
-`--keep-account <id>` retains all local public metadata for an Account present
-in both configurations; `--replace-account <id>` uses the incoming metadata.
-They cannot be combined for the same Account. Other conflicting Model or Route
-metadata requires its specific replacement flag after review. Tokens are
-neither exported nor replaced. Actual import also supports `--json`.
-
-Pass `--retire-route <id>` once per obsolete local Route to retire it in the
-same guarded import, rather than running one removal and projection per Route.
-Import rejects a missing Route, one still declared by the incoming manifest,
-or one selected by any client. It also rejects a retained recommendation that
-would reference a retired Route. Only Models left without a Route reference
-and absent from the incoming manifest are removed; Accounts and Tokens remain.
-
-The import reports public changes without guessing Token or client readiness;
-run `aigw status` for the selected Route's next step. Use `aigw setup --from`
-when guided team onboarding is wanted instead.
+If this machine intentionally points DMXAPI at a local optional proxy, that
+endpoint stays local while the file's models apply, and the result reports the
+difference. `aigw provider edit` changes an endpoint deliberately. A file change
+that would take a protocol from a client's selection keeps the local model and
+is reported. A team file with a `[clients]` section, or in another version, is
+refused before any write.
 
 If writing a client file fails after a configuration write, AIGW names the
 file and its operating-system error, says which client files it restored and
 whether it restored its configuration, and names the fix: making the file and
 its folder writable after a permission error, and `aigw check` otherwise.
 
-| Collision                               | Default behavior     | Explicit action                                           |
-| --------------------------------------- | -------------------- | --------------------------------------------------------- |
-| Same semantic Account/Route             | Reuse                | None                                                      |
-| Same Account ID, different metadata     | Stop before mutation | Review and choose `--keep-account` or `--replace-account` |
-| Same Model/Route ID, different metadata | Stop before mutation | Review and use the specific replace flag                  |
-| Local-only Route not in manifest        | Preserve             | `--retire-route <id>` after review                        |
-| Existing Token                          | Preserve             | Rotate explicitly if required                             |
-
-Import preserves existing client bindings and stores manifest recommendations
-separately. Importing a recommendation does not select it. First-time setup may
-bind recommendations to Routes reachable through the Accounts explicitly
-connected during that operation. Later `sync` may select an unbound reviewed
-recommendation when its Account Token appears in the read-only environment
-backend; it does not search unselected native credentials. An existing
-selection is preserved even if its Token is unavailable, and a manual-only
-Route is never selected automatically. Use `aigw use --for <client> <route>`
-to change a selection explicitly.
-Client-native authentication does not require an AIGW Token. Import reconciles
-enabled native projections through the ordinary guarded transaction; a failed
-projection leaves the import uncommitted.
+Later `sync` may select an unselected client's reviewed recommendation when its
+provider's Token appears in the read-only environment backend; it does not
+search unused native credentials. An existing selection is preserved even if
+its Token is unavailable, and a manual-only model is never selected
+automatically. Use `aigw use <client> <provider/model>` to change a selection
+explicitly. Client-native authentication does not require an AIGW Token.
 
 ## Local choices
 
-Do not edit the downloaded team manifest to encode a personal default, local
-client path, or workstation-only endpoint. Import it as reviewed, then keep
-local intent in AIGW's own configuration commands:
+Do not edit the downloaded team file to encode a personal default, local client
+path, or workstation-only endpoint. Apply it as reviewed, then keep local
+intent in AIGW's own configuration commands:
 
 ```bash
-aigw use --for <client> <route>
-aigw account edit <account> --openai-url <url>
-aigw route add <route> --account <account> --model <model> --protocol <protocol>
+aigw use <client> <provider/model>
+aigw provider edit <provider> --endpoint responses=<url>
+aigw model add <provider/model> --protocol <protocol>
 ```
 
-`--model` names the canonical Model. If the provider requires another exact
-wire ID, including case or a channel suffix, add `--upstream-model <wire-id>`.
-Omitting it uses the canonical ID unchanged; AIGW does not infer aliases.
+A model's name is `provider/model`, where the part after the first `/` is the
+provider's exact model ID, including case or a channel suffix; AIGW does not
+infer aliases. `--family` links a variant to its family, and
+`aigw model edit` changes a model's protocols, family, capabilities or label.
 
-`aigw use` changes only the named client binding. Account and Route commands
-change local configuration and are not written back into [distributed team manifest](../../manifests/team.toml).
-To publish a team change, review the manifest itself and distribute the new
-token-free revision.
+`aigw use` changes only the named client. Provider and model commands change
+local configuration and are not written back into the
+[distributed team file](../../manifests/team.toml). To publish a team change,
+review the team file itself and distribute the new token-free revision.
 
 ## Release installation
 
@@ -528,9 +502,9 @@ set from one source; do not mix a tag, checksum file, and archive across Forges.
 After installation:
 
 ```bash
-aigw --version
+aigw version
 aigw sync
-aigw doctor
+aigw check --depth local
 aigw check
 ```
 
@@ -558,11 +532,11 @@ does not need access to a maintainer's native credential service. Repository
 CI separately uses isolated fixtures under the
 [quality and platform evidence policy](../governance/change-and-release-policy.md#quality-and-platform-evidence).
 
-Set `AIGW_SECRET_BACKEND=env` and provide only the Accounts exercised by that
-job. Environment names use `AIGW_TOKEN_<ACCOUNT>` with the manifest Account ID
+Set `AIGW_SECRET_BACKEND=env` and provide only the providers exercised by that
+job. Environment names use `AIGW_TOKEN_<PROVIDER>` with the provider ID
 uppercased and punctuation encoded by ASCII hex (`-` becomes `_2D`, `.` becomes
 `_2E`, and `_` becomes `_5F`). This reversible mapping prevents two distinct
-Account IDs from sharing a variable. The backend is deliberately read-only:
+provider IDs from sharing a variable. The backend is deliberately read-only:
 setup may consume present values, but rotation and deletion fail explicitly.
 
 Scripts that read `--json` output should check each document's
@@ -570,10 +544,8 @@ Scripts that read `--json` output should check each document's
 and the CHANGELOG lists every renamed flag and field. A `next_action` is a
 complete `aigw` command that a script can run as it stands; `next_detail` is a
 step for a person: one with a placeholder, in prose, or one that asks for a
-value such as a Token. A renamed flag keeps its earlier spelling for one
-release, with a warning on standard error, and the release after it refuses
-that spelling: since 0.6.0, scripts pass `--upstream-model` instead of
-`setup --model` and `add --model`, and `--path` instead of `install --target`
-and `uninstall --target`. A refused flag names the command's help, such as
-`aigw setup --help`, as the next action; the refusal is a JSON failure document
-only when `--json` comes before the refused flag.
+value such as a Token. A removed command or flag has no hidden spelling: it is
+refused as unknown, and the CHANGELOG names its replacement. A refused flag
+names the command's help, such as `aigw setup --help`, as the next action; the
+refusal is a JSON failure document only when `--json` comes before the refused
+flag.

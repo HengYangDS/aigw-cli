@@ -1,28 +1,29 @@
 # AIGW CLI
 
 AIGW is a local-first control plane for teams that use reviewed third-party AI
-services. It manages Accounts, Tokens, reusable Routes, explicit client
-bindings, and guarded native projections. It does not relay model traffic, run
-a gateway, or own conversation state.
+services. It keeps providers, their Tokens and their models, points each client
+at one model, and writes only AIGW's own settings into each client's files. It
+does not relay model traffic, run a gateway, or own conversation state.
 
-Each client resolves its endpoint and model from its own binding. Read the
+Each client resolves its endpoint and model from its own selection. Read the
 [authority boundary](docs/architecture/authority-and-projection-boundary.md) for
 the complete design.
 
 ## Start here
 
-| Goal                          | Command                           | Then                               |
-| ----------------------------- | --------------------------------- | ---------------------------------- |
-| Connect the first Account     | `aigw setup`                      | Follow **Next**                    |
-| Import reviewed team settings | `aigw setup --from team.toml`     | Connect any one Account when ready |
-| Inspect current state         | `aigw`                            | Follow **Next**                    |
-| Bind a Route to a client      | `aigw use --for <client> <route>` | Follow **Next**                    |
-| Replace one Account Token     | `aigw rotate <account>`           | Follow **Next**                    |
-| Diagnose a problem            | `aigw doctor`                     | Run its recommended action         |
-| Migrate retained local state  | `aigw config migrate --dry-run`   | Review, then apply                 |
+| Goal                                | Command                              | Then                                 |
+| ----------------------------------- | ------------------------------------ | ------------------------------------ |
+| Set up a provider, client and model | `aigw setup`                         | Follow **Next**                      |
+| Apply a reviewed team file          | `aigw setup --from team.toml`        | Connect any one provider when ready  |
+| Inspect current state               | `aigw`                               | Follow **Next**                      |
+| Point a client at a model           | `aigw use <client> <provider/model>` | Follow **Next**                      |
+| Replace one provider's Token        | `aigw provider rotate <provider>`    | Follow **Next**                      |
+| Diagnose a problem                  | `aigw check --depth local --verbose` | Run its **Fix**                      |
+| Find a model to use                 | `aigw model search <query>`          | `aigw use <client> <provider/model>` |
 
-`aigw check` sends a selected-model request by default and may use provider
-quota. Use `aigw check --endpoint-only` for a model-free endpoint check.
+`aigw check` sends one bounded inference request by default and may use
+provider quota. Use `aigw check --depth endpoint` for a model-free endpoint
+check.
 
 ## Install
 
@@ -37,11 +38,11 @@ manifest for the host from either release peer. The published matrix covers
 Darwin, Linux, and Windows on AMD64 and ARM64. Extract the archive, then run:
 
 ```bash
-./aigw install
+./aigw self install
 ```
 
 ```powershell
-.\aigw.exe install
+.\aigw.exe self install
 ```
 
 The portable installer copies only the running executable, retains one
@@ -50,8 +51,8 @@ predecessor for rollback, and prints the installed path. It does not alter
 active program before setup:
 
 ```bash
-aigw installation
-aigw --version
+aigw self status
+aigw version
 ```
 
 If the installed directory is not yet on `PATH`, invoke the printed absolute
@@ -61,62 +62,67 @@ Package-manager and portable installations have different owners; see the
 [installation lifecycle](docs/concepts/product-concepts.md#installation-lifecycle)
 before updating or removing one.
 
-## Connect an Account
+## Add a provider
 
-Interactive setup creates one Account and one Route, then binds the explicitly
-selected client when its prerequisites are available:
+Interactive setup adds a provider or chooses an existing one, then asks for an
+installed client and a model from the provider's catalog, saves them, and
+checks the client. It is safe to run again:
 
 ```bash
 aigw setup
 ```
 
-The guided flow offers admitted clients and asks for a protocol when a client
-supports more than one. It preserves the Account, Token, Route, and selection
-if the client is not installed; install that client and run `aigw sync` later.
-`aigw check` verifies a projected binding, not the act of installing a client.
+The guided flow asks for a protocol when a client speaks more than one that
+the provider serves. Without an installed client that can use the provider,
+it adds the provider and stops; install a client, then run `aigw setup` again
+to choose it and a model. `aigw check` checks the client files that AIGW
+wrote, not the act of installing a client.
 
-To connect a direct OpenAI Responses endpoint without a team manifest:
+A script adds a provider and points a client at one of its models in two
+commands. `aigw provider add` stores the Token only after the provider accepts
+it in one authenticated request that names no model:
 
 ```bash
 printf '%s\n' "$TEAM_TOKEN" \
-  | aigw add team \
+  | aigw provider add team \
       --label "Team endpoint" \
-      --openai-url https://api.example.com/v1 \
-      --upstream-model model-id \
-      --for codex \
+      --endpoint responses=https://api.example.com/v1 \
       --token-stdin
+aigw use codex team/model-id
 ```
 
-Use `--anthropic-url` and an Anthropic-compatible client for a native Anthropic
-endpoint. AIGW records the endpoint choice; it does not insert or manage a
-gateway.
+`aigw use` adds a model that the provider's catalog lists; `--unlisted` adds
+one that it does not. Use `--endpoint anthropic=<url>` and an
+Anthropic-compatible client for a native Anthropic endpoint. AIGW records the
+endpoint choice; it does not insert or manage a gateway.
 
-A team can instead distribute a reviewed, token-free manifest. Save the tracked
-[`manifests/team.toml`](manifests/team.toml) as a local `team.toml`, then run:
+A team can instead distribute a reviewed, token-free team file. Save the
+tracked [`manifests/team.toml`](manifests/team.toml) as a local `team.toml`,
+then run:
 
 ```bash
 aigw setup --from team.toml
 ```
 
-Importing the team catalog requires neither every provider Token nor an
-installed client. To connect one Account during setup, select only that Account.
-Its Token must be available: a writable backend prompts for it, while `env`
-mode reads `AIGW_TOKEN_DMXAPI` from the invoking process:
+Applying the team file requires neither every provider Token nor an installed
+client. To connect one provider during setup, name it. Its Token must be
+available: a writable backend prompts for it, while `env` mode reads
+`AIGW_TOKEN_DMXAPI` from the invoking process:
 
 ```bash
-aigw setup --from team.toml --account dmxapi
+aigw setup --from team.toml --provider dmxapi
 ```
 
-With a writable backend, unattended setup can bind the stdin Token to that
-Account explicitly:
+With a writable backend, unattended setup can pass that provider's Token on
+standard input:
 
 ```bash
 printf '%s\n' "$DMXAPI_TOKEN" \
-  | aigw setup --from team.toml --account dmxapi --token-stdin
+  | aigw setup --from team.toml --provider dmxapi --token-stdin
 ```
 
-Other Accounts remain available without becoming prerequisites. With the
-environment backend, set one [compatible Account variable](docs/guides/team-rollout.md#automated-rollout),
+Other providers remain available without becoming prerequisites. With the
+environment backend, set one [compatible provider variable](docs/guides/team-rollout.md#automated-rollout),
 then activate its unselected reviewed recommendations without repeating setup:
 
 ```bash
@@ -124,36 +130,22 @@ aigw sync
 aigw check
 ```
 
-With a writable credential backend, run `aigw rotate <account>`, then select
-the desired Route with `aigw use --for <client> <route>`; `use` synchronizes
-that client. An existing explicit selection is never replaced by a newly
-available recommendation.
+With a writable credential backend, run `aigw provider rotate <provider>`, then
+point a client at a model with `aigw use <client> <provider/model>`; `use`
+synchronizes that client. An existing explicit selection is never replaced by
+a newly available recommendation.
 
-`--for` accepts `claude`, `claude-desktop`, `codex`, and `hermes`. A Route
-exposing more than one compatible protocol requires an explicit choice; see
+`<client>` is `claude`, `claude-desktop`, `codex`, or `hermes`. A model that a
+client could use on more than one protocol needs an explicit `--protocol`; see
 [Hermes protocol and model selection](docs/guides/team-rollout.md#hermes-protocol-and-model-selection).
 
-`sync` discovers installed clients and changes only AIGW-owned projection state.
-It reconciles enabled client bindings whose Route, authentication, and native
-surface are available. With the read-only environment backend, a newly available
-Account Token can also activate an unbound client's reviewed recommendation;
-writable stores are not searched for unselected Tokens. `sync` never replaces an
-explicit selection or Token, or creates a missing client. See the complete
-[first-member and deferred-client journey](docs/guides/team-rollout.md#new-member).
-
-An installation retaining the preceding schema fails normal commands closed.
-Preview its deterministic replacement before applying it:
-
-```bash
-aigw config migrate --dry-run
-aigw config migrate
-aigw sync
-aigw check
-```
-
-Migration changes only AIGW configuration. It preserves Account Tokens, client
-files, sessions, and one exact predecessor configuration. Before rolling the
-program back, restore that predecessor with `aigw config migrate --rollback`.
+`sync` discovers installed clients and changes only AIGW's settings in their
+files. It reconciles enabled clients whose model, authentication, and client
+files are available. With the read-only environment backend, a newly available
+provider Token can also activate an unselected client's reviewed
+recommendation; writable stores are not searched for unused Tokens. `sync`
+never replaces an explicit selection or Token, or creates a missing client.
+See the complete [first-member and deferred-client journey](docs/guides/team-rollout.md#new-member).
 
 ### Credential storage
 
@@ -162,122 +154,122 @@ single platform-local fallback otherwise. An explicit
 `AIGW_SECRET_BACKEND=keyring`, `file`, or `env` choice fails closed instead of
 searching another store.
 
-Environment mode is read-only and portable. Supply only the Accounts used by
-that process through `AIGW_TOKEN_<ACCOUNT>`; the client process must inherit the
-same environment when its projected helper reads the Token. Exact variable
-encoding, native-store behavior, and external credential executables belong to
-the [security model](docs/architecture/security-model.md#credential-storage).
+Environment mode is read-only and portable. Supply only the providers used by
+that process through `AIGW_TOKEN_<PROVIDER>`; the client process must inherit
+the same environment when its credential helper reads the Token. Exact
+variable encoding, native-store behavior, and external credential executables
+belong to the [security model](docs/architecture/security-model.md#credential-storage).
 
 ## Use it every day
 
 ```bash
 aigw
-aigw use --for <client> <route>
+aigw use <client> <provider/model>
 aigw status
 aigw check
-aigw verify --for <client>
+aigw check <client> --depth client
 ```
 
-| Command    | Contract                                                                 |
-| ---------- | ------------------------------------------------------------------------ |
-| `status`   | Observe Client Bindings and projection readiness without reading Tokens  |
-| `check`    | Check enabled clients; default inference may use provider quota          |
-| `doctor`   | Explain current problems without mutation                                |
-| `repair`   | Reconcile bounded AIGW-owned client state                                |
-| `test`     | Probe an endpoint without model inference or native-client execution     |
-| `verify`   | Run a real-client session; it may make multiple quota-consuming requests |
-| `rollback` | Restore verified or previous configuration and client projections        |
+| Command           | Contract                                                                       |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `status`          | Show what each client uses and whether it is ready; no network, no Token read  |
+| `check`           | Check that each client works, as deep as `--depth` asks; `model` may use quota |
+| `model list`      | List the models you have added; no network, no Token read                      |
+| `model search`    | Search what providers offer, from their authenticated catalogs                 |
+| `sync`            | Make client files match the configuration                                      |
+| `config rollback` | Restore the configuration and client files from a verified snapshot or backup  |
 
-Use `aigw repair --dry-run --json` before repairing drift. Human output gives one
-next action; machine consumers use the command's JSON mode where available.
-`aigw check` examines all enabled clients unless `--for <client>` limits its
-credential, projection, and network observations to one enabled client.
+`aigw check` takes four depths, and each runs the ones before it: `local`
+checks the configuration, the Token's presence, the client files and the
+environment without a request; `endpoint` sends one authenticated request
+that names no model; `model`, the default, sends one bounded inference
+request; `client` runs a real client session, which may make several
+quota-consuming requests. It checks every enabled client unless you name
+clients. Use `aigw sync --dry-run --json` before reconciling drift. Human
+output gives one next action; machine consumers use the command's JSON mode.
 
 ### Codex connection retries
 
 Declare native retry budgets explicitly when an endpoint owns recovery:
 
 ```bash
-aigw use --for codex <route> --request-max-retries 0 --stream-max-retries 0 --dry-run --json
-aigw use --for codex <route> --request-max-retries 0 --stream-max-retries 0
-aigw use --for codex <route> --native-retries
+aigw client edit codex --request-retries 0 --stream-retries 0 --dry-run --json
+aigw client edit codex --request-retries 0 --stream-retries 0
+aigw client edit codex --native-retries
 ```
 
-Zero disables that native retry budget; omission preserves native defaults or
-the selected policy on the same connection. Supplied budgets merge individually.
-Model-only changes preserve policy. With policy selected, changing the Account, authentication,
-protocol or effective endpoint requires explicit retry intent; omitted budgets
-do not carry onto a different connection. Only Codex currently exposes admitted
-native budgets. AIGW projects the declaration; it neither retries requests nor
-guarantees exactly-once inference.
+Zero disables that native retry budget; `--native-retries` removes both, so
+Codex uses its own defaults. Retry budgets belong to the client's provider:
+changing the model or protocol within that provider keeps them, and
+`aigw use` with another provider's model clears them and says so. Only Codex
+currently exposes admitted native budgets. AIGW writes the declaration; it
+neither retries requests nor guarantees exactly-once inference.
 
-The local Client Binding owns this policy, not the shared team manifest. Its
-optional persistence component preserves cached predecessor credential readers.
-Program rollback tests the retained reader against the complete declaration and
-refuses incompatible readers without changing programs or credentials. Homebrew
-rollback preparation cannot prove an unspecified predecessor's capability while
-policy is selected; use a compatible program or restore accepted configuration
-with `aigw rollback`, not manual policy-field deletion.
+The client's selection owns this policy, not the shared team file. Program
+rollback tests the retained reader against the complete declaration and
+refuses incompatible readers without changing programs or credentials.
+Homebrew rollback preparation cannot prove an unspecified predecessor's
+capability while a policy is selected; use a compatible program or restore
+accepted configuration with `aigw config rollback`, not manual policy-field
+deletion.
 
 ### Client forwarding
 
-Send one client through a local endpoint, such as the Responses Proxy, while its
-Account upstream stays the same:
+Send one client through a local endpoint, such as the Responses Proxy, while
+its provider and model stay the same:
 
 ```bash
-aigw use --for <client> <route> --forwarding-endpoint http://127.0.0.1:8792/v1 --dry-run --json
-aigw use --for <client> <route> --forwarding-endpoint http://127.0.0.1:8792/v1
-aigw use --for <client> <route> --direct
+aigw client edit <client> --via http://127.0.0.1:8792/v1 --dry-run --json
+aigw client edit <client> --via http://127.0.0.1:8792/v1
+aigw client edit <client> --direct
 ```
 
-The Client Binding records the upstream that forwarding reaches. Selecting a
-Route with the same Account endpoint and protocol keeps forwarding. An Account
-edit, an Account rename or a manifest import that would move a forwarded
-upstream is refused before any write, and the refusal names
-`aigw use --for <client> <route> --direct`, with `--native-retries` when a retry
-policy is selected. Select the direct connection, make the change, then forward
-again. `--direct` drops the forwarding endpoint and its recorded upstream
-together.
+The client's selection records the upstream that forwarding reaches. AIGW
+clears forwarding, and says so, whenever the client's upstream endpoint
+changes: `aigw use` with another provider or protocol, or
+`aigw provider edit --endpoint` for the endpoint that the client reaches.
+`--direct` drops the forwarding endpoint and its recorded upstream together.
 
 ## Product model
 
-| Entity            | Owns                                                      |
-| ----------------- | --------------------------------------------------------- |
-| Account           | Provider endpoints and one logical Token boundary         |
-| Route             | `account + model` and reusable display metadata           |
-| Client binding    | One client's Route, enabled intent, protocol, and options |
-| Native projection | The AIGW-owned portion of one client's configuration      |
+| Noun     | Owns                                                                                  |
+| -------- | ------------------------------------------------------------------------------------- |
+| Provider | A service you hold a Token for: its endpoints, one per protocol, and the Token        |
+| Model    | What a provider serves, named `provider/model`, with the protocols AIGW may use it on |
+| Family   | Optional: which canonical model a provider's model is                                 |
+| Client   | `claude`, `claude-desktop`, `codex` or `hermes`, with its selected model and files    |
 
-There is no global model selection: `aigw use --for <client> <route>` changes
-exactly one client binding. A present Token, synchronized file, endpoint probe,
-and successful native-client request are different readiness claims.
+There is no global model selection: `aigw use <client> <provider/model>`
+changes exactly one client. A present Token, synchronized files, an endpoint
+check and a successful client session are different readiness claims.
 
 Current source Adapters support Codex CLI/Desktop through their shared Codex
 Home, Claude Code through its user settings, Hermes through its provider
 configuration, and Claude Desktop through its separate third-party inference
-library. Account Tokens remain behind credential helpers. Missing clients stay
+library. Tokens remain behind credential helpers. Missing clients stay
 untouched, and release support remains limited to clients with completed native
 evidence. Future clients require a separately admitted Adapter rather than
 reuse of another client's state.
 
-See [Product concepts](docs/concepts/product-concepts.md) for the entity model
+See [Product concepts](docs/concepts/product-concepts.md) for the vocabulary
 and [Adapter admission](docs/governance/adapter-admission.md) for extension
 requirements.
 
 ## Boundaries
 
-| Surface                                                         | Owner                  |
-| --------------------------------------------------------------- | ---------------------- |
-| Accounts, Tokens, Routes, and client bindings                   | AIGW                   |
-| AIGW-marked Codex, Claude Code, Hermes, and Desktop projections | AIGW                   |
-| Codex conversations, JSONL, SQLite, and per-conversation models | Codex                  |
-| Claude sessions and unrelated settings                          | Claude Code            |
-| External gateways and compatibility services                    | Their product/operator |
-| IDE and ACP configuration                                       | The IDE or ACP product |
+| Surface                                                              | Owner                  |
+| -------------------------------------------------------------------- | ---------------------- |
+| Providers, Tokens, models and each client's selection                | AIGW                   |
+| AIGW-marked settings in Codex, Claude Code, Hermes and Desktop files | AIGW                   |
+| Codex conversations, JSONL, SQLite, and per-conversation models      | Codex                  |
+| Claude sessions and unrelated settings                               | Claude Code            |
+| External gateways and compatibility services                         | Their product/operator |
+| IDE and ACP configuration                                            | The IDE or ACP product |
 
-An Account may use a direct provider URL or an independently operated compatible
-endpoint, including an explicit loopback URL. AIGW stores and projects that
-choice; it never installs, starts, stops, or diagnoses the external service.
+A provider may use a direct URL or an independently operated compatible
+endpoint, including an explicit loopback URL. AIGW stores that choice and
+writes it into client files; it never installs, starts, stops, or diagnoses the
+external service.
 
 Adding a compatible endpoint or model is configuration. A new host surface is a
 Client Adapter. Incompatible wire behavior belongs in an independent data plane.
@@ -285,14 +277,14 @@ See the [extension model](docs/architecture/authority-and-projection-boundary.md
 
 ## Update and rollback
 
-`aigw rollback` restores configuration and client projections.
-`aigw update --rollback` restores the retained portable executable.
+`aigw config rollback` restores the configuration and client files.
+`aigw self rollback` restores the retained portable program.
 Homebrew-managed installations use Homebrew for program upgrades and removal.
 
 For a portable installation:
 
 ```bash
-aigw update
+aigw self update
 aigw sync
 aigw check
 ```
@@ -300,54 +292,58 @@ aigw check
 To restore the retained predecessor:
 
 ```bash
-aigw update --rollback
+aigw self rollback
 aigw sync
 aigw check
 ```
 
 Program rollback does not silently downgrade configuration. If the predecessor
 cannot read an isolated copy of current configuration, AIGW leaves both program
-and configuration unchanged. Restore a compatible configuration explicitly with
-`aigw config migrate --rollback`, then retry `aigw update --rollback`.
+and configuration unchanged. Restore a configuration that it can read with
+`aigw config rollback`, then run `aigw self rollback` again.
 
 On macOS, the installed AIGW program moves Keychain Tokens saved by 0.3.5 and
 earlier to its own reader the first time it uses them; nothing needs to be
 entered again. The versioned credential readers that clients call never move a
 Token, so a predecessor that is still installed keeps reading it.
-`aigw update --rollback` returns the Tokens to the retained program's reader
-after admitting the rollback and before activating that program. Before a
-Homebrew downgrade, run `aigw update --rollback` on the Homebrew installation:
-it returns the Tokens without touching Homebrew's files, and the next Token use
-by a kept release takes them back. If it cannot read the configuration, it
-moves no Token and reports that the credentials are not ready. Without that
-step, the older program asks macOS to allow access to each Token.
+`aigw self rollback` returns the Tokens to the retained program's reader after
+admitting the rollback and before activating that program. Before a Homebrew
+downgrade, run `aigw self rollback` on the Homebrew installation: it returns the
+Tokens without touching Homebrew's files, and the next Token use by a kept
+release takes them back. If it cannot read the configuration, it moves no Token
+and reports that the credentials are not ready. Without that step, the older
+program asks macOS to allow access to each Token.
 
 The first Homebrew upgrade from 0.3.5 or earlier is a managed cutover, not a bare
 `brew upgrade aigw`: existing sessions may still call Homebrew's public
 credential-command link. Before the switch, the release operator must stage
 the final successor's private reader, verify its exact commands against the
-existing Account items without a prompt, preproject managed clients, and prefetch the
-verified Cask. Measure the bounded link gap, then immediately test captured
-commands and real clients; restore the predecessor if acceptance fails. Do not
-switch if a required existing native item cannot be read noninteractively.
+existing Keychain items without a prompt, write the managed clients' files
+ahead of the switch, and prefetch the verified Cask. Measure the bounded link
+gap, then immediately test captured commands and real clients; restore the
+predecessor if acceptance fails. Do not switch if a required existing native
+item cannot be read noninteractively.
 
 A session still caching the public link may fail once during the gap. Blanket
 client shutdown or restart does not eliminate that risk and is not an upgrade
 step. Later versioned-reader upgrades must keep old commands callable. See the
 [credential succession decision](docs/decisions/dr-0011-single-portable-token-backend.md#consequences-and-boundary).
 
-`aigw uninstall` withdraws AIGW-owned client projections and removes the
-portable executable plus its predecessor. It retains versioned credential
-reader files for cached or shared callers; a withdrawn Client Binding cannot
-read its Token merely because the executable remains. Accounts, Routes, Client
-Bindings, Tokens, configuration backup, and user-authored client state remain.
+`aigw self uninstall` removes AIGW's settings from the client files, then the
+portable executable and its predecessor. It retains versioned credential
+reader files for cached or shared callers; a client whose settings are removed
+cannot read its Token merely because the executable remains. Providers,
+models, client selections, Tokens, configuration backup, and user-authored
+client state remain.
 
-For a Homebrew installation, disable enabled clients first and let Homebrew
-remove the package; AIGW does not overwrite or delete package-manager-owned
-files.
+For a Homebrew installation, disable enabled clients first with
+`aigw client disable <client>` and let Homebrew remove the package; AIGW does
+not overwrite or delete package-manager-owned files.
 
-Updates resolve GitLab and GitHub as independent optional peers. A selected peer
-must provide one complete release; AIGW never combines a tag, checksum, or asset
+Online portable updates read the GitHub release that official builds name; a
+GitLab peer joins only when `AIGW_GITLAB_RELEASE_ORIGIN` and
+`AIGW_GITLAB_RELEASE_REPOSITORY` name one at run time. A selected peer must
+provide one complete release; AIGW never combines a tag, checksum, or asset
 across peers. Online portable updates authenticate `checksums.txt.sig` against
 the release key embedded in AIGW before checking hashes, extracting, or executing
 downloaded programs. Missing or invalid signatures stop the update and preserve
