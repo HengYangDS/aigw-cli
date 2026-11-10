@@ -26,12 +26,6 @@ type ModelLifecycle string
 const (
 	// ConfigVersion is the only configuration schema version accepted by this build.
 	ConfigVersion = 6
-	// PublishedConfigVersion is the published 0.1.0 schema, which migration
-	// accepts.
-	PublishedConfigVersion = 3
-	// LegacyConfigVersion is the immediate predecessor schema, which migration
-	// accepts. Normal configuration reads accept ConfigVersion only.
-	LegacyConfigVersion = 5
 
 	// AuthenticationProviderToken selects an AIGW-managed account token.
 	AuthenticationProviderToken Authentication = "account-token"

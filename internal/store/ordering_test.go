@@ -206,16 +206,17 @@ func TestCatalogOrderSurvivesVerifiedBackupAndCompensation(t *testing.T) {
 	if err != nil || checkpoint.Config.Providers["current"].Order != 30 || checkpoint.Config.Families["current-model"].Order != 40 {
 		t.Fatalf("verified routing did not retain current presentation: %v", err)
 	}
-	state, err := store.CaptureVerifiedBackupState()
+	// A relabel backs up the generation that holds the presentation.
+	current, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.ConvergeVerifiedBackup(state.Snapshot); err != nil {
+	if err := store.Save(relabeled(current, "Relabeled")); err != nil {
 		t.Fatal(err)
 	}
 	backup, err := store.LoadBackup()
 	if err != nil || backup.Providers["current"].Order != 30 || backup.Families["current-model"].Order != 40 {
-		t.Fatalf("verified backup lost presentation: %v", err)
+		t.Fatalf("the backup lost presentation: %v", err)
 	}
 	before, err := store.CaptureSnapshot()
 	if err != nil {

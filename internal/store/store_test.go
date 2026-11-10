@@ -104,22 +104,6 @@ func TestForwardingStoreRejectsMixedProviderGenerations(t *testing.T) {
 	}
 }
 
-func TestForwardingMigrationPreviewPreservesAssembledBinding(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
-	cfg := validConfig()
-	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
-		t.Fatal(err)
-	}
-	binding := cfg.Clients[ClientCodex]
-	if err := store.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	plan, err := store.PrepareMigration(false)
-	if err != nil || plan.Required || plan.Clients[ClientCodex].ForwardingEndpoint != binding.ForwardingEndpoint {
-		t.Fatalf("current-schema migration preview lost a client destination: %#v, %v", plan.Clients, err)
-	}
-}
-
 func TestForwardingUnchangedCanonicalRejectsStalePreimage(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := validConfig()

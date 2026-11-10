@@ -25,7 +25,6 @@ func (claudeAdapter) Spec() domain.ClientSpec {
 	return domain.ClientSpec{
 		ID: ID, Label: "Claude", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolAnthropic},
 		ProductName: "Claude Code", ModelDiscoveryOptional: true,
-		PublishedProfileProtocol: domain.ProtocolAnthropic,
 	}
 }
 

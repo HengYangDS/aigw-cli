@@ -49,9 +49,6 @@ func TestRetryCheckpointDoesNotAdoptUnverifiedPolicy(t *testing.T) {
 	if err := os.WriteFile(store.componentPath(retriesComponent), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.CaptureVerifiedBackupState(); err == nil {
-		t.Fatal("unverified retry policy was accepted as the checkpoint")
-	}
 	checkpoint, err := store.LoadVerifiedCheckpoint()
 	if err != nil || checkpoint.Config.Clients[ClientCodex].RetryPolicy != nil {
 		t.Fatalf("checkpoint adopted current retry policy: %v", err)

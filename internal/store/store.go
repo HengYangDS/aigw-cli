@@ -1,6 +1,6 @@
 // Package store persists AIGW's configuration: the canonical file and its
-// components, verified checkpoints, backups, schema migration, and the TOML form
-// of the team manifest.
+// components, verified checkpoints, backups, and the TOML form of the team
+// manifest.
 package store
 
 import (
@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -41,38 +40,6 @@ type Snapshot struct {
 	// components and backups are the optional components' two generations.
 	components componentSnapshots
 	backups    componentSnapshots
-}
-
-// BackupConverged reports whether every rollback component equals the current
-// generation, including intentionally absent optional components, with the
-// mode that the Store persists.
-func (snapshot Snapshot) BackupConverged() bool {
-	mode := persistedFileMode()
-	if !snapshot.Backup.Exists || snapshot.Backup.Mode != mode || !bytes.Equal(snapshot.Backup.Data, snapshot.Config.Data) {
-		return false
-	}
-	for index := range components {
-		if !backupComponentConverged(snapshot.components[index], snapshot.backups[index], mode) {
-			return false
-		}
-	}
-	return true
-}
-
-// persistedFileMode is the mode that a file the Store writes with 0o600 reports;
-// Windows reports every writable file as 0o666.
-func persistedFileMode() os.FileMode {
-	if runtime.GOOS == "windows" {
-		return 0o666
-	}
-	return 0o600
-}
-
-// VerifiedBackupState pairs current backup bytes with client evidence when any client is enabled.
-type VerifiedBackupState struct {
-	Snapshot   Snapshot
-	Current    domain.Config
-	Checkpoint VerifiedCheckpoint
 }
 
 // NewStore binds configuration persistence to one canonical path and the
@@ -140,10 +107,6 @@ func (s Store) Commit(before Snapshot, cfg domain.Config) (Snapshot, error) {
 	return s.commitComponents(before, data, [componentCount][]byte{
 		forwardingComponent: forwarding, retriesComponent: retries, catalogComponent: catalog, capabilitiesComponent: capabilities,
 	})
-}
-
-func (s Store) commitData(before Snapshot, data []byte) (Snapshot, error) {
-	return s.commitComponents(before, data, [componentCount][]byte{})
 }
 
 func (s Store) commitComponents(before Snapshot, data []byte, next [componentCount][]byte) (Snapshot, error) {
@@ -216,107 +179,6 @@ func configurationDataEquivalent(before, after []byte, admission domain.Admissio
 	previous, previousErr := decodeTOMLConfig(before, admission)
 	next, nextErr := decodeTOMLConfig(after, admission)
 	return previousErr == nil && nextErr == nil && reflect.DeepEqual(previous, next)
-}
-
-// CaptureVerifiedBackupState requires a current checkpoint only when clients are enabled.
-func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
-	snapshot, err := s.CaptureSnapshot()
-	if err != nil {
-		return VerifiedBackupState{}, err
-	}
-	if !snapshot.Config.Exists {
-		return VerifiedBackupState{}, fmt.Errorf("current config is unavailable: %w", os.ErrNotExist)
-	}
-	current, err := s.loadSnapshot(snapshot)
-	if err != nil {
-		return VerifiedBackupState{}, fmt.Errorf("decode current config snapshot: %w", err)
-	}
-	if !snapshot.Verified.Exists && len(current.EnabledClientIDs()) == 0 {
-		return VerifiedBackupState{Snapshot: snapshot, Current: current}, nil
-	}
-	if !snapshot.Verified.Exists {
-		return VerifiedBackupState{}, fmt.Errorf("verified checkpoint is unavailable: %w", os.ErrNotExist)
-	}
-	checkpoint, err := decodeVerifiedCheckpoint(snapshot.Verified.Data, s.admission)
-	if err != nil {
-		return VerifiedBackupState{}, err
-	}
-	checkpoint.Config, err = decodeComponents(checkpoint.Config, snapshot.Catalog(), snapshot.components[capabilitiesComponent])
-	if err != nil {
-		return VerifiedBackupState{}, err
-	}
-	equal, err := configurationsEqual(current, checkpoint.Config)
-	if err != nil {
-		return VerifiedBackupState{}, err
-	}
-	if !equal {
-		return VerifiedBackupState{}, errors.New("verified checkpoint does not match current configuration")
-	}
-	return VerifiedBackupState{Snapshot: snapshot, Current: current, Checkpoint: checkpoint}, nil
-}
-
-// ConvergeVerifiedBackup makes the verified backup match an expected snapshot without altering unrelated files.
-func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
-	current, err := s.CaptureSnapshot()
-	if err != nil {
-		return err
-	}
-	if !current.Config.Equal(expected.Config) {
-		return errors.New("config preimage changed; refusing to converge backup")
-	}
-	for _, index := range restoreOrder {
-		if !current.components[index].Equal(expected.components[index]) || !current.backups[index].Equal(expected.backups[index]) {
-			return fmt.Errorf("%s preimage changed; refusing to converge backup", components[index].record)
-		}
-	}
-	if !current.Verified.Equal(expected.Verified) {
-		return errors.New("verified checkpoint preimage changed; refusing to converge backup")
-	}
-	preserve, err := s.preserveMigrationRollbackInput(expected.Backup)
-	if err != nil {
-		return err
-	}
-	if preserve {
-		return nil
-	}
-	after := expected
-	after.Backup, err = writeConfigurationFileIfUnchanged(s.path+".bak", expected.Backup, expected.Config.Data, 0o600)
-	if err != nil {
-		return fmt.Errorf("converge verified config backup: %w", err)
-	}
-	for index, component := range components {
-		written, err := s.writeOptional(s.componentPath(index)+".bak", expected.backups[index], expected.components[index].Data)
-		if err != nil {
-			return errors.Join(fmt.Errorf("converge verified %s backup: %w", component.verifiedBackup, err), s.RestoreSnapshot(expected, after))
-		}
-		after.backups[index] = written
-	}
-	current, err = s.CaptureSnapshot()
-	if err != nil || !current.equal(after) {
-		return errors.Join(errors.New("configuration changed during backup convergence"), err, s.RestoreSnapshot(expected, after))
-	}
-	return nil
-}
-
-func (s Store) preserveMigrationRollbackInput(expected platform.FileSnapshot) (bool, error) {
-	if !expected.Exists {
-		return false, nil
-	}
-	version, err := configurationVersion(expected.Data)
-	if err != nil || (version != domain.PublishedConfigVersion && version != domain.LegacyConfigVersion) {
-		return false, nil
-	}
-	if _, err := migratePredecessorConfig(expected.Data, version, s.admission); err != nil {
-		return false, fmt.Errorf("validate migration rollback input: %w", err)
-	}
-	current, err := platform.CaptureFileSnapshot(s.path + ".bak")
-	if err != nil {
-		return false, err
-	}
-	if !current.Equal(expected) {
-		return false, errors.New("migration rollback input preimage changed; refusing to converge backup")
-	}
-	return true, nil
 }
 
 // RestoreSnapshot independently restores configuration, backup and checkpoint

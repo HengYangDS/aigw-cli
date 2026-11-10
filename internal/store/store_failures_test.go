@@ -34,17 +34,14 @@ func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *tes
 			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 			cfg := convergenceConfig("current")
 			forwardTo(t, &cfg, test.oldEndpoint)
+			// An earlier generation gives every owned file a backup to restore.
+			if err := store.Save(relabeled(cfg, "Previous generation")); err != nil {
+				t.Fatal(err)
+			}
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
 			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err != nil {
-				t.Fatal(err)
-			}
-			state, err := store.CaptureSnapshot()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := store.ConvergeVerifiedBackup(state); err != nil {
 				t.Fatal(err)
 			}
 			before, err := store.CaptureSnapshot()

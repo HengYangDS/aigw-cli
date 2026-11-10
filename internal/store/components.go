@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -28,13 +27,12 @@ const (
 
 // component is one optional component's file, after the configuration's stem,
 // and the words that name it in a failure: as a whole when a write or backup
-// fails, as one record when a preimage or restoration fails, and its backup
-// in verified convergence and in restoration.
+// fails, as one record when a restoration fails, and its backup in
+// restoration.
 type component struct {
 	suffix         string
 	whole          string
 	record         string
-	verifiedBackup string
 	restoredBackup string
 	// bothGenerations reads the backup even when the current file failed, and
 	// reports both failures.
@@ -44,24 +42,24 @@ type component struct {
 var components = [componentCount]component{
 	forwardingComponent: {
 		suffix: ".forwarding.toml", whole: "client forwarding", record: "client forwarding",
-		verifiedBackup: "forwarding", restoredBackup: "client forwarding backup snapshot",
+		restoredBackup: "client forwarding backup snapshot",
 	},
 	retriesComponent: {
 		suffix: ".retries.toml", whole: "client retry policies", record: "client retry policy",
-		verifiedBackup: "retry policy", restoredBackup: "client retry policy backup", bothGenerations: true,
+		restoredBackup: "client retry policy backup", bothGenerations: true,
 	},
 	catalogComponent: {
 		suffix: ".catalog.toml", whole: "catalog presentation", record: "catalog presentation",
-		verifiedBackup: "catalog", restoredBackup: "catalog presentation backup",
+		restoredBackup: "catalog presentation backup",
 	},
 	capabilitiesComponent: {
 		suffix: ".capabilities.toml", whole: "route capabilities", record: "route capability",
-		verifiedBackup: "route capability", restoredBackup: "route capability backup", bothGenerations: true,
+		restoredBackup: "route capability backup", bothGenerations: true,
 	},
 }
 
-// restoreOrder is the order in which restoration and verified convergence
-// visit the components, which differs from the order that a commit writes them.
+// restoreOrder is the order in which restoration visits the components, which
+// differs from the order that a commit writes them.
 var restoreOrder = [componentCount]int{forwardingComponent, catalogComponent, capabilitiesComponent, retriesComponent}
 
 // componentSnapshots holds one generation of every optional component.
@@ -177,8 +175,4 @@ func componentsUnchanged(before componentSnapshots, data [componentCount][]byte)
 		}
 	}
 	return true
-}
-
-func backupComponentConverged(current, backup platform.FileSnapshot, mode os.FileMode) bool {
-	return backup.Exists == current.Exists && bytes.Equal(backup.Data, current.Data) && (!current.Exists || backup.Mode == mode)
 }

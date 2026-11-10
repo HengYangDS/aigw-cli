@@ -34,7 +34,6 @@ func (codexAdapter) Spec() domain.ClientSpec {
 		ID: ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses},
 		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
 		DefaultModelProvider: modelProviderAIGW, ClientNativeAuthentication: true,
-		PublishedProfileProtocol: domain.ProtocolOpenAIResponses,
 	}
 }
 

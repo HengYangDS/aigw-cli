@@ -89,7 +89,7 @@ func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
 	provider := ClientSpec{ID: "provider", Label: "Provider", EndpointProtocols: responses, DefaultModelProvider: "provider-default"}
 	native := ClientSpec{
 		ID: "native", Label: "Native", EndpointProtocols: responses, DefaultModelProvider: "native-default",
-		ClientNativeAuthentication: true, RetryBudgets: true, PublishedProfileProtocol: ProtocolOpenAIResponses,
+		ClientNativeAuthentication: true, RetryBudgets: true,
 	}
 	other := native
 	other.ID, other.Label = "other", "Other"

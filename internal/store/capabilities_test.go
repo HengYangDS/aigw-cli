@@ -182,17 +182,19 @@ func TestStoredCapabilitySurvivesRecovery(t *testing.T) {
 	if err != nil || !checkpoint.Config.Models["claude"].Declares(domain.ProtocolAnthropic, domain.CapabilityToolSearch) {
 		t.Fatalf("verified checkpoint lost the stored capability: %v", err)
 	}
-	state, err := store.CaptureVerifiedBackupState()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := store.ConvergeVerifiedBackup(state.Snapshot); err != nil {
+	// A relabel backs up the generation that holds the capability.
+	relabel := cfg.Clone()
+	provider := relabel.Providers["ucloud"]
+	provider.Label = "UCloud relabeled"
+	relabel.Providers["ucloud"] = provider
+	if err := store.Save(relabel); err != nil {
 		t.Fatal(err)
 	}
 	backup, err := store.LoadBackup()
 	if err != nil || !backup.Models["claude"].Declares(domain.ProtocolAnthropic, domain.CapabilityToolSearch) {
-		t.Fatalf("verified backup lost the stored capability: %v", err)
+		t.Fatalf("the backup lost the stored capability: %v", err)
 	}
+	cfg = relabel
 	before, err := store.CaptureSnapshot()
 	if err != nil {
 		t.Fatal(err)

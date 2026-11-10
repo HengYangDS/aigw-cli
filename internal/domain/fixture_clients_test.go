@@ -18,7 +18,6 @@ func testClientSpecs() []ClientSpec {
 		{
 			ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic},
 			ProductName: "Claude Code", ModelDiscoveryOptional: true,
-			PublishedProfileProtocol: ProtocolAnthropic,
 		},
 		{
 			ID: ClientClaudeDesktop, Label: "Claude Desktop", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic},
@@ -29,7 +28,6 @@ func testClientSpecs() []ClientSpec {
 			ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses},
 			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
 			DefaultModelProvider: "aigw", ClientNativeAuthentication: true,
-			PublishedProfileProtocol: ProtocolOpenAIResponses,
 		},
 		{
 			ID: ClientHermes, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml",

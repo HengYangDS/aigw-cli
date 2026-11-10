@@ -21,14 +21,14 @@ func TestUnreadableCapabilityComponentStopsOnlyFullReads(t *testing.T) {
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
+			// A relabel backs up the generation that holds the component.
+			provider := cfg.Providers["ucloud"]
+			provider.Label = "UCloud relabeled"
+			cfg.Providers["ucloud"] = provider
+			if err := store.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
 			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientClaude)); err != nil {
-				t.Fatal(err)
-			}
-			state, err := store.CaptureVerifiedBackupState()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := store.ConvergeVerifiedBackup(state.Snapshot); err != nil {
 				t.Fatal(err)
 			}
 			path := capabilityComponentPath(store) + suffix
@@ -78,35 +78,6 @@ func TestCapabilityComponentWriteFailureRestoresOwnedFiles(t *testing.T) {
 			}
 			if after, err := store.CaptureSnapshot(); err != nil || !before.equal(after) {
 				t.Fatalf("failed capability write did not restore every owned file: %v", err)
-			}
-		})
-	}
-}
-
-func TestVerifiedBackupConvergenceGuardsTheCapabilityComponent(t *testing.T) {
-	for _, change := range []string{"preimage", "write"} {
-		t.Run(change, func(t *testing.T) {
-			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
-			if err := store.Save(toolSearchConfig()); err != nil {
-				t.Fatal(err)
-			}
-			state, err := store.CaptureVerifiedBackupState()
-			if err != nil {
-				t.Fatal(err)
-			}
-			want := "route capability preimage changed"
-			if change == "preimage" {
-				if err := os.WriteFile(capabilityComponentPath(store), []byte("# newer operator content\n"), 0o600); err != nil {
-					t.Fatal(err)
-				}
-			} else {
-				want = failCapabilityWrites(t, capabilityComponentPath(store)+".bak").Error()
-			}
-			if err := store.ConvergeVerifiedBackup(state.Snapshot); err == nil || !strings.Contains(err.Error(), want) {
-				t.Fatalf("backup convergence error = %v, want %q", err, want)
-			}
-			if _, err := os.Stat(capabilityComponentPath(store) + ".bak"); !os.IsNotExist(err) {
-				t.Fatalf("refused convergence left a capability backup: %v", err)
 			}
 		})
 	}
@@ -302,82 +273,6 @@ func TestCommitVisitsEveryFileInOrder(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Backup convergence checks every preimage in one order, then backs up every
-// file in the order a commit does, and each failure names its step.
-func TestVerifiedBackupConvergenceVisitsEveryFileInOrder(t *testing.T) {
-	steps := []componentStep{
-		{"config.toml.bak", "converge verified config backup"},
-		{"config.forwarding.toml.bak", "converge verified forwarding backup"},
-		{"config.retries.toml.bak", "converge verified retry policy backup"},
-		{"config.catalog.toml.bak", "converge verified catalog backup"},
-		{"config.capabilities.toml.bak", "converge verified route capability backup"},
-	}
-	t.Run("order", func(t *testing.T) {
-		store, _ := everyComponentStore(t)
-		expected, err := store.CaptureSnapshot()
-		if err != nil {
-			t.Fatal(err)
-		}
-		visited, _ := observeMutations(t, "")
-		if err := store.ConvergeVerifiedBackup(expected); err != nil {
-			t.Fatal(err)
-		}
-		if !slices.Equal(*visited, stepFiles(steps)) {
-			t.Fatalf("convergence visited %q, want %q", *visited, stepFiles(steps))
-		}
-	})
-	for _, step := range steps {
-		t.Run(step.file, func(t *testing.T) {
-			store, _ := everyComponentStore(t)
-			expected, err := store.CaptureSnapshot()
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, failure := observeMutations(t, step.file)
-			want := step.failure + ": " + failure.Error()
-			if err := store.ConvergeVerifiedBackup(expected); err == nil || err.Error() != want {
-				t.Fatalf("convergence error = %v, want %q", err, want)
-			}
-		})
-	}
-	t.Run("preimages", func(t *testing.T) {
-		store, cfg := everyComponentStore(t)
-		if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err != nil {
-			t.Fatal(err)
-		}
-		expected, err := store.CaptureSnapshot()
-		if err != nil {
-			t.Fatal(err)
-		}
-		checks := []componentStep{
-			{"config.toml", "config"},
-			{"config.forwarding.toml", "client forwarding"}, {"config.forwarding.toml.bak", "client forwarding"},
-			{"config.catalog.toml", "catalog presentation"}, {"config.catalog.toml.bak", "catalog presentation"},
-			{"config.capabilities.toml", "route capability"}, {"config.capabilities.toml.bak", "route capability"},
-			{"config.retries.toml", "client retry policy"}, {"config.retries.toml.bak", "client retry policy"},
-			{"config.toml.verified.json", "verified checkpoint"},
-		}
-		directory := filepath.Dir(store.Path())
-		original := map[string][]byte{}
-		for _, check := range checks {
-			path := filepath.Join(directory, check.file)
-			original[check.file] = readStoreFile(t, path)
-			if err := os.WriteFile(path, []byte("# newer operator content\n"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-		}
-		for _, check := range checks {
-			want := check.failure + " preimage changed; refusing to converge backup"
-			if err := store.ConvergeVerifiedBackup(expected); err == nil || err.Error() != want {
-				t.Fatalf("with %s changed, convergence error = %v, want %q", check.file, err, want)
-			}
-			if err := os.WriteFile(filepath.Join(directory, check.file), original[check.file], 0o600); err != nil {
-				t.Fatal(err)
-			}
-		}
-	})
 }
 
 // Restoration reaches every file in one order and names each conflict.

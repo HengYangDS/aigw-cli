@@ -56,7 +56,6 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 		{
 			ID: claude.ID, Label: "Claude", EndpointProtocols: []domain.EndpointProtocol{anthropic},
 			ProductName: "Claude Code", ModelDiscoveryOptional: true,
-			PublishedProfileProtocol: anthropic,
 		},
 		{
 			ID: claudedesktop.ID, Label: "Claude Desktop", EndpointProtocols: []domain.EndpointProtocol{anthropic},
@@ -67,7 +66,6 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 			ID: codex.ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{responses},
 			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
 			DefaultModelProvider: "aigw", ClientNativeAuthentication: true,
-			PublishedProfileProtocol: responses,
 		},
 		{
 			ID: hermes.ID, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml",
