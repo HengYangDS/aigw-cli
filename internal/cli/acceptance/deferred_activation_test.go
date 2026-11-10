@@ -220,7 +220,7 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneProviderChoice(t *testin
 
 	app.In = strings.NewReader("new-token\n")
 	out.Reset()
-	if err := cli.Execute(app, []string{"rotate", "dmxapi", "--token-stdin"}); err != nil {
+	if err := cli.Execute(app, []string{"provider", "rotate", "dmxapi", "--token-stdin"}); err != nil {
 		t.Fatalf("connect one deferred Account: %v\n%s", err, out)
 	}
 	want := "aigw use claude dmxapi/claude-opus-5-5"

@@ -322,7 +322,7 @@ AIGW  Token replaced
   ✓ Clients read the new Token the next time they ask for one; a running client decides when that is
 
 Next
-  aigw check
+  aigw use --help
 -- list.txt --
 AIGW  Providers
 ────────────────────────────────────────
@@ -550,7 +550,7 @@ Fix
   "label": "Spare",
   "token_validated": true,
   "token_stored": true,
-  "next_action": "aigw check"
+  "next_action": "aigw use --help"
 }
 -- edited.json --
 {

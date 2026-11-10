@@ -74,10 +74,6 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		{[]string{"client", "enable", "claude", "--executable", " "}, "--executable is required", "aigw client list"},
 		{[]string{"client", "enable", "codex", "--executable", "codex"}, "requires at least one --target", "aigw client enable --help"},
 		{[]string{"client", "enable", "codex", "--executable", "codex", "--target", " "}, "--target requires a non-empty path", "aigw client enable --help"},
-		{[]string{"add", "new"}, "--for and --upstream-model are required", "aigw add --help"},
-		{[]string{"add", "bad id"}, "Invalid account ID", "aigw add --help"},
-		{[]string{"add", "new", "--for", "unknown", "--upstream-model", "model"}, "--for and --upstream-model are required", "aigw add --help"},
-		{[]string{"add", "new", "--for", "codex", "--upstream-model", " "}, "--for and --upstream-model are required", "aigw add --help"},
 		{[]string{"config", "import", " "}, "manifest path must not be blank", "aigw config import --help"},
 	} {
 		t.Run(strings.Join(test.args, "/"), func(t *testing.T) {
@@ -107,7 +103,6 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 		args []string
 		want bool
 	}{
-		{name: "top-level add", args: []string{"add", "account"}, want: true},
 		{name: "provider add", args: []string{"provider", "add", "team"}, want: true},
 		{name: "provider add dry-run", args: []string{"provider", "add", "team", "--dry-run"}, want: false},
 		{name: "provider edit", args: []string{"provider", "edit", "team"}, want: true},
@@ -138,7 +133,6 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 		{name: "sync final dry-run true", args: []string{"sync", "--dry-run=false", "--dry-run"}, want: false},
 		{name: "setup", args: []string{"setup", "--route", "route"}, want: true},
 		{name: "setup dry-run", args: []string{"setup", "--route", "route", "--dry-run"}, want: false},
-		{name: "top-level add dry-run", args: []string{"add", "account", "--dry-run"}, want: false},
 		{name: "client enable dry-run", args: []string{"client", "enable", "codex", "--dry-run"}, want: false},
 		{name: "client disable dry-run", args: []string{"client", "disable", "codex", "--dry-run"}, want: false},
 		{name: "bare client", args: []string{"client"}, want: false},

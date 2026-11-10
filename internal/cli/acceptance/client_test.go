@@ -217,7 +217,7 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	}
 	out.Reset()
 	app.In = strings.NewReader("rotated-secret\n")
-	if err := cli.Execute(app, []string{"rotate", "team", "--token-stdin"}); err != nil {
+	if err := cli.Execute(app, []string{"provider", "rotate", "team", "--token-stdin"}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "aigw use claude team/claude-model") || strings.Contains(out.String(), "Install Claude") {

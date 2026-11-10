@@ -58,6 +58,12 @@ exitcode 1 aigw route list
 stdout 'unknown command "route"'
 exitcode 1 aigw account rename old new
 stdout 'unknown command "account"'
+exitcode 1 aigw add team --for claude
+stdout 'unknown command "add"'
+exitcode 1 aigw rotate team
+stdout 'unknown command "rotate"'
+exitcode 1 aigw balance
+stdout 'unknown command "balance"'
 snapshot $HOME removed-after.txt
 cmp removed-after.txt removed-before.txt
 
@@ -80,7 +86,6 @@ Connect
 
 Use every day
   check                Check that each client works, as deep as --depth asks
-  rotate               Update one Account Token
   status               Show each client's model and local readiness
   use                  Point a client at a model
 
@@ -89,8 +94,6 @@ Recover
   sync                 Make client files match the configuration
 
 Advanced
-  add                  Add and connect one Account with its first Route
-  balance              Show account balance and token quota
   client               List, enable, disable and edit clients
   completion           Generate shell completion
   config               Show, export and roll back the configuration

@@ -18,8 +18,6 @@ import (
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/app"
-	"aigw-cli/internal/cli/add"
-	"aigw-cli/internal/cli/balance"
 	"aigw-cli/internal/cli/check"
 	clientcli "aigw-cli/internal/cli/client"
 	completioncli "aigw-cli/internal/cli/completion"
@@ -28,7 +26,6 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	modelcli "aigw-cli/internal/cli/model"
 	providercli "aigw-cli/internal/cli/provider"
-	"aigw-cli/internal/cli/rotate"
 	selfcli "aigw-cli/internal/cli/self"
 	"aigw-cli/internal/cli/setup"
 	"aigw-cli/internal/cli/status"
@@ -213,9 +210,9 @@ func requiresConfigurationLock(command *cobra.Command) bool {
 	// program file, never the configuration.
 	path := strings.TrimPrefix(command.CommandPath(), command.Root().Name()+" ")
 	switch path {
-	case "rotate", "provider rotate":
+	case "provider rotate":
 		return true
-	case "setup", "add",
+	case "setup",
 		"model add", "model edit", "model remove", "client enable", "client disable", "client edit",
 		"provider add", "provider edit", "provider remove",
 		"use", "sync", "config import", "config migrate",
@@ -378,15 +375,14 @@ func NewRoot(app *App) *cobra.Command {
 	)
 	runtime := app.invocationContext()
 	connect := []*cobra.Command{setup.NewCommand(runtime)}
-	daily := []*cobra.Command{status.NewCommand(runtime), use.NewCommand(runtime), check.NewCommand(runtime), rotate.NewCommand(runtime)}
+	daily := []*cobra.Command{status.NewCommand(runtime), use.NewCommand(runtime), check.NewCommand(runtime)}
 	recoveryCommands := []*cobra.Command{
 		synccli.NewCommand(runtime), selfcli.NewCommand(runtime),
 	}
 	advanced := []*cobra.Command{
-		add.NewCommand(runtime),
 		modelcli.NewCommand(runtime), providercli.NewCommand(runtime),
 		clientcli.NewCommand(runtime),
-		config.NewCommand(runtime), balance.NewCommand(runtime),
+		config.NewCommand(runtime),
 	}
 	for group, commands := range map[string][]*cobra.Command{
 		"connect": connect, "daily": daily, "recover": recoveryCommands, "advanced": advanced,

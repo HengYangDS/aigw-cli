@@ -37,14 +37,14 @@ func (u *fakeUpdater) PreviewCandidate(_ string, candidate program.CandidateArch
 // must not read, check or write.
 var errCredentialTouched = errors.New("a preview used the credential store")
 
-// TestSetupAndAddPreviewsUseNoCredential runs each Token-free preview with a
+// TestSetupPreviewsUseNoCredential runs each Token-free preview with a
 // credential store that reads and writes nothing: setup from flags and from a
-// team file that recommends the model to Claude Code, and add. Each succeeds,
+// team file that recommends the model to Claude Code. Each succeeds,
 // reports the credential reader that applying it would install, even where
 // no client file changes, and writes neither the reader nor configuration.
 // Only team setup's preview observes whether its provider has a Token, from
 // the store's metadata, as the run does.
-func TestSetupAndAddPreviewsUseNoCredential(t *testing.T) {
+func TestSetupPreviewsUseNoCredential(t *testing.T) {
 	manifest := recommendingManifest(t)
 	for _, test := range []struct {
 		name       string
@@ -53,7 +53,6 @@ func TestSetupAndAddPreviewsUseNoCredential(t *testing.T) {
 	}{
 		{"setup", []string{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--dry-run", "--json"}, false},
 		{"setup from a team file", []string{"setup", "--from", manifest, "--dry-run", "--json"}, true},
-		{"add", []string{"add", "team", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--dry-run", "--json"}, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
@@ -168,14 +167,15 @@ func TestSetupManifestPreviewInText(t *testing.T) {
 	}
 }
 
-// TestAddPreviewRefusesAReadOnlyBackend shows that add --dry-run refuses
-// where add would: a read-only backend cannot store the new Account's Token.
-func TestAddPreviewRefusesAReadOnlyBackend(t *testing.T) {
+// TestProviderAddPreviewRefusesAnEnvironmentWithoutTheToken shows that
+// provider add --dry-run refuses where provider add would: the read-only
+// environment backend has no Token for the new provider.
+func TestProviderAddPreviewRefusesAnEnvironmentWithoutTheToken(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
-	err := cli.Execute(app, []string{"add", "team", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--dry-run"})
-	if err == nil || !strings.Contains(err.Error(), "read-only") {
-		t.Fatalf("read-only add preview = %v", err)
+	err := cli.Execute(app, []string{"provider", "add", "team", "--endpoint", "anthropic=https://team.test", "--dry-run"})
+	if err == nil || !strings.Contains(err.Error(), "the environment backend has no team Token") {
+		t.Fatalf("an environment preview without the Token = %v", err)
 	}
 	if _, err := os.Stat(app.Config.Path()); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("refused preview wrote configuration: %v", err)
@@ -359,7 +359,6 @@ func TestRemovedSpellingsAreUnknownFlags(t *testing.T) {
 		path, flag string
 	}{
 		{[]string{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude"}, "setup", "--model"},
-		{[]string{"add", "team", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude"}, "add", "--model"},
 		{[]string{"self", "install", "--target", destination}, "self install", "--target"},
 		{[]string{"self", "uninstall", "--target", installed}, "self uninstall", "--target"},
 	} {

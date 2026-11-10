@@ -14,7 +14,8 @@ cmp stdout empty.txt
 # Responses endpoint, but it is not installed, so its files wait. Claude
 # Desktop and Hermes select no model.
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
+exec aigw provider add team --label 'Team Gateway' --endpoint anthropic=$UPSTREAM --token-stdin
+exec aigw use claude team/team-model
 exec aigw provider edit team --endpoint responses=$UPSTREAM/v1
 exec aigw model edit team/team-model --protocol anthropic --protocol responses
 exec aigw use codex team/team-model
@@ -52,7 +53,8 @@ fixloop -did 'restored the configuration file from a copy' refusal.json aigw sta
 env HOME=$WORK/later USERPROFILE=$WORK/later XDG_CONFIG_HOME=$WORK/later XDG_DATA_HOME=$WORK/later APPDATA=$WORK/later LOCALAPPDATA=$WORK/later
 env PATH=$WORK/nothing
 stdin token.txt
-exec $BIN/aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
+exec $BIN/aigw provider add team --label 'Team Gateway' --endpoint anthropic=$UPSTREAM --token-stdin
+exec $BIN/aigw use claude team/team-model
 exec $BIN/aigw status
 cmp stdout absent.txt
 env PATH=$BIN

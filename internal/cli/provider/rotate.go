@@ -1,6 +1,7 @@
 package provider
 
 import (
+	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -26,7 +27,7 @@ func newRotateCommand(runtime invocation.Context) *cobra.Command {
 		},
 		ValidArgsFunction: completeProvider(runtime),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, provider, err := loadProvider(runtime, args[0])
+			cfg, provider, err := loadProvider(runtime, args[0])
 			if err != nil {
 				return err
 			}
@@ -50,16 +51,19 @@ func newRotateCommand(runtime invocation.Context) *cobra.Command {
 			if _, err := secret.Replace(runtime.Secrets, map[string]string{provider.ID: token}); err != nil {
 				return err
 			}
+			// The next step is what the Token now allows: the client whose
+			// selection waited for it, or else a check.
+			next := clientactivation.NextActionAfterProviderConnection(cfg, provider.ID)
 			document := rotateDocument{ID: provider.ID, Label: provider.Label, TokenValidated: true, TokenStored: true}
 			if jsonMode {
-				document.NextAction, document.NextDetail = terminal.NextSteps("aigw check")
+				document.NextAction, document.NextDetail = terminal.NextSteps(next)
 				return terminal.WriteDocument(runtime.Out, rotateSchemaVersion, true, document)
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Token replaced")
 			r.Rows(append(providerFields(provider.ID, provider), terminal.Field{State: terminal.OK, Label: "Token", Value: "Accepted by the provider and stored"})...)
 			r.Success("Clients read the new Token the next time they ask for one; a running client decides when that is")
-			r.Next("aigw check")
+			r.Next(next)
 			return r.Err()
 		},
 	}

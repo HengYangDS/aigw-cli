@@ -92,7 +92,7 @@ func TestExecuteReturnsBusyLockErrorWhenAnotherMutationHoldsIt(t *testing.T) {
 
 	out := &bytes.Buffer{}
 	app := &App{Clients: clients.Registry(), Config: configStore, Out: out, Err: &bytes.Buffer{}}
-	err = Execute(app, []string{"add", "dmx", "--for", "claude", "--upstream-model", "claude-test", "--anthropic-url", "https://example.test", "--token-stdin", "--json"})
+	err = Execute(app, []string{"provider", "add", "dmx", "--endpoint", "anthropic=https://example.test", "--token-stdin", "--json"})
 	if !errors.Is(err, store.ErrConfigurationBusy) {
 		t.Fatalf("Execute() error = %v, want a busy-lock error", err)
 	}
@@ -105,7 +105,7 @@ func TestExecuteReturnsBusyLockErrorWhenAnotherMutationHoldsIt(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &failure); err != nil {
 		t.Fatalf("busy-lock failure is not one JSON document: %v\n%s", err, out.String())
 	}
-	want := "After the other aigw command finishes, rerun `aigw add dmx --anthropic-url https://example.test --for claude --json --token-stdin --upstream-model claude-test`."
+	want := "After the other aigw command finishes, rerun `aigw provider add dmx --endpoint anthropic=https://example.test --json --token-stdin`."
 	if failure.Error != "Another AIGW command holds the configuration" || failure.Impact != "This command changed nothing." ||
 		failure.NextAction != "" || failure.NextDetail != want {
 		t.Fatalf("busy-lock failure = %+v", failure)
@@ -231,9 +231,9 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 		"aigw check", "Check enabled clients (may use quota)",
 		"Usage", "aigw [command]",
 		"Connect", "setup",
-		"Use every day", "check", "rotate", "status", "use",
+		"Use every day", "check", "status", "use",
 		"Recover", "self", "sync",
-		"Advanced", "add", "balance", "client", "completion", "config",
+		"Advanced", "client", "completion", "config",
 		"Options", "show help", "show version",
 	} {
 		_, after, found := strings.Cut(remaining, want)
@@ -334,14 +334,6 @@ func TestPublicCommandTreeCarriesOneCoherentMetadataContract(t *testing.T) {
 		}
 	}
 	inspect(root)
-
-	add, _, err := root.Find([]string{"add"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if add.Use != "add <account>" || add.Short != "Add and connect one Account with its first Route" {
-		t.Fatalf("add metadata = %q / %q", add.Use, add.Short)
-	}
 }
 
 func TestPublicCommandHelpFitsDeclaredTerminalWidths(t *testing.T) {
@@ -394,7 +386,6 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 	}{
 		{args: []string{"setup", "--help"}, want: []string{"With --from, a provider whose Token to read", "First route ID", "Read one Token from standard input"}},
 		{args: []string{"check", "--help"}, want: []string{"Check the enabled clients, or the named ones, enabled or not; <client> is claude, claude-desktop, codex, or hermes", "one bounded inference request, which may use quota", "client runs a real client session", "How far to check: local, endpoint, model or client (default model)", "Print every local check"}},
-		{args: []string{"rotate", "--help"}, want: []string{"Update one Account Token"}},
 		{args: []string{"completion", "--help"}, want: []string{"Generate shell completion"}},
 		{args: []string{"self", "update", "--help"}, want: []string{"Replace only a portable AIGW program", "Homebrew upgrades a program that it installed", "Client settings and Tokens do not change"}},
 		{args: []string{"self", "uninstall", "--help"}, want: []string{"Remove AIGW's settings from the client files", "Providers, models and stored Tokens stay", "Homebrew removes a program that it installed"}},

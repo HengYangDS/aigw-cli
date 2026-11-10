@@ -332,21 +332,6 @@ func saveCommandModel(t *testing.T, app *cli.App, endpoints domain.Endpoints, cl
 	}
 }
 
-func saveProbeModel(t *testing.T, appConfig store.Store) {
-	t.Helper()
-	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["dmx"] = domain.Provider{
-		Label:        "DMXAPI",
-		Endpoints:    domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
-		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"},
-	}
-	cfg.Models["gpt"] = domain.Model{Label: "GPT", Provider: "dmx", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedModel(codex.ID, "gpt", "")
-	if err := appConfig.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func twoModelConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "one", "One Gateway", domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, codex.ID, "model-one")

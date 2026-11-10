@@ -84,7 +84,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		t.Fatalf("candidate diagnostic credential did not survive update and rollback: %v", err)
 	}
 	configurationBeforeRotation := readFile(t, journey.config)
-	journey.runWithInput(journey.binary, replacement+"\n", "rotate", sourceAccount, "--token-stdin")
+	journey.runWithInput(journey.binary, replacement+"\n", journey.rotation(journey.binary, sourceAccount)...)
 	if !bytes.Equal(configurationBeforeRotation, readFile(t, journey.config)) {
 		t.Fatal("successor Token rotation changed retained configuration")
 	}
@@ -104,7 +104,7 @@ func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
 	journey.run(journey.lifecycle(journey.binary, "rollback")...)
 	journey.requireVersion(predecessorVersion)
 	configurationBefore := readFile(t, journey.config)
-	journey.runWithInput(journey.binary, rotated+"\n", "rotate", account, "--token-stdin")
+	journey.runWithInput(journey.binary, rotated+"\n", journey.rotation(journey.binary, account)...)
 	if !bytes.Equal(configurationBefore, readFile(t, journey.config)) {
 		t.Fatal("legacy Token rotation changed retained configuration")
 	}

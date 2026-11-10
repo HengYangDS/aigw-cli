@@ -66,6 +66,20 @@ func (j *journeyFixture) localCheck(program string) []string {
 	return []string{"check", "--depth", "local", "--json"}
 }
 
+// rotation spells the rotation of provider's Token from standard input in
+// program's words: `aigw provider rotate` from 0.7.0, and `aigw rotate` in a
+// published release before it, so that a journey that starts from a
+// published release keeps that release's commands.
+func (j *journeyFixture) rotation(program, provider string) []string {
+	j.testing.Helper()
+	probe := exec.CommandContext(context.WithoutCancel(j.testing.Context()), program, "provider", "--help")
+	probe.Env = j.environment
+	if probe.Run() == nil {
+		return []string{"provider", "rotate", provider, "--token-stdin"}
+	}
+	return []string{"rotate", provider, "--token-stdin"}
+}
+
 // lifecycle spells a command of program's own lifecycle in program's words.
 // words are the spelling after `aigw self` from 0.7.0, which a program with
 // `aigw self` runs; a published release before it runs the top-level command

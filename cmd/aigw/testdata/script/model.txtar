@@ -16,7 +16,8 @@ cmp stdout add-help.txt
 # lists team-model and spare-model. The mixed provider has two endpoints, no
 # Token, so its catalog cannot be read, and a recommendation for Hermes.
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
+exec aigw provider add team --label 'Team Gateway' --endpoint anthropic=$UPSTREAM --token-stdin
+exec aigw use claude team/team-model
 envsubst mixed.in mixed.toml
 exec aigw setup --from mixed.toml
 
@@ -131,7 +132,7 @@ exec aigw setup --from mixed.toml
 exec aigw model show mixed/spare-chat --json
 stdout '"protocol": "chat"'
 stdin mixed-token.txt
-exec aigw rotate mixed --token-stdin
+exec aigw provider rotate mixed --token-stdin
 exec aigw use hermes mixed/chat-only
 exitcode 1 aigw model edit mixed/chat-only --protocol anthropic --json
 cmp stdout edit-selected.json
@@ -361,7 +362,7 @@ Mixed
   · mixed/spare-chat   Mixed · Spare Chat · OpenAI Chat Completions
 
 Team Gateway
-  ✓ team/team-model    Team Gateway · Anthropic Messages · used by Claude
+  ✓ team/team-model    Team Gateway · team-model · Anthropic Messages · used by Claude
 
 Next
   aigw use <client> <provider/model>
@@ -428,7 +429,7 @@ Next
     {
       "id": "team/team-model",
       "provider": "team",
-      "label": "Team Gateway",
+      "label": "Team Gateway · team-model",
       "family": "team-model",
       "protocols": [
         {
@@ -455,7 +456,7 @@ Next
     {
       "id": "team/team-model",
       "provider": "team",
-      "label": "Team Gateway",
+      "label": "Team Gateway · team-model",
       "family": "team-model",
       "protocols": [
         {
@@ -487,7 +488,7 @@ Next
   "ok": true,
   "id": "team/team-model",
   "provider": "team",
-  "label": "Team Gateway",
+  "label": "Team Gateway · team-model",
   "family": "team-model",
   "protocols": [
     {
@@ -1019,7 +1020,7 @@ Options
         {
           "id": "team/team-model",
           "state": "added",
-          "label": "Team Gateway",
+          "label": "Team Gateway · team-model",
           "listed_by": [
             "anthropic"
           ]
@@ -1067,7 +1068,7 @@ Mixed
 
 Team Gateway
   ✓ team/spare-model   added · Team Gateway · spare-model
-  ✓ team/team-model    added · Team Gateway
+  ✓ team/team-model    added · Team Gateway · team-model
 
 9 models from 3 providers
 
