@@ -970,7 +970,7 @@ Next
 {
   "schema_version": 3,
   "ok": false,
-  "error": "unsupported configuration manifest version 6; expected 7; AIGW does not reinterpret schema versions; export the manifest with the matching AIGW release, then review and import that canonical output",
+  "error": "unsupported configuration manifest version 6; expected 7; AIGW does not reinterpret schema versions",
   "impact": "Nothing changed.",
   "next_detail": "Export the team file again with the AIGW release that wrote it, then run the same command again."
 }

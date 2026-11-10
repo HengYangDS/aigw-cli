@@ -35,10 +35,11 @@ type MergeOptions struct {
 // version, which AIGW never reinterprets.
 type UnsupportedManifestVersionError struct{ Version int }
 
-// Error formats the version refusal and the supported way to convert the manifest.
+// Error formats the version refusal. It names no way to convert the
+// manifest, because no AIGW command converts one.
 func (err *UnsupportedManifestVersionError) Error() string {
 	return fmt.Sprintf(
-		"unsupported configuration manifest version %d; expected %d; AIGW does not reinterpret schema versions; export the manifest with the matching AIGW release, then review and import that canonical output",
+		"unsupported configuration manifest version %d; expected %d; AIGW does not reinterpret schema versions",
 		err.Version,
 		ManifestVersion,
 	)

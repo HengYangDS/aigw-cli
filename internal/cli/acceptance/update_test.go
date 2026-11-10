@@ -57,7 +57,7 @@ func TestUpdateInvalidInputsLeaveOperationAndConfigurationUntouched(t *testing.T
 
 func TestUpdateRollbackUsesLocalProgramRollbackOnly(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	updater := &fakeUpdater{rollbackResult: restored("restored the previous program version; you can run `aigw update --rollback` again to restore the current version.")}
+	updater := &fakeUpdater{rollbackResult: restored("restored the previous program version and retained the replaced program.")}
 	app.Updater = updater
 	if err := cli.Execute(app, []string{"self", "rollback"}); err != nil {
 		t.Fatal(err)

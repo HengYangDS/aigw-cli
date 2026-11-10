@@ -224,10 +224,10 @@ func TestRollbackExchangesCurrentAndPreviousProgramFiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, guidance := range []string{"restored the previous program version", "older program does not support", "current portable package", "installer", "replaces only AIGW", "retains one predecessor"} {
-			if !strings.Contains(message.Summary, guidance) {
-				t.Errorf("rollback guidance missing %q: %s", guidance, message.Summary)
-			}
+		// The restored program may be a release with other commands, so the
+		// summary names none.
+		if want := "restored the previous program version and retained the replaced program."; message.Summary != want {
+			t.Errorf("rollback summary = %q, want %q", message.Summary, want)
 		}
 		for path, content := range map[string]string{current: expected.current, previous: expected.previous} {
 			data, err := os.ReadFile(path)

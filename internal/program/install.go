@@ -212,8 +212,10 @@ func (u Updater) Rollback(ctx context.Context, config []byte, custody Credential
 		}
 		return Transition{}, err
 	}
+	// The summary names no command: the restored program may be a release
+	// whose commands differ from this one's.
 	return Transition{State: TransitionRestored, Version: normalizeVersion(version),
-		Summary: "restored the previous program version. If that older program does not support `aigw update --rollback`, download the current portable package and run its installer; it replaces only AIGW and retains one predecessor."}, err
+		Summary: "restored the previous program version and retained the replaced program."}, err
 }
 
 // RollbackPath derives the sibling backup path for executable using the
