@@ -91,9 +91,6 @@
 - [x] 4.6 Take Codex's bundled model metadata from the model's family and retire
       the Codex model catalog's suffix-derived namespace mirror; tests cover a
       variant linked by family and a model that is its own family.
-- [ ] 4.7 Run the `client_acceptance` journeys from v0.6.1 once 4.1 lands,
-      each program speaking its own commands; they pass on macOS. Depends on
-      7.4, because a candidate whose `VERSION` equals the baseline's is refused.
 - [ ] 4.8 Show a path inside home as `~/…` in the success lines of
       `client edit` and `self install`, which print the absolute home path;
       scripts cover both.
@@ -139,8 +136,8 @@
       configuration, name `aigw setup`.
 - [ ] 5.4 Remove every superseded command, flag and package, with
       `internal/app/renaming`; every script and acceptance test uses only the
-      new tree, except that a cross-version journey's 0.6.1 baseline keeps its
-      own commands, root help groups it as design.md does, and the command-tree
+      new tree, except that a journey's baseline program keeps its own
+      commands, root help groups it as design.md does, and the command-tree
       test lists exactly its 12 top-level commands and 32 leaves.
 - [ ] 5.5 Give every leaf command one to three help examples, and add tests
       that fail a leaf without examples, a positional argument or filter flag
@@ -169,25 +166,23 @@
       and verified snapshot, and use the short protocol names internally;
       component files, `order` handling and the schema 3 and 5 migrations are
       gone, and round-trip and strict-decode tests pass.
-- [ ] 6.2 Add the one-time import of a schema 6 `config.toml` and its four
-      component files; golden tests cover an owner-shaped configuration of 3
-      providers and 51 models with forwarding and capabilities, and the shipped
-      team manifest.
-- [ ] 6.3 Run the import from `aigw sync` as design.md specifies; tests show
-      that `aigw.toml` wins when both files exist, that a repeated sync imports
-      nothing, that other commands name `aigw sync`, and that `config.toml` and
-      its components stay byte-identical.
 - [ ] 6.4 Make the credential reader decode only the frozen view and ignore
-      every other field; a test with unknown fields and version 99 passes, and
-      fingerprints equal 0.6.1's for the same client, provider and endpoint.
-- [ ] 6.5 Stage the file that the previous program reads for the program check
-      of `aigw self rollback`, `config.toml` before 0.7.0 and `aigw.toml`
-      otherwise, let it run while an import is pending, and drop the
-      retry-policy refusal of the Homebrew rollback; tests cover each.
-- [ ] 6.6 Keep Hermes provider IDs in today's spelling through an adapter-owned
-      map; a test pins the IDs for all three protocols.
-- [ ] 6.7 Run the `client_acceptance` journeys from v0.6.1 again after group 6,
-      through the import, the frozen reader view and the rollback staging.
+      every other field; a test with unknown fields and version 99 passes.
+- [ ] 6.8 Read and write configuration only in `aigw.toml`: a home that holds
+      only `config.toml` and its component files is unconfigured and names
+      `aigw setup`, and a test shows that those files and an existing versioned
+      reader keep their bytes through `setup`, `use` and `sync`.
+- [ ] 6.9 Make `aigw setup` and `aigw setup --from` use a Token already stored
+      for a provider they add, without a prompt, and say so; a script covers
+      both.
+- [ ] 6.10 Drop the Homebrew rollback's retry-policy refusal, and make
+      `aigw self rollback`'s help say that its check gives the previous program
+      the current configuration; tests cover a Homebrew rollback with retry
+      budgets and a portable rollback whose program cannot read that
+      configuration.
+- [ ] 6.11 Derive Hermes provider IDs from the provider ID and the protocol
+      name, without a map, once 6.1 shortens the names; a test pins
+      `aigw-dmxapi-anthropic`, `aigw-dmxapi-responses` and `aigw-dmxapi-chat`.
 
 ## 7. Documents
 
@@ -213,12 +208,14 @@
 - [ ] 8.2 Simulate the archive on a copy: strict validation passes, and no
       merged specification exceeds 500 non-blank lines.
 - [ ] 8.3 Confirm the hosted three-platform graph on the proposal.
-- [ ] 8.4 Run the real-client journeys from v0.6.1, including the upgrade
-      through `aigw sync` and a rollback.
 - [ ] 8.5 Retire the `public-inputs` carrier route of the hosted journeys in
-      `verify.yml` and `docs/operations/forge-operations.md`, or gate a new
-      carrier on a deep identity scan; no carrier bundles a pre-0.7.0
-      archive.
+      `verify.yml` and `docs/operations/forge-operations.md`; no carrier
+      bundles a pre-0.7.0 archive.
+- [ ] 8.6 Rehearse the owner's upgrade in an isolated home with a file Token
+      store: from a read-only record of the owner's non-secret configuration,
+      recreate it with the lane head's `setup --from`, `provider edit`,
+      `model add`, `client edit` and `use`, and compare the result field by
+      field with the record; the command list is kept for 9.2.
 
 ## 9. Publication and acceptance
 
@@ -226,8 +223,8 @@
       both peers and its Homebrew Cask, after task 5.7; a deep scan of every
       0.7.0 asset, nested archives included, finds no form of the private
       peer's identity.
-- [ ] 9.2 Install 0.7.0 through Homebrew on this Mac and accept it:
-      `aigw check --depth client` passes with the real clients, a Codex session
-      started before the upgrade keeps its credential, a rollback to 0.6.1 and
-      back keeps every Token and client, and `aigw --help` matches design.md.
-- [ ] 9.3 Open the Change that removes the schema 6 import and files in 0.8.0.
+- [ ] 9.2 Install 0.7.0 through Homebrew on this Mac and accept it: with each
+      client file and sidecar recorded first, the rehearsed commands recreate
+      the owner's state and it matches the record, `aigw check --depth client`
+      passes with the real clients, a Codex session started before the
+      upgrade keeps its credential, and `aigw --help` matches design.md.

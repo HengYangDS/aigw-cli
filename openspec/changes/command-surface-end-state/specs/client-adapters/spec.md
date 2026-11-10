@@ -91,7 +91,7 @@ AIGW SHALL integrate Hermes and Claude Desktop through their supported native
 configuration and credential interfaces. Each Adapter SHALL use the shared
 selection, transaction, discovery, verification, and withdrawal owners. Claude
 Desktop Chat, Cowork, and Code SHALL retain distinct capability evidence.
-Hermes provider IDs SHALL keep the spelling that resumed sessions name.
+Hermes provider IDs SHALL join `aigw`, the provider ID and the protocol name.
 Client-owned sessions, services, and model choices SHALL remain client-owned.
 
 #### Scenario: Hermes becomes available after team setup
@@ -120,14 +120,12 @@ Client-owned sessions, services, and model choices SHALL remain client-owned.
   selected provider and protocol, the first such model in configuration order
 - **AND** a model that is its own family SHALL count as one family.
 
-#### Scenario: Hermes provider IDs keep their spelling
+#### Scenario: Hermes provider IDs name the protocol
 
 - **WHEN** AIGW projects Hermes provider entries for provider `dmxapi`
-- **THEN** their IDs SHALL be `aigw-dmxapi-anthropic`,
-  `aigw-dmxapi-openai-responses` and `aigw-dmxapi-openai-chat-completions`
-  for the `anthropic`, `responses` and `chat` protocols
-- **AND** a Hermes session that names one of those IDs SHALL find it after an
-  upgrade.
+- **THEN** their IDs SHALL be `aigw-dmxapi-anthropic`, `aigw-dmxapi-responses`
+  and `aigw-dmxapi-chat` for the `anthropic`, `responses` and `chat`
+  protocols.
 
 #### Scenario: Claude Desktop and Claude Code select different models
 

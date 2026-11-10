@@ -29,8 +29,7 @@ SHALL stay unchanged.
 
 - **WHEN** `aigw` runs without arguments
 - **THEN** it SHALL write what `aigw status` writes
-- **AND** without configuration it SHALL name `aigw setup` and exit 0, and
-  while an import is pending it SHALL name `aigw sync`.
+- **AND** without configuration it SHALL name `aigw setup` and exit 0.
 
 #### Scenario: A client file calls the credential command
 
@@ -289,11 +288,6 @@ no completion.
 - **WHEN** completion runs while the credential store is locked or failing
 - **THEN** it SHALL return at once with suggestions from local configuration
 - **AND** SHALL read no Token, send no request and print nothing else.
-
-#### Scenario: Complete while an import is pending
-
-- **WHEN** completion runs while `aigw sync` has a configuration import pending
-- **THEN** it SHALL suggest nothing.
 
 ### Requirement: Every write has a preview that leaves nothing behind
 

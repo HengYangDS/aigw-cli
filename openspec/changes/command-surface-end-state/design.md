@@ -1,6 +1,6 @@
 ## Context
 
-On 2026-11-06 the owner reported that `aigw catalog` can only choose between `--all` and a default, and cannot name one third-party model provider. The owner called this a systemic problem and asked for a higher-level optimization of the whole CLI's product experience. The owner then ruled: complete breaking changes are allowed, converge as fast as possible to the ideal end state, ignore historical compatibility, and do not be bound by history. The same holds for every ETHOS-governed repository.
+On 2026-11-06 the owner reported that `aigw catalog` can only choose between `--all` and a default, and cannot name one third-party model provider. The owner called this a systemic problem and asked for a higher-level optimization of the whole CLI's product experience. The owner then ruled: complete breaking changes are allowed, converge as fast as possible to the ideal end state, ignore historical compatibility, and do not be bound by history. The same holds for every ETHOS-governed repository. On 2026-11-10 the owner restated the ruling for this release and asked for more aggressive design and execution, so this design carries no importer, no rollback across 0.7.0, no Hermes ID map and no cross-version journeys.
 
 The commands grew one feature at a time, and the surface shows it. Measured on 0.6.1 with the owner's configuration (3 Accounts, 51 Routes, 4 clients):
 
@@ -36,14 +36,15 @@ The commands grew one feature at a time, and the surface shows it. Measured on 0
 **Non-Goals:**
 
 - A full-screen terminal browser. Filterable prompts and completion cover browsing; revisit on evidence.
-- Changes to what a client file or its `.aigw-state.json` sidecar contains, beyond the credential reader's path. Display labels keep their `Provider · Model` form, and Hermes provider IDs keep today's spelling (`aigw-dmxapi-openai-responses`) because resumed sessions name them.
+- Changes to what a client file or its `.aigw-state.json` sidecar contains, beyond the credential reader's path and Hermes provider IDs, which follow the protocol names (`aigw-dmxapi-responses`). Display labels keep their `Provider · Model` form.
+- Reading, converting or migrating the configuration of an earlier release. 0.7.0 starts from `aigw setup`.
 - Changes to credential storage, Keychain custody, signing, notarization or the release process.
 - Runtime routing or failover between providers.
 
 **Anti-goals, which would make this a failure even if it works:**
 
 - A running client session that loses its credential during the upgrade.
-- An alias, hidden spelling, deprecation warning or lingering reader of the old format. The one-time importer below is gone by 0.8.0.
+- An alias, hidden spelling, deprecation warning, importer or any other reader of the old format.
 - Prompts in `--json` or non-interactive mode.
 - A preview that sends an authenticated request or leaves anything behind.
 
@@ -54,7 +55,7 @@ The commands grew one feature at a time, and the surface shows it. Measured on 0
 | Approach                                | What it does                                                                                                            | Trade-off                                                                                                                                                                     |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A. Same objects, uniform grammar        | Renames Account to provider, unifies filters and verbs, merges overlapping commands, and leaves the configuration alone | Fastest, but the Route stays: from a catalog to real use still takes three steps and an invented name                                                                         |
-| **B. Provider, model, client (chosen)** | A plus `provider/model` as the only model name, one configuration file, and adding a model as part of using it          | Largest change: configuration import, all tests and documents; it removes the most concepts and code                                                                          |
+| **B. Provider, model, client (chosen)** | A plus `provider/model` as the only model name, one configuration file, and adding a model as part of using it          | Largest change: a new configuration file, all tests and documents; it removes the most concepts and code                                                                      |
 | C. B plus a full-screen browser         | An interactive browser on bare `aigw`                                                                                   | The most pleasant way to browse several hundred models, but one more interface to keep correct on three platforms, before any evidence that prompts and completion fall short |
 
 B is the author's call under the owner's standing delegation ("make the best decisions yourself"), and the owner may overrule it. The root cause of the friction is that the CLI exposes implementation objects instead of the owner's nouns. A fixes the grammar around the same objects, and C adds a surface before that is known to be needed.
@@ -138,7 +139,7 @@ Today's commands map onto the tree like this:
 | `repair`                                         | `sync`, which already does everything `repair` does            |
 | `rollback`                                       | `config rollback`                                              |
 | `config import`                                  | `setup --from`                                                 |
-| `config migrate`                                 | removed; `sync` imports once                                   |
+| `config migrate`                                 | removed; no release reads `config.toml`                        |
 | `install`, `update`, `uninstall`, `installation` | `self install`, `self update`, `self uninstall`, `self status` |
 | `update --rollback`                              | `self rollback`                                                |
 | `update --candidate`                             | `self update --archive`                                        |
@@ -255,8 +256,9 @@ Forwarding is cleared, and the result says so, whenever the client's upstream en
 
 `aigw setup` becomes safe to run again and does one job: get to a working state.
 
-- Interactive: add a provider or choose an existing one, choose an installed client, choose a model from that provider's live catalog (free text if it has none), then run `check`. With no installed client it adds the provider and stops, naming `aigw client list`. It is the one write without a preview; `setup --from --dry-run` previews a team file. Without a terminal it refuses and names `--from`; it refuses while an import is pending.
-- `--from <file>`: read a team file, apply it, and connect Tokens: prompt in a terminal, `--provider <id> --token-stdin` in a script, and otherwise defer with the fix named. It replaces both `setup --from` and `config import`. For models, families and recommendations, what the file names wins, and local-only entries stay unless `--prune` removes the unused ones. A team file never changes an existing provider's endpoints or Token and never replaces a client's selection. A differing endpoint stays local and is reported, because a file must not redirect a Token: the owner's `dmxapi` points at the local proxy, and the team file at the provider. `aigw provider edit` changes an endpoint deliberately. `--dry-run` shows all of it. A Token it stores is validated as `provider add` validates one. A team file may set a balance probe on a provider that has none. The file's provider label wins, while a differing balance probe stays local and is reported, like an endpoint. A file change that would take a protocol from a client's selection keeps the local model and is reported, and so are the file's capabilities for a provider whose endpoint stays local, because they were qualified on the other endpoint. A Token that fails validation refuses the whole apply. A file with a `[clients]` section, or in another version, is refused; a version 7 file is converted by importing it with 0.6.1, upgrading, running `aigw sync` and then `aigw config export`.
+- Interactive: add a provider or choose an existing one, choose an installed client, choose a model from that provider's live catalog (free text if it has none), then run `check`. With no installed client it adds the provider and stops, naming `aigw client list`. It is the one write without a preview; `setup --from --dry-run` previews a team file. Without a terminal it refuses and names `--from`.
+- `--from <file>`: read a team file, apply it, and connect Tokens: prompt in a terminal, `--provider <id> --token-stdin` in a script, and otherwise defer with the fix named. It replaces both `setup --from` and `config import`. For models, families and recommendations, what the file names wins, and local-only entries stay unless `--prune` removes the unused ones. A team file never changes an existing provider's endpoints or Token and never replaces a client's selection. A differing endpoint stays local and is reported, because a file must not redirect a Token: the owner's `dmxapi` points at the local proxy, and the team file at the provider. `aigw provider edit` changes an endpoint deliberately. `--dry-run` shows all of it. A Token it stores is validated as `provider add` validates one. A team file may set a balance probe on a provider that has none. The file's provider label wins, while a differing balance probe stays local and is reported, like an endpoint. A file change that would take a protocol from a client's selection keeps the local model and is reported, and so are the file's capabilities for a provider whose endpoint stays local, because they were qualified on the other endpoint. A Token that fails validation refuses the whole apply. A file with a `[clients]` section, or in a version other than 8, is refused before any write.
+- A Token already stored for a provider that setup adds is used without a prompt, and setup says so. Token items are built from provider IDs, which do not change, so an upgraded home keeps its Tokens.
 - Flag-driven setup and `aigw add` go. A script writes `aigw provider add <id> --endpoint … --token-stdin` and then `aigw use`. A configuration with providers and no model is valid, so this works from an empty home, and removing the last model or provider leaves a valid configuration whose clients report that nothing is selected.
 
 ### One configuration file
@@ -295,32 +297,33 @@ forwarding = { endpoint = "http://127.0.0.1:8792/dmxapi/v1", upstream = "…", p
 ```
 
 - Array order is display order, so every `order` field and its comparison code go.
-- `config.forwarding.toml`, `config.retries.toml`, `config.catalog.toml` and `config.capabilities.toml` go. They exist only so that schema-6 readers can keep reading `config.toml`. This removes `store/components.go` and its neighbours.
+- `config.forwarding.toml`, `config.retries.toml`, `config.catalog.toml` and `config.capabilities.toml` go with `config.toml`: no code reads or writes them. This removes `store/components.go` and its neighbours.
 - `purpose` goes: nothing displays it on any model today.
 - `protocols` maps each protocol to its capabilities (today only `tool_search`, manifest-set). `deprecated = true` replaces `lifecycle`.
 
-### Upgrade without breaking a running client
+### Upgrade without an importer
 
-A running Claude Code or Codex session keeps calling the credential reader it started with. That reader is a retained copy of the old program: it reads `config.toml` and accepts only schema 6, decoded strictly. So the old file must stay readable after the upgrade, and a new file name makes that free:
+A running Claude Code or Codex session keeps calling the credential reader it started with, a retained copy of the earlier program that reads `config.toml`, and AIGW never deletes a versioned reader. So 0.7.0 keeps every running session working by leaving the old files alone, and ships no code for them:
 
-1. The release ships one importer from schema 6 to `aigw.toml`. `aigw sync` runs it when `aigw.toml` is absent and `config.toml` is present, and `aigw.toml` wins if both exist. `sync --dry-run` previews it. While an import is pending, `sync`, `self …`, `version`, `completion` and `config path` still run, and completion suggests nothing. Every other command that needs configuration refuses and names `aigw sync`. Older schemas refuse and name the release that migrates them.
-2. In one transaction, `sync` writes `aigw.toml`, installs the new credential reader and rewrites client files to call it.
-3. `config.toml` and its component files stay untouched. Old readers in running sessions and the old program keep working from them. Token items do not change, so both programs read the same Tokens.
-4. `aigw self rollback` restores the old program, which reads its old files, and its `aigw sync` points clients back at its reader. The check that the previous program can read the configuration stages the file that program reads: `config.toml` for a program older than 0.7.0, `aigw.toml` otherwise. Changes made after the import stay in `aigw.toml`, invisible to the earlier release, and `self rollback` says so; `aigw.toml` wins again on a later forward upgrade. A Homebrew rollback keeps its Keychain custody step and loses its retry-policy refusal, because the old files are intact. With an import still pending, `self rollback` reads `config.toml` in memory to name the Token items and writes nothing.
+1. 0.7.0 reads and writes only `aigw.toml`. It never reads, writes, renames or deletes `config.toml` or its component files. A home that holds only those files has no configuration, and `aigw` names `aigw setup`.
+2. The upgrade is `aigw setup`, or `aigw setup --from <team file>`, then `aigw use` for each client. A provider added under its old ID finds its stored Token, and setup uses it without a prompt. Setup writes `aigw.toml`, installs the 0.7.0 credential reader and rewrites client files to call it; sessions started afterwards use it.
+3. Sessions started before the upgrade keep their Token through their own reader and the untouched `config.toml`. The user may delete the old files once those sessions have ended. AIGW never deletes them.
+4. `aigw self rollback` checks, as today, that the retained program can read the current configuration. A program older than 0.7.0 cannot read `aigw.toml`, so that check refuses and changes nothing. An earlier release installed by other means finds its own files as they were before the upgrade, without later changes. The Homebrew rollback keeps its Keychain custody step and drops its retry-policy refusal, because no earlier release reads the retry budgets in `aigw.toml`.
+5. Hermes provider IDs join `aigw`, the provider ID and the protocol name, so `aigw-dmxapi-responses` replaces `aigw-dmxapi-openai-responses`. A Hermes session that recorded an old ID does not find it after the upgrade.
 
-5. 0.8.0 deletes the importer and the old files. Owner: this repository; a task in the Change names it. A client session started before the 0.7.0 `sync` and still running after the 0.8.0 `sync` gets a refused credential and must restart, and `credential-continuity`'s retained-command scenario changes to say so.
+The owner's own state crosses once by operator steps that use only 0.7.0's commands, not by product code. Before the cutover, record the owner's non-secret configuration and each client file with its sidecar. After it, run `aigw setup --from` with the shipped team file. Then run `aigw provider edit`, `aigw model add` and `aigw client edit` for what differs locally, and `aigw use` for each client. Compare the result field by field with the record, then run `aigw check --depth client`. The commands are rehearsed first in an isolated home with a file Token store. If a client fails, restoring its recorded file and sidecar returns it at once to its earlier reader, which still reads the untouched `config.toml`.
 
-A model ID is unique within its provider. The import merges schema 6 Routes that share a provider and model ID into one model whose protocols are their union; the first Route in configuration order supplies the label, each merge is reported, and Routes whose families differ refuse the import, naming both.
+A model ID is unique within its provider.
 
-`aigw self rollback --dry-run` previews the retained program, its version and the file it would stage, and writes nothing. It reads the version from the program's embedded build information without running it, because a preview runs no other program, and says so when that information cannot be read.
+`aigw self rollback --dry-run` previews the retained program, its version and the configuration its check would give that program, and writes nothing. It reads the version from the program's embedded build information without running it, because a preview runs no other program, and says so when that information cannot be read.
 
-Credential fingerprints are built from client, provider ID and upstream endpoint, so they do not change. Retries lose their connection key because they move into `[clients]`, and the importer rewrites the protocol spellings in forwarding records. Hermes provider IDs keep their spelling through a map in the Hermes adapter.
+Credential fingerprints are built from client, provider ID and upstream endpoint. Retries lose their connection key because they move into `[clients]`.
 
-`self rollback` replaces `update --rollback` and `config migrate --rollback`. `config rollback` is today's `rollback`, with `--last-change`.
+`self rollback` replaces `update --rollback`, and `config migrate --rollback` goes with `config migrate`. `config rollback` is today's `rollback`, with `--last-change`.
 
 ### The reader contract
 
-Today's reader strictly decodes the whole configuration, so every schema change must keep it working, which is why four component files exist. The new file name solves that once. To solve it for good, the 0.7.0 reader decodes only what it needs and ignores everything else, including `version`: each provider's `id` and `endpoints`, the protocol keys of its models, and each client's `enabled` and `authentication`. An unknown protocol key is ignored, and an unknown authentication kind makes the reader refuse that client. The reader checks no selection, as today: a running session on a provider that its client has left keeps getting that provider's Token while the provider and endpoint exist. The fingerprint check stays exact, and a test pins this view. Everything else in `aigw.toml` can change in any release without touching a reader. Changing a frozen field takes a new file name, as this release does.
+Today's reader strictly decodes the whole configuration, so every schema change must keep it working, which is why four component files exist. The new file name, with the old files left alone, keeps today's readers working. To solve it for good, the 0.7.0 reader decodes only what it needs and ignores everything else, including `version`: each provider's `id` and `endpoints`, the protocol keys of its models, and each client's `enabled` and `authentication`. An unknown protocol key is ignored, and an unknown authentication kind makes the reader refuse that client. The reader checks no selection, as today: a running session on a provider that its client has left keeps getting that provider's Token while the provider and endpoint exist. The fingerprint check stays exact, and a test pins this view. Everything else in `aigw.toml` can change in any release without touching a reader. Changing a frozen field takes a new file name, as this release does.
 
 ### Output and errors
 
@@ -343,22 +346,22 @@ Types and packages use the same words: `domain.Account` becomes `domain.Provider
 
 ### Delivery
 
-One Change, one lane and one release, 0.7.0. Each commit keeps the build and tests green, and the order is that of `tasks.md`:
+One Change and one release, 0.7.0, landed on `dev` and `main` phase by phase (owner, 2026-11-10); only the last phase carries the version. Each commit keeps the build and tests green, and the order is that of `tasks.md`:
 
 1. The mechanical rename of Go identifiers, with no change to behavior, files or output.
 2. The shared grammar and output: `provider/model` references, protocol names, Problem and Fix, and completion.
 3. The commands, family by family, then the removal of the superseded ones.
-4. The configuration file, its import, the reader view and the rollback staging.
+4. The configuration file and the reader view.
 5. The documents, the team file and the release notes.
 
 The command surface lands before the configuration file, so the acceptance scripts are written once against the final commands, and the storage change then alters only files on disk. Until it lands, a `provider/model` reference resolves to the configured Route with that provider and upstream ID, and `model add` stores a Route whose derived ID never appears in output.
 
-There is no staged compatibility and no intermediate release. Lane work continues under the normal gates: fresh-context review of each step, `mise run check`, the proposal and the hosted three-platform graph, then one proof of the lane head, delivery on both peers and the release. The removal in 0.8.0 is its own Change.
+There is no staged compatibility and no intermediate release. Lane work continues under the normal gates: fresh-context review of each step, `mise run check`, the proposal and the hosted three-platform graph, then one proof of each phase's lane head, delivery on both peers and, last, the release.
 
 **Acceptance for 0.7.0:**
 
-- The hosted three-platform graph and real-client journeys from v0.6.1, including the upgrade through `aigw sync` and a rollback.
-- On the operator Mac through Homebrew: `aigw check --depth client` with real Claude, Codex and Hermes. A Codex session started before the upgrade still gets its credential after `aigw sync`. A Homebrew rollback to 0.6.1 and a forward upgrade keep every Token and client working.
+- The hosted three-platform graph.
+- On the operator Mac through Homebrew: the owner's state crosses by the rehearsed steps and matches its record, `aigw check --depth client` passes with real Claude, Codex and Hermes, and a Codex session started before the upgrade still gets its credential.
 - The installed `aigw --help` tree equals the tree above.
 
 ### Implementation map
@@ -370,7 +373,7 @@ There is no staged compatibility and no intermediate release. Lane work continue
 - `domain.Provider`, `domain.Model` (one provider's model: provider, ID, family, label, protocols and `Deprecated`) and `domain.Family`.
 - `domain.ModelRef`, from `domain.ParseModelRef(string) (domain.ModelRef, error)`, with `Provider()`, `ID()` and `String()`. It splits at the first `/`. `ClientBinding.Model` holds one, and `Runtime.Model` replaces `Runtime.RouteID`.
 - `check.Depth` takes `local`, `endpoint`, `model` or `client`. Each client's result names the depth it reached, each skipped depth with its reason, and its failure if one occurred.
-- The configuration directory holds `aigw.toml`, `aigw.toml.bak`, `aigw.verified.json` and `aigw.toml.lock`. The import reads `config.toml` and `config.{forwarding,retries,catalog,capabilities}.toml` and never writes them.
+- The configuration directory holds `aigw.toml`, `aigw.toml.bak`, `aigw.verified.json` and `aigw.toml.lock`. No code reads or writes `config.toml` or `config.{forwarding,retries,catalog,capabilities}.toml`.
 - The credential reader calls `store.LoadCredentialView() (domain.CredentialView, error)`.
 
 **JSON versions.** A document that replaces others continues from the highest predecessor `schema_version` plus one, so `check` becomes 3 and `model search` 2, and a document without a predecessor starts at 1.
@@ -391,7 +394,7 @@ There is no staged compatibility and no intermediate release. Lane work continue
 1. A model ID that contains `/`, such as `aihubmix/openai/gpt-oss`, splits at the first `/` (2.1).
 2. Input that is not a terminal, from a pipe, CI or `--json`, never prompts in `use`, `setup` or `provider add`, and each refusal names the missing argument or flag (3.3, 4.1, 4.5).
 3. A provider whose catalog is unreadable or empty during `use` or `model add` gets a refusal that names `--unlisted`, and a preview reads nothing (3.1, 4.1).
-4. A repeated `aigw sync`, or both files present after a rollback and a forward upgrade: `aigw.toml` wins, and nothing is imported twice (6.3).
+4. A home that still holds `config.toml` and its component files: 0.7.0 treats it as unconfigured, `aigw setup` uses the stored Tokens without a prompt, and the old files keep their bytes (6.8, 6.9).
 5. Completion with a locked or failing credential store returns at once and prints nothing extra (2.4).
 
 ## Risks / Trade-offs
@@ -400,7 +403,10 @@ There is no staged compatibility and no intermediate release. Lane work continue
 - **Removing `provider rename`** costs re-entering a Token on a rare operation. It is cheap to add back if the owner wants it, and it would then be one step.
 - **Auto-adding on `use`** could add a typo. The catalog check refuses unlisted IDs unless `--unlisted` is given.
 - **`--unlisted` or a wrong protocol** can select a model that does not work. `use` names `aigw check <client>` as its next action; `aigw use <client> <model> --protocol <p>` moves the client, and `model edit --protocol` then drops the wrong protocol.
-- **Old files stay on disk until 0.8.0.** They hold no secrets. `provider remove` deletes a Token that `config.toml` still names, so a surviving old session loses that provider, which is what removing it means.
+- **No importer.** Every user runs `aigw setup` again after upgrading. A team file restores providers, models and recommendations; client choices, forwarding and retries are set again with `aigw use` and `aigw client edit`. Stored Tokens are reused.
+- **No rollback across 0.7.0 by `aigw self rollback`.** An earlier release installed by other means still works from its untouched files, and restoring a client's recorded file returns that client to its earlier reader.
+- **Hermes sessions from before the upgrade** that are resumed afterwards do not find their AIGW provider.
+- **Old files stay on disk until the user deletes them.** They hold no secrets. `provider remove` deletes a Token that `config.toml` still names, so a surviving old session loses that provider, which is what removing it means.
 - **A team member on 0.6.1 cannot read a new team file.** 0.6.1's refusal is frozen: it reports an unsupported manifest version and says to export with the matching release. The rollout guide tells everyone to upgrade first.
 - **The verified snapshot says less for Claude Desktop.** It records that Desktop was not exercised. Today's rule writes no snapshot at all on such a machine.
 - **The proxy and other governed repositories** are out of scope here, but the same ruling applies to them: their compatibility removal is separate work in their own Changes.
@@ -413,7 +419,7 @@ There is no staged compatibility and no intermediate release. Lane work continue
 - Moving a client to another provider clears its forwarding and retries, where today it refuses.
 - A depth that a client cannot run is a skip, not a failure, and the verified snapshot follows the same rule.
 - A team file never changes an existing provider's endpoints or Token.
-- The old files go in 0.8.0, and a session that survives both upgrades must restart.
+- No importer, no rollback across 0.7.0 and no Hermes ID map (the owner's ruling of 2026-11-10); the owner's own state crosses once by operator steps with the new commands.
 - The credential reader decodes a frozen view and ignores `version`.
 - The protocol names shorten to `responses` and `chat`, and the unused `purpose` field goes.
 

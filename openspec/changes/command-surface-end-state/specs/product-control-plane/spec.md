@@ -124,9 +124,8 @@ readiness or client configuration files.
 
 AIGW SHALL keep its configuration in one credential-free `aigw.toml` with
 `version = 8`, holding providers with their models, families, recommendations
-and clients. Commands SHALL take their configuration only from that file; only
-the one-time import of `aigw sync` and `aigw self rollback` SHALL read
-`config.toml`. Array order SHALL be display order, and decoding SHALL refuse a
+and clients. Commands SHALL take their configuration only from that file.
+Array order SHALL be display order, and decoding SHALL refuse a
 field that schema 8 does not define. A team file SHALL use the same format
 without `[clients]`.
 
@@ -149,7 +148,7 @@ without `[clients]`.
 - **AND** `aigw model list` SHALL mark it, and `aigw model search` SHALL
   report it as `deprecated` while its provider's catalog lists it
 - **AND** a recommendation that names it SHALL fail validation
-- **AND** only a team file, or the one-time import, SHALL set `deprecated`.
+- **AND** only a team file SHALL set `deprecated`.
 
 #### Scenario: A model is its own family
 
@@ -168,8 +167,8 @@ A model's `protocols` SHALL name the endpoints of its provider on which AIGW
 may use it, and map each protocol to the capabilities qualified there. A
 protocol SHALL come from the client that uses the model, from `--protocol`,
 from a team file or from the provider's only endpoint, never from a catalog or
-a model ID. Only `aigw model add`, `aigw model edit`, a team file and the
-one-time import SHALL set a capability, and changing a protocol's endpoint
+a model ID. Only `aigw model add`, `aigw model edit` and a team file SHALL set
+a capability, and changing a protocol's endpoint
 SHALL clear those on that protocol.
 
 #### Scenario: A capability goes to each protocol that admits it
@@ -612,17 +611,16 @@ canonical Models and Client Bindings.
 **Migration**: Read "Providers, models, families and clients have distinct
 authority", with selection rules in `model-selection`, team-file
 recommendations in `progressive-team-onboarding`, an unselected client in
-`client-adapters`, and the import of models sharing an ID in
-`credential-continuity`.
+and an unselected client in `client-adapters`.
 
 ### Requirement: Schema replacement is explicit and reversible
 
-**Reason**: `aigw sync` imports a schema 6 configuration once, replacing
-`aigw config migrate`.
+**Reason**: The schema 8 `aigw.toml` replaces `config.toml`, and no release
+migrates one into the other: `aigw setup` writes the new file.
 
-**Migration**: `credential-continuity` owns the import, its refusals and its
-rollback, and "One configuration file holds providers, models and families"
-the schema 8 file.
+**Migration**: Read "One configuration file holds providers, models and
+families" for the schema 8 file, and "AIGW reads and writes only aigw.toml" in
+`credential-continuity` for the files of earlier releases.
 
 ### Requirement: Route and Client Binding compatibility
 
@@ -631,7 +629,8 @@ and setup output that now have their own owners.
 
 **Migration**: Read "Every client selects a compatible model", with
 `aigw check` in `cli-readiness`, `aigw use` in `model-selection`, team files in
-`progressive-team-onboarding` and earlier schemas in `credential-continuity`.
+`progressive-team-onboarding` and the files of earlier releases in
+`credential-continuity`.
 
 ### Requirement: Provider catalog evolution is observed before admission
 
@@ -647,8 +646,7 @@ that stops working.
 **Reason**: Each model declares its capabilities per protocol in `aigw.toml`,
 replacing the separate capability component.
 
-**Migration**: Read "Models declare their protocols and capabilities", and
-`credential-continuity` for the one-time import of schema 6 capabilities.
+**Migration**: Read "Models declare their protocols and capabilities".
 
 ## RENAMED Requirements
 

@@ -59,15 +59,9 @@ with `--json` or `--dry-run`, it SHALL refuse and name
   the configuration does not name
 - **WHEN** guided setup adds that provider
 - **THEN** the stored Token SHALL NOT by itself count as a configured provider
-- **AND** setup MAY use it, or replace it explicitly with guarded
+- **AND** setup, with or without `--from`, SHALL use it without a prompt and
+  say so, unless the operator replaces it explicitly with guarded
   compensation.
-
-#### Scenario: An upgrade's import is pending
-
-- **GIVEN** `config.toml` exists and `aigw.toml` does not
-- **WHEN** `aigw setup` runs, with or without `--from`
-- **THEN** it SHALL refuse, name `aigw sync` and write nothing, because a new
-  `aigw.toml` would hide the old configuration.
 
 ### Requirement: A team file merges without redirecting providers or clients
 
@@ -176,12 +170,6 @@ name that file's conversion path.
 
 - **WHEN** a team file's `version` is not 8
 - **THEN** setup SHALL refuse before any write and name that version.
-
-#### Scenario: A team file has version 7
-
-- **WHEN** a team file's `version` is 7
-- **THEN** the refusal SHALL say to import the file with 0.6.1, upgrade, run
-  `aigw sync` and then run `aigw config export`.
 
 ### Requirement: Team setup connects Tokens without requiring them
 

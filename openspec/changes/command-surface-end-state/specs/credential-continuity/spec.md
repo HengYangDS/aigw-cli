@@ -33,15 +33,6 @@ match fingerprints exactly and check no client's selection.
 - **AND** it SHALL still return the Token for a fingerprint that matches an
   endpoint of a protocol it knows.
 
-#### Scenario: Fingerprints survive the import
-
-- **GIVEN** AIGW 0.6.1 fingerprinted a client's connection to a provider
-  endpoint
-- **WHEN** `aigw sync` imports that configuration into `aigw.toml`
-- **THEN** the reader's fingerprint for the same client, provider ID and
-  upstream endpoint SHALL equal 0.6.1's
-- **AND** the protocol names `responses` and `chat` SHALL NOT change it.
-
 #### Scenario: The reader refuses a client it cannot serve
 
 - **WHEN** the named client is disabled, uses its own authentication or an
@@ -57,108 +48,31 @@ match fingerprints exactly and check no client's selection.
 - **THEN** the reader SHALL return that provider's Token
 - **AND** once the provider or that endpoint is gone, it SHALL return no Token.
 
-### Requirement: Upgrading imports a schema 6 configuration once
+### Requirement: AIGW reads and writes only aigw.toml
 
-`aigw sync` SHALL import a schema 6 `config.toml` and its component files into
-`aigw.toml` when only the old files exist, installing the new credential
-reader and pointing client configuration files at it in one transaction. No
-command SHALL write or delete the old files, and `aigw.toml` SHALL win whenever
-both exist. Until the import, other commands that need the configuration SHALL
-refuse and name `aigw sync`, except `aigw self`, shell completion and
-`aigw config path`.
+AIGW SHALL take its configuration only from `aigw.toml` and SHALL NOT read,
+write, rename or delete `config.toml` or its component files, so that a
+credential reader of an earlier release keeps reading them. A home that holds
+only those files has no configuration, and Token items SHALL stay unchanged.
 
-#### Scenario: The first sync after the upgrade imports the configuration
+#### Scenario: A home holds only the files of an earlier release
 
-- **GIVEN** a schema 6 `config.toml` with its component files, client
-  configuration files that match it, and no `aigw.toml`
-- **WHEN** `aigw sync` runs
-- **THEN** it SHALL write `aigw.toml` with the providers, models, families,
-  recommendations and client settings, including forwarding, retry budgets and
-  capabilities, that the old files declare, in their display order and naming
-  protocols `anthropic`, `responses` and `chat`
-- **AND** each client configuration file SHALL change only in the credential
-  reader's path
-- **AND** `config.toml`, its component files and every Token item SHALL stay
-  unchanged
-- **AND** a credential command that a running session loaded before the sync
-  SHALL keep returning its Token from those files.
+- **GIVEN** `config.toml` and its component files exist and `aigw.toml` does
+  not
+- **WHEN** an `aigw` command runs
+- **THEN** it SHALL behave as in a home without configuration, naming
+  `aigw setup` where it needs one
+- **AND** `config.toml`, its component files and every Token item SHALL keep
+  their bytes.
 
-#### Scenario: Routes that share a provider and model ID merge
-
-- **GIVEN** schema 6 Routes of one provider that share a model ID and a family
-- **WHEN** `aigw sync` imports them
-- **THEN** `aigw.toml` SHALL hold one model whose protocols are the union of
-  theirs, labelled by the first of those Routes in configuration order
-- **AND** a client selection or recommendation that named any of them SHALL
-  name that model
-- **AND** the result SHALL report each merge.
-
-#### Scenario: Routes to merge name different families
-
-- **WHEN** two schema 6 Routes that share a provider and model ID name
-  different families
-- **THEN** the import SHALL refuse, name both Routes, and write nothing.
-
-#### Scenario: An import is previewed
-
-- **WHEN** `aigw sync --dry-run` runs while an import is pending
-- **THEN** it SHALL report the import and each client configuration file it
-  would rewrite
-- **AND** it SHALL write no `aigw.toml`, credential reader or client file and
-  read no Token.
-
-#### Scenario: Both files exist
-
-- **GIVEN** `aigw.toml` and `config.toml` both exist, as after a program
-  rollback and a forward upgrade
-- **WHEN** `aigw sync` or any other command loads the configuration
-- **THEN** it SHALL load only `aigw.toml` and import nothing
-- **AND** changes made after the first import SHALL survive.
-
-#### Scenario: Another command meets a pending import
+#### Scenario: Setup runs beside the files of an earlier release
 
 - **GIVEN** `config.toml` exists and `aigw.toml` does not
-- **WHEN** a command that needs the configuration runs, other than `aigw sync`,
-  an `aigw self` command, shell completion or `aigw config path`
-- **THEN** it SHALL refuse, name `aigw sync`, and change nothing.
-
-#### Scenario: Some commands still run while an import is pending
-
-- **WHEN** an `aigw self` command, `aigw version`, `aigw completion`,
-  `aigw config path` or shell completion runs while an import is pending
-- **THEN** it SHALL run without importing anything
-- **AND** completion SHALL suggest nothing.
-
-#### Scenario: A program rollback runs while an import is pending
-
-- **WHEN** `aigw self rollback` runs while an import is pending
-- **THEN** it SHALL read `config.toml` in memory to name the Token items
-- **AND** it SHALL write no configuration file and SHALL NOT refuse because the
-  import is pending.
-
-#### Scenario: The old configuration predates schema 6
-
-- **WHEN** `aigw sync` finds a `config.toml` in a schema older than 6
-- **THEN** it SHALL refuse, name a release that migrates it to schema 6, and
-  write nothing.
-
-#### Scenario: The import fails
-
-- **WHEN** a step of the import transaction fails
-- **THEN** `aigw.toml` SHALL remain absent and every client configuration file
-  SHALL keep its previous bytes
-- **AND** `config.toml` and its component files SHALL stay untouched.
-
-#### Scenario: A program rollback stages the file the previous program reads
-
-- **WHEN** `aigw self rollback` checks whether the previous program can read
-  its configuration
-- **THEN** the isolated copy SHALL hold `config.toml` and its component files as
-  they are for a program older than 0.7.0, and `aigw.toml` otherwise
-- **AND** `aigw.toml` SHALL stay unchanged, so its changes return on a later
-  forward upgrade
-- **AND** when both files exist, the result SHALL say that changes made since
-  the import are invisible to a release older than 0.7.0.
+- **WHEN** `aigw setup` writes `aigw.toml` and client configuration files
+- **THEN** `config.toml`, its component files and every existing versioned
+  credential reader SHALL keep their bytes
+- **AND** a credential command that a running session loaded from an earlier
+  release SHALL keep returning its Token from them.
 
 ## MODIFIED Requirements
 
@@ -226,11 +140,12 @@ SHALL NOT substitute for existing-caller continuity.
   provider or endpoint
 - **THEN** that retained invocation SHALL return the original authorized Token
   before `aigw sync` or a client restart
-- **AND** it SHALL keep returning that Token after the 0.7.0 `aigw sync`
-  imports the configuration, because the import leaves `config.toml` untouched
-- **AND** when no import is pending, read-only inspection and `aigw check`
-  SHALL accept the unchanged, sidecar-owned client configuration file through
-  its intact predecessor reader without rewriting it or requiring `aigw sync`
+- **AND** it SHALL keep returning that Token after 0.7.0 writes `aigw.toml`
+  and that client's configuration file, because 0.7.0 leaves `config.toml`
+  untouched
+- **AND** read-only inspection and `aigw check` SHALL accept the unchanged,
+  sidecar-owned client configuration file through its intact predecessor
+  reader without rewriting it or requiring `aigw sync`
 - **AND** a missing, foreign, or drifted predecessor reader SHALL remain invalid
 - **AND** updated client configuration files or success from a new helper
   SHALL NOT substitute for that invocation
@@ -455,5 +370,5 @@ files, and the credential reader decodes only a frozen view, so no capability
 needs a separate component file to keep readers working.
 
 **Migration**: "The credential reader decodes a frozen view" in this capability
-keeps running readers working as fields are added, and "Upgrading imports a
-schema 6 configuration once" owns the old files until they are retired.
+keeps running readers working as fields are added, and "AIGW reads and writes
+only aigw.toml" leaves the files of earlier releases to their readers.

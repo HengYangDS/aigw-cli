@@ -641,8 +641,7 @@ follows the upstream endpoint and retry budgets follow the provider".
 **Reason**: The program-rollback probe goes, because the previous program reads
 its own configuration files, which stay unchanged.
 
-**Migration**: Read "Retry budgets keep guarded recovery", and
-`credential-continuity` for what `aigw self rollback` stages.
+**Migration**: Read "Retry budgets keep guarded recovery".
 
 ### Requirement: Forwarding keeps the upstream it records
 

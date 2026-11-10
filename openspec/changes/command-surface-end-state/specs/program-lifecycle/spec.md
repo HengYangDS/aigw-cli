@@ -79,7 +79,7 @@ result.
 #### Scenario: Observe an installed program without source or configuration
 
 - **GIVEN** a portable installation outside its source checkout
-- **AND** the configuration is absent, malformed or not yet imported
+- **AND** the configuration is absent or malformed
 - **WHEN** the operator runs `aigw self status --json`
 - **THEN** it reports the current program's file identity without modifying any
   file, reading credentials or starting a client
