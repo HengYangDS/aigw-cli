@@ -291,7 +291,7 @@ Commands
   show                 Show one provider: its endpoints, its models and whether its Token is stored
 
 Options
-  -h, --help   help for provider
+  -h, --help[=true|false]   help for provider
 -- add-help.txt --
 AIGW  aigw provider add
 ────────────────────────────────────────
@@ -307,12 +307,12 @@ Examples
   aigw provider add dmxapi --endpoint responses=https://www.dmxapi.cn/v1 --dry-run
 
 Options
-      --dry-run                     Show the provider without reading a Token, sending a request or writing anything
+      --dry-run[=true|false]        Show the provider without reading a Token, sending a request or writing anything
       --endpoint <protocol>=<url>   An endpoint of the provider as <protocol>=<url>; repeatable: anthropic, responses, or chat
-  -h, --help                        help for add
-      --json                        Write the added provider as JSON
+  -h, --help[=true|false]           help for add
+      --json[=true|false]           Write the added provider as JSON
       --label string                Display name; the provider ID by default
-      --token-stdin                 Read the Token from standard input
+      --token-stdin[=true|false]    Read the Token from standard input
 -- rotated.txt --
 AIGW  Token replaced
 ────────────────────────────────────────

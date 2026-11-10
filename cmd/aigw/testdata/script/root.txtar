@@ -128,8 +128,8 @@ Maintain
   version              Show the program's version
 
 Options
-  -h, --help      show help
-  -v, --version   show version
+  -h, --help[=true|false]      show help
+  -v, --version[=true|false]   show version
 -- version.txt --
 aigw version 0.1.0-dev
 -- unknown.txt --

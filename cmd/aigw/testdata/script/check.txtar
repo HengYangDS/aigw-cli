@@ -260,12 +260,12 @@ Examples
   aigw check --depth local --verbose
 
 Options
-      --depth string   How far to check: local, endpoint, model or client (default model)
-  -h, --help           help for check
-      --json           Write one JSON document, which carries every local check
-      --model string   Try this provider/model with the one named client, without selecting it
-      --token-stdin    Read a one-time Token for --model from standard input, at the endpoint or model depth; it is neither read from nor written to the store
-      --verbose        Print every local check
+      --depth string               How far to check: local, endpoint, model or client (default model)
+  -h, --help[=true|false]          help for check
+      --json[=true|false]          Write one JSON document, which carries every local check
+      --model string               Try this provider/model with the one named client, without selecting it
+      --token-stdin[=true|false]   Read a one-time Token for --model from standard input, at the endpoint or model depth; it is neither read from nor written to the store
+      --verbose[=true|false]       Print every local check
 -- empty.txt --
 AIGW  Action required
 ────────────────────────────────────────

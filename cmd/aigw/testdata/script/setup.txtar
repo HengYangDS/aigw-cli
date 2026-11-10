@@ -223,13 +223,13 @@ Examples
   aigw setup --from team.toml --provider dmxapi --token-stdin
 
 Options
-      --dry-run                Show what setup would change without reading a Token or writing anything
-      --from string            Apply a team file: its providers, models, families and recommendations
-  -h, --help                   help for setup
-      --json                   Write the setup result as JSON
-      --provider stringArray   With --from, a provider whose Token to read, at a prompt or from --token-stdin; repeatable
-      --prune                  With --from, remove the local models that no client selects and no recommendation names, and unused families
-      --token-stdin            With --from, read the one --provider's Token from standard input
+      --dry-run[=true|false]       Show what setup would change without reading a Token or writing anything
+      --from string                Apply a team file: its providers, models, families and recommendations
+  -h, --help[=true|false]          help for setup
+      --json[=true|false]          Write the setup result as JSON
+      --provider stringArray       With --from, a provider whose Token to read, at a prompt or from --token-stdin; repeatable
+      --prune[=true|false]         With --from, remove the local models that no client selects and no recommendation names, and unused families
+      --token-stdin[=true|false]   With --from, read the one --provider's Token from standard input
 -- team.in --
 version = 7
 [recommendations.claude.primary]

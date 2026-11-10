@@ -263,7 +263,7 @@ Commands
   list                 List every client with its model, whether it is enabled and where it is installed
 
 Options
-  -h, --help   help for client
+  -h, --help[=true|false]   help for client
 -- disabled.txt --
 AIGW  Client disabled
 ────────────────────────────────────────

@@ -104,7 +104,7 @@ Commands
   rollback             Restore the configuration and client files, not the program
 
 Options
-  -h, --help   help for config
+  -h, --help[=true|false]   help for config
 -- path-darwin.txt --
 $HOME/Library/Application Support/aigw/config.toml
 -- path-linux.txt --
@@ -188,7 +188,7 @@ Examples
   aigw config export > team.toml
 
 Options
-  -h, --help   help for export
+  -h, --help[=true|false]   help for export
 -- rollback-help.txt --
 AIGW  aigw config rollback
 ────────────────────────────────────────
@@ -205,10 +205,10 @@ Examples
   aigw config rollback --last-change --json
 
 Options
-      --dry-run       Show the source and the client files that a rollback would restore without writing them
-  -h, --help          help for rollback
-      --json          Write the restore source as JSON
-      --last-change   Restore only the previous configuration backup
+      --dry-run[=true|false]       Show the source and the client files that a rollback would restore without writing them
+  -h, --help[=true|false]          help for rollback
+      --json[=true|false]          Write the restore source as JSON
+      --last-change[=true|false]   Restore only the previous configuration backup
 -- rollback-empty.txt --
 AIGW  Action required
 ────────────────────────────────────────

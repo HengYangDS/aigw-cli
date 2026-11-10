@@ -84,8 +84,8 @@ Examples
   aigw status --json
 
 Options
-  -h, --help   help for status
-      --json   Write machine-readable JSON
+  -h, --help[=true|false]   help for status
+      --json[=true|false]   Write machine-readable JSON
 -- empty.txt --
 AIGW  Not configured
 ────────────────────────────────────────

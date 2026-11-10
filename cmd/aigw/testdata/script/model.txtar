@@ -328,7 +328,7 @@ Commands
   show                 Show one model: its protocols, capabilities and the clients that use it
 
 Options
-  -h, --help   help for model
+  -h, --help[=true|false]   help for model
 -- add-help.txt --
 AIGW  aigw model add
 ────────────────────────────────────────
@@ -345,13 +345,13 @@ Examples
 
 Options
       --capability capability   A qualified capability; repeatable: text, reasoning, streaming, tools, structured_output, continuation, compaction, multimodal_input, tool_search
-      --dry-run                 Show the addition without reading the catalog or writing anything
+      --dry-run[=true|false]    Show the addition without reading the catalog or writing anything
       --family string           The model's family; an unknown family is created
-  -h, --help                    help for add
-      --json                    Write the added model as JSON
+  -h, --help[=true|false]       help for add
+      --json[=true|false]       Write the added model as JSON
       --label string            Display name
       --protocol string         The protocol on which AIGW may use the model; optional when the provider has one endpoint: anthropic, responses, or chat
-      --unlisted                Add the model without reading the provider's catalog
+      --unlisted[=true|false]   Add the model without reading the provider's catalog
 -- list.txt --
 AIGW  Models
 ────────────────────────────────────────
@@ -938,9 +938,9 @@ Examples
   aigw model search gpt 6.1 --json
 
 Options
-  -h, --help               help for search
-      --json               Write the models as JSON
-      --provider strings   Only this provider's catalog; repeatable
+  -h, --help[=true|false]   help for search
+      --json[=true|false]   Write the models as JSON
+      --provider strings    Only this provider's catalog; repeatable
 -- search.json --
 {
   "schema_version": 2,

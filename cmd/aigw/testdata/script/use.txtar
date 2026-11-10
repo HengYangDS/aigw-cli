@@ -232,11 +232,11 @@ Examples
   aigw use claude ucloud/minimax-m3 --dry-run
 
 Options
-      --dry-run           Show the selection without reading a Token or a catalog, sending a request or writing anything
-  -h, --help              help for use
-      --json              Write the selection as JSON
-      --protocol string   The protocol on which the client uses the model, for a client that speaks several: anthropic, responses, or chat
-      --unlisted          Add a model that the provider's catalog does not list, without reading the catalog
+      --dry-run[=true|false]    Show the selection without reading a Token or a catalog, sending a request or writing anything
+  -h, --help[=true|false]       help for use
+      --json[=true|false]       Write the selection as JSON
+      --protocol string         The protocol on which the client uses the model, for a client that speaks several: anthropic, responses, or chat
+      --unlisted[=true|false]   Add a model that the provider's catalog does not list, without reading the catalog
 -- preview.json --
 {
   "schema_version": 3,

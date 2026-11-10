@@ -27,8 +27,8 @@ Examples
   aigw version --json
 
 Options
-  -h, --help   help for version
-      --json   Write the version as JSON
+  -h, --help[=true|false]   help for version
+      --json[=true|false]   Write the version as JSON
 -- version.json --
 {
   "schema_version": 1,

@@ -129,7 +129,7 @@ Commands
   update               Update this portable program to a verified newer release
 
 Options
-  -h, --help   help for self
+  -h, --help[=true|false]   help for self
 -- rollback-help.txt --
 AIGW  aigw self rollback
 ────────────────────────────────────────
@@ -148,9 +148,9 @@ Examples
   aigw self rollback --json
 
 Options
-      --dry-run   Show the retained program, its version and the configuration file that a rollback would use, without running or changing anything
-  -h, --help      help for rollback
-      --json      Write the program transition as JSON
+      --dry-run[=true|false]   Show the retained program, its version and the configuration file that a rollback would use, without running or changing anything
+  -h, --help[=true|false]      help for rollback
+      --json[=true|false]      Write the program transition as JSON
 -- status-refusal.json --
 {
   "schema_version": 3,

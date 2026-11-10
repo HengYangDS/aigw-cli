@@ -42,9 +42,9 @@ Examples
   aigw sync --json
 
 Options
-      --dry-run   Show the synchronization plan without writing configuration
-  -h, --help      help for sync
-      --json      Write the synchronization preview or result as JSON
+      --dry-run[=true|false]   Show the synchronization plan without writing configuration
+  -h, --help[=true|false]      help for sync
+      --json[=true|false]      Write the synchronization preview or result as JSON
 -- empty.txt --
 AIGW  Action required
 ────────────────────────────────────────
