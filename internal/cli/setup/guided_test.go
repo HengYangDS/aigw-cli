@@ -56,15 +56,15 @@ func (p *guidedPrompt) Select(label string, choices []terminal.Choice) (string, 
 
 // guidedHome is a home for guided setup: its configuration, Tokens, the
 // installed clients, and a provider whose catalog lists models and whose
-// endpoints answer with status.
+// endpoints answer with status. The catalog reads its protocols at once, so
+// the provider records nothing.
 type guidedHome struct {
-	runtime  invocation.Context
-	out      *bytes.Buffer
-	secrets  secret.Store
-	checked  []string
-	status   int
-	models   string
-	requests []string
+	runtime invocation.Context
+	out     *bytes.Buffer
+	secrets secret.Store
+	checked []string
+	status  int
+	models  string
 }
 
 func newGuidedHome(t *testing.T, installed ...string) *guidedHome {
@@ -81,7 +81,6 @@ func newGuidedHome(t *testing.T, installed ...string) *guidedHome {
 		Discovery:  setupDiscovery{result: discovery.Result{Executables: executables}},
 		Host:       hostAt(t.TempDir()),
 		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
-			home.requests = append(home.requests, request.Method+" "+request.URL.Path)
 			body := "{}"
 			if request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, "/models") {
 				body = home.models
