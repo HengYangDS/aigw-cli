@@ -2,7 +2,6 @@ package store
 
 import (
 	"aigw-cli/internal/domain"
-	"strings"
 	"testing"
 )
 
@@ -36,7 +35,7 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := domain.Merge(domain.NewConfig(testAdmission()), team)
+	got, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), team, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +46,7 @@ interfaces = { openai_responses = [] }
 	got.Providers["personal"] = domain.Provider{Label: "Personal", Endpoints: domain.Endpoints{Anthropic: "https://personal.test"}}
 	got.Models["personal-claude"] = testModel("Personal Claude", "personal", "personal-model", domain.ProtocolAnthropic)
 	got.SetSelectedModel(ClientClaude, "personal-claude", "")
-	merged, err := domain.Merge(got, team)
+	merged, _, err := domain.MergeTeamFile(got, team, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +92,7 @@ interfaces = { anthropic = [] }
 	cfg.SetSelectedModel(ClientClaude, "personal", "")
 	cfg.Providers["personal"] = domain.Provider{Label: "Personal", Endpoints: domain.Endpoints{Anthropic: "https://personal.test"}}
 	cfg.Models["personal"] = testModel("Personal", "personal", "claude-personal", domain.ProtocolAnthropic)
-	got, err := domain.Merge(cfg, m)
+	got, _, err := domain.MergeTeamFile(cfg, m, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,314 +104,6 @@ interfaces = { anthropic = [] }
 	}
 	if got.Models["team"].Label != "Team Gateway" {
 		t.Fatalf("imported route missing: %#v", got.Models)
-	}
-}
-
-func TestMergeRejectsConflictingExistingProviderWithoutMutatingLocalConfig(t *testing.T) {
-	team, err := Parse([]byte(`version = 7
-
-[accounts.team]
-label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "https://team.example.test"
-
-[routes.team-route]
-label = "TeamRoute"
-account = "team"
-model = "claude-team"
-interfaces = { anthropic = [] }
-`), testAdmission())
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["team"] = domain.Provider{Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}}
-	cfg.Models["local"] = testModel("Local", "team", "claude-local", domain.ProtocolAnthropic)
-
-	_, err = domain.Merge(cfg, team)
-	if err == nil || !strings.Contains(err.Error(), `account "team" conflicts`) {
-		t.Fatalf("merge error = %v", err)
-	}
-	if !strings.Contains(err.Error(), "aigw config export") || strings.Contains(err.Error(), "aigw account list") {
-		t.Fatalf("merge guidance must name an existing inspection command: %v", err)
-	}
-	if got := cfg.Providers["team"].Endpoints.Anthropic; got != "https://personal.example.test" {
-		t.Fatalf("conflicting merge mutated existing endpoint: %q", got)
-	}
-	if _, exists := cfg.Models["team-route"]; exists {
-		t.Fatalf("conflicting merge partially imported route: %#v", cfg.Models)
-	}
-}
-
-func TestMergeRejectsConflictingExistingModelWithoutMutatingLocalConfig(t *testing.T) {
-	team, err := Parse([]byte(`version = 7
-
-[accounts.team]
-label = "Team Gateway"
-[accounts.team.endpoints]
-openai_responses = "https://team.example.test/v1"
-
-[routes.shared]
-label = "Team Model"
-account = "team"
-model = "team-model"
-interfaces = { openai_responses = [] }
-`), testAdmission())
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["team"] = domain.Provider{Label: "Team Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Models["shared"] = testModel("Personal Model", "team", "personal-model", domain.ProtocolOpenAIResponses)
-
-	_, err = domain.Merge(cfg, team)
-	if err == nil || !strings.Contains(err.Error(), `route "shared" conflicts`) {
-		t.Fatalf("merge error = %v", err)
-	}
-	if got := cfg.Models["shared"].Family; got != "personal-model" {
-		t.Fatalf("conflicting merge mutated active route model: %q", got)
-	}
-}
-
-func TestMergeAcceptsEquivalentExistingIdentityWithoutReplacingLocalState(t *testing.T) {
-	team, err := Parse([]byte(`version = 7
-
-[accounts.team]
-label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "https://team.example.test"
-
-[routes.shared]
-label = "TeamRoute"
-purpose = "Default agent"
-account = "team"
-model = "claude-team"
-interfaces = { anthropic = [] }
-`), testAdmission())
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["team"] = domain.Provider{Label: "Team Gateway", Endpoints: domain.Endpoints{Anthropic: "https://team.example.test/"}}
-	cfg.Models["shared"] = testModel("TeamRoute", "team", "claude-team", domain.ProtocolAnthropic)
-	route := cfg.Models["shared"]
-	route.Purpose = "Default agent"
-	cfg.Models["shared"] = route
-
-	got, err := domain.Merge(cfg, team)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Models["shared"].Family != "claude-team" {
-		t.Fatalf("equivalent merge = %#v", got)
-	}
-	if got.Providers["team"].Endpoints.Anthropic != "https://team.example.test/" {
-		t.Fatalf("idempotent import should preserve local canonical representation: %#v", got.Providers["team"])
-	}
-}
-
-func TestMergeWithOptionsReplacesOnlyExplicitConflictingIdentity(t *testing.T) {
-	team, err := Parse([]byte(`version = 7
-
-[accounts.team]
-label = "Team Gateway"
-[accounts.team.endpoints]
-openai_responses = "https://team.example.test/v1"
-
-[routes.shared]
-label = "Team Model"
-account = "team"
-model = "team-model"
-interfaces = { openai_responses = [] }
-`), testAdmission())
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["team"] = domain.Provider{Label: "Personal Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://personal.example.test/v1"}}
-	cfg.Models["shared"] = testModel("Personal Model", "team", "personal-model", domain.ProtocolOpenAIResponses)
-
-	got, err := domain.MergeWithOptions(cfg, team, domain.MergeOptions{
-		ReplaceProviders: map[string]bool{"team": true},
-		ReplaceModels:    map[string]bool{"shared": true},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Providers["team"].Endpoints.OpenAIResponses != "https://team.example.test/v1" {
-		t.Fatalf("account replacement = %#v", got.Providers["team"])
-	}
-	if got.Models["shared"].Family != "team-model" {
-		t.Fatalf("route replacement = %#v", got.Models["shared"])
-	}
-	kept, err := domain.MergeWithOptions(cfg, team, domain.MergeOptions{
-		KeepProviders: map[string]bool{"team": true},
-		ReplaceModels: map[string]bool{"shared": true},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if kept.Providers["team"].Endpoints.OpenAIResponses != "https://personal.example.test/v1" || kept.Models["shared"].Family != "team-model" {
-		t.Fatalf("local Account metadata was not retained alongside incoming Route: %#v", kept)
-	}
-}
-
-func TestMergeWithOptionsDistinguishesEmptyCapabilityListsByProtocol(t *testing.T) {
-	team, err := Parse([]byte(`version = 7
-
-[accounts.team]
-label = "Team Gateway"
-[accounts.team.endpoints]
-openai_responses = "https://team.example.test/v1"
-openai_chat_completions = "https://team.example.test/v1"
-
-[routes.shared]
-label = "Team Model"
-account = "team"
-model = "team-model"
-interfaces = { openai_chat_completions = [] }
-`), testAdmission())
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["team"] = domain.Provider{
-		Label: "Team Gateway",
-		Endpoints: domain.Endpoints{
-			OpenAIResponses:       "https://team.example.test/v1",
-			OpenAIChatCompletions: "https://team.example.test/v1",
-		},
-	}
-	cfg.Models["shared"] = testModel("Team Model", "team", "team-model", domain.ProtocolOpenAIResponses)
-
-	if _, err := domain.MergeWithOptions(cfg, team, domain.MergeOptions{}); err == nil || !strings.Contains(err.Error(), `route "shared" conflicts`) {
-		t.Fatalf("different protocol keys must conflict even when capabilities are empty: %v", err)
-	}
-	got, err := domain.MergeWithOptions(cfg, team, domain.MergeOptions{ReplaceModels: map[string]bool{"shared": true}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, oldProtocol := got.Models["shared"].Protocols[domain.ProtocolOpenAIResponses]; oldProtocol {
-		t.Fatalf("Responses protocol remained after explicit Route replacement: %#v", got.Models["shared"].Protocols)
-	}
-	if _, newProtocol := got.Models["shared"].Protocols[domain.ProtocolOpenAIChatCompletions]; !newProtocol {
-		t.Fatalf("Chat Completions protocol was not applied: %#v", got.Models["shared"].Protocols)
-	}
-}
-
-func TestMergeWithOptionsRejectsUnusedReplacementSelectors(t *testing.T) {
-	team, err := Parse([]byte(`version = 7
-
-[accounts.team]
-label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "https://team.example.test"
-
-[routes.team-route]
-label = "TeamRoute"
-account = "team"
-model = "claude-team"
-interfaces = { anthropic = [] }
-`), testAdmission())
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["local"] = domain.Provider{Label: "Local", Endpoints: domain.Endpoints{Anthropic: "https://local.example.test"}}
-	cfg.Models["local"] = testModel("Local", "local", "claude-local", domain.ProtocolAnthropic)
-
-	_, err = domain.MergeWithOptions(cfg, team, domain.MergeOptions{ReplaceProviders: map[string]bool{"missing": true}})
-	if err == nil || !strings.Contains(err.Error(), `replaces account "missing"`) {
-		t.Fatalf("unused account replacement error = %v", err)
-	}
-	_, err = domain.MergeWithOptions(cfg, team, domain.MergeOptions{ReplaceModels: map[string]bool{"missing": true}})
-	if err == nil || !strings.Contains(err.Error(), `replaces route "missing"`) {
-		t.Fatalf("unused Route replacement error = %v", err)
-	}
-	for _, test := range []struct {
-		name    string
-		options domain.MergeOptions
-		want    string
-	}{
-		{"missing local", domain.MergeOptions{KeepProviders: map[string]bool{"team": true}}, "which the local configuration does not have"},
-		{"missing incoming", domain.MergeOptions{KeepProviders: map[string]bool{"local": true}}, "which the imported configuration manifest does not have"},
-		{"conflicting selectors", domain.MergeOptions{KeepProviders: map[string]bool{"team": true}, ReplaceProviders: map[string]bool{"team": true}}, "both keeps and replaces account"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			_, err := domain.MergeWithOptions(cfg, team, test.options)
-			if err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("Account retention error = %v, want %q", err, test.want)
-			}
-		})
-	}
-}
-
-func TestMergeWithOptionsDoesNotNormalizeOrMutateRejectedInput(t *testing.T) {
-	team, err := Parse([]byte(`version = 7
-
-[accounts.team]
-label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "https://team.example.test"
-
-[routes.team]
-label = "Team"
-account = "team"
-model = "claude-team"
-interfaces = { anthropic = [] }
-`), testAdmission())
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := admitted(domain.Config{
-		Version: domain.ConfigVersion,
-		Providers: map[string]domain.Provider{
-			"team": {Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}},
-		},
-		Models: map[string]domain.Model{
-			"local": {Label: "Local", Provider: "team"},
-		},
-		Clients: nil,
-	})
-
-	_, err = domain.MergeWithOptions(cfg, team, domain.MergeOptions{})
-	if err == nil {
-		t.Fatal("expected conflict")
-	}
-	if cfg.Recommendations != nil || cfg.Clients != nil {
-		t.Fatalf("rejected merge normalized caller-owned config: %#v", cfg)
-	}
-}
-
-func TestMergeRejectsNonCanonicalLocalSchemaVersion(t *testing.T) {
-	team, err := Parse([]byte(`version = 7
-[accounts.team]
-label = "Team"
-[accounts.team.endpoints]
-anthropic = "https://gateway.test"
-[routes.team]
-label = "Team"
-purpose = "Default agent"
-account = "team"
-model = "claude-team"
-interfaces = { anthropic = [] }
-`), testAdmission())
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Version = 1
-	cfg.Providers["local"] = domain.Provider{Label: "Local", Endpoints: domain.Endpoints{Anthropic: "https://local.test"}}
-	cfg.Models["local"] = testModel("Local", "local", "claude-local", domain.ProtocolAnthropic)
-	if _, err := domain.Merge(cfg, team); err == nil || !strings.Contains(err.Error(), "unsupported config version 1") {
-		t.Fatalf("merge error = %v", err)
-	}
-}
-
-func TestMergeWithOptionsRejectsNonCanonicalConfigurationManifestVersion(t *testing.T) {
-	team := domain.Manifest{Version: 99, Models: map[string]domain.Model{"team": {Label: "Team", Provider: "team"}}}
-	if _, err := domain.MergeWithOptions(domain.NewConfig(testAdmission()), team, domain.MergeOptions{}); err == nil || !strings.Contains(err.Error(), "unsupported configuration manifest version 99") {
-		t.Fatalf("unsupported manifest version error = %v", err)
 	}
 }
 
@@ -431,70 +122,11 @@ interfaces = { anthropic = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := domain.Merge(domain.NewConfig(testAdmission()), team)
+	got, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), team, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got.Clients) != 0 {
 		t.Fatalf("merge invented a client binding without a recommendation: %#v", got.Clients)
-	}
-}
-
-func TestMergeRejectsConflictingFamilyOverrideWithOtherwiseIdenticalModel(t *testing.T) {
-	team, err := Parse([]byte(`version = 7
-[accounts.team]
-label = "Team Gateway"
-[accounts.team.endpoints]
-openai_responses = "https://team.example.test/v1"
-[routes.shared]
-label = "TeamRoute"
-account = "team"
-model = "team-model"
-interfaces = { openai_responses = [] }
-`), testAdmission())
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["team"] = domain.Provider{Label: "Team Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Models["shared"] = testModel("TeamRoute", "team", "personal-model", domain.ProtocolOpenAIResponses)
-
-	if _, err := domain.Merge(cfg, team); err == nil || !strings.Contains(err.Error(), `route "shared" conflicts`) {
-		t.Fatalf("model-only conflict error = %v", err)
-	}
-}
-
-func TestMergeTreatsIdenticalBalanceProbesAsEquivalent(t *testing.T) {
-	team, err := Parse([]byte(`version = 7
-[accounts.team]
-label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "https://team.example.test"
-[accounts.team.account_probe]
-kind = "dmxapi"
-base_url = "https://team.example.test/probe"
-[routes.team]
-label = "Team"
-account = "team"
-model = "claude-team"
-interfaces = { anthropic = [] }
-`), testAdmission())
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["team"] = domain.Provider{
-		Label:        "Team Gateway",
-		Endpoints:    domain.Endpoints{Anthropic: "https://team.example.test"},
-		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://team.example.test/probe/"},
-	}
-	cfg.Models["local"] = testModel("Local", "team", "claude-local", domain.ProtocolAnthropic)
-
-	got, err := domain.Merge(cfg, team)
-	if err != nil {
-		t.Fatalf("equivalent account probes must not conflict: %v", err)
-	}
-	if got.Providers["team"].BalanceProbe.Kind != "dmxapi" {
-		t.Fatalf("merged account probe = %#v", got.Providers["team"].BalanceProbe)
 	}
 }

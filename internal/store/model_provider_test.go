@@ -101,7 +101,7 @@ func TestClientModelProviderPersistsAndParticipatesInManifestSelection(t *testin
 			ClientCodex: {Primary: domain.ClientSelection{Model: "default", ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative}},
 		},
 	}
-	merged, err := domain.MergeWithOptions(modelProviderConfig(), incoming, domain.MergeOptions{ReplaceModels: map[string]bool{"default": true}})
+	merged, _, err := domain.MergeTeamFile(modelProviderConfig(), incoming, false)
 	if err != nil {
 		t.Fatal(err)
 	}

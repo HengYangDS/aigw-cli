@@ -50,33 +50,6 @@ func TestManifestExportOmitsDerivedModelLabelsAndPreservesWireCase(t *testing.T)
 	}
 }
 
-func TestManifestMergeTreatsOldPlainLabelAsDerivedButPreservesCustomOverride(t *testing.T) {
-	current := domain.NewConfig(testAdmission())
-	current.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
-	current.Families["gpt-6-sol"] = domain.Family{Label: "GPT-6 Sol"}
-	route := domain.Model{Label: "UCloud · GPT-6 Sol", Provider: "ucloud", Family: "gpt-6-sol", UpstreamModel: "gpt-6-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}}}
-	current.Models["ucloud-gpt-6-sol"] = route
-	current.SetSelectedModel(ClientCodex, "ucloud-gpt-6-sol", "")
-	incoming := domain.Manifest{
-		Version:   domain.ManifestVersion,
-		Providers: map[string]domain.Provider{"ucloud": current.Providers["ucloud"]},
-		Families:  map[string]domain.Family{"gpt-6-sol": current.Families["gpt-6-sol"]},
-		Models: map[string]domain.Model{"ucloud-gpt-6-sol": {
-			Provider: route.Provider, Family: route.Family, UpstreamModel: route.UpstreamModel, Protocols: route.Protocols,
-		}},
-	}
-	merged, err := domain.Merge(current, incoming)
-	if err != nil || merged.SelectedModel(ClientCodex) != "ucloud-gpt-6-sol" || merged.Models["ucloud-gpt-6-sol"].Label != route.Label {
-		t.Fatalf("derived-label merge changed the explicit Client Binding or old label: %+v, %v", merged.Clients, err)
-	}
-	custom := current.Clone()
-	route.Label = "Personal Sol"
-	custom.Models["ucloud-gpt-6-sol"] = route
-	if _, err := domain.Merge(custom, incoming); err == nil || !strings.Contains(err.Error(), "conflicts with local configuration") {
-		t.Fatalf("custom Route label was silently overwritten: %v", err)
-	}
-}
-
 func TestManifestSeparatesFamiliesFromQualifiedProviderModels(t *testing.T) {
 	manifest, err := Parse([]byte(`version = 7
 [models.gpt-6-astra]
@@ -146,17 +119,6 @@ interfaces = { openai_responses = ["text"] }
 	}
 }
 
-func TestManifestProviderIDsReturnsEveryCredentialOwnerOnce(t *testing.T) {
-	incoming := domain.Manifest{
-		Providers: map[string]domain.Provider{"shared": {}, "direct": {}},
-		Models:    map[string]domain.Model{"alias": {Provider: "shared"}, "implicit": {}},
-	}
-	want := []string{"direct", "shared"}
-	if got := domain.ManifestProviderIDs(incoming); !reflect.DeepEqual(got, want) {
-		t.Fatalf("account names = %#v, want %#v", got, want)
-	}
-}
-
 func TestCredentialDetectionDescendsIntoArrays(t *testing.T) {
 	value := []any{map[string]any{"metadata": map[string]any{"api_token": "secret"}}}
 	if got := findCredentialKey(value, "routes"); got != "routes.metadata.api_token" {
@@ -215,7 +177,7 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	merged, err := domain.Merge(domain.NewConfig(testAdmission()), incoming)
+	merged, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), incoming, false)
 	if err != nil {
 		t.Fatal(err)
 	}

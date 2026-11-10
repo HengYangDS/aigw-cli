@@ -288,9 +288,6 @@ func TestMergeTeamFileRefusesANewProvidersProtocolWithoutAnEndpoint(t *testing.T
 	if err == nil || !strings.Contains(err.Error(), "fresh/fresh") || !strings.Contains(err.Error(), "provider fresh") || !strings.Contains(err.Error(), "OpenAI Chat Completions") {
 		t.Fatalf("a new provider without the model's endpoint = %v", err)
 	}
-	if _, err := MergeWithOptions(NewConfig(testAdmission()), file, MergeOptions{}); err == nil || !strings.Contains(err.Error(), `account "fresh" has no OpenAI Chat Completions endpoint`) {
-		t.Fatalf("an import of it = %v", err)
-	}
 }
 
 // A recommendation that names no protocol waits, as one that names it does,

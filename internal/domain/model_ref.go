@@ -57,7 +57,7 @@ func (model Model) Ref() ModelRef {
 // ResolveModelRef returns the keys of the configured models that ref names:
 // the models of ref's provider whose provider model ID equals ref's, in key
 // order. Today's configuration can hold several such Routes, one per
-// protocol, which task 6.1's import merges into one model. It is the one
+// protocol, which task 6.1's schema merges into one model. It is the one
 // lookup from a reference to stored models, so the store key can change
 // without its callers.
 func (c *Config) ResolveModelRef(ref ModelRef) []string {

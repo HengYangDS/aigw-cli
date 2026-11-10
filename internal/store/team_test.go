@@ -73,7 +73,7 @@ func TestTeamManifestSelectsOnlyDeclaredRecommendationsForConnectedProvider(t *t
 		ClientCodex: domain.ProtocolOpenAIResponses, ClientHermes: domain.ProtocolOpenAIResponses,
 	}
 	for accountID := range manifest.Providers {
-		cfg, err := domain.Merge(domain.NewConfig(testAdmission()), manifest)
+		cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -320,7 +320,7 @@ func TestTeamManifestRefreshPreservesExplicitSupersededModels(t *testing.T) {
 			cfg.Models[selected.route] = domain.Model{Provider: "aihubmix", Family: selected.model, UpstreamModel: selected.wire,
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}}
 			cfg.SetSelectedModel(ClientHermes, selected.route, "")
-			merged, err := domain.Merge(cfg, manifest)
+			merged, _, err := domain.MergeTeamFile(cfg, manifest, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -334,7 +334,7 @@ func TestTeamManifestRefreshPreservesExplicitSupersededModels(t *testing.T) {
 
 func TestTeamManifestModelsUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	cfg, err := domain.Merge(domain.NewConfig(testAdmission()), manifest)
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,7 +404,7 @@ func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 			}
 		}
 	}
-	cfg, err := domain.Merge(domain.NewConfig(testAdmission()), manifest)
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -446,7 +446,7 @@ func TestTeamProviderEndpointsHaveHosts(t *testing.T) {
 
 func TestTeamManifestDerivesPlainModelLabelsAndKeepsChannelOverrides(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	cfg, err := domain.Merge(domain.NewConfig(testAdmission()), manifest)
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false)
 	if err != nil {
 		t.Fatal(err)
 	}

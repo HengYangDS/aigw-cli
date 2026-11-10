@@ -2,7 +2,6 @@ package domain
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 )
@@ -20,17 +19,6 @@ type Manifest struct {
 	Models          map[string]Model                `toml:"routes"`
 }
 
-// MergeOptions makes local identity replacement and Route retirement explicit.
-// Configuration manifests are token-free and must not silently redirect an
-// existing Account and its system-held Token to a different endpoint.
-type MergeOptions struct {
-	KeepProviders    map[string]bool
-	ReplaceProviders map[string]bool
-	ReplaceFamilies  map[string]bool
-	ReplaceModels    map[string]bool
-	RetireModels     map[string]bool
-}
-
 // UnsupportedManifestVersionError reports a team manifest of another schema
 // version, which AIGW never reinterprets.
 type UnsupportedManifestVersionError struct{ Version int }
@@ -43,14 +31,6 @@ func (err *UnsupportedManifestVersionError) Error() string {
 		err.Version,
 		ManifestVersion,
 	)
-}
-
-// ManifestProviderIDs returns every credential owner referenced by a
-// configuration manifest. Credential ownership is part of the manifest model,
-// so all consumers share this definition instead of depending on a CLI command
-// package.
-func ManifestProviderIDs(incoming Manifest) []string {
-	return slices.Sorted(maps.Keys(incoming.Providers))
 }
 
 // Admit validates a decoded team manifest for the admitted clients and returns
@@ -117,159 +97,6 @@ func ExportManifest(cfg Config) (Manifest, error) {
 		}
 	}
 	return Manifest{Version: ManifestVersion, Recommendations: cfg.Recommendations, Providers: cfg.Providers, Families: cfg.Families, Models: cfg.Models}, nil
-}
-
-// Merge combines a manifest with existing configuration while preserving conflicting owned entries.
-func Merge(cfg Config, incoming Manifest) (Config, error) {
-	return MergeWithOptions(cfg, incoming, MergeOptions{})
-}
-
-// MergeWithOptions combines a manifest under explicit conflict-replacement policy.
-func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Config, error) {
-	if incoming.Version != ManifestVersion {
-		return Config{}, &UnsupportedManifestVersionError{Version: incoming.Version}
-	}
-	merged := cfg.Clone()
-	if err := validateMergeSelectors(cfg, incoming, options); err != nil {
-		return Config{}, err
-	}
-	retiredFamilies := make(map[string]bool, len(options.RetireModels))
-	for name, retire := range options.RetireModels {
-		if !retire {
-			continue
-		}
-		retiredFamilies[merged.Models[name].Family] = true
-		delete(merged.Models, name)
-	}
-	for name, account := range incoming.Providers {
-		if existing, exists := merged.Providers[name]; exists {
-			if equivalentProvider(existing, account) || options.KeepProviders[name] {
-				continue
-			}
-			if !options.ReplaceProviders[name] {
-				return Config{}, fmt.Errorf("account %q conflicts with local configuration; inspect it with `aigw config export`; the merge neither keeps nor replaces it, and its Token is unchanged", name)
-			}
-		}
-		merged.Providers[name] = account
-	}
-	for name, model := range incoming.Families {
-		if existing, exists := merged.Families[name]; exists {
-			if existing == model {
-				continue
-			}
-			if !options.ReplaceFamilies[name] {
-				return Config{}, fmt.Errorf("model %q conflicts with local configuration, and the merge does not replace it", name)
-			}
-		}
-		merged.Families[name] = model
-	}
-	for name, route := range incoming.Models {
-		if existing, exists := merged.Models[name]; exists {
-			if equivalentModel(existing, route) && modelLabel(existing, merged.Providers[route.Provider], merged.Families[route.Family]) == modelLabel(route, merged.Providers[route.Provider], merged.Families[route.Family]) {
-				continue
-			}
-			if !options.ReplaceModels[name] {
-				return Config{}, fmt.Errorf("route %q conflicts with local configuration, and the merge does not replace it", name)
-			}
-		}
-		merged.Models[name] = route
-	}
-	maps.Copy(merged.Families, incoming.Families)
-	maps.Copy(merged.Recommendations, incoming.Recommendations)
-	for family := range retiredFamilies {
-		if _, declared := incoming.Families[family]; declared {
-			continue
-		}
-		referenced := false
-		for _, route := range merged.Models {
-			if route.Family == family {
-				referenced = true
-				break
-			}
-		}
-		if !referenced {
-			delete(merged.Families, family)
-		}
-	}
-	return finishImport(merged, incoming)
-}
-
-// finishImport normalizes and validates the merge of an import, whose
-// manifest's models each need their providers' endpoints.
-func finishImport(merged Config, incoming Manifest) (Config, error) {
-	if err := requireManifestEndpoints(merged, incoming); err != nil {
-		return Config{}, err
-	}
-	merged.Normalize()
-	if err := merged.Validate(); err != nil {
-		return Config{}, fmt.Errorf("merge configuration manifest: %w", err)
-	}
-	return merged, nil
-}
-
-// requireManifestEndpoints refuses a manifest model's protocol that its
-// provider has no endpoint for. A configuration admits one only for a
-// provider whose endpoints a team setup kept; an import takes the manifest's
-// providers, so each of its models needs its endpoints.
-func requireManifestEndpoints(merged Config, incoming Manifest) error {
-	for _, name := range slices.Sorted(maps.Keys(incoming.Models)) {
-		model := merged.Models[name]
-		for _, protocol := range model.AdmittedProtocols() {
-			if merged.Providers[model.Provider].Endpoints.For(protocol) == "" {
-				return fmt.Errorf("merge configuration manifest: route %q: %w", name, &RuntimeMissingEndpointError{ProviderID: model.Provider, Protocol: protocol})
-			}
-		}
-	}
-	return nil
-}
-
-func validateMergeSelectors(cfg Config, incoming Manifest, options MergeOptions) error {
-	for _, name := range slices.Sorted(maps.Keys(options.KeepProviders)) {
-		if !options.KeepProviders[name] {
-			continue
-		}
-		if options.ReplaceProviders[name] {
-			return fmt.Errorf("the merge both keeps and replaces account %q", name)
-		}
-		if _, exists := cfg.Providers[name]; !exists {
-			return fmt.Errorf("the merge keeps account %q, which the local configuration does not have", name)
-		}
-		if _, exists := incoming.Providers[name]; !exists {
-			return fmt.Errorf("the merge keeps account %q, which the imported configuration manifest does not have", name)
-		}
-	}
-	for name := range options.ReplaceProviders {
-		if _, exists := incoming.Providers[name]; !exists {
-			return fmt.Errorf("the merge replaces account %q, which the imported configuration manifest does not have", name)
-		}
-	}
-	for name := range options.ReplaceFamilies {
-		if _, exists := incoming.Families[name]; !exists {
-			return fmt.Errorf("the merge replaces model %q, which the imported configuration manifest does not have", name)
-		}
-	}
-	for name := range options.ReplaceModels {
-		if _, exists := incoming.Models[name]; !exists {
-			return fmt.Errorf("the merge replaces route %q, which the imported configuration manifest does not have", name)
-		}
-	}
-	for _, name := range slices.Sorted(maps.Keys(options.RetireModels)) {
-		if !options.RetireModels[name] {
-			continue
-		}
-		if _, exists := cfg.Models[name]; !exists {
-			return fmt.Errorf("the merge retires route %q, which the local configuration does not have", name)
-		}
-		if _, exists := incoming.Models[name]; exists {
-			return fmt.Errorf("the merge retires route %q, which the imported configuration manifest declares", name)
-		}
-		for _, client := range slices.Sorted(maps.Keys(cfg.Clients)) {
-			if cfg.Clients[client].Model == name {
-				return fmt.Errorf("the merge retires route %q, which client %q selects", name, client)
-			}
-		}
-	}
-	return nil
 }
 
 func equivalentProvider(left, right Provider) bool {

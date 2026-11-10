@@ -97,7 +97,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := domain.Merge(domain.NewConfig(testAdmission()), manifest)
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false)
 	if err != nil {
 		t.Fatal(err)
 	}

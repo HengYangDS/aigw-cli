@@ -199,10 +199,10 @@ func TestManifestEquivalenceIncludesEveryEndpointAndProtocol(t *testing.T) {
 	right := left
 	right.Endpoints.OpenAIChatCompletions = "https://second.test/v1"
 	if equivalentProvider(left, right) {
-		t.Fatal("manifest import treated different Chat Completions endpoints as equivalent")
+		t.Fatal("a team-file merge treated different Chat Completions endpoints as equivalent")
 	}
 	route := Model{Provider: "team", Family: "model", Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}}
 	if !equivalentModel(route, route) {
-		t.Fatal("manifest import treated equal provider model identities as different")
+		t.Fatal("a team-file merge treated equal provider model identities as different")
 	}
 }
