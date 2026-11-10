@@ -2,6 +2,7 @@ package check
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"aigw-cli/internal/adapter/codex"
@@ -59,6 +60,18 @@ func TestCheckOfAClientWithoutAModel(t *testing.T) {
 			}
 			if len(provider.requests) != 0 || len(secrets(t, runtime).getProviders) != 0 {
 				t.Fatalf("requests %q, Token reads %q", provider.requests, secrets(t, runtime).getProviders)
+			}
+			// A person's verbose check shows the failed model check with its
+			// fix and the Token check that it skipped, with the reason.
+			out.Reset()
+			if err := execute(runtime, "codex", "--verbose"); err == nil {
+				t.Fatal("the human check passed")
+			}
+			fix := test.action + test.detail
+			for _, want := range []string{"✗ Codex model", test.problem, "Fix: " + fix, "Skipped: No model resolves, so no provider's Token applies"} {
+				if !strings.Contains(out.String(), want) {
+					t.Fatalf("the verbose check lacks %q:\n%s", want, out)
+				}
 			}
 		})
 	}

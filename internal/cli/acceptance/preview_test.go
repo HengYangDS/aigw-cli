@@ -148,6 +148,46 @@ func TestSetupManifestPreviewInText(t *testing.T) {
 	if err := cli.Execute(app, []string{"setup", "--from", manifest, "--provider", "missing", "--dry-run"}); err == nil || !strings.Contains(err.Error(), `unknown provider "missing"`) {
 		t.Fatalf("unknown provider preview = %v", err)
 	}
+	// A named provider without a stored Token is planned as if the setup
+	// stored the one that it would read: Claude Code takes the team's model,
+	// and nothing is written or read.
+	out.Reset()
+	if err := cli.Execute(app, []string{"setup", "--from", manifest, "--provider", "team", "--dry-run", "--json"}); err != nil {
+		t.Fatalf("a named provider preview: %v\n%s", err, out)
+	}
+	type plannedClient struct {
+		ID    string `json:"id"`
+		State string `json:"state"`
+		Model string `json:"model"`
+	}
+	var named struct {
+		DryRun  bool            `json:"dry_run"`
+		Clients []plannedClient `json:"clients"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &named); err != nil || !named.DryRun {
+		t.Fatalf("a named provider preview = %s, %v", out, err)
+	}
+	if index := slices.IndexFunc(named.Clients, func(client plannedClient) bool { return client.ID == claude.ID }); index < 0 ||
+		named.Clients[index].State != "configured" || named.Clients[index].Model != "team/team-model" {
+		t.Fatalf("a named provider preview plans Claude Code as %+v", named.Clients)
+	}
+	// A credential store that cannot tell whether the named provider has a
+	// Token refuses the setup that would store one, before any input is read.
+	unobservable := &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: errors.New("locked")}
+	app.Secrets = unobservable
+	input := strings.NewReader("sk-never-read\n")
+	app.In = input
+	for _, args := range [][]string{
+		{"setup", "--from", manifest, "--provider", "team", "--dry-run"},
+		{"setup", "--from", manifest, "--provider", "team", "--token-stdin"},
+	} {
+		if err := cli.Execute(app, args); err == nil || !strings.Contains(err.Error(), "observe the Token of provider team: locked") {
+			t.Fatalf("%s with a store that cannot tell = %v", strings.Join(args, " "), err)
+		}
+	}
+	if len(unobservable.getCalls)+len(unobservable.setCalls) != 0 || input.Len() != len("sk-never-read\n") {
+		t.Fatalf("a refused setup read %q, wrote %q and left %d input bytes", unobservable.getCalls, unobservable.setCalls, input.Len())
+	}
 	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
 	for _, test := range []struct {
 		args []string

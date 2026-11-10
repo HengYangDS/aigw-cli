@@ -163,3 +163,78 @@ func TestUseValidatesSelectedProtocolWhenAcquiringToken(t *testing.T) {
 		t.Fatalf("selected-protocol Token validation: requests=%d error=%v", requests, err)
 	}
 }
+
+// A selection that no protocol can carry is refused before any credential or
+// network access, with the fix for its cause: --protocol that the client does
+// not speak names the command's help, a protocol that the provider does not
+// serve names the provider's endpoint, and a provider that serves none of the
+// client's protocols names an endpoint on one of them.
+func TestUseRefusesAProtocolThatCannotCarryTheSelection(t *testing.T) {
+	for _, test := range []struct {
+		name, client, model, protocol, problem, fix string
+		endpoints                                   domain.Endpoints
+	}{
+		{name: "not spoken", client: codex.ID, model: "gateway/gpt-test", protocol: "anthropic",
+			problem: "Codex does not speak Anthropic Messages; it speaks OpenAI Responses", fix: "aigw use --help"},
+		{name: "not served", client: hermes.ID, model: "gateway/gpt-test", protocol: "chat",
+			problem: "provider gateway has no OpenAI Chat Completions endpoint for gateway/gpt-test", fix: "aigw provider edit gateway --endpoint chat=<url>"},
+		{name: "none served", client: codex.ID, model: "gateway/gpt-test", endpoints: domain.Endpoints{Anthropic: "https://gateway.example.test"},
+			problem: "Codex cannot use gateway/gpt-test: it speaks OpenAI Responses, and provider gateway has no endpoint for any of them",
+			fix:     "aigw provider edit gateway --endpoint responses=<url>"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runtime, cfg, out := configuredRuntime(t)
+			if test.endpoints != (domain.Endpoints{}) {
+				provider := cfg.Providers["gateway"]
+				provider.Endpoints = test.endpoints
+				cfg.Providers["gateway"] = provider
+				delete(cfg.Models, "codex")
+				delete(cfg.Clients, codex.ID)
+				if err := runtime.Config.Save(cfg); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before, err := runtime.Config.CaptureSnapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			counted := &countingStore{Store: secret.NewMemoryStore()}
+			runtime.Secrets = counted
+			runtime.HTTP = doerFunc(func(request *http.Request) (*http.Response, error) {
+				t.Fatalf("a refused selection sent %s", request.URL)
+				return nil, nil
+			})
+			args := []string{test.client, test.model}
+			if test.protocol != "" {
+				args = append(args, "--protocol", test.protocol)
+			}
+			err = execute(runtime, args...)
+			if p := terminal.ProblemFor(err); err == nil || p.Title != test.problem || p.Fix != test.fix {
+				t.Fatalf("%s = %q, fix %q (%v)", test.name, p.Title, p.Fix, err)
+			}
+			if counted.accesses != 0 {
+				t.Fatalf("a refused selection read or wrote %d Tokens", counted.accesses)
+			}
+			after, err := runtime.Config.CaptureSnapshot()
+			if err != nil || !slices.Equal(after.Config.Data, before.Config.Data) || out.Len() != 0 {
+				t.Fatalf("a refused selection changed the configuration or wrote %q: %v", out, err)
+			}
+		})
+	}
+}
+
+// countingStore counts the Token reads and writes of the store it wraps.
+type countingStore struct {
+	secret.Store
+	accesses int
+}
+
+func (store *countingStore) Get(provider string) (string, error) {
+	store.accesses++
+	return store.Store.Get(provider)
+}
+
+func (store *countingStore) Set(provider, value string) error {
+	store.accesses++
+	return store.Store.Set(provider, value)
+}

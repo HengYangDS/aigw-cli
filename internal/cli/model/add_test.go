@@ -73,6 +73,13 @@ func TestAddRefusesWhatTheCatalogDoesNotList(t *testing.T) {
 	if cfg := f.load(t); len(cfg.Models) != 2 {
 		t.Fatalf("a refused addition wrote a model: %v", cfg.Models)
 	}
+	// A credential backend that cannot tell whether a Token is stored reads
+	// no catalog either, and says so for each source.
+	f.runtime.Secrets = failingSecrets{}
+	if p := problem(f.run("add", "team/spare-model")); p.Evidence != "Anthropic Messages: Credential backend failed; catalog was not queried" ||
+		p.Fix != "model add team/spare-model --unlisted" {
+		t.Fatalf("a failed credential backend = %+v", p)
+	}
 }
 
 func TestAddWithoutTheCatalogCheck(t *testing.T) {
