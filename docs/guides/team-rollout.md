@@ -439,7 +439,7 @@ replaces a client's selection:
 
 | Difference                              | Behavior                                                           |
 | --------------------------------------- | ------------------------------------------------------------------ |
-| A provider that only the file has       | Added, without a Token                                             |
+| A provider that only the file has       | Added; a Token already stored under its ID is used                 |
 | An existing provider's label            | The file's label wins                                              |
 | An existing provider's endpoint         | The local endpoint stays and is reported                           |
 | A balance probe that the provider lacks | Added from the file; a differing probe stays local and is reported |
