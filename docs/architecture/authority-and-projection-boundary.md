@@ -73,17 +73,16 @@ top:
 3. **[Program entry point](../../cmd/aigw/):** Starts the command-line application
 4. **[CLI](../../internal/cli/) and [client admission](../../internal/clients/):** One package per command, sharing CLI behavior only through [invocation](../../internal/cli/invocation/), and the composition root's list of built-in client adapters
 5. **[Use cases](../../internal/app/) and [Terminal](../../internal/terminal/):** The use cases that several commands share, which return values for the terminal to render; human and JSON rendering and prompts, which import no use case
-6. **[Renaming](../../internal/app/renaming/):** Account and Route identity migration
-7. **[Activation](../../internal/app/activation/) and [Synchronization](../../internal/app/synchronization/):** The enabled-client scope of an operation; Client Binding convergence and the multi-client projection transaction
-8. **[Readiness](../../internal/app/readiness/):** The operational state vocabulary that setup, synchronization, inspection and verification share
-9. **[Diagnostics](../../internal/app/diagnostics/):** Bounded, redacted endpoint and authentication health observations
-10. **[Client orchestration](../../internal/adapter/) and [Upgrades](../../internal/program/):** The adapter seam: admitted client discovery, projection, inspection, verification, compensation, and withdrawal. Adapters share the seam's [discovery](../../internal/adapter/discovery/), [surface](../../internal/adapter/surface/) and [verification](../../internal/adapter/verification/) packages and never import each other, and each adapter runs the seam's [contract suite](../../internal/adapter/contract/) from its tests. Independent-Forge update verification and installation own the [release artifact format](../../internal/program/artifact/).
+6. **[Activation](../../internal/app/activation/) and [Synchronization](../../internal/app/synchronization/):** The enabled-client scope of an operation; Client Binding convergence and the multi-client projection transaction
+7. **[Readiness](../../internal/app/readiness/):** The operational state vocabulary that setup, synchronization, inspection and verification share
+8. **[Diagnostics](../../internal/app/diagnostics/):** Bounded, redacted endpoint and authentication health observations
+9. **[Client orchestration](../../internal/adapter/) and [Upgrades](../../internal/program/):** The adapter seam: admitted client discovery, projection, inspection, verification, compensation, and withdrawal. Adapters share the seam's [discovery](../../internal/adapter/discovery/), [surface](../../internal/adapter/surface/) and [verification](../../internal/adapter/verification/) packages and never import each other, and each adapter runs the seam's [contract suite](../../internal/adapter/contract/) from its tests. Independent-Forge update verification and installation own the [release artifact format](../../internal/program/artifact/).
     - **[Claude Code](../../internal/adapter/claude/):** Settings projection, credential-safe process plans, and readiness
     - **[Claude Desktop](../../internal/adapter/claudedesktop/):** Its separate third-party inference library
     - **[Codex](../../internal/adapter/codex/):** Projection planning and reconciliation, and its [model catalog](../../internal/adapter/codex/modelcatalog/)
     - **[Hermes](../../internal/adapter/hermes/):** Its native provider catalog, explicit protocol and model selection, and credential commands
-11. **[Balance probes](../../internal/balanceprobe/), [Secret](../../internal/secret/) and [Store](../../internal/store/):** Optional provider-native diagnostics behind their [diagnostic contract](../../internal/balanceprobe/diagnostic/); Account credential backends, typed diagnostic credentials and replacement, the private credential reader that native clients run, and the [Token probes](../../internal/secret/probe/); schema migration, persistence, checkpoints and the team manifest's TOML encoding
-12. **[Domain](../../internal/domain/) and [Platform](../../internal/platform/):** Account, Route, recommendation, Client Binding, the admitted client specifications, validation, the endpoint requests that prove an Account's Token, and the team manifest semantics, with standard-library imports only; portable AIGW-owned paths, guarded filesystem mutation and rollback, and bounded [child processes](../../internal/platform/process/)
+10. **[Balance probes](../../internal/balanceprobe/), [Secret](../../internal/secret/) and [Store](../../internal/store/):** Optional provider-native diagnostics behind their [diagnostic contract](../../internal/balanceprobe/diagnostic/); Account credential backends, typed diagnostic credentials and replacement, the private credential reader that native clients run, and the [Token probes](../../internal/secret/probe/); schema migration, persistence, checkpoints and the team manifest's TOML encoding
+11. **[Domain](../../internal/domain/) and [Platform](../../internal/platform/):** Account, Route, recommendation, Client Binding, the admitted client specifications, validation, the endpoint requests that prove an Account's Token, and the team manifest semantics, with standard-library imports only; portable AIGW-owned paths, guarded filesystem mutation and rollback, and bounded [child processes](../../internal/platform/process/)
 
 Dependency direction is toward domain owners. Terminal rendering, CLI composition,
 Forge code, and host discovery do not define product semantics.
@@ -202,6 +201,17 @@ only the checkpoint written by that operation. This is not a filesystem-wide
 transaction against editors that ignore the lock, nor a promise of continuing
 Provider availability after the request.
 
+Configuration owns the recovery boundary and the stable enabled-client set.
+Its Store captures the ordinary configuration/backup/checkpoint snapshot. When
+clients are enabled, it compares current and checkpoint configurations by their
+canonical persisted representation. Comments and presentation-only IDs do not
+change that identity; changed configuration does.
+
+Checkpoint reading consumes exactly one complete JSON document. Writer and
+reader share one nonempty, unique, admitted-client scope rule; invalid scope
+fails before persistence. A valid subset records only the clients actually
+verified.
+
 ## Credential storage
 
 The secrets module accepts Account-to-Token updates and owns both credential
@@ -266,35 +276,6 @@ boundary for both balance and Token queries. Their provider-specific reader
 requires one complete JSON document within its response budget; read, close,
 size and syntax failures invalidate the observation. Reaching the pagination
 budget reports an incomplete search, not proof that the Token is absent.
-
-## Identity migration
-
-Identity migration follows the same boundary: the [renaming owner](../../internal/app/renaming/model.go) owns
-Route renaming, Account credential preparation and commit, and verified
-finalization. CLI commands only resolve operator intent and render the result.
-The owner has no command, prompt, or presentation dependency. Cancellation
-observed before credential preparation or finalization admission starts no
-writes; once an admitted credential copy has occurred, a failed configuration
-commit preserves both slots for retry and rollback.
-
-Configuration owns the recovery boundary and the stable enabled-client set.
-Its Store captures the ordinary configuration/backup/checkpoint snapshot. When
-clients are enabled, it compares current and checkpoint configurations by their
-canonical persisted representation. Comments and presentation-only IDs do not
-change that identity; changed configuration does. Renaming requires the
-checkpoint to cover every enabled client before credential retirement, not every
-client supported by the product. With no enabled clients, no checkpoint is
-required and no client verification is claimed. An existing checkpoint must
-still match current configuration so rollback cannot revive retired credential
-references. Backup convergence checks the captured preimages
-and writes owner-only permissions through the existing guarded atomic writer;
-it returns success or failure, not an unused postimage receipt.
-
-Checkpoint reading consumes exactly one complete JSON document. Writer and
-reader share one nonempty, unique, admitted-client scope rule; invalid scope
-fails before persistence. A valid subset records only the clients actually
-verified. Enabled-client coverage remains a separate finalization requirement,
-not something the checkpoint reader infers from a nonempty list.
 
 ## Upgrade and process execution
 
