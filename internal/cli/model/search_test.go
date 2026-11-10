@@ -356,6 +356,61 @@ func (failingSecrets) Set(string, string) error    { return errors.New("backend 
 func (failingSecrets) Delete(string) error         { return errors.New("backend failed") }
 func (failingSecrets) Exists(string) (bool, error) { return false, errors.New("backend failed") }
 
+// authentication passes each catalog request to catalogs and records the URL
+// of every request whose authentication is not its provider's Token in
+// exactly one header, the API key or the bearer, as its protocol sends it.
+type authentication struct {
+	catalogs *providerCatalogs
+	mu       sync.Mutex
+	wrong    []string
+}
+
+func (check *authentication) Do(request *http.Request) (*http.Response, error) {
+	token := strings.TrimSuffix(request.URL.Hostname(), ".test") + "-token"
+	key, bearer := request.Header.Get("X-Api-Key"), request.Header.Get("Authorization")
+	if (key != token && bearer != "Bearer "+token) || (key != "" && bearer != "") {
+		check.mu.Lock()
+		check.wrong = append(check.wrong, request.URL.String())
+		check.mu.Unlock()
+	}
+	return check.catalogs.Do(request)
+}
+
+// A search only reads: each catalog request carries its provider's Token in
+// one header, the configuration keeps its bytes and every Token stays, and
+// no output, human or JSON, holds a Token or an authorization header.
+func TestSearchOnlyReads(t *testing.T) {
+	f := newSearchFixture(t)
+	check := &authentication{catalogs: f.catalogs}
+	f.runtime.HTTP = check
+	before, err := os.ReadFile(f.runtime.Config.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := []string{"full", "partial", "unreadable"}
+	for _, args := range [][]string{{"search"}, {"search", "--json"}} {
+		_ = f.run(args...)
+		shown := strings.Contains(strings.ToLower(f.out.String()), "authorization")
+		for _, id := range ids {
+			shown = shown || strings.Contains(f.out.String(), id+"-token")
+		}
+		if shown {
+			t.Fatalf("%v showed a Token or its header:\n%s", args, f.out)
+		}
+	}
+	if len(f.catalogs.requests) == 0 || len(check.wrong) != 0 {
+		t.Fatalf("requests %q; with the wrong authentication: %q", f.catalogs.requests, check.wrong)
+	}
+	if after, err := os.ReadFile(f.runtime.Config.Path()); err != nil || !bytes.Equal(after, before) {
+		t.Fatalf("the search changed the configuration: %v", err)
+	}
+	for _, id := range ids {
+		if token, err := f.runtime.Secrets.Get(id); err != nil || token != id+"-token" {
+			t.Fatalf("the Token of %s = %q, %v", id, token, err)
+		}
+	}
+}
+
 func TestSearchReportsWhatItCannotLoadOrWrite(t *testing.T) {
 	f := newSearchFixture(t)
 	path := filepath.Join(t.TempDir(), "configuration.toml")

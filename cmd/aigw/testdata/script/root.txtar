@@ -50,6 +50,10 @@ exitcode 1 aigw test
 stdout 'unknown command "test"'
 exitcode 1 aigw verify --for claude
 stdout 'unknown command "verify"'
+exitcode 1 aigw catalog --all
+stdout 'unknown command "catalog"'
+exitcode 1 aigw models
+stdout 'unknown command "models"'
 snapshot $HOME removed-after.txt
 cmp removed-after.txt removed-before.txt
 
@@ -84,12 +88,10 @@ Advanced
   account              Manage account endpoints and optional precise diagnostics
   add                  Add and connect one Account with its first Route
   balance              Show account balance and token quota
-  catalog              Discover authenticated model catalogs for each account (compact summary by default)
   client               List, enable, disable and edit clients
   completion           Generate shell completion
   config               Show, export and roll back the configuration
   model                List, search, show, add, edit and remove models
-  models               Compare configured model IDs with provider catalogs; does not test inference
   provider             List, show, add, edit and remove providers; rotate Tokens; report balances
   route                Manage Routes
   version              Show the program's version

@@ -19,7 +19,7 @@ func TestJSONCommandFailuresRemainMachineReadable(t *testing.T) {
 	for _, args := range [][]string{
 		{"status", "--json"},
 		{"sync", "--json"},
-		{"catalog", "--json"},
+		{"model", "search", "--json"},
 		{"setup", "--json"},
 		{"route", "rename", "old", "new", "--dry-run", "--json"},
 		{"account", "rename", "old", "new", "--dry-run", "--json"},
@@ -121,7 +121,7 @@ func TestErrorRenderingPreservesCommandAndWriterFailures(t *testing.T) {
 }
 
 func TestUnconfiguredCommandsPointToSetupWithoutLoops(t *testing.T) {
-	for _, command := range [][]string{{"status"}, {"check"}, {"sync"}, {"models"}, {"catalog"}} {
+	for _, command := range [][]string{{"status"}, {"check"}, {"sync"}, {"model", "search"}} {
 		app, out, _, _, _ := testApp(t, "")
 		err := cli.Execute(app, command)
 		if command[0] == "status" && err != nil {
@@ -296,7 +296,7 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 	for _, args := range [][]string{
 		{"status", "--json"},
 		{"check", "--json"},
-		{"catalog", "--json"},
+		{"model", "search", "--json"},
 		{"route", "show", "claude", "--json"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
@@ -306,7 +306,8 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-			if err := cli.Execute(app, args); (err != nil) != (args[0] == "check") {
+			// check finds no enabled client, and search no Token to read with.
+			if err := cli.Execute(app, args); (err != nil) != (args[0] == "check" || args[0] == "model") {
 				t.Fatalf("unexpected command outcome: %v\n%s", err, out)
 			}
 			var expected bytes.Buffer
