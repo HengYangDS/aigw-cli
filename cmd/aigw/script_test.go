@@ -25,7 +25,10 @@ import (
 var updateScripts = flag.Bool("update-scripts", false, "rewrite each acceptance script's expected output")
 
 func TestMain(m *testing.M) {
-	testscript.Main(m, map[string]func(){"aigw": main, "claude": scriptedClaude})
+	testscript.Main(m, map[string]func(){
+		"aigw":   func() { isolateCoverage(); main() },
+		"claude": func() { isolateCoverage(); scriptedClaude() },
+	})
 }
 
 // homeVariables locate a user's home and configuration on every platform.
@@ -33,11 +36,24 @@ var homeVariables = []string{"HOME", "USERPROFILE", "XDG_CONFIG_HOME", "XDG_DATA
 
 // TestScripts runs every acceptance script against the program in a private
 // home. PATH holds only the program and the scripted clients, and $UPSTREAM
-// is a scripted provider.
+// is a scripted provider. Under coverage, each process that a script runs
+// writes its coverage to a directory of its own, which the test merges into
+// go test's once every script has ended.
 func TestScripts(t *testing.T) {
 	program, err := exec.LookPath("aigw")
 	if err != nil {
 		t.Fatal(err)
+	}
+	processes := ""
+	if directory := os.Getenv("GOCOVERDIR"); directory != "" {
+		processes = t.TempDir()
+		t.Cleanup(func() {
+			merged, err := mergeCoverage(processes, directory)
+			if err != nil {
+				t.Errorf("merge the scripts' coverage: %v", err)
+			}
+			t.Logf("merged the coverage of %d script processes", merged)
+		})
 	}
 	testscript.Run(t, testscript.Params{
 		Dir:                 filepath.Join("testdata", "script"),
@@ -57,6 +73,9 @@ func TestScripts(t *testing.T) {
 			}
 			env.Setenv("AIGW_SECRET_BACKEND", "file")
 			env.Setenv("NO_COLOR", "1")
+			if processes != "" {
+				env.Setenv(coverageRoot, processes)
+			}
 			server := httptest.NewServer(upstream())
 			env.Defer(server.Close)
 			env.Setenv("UPSTREAM", server.URL)
@@ -156,14 +175,12 @@ func snapshot(ts *testscript.TestScript, neg bool, args []string) {
 // runs spelled $HOME, $WORK, $BIN and $UPSTREAM, so that cmp can compare and
 // update it. Each further argument is a pattern whose matches become
 // <varies>. Path separators stay native, so a script compares Windows output
-// with its own expected file. The Go runtime's coverage diagnostics, which a
-// program built for coverage prints to stderr when emitting its coverage data
-// fails, are not the program's output and are dropped.
+// with its own expected file.
 func normalize(ts *testscript.TestScript, neg bool, args []string) {
 	if neg || len(args) < 2 {
 		ts.Fatalf("usage: normalize stdout|stderr <target> [pattern...]")
 	}
-	text := normalized(ts, coverageDiagnostics.ReplaceAllString(ts.ReadFile(args[0]), ""))
+	text := normalized(ts, ts.ReadFile(args[0]))
 	for _, pattern := range args[2:] {
 		text = regexp.MustCompile(pattern).ReplaceAllString(text, "<varies>")
 	}
@@ -182,11 +199,6 @@ func normalized(ts *testscript.TestScript, text string) string {
 	}
 	return text
 }
-
-// coverageDiagnostics matches the lines that the Go runtime prints when a
-// program built for coverage cannot emit its coverage data. Their error can
-// end with its own newline.
-var coverageDiagnostics = regexp.MustCompile(`(?m)^(?:error: coverage (?:meta-data|counter data) [a-z]+ failed: .*\n\n?|warning: GOCOVERDIR not set, no coverage data emitted\n)`)
 
 // spellings returns a value as given and as its resolved path, longest
 // first. On macOS a temporary path may also appear without /private, and on
@@ -465,19 +477,5 @@ func apiKeyHelper(ts *testscript.TestScript, neg bool, args []string) {
 		ts.Fatalf("credential helper: %v", err)
 	case err == nil && neg:
 		ts.Fatalf("unexpected credential helper success")
-	}
-}
-
-func TestCoverageDiagnosticsAreNotProgramOutput(t *testing.T) {
-	output := "Problem\n  refused\n" +
-		"error: coverage meta-data emit failed: writing covmeta.1: rename from tmp.covmeta.1 failed: Access is denied.\n\n" +
-		"error: coverage counter data emit failed: creating counter data file covcounters.1: disk full\n" +
-		"warning: GOCOVERDIR not set, no coverage data emitted\n"
-	if got := coverageDiagnostics.ReplaceAllString(output, ""); got != "Problem\n  refused\n" {
-		t.Fatalf("output without coverage diagnostics = %q", got)
-	}
-	program := "error: configuration load failed: denied\n"
-	if got := coverageDiagnostics.ReplaceAllString(program, ""); got != program {
-		t.Fatalf("a program error became %q", got)
 	}
 }
