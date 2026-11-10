@@ -88,7 +88,9 @@ func MergeTeamFile(cfg Config, incoming Manifest, prune bool) (Config, TeamMerge
 	mergeProviders(&merged, incoming, &report)
 	maps.Copy(merged.Families, incoming.Families)
 	for _, key := range slices.Sorted(maps.Keys(incoming.Models)) {
-		mergeModel(&merged, &before, incoming, key, &report)
+		if err := mergeModel(&merged, &before, incoming, key, &report); err != nil {
+			return Config{}, TeamMerge{}, err
+		}
 	}
 	for _, client := range slices.Sorted(maps.Keys(incoming.Recommendations)) {
 		recommendation := incoming.Recommendations[client]
@@ -145,8 +147,10 @@ var knownProtocols = []EndpointProtocol{ProtocolAnthropic, ProtocolOpenAIRespons
 // unless it would change a client's selection of it. A protocol whose
 // endpoint the provider kept local keeps the model's local capabilities,
 // because the file's were qualified on the file's endpoint, and a protocol
-// for which the kept provider has no endpoint is reported as unusable.
-func mergeModel(merged, before *Config, incoming Manifest, key string, report *TeamMerge) {
+// for which the kept provider has no endpoint is reported as unusable. A
+// provider that the file adds has only the file's endpoints, so a protocol
+// that it has none for is the file's error, which is refused.
+func mergeModel(merged, before *Config, incoming Manifest, key string, report *TeamMerge) error {
 	model := incoming.Models[key]
 	local, exists := before.Models[key]
 	for _, client := range before.SelectedClientsForModel(key) {
@@ -160,9 +164,10 @@ func mergeModel(merged, before *Config, incoming Manifest, key string, report *T
 				kept.Protocol = selected.Protocol
 			}
 			report.KeptModels = append(report.KeptModels, kept)
-			return
+			return nil
 		}
 	}
+	_, existing := before.Providers[model.Provider]
 	provider, filed := merged.Providers[model.Provider], incoming.Providers[model.Provider]
 	protocols := make(map[EndpointProtocol][]Capability, len(model.Protocols))
 	for _, protocol := range knownProtocols {
@@ -171,7 +176,10 @@ func mergeModel(merged, before *Config, incoming Manifest, key string, report *T
 			continue
 		}
 		kept := provider.Endpoints.For(protocol)
-		if kept == "" {
+		switch {
+		case kept == "" && !existing:
+			return fmt.Errorf("the team file declares %s on %s, and provider %s, which the file adds, has no %s endpoint", model.Ref(), ProtocolLabel(protocol), model.Provider, ProtocolLabel(protocol))
+		case kept == "":
 			report.Unusable = append(report.Unusable, UnusableProtocol{Model: model.Ref(), Protocol: protocol})
 		}
 		if normalizeEndpoint(filed.Endpoints.For(protocol)) != normalizeEndpoint(kept) {
@@ -190,6 +198,7 @@ func mergeModel(merged, before *Config, incoming Manifest, key string, report *T
 	}
 	model.Protocols = protocols
 	merged.Models[key] = model
+	return nil
 }
 
 // pruneLocalOnly removes the local-only models that no client selects and no

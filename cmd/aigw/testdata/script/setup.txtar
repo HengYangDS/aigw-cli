@@ -108,6 +108,15 @@ cmp team-preview-text.out team-preview.txt
 snapshot $HOME second-after.txt
 cmp second-after.txt second-before.txt
 
+# A provider that the team file adds needs the endpoint of each protocol
+# that its models declare, before anything is written.
+envsubst fresh-chat.in fresh-chat.toml
+exitcode 1 aigw setup --from fresh-chat.toml --json
+normalize stdout fresh-chat.out
+cmp fresh-chat.out fresh-chat.json
+envsubst fresh-chat-fixed.in fresh-chat.toml
+fixloop -did 'gave provider fresh its chat endpoint in the team file' stdout aigw setup --from fresh-chat.toml --dry-run --json
+
 # Token input belongs to one provider, before anything is read.
 exitcode 1 aigw setup --from team.toml --provider team --provider spare --token-stdin --json
 normalize stdout two-providers.out
@@ -454,6 +463,8 @@ interfaces = { anthropic = [] }
 version = 7
 [recommendations.claude.primary]
 route = "team-route"
+[recommendations.hermes.primary]
+route = "team-chat"
 [accounts.team]
 label = "Team Gateway Again"
 [accounts.team.endpoints]
@@ -474,6 +485,11 @@ account = "team"
 model = "team-model"
 upstream_model = "team-model"
 interfaces = { openai_responses = [] }
+[routes.team-chat]
+account = "team"
+model = "team-model"
+upstream_model = "team-model"
+interfaces = { openai_chat_completions = [] }
 -- away.in --
 version = 7
 [accounts.team]
@@ -491,6 +507,35 @@ account = "team"
 model = "team-model"
 upstream_model = "team-model"
 interfaces = { openai_responses = [] }
+-- fresh-chat.in --
+version = 7
+[accounts.fresh]
+label = "Fresh"
+[accounts.fresh.endpoints]
+anthropic = "$UPSTREAM/fresh"
+[routes.fresh-chat]
+account = "fresh"
+model = "fresh-chat"
+interfaces = { openai_chat_completions = [] }
+-- fresh-chat-fixed.in --
+version = 7
+[accounts.fresh]
+label = "Fresh"
+[accounts.fresh.endpoints]
+anthropic = "$UPSTREAM/fresh"
+openai_chat_completions = "$UPSTREAM/fresh/v1"
+[routes.fresh-chat]
+account = "fresh"
+model = "fresh-chat"
+interfaces = { openai_chat_completions = [] }
+-- fresh-chat.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "the team file declares fresh/fresh-chat on OpenAI Chat Completions, and provider fresh, which the file adds, has no OpenAI Chat Completions endpoint",
+  "impact": "Nothing changed.",
+  "next_detail": "Correct the team file, then run the same command again."
+}
 -- clients.toml --
 version = 7
 [accounts.team]
@@ -535,14 +580,14 @@ anthropic = "https://team.invalid"
   "tokens": [
     {
       "provider": "team",
-      "state": "not_read"
+      "state": "missing",
+      "next_detail": "aigw provider rotate team"
     }
   ],
   "clients": [
     {
       "id": "claude",
-      "state": "configured",
-      "model": "team/team-model"
+      "state": "not_selected"
     },
     {
       "id": "claude-desktop",
@@ -557,17 +602,6 @@ anthropic = "https://team.invalid"
       "state": "not_selected"
     }
   ],
-  "client_files": [
-    {
-      "client": "claude",
-      "file": "~/.claude/settings.json",
-      "action": "project"
-    }
-  ],
-  "credential_reader": {
-    "path": "<varies>",
-    "action": "install"
-  },
   "next_action": "aigw setup --from team.toml"
 }
 -- team-preview.txt --
@@ -581,19 +615,13 @@ Added
   Recommendations      claude
 
 Tokens
-  · team               Not read in a preview
+  · team               None; aigw provider rotate team
 
 Clients
-  ✓ Claude             team/team-model
+  · Claude             No model selected
   · Claude Desktop     No model selected
   · Codex              No model selected
   · Hermes             No model selected
-
-Client files
-  Claude ~/.claude/settings.json  project
-
-Credential reader
-  Install <varies>
   ✓ Nothing was written: configuration, credentials and client files are unchanged
 
 Next
@@ -687,9 +715,13 @@ Next
   "added": {
     "providers": [],
     "models": [
+      "team/team-model",
       "team/team-model"
     ],
-    "families": []
+    "families": [],
+    "recommendations": [
+      "hermes"
+    ]
   },
   "changed": {
     "providers": [
@@ -725,6 +757,11 @@ Next
   "unusable": [
     {
       "model": "team/team-model",
+      "protocol": "chat",
+      "next_detail": "aigw provider edit team --endpoint chat=\u003curl\u003e"
+    },
+    {
+      "model": "team/team-model",
       "protocol": "responses",
       "next_detail": "aigw provider edit team --endpoint responses=\u003curl\u003e"
     }
@@ -732,7 +769,7 @@ Next
   "tokens": [
     {
       "provider": "team",
-      "state": "not_read"
+      "state": "present"
     }
   ],
   "clients": [
@@ -770,9 +807,13 @@ Next
   "added": {
     "providers": [],
     "models": [
+      "team/team-model",
       "team/team-model"
     ],
-    "families": []
+    "families": [],
+    "recommendations": [
+      "hermes"
+    ]
   },
   "changed": {
     "providers": [
@@ -806,6 +847,11 @@ Next
     }
   ],
   "unusable": [
+    {
+      "model": "team/team-model",
+      "protocol": "chat",
+      "next_detail": "aigw provider edit team --endpoint chat=\u003curl\u003e"
+    },
     {
       "model": "team/team-model",
       "protocol": "responses",
@@ -850,6 +896,7 @@ Kept local
   · team anthropic endpoint    Kept $UPSTREAM; the team file has $UPSTREAM/elsewhere
   · team responses endpoint    Not added; the team file has $UPSTREAM/v1, and `aigw provider edit` adds an endpoint
   · team/team-model anthropic  Dropped tool_search, qualified on the team file's endpoint
+  ! team/team-model chat       Unusable until the provider has the endpoint: aigw provider edit team --endpoint chat=<url>
   ! team/team-model responses  Unusable until the provider has the endpoint: aigw provider edit team --endpoint responses=<url>
 
 Tokens
@@ -908,6 +955,11 @@ Next
     }
   ],
   "unusable": [
+    {
+      "model": "team/team-model",
+      "protocol": "chat",
+      "next_detail": "aigw provider edit team --endpoint chat=\u003curl\u003e"
+    },
     {
       "model": "team/team-model",
       "protocol": "responses",

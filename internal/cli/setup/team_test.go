@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -92,7 +93,7 @@ func TestTeamSetupReportsWhatTheFileChangedAndWhatStayedLocal(t *testing.T) {
 	for _, want := range []string{
 		"Team file preview", "Pruned", "team/local", "team anthropic endpoint", "Kept http://127.0.0.1:8792/team; the team file has https://elsewhere.test",
 		"team responses endpoint", "Not added", "team balance probe", "team/team-model anthropic", "Dropped tool_search",
-		"team/team-model responses", "Unusable until the provider has the endpoint", "Not read in a preview", "Nothing was written",
+		"team/team-model responses", "Unusable until the provider has the endpoint", "Stored", "Nothing was written",
 	} {
 		if !strings.Contains(home.out.String(), want) {
 			t.Errorf("preview lacks %q:\n%s", want, home.out)
@@ -371,5 +372,74 @@ func TestTeamSetupStoresANamedTokenAndKeepsASelectedModel(t *testing.T) {
 	}
 	if !strings.Contains(home.out.String(), `"kept_models"`) || !strings.Contains(home.out.String(), `"protocol": "anthropic"`) {
 		t.Fatalf("the kept model:\n%s", home.out)
+	}
+}
+
+// A preview observes each Token's presence, as the run does, and plans what
+// the run would: with no Token, with one stored, and with a store that
+// cannot tell, which leaves the Token unobserved rather than absent.
+func TestTeamSetupPreviewMatchesItsRun(t *testing.T) {
+	path := writeTeamFile(t, teamFileText)
+	for _, test := range []struct {
+		name  string
+		store func() secret.Store
+		token string
+	}{
+		{"no Token", func() secret.Store { return secret.NewMemoryStore() }, tokenMissing},
+		{"a stored Token", func() secret.Store {
+			store := secret.NewMemoryStore()
+			_ = store.Set("team", "sk-team")
+			return store
+		}, tokenPresent},
+		{"a store that cannot tell", func() secret.Store {
+			return &scriptedSecretStore{existsErr: errors.New("keychain locked")}
+		}, tokenUnobserved},
+	} {
+		var documents [2]teamDocument
+		for index, args := range [][]string{{"--from", path, "--dry-run", "--json"}, {"--from", path, "--json"}} {
+			home := newGuidedHome(t, claude.ID)
+			home.runtime.Interactive = false
+			home.runtime.Secrets = test.store()
+			if err := home.run(t, &guidedPrompt{}, args...); err != nil {
+				t.Fatalf("%s %q: %v\n%s", test.name, args, err, home.out)
+			}
+			if err := json.Unmarshal(home.out.Bytes(), &documents[index]); err != nil {
+				t.Fatalf("%s: %v\n%s", test.name, err, home.out)
+			}
+		}
+		preview, run := documents[0], documents[1]
+		if !reflect.DeepEqual(preview.Tokens, run.Tokens) || !reflect.DeepEqual(preview.Clients, run.Clients) {
+			t.Errorf("%s: the preview's Tokens %+v and clients %+v differ from the run's %+v and %+v", test.name, preview.Tokens, preview.Clients, run.Tokens, run.Clients)
+		}
+		if len(run.Tokens) != 1 || run.Tokens[0].State != test.token {
+			t.Errorf("%s: Tokens %+v", test.name, run.Tokens)
+		}
+		if selected := run.Clients[0].State != clientNotSelected; selected != (test.token == tokenPresent) {
+			t.Errorf("%s: Claude %+v", test.name, run.Clients[0])
+		}
+	}
+}
+
+// A provider that the team file adds with a protocol that it has no endpoint
+// for is refused before any write.
+func TestTeamSetupRefusesANewProviderWithoutTheModelsEndpoint(t *testing.T) {
+	home := newGuidedHome(t)
+	home.runtime.Interactive = false
+	path := writeTeamFile(t, `version = 7
+[accounts.fresh]
+label = "Fresh"
+[accounts.fresh.endpoints]
+anthropic = "https://fresh.test"
+[routes.fresh-chat]
+account = "fresh"
+model = "fresh-chat"
+interfaces = { openai_chat_completions = [] }
+`)
+	problem := terminal.ProblemFor(home.run(t, &guidedPrompt{}, "--from", path, "--json"))
+	if !strings.Contains(problem.Title, "fresh/fresh-chat") || !strings.Contains(problem.Title, "provider fresh") || problem.Fix != "Correct the team file, then run the same command again." {
+		t.Fatalf("problem %#v", problem)
+	}
+	if _, err := os.Stat(home.runtime.Config.Path()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("the refused team file wrote the configuration: %v", err)
 	}
 }

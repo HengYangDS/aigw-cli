@@ -274,3 +274,48 @@ func TestTeamFileMayRecommendAModelThatOnlyTheConfigurationDefines(t *testing.T)
 		t.Errorf("a recommendation without a primary: %v", err)
 	}
 }
+
+// A provider that the team file adds has only the file's endpoints, so a
+// model protocol that it has none for is refused, naming the model, the
+// provider and the protocol, while a kept provider's is reported unusable.
+func TestMergeTeamFileRefusesANewProvidersProtocolWithoutAnEndpoint(t *testing.T) {
+	file := teamFile(t)
+	file.Providers["fresh"] = Provider{Label: "Fresh", Endpoints: Endpoints{Anthropic: "https://fresh.example"}}
+	file.Models["fresh"] = testModel("", "fresh", "fresh", ProtocolOpenAIChatCompletions)
+	file.Models["fresh"] = Model{Provider: "fresh", Family: "fresh", UpstreamModel: "fresh", Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}}}
+	delete(file.Recommendations, ClientCodex)
+	_, _, err := MergeTeamFile(NewConfig(testAdmission()), file, false)
+	if err == nil || !strings.Contains(err.Error(), "fresh/fresh") || !strings.Contains(err.Error(), "provider fresh") || !strings.Contains(err.Error(), "OpenAI Chat Completions") {
+		t.Fatalf("a new provider without the model's endpoint = %v", err)
+	}
+	if _, err := MergeWithOptions(NewConfig(testAdmission()), file, MergeOptions{}); err == nil || !strings.Contains(err.Error(), `account "fresh" has no OpenAI Chat Completions endpoint`) {
+		t.Fatalf("an import of it = %v", err)
+	}
+}
+
+// A recommendation that names no protocol waits, as one that names it does,
+// when its client could use the model only on a protocol for which the kept
+// provider has no endpoint.
+func TestARecommendationWithoutAProtocolWaitsForAnEndpoint(t *testing.T) {
+	cfg := localTeamConfig(t)
+	file := teamFile(t)
+	file.Providers["solo"] = Provider{Label: "Solo", Endpoints: Endpoints{Anthropic: "https://solo.example", OpenAIChatCompletions: "https://solo.example/v1"}}
+	file.Families["solo-chat"] = Family{Label: "Solo Chat"}
+	file.Models["solo-chat"] = Model{Provider: "solo", Family: "solo-chat", UpstreamModel: "solo-chat", Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}}}
+	file.Recommendations[ClientHermes] = ClientRecommendation{Primary: ClientSelection{Model: "solo-chat"}}
+	merged, report := mergeTeam(t, cfg, file, false)
+	if merged.Recommendations[ClientHermes].Primary.Model != "solo-chat" || len(report.Unusable) != 1 {
+		t.Fatalf("recommendation %+v, unusable %+v", merged.Recommendations[ClientHermes], report.Unusable)
+	}
+	selected, err := merged.SelectModelsForConnectedProviders([]string{"solo", "team"})
+	if err != nil || selected.Clients[ClientHermes].Model != "" {
+		t.Fatalf("hermes was given %q, %v", selected.Clients[ClientHermes].Model, err)
+	}
+	// A recommendation whose model the client cannot speak at all is still
+	// refused.
+	wrong := teamFile(t)
+	wrong.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{Model: "sonnet"}}
+	if _, _, err := MergeTeamFile(cfg, wrong, false); err == nil {
+		t.Fatal("a recommendation of a model that codex cannot speak was stored")
+	}
+}

@@ -332,6 +332,11 @@ func TestSetupStopsAtAFailedDependency(t *testing.T) {
 	}
 	for name, fail := range failures {
 		for _, args := range [][]string{nil, {"--from", path}} {
+			// A team file waits for a Token that the store cannot tell
+			// about, as TestTeamSetupPreviewMatchesItsRun shows.
+			if name == "credentials" && args != nil {
+				continue
+			}
 			home := newGuidedHome(t, claude.ID)
 			fail(home)
 			if err := home.run(t, newTeamAnswers(), args...); err == nil {

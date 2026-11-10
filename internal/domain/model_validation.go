@@ -98,7 +98,7 @@ func (c *Config) validateRecommendations() error {
 			// A recommended protocol that the provider has no endpoint for
 			// waits for one: selection skips the choice until then.
 			err := c.validateSelection(client, selection)
-			if unusableSelection(err) {
+			if c.waitsForEndpoint(client, selection, err) {
 				spec, _ := c.admission.Spec(client)
 				err = selection.validate(spec, c.admission)
 			}
@@ -175,11 +175,23 @@ func (c *Config) validateSelection(client string, selection ClientSelection) err
 	return selection.validate(spec, c.admission)
 }
 
-// unusableSelection reports a selection that fails only because its
-// provider has no endpoint for its protocol.
-func unusableSelection(err error) bool {
-	_, missing := errors.AsType[*RuntimeMissingEndpointError](err)
-	return missing
+// waitsForEndpoint reports a recommendation choice that fails only because
+// its provider has no endpoint for its protocol, or, without a named
+// protocol, for a protocol that both the client and the model speak.
+func (c *Config) waitsForEndpoint(client string, selection ClientSelection, err error) bool {
+	if _, missing := errors.AsType[*RuntimeMissingEndpointError](err); missing || err == nil {
+		return missing
+	}
+	model, known := c.Models[selection.Model]
+	spec, admitted := c.admission.Spec(client)
+	if !known || !admitted || selection.Protocol != "" {
+		return false
+	}
+	provider := c.Providers[model.Provider]
+	return slices.ContainsFunc(spec.EndpointProtocols, func(protocol EndpointProtocol) bool {
+		_, declared := model.Protocols[protocol]
+		return declared && provider.Endpoints.For(protocol) == ""
+	})
 }
 
 func (selection ClientSelection) validate(spec ClientSpec, admission Admission) error {

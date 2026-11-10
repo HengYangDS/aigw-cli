@@ -38,11 +38,12 @@ func (u *fakeUpdater) PreviewCandidate(_ string, candidate program.CandidateArch
 var errCredentialTouched = errors.New("a preview used the credential store")
 
 // TestSetupAndAddPreviewsUseNoCredential runs each Token-free preview with a
-// credential store that fails every call: setup from flags and from a
-// manifest that recommends the Route to Claude Code, and add. Each succeeds,
-// calls the store not once, reports the credential reader that applying it
-// would install, even where no client file changes, and writes neither the
-// reader nor configuration.
+// credential store that reads and writes nothing: setup from flags and from a
+// team file that recommends the model to Claude Code, and add. Each succeeds,
+// reports the credential reader that applying it would install, even where
+// no client file changes, and writes neither the reader nor configuration.
+// Only team setup's preview observes whether its provider has a Token, from
+// the store's metadata, as the run does.
 func TestSetupAndAddPreviewsUseNoCredential(t *testing.T) {
 	manifest := recommendingManifest(t)
 	for _, test := range []struct {
@@ -67,11 +68,22 @@ func TestSetupAndAddPreviewsUseNoCredential(t *testing.T) {
 			}
 			app.ResolveCredentialPath = func() (string, error) { return reader, nil }
 			store := &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), getErr: errCredentialTouched, setErr: errCredentialTouched, existsErr: errCredentialTouched}
+			if test.discovered {
+				backend := secret.NewMemoryStore()
+				if err := backend.Set("team", "fixture-token"); err != nil {
+					t.Fatal(err)
+				}
+				store = &recordingCredentialStore[string]{backend: backend, getErr: errCredentialTouched, setErr: errCredentialTouched}
+			}
 			app.Secrets = store
 			if err := cli.Execute(app, test.args); err != nil {
 				t.Fatalf("preview failed: %v (get %q, exists %q, set %q)\n%s", err, store.getCalls, store.existsCalls, store.setCalls, out.String())
 			}
-			if calls := len(store.getCalls) + len(store.existsCalls) + len(store.setCalls) + len(store.deleteCalls); calls != 0 {
+			observed := len(store.existsCalls)
+			if test.discovered {
+				observed = 0
+			}
+			if calls := len(store.getCalls) + observed + len(store.setCalls) + len(store.deleteCalls); calls != 0 {
 				t.Fatalf("preview used the credential store %d times: get %q, exists %q, set %q", calls, store.getCalls, store.existsCalls, store.setCalls)
 			}
 			// Team setup names the reader as the newer documents do.
@@ -131,7 +143,7 @@ func TestSetupManifestPreviewInText(t *testing.T) {
 	if err := cli.Execute(app, []string{"setup", "--from", manifest, "--dry-run"}); err != nil {
 		t.Fatalf("manifest preview failed: %v\n%s", err, out.String())
 	}
-	for _, want := range []string{"Team file preview", "Not read in a preview", "team/team-model", "Nothing was written"} {
+	for _, want := range []string{"Team file preview", "None; aigw provider rotate team", "Nothing was written"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("manifest preview lacks %q:\n%s", want, out.String())
 		}

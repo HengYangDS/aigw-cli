@@ -27,14 +27,14 @@ const teamSchemaVersion = 3
 
 // The states of a provider's Token after team setup, which it observes
 // without reading a Token: this run validated and stored it, the store held
-// one already, the read-only environment backend supplies one, or there is
-// none. A preview reads none.
+// one already, the read-only environment backend supplies one, there is none,
+// or the credential store cannot tell.
 const (
 	tokenStored      = "stored"
 	tokenPresent     = "present"
 	tokenEnvironment = "environment"
 	tokenMissing     = "missing"
-	tokenNotRead     = "not_read"
+	tokenUnobserved  = "unobserved"
 )
 
 // teamSetup is one `aigw setup --from`: the configuration before it, the
@@ -67,7 +67,7 @@ func runTeamSetup(cmd *cobra.Command, runtime invocation.Context, request setupR
 	}
 	merged, report, err := domain.MergeTeamFile(cfg, file, request.Prune)
 	if err != nil {
-		return err
+		return terminal.ProblemError(err.Error(), "", "Nothing changed.", "Correct the team file, then run the same command again.", err)
 	}
 	for _, id := range request.Providers {
 		if _, err := invocation.ResolveProvider(merged, id); err != nil {
@@ -141,11 +141,25 @@ func (t teamSetup) apply(ctx context.Context) error {
 	return t.write(document)
 }
 
-// preview reports what apply would do were every provider's Token stored,
-// without reading, observing, validating or storing a Token: a preview
-// never uses the credential store.
+// preview reports what apply would do without reading, validating or
+// storing a Token: it observes, from the credential store's metadata alone,
+// which Tokens are present, and plans the providers that have one, and the
+// named ones, whose Tokens apply reads; every other provider waits for its
+// Token with its fix, as apply leaves it.
 func (t teamSetup) preview() error {
-	presumed := slices.Sorted(maps.Keys(t.merged.Providers))
+	states, err := t.tokenStates()
+	if err != nil {
+		return err
+	}
+	if err := t.admitEnvironmentTokens(states); err != nil {
+		return err
+	}
+	presumed := connectedProviders(states)
+	for _, id := range t.request.Providers {
+		if !slices.Contains(presumed, id) {
+			presumed = append(presumed, id)
+		}
+	}
 	planned, err := t.merged.SelectModelsForConnectedProviders(presumed)
 	if err != nil {
 		return err
@@ -158,10 +172,6 @@ func (t teamSetup) preview() error {
 	preview, err := invocation.WithEntrypoint(t.runtime, planned, projection)
 	if err != nil {
 		return err
-	}
-	states := map[string]string{}
-	for _, id := range t.tokenProviders() {
-		states[id] = tokenNotRead
 	}
 	document := t.document(planned, states, presumed)
 	document.DryRun = true
@@ -182,14 +192,19 @@ func (t teamSetup) tokenProviders() []string {
 }
 
 // tokenStates observes whether each reported provider has a Token, from the
-// credential store's metadata alone. An empty stored Token is no Token.
+// credential store's metadata alone. An empty stored Token is no Token, and
+// a store that cannot tell leaves the Token unobserved, which is not absent:
+// such a provider waits, unless the command names it, whose Token it would
+// store, which is refused before any input is read.
 func (t teamSetup) tokenStates() (map[string]string, error) {
 	states := map[string]string{}
 	for _, id := range t.tokenProviders() {
 		present, err := t.runtime.Secrets.Exists(id)
 		switch {
-		case err != nil:
+		case err != nil && slices.Contains(t.request.Providers, id):
 			return nil, fmt.Errorf("observe the Token of provider %s: %w", id, err)
+		case err != nil:
+			states[id] = tokenUnobserved
 		case !present || secret.TokenSlotEmpty(t.runtime.Secrets, id):
 			states[id] = tokenMissing
 		case secret.IsReadOnly(t.runtime.Secrets):
@@ -210,12 +225,7 @@ func (t teamSetup) acquire(states map[string]string) (map[string]string, error) 
 	tokens := map[string]string{}
 	asked := t.request.Providers
 	if secret.IsReadOnly(t.runtime.Secrets) {
-		for _, id := range asked {
-			if states[id] == tokenMissing {
-				return nil, readOnlyTokenInput(id, invocation.Rerun(t.cmd, nil, nil))
-			}
-		}
-		return tokens, nil
+		return tokens, t.admitEnvironmentTokens(states)
 	}
 	if len(asked) == 0 {
 		if !t.runtime.Interactive {
@@ -243,6 +253,20 @@ func (t teamSetup) acquire(states map[string]string) (map[string]string, error) 
 		tokens[id] = token
 	}
 	return tokens, nil
+}
+
+// admitEnvironmentTokens refuses a named provider whose variable the
+// read-only environment backend does not set, which supplies every Token.
+func (t teamSetup) admitEnvironmentTokens(states map[string]string) error {
+	if !secret.IsReadOnly(t.runtime.Secrets) {
+		return nil
+	}
+	for _, id := range t.request.Providers {
+		if states[id] == tokenMissing {
+			return readOnlyTokenInput(id, invocation.Rerun(t.cmd, nil, nil))
+		}
+	}
+	return nil
 }
 
 // validate sends the one authenticated request that names no model, as

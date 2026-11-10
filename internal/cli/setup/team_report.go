@@ -7,6 +7,7 @@ import (
 
 	"aigw-cli/internal/app"
 	clientactivation "aigw-cli/internal/app/activation"
+	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -160,20 +161,21 @@ func (t teamSetup) document(after domain.Config, states map[string]string, conne
 	}
 	for _, id := range slices.Sorted(maps.Keys(states)) {
 		item := tokenItem{Provider: id, State: states[id]}
-		if item.State == tokenMissing {
-			item.NextAction, item.NextDetail = terminal.NextSteps(tokenFix(t.runtime.Secrets, id))
+		// A named provider's Token is the command's own input.
+		if !slices.Contains(t.request.Providers, id) {
+			item.NextAction, item.NextDetail = terminal.NextSteps(tokenStep(t.runtime.Secrets, id, item.State))
 		}
 		document.Tokens = append(document.Tokens, item)
 	}
 	for _, spec := range after.Admission().Specs() {
-		document.Clients = append(document.Clients, t.client(after, spec, connected))
+		document.Clients = append(document.Clients, t.client(after, spec, connected, states))
 	}
 	return document
 }
 
 // client reports one client's state in after: the Token comes before the
 // client's installation, because a client installed later reads it.
-func (t teamSetup) client(after domain.Config, spec domain.ClientSpec, connected []string) clientItem {
+func (t teamSetup) client(after domain.Config, spec domain.ClientSpec, connected []string, states map[string]string) clientItem {
 	item := clientItem{ID: spec.ID, State: clientNotSelected}
 	selected, err := after.ResolveRuntime(spec.ID, "")
 	if err != nil {
@@ -183,12 +185,25 @@ func (t teamSetup) client(after domain.Config, spec domain.ClientSpec, connected
 	switch next := clientactivation.ProjectionPrerequisites(after)[spec.ID]; {
 	case selected.RequiresProviderToken() && !slices.Contains(connected, selected.ProviderID):
 		item.State = clientWaitsForToken
-		item.NextAction, item.NextDetail = terminal.NextSteps(tokenFix(t.runtime.Secrets, selected.ProviderID))
+		item.NextAction, item.NextDetail = terminal.NextSteps(tokenStep(t.runtime.Secrets, selected.ProviderID, states[selected.ProviderID]))
 	case next != "":
 		item.State = clientWaitsForClient
 		item.NextAction, item.NextDetail = terminal.NextSteps(next)
 	}
 	return item
+}
+
+// tokenStep is the step that a provider's Token in state waits for: none
+// once one is stored, the local check, which inspects a credential store that
+// cannot tell, or else the step that stores one.
+func tokenStep(store secret.Store, id, state string) string {
+	switch state {
+	case tokenStored, tokenPresent, tokenEnvironment:
+		return ""
+	case tokenUnobserved:
+		return domainreadiness.CredentialBackendRecovery
+	}
+	return tokenFix(store, id)
 }
 
 // tokenFix is the step that stores provider's Token: piping it into provider
@@ -317,8 +332,8 @@ func tokenField(token tokenItem) terminal.Field {
 		field.Value = "Stored"
 	case tokenEnvironment:
 		field.Value = "Supplied by " + secret.EnvironmentKey(token.Provider)
-	case tokenNotRead:
-		field.State, field.Value = terminal.Info, "Not read in a preview"
+	case tokenUnobserved:
+		field.State, field.Value = terminal.Warn, "The credential store cannot tell; "+token.NextAction+token.NextDetail
 	default:
 		field.State, field.Value = terminal.Info, "None"
 		if next := token.NextAction + token.NextDetail; next != "" {

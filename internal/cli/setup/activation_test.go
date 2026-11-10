@@ -62,10 +62,10 @@ func TestTeamSetupReportsTheTokenBeforeTheClient(t *testing.T) {
 	cfg := manifestSetupConfig()
 	team := teamSetup{runtime: invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}, merged: cfg}
 	spec, _ := cfg.Admission().Spec(codex.ID)
-	if item := team.client(cfg, spec, nil); item.State != clientWaitsForToken || item.NextDetail != "aigw provider rotate team" {
+	if item := team.client(cfg, spec, nil, nil); item.State != clientWaitsForToken || item.NextDetail != "aigw provider rotate team" {
 		t.Fatalf("client without a Token = %+v", item)
 	}
-	if item := team.client(cfg, spec, []string{"team"}); item.State != clientWaitsForClient || item.NextDetail != "Install Codex if needed, then run `aigw sync`" {
+	if item := team.client(cfg, spec, []string{"team"}, nil); item.State != clientWaitsForClient || item.NextDetail != "Install Codex if needed, then run `aigw sync`" {
 		t.Fatalf("client without its installation = %+v", item)
 	}
 }

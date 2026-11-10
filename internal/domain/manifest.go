@@ -190,11 +190,36 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 			delete(merged.Families, family)
 		}
 	}
+	return finishImport(merged, incoming)
+}
+
+// finishImport normalizes and validates the merge of an import, whose
+// manifest's models each need their providers' endpoints.
+func finishImport(merged Config, incoming Manifest) (Config, error) {
+	if err := requireManifestEndpoints(merged, incoming); err != nil {
+		return Config{}, err
+	}
 	merged.Normalize()
 	if err := merged.Validate(); err != nil {
 		return Config{}, fmt.Errorf("merge configuration manifest: %w", err)
 	}
 	return merged, nil
+}
+
+// requireManifestEndpoints refuses a manifest model's protocol that its
+// provider has no endpoint for. A configuration admits one only for a
+// provider whose endpoints a team setup kept; an import takes the manifest's
+// providers, so each of its models needs its endpoints.
+func requireManifestEndpoints(merged Config, incoming Manifest) error {
+	for _, name := range slices.Sorted(maps.Keys(incoming.Models)) {
+		model := merged.Models[name]
+		for _, protocol := range model.AdmittedProtocols() {
+			if merged.Providers[model.Provider].Endpoints.For(protocol) == "" {
+				return fmt.Errorf("merge configuration manifest: route %q: %w", name, &RuntimeMissingEndpointError{ProviderID: model.Provider, Protocol: protocol})
+			}
+		}
+	}
+	return nil
 }
 
 func validateMergeSelectors(cfg Config, incoming Manifest, options MergeOptions) error {
