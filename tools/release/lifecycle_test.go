@@ -134,12 +134,12 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	journey.requireInstallationDescription(newVersion, newArtifact, baseline)
 	journey.requireRepairPreservesUserSettings("", "user-dark")
 	requireUserFiles()
-	if output := journey.run("update", "--candidate", archive, "--checksums", checksums); !strings.Contains(string(output), "already matches the current program") {
+	if output := journey.run(journey.lifecycle(journey.binary, "update", "--archive", archive, "--checksums", checksums)...); !strings.Contains(string(output), "already matches the current program") {
 		t.Fatalf("exact candidate was not a verified no-op: %s", output)
 	}
 	journey.requireInvalidSuccessorPreservesInstallation(newVersion)
 	// Keep client projections active across rollback; disable/re-enable would test a different journey.
-	journey.run("update", "--rollback")
+	journey.run(journey.lifecycle(journey.binary, "rollback")...)
 	journey.run("sync")
 	journey.requireHealthyVersion(oldVersion)
 	journey.requireProgramBytes(baseline)
@@ -289,11 +289,11 @@ func (j *journeyFixture) requireInvalidSuccessorPreservesInstallation(currentVer
 		version string
 		problem string
 	}{
-		{currentVersion, "different program bytes"},
-		{"999.0.0", "Candidate program failed startup verification"},
+		{currentVersion, "other program bytes"},
+		{"999.0.0", "failed its startup check"},
 	} {
 		archive, checksums := writeNativeArchive(j.testing, invalidProgram, test.version)
-		command := exec.CommandContext(j.testing.Context(), j.binary, "update", "--candidate", archive, "--checksums", checksums)
+		command := exec.CommandContext(j.testing.Context(), j.binary, j.lifecycle(j.binary, "update", "--archive", archive, "--checksums", checksums)...)
 		command.Env = j.environment
 		output, err := command.CombinedOutput()
 		if err == nil || !strings.Contains(string(output), test.problem) {
@@ -316,7 +316,7 @@ func (j *journeyFixture) requireProgramBytes(expected string) {
 
 func (j *journeyFixture) updateTo(archive, checksums, version, program string) {
 	j.testing.Helper()
-	j.run("update", "--candidate", archive, "--checksums", checksums)
+	j.run(j.lifecycle(j.binary, "update", "--archive", archive, "--checksums", checksums)...)
 	j.run("sync")
 	j.requireHealthyVersion(version)
 	j.requireCodexProjection()
@@ -502,15 +502,22 @@ func (j *journeyFixture) requireInstallationDescription(version, payload, rollba
 			SizeBytes int64  `json:"size_bytes"`
 		} `json:"rollback"`
 	}
-	if err := json.Unmarshal(j.run("installation", "--json"), &observed); err != nil {
+	status := j.lifecycle(j.binary, "status", "--json")
+	if err := json.Unmarshal(j.run(status...), &observed); err != nil {
 		j.testing.Fatal(err)
+	}
+	// `aigw self status` writes version 2 of the document that a published
+	// release's `aigw installation` wrote as version 1.
+	schema := 1
+	if status[0] == "self" {
+		schema = 2
 	}
 	resolved, err := filepath.EvalSymlinks(j.binary)
 	if err != nil {
 		j.testing.Fatal(err)
 	}
 	current, previous := readFile(j.testing, payload), readFile(j.testing, rollback)
-	if observed.SchemaVersion != 1 || observed.Version != version || observed.CommandPath != j.binary ||
+	if observed.SchemaVersion != schema || observed.Version != version || observed.CommandPath != j.binary ||
 		observed.Payload.Path != resolved || observed.Payload.SHA256 != fmt.Sprintf("%x", sha256.Sum256(current)) ||
 		observed.Payload.SizeBytes != int64(len(current)) || observed.Rollback == nil ||
 		observed.Rollback.SHA256 != fmt.Sprintf("%x", sha256.Sum256(previous)) ||

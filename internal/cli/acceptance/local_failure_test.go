@@ -105,7 +105,7 @@ func TestAFileWhereAIGWsFolderBelongsToEveryCommand(t *testing.T) {
 		{"sync", "--json"},
 		{"use", "claude", "gateway/claude-test", "--json"},
 		{"rollback", "--json"},
-		{"uninstall", "--dry-run", "--json"},
+		{"self", "uninstall", "--dry-run", "--json"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, output, secrets, _, _ := testApp(t, "")

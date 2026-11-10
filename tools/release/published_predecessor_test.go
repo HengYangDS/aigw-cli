@@ -127,7 +127,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	journey := newNativeJourney(t, baseline, upstream.URL+"/v1", true)
 	state := publishedNativeJourney{journey: journey, baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version, clients: deferredJourneyClientIDs()}
 	state.prepare(t, nativeCurrentSchemaManifest(upstream.URL+"/v1"))
-	journey.run("update", "--candidate", archive, "--checksums", checksums)
+	journey.run(journey.lifecycle(journey.binary, "update", "--archive", archive, "--checksums", checksums)...)
 	configStore := store.NewStore(journey.config, builtinclients.Admission())
 	before := capturePublishedSnapshot(t, configStore)
 	endpoint := forwarding.URL + "/selected/v1"
@@ -198,13 +198,13 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint s
 	if err != nil || !restored.Config.Equal(selected.Config) || !restored.Forwarding().Equal(selected.Forwarding()) {
 		t.Fatalf("configuration forward restore lost exact binding bytes: %v", err)
 	}
-	journey.run("update", "--rollback")
+	journey.run(journey.lifecycle(journey.binary, "rollback")...)
 	journey.requireProgramBytes(baseline)
 	for _, client := range state.clients {
 		journey.requireCredential(state.retained[client], "native-journey-token")
 	}
 	journey.runWith(state.candidate, "sync")
-	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
+	journey.run(journey.lifecycle(journey.binary, "update", "--archive", state.archive, "--checksums", state.checksums)...)
 	journey.requireProgramBytes(state.candidate)
 	cfg, err = configStore.Load()
 	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint {
@@ -348,7 +348,7 @@ func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, predeces
 
 func (state *publishedNativeJourney) upgrade(t *testing.T) {
 	journey := state.journey
-	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
+	journey.run(journey.lifecycle(journey.binary, "update", "--archive", state.archive, "--checksums", state.checksums)...)
 	for _, client := range state.clients {
 		journey.requireCredential(state.retained[client], "native-journey-token")
 	}
@@ -419,7 +419,7 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), clientverification.ProtocolTimeout)
 	stdout, stderr, rollbackErr := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
-		Executable: journey.binary, Args: []string{"update", "--rollback"}, Env: journey.environment,
+		Executable: journey.binary, Args: journey.lifecycle(journey.binary, "rollback"), Env: journey.environment,
 	})
 	cancel()
 	if len(stderr) != 0 {
@@ -449,7 +449,7 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
 	}
 
-	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
+	journey.run(journey.lifecycle(journey.binary, "update", "--archive", state.archive, "--checksums", state.checksums)...)
 	for _, client := range state.clients {
 		journey.requireCredential(state.retained[client], "native-journey-token")
 		journey.requireCredential(successor[client], "native-journey-token")

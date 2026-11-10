@@ -186,7 +186,7 @@ func TestFlagErrorsSuggestTheCommandHelp(t *testing.T) {
 		{[]string{"status", "--not-a-flag"}, "unknown option --not-a-flag; run `aigw status --help`"},
 		{[]string{"status", "-x"}, "unknown shorthand flag: 'x' in -x; run `aigw status --help`"},
 		{[]string{"status", "--json=maybe"}, "invalid syntax; run `aigw status --help`"},
-		{[]string{"install", "--path"}, "flag needs an argument: --path; run `aigw install --help`"},
+		{[]string{"self", "install", "--path"}, "flag needs an argument: --path; run `aigw self install --help`"},
 		{[]string{"route", "add", "--not-a-flag"}, "unknown option --not-a-flag; run `aigw route add --help`"},
 		{[]string{"--not-a-flag"}, "unknown option --not-a-flag; run `aigw --help`"},
 		{[]string{"help", "setup", "--not-a-flag"}, "unknown option --not-a-flag; run `aigw --help`"},

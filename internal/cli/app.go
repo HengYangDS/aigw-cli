@@ -28,8 +28,6 @@ import (
 	"aigw-cli/internal/cli/config"
 	credentialcli "aigw-cli/internal/cli/credential"
 	"aigw-cli/internal/cli/doctor"
-	installcli "aigw-cli/internal/cli/install"
-	"aigw-cli/internal/cli/installation"
 	"aigw-cli/internal/cli/invocation"
 	modelcli "aigw-cli/internal/cli/model"
 	"aigw-cli/internal/cli/models"
@@ -43,8 +41,6 @@ import (
 	"aigw-cli/internal/cli/status"
 	synccli "aigw-cli/internal/cli/sync"
 	testcli "aigw-cli/internal/cli/test"
-	"aigw-cli/internal/cli/uninstall"
-	updatecli "aigw-cli/internal/cli/update"
 	"aigw-cli/internal/cli/use"
 	"aigw-cli/internal/cli/verify"
 	versioncli "aigw-cli/internal/cli/version"
@@ -228,7 +224,7 @@ func requiresConfigurationLock(command *cobra.Command) bool {
 	switch path {
 	case "rotate", "provider rotate", "account diagnostics enable", "account diagnostics disable":
 		return true
-	case "setup", "add", "rollback", "uninstall", "update", "account edit",
+	case "setup", "add", "rollback", "account edit",
 		"route add", "route edit", "route remove", "model add", "model edit", "model remove", "client enable", "client disable", "client edit",
 		"provider add", "provider edit", "provider remove",
 		"use", "sync", "repair", "account rename", "route rename", "config import", "config migrate",
@@ -394,11 +390,9 @@ func NewRoot(app *App) *cobra.Command {
 	daily := []*cobra.Command{status.NewCommand(runtime), use.NewCommand(runtime), check.NewCommand(runtime), rotate.NewCommand(runtime)}
 	recoveryCommands := []*cobra.Command{
 		doctor.NewCommand(runtime), repair.NewCommand(runtime), synccli.NewCommand(runtime),
-		rollback.NewCommand(runtime), updatecli.NewCommand(runtime),
-		installcli.NewCommand(runtime), uninstall.NewCommand(runtime), selfcli.NewCommand(runtime),
+		rollback.NewCommand(runtime), selfcli.NewCommand(runtime),
 	}
 	advanced := []*cobra.Command{
-		installation.NewCommand(runtime),
 		add.NewCommand(runtime), accountcli.NewCommand(runtime),
 		modelcli.NewCommand(runtime), providercli.NewCommand(runtime), route.NewCommand(runtime),
 		clientcli.NewCommand(runtime),

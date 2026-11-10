@@ -37,18 +37,18 @@ func TestUpdateWritesItsTransitionAsJSON(t *testing.T) {
 		want     string
 	}{
 		{name: "update", updater: &fakeUpdater{updateResult: updated("0.2.0", "updated to v0.2.0")},
-			want: `{"schema_version":1,"ok":true,"state":"updated","version":"0.2.0","summary":"updated to v0.2.0","next_action":"aigw sync"}`},
-		{name: "current candidate", args: []string{"--candidate", "aigw_0.1.0_darwin_arm64.tar.gz", "--checksums", "checksums.txt"},
+			want: `{"schema_version":2,"ok":true,"state":"updated","version":"0.2.0","summary":"updated to v0.2.0","next_action":"aigw sync"}`},
+		{name: "current candidate", args: []string{"--archive", "aigw_0.1.0_darwin_arm64.tar.gz", "--checksums", "checksums.txt"},
 			updater: &fakeUpdater{candidateResult: program.Transition{State: program.TransitionCurrent, Version: "0.1.0", Summary: "already matches"}},
-			want:    `{"schema_version":1,"ok":true,"state":"current","version":"0.1.0","summary":"already matches","next_action":"aigw sync"}`},
+			want:    `{"schema_version":2,"ok":true,"state":"current","version":"0.1.0","summary":"already matches","next_action":"aigw sync"}`},
 		{name: "rollback", args: []string{"--rollback"}, updater: &fakeUpdater{rollbackResult: restored("restored the previous program version.")},
-			want: `{"schema_version":1,"ok":true,"state":"restored","version":"0.0.9","summary":"restored the previous program version.","next_action":"aigw sync"}`},
+			want: `{"schema_version":2,"ok":true,"state":"restored","version":"0.0.9","summary":"restored the previous program version.","next_action":"aigw sync"}`},
 		{name: "Homebrew rollback", args: []string{"--rollback"}, updater: &fakeUpdater{}, homebrew: true,
-			want: `{"schema_version":1,"ok":true,"state":"prepared","summary":"Credentials are ready for an earlier AIGW release.",` +
+			want: `{"schema_version":2,"ok":true,"state":"prepared","summary":"Credentials are ready for an earlier AIGW release.",` +
 				`"next_detail":"Install the earlier release with Homebrew, then run ` + "`aigw sync` and `aigw check`" + `."}`},
 		{name: "incomplete cleanup", updater: &fakeUpdater{updateResult: updated("0.2.0", "updated to v0.2.0"), updateErr: cleanup}, failed: true,
-			want: `{"schema_version":1,"ok":false,"state":"updated","version":"0.2.0","summary":"updated to v0.2.0","problem":"Program updated; cleanup is incomplete",` +
-				`"next_detail":"Run ` + "`aigw installation` and `aigw check --depth local`" + ` before retrying cleanup or another program transition."}`},
+			want: `{"schema_version":2,"ok":false,"state":"updated","version":"0.2.0","summary":"updated to v0.2.0","problem":"Program updated; cleanup is incomplete",` +
+				`"next_detail":"Run ` + "`aigw self status` and `aigw check --depth local`" + ` before another program update or rollback."}`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
@@ -57,7 +57,11 @@ func TestUpdateWritesItsTransitionAsJSON(t *testing.T) {
 				keychainRecorder(t, app, "0")
 			}
 			app.Updater = test.updater
-			err := cli.Execute(app, append([]string{"update", "--json"}, test.args...))
+			command := append([]string{"self", "update", "--json"}, test.args...)
+			if slices.Contains(test.args, "--rollback") {
+				command = []string{"self", "rollback", "--json"}
+			}
+			err := cli.Execute(app, command)
 			if (err != nil) != test.failed || (test.failed && !errors.Is(err, cleanup)) {
 				t.Fatalf("update error = %v, want failed %v", err, test.failed)
 			}
@@ -79,7 +83,7 @@ func TestUninstallWritesTheWithdrawnClientsAsJSON(t *testing.T) {
 				blockRemoval(t, app.Executable)
 			}
 			out.Reset()
-			err := cli.Execute(app, []string{"uninstall", "--json"})
+			err := cli.Execute(app, []string{"self", "uninstall", "--json"})
 			var document struct {
 				OK               bool     `json:"ok"`
 				ProgramFound     bool     `json:"program_found"`

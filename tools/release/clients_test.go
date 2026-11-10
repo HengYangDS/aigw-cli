@@ -8,6 +8,7 @@ import (
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/construction"
@@ -158,7 +159,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	server, hermesSession := newNativeClientServer(t, client, protocol, route.UpstreamModel, token, &completions)
 	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
 	if client == hermes.ID && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
-		journey.run("update", "--candidate", p.archive, "--checksums", p.checksums)
+		journey.run(journey.lifecycle(journey.binary, "update", "--archive", p.archive, "--checksums", p.checksums)...)
 		journey.requireVersion(p.version)
 		journey.requireProgramBytes(p.candidate)
 	}
@@ -182,17 +183,16 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		if !t.Run(step.name, func(t *testing.T) {
 			journey.testing = t
 			configurationBefore := readFile(t, journey.config)
-			replacement := step.args[0] == "update"
+			replacement := step.args[0] == "self" && step.args[1] == "update"
 			if replacement && step.program == p.candidate {
-				journey.runWith(p.candidate, "sync")
-				if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
-					t.Fatal("candidate preprojection changed retained client configuration")
-				}
-				journey.requireCredential(retainedCredential, token)
-				journey.requireCredential(journey.retainedCredential(client), token)
+				journey.preprojectReplacement(p.candidate, client, token, configurationBefore, retainedCredential)
 			}
 			projectedCredential := journey.retainedCredential(client)
-			journey.run(step.args...)
+			args := step.args
+			if args[0] == "self" {
+				args = journey.lifecycle(journey.binary, args[1:]...)
+			}
+			journey.run(args...)
 			if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
 				t.Fatal("lifecycle operation changed the retained client configuration")
 			}
@@ -201,18 +201,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 			journey.requireCredential(retainedCredential, token)
 			journey.requireCredential(projectedCredential, token)
 			if replacement {
-				count := completions.Load()
-				journey.runWith(p.candidate, "verify", "--for", client)
-				if completions.Load() <= count {
-					t.Fatal("retained client projection stopped serving authenticated inference before synchronization")
-				}
-				journey.run("sync")
-				journey.run("check")
-				if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
-					t.Fatal("post-replacement synchronization changed retained client configuration")
-				}
-				journey.requireCredential(projectedCredential, token)
-				journey.requireCredential(journey.retainedCredential(client), token)
+				journey.requireReplacementServes(p.candidate, client, token, configurationBefore, projectedCredential, &completions)
 			}
 			continueClient()
 			count := completions.Load()
@@ -324,6 +313,37 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	}
 }
 
+// preprojectReplacement runs the candidate's sync before a step installs it,
+// which keeps the retained configuration and both credential commands.
+func (j *journeyFixture) preprojectReplacement(candidate, client, token string, configurationBefore []byte, retained process.Plan) {
+	j.testing.Helper()
+	j.runWith(candidate, "sync")
+	if !bytes.Equal(readFile(j.testing, j.config), configurationBefore) {
+		j.testing.Fatal("candidate preprojection changed retained client configuration")
+	}
+	j.requireCredential(retained, token)
+	j.requireCredential(j.retainedCredential(client), token)
+}
+
+// requireReplacementServes checks that the retained client projection serves
+// inference after a replacement and before synchronization, and that sync and
+// check keep the configuration and the credential commands.
+func (j *journeyFixture) requireReplacementServes(candidate, client, token string, configurationBefore []byte, projected process.Plan, completions *atomic.Int64) {
+	j.testing.Helper()
+	count := completions.Load()
+	j.runWith(candidate, "verify", "--for", client)
+	if completions.Load() <= count {
+		j.testing.Fatal("retained client projection stopped serving authenticated inference before synchronization")
+	}
+	j.run("sync")
+	j.run("check")
+	if !bytes.Equal(readFile(j.testing, j.config), configurationBefore) {
+		j.testing.Fatal("post-replacement synchronization changed retained client configuration")
+	}
+	j.requireCredential(projected, token)
+	j.requireCredential(j.retainedCredential(client), token)
+}
+
 func (p nativeClientJourneyPlan) clientLifecycle(journey *journeyFixture, client string) []struct {
 	name, version, program string
 	args                   []string
@@ -340,9 +360,9 @@ func (p nativeClientJourneyPlan) clientLifecycle(journey *journeyFixture, client
 		args                   []string
 	}{
 		{"baseline", oldVersion, journey.source, []string{"status", "--json"}},
-		{"candidate", p.version, p.candidate, []string{"update", "--candidate", p.archive, "--checksums", p.checksums}},
-		{"rollback", oldVersion, journey.source, []string{"update", "--rollback"}},
-		{"re-upgrade", p.version, p.candidate, []string{"update", "--candidate", p.archive, "--checksums", p.checksums}},
+		{"candidate", p.version, p.candidate, []string{"self", "update", "--archive", p.archive, "--checksums", p.checksums}},
+		{"rollback", oldVersion, journey.source, []string{"self", "rollback"}},
+		{"re-upgrade", p.version, p.candidate, []string{"self", "update", "--archive", p.archive, "--checksums", p.checksums}},
 	}
 }
 

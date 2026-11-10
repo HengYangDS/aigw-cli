@@ -101,7 +101,7 @@ func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
 	const rotated = "native-system-keyring-rotated-after-rollback"
 	journey := state.journey
 	retained := append(prior, journey.retainedCredentials()...)
-	journey.run("update", "--rollback")
+	journey.run(journey.lifecycle(journey.binary, "rollback")...)
 	journey.requireVersion(predecessorVersion)
 	configurationBefore := readFile(t, journey.config)
 	journey.runWithInput(journey.binary, rotated+"\n", "rotate", account, "--token-stdin")
@@ -118,7 +118,7 @@ func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
 	if !bytes.Equal(configurationBefore, readFile(t, journey.config)) {
 		t.Fatal("candidate reader preprojection changed retained configuration")
 	}
-	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
+	journey.run(journey.lifecycle(journey.binary, "update", "--archive", state.archive, "--checksums", state.checksums)...)
 	for _, credential := range retained {
 		journey.requireCredential(credential, rotated)
 	}
@@ -207,7 +207,8 @@ func finishNativeCredentialJourney(
 	if got, err := diagnostics.Get(targetAccount); err != nil || got != wantDiagnostic {
 		t.Fatalf("uninstall removed the retained diagnostic credential: %v", err)
 	}
-	journey.runWith(journey.source, "install", journey.pathFlag(journey.source, "install"), journey.binary)
+	install := journey.lifecycle(journey.source, "install")
+	journey.runWith(journey.source, append(install, journey.pathFlag(journey.source, install...), journey.binary)...)
 	journey.run("sync")
 	journey.requireNoClaudeProjection()
 	// The finalized rename moved the route to the target provider; its model ID
@@ -418,12 +419,12 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 		program string
 		args    []string
 	}{
-		{newVersion, candidate, []string{"update", "--candidate", archive, "--checksums", checksums}},
-		{oldVersion, j.source, []string{"update", "--rollback"}},
-		{newVersion, candidate, []string{"update", "--candidate", archive, "--checksums", checksums}},
+		{newVersion, candidate, []string{"update", "--archive", archive, "--checksums", checksums}},
+		{oldVersion, j.source, []string{"rollback"}},
+		{newVersion, candidate, []string{"update", "--archive", archive, "--checksums", checksums}},
 	} {
 		configurationBefore := readFile(j.testing, j.config)
-		j.run(step.args...)
+		j.run(j.lifecycle(j.binary, step.args...)...)
 		if !bytes.Equal(readFile(j.testing, j.config), configurationBefore) {
 			j.testing.Fatal("credential lifecycle changed the retained client configuration")
 		}

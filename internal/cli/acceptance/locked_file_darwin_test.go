@@ -173,7 +173,7 @@ func TestAnInstallIntoALockedFolderNamesTheFolder(t *testing.T) {
 		t.Skipf("the uchg flag cannot be set here: %v", err)
 	}
 	t.Cleanup(func() { _ = unix.Chflags(folder, 0) })
-	install := []string{"install", "--path", filepath.Join(folder, "aigw"), "--json"}
+	install := []string{"self", "install", "--path", filepath.Join(folder, "aigw"), "--json"}
 	if err := cli.Execute(app, install); err == nil {
 		t.Fatal("the install passed into a locked folder")
 	}

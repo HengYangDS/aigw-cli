@@ -292,25 +292,54 @@ interfaces = { anthropic = ["text"] }
 	if installClient {
 		journey.installClientFixture("claude")
 	}
-	journey.runWith(source, "install", journey.pathFlag(source, "install"), journey.binary)
+	install := journey.lifecycle(source, "install")
+	journey.runWith(source, append(install, journey.pathFlag(source, install...), journey.binary)...)
 	journey.run("--version")
 	return journey
 }
 
-// pathFlag is the flag with which program's install or uninstall names the
-// installed program, as that command's own help lists it in its flag column:
-// --path, or --target in a release before 0.5.0, so a journey can start from
-// any published release. It reads the help outside the test's context, which a
-// registered cleanup's uninstall outlives.
-func (j *journeyFixture) pathFlag(program, command string) string {
+// pathFlag is the flag with which program's install or uninstall, spelled as
+// command, names the installed program, as that command's own help lists it
+// in its flag column: --path, or --target in a release before 0.5.0, so a
+// journey can start from any published release. It reads the help outside
+// the test's context, which a registered cleanup's uninstall outlives.
+func (j *journeyFixture) pathFlag(program string, command ...string) string {
 	j.testing.Helper()
-	help := j.runWithContext(context.WithoutCancel(j.testing.Context()), program, "", command, "--help")
+	help := j.runWithContext(context.WithoutCancel(j.testing.Context()), program, "", append(slices.Clone(command), "--help")...)
 	for line := range strings.Lines(string(help)) {
 		if strings.HasPrefix(strings.TrimSpace(line), "--path ") {
 			return "--path"
 		}
 	}
 	return "--target"
+}
+
+// lifecycle spells a command of program's own lifecycle in program's words.
+// words are the spelling after `aigw self` from 0.7.0, which a program with
+// `aigw self` runs; a published release before it runs the top-level command
+// that 0.7.0 replaced, with update's --rollback for rollback, installation for
+// status and --candidate for --archive, so that a journey that starts from a
+// published release keeps that release's commands.
+func (j *journeyFixture) lifecycle(program string, words ...string) []string {
+	j.testing.Helper()
+	probe := exec.CommandContext(context.WithoutCancel(j.testing.Context()), program, "self", "--help")
+	probe.Env = j.environment
+	if probe.Run() == nil {
+		return append([]string{"self"}, words...)
+	}
+	switch words[0] {
+	case "rollback":
+		return append([]string{"update", "--rollback"}, words[1:]...)
+	case "status":
+		return append([]string{"installation"}, words[1:]...)
+	}
+	spelled := slices.Clone(words)
+	for index, word := range spelled {
+		if word == "--archive" {
+			spelled[index] = "--candidate"
+		}
+	}
+	return spelled
 }
 
 func (j *journeyFixture) installClientFixture(client string) {
@@ -442,7 +471,8 @@ func (j *journeyFixture) uninstallAndRequireInstallationRemoved() {
 func (j *journeyFixture) uninstallWithAndRequireInstallationRemoved(binary string) {
 	j.testing.Helper()
 	reader := j.captureCredentialReader()
-	j.runWithContext(context.WithoutCancel(j.testing.Context()), binary, "", "uninstall", j.pathFlag(binary, "uninstall"), j.binary)
+	uninstall := j.lifecycle(binary, "uninstall")
+	j.runWithContext(context.WithoutCancel(j.testing.Context()), binary, "", append(uninstall, j.pathFlag(binary, uninstall...), j.binary)...)
 	j.requireInstallationRemoved()
 	reader.requireUnchanged(j.testing)
 }

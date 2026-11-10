@@ -179,7 +179,7 @@ func TestUpdatePreviewInstallsNothing(t *testing.T) {
 	writeFile(t, app.Executable, []byte("program"), 0o700)
 	updater := &fakeUpdater{previewResult: program.Transition{State: program.TransitionAvailable, Version: "0.2.0", Summary: "would update to v0.2.0"}}
 	app.Updater = updater
-	if err := cli.Execute(app, []string{"update", "--dry-run", "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "update", "--dry-run", "--json"}); err != nil {
 		t.Fatalf("update preview failed: %v\n%s", err, out.String())
 	}
 	if updater.previewCalls != 1 || updater.updateCalls+updater.candidateCalls+updater.rollbackCalls != 0 {
@@ -207,8 +207,10 @@ func TestUpdatePreviewInstallsNothing(t *testing.T) {
 		t.Fatalf("update preview wrote the rollback copy: %v", err)
 	}
 	out.Reset()
-	err := cli.Execute(app, []string{"update", "--dry-run", "--rollback"})
-	if err == nil || !strings.Contains(err.Error(), "dry-run") || updater.rollbackCalls != 0 {
+	// Beside a program that retains no predecessor, a rollback preview has
+	// nothing to name, and it runs no rollback.
+	err := cli.Execute(app, []string{"self", "rollback", "--dry-run"})
+	if err == nil || !strings.Contains(err.Error(), "No previous program to roll back to") || updater.rollbackCalls != 0 {
 		t.Fatalf("rollback preview = %v, rollback calls %d", err, updater.rollbackCalls)
 	}
 }
@@ -221,7 +223,7 @@ func TestUpdatePreviewInTextFromACandidateAndOnFailure(t *testing.T) {
 	writeFile(t, app.Executable, []byte("program"), 0o700)
 	updater := &fakeUpdater{previewResult: program.Transition{State: program.TransitionAvailable, Version: "0.2.0", Summary: "would update to v0.2.0"}}
 	app.Updater = updater
-	if err := cli.Execute(app, []string{"update", "--dry-run"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "update", "--dry-run"}); err != nil {
 		t.Fatalf("update preview failed: %v\n%s", err, out.String())
 	}
 	for _, want := range []string{"Update preview", "Rollback copy", "would update to v0.2.0", "with this same program"} {
@@ -230,7 +232,7 @@ func TestUpdatePreviewInTextFromACandidateAndOnFailure(t *testing.T) {
 		}
 	}
 	archive, checksums := filepath.Join(t.TempDir(), "aigw_0.2.0_darwin_arm64.tar.gz"), filepath.Join(t.TempDir(), "checksums.txt")
-	if err := cli.Execute(app, []string{"update", "--dry-run", "--candidate", archive, "--checksums", checksums, "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "update", "--dry-run", "--archive", archive, "--checksums", checksums, "--json"}); err != nil {
 		t.Fatalf("candidate preview failed: %v", err)
 	}
 	if updater.candidateReceived.ArchivePath != archive || updater.candidateReceived.ChecksumsPath != checksums || updater.candidateCalls+updater.updateCalls != 0 {
@@ -238,18 +240,18 @@ func TestUpdatePreviewInTextFromACandidateAndOnFailure(t *testing.T) {
 	}
 	updater.previewErr = fmt.Errorf("metadata unavailable: %w", program.ErrReleaseSource)
 	out.Reset()
-	if err := cli.Execute(app, []string{"update", "--dry-run"}); err == nil || !strings.Contains(out.String()+err.Error(), "Update preview did not complete") {
+	if err := cli.Execute(app, []string{"self", "update", "--dry-run"}); err == nil || !strings.Contains(out.String()+err.Error(), "Update preview did not complete") {
 		t.Fatalf("failed preview = %v\n%s", err, out.String())
 	}
 	// A preview that cannot read release metadata can still preview a
 	// verified local archive; doctor inspects neither.
-	if !strings.Contains(out.String(), "Fix\n  aigw update --dry-run --candidate <archive> --checksums <checksums>") || strings.Contains(out.String(), "aigw check --depth local") {
+	if !strings.Contains(out.String(), "Fix\n  aigw self update --dry-run --archive <archive> --checksums <checksums>") || strings.Contains(out.String(), "aigw check --depth local") {
 		t.Fatalf("failed preview names another fix:\n%s", out.String())
 	}
 	// A preview of a named archive never names another archive.
 	out.Reset()
-	if err := cli.Execute(app, []string{"update", "--dry-run", "--candidate", archive, "--checksums", checksums}); err == nil ||
-		!strings.Contains(out.String(), "Fix\n  aigw installation") || strings.Contains(out.String(), "<archive>") {
+	if err := cli.Execute(app, []string{"self", "update", "--dry-run", "--archive", archive, "--checksums", checksums}); err == nil ||
+		!strings.Contains(out.String(), "Fix\n  aigw self status") || strings.Contains(out.String(), "<archive>") {
 		t.Fatalf("failed candidate preview = %v\n%s", err, out.String())
 	}
 	if _, err := os.Stat(program.RollbackPath(app.Executable)); !errors.Is(err, os.ErrNotExist) {
@@ -263,7 +265,7 @@ func TestUpdatePreviewInTextFromACandidateAndOnFailure(t *testing.T) {
 func TestProgramPreviewsWriteNothing(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	writeFile(t, app.Executable, []byte("program"), 0o700)
-	if err := cli.Execute(app, []string{"install", "--dry-run", "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "install", "--dry-run", "--json"}); err != nil {
 		t.Fatalf("install preview failed: %v\n%s", err, out.String())
 	}
 	if _, err := os.Stat(filepath.Dir(app.InstallTarget)); !errors.Is(err, os.ErrNotExist) {
@@ -273,7 +275,7 @@ func TestProgramPreviewsWriteNothing(t *testing.T) {
 	writeFile(t, installed, []byte("installed"), 0o700)
 	writeFile(t, program.RollbackPath(installed), []byte("previous"), 0o700)
 	out.Reset()
-	if err := cli.Execute(app, []string{"uninstall", "--path", installed, "--dry-run", "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "uninstall", "--path", installed, "--dry-run", "--json"}); err != nil {
 		t.Fatalf("uninstall preview failed: %v\n%s", err, out.String())
 	}
 	var document struct {
@@ -306,7 +308,7 @@ func TestUninstallPreviewNamesTheWithdrawal(t *testing.T) {
 		files[path] = readFile(t, path)
 	}
 	out.Reset()
-	if err := cli.Execute(app, []string{"uninstall", "--dry-run", "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "uninstall", "--dry-run", "--json"}); err != nil {
 		t.Fatalf("uninstall preview failed: %v\n%s", err, out.String())
 	}
 	var document struct {
@@ -341,17 +343,17 @@ func TestRemovedSpellingsAreUnknownFlags(t *testing.T) {
 	writeFile(t, installed, []byte("installed"), 0o700)
 	destination := filepath.Join(t.TempDir(), "aigw")
 	for _, test := range []struct {
-		args []string
-		flag string
+		args       []string
+		path, flag string
 	}{
-		{[]string{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude"}, "--model"},
-		{[]string{"add", "team", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude"}, "--model"},
-		{[]string{"install", "--target", destination}, "--target"},
-		{[]string{"uninstall", "--target", installed}, "--target"},
+		{[]string{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude"}, "setup", "--model"},
+		{[]string{"add", "team", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude"}, "add", "--model"},
+		{[]string{"self", "install", "--target", destination}, "self install", "--target"},
+		{[]string{"self", "uninstall", "--target", installed}, "self uninstall", "--target"},
 	} {
-		t.Run(test.args[0], func(t *testing.T) {
+		t.Run(test.path, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
-			want := "unknown option " + test.flag + "; run `aigw " + test.args[0] + " --help`"
+			want := "unknown option " + test.flag + "; run `aigw " + test.path + " --help`"
 			if err := cli.Execute(app, test.args); err == nil || !strings.Contains(out.String(), want) {
 				t.Fatalf("%v: %v\n%s", test.args, err, out.String())
 			}

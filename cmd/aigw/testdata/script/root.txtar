@@ -28,6 +28,21 @@ cmp stdout unknown.txt
 # An unknown command reports in text even with --json, so fixloop cannot
 # follow its fix.
 
+# The commands that the tree replaced are unknown: each names aigw --help and
+# changes nothing.
+snapshot $HOME removed-before.txt
+exitcode 1 aigw install
+stdout 'unknown command "install"'
+stdout '^  aigw --help$'
+exitcode 1 aigw installation
+stdout 'unknown command "installation"'
+exitcode 1 aigw update --rollback
+stdout 'unknown command "update"'
+exitcode 1 aigw uninstall
+stdout 'unknown command "uninstall"'
+snapshot $HOME removed-after.txt
+cmp removed-after.txt removed-before.txt
+
 -- help.txt --
 AIGW  Command help
 ────────────────────────────────────────
@@ -53,13 +68,10 @@ Use every day
 
 Recover
   doctor               Show detailed diagnostics for configuration, secrets, and adapters
-  install              Install this portable AIGW executable
   repair               Discover and repair client configuration
   rollback             Restore configuration and client projections, not the program
   self                 Install, update, roll back, remove or inspect this program
   sync                 Make client files match the configuration
-  uninstall            Withdraw managed projections and remove a portable program
-  update               Update or roll back the portable AIGW program
 
 Advanced
   account              Manage account endpoints and optional precise diagnostics
@@ -69,7 +81,6 @@ Advanced
   client               List, enable, disable and edit clients
   completion           Generate shell completion
   config               Show, export and roll back the configuration
-  installation         Inspect the current portable program and retained predecessor
   model                List, search, show, add, edit and remove models
   models               Compare configured model IDs with provider catalogs; does not test inference
   provider             List, show, add, edit and remove providers; rotate Tokens; report balances

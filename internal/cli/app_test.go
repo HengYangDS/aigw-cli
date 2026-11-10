@@ -232,7 +232,7 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 		"Usage", "aigw [command]",
 		"Connect", "setup",
 		"Use every day", "check", "rotate", "status", "use",
-		"Recover", "doctor", "install", "repair", "rollback", "sync", "uninstall", "update",
+		"Recover", "doctor", "repair", "rollback", "self", "sync",
 		"Advanced", "account", "add", "balance", "catalog", "client", "completion", "config", "models", "route", "test", "verify",
 		"Options", "show help", "show version",
 	} {
@@ -400,8 +400,8 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		{args: []string{"rotate", "--help"}, want: []string{"Update one Account Token"}},
 		{args: []string{"completion", "--help"}, want: []string{"Generate shell completion"}},
 		{args: []string{"rollback", "--help"}, want: []string{"Restore configuration and client projections", "does not replace the AIGW program", "aigw update --rollback", "Restore only the immediately previous configuration backup"}},
-		{args: []string{"update", "--help"}, want: []string{"portable AIGW program", "Homebrew-managed copies must be upgraded with Homebrew", "--rollback restores the retained program, not configuration"}},
-		{args: []string{"uninstall", "--help"}, want: []string{"Withdraw AIGW-owned client projections", "retains Account and Route data and stored Tokens", "Homebrew-managed copies must be removed with Homebrew"}},
+		{args: []string{"self", "update", "--help"}, want: []string{"Replace only a portable AIGW program", "Homebrew upgrades a program that it installed", "Client settings and Tokens do not change"}},
+		{args: []string{"self", "uninstall", "--help"}, want: []string{"Remove AIGW's settings from the client files", "Providers, models and stored Tokens stay", "Homebrew removes a program that it installed"}},
 		{args: []string{"config", "import", "--help"}, want: []string{"Merge a secret-free configuration manifest", "Explicitly replace conflicting account metadata", "system tokens remain unchanged"}},
 	}
 	for _, tc := range cases {

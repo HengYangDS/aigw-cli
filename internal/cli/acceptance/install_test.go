@@ -29,7 +29,7 @@ func TestInstallationDescribesCurrentFilesWithoutConfiguration(t *testing.T) {
 	program := []byte("current portable program")
 	writeFile(t, app.Executable, program, 0o755)
 	writeFile(t, app.Config.Path(), []byte("malformed configuration"), 0o600)
-	if err := cli.Execute(app, []string{"installation", "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "status", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 	var result struct {
@@ -50,7 +50,7 @@ func TestInstallationDescribesCurrentFilesWithoutConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.SchemaVersion != 1 || result.Version != app.Version || result.CommandPath != app.Executable ||
+	if result.SchemaVersion != 2 || result.Version != app.Version || result.CommandPath != app.Executable ||
 		result.Payload.Path != resolved || result.Payload.SHA256 != fmt.Sprintf("%x", sha256.Sum256(program)) ||
 		result.Payload.SizeBytes != int64(len(program)) || string(result.Rollback) != "null" {
 		t.Fatalf("installation description = %+v", result)
@@ -78,7 +78,7 @@ func TestPortableInstallAndUninstallCommandsOwnOnlyProgramFiles(t *testing.T) {
 	if err := os.WriteFile(app.Executable, []byte("portable"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := cli.Execute(app, []string{"install"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "install"}); err != nil {
 		t.Fatal(err)
 	}
 	if data, err := os.ReadFile(app.InstallTarget); err != nil || string(data) != "portable" {
@@ -88,13 +88,13 @@ func TestPortableInstallAndUninstallCommandsOwnOnlyProgramFiles(t *testing.T) {
 		t.Fatalf("install output = %q", out.String())
 	}
 	out.Reset()
-	if err := cli.Execute(app, []string{"uninstall", "--path", app.InstallTarget}); err != nil {
+	if err := cli.Execute(app, []string{"self", "uninstall", "--path", app.InstallTarget}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(app.InstallTarget); !os.IsNotExist(err) {
 		t.Fatalf("installed program remains: %v", err)
 	}
-	if !strings.Contains(out.String(), "Configuration and credential-store secrets were preserved") {
+	if !strings.Contains(out.String(), "The configuration and the stored Tokens were kept") {
 		t.Fatalf("uninstall output = %q", out.String())
 	}
 }
@@ -112,7 +112,7 @@ func TestUninstallReportsCommittedWithdrawalWithIncompleteProgramRemoval(t *test
 	configureUninstallClients(t, app, codexTarget)
 	blockRemoval(t, app.Executable)
 	out.Reset()
-	if err := cli.Execute(app, []string{"uninstall"}); err == nil {
+	if err := cli.Execute(app, []string{"self", "uninstall"}); err == nil {
 		t.Fatal("incomplete program removal was accepted")
 	}
 	cfg, err := app.Config.Load()
@@ -122,10 +122,10 @@ func TestUninstallReportsCommittedWithdrawalWithIncompleteProgramRemoval(t *test
 	if data, err := os.ReadFile(app.Executable); err != nil || string(data) != "program" {
 		t.Fatalf("the program that could not be removed changed: %q error=%v", data, err)
 	}
-	if !strings.Contains(out.String(), "Client withdrawal completed") || !strings.Contains(out.String(), "program removal is incomplete") || strings.Contains(out.String(), app.Executable) {
+	if !strings.Contains(out.String(), "Client settings were removed") || !strings.Contains(out.String(), "program removal is incomplete") || strings.Contains(out.String(), app.Executable) {
 		t.Fatalf("uninstall obscured the committed state or exposed its path: %s", out.String())
 	}
-	if !strings.Contains(out.String(), "another verified AIGW executable") {
+	if !strings.Contains(out.String(), "another verified AIGW program") {
 		t.Fatalf("partial uninstall requires its removed command: %s", out.String())
 	}
 }
@@ -134,7 +134,7 @@ func TestUnconfiguredUninstallReportsRemovalFailureWithoutClaimingWithdrawal(t *
 	app, out, _, _, _ := testApp(t, "")
 	writeFile(t, app.Executable, []byte("program"), 0o700)
 	blockRemoval(t, app.Executable)
-	if err := cli.Execute(app, []string{"uninstall"}); err == nil {
+	if err := cli.Execute(app, []string{"self", "uninstall"}); err == nil {
 		t.Fatal("incomplete program removal was accepted")
 	}
 	if !strings.Contains(out.String(), "No AIGW configuration existed") || strings.Contains(out.String(), "withdrawal completed") || strings.Contains(out.String(), app.Executable) {
@@ -146,7 +146,7 @@ func TestUnconfiguredUninstallReportsRemovalFailureWithoutClaimingWithdrawal(t *
 // directory at the rollback copy's path, which AIGW did not write, stops the
 // preview and the uninstall alike before any client is withdrawn.
 func TestUninstallRefusesARollbackDirectoryBeforeWithdrawal(t *testing.T) {
-	for _, args := range [][]string{{"uninstall", "--dry-run"}, {"uninstall"}} {
+	for _, args := range [][]string{{"self", "uninstall", "--dry-run"}, {"self", "uninstall"}} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
 			writeFile(t, app.Executable, []byte("program"), 0o700)
@@ -186,7 +186,7 @@ func TestUninstallPreservesDriftedSharedReader(t *testing.T) {
 	configureUninstallClients(t, app, codexTarget)
 	writeFile(t, reader+".sha256", []byte("changed receipt\n"), 0o600)
 
-	if err := cli.Execute(app, []string{"uninstall"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "uninstall"}); err != nil {
 		t.Fatal(err)
 	}
 	retained, loadErr := app.Config.Load()
@@ -241,7 +241,7 @@ func TestPortableUninstallPreservesExternalCredentialCommand(t *testing.T) {
 	if _, err := os.Stat(reader); err != nil {
 		t.Fatalf("external switch removed a potentially cached AIGW reader: %v", err)
 	}
-	if err := cli.Execute(app, []string{"uninstall"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "uninstall"}); err != nil {
 		t.Fatal(err)
 	}
 	if got := string(readFile(t, external)); got != "operator-owned helper" {
@@ -389,13 +389,13 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 func withdrawInstallationClients(t *testing.T, app *cli.App, manager, previousExecutable string) {
 	t.Helper()
 	if manager == "portable" {
-		if err := cli.Execute(app, []string{"uninstall"}); err != nil {
+		if err := cli.Execute(app, []string{"self", "uninstall"}); err != nil {
 			t.Fatal(err)
 		}
 		return
 	}
 
-	if err := cli.Execute(app, []string{"uninstall"}); err == nil || !strings.Contains(err.Error(), "Homebrew") {
+	if err := cli.Execute(app, []string{"self", "uninstall"}); err == nil || !strings.Contains(err.Error(), "Homebrew") {
 		t.Fatalf("managed uninstall = %v", err)
 	}
 	for _, client := range clients.Admission().IDs() {

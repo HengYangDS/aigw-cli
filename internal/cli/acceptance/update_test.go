@@ -22,7 +22,7 @@ import (
 func TestUpdateCandidateRequiresChecksumManifest(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	app.Updater = &fakeUpdater{}
-	err := cli.Execute(app, []string{"update", "--candidate", "/tmp/aigw_0.2.0_darwin_arm64.tar.gz"})
+	err := cli.Execute(app, []string{"self", "update", "--archive", "/tmp/aigw_0.2.0_darwin_arm64.tar.gz"})
 	if err == nil || !strings.Contains(err.Error(), "must all be set") {
 		t.Fatalf("error = %v", err)
 	}
@@ -30,13 +30,13 @@ func TestUpdateCandidateRequiresChecksumManifest(t *testing.T) {
 
 func TestUpdateInvalidInputsLeaveOperationAndConfigurationUntouched(t *testing.T) {
 	for _, args := range [][]string{
-		{"--candidate", ""},
-		{"--candidate", "", "--checksums", ""},
-		{"--candidate", " ", "--checksums", "checksums.txt"},
-		{"--candidate", "archive.zip", "--checksums", "\t"},
-		{"--candidate", "archive.zip"},
+		{"--archive", ""},
+		{"--archive", "", "--checksums", ""},
+		{"--archive", " ", "--checksums", "checksums.txt"},
+		{"--archive", "archive.zip", "--checksums", "\t"},
+		{"--archive", "archive.zip"},
 		{"--checksums", "checksums.txt"},
-		{"--rollback", "--candidate", "archive.zip", "--checksums", "checksums.txt"},
+		{"--rollback", "--archive", "archive.zip", "--checksums", "checksums.txt"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")
@@ -44,7 +44,7 @@ func TestUpdateInvalidInputsLeaveOperationAndConfigurationUntouched(t *testing.T
 			app.Config = store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 			updater := &fakeUpdater{}
 			app.Updater = updater
-			err := cli.Execute(app, append([]string{"update"}, args...))
+			err := cli.Execute(app, append([]string{"self", "update"}, args...))
 			if err == nil || updater.updateCalls != 0 || updater.candidateCalls != 0 || updater.rollbackCalls != 0 {
 				t.Fatalf("error=%v online=%d candidate=%d rollback=%d", err, updater.updateCalls, updater.candidateCalls, updater.rollbackCalls)
 			}
@@ -59,7 +59,7 @@ func TestUpdateRollbackUsesLocalProgramRollbackOnly(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	updater := &fakeUpdater{rollbackResult: restored("restored the previous program version; you can run `aigw update --rollback` again to restore the current version.")}
 	app.Updater = updater
-	if err := cli.Execute(app, []string{"update", "--rollback"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "rollback"}); err != nil {
 		t.Fatal(err)
 	}
 	if updater.rollbackCalls != 1 || updater.updateCalls != 0 {
@@ -77,7 +77,7 @@ func TestUpdateWithoutRollbackKeepsNetworkUpdatePath(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	updater := &fakeUpdater{updateResult: updated("0.2.0", "updated to v0.2.0.")}
 	app.Updater = updater
-	if err := cli.Execute(app, []string{"update"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "update"}); err != nil {
 		t.Fatal(err)
 	}
 	if updater.updateCalls != 1 || updater.rollbackCalls != 0 {
@@ -89,7 +89,7 @@ func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cause := errors.New("read retained predecessor: permission denied")
 	app.Updater = &fakeUpdater{rollbackErr: cause}
-	err := cli.Execute(app, []string{"update", "--rollback"})
+	err := cli.Execute(app, []string{"self", "rollback"})
 	if err == nil || err.Error() != "Program rollback did not complete" || !errors.Is(err, cause) {
 		t.Fatalf("error = %v", err)
 	}
@@ -97,7 +97,7 @@ func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
 		"Program rollback did not complete",
 		"AIGW could not activate the retained previous program.",
 		"No previous program version was confirmed active.",
-		"Fix\n  aigw installation",
+		"Fix\n  aigw self status",
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("output missing %q:\n%s", want, out.String())
@@ -106,7 +106,7 @@ func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
 	if strings.Contains(out.String(), cause.Error()) {
 		t.Fatalf("output exposes implementation error:\n%s", out.String())
 	}
-	if count := strings.Count(out.String(), "aigw installation"); count != 1 || strings.Contains(out.String(), "aigw check") {
+	if count := strings.Count(out.String(), "aigw self status"); count != 1 || strings.Contains(out.String(), "aigw check") {
 		t.Fatalf("safe next action count = %d, want 1 and no client check:\n%s", count, out.String())
 	}
 }
@@ -125,7 +125,7 @@ func TestUpdateRollbackExecutionFailureKeepsRollbackContext(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
 			app.Updater = &fakeUpdater{rollbackErr: test.failure}
-			err := cli.Execute(app, []string{"update", "--rollback"})
+			err := cli.Execute(app, []string{"self", "rollback"})
 			if !errors.Is(err, test.failure) {
 				t.Fatalf("rollback failure lost its typed cause: %v", err)
 			}
@@ -145,14 +145,14 @@ func TestUpdateRollbackPreservesExactConfigurationOnIncompatibility(t *testing.T
 	}
 	updater := &fakeUpdater{rollbackErr: program.ErrRollbackConfiguration}
 	app.Updater = updater
-	err := cli.Execute(app, []string{"update", "--rollback"})
+	err := cli.Execute(app, []string{"self", "rollback"})
 	if !errors.Is(err, program.ErrRollbackConfiguration) || string(updater.rollbackConfig) != string(config) || updater.rollbackCalls != 1 {
 		t.Fatalf("rollback input or cause changed: %q, %v", updater.rollbackConfig, err)
 	}
 	if actual, err := os.ReadFile(app.Config.Path()); err != nil || string(actual) != string(config) {
 		t.Fatalf("rollback changed config: %q, %v", actual, err)
 	}
-	for _, want := range []string{"Program rollback did not complete", "configuration-read check", "remain unchanged", "compatible program", "aigw rollback", "do not delete policy fields manually"} {
+	for _, want := range []string{"Program rollback did not complete", "configuration-read check", "remain unchanged", "compatible program", "aigw config rollback", "do not delete policy fields by hand"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("rollback omitted %q: %s", want, out.String())
 		}
@@ -169,7 +169,7 @@ func TestUpdateRollbackStopsBeforeUpdaterWhenConfigurationCannotBeRead(t *testin
 	}
 	updater := &fakeUpdater{}
 	app.Updater = updater
-	if err := cli.Execute(app, []string{"update", "--rollback"}); err == nil || updater.rollbackCalls != 0 {
+	if err := cli.Execute(app, []string{"self", "rollback"}); err == nil || updater.rollbackCalls != 0 {
 		t.Fatalf("rollback ignored unreadable configuration: %v, calls=%d", err, updater.rollbackCalls)
 	}
 }
@@ -222,7 +222,7 @@ func TestUpdateRollbackGivesTheUpdaterCredentialCustody(t *testing.T) {
 	record := keychainRecorder(t, app, "0")
 	updater := &fakeUpdater{rollbackResult: restored("restored the previous program version.")}
 	app.Updater = updater
-	if err := cli.Execute(app, []string{"update", "--rollback"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "rollback"}); err != nil {
 		t.Fatal(err)
 	}
 	requireCustodyRequests(t, record, "")
@@ -276,7 +276,7 @@ func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
 			before, beforeErr := os.ReadFile(app.Config.Path())
 			updater := &fakeUpdater{}
 			app.Updater = updater
-			err := cli.Execute(app, []string{"update", "--rollback"})
+			err := cli.Execute(app, []string{"self", "rollback"})
 			switch {
 			case test.damage != nil:
 				requireAuthorityRefusal(t, err, out.String(), app.Config.Path(), before, beforeErr)
@@ -319,7 +319,7 @@ func requireAuthorityRefusal(t *testing.T, err error, output, path string, befor
 	t.Helper()
 	text := strings.Join(strings.Fields(output), " ")
 	if err == nil || strings.Contains(output, "Credentials are ready") || !strings.Contains(output, "stopped at the configuration") ||
-		!strings.Contains(text, "`aigw config path` prints its location. Then rerun `aigw update --rollback` before Homebrew installs the earlier release.") {
+		!strings.Contains(text, "`aigw config path` prints its location. Then run `aigw self rollback` again before Homebrew installs the earlier release.") {
 		t.Fatalf("Homebrew rollback without a readable configuration = %v\n%s", err, output)
 	}
 	if after, afterErr := os.ReadFile(path); string(after) != string(before) || (afterErr == nil) != (beforeErr == nil) {
@@ -327,25 +327,33 @@ func requireAuthorityRefusal(t *testing.T, err error, output, path string, befor
 	}
 }
 
-func TestUpdateHelpDescribesOfflineProgramRollback(t *testing.T) {
-	app, out, _, _, _ := testApp(t, "")
-	if err := cli.Execute(app, []string{"update", "--help"}); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out.String(), "Roll back the portable AIGW program to the previous version offline") {
-		t.Fatalf("help = %s", out.String())
-	}
-	help := strings.Join(strings.Fields(out.String()), " ")
-	for _, want := range []string{
-		"Homebrew-managed copies must be upgraded with Homebrew",
-		"Client settings and Tokens do not change",
-		"Run aigw sync, then aigw check before resuming clients",
-		"--rollback restores the retained program, not configuration",
-		"An incompatible current configuration blocks program rollback",
-		"Before Homebrew installs an earlier release, --rollback returns macOS Keychain items to that release's reader",
+// TestSelfUpdateAndRollbackHelpDescribeTheProgramTransition: update's help
+// says what an update changes and what follows it, and rollback's says what
+// it restores, what its check stages and what a Homebrew rollback does first.
+func TestSelfUpdateAndRollbackHelpDescribeTheProgramTransition(t *testing.T) {
+	for command, wants := range map[string][]string{
+		"update": {
+			"Homebrew upgrades a program that it installed",
+			"Client settings and Tokens do not change",
+			"Run aigw sync, then aigw check, before resuming clients",
+			"--archive installs a local release archive, verified against --checksums",
+		},
+		"rollback": {
+			"Activate the program that the last update or installation retained",
+			"stages the configuration file that the previous program reads",
+			"a configuration that it cannot read blocks the rollback without changing files",
+			"Before Homebrew installs an earlier release, this returns macOS Keychain items to that release's reader",
+		},
 	} {
-		if !strings.Contains(help, want) {
-			t.Fatalf("help omitted %q: %s", want, out.String())
+		app, out, _, _, _ := testApp(t, "")
+		if err := cli.Execute(app, []string{"self", command, "--help"}); err != nil {
+			t.Fatal(err)
+		}
+		help := strings.Join(strings.Fields(out.String()), " ")
+		for _, want := range wants {
+			if !strings.Contains(help, want) {
+				t.Fatalf("self %s help omitted %q: %s", command, want, out.String())
+			}
 		}
 	}
 }
@@ -353,7 +361,7 @@ func TestUpdateHelpDescribesOfflineProgramRollback(t *testing.T) {
 func TestUpdateWithoutUpdaterIsRejected(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	app.Updater = nil
-	if err := cli.Execute(app, []string{"update"}); err == nil || !strings.Contains(err.Error(), "unavailable") {
+	if err := cli.Execute(app, []string{"self", "update"}); err == nil || !strings.Contains(err.Error(), "unavailable") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -362,7 +370,7 @@ func TestUpdateCandidateUsesExplicitOfflineInputs(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	updater := &fakeUpdater{candidateResult: updated("0.2.0", "updated to v0.2.0 from a verified local candidate")}
 	app.Updater = updater
-	if err := cli.Execute(app, []string{"update", "--candidate", "/tmp/aigw_0.2.0_darwin_arm64.tar.gz", "--checksums", "/tmp/checksums.txt"}); err != nil {
+	if err := cli.Execute(app, []string{"self", "update", "--archive", "/tmp/aigw_0.2.0_darwin_arm64.tar.gz", "--checksums", "/tmp/checksums.txt"}); err != nil {
 		t.Fatal(err)
 	}
 	if updater.candidateCalls != 1 || updater.updateCalls != 0 || updater.rollbackCalls != 0 {
@@ -371,7 +379,7 @@ func TestUpdateCandidateUsesExplicitOfflineInputs(t *testing.T) {
 	if updater.candidateReceived.ArchivePath != "/tmp/aigw_0.2.0_darwin_arm64.tar.gz" || updater.candidateReceived.ChecksumsPath != "/tmp/checksums.txt" {
 		t.Fatalf("candidate = %#v", updater.candidateReceived)
 	}
-	if !strings.Contains(out.String(), "Verified local candidate") {
+	if !strings.Contains(out.String(), "Verified local archive") {
 		t.Fatalf("output = %s", out.String())
 	}
 	if !strings.Contains(out.String(), "aigw sync") {
@@ -385,11 +393,11 @@ func TestUpdateCandidateStartupFailureKeepsSafeDiagnosis(t *testing.T) {
 	cause := &os.PathError{Op: "fork/exec", Path: privatePath, Err: os.ErrPermission}
 	app.Updater = &fakeUpdater{candidateErr: fmt.Errorf("%w: %w", program.ErrProgramStartupVerification, cause)}
 
-	err := cli.Execute(app, []string{"update", "--candidate", "candidate.tar.gz", "--checksums", "checksums.txt"})
+	err := cli.Execute(app, []string{"self", "update", "--archive", "candidate.tar.gz", "--checksums", "checksums.txt"})
 	if !errors.Is(err, program.ErrProgramStartupVerification) || !errors.Is(err, cause) {
 		t.Fatalf("candidate failure lost its typed cause: %v", err)
 	}
-	for _, want := range []string{"Candidate program failed startup verification", "installed program is unchanged", "candidate archive"} {
+	for _, want := range []string{"The archive's program failed its startup check", "installed program is unchanged", "archive for this platform"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("candidate diagnosis lacks %q: %s", want, out.String())
 		}
@@ -405,10 +413,10 @@ func TestUpdatePreservesReleaseFailureAsItsCause(t *testing.T) {
 	cause := fmt.Errorf("release lookup failed: %w: %w: %s", program.ErrReleaseSource, errors.New("exit status 1"), canary)
 	app.Updater = &fakeUpdater{updateErr: cause}
 
-	if err := cli.Execute(app, []string{"update"}); !errors.Is(err, cause) {
+	if err := cli.Execute(app, []string{"self", "update"}); !errors.Is(err, cause) {
 		t.Fatalf("error = %v, want %v", err, cause)
 	}
-	if strings.Contains(out.String(), canary) || !strings.Contains(out.String(), "Fix\n  aigw update --candidate <archive> --checksums <checksums>") ||
+	if strings.Contains(out.String(), canary) || !strings.Contains(out.String(), "Fix\n  aigw self update --archive <archive> --checksums <checksums>") ||
 		strings.Contains(out.String(), "aigw check --depth local") {
 		t.Fatalf("update exposed private diagnostics or omitted recovery: %s", out.String())
 	}
@@ -422,12 +430,12 @@ func TestUpdateReportsCompletedReplacementWithIncompleteCleanup(t *testing.T) {
 		forbiddenImpact string
 	}{
 		{
-			args:    []string{"update"},
+			args:    []string{"self", "update"},
 			updater: &fakeUpdater{updateResult: updated("1.0.0", "updated to v1.0.0 verified from GitHub")},
 			title:   "Program updated", impact: "client settings and credentials were not changed",
 		},
 		{
-			args:    []string{"update", "--rollback"},
+			args:    []string{"self", "rollback"},
 			updater: &fakeUpdater{rollbackResult: restored("restored the previous program version.")},
 			title:   "Program restored", impact: "The previous program is active and reads its credentials",
 			forbiddenImpact: "credentials were not changed",
@@ -456,8 +464,8 @@ func TestUpdateSameVersionIdentityConflictHasSafeDiagnosis(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cause := program.ErrCandidateIdentity
 	app.Updater = &fakeUpdater{candidateErr: cause}
-	err := cli.Execute(app, []string{"update", "--candidate", "candidate.tar.gz", "--checksums", "checksums.txt"})
-	if !errors.Is(err, cause) || !strings.Contains(out.String(), "different program bytes") || !strings.Contains(out.String(), "unchanged") {
+	err := cli.Execute(app, []string{"self", "update", "--archive", "candidate.tar.gz", "--checksums", "checksums.txt"})
+	if !errors.Is(err, cause) || !strings.Contains(out.String(), "other program bytes") || !strings.Contains(out.String(), "unchanged") {
 		t.Fatalf("candidate identity failure lost its safe meaning: error=%v output=%s", err, out.String())
 	}
 }
