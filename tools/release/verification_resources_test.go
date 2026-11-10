@@ -237,7 +237,11 @@ func verifyNativeResourceCase(t *testing.T, journey *journeyFixture, temporary, 
 	beforeProgram := sha256.Sum256(readFile(t, journey.binary))
 	ctx, cancel := context.WithTimeout(t.Context(), 70*time.Second)
 	command := exec.CommandContext(ctx, journey.binary, "check", client, "--depth", "client")
-	command.Env, command.Dir = environment, journey.root
+	// check reads the provider's Token before it starts a session; the
+	// fixture's own processes still run without it, as environmentWith
+	// leaves them.
+	command.Env = environmentWith(environment, map[string]string{secret.EnvironmentKey("native-system-keyring-probe"): "native-resource-token"})
+	command.Dir = journey.root
 	prepareVerificationInterrupt(command)
 	var stdout, stderr bytes.Buffer
 	command.Stdout, command.Stderr = &stdout, &stderr
