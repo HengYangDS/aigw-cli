@@ -82,8 +82,8 @@
       yet opened `forge-admission-and-assurance`; repairing the rc tags'
       history on both peers needs the user's authorization. Next: qualify once
       that Change ships in an aigw runtime; review 2026-11-08.
-- [ ] 3.2 Before the history rebuild retires the `native-inputs-*` tags, move
-      CI's glab supply (`.config/ci/pipeline.cue:104`) from
-      `native-inputs-f3c7f87…` to a dedicated `mise-glab-v1.122.0` Release
-      carrying the same clean `glab_1.122.0_*` assets, verified by digest; a
-      GitLab pipeline installs glab from it.
+- [ ] 3.2 Remove the GitHub `tool_source=peer` glab carrier
+      (`miseMirror.githubRelease` and the workflow `MISE_URL_REPLACEMENTS`),
+      or point it at a `mise-glab-v<locked>` Release that a test keeps equal
+      to the lock; a GitHub dispatch with `tool_source=peer` passes or the
+      input is gone.
