@@ -69,6 +69,8 @@ func TestShellCompletionReadsNoTokenAndSendsNoRequest(t *testing.T) {
 		{[]string{"model", "list", "--client", ""}, []string{"claude", "claude-desktop", "codex", "hermes"}},
 		{[]string{"model", "list", "--protocol", ""}, []string{"anthropic", "responses", "chat"}},
 		{[]string{"model", "add", "--family", ""}, []string{"opus", "sol"}},
+		{[]string{"completion", ""}, []string{"bash", "zsh", "fish", "powershell"}},
+		{[]string{"completion", "zsh", ""}, nil},
 		{[]string{"model", "list", ""}, nil},
 		{[]string{"model", "add", ""}, nil},
 	} {
