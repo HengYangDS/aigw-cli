@@ -49,7 +49,7 @@ func TestHumanTextPreservesMultilineIndentation(t *testing.T) {
 }
 
 func TestCommandsPreserveCopyableBytesAtEveryWidth(t *testing.T) {
-	const command = "aigw route add team --label 'two  spaces' --model very-long-model-identifier\naigw route add tabbed --label 'tab\tvalue'  "
+	const command = "aigw model add team/very-long-model-identifier --label 'two  spaces'\naigw model edit team/tabbed --label 'tab\tvalue'  "
 	for _, width := range []int{0, 8, 24, 120} {
 		for _, color := range []bool{false, true} {
 			var out bytes.Buffer

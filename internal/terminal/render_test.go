@@ -28,11 +28,11 @@ func TestRendererProducesAlignedHumanReadableLayout(t *testing.T) {
 	r.Section("Connection")
 	r.Rows(
 		terminal.Field{State: terminal.OK, Label: "API Token", Value: "Healthy"},
-		terminal.Field{State: terminal.Warn, Label: "Precise balance", Value: "Disabled", Details: []string{"aigw account diagnostics enable"}},
+		terminal.Field{State: terminal.Warn, Label: "Precise balance", Value: "Disabled", Details: []string{"aigw provider edit team"}},
 	)
 	r.Section("Result")
 	r.Success("Everything is healthy")
-	r.Next("aigw balance")
+	r.Next("aigw provider balance")
 	want := "AIGW  Health check\n" +
 		"────────────────────────────────────────\n\n" +
 		"Configuration\n" +
@@ -41,11 +41,11 @@ func TestRendererProducesAlignedHumanReadableLayout(t *testing.T) {
 		"Connection\n" +
 		"  ✓ API Token          Healthy\n" +
 		"  ! Precise balance    Disabled\n" +
-		"                       aigw account diagnostics enable\n\n" +
+		"                       aigw provider edit team\n\n" +
 		"Result\n" +
 		"  ✓ Everything is healthy\n\n" +
 		"Next\n" +
-		"  aigw balance\n"
+		"  aigw provider balance\n"
 	if out.String() != want {
 		t.Fatalf("layout mismatch\n--- want ---\n%s--- got ---\n%s", want, out.String())
 	}
@@ -240,7 +240,7 @@ func TestRendererColorIsOptionalAndNeverAffectsSpacing(t *testing.T) {
 		r := terminal.NewRendererWithWidth(&out, color, 40)
 		r.Rows(
 			terminal.Field{State: terminal.OK, Label: "Token", Value: "Healthy"},
-			terminal.Field{State: terminal.Warn, Label: "Precise balance", Value: "Disabled until a diagnostic credential is connected", Details: []string{"aigw account diagnostics enable team-gateway"}},
+			terminal.Field{State: terminal.Warn, Label: "Precise balance", Value: "Disabled until a diagnostic credential is connected", Details: []string{"aigw provider edit team-gateway --no-balance-token"}},
 		)
 		r.Success("Client configuration is aligned; authentication was unchanged")
 		r.StatusLine(terminal.Info, "Route", "team-gateway-claude")
@@ -263,7 +263,7 @@ func TestProblemUsesConsistentProblemEvidenceImpactFixOrder(t *testing.T) {
 		Title:    "Token quota is exhausted",
 		Evidence: "HTTP 403 · token quota is insufficient",
 		Impact:   "Claude and Codex cannot continue requests",
-		Fix:      "aigw rotate",
+		Fix:      "aigw provider rotate team",
 	})
 	want := `AIGW  Action required
 ────────────────────────────────────────
@@ -278,7 +278,7 @@ Impact
   Claude and Codex cannot continue requests
 
 Fix
-  aigw rotate
+  aigw provider rotate team
 `
 	if out.String() != want {
 		t.Fatalf("problem layout mismatch\nwant:\n%s\ngot:\n%s", want, out.String())

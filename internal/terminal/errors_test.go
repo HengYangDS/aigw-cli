@@ -372,11 +372,11 @@ func TestRenderErrorAndFixBranches(t *testing.T) {
 		// Only a usage error, which Cobra refused before the command ran,
 		// names the help of the command that refused it.
 		{Usage("aigw", unknownRoot), "aigw --help"},
-		{Usage("aigw route list", errors.New("unknown command \"extra\" for \"aigw route list\"")), "aigw route list --help"},
+		{Usage("aigw config path", errors.New("unknown command \"extra\" for \"aigw config path\"")), "aigw config path --help"},
 		{Usage("aigw provider show", errors.New("accepts 1 arg(s), received 0")), "aigw provider show --help"},
-		{Usage("aigw add", errors.New("unknown flag: --model; run `aigw add --help`")), "aigw add --help"},
+		{Usage("aigw provider add", errors.New("unknown flag: --model; run `aigw provider add --help`")), "aigw provider add --help"},
 		// A usage error that names its own fix keeps it.
-		{Usage("aigw use", errors.New("unknown route \"missing\"; run `aigw route list`")), "aigw route list"},
+		{Usage("aigw use", errors.New("unknown model \"team/missing\"; run `aigw model list`")), "aigw model list"},
 		{fmt.Errorf("resolve: %w", &domain.RuntimeBindingUnselectedError{Client: codex.ID}), "aigw use codex <provider/model>"},
 		{fmt.Errorf("parse manifest: %w", decodeErr), "Correct the value at the reported document location and rerun the command."},
 		// Any other failure names the diagnostic, never a command's help.
@@ -400,13 +400,13 @@ func TestRenderErrorAndFixBranches(t *testing.T) {
 // presentation would choose.
 func TestStatesFixNamesOnlyAnErrorsOwnFix(t *testing.T) {
 	for err, want := range map[error]bool{
-		ProblemError("Problem", "", "", "aigw sync", nil):                     true,
-		ProblemError("Problem", "", "", "", nil):                              false,
-		errors.New("release source is not configured; use `aigw update --x`"): true,
+		ProblemError("Problem", "", "", "aigw sync", nil):                          true,
+		ProblemError("Problem", "", "", "", nil):                                   false,
+		errors.New("release source is not configured; use `aigw self update --x`"): true,
 		nextActionError{}: true,
-		&os.PathError{Op: "read", Path: "/private/x", Err: os.ErrPermission}: false,
-		errors.New("release lookup failed"):                                  false,
-		Usage("aigw update", errors.New("accepts 0 arg(s), received 1")):     false,
+		&os.PathError{Op: "read", Path: "/private/x", Err: os.ErrPermission}:  false,
+		errors.New("release lookup failed"):                                   false,
+		Usage("aigw self update", errors.New("accepts 0 arg(s), received 1")): false,
 		// Only the text and next action that the outer error adds are its
 		// own; a wrapped cause's are not.
 		fmt.Errorf("refused; run `aigw sync`: %w", errors.New("cause")):                true,

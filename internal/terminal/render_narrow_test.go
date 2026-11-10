@@ -16,7 +16,7 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 	r := terminal.NewRendererWithWidth(&out, false, 24)
 	r.Rows(terminal.Field{Label: "Current route", Value: "GPT-5.6 Terra"})
 	r.Rows(terminal.Field{State: terminal.OK, Label: "Precise balance", Value: "Disabled until connected"})
-	r.Detail("Run aigw account diagnostics enable team-gateway")
+	r.Detail("Run aigw provider rotate team-gateway --token-stdin")
 	r.Command("aigw setup --from configuration.toml")
 
 	got := out.String()
@@ -26,9 +26,9 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 		"  ✓ Precise balance\n",
 		"    Disabled until\n",
 		"    connected\n",
-		"    Run aigw account\n",
-		"    diagnostics enable\n",
-		"    team-gateway\n",
+		"    Run aigw provider\n",
+		"    rotate team-gateway\n",
+		"    --token-stdin\n",
 		"  aigw setup --from configuration.toml\n",
 	} {
 		if !strings.Contains(got, want) {
@@ -114,7 +114,7 @@ func TestRendererKeepsCompactOutputWithinTerminalWidth(t *testing.T) {
 		Title:    "Token quota is exhausted",
 		Evidence: "HTTP 403 token quota is insufficient",
 		Impact:   "Claude and Codex cannot continue requests",
-		Fix:      "aigw rotate team-gateway",
+		Fix:      "aigw provider rotate team-gateway",
 	})
 
 	for line := range strings.SplitSeq(strings.TrimRight(out.String(), "\n"), "\n") {
