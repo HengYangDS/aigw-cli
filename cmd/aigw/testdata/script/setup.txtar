@@ -202,39 +202,6 @@ fixloop -did 'named a team file that exists' stdout aigw setup --from dangling.t
 [!windows] fixloop -did 'made the team file readable' stdout aigw setup --from unreadable.toml --json
 
 
--- preview.json --
-{
-  "schema_version": 2,
-  "ok": true,
-  "dry_run": true,
-  "imported": {
-    "accounts": [
-      "team"
-    ],
-    "routes": [
-      "team-route"
-    ]
-  },
-  "connected_accounts": [],
-  "selections": {
-    "claude": "team-route"
-  },
-  "projected_clients": [],
-  "online_verification": "not_checked",
-  "projections": [
-    {
-      "client": "claude",
-      "surface": "claude-settings",
-      "target": "~/.claude/settings.json",
-      "action": "project"
-    }
-  ],
-  "credential_entrypoint": {
-    "path": "$HOME/Library/Application Support/aigw/credential/<varies>/aigw",
-    "action": "install"
-  },
-  "next_detail": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
-}
 -- rejected.txt --
 sk-rejected-token
 -- token.txt --
