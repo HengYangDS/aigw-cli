@@ -16,7 +16,7 @@ import (
 // access, and the failure names that command's own help.
 func TestASecondProtocolNamesItsCommandsHelp(t *testing.T) {
 	for _, path := range [][]string{
-		{"use"}, {"setup"},
+		{"use"},
 		{"model", "list"}, {"model", "show"}, {"model", "add"}, {"model", "remove"},
 	} {
 		var out bytes.Buffer

@@ -177,12 +177,6 @@ type failingOutput struct{ err error }
 
 func (w failingOutput) Write([]byte) (int, error) { return 0, w.err }
 
-type failingReadCloser struct{ err error }
-
-func (body failingReadCloser) Read([]byte) (int, error) { return 0, body.err }
-
-func (body failingReadCloser) Close() error { return nil }
-
 func (f *fakeHTTP) Do(req *http.Request) (*http.Response, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

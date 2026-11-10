@@ -5,9 +5,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 
-	"bytes"
 	"context"
-	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -18,11 +16,9 @@ import (
 
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/discovery"
-	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-	"aigw-cli/internal/terminal"
 )
 
 type scriptedSecretStore struct {
@@ -89,17 +85,6 @@ func secretExists(t testing.TB, store secret.Store, account string) bool {
 	return present
 }
 
-type scriptedSetupPrompt struct {
-	value string
-	err   error
-}
-
-func (prompt scriptedSetupPrompt) Secret(string) (string, error) { return prompt.value, prompt.err }
-func (prompt scriptedSetupPrompt) Text(string) (string, error)   { return "", prompt.err }
-func (prompt scriptedSetupPrompt) Select(string, []terminal.Choice) (string, error) {
-	return "", prompt.err
-}
-
 type setupHTTPClient func(*http.Request) (*http.Response, error)
 
 func (do setupHTTPClient) Do(request *http.Request) (*http.Response, error) { return do(request) }
@@ -156,93 +141,6 @@ func TestManifestSetupClientSelectionRequiresConnectedModelAndUsableSurface(t *t
 		claude.ID: true,
 	}); len(clients) != 0 {
 		t.Fatalf("unconnected route selected clients = %#v", clients)
-	}
-}
-
-func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "configuration.toml")
-	secretStore := &scriptedSecretStore{
-		values: map[string]string{},
-		onGet: func(secretStore *scriptedSecretStore, account string) {
-			if secretStore.values[account] == "token" {
-				delete(secretStore.values, account)
-			}
-		},
-	}
-	runtime := invocation.Context{Clients: clients.Registry(),
-		Executable: filepath.Join(t.TempDir(), "aigw"),
-		Config:     store.NewStore(configPath, clients.Admission()),
-		Secrets:    secretStore,
-		Discovery:  setupDiscovery{},
-		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
-			if err := os.Mkdir(configPath, 0o700); err != nil {
-				t.Fatal(err)
-			}
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
-		}),
-		In:  strings.NewReader("token\n"),
-		Out: io.Discard,
-	}
-	request := setupRequest{Provider: "team", Model: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, UpstreamModel: "claude-test", TokenStdin: true}
-
-	err := runSetup(context.Background(), runtime, request)
-	if err == nil || !strings.Contains(err.Error(), "setup failed") || !strings.Contains(err.Error(), "credential rollback also failed") || !strings.Contains(err.Error(), "credential postimage changed") {
-		t.Fatalf("error = %v, want configuration failure with rollback drift", err)
-	}
-	if secretExists(t, secretStore, "team") {
-		t.Fatal("rollback recreated a credential removed before compensation")
-	}
-}
-
-func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
-	root := t.TempDir()
-	secretRoot := filepath.Join(root, "secrets")
-	secretStore, err := secret.Select(secret.Selection{
-		GOOS: runtime.GOOS, Root: secretRoot,
-		KeyringProbe: func(secret.Store) error { return errors.New("isolated file backend") },
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	configPath := filepath.Join(root, "configuration.toml")
-	run := invocation.Context{Clients: clients.Registry(),
-		Executable: filepath.Join(root, "aigw"), Config: store.NewStore(configPath, clients.Admission()), Secrets: secretStore,
-		Discovery: setupDiscovery{onDiscover: func() {
-			if err := secretStore.Set("team", "newer-token"); err != nil {
-				t.Fatal(err)
-			}
-		}},
-		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
-			if err := os.Mkdir(configPath, 0o700); err != nil {
-				t.Fatal(err)
-			}
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
-		}),
-		In: strings.NewReader("token\n"), Out: io.Discard,
-	}
-	err = runSetup(t.Context(), run, setupRequest{Provider: "team", Model: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, UpstreamModel: "claude-test", TokenStdin: true})
-	if err == nil || !strings.Contains(err.Error(), "credential postimage changed") {
-		t.Fatalf("setup error = %v, want uncompensated credential", err)
-	}
-	if token, err := secretStore.Get("team"); err != nil || token != "newer-token" {
-		t.Fatalf("newer credential was not preserved: %v", err)
-	}
-	selected, err := os.ReadFile(filepath.Join(secretRoot, "backend"))
-	if err != nil || strings.TrimSpace(string(selected)) != "file" {
-		t.Fatalf("backend selection = %q, %v; want file while credential remains", selected, err)
-	}
-	fresh, err := secret.Select(secret.Selection{
-		GOOS: runtime.GOOS, Root: secretRoot,
-		KeyringProbe: func(secret.Store) error {
-			t.Fatal("fresh invocation must reuse the retained backend without probing keyring")
-			return nil
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if token, err := fresh.Get("team"); err != nil || token != "newer-token" {
-		t.Fatalf("fresh invocation cannot read the retained credential: %v", err)
 	}
 }
 
@@ -312,113 +210,5 @@ interfaces = { openai_responses = ["text"] }
 	}
 	if secretExists(t, secretStore, "team") {
 		t.Fatal("rollback recreated a credential removed before compensation")
-	}
-}
-
-func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
-	_, err := planSetup(domain.NewConfig(clients.Admission()), setupRequest{
-		Model: "shared", Client: hermes.ID, UpstreamModel: "shared-model",
-		OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
-	})
-	if err == nil || !strings.Contains(err.Error(), "--protocol") {
-		t.Fatalf("ambiguous Hermes setup error = %v, want explicit protocol guidance", err)
-	}
-	var rendered bytes.Buffer
-	terminal.RenderError(terminal.NewRenderer(&rendered, false), err, false)
-	if want := "Rerun the same aigw setup command with --protocol <responses|anthropic>"; !strings.Contains(rendered.String(), want) ||
-		strings.Contains(rendered.String(), "aigw check") {
-		t.Fatalf("ambiguous Hermes setup recommendation = %q, want %q", rendered.String(), want)
-	}
-	_, err = planSetup(domain.NewConfig(clients.Admission()), setupRequest{
-		Model: "chat", Client: hermes.ID, UpstreamModel: "chat-model",
-		Protocol: domain.ProtocolOpenAIChatCompletions,
-	})
-	if err == nil || !strings.Contains(err.Error(), "--chat-url") {
-		t.Fatalf("missing Chat endpoint error = %v, want exact URL guidance", err)
-	}
-
-	for _, test := range []struct {
-		name     string
-		request  setupRequest
-		protocol domain.EndpointProtocol
-	}{
-		{
-			name: "Anthropic among two endpoints",
-			request: setupRequest{
-				Model: "shared", Client: hermes.ID, UpstreamModel: "shared-model",
-				OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
-				Protocol: domain.ProtocolAnthropic,
-			},
-			protocol: domain.ProtocolAnthropic,
-		},
-		{
-			name: "Chat Completions",
-			request: setupRequest{
-				Model: "chat", Client: hermes.ID, UpstreamModel: "chat-model",
-				ChatURL: "https://chat.test/v1", Protocol: domain.ProtocolOpenAIChatCompletions,
-			},
-			protocol: domain.ProtocolOpenAIChatCompletions,
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			plan, err := planSetup(domain.NewConfig(clients.Admission()), test.request)
-			if err != nil || plan.config.Clients[hermes.ID].Protocol != test.protocol {
-				t.Fatalf("Hermes setup protocol = %#v, %v", plan.config.Clients[hermes.ID], err)
-			}
-		})
-	}
-	command := NewCommand(invocation.Context{Clients: clients.Registry()})
-	if command.Flags().Lookup("protocol") == nil || command.Flags().Lookup("chat-url") == nil {
-		t.Fatal("guided setup does not expose the declared protocol and Chat endpoint choices")
-	}
-}
-
-func TestSetupTokenPromptAndBackendErrors(t *testing.T) {
-	t.Run("backend error", func(t *testing.T) {
-		want := errors.New("backend failed")
-		app := invocation.Context{Clients: clients.Registry(), Secrets: &scriptedSecretStore{getErr: want}}
-		if _, err := setupToken(app, setupRequest{Provider: "one"}); !errors.Is(err, want) {
-			t.Fatalf("error = %v, want %v", err, want)
-		}
-	})
-
-	t.Run("prompt", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), Prompt: scriptedSetupPrompt{value: "prompt-token"}}
-		credential, err := setupToken(app, setupRequest{Provider: "one", PromptToken: true, Label: "One"})
-		if err != nil || !credential.write || credential.token != "prompt-token" {
-			t.Fatalf("credential=%#v error=%v", credential, err)
-		}
-	})
-}
-
-func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "configuration.toml")
-	configStore := store.NewStore(path, clients.Admission())
-	secretStore := secret.NewMemoryStore()
-	if err := secretStore.Set("team", "token"); err != nil {
-		t.Fatal(err)
-	}
-	runtime := invocation.Context{Clients: clients.Registry(),
-		Executable: filepath.Join(t.TempDir(), "aigw"),
-		Config:     configStore,
-		Secrets:    secretStore,
-		Discovery:  setupDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: "/opt/claude"}}},
-		Host:       hostAt(t.TempDir()),
-		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
-		}),
-		Out:         io.Discard,
-		Interactive: false,
-	}
-	request := setupRequest{Provider: "team", Model: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, UpstreamModel: "claude-test"}
-	if err := runSetup(context.Background(), runtime, request); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := configStore.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if adapter := cfg.Clients[claude.ID]; !adapter.Enabled || adapter.Executable != "/opt/claude" {
-		t.Fatalf("Claude adapter = %#v", adapter)
 	}
 }

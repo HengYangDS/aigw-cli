@@ -51,7 +51,6 @@ func TestSetupPreviewsUseNoCredential(t *testing.T) {
 		args       []string
 		discovered bool
 	}{
-		{"setup", []string{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--dry-run", "--json"}, false},
 		{"setup from a team file", []string{"setup", "--from", manifest, "--dry-run", "--json"}, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -156,7 +155,6 @@ func TestSetupManifestPreviewInText(t *testing.T) {
 		want string
 	}{
 		{[]string{"setup", "--from", manifest, "--provider", "team", "--token-stdin", "--dry-run"}, "the environment backend reads the team Token"},
-		{[]string{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--token-stdin", "--dry-run"}, "read-only"},
 	} {
 		if err := cli.Execute(app, test.args); err == nil || !strings.Contains(err.Error(), test.want) {
 			t.Fatalf("%s with a read-only backend = %v", strings.Join(test.args, " "), err)
@@ -358,7 +356,6 @@ func TestRemovedSpellingsAreUnknownFlags(t *testing.T) {
 		args       []string
 		path, flag string
 	}{
-		{[]string{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude"}, "setup", "--model"},
 		{[]string{"self", "install", "--target", destination}, "self install", "--target"},
 		{[]string{"self", "uninstall", "--target", installed}, "self uninstall", "--target"},
 	} {

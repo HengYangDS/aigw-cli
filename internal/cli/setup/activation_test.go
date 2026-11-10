@@ -1,8 +1,6 @@
 package setup
 
 import (
-	"bytes"
-	"strings"
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
@@ -38,21 +36,6 @@ func TestTeamSetupOffersEqualCompatibleProvidersWithoutTokens(t *testing.T) {
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	if got := activation.NextActionFor(nil); got != want {
 		t.Fatalf("zero-Token setup decision = %q, want %q", got, want)
-	}
-}
-
-func TestGuidedSetupDefersMissingClientBeforeVerification(t *testing.T) {
-	cfg := manifestSetupConfig()
-	cfg.SetClientActivation(codex.ID, false, "", nil)
-	store := secret.NewMemoryStore()
-	if err := store.Set("team", "token"); err != nil {
-		t.Fatal(err)
-	}
-	output := &bytes.Buffer{}
-	renderSetupClients(invocation.Context{Clients: clients.Registry(), Secrets: store, Out: output}, cfg, claude.ID)
-	want := "Install Claude if needed, then run `aigw sync`"
-	if !strings.Contains(output.String(), want) || strings.Contains(output.String(), "Next: aigw check") {
-		t.Fatalf("guided setup admitted verification before projection: %q", output.String())
 	}
 }
 

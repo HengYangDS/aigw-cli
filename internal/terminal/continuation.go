@@ -16,10 +16,10 @@ func NextSteps(next string) (action, detail string) {
 }
 
 // asksPerson reports whether an aigw command line asks a person at a terminal
-// for a value that AIGW cannot choose: bare setup asks for its Account and
-// Route, and a command that stores a secret reads it from a prompt unless its
-// standard-input flag supplies it. Setup connects an Account, and so reads
-// its Token, unless it only imports a manifest; a command's help asks for
+// for a value that AIGW cannot choose: setup without a team file asks for a
+// provider, a client and a model, setup asks for the Token of each provider
+// that it names, and a command that stores a Token reads it from a prompt
+// unless its standard-input flag supplies it; a command's help asks for
 // nothing.
 func asksPerson(words []string) bool {
 	has := func(word string) bool { return slices.Contains(words, word) }
@@ -27,14 +27,10 @@ func asksPerson(words []string) bool {
 	case len(words) == 0 || has("--help") || has("-h"):
 		return false
 	case words[0] == "setup":
-		importOnly := has("--from") && !has("--account")
-		return !importOnly && !has("--token-stdin")
-	case words[0] == "add", words[0] == "rotate":
-		return !has("--token-stdin")
+		teamOnly := has("--from") && !has("--provider")
+		return !teamOnly && !has("--token-stdin")
 	case len(words) >= 2 && words[0] == "provider" && (words[1] == "add" || words[1] == "rotate"):
 		return !has("--token-stdin")
-	case len(words) >= 3 && words[0] == "account" && words[1] == "diagnostics" && words[2] == "enable":
-		return !has("--system-token-stdin")
 	}
 	return false
 }

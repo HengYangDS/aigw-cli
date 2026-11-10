@@ -44,19 +44,11 @@ func TestSetupAdmitsArgumentsBeforeCreatingConfiguration(t *testing.T) {
 	for _, args := range [][]string{
 		{"--from="},
 		{"--from", " "},
-		{"--from", "team.toml", "--account="},
-		{"--from", "team.toml", "--account", "\t"},
 		{"--from", "team.toml", "--provider="},
 		{"--from", "team.toml", "--provider", "Bad ID", "--token-stdin"},
 		{"--from", "team.toml", "--provider", "one", "--provider", "two", "--token-stdin"},
 		{"--provider", "one"},
 		{"--prune"},
-		{"--from", "team.toml", "--route="},
-		{"--from", "team.toml", "--label="},
-		{"--from", "team.toml", "--openai-url="},
-		{"--from", "team.toml", "--anthropic-url="},
-		{"--from", "team.toml", "--for="},
-		{"--from", "team.toml", "--upstream-model="},
 		{"--json"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {

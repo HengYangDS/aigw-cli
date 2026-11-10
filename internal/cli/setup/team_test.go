@@ -12,7 +12,6 @@ import (
 
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
-	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -211,44 +210,6 @@ func TestSetupRefusesFlagsThatCannotRun(t *testing.T) {
 	}
 }
 
-// Setup from flags previews and reports in its own document until the
-// command tree's last step removes it.
-func TestFlagSetupDocuments(t *testing.T) {
-	home := newGuidedHome(t, codex.ID)
-	home.runtime.Interactive = false
-	args := []string{"--account", "team", "--route", "team-route", "--openai-url", "https://team.test/v1", "--upstream-model", "team-model", "--for", codex.ID}
-	if err := home.run(t, &guidedPrompt{}, append(args, "--dry-run", "--json")...); err != nil {
-		t.Fatalf("preview: %v\n%s", err, home.out)
-	}
-	var preview struct {
-		DryRun     bool   `json:"dry_run"`
-		NextDetail string `json:"next_detail"`
-		NextAction string `json:"next_action"`
-	}
-	if err := json.Unmarshal(home.out.Bytes(), &preview); err != nil || !preview.DryRun || !strings.Contains(preview.NextAction+preview.NextDetail, "aigw setup --account team") {
-		t.Fatalf("preview document = %s, %v", home.out, err)
-	}
-	home.out.Reset()
-	home.runtime.In = strings.NewReader("sk-team\n")
-	if err := home.run(t, &guidedPrompt{}, append(args, "--token-stdin", "--json")...); err != nil {
-		t.Fatalf("setup: %v\n%s", err, home.out)
-	}
-	var result struct {
-		ConnectedProviders []string `json:"connected_accounts"`
-	}
-	if err := json.Unmarshal(home.out.Bytes(), &result); err != nil || len(result.ConnectedProviders) != 1 {
-		t.Fatalf("setup document = %s, %v", home.out, err)
-	}
-	for protocol, flag := range map[domain.EndpointProtocol]string{
-		domain.ProtocolAnthropic: "--anthropic-url", domain.ProtocolOpenAIChatCompletions: "--chat-url",
-		domain.ProtocolOpenAIResponses: "--openai-url", "other": "--protocol",
-	} {
-		if got := setupEndpointFlag(protocol); got != flag {
-			t.Errorf("%s: %s", protocol, got)
-		}
-	}
-}
-
 // The report names every kind of row that it can hold.
 func TestTeamSetupRendersEveryRow(t *testing.T) {
 	home := newGuidedHome(t)
@@ -288,52 +249,6 @@ func TestTeamSetupRendersEveryRow(t *testing.T) {
 	}
 	if endpoints.Anthropic == "" || endpoints.OpenAIResponses == "" || endpoints.OpenAIChatCompletions == "" {
 		t.Errorf("endpoints %+v", endpoints)
-	}
-}
-
-// Setup from flags refuses what it cannot plan, and previews in text.
-func TestFlagSetupRefusalsAndTextPreview(t *testing.T) {
-	for _, test := range []struct {
-		args []string
-		want string
-	}{
-		{[]string{"--route", "bad id", "--for", claude.ID}, "Invalid account ID"},
-		{[]string{"--route", "one", "--account", "bad id", "--for", claude.ID}, "Invalid account ID"},
-		{[]string{"--route", "one", "--upstream-model", "m"}, "--for is required"},
-		{[]string{"--route", "one", "--for", "other"}, "--for must be"},
-		{[]string{"--route", "one", "--for", claude.ID, "--upstream-model", "m"}, "requires --anthropic-url"},
-		{[]string{"--route", "one", "--for", claude.ID, "--anthropic-url", "https://one.test"}, "requires --upstream-model"},
-		{[]string{"--route", "one", "--for", "hermes", "--upstream-model", "m", "--anthropic-url", "https://one.test", "--openai-url", "https://one.test/v1"}, "specify --protocol"},
-		{[]string{"--route", "bad id", "--account", "one", "--for", claude.ID}, "Invalid route ID"},
-		{[]string{"--for", claude.ID, "--json"}, "--json requires --route or --from"},
-		{[]string{"--route", "one", "--for", claude.ID, "--anthropic-url", "https://one.test", "--upstream-model", "m", "--json"}, "--json reads the Token only from --token-stdin"},
-	} {
-		home := newGuidedHome(t)
-		home.runtime.Interactive = false
-		err := home.run(t, &guidedPrompt{}, test.args...)
-		if err == nil || !strings.Contains(err.Error(), test.want) {
-			t.Errorf("%q: %v", test.args, err)
-		}
-		// The root makes an argument refusal a usage error, whose fix is
-		// the help.
-		if _, usage := errors.AsType[*invocation.ArgumentError](err); !usage && !strings.Contains(err.Error(), "--json") {
-			t.Errorf("%q is no argument refusal: %v", test.args, err)
-		}
-	}
-	home := newGuidedHome(t, claude.ID)
-	home.runtime.Interactive = false
-	if err := home.run(t, &guidedPrompt{}, "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", claude.ID, "--dry-run"); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(home.out.String(), "First-time setup preview") || !strings.Contains(home.out.String(), "Not read in a preview") {
-		t.Errorf("the text preview:\n%s", home.out)
-	}
-	if err := home.run(t, &guidedPrompt{}, "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", claude.ID, "--dry-run", "--token-stdin"); err != nil {
-		t.Fatal(err)
-	}
-	home.runtime.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
-	if err := home.run(t, &guidedPrompt{}, "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", claude.ID, "--dry-run", "--token-stdin"); err == nil || !strings.Contains(err.Error(), "read-only") {
-		t.Errorf("a read-only preview with --token-stdin: %v", err)
 	}
 }
 

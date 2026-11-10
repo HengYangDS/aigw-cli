@@ -256,7 +256,6 @@ func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 		args []string
 		want string
 	}{
-		{args: []string{"setup", "--route", "new-route", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, or hermes"},
 		{args: []string{"model", "add"}, want: "aigw model add needs a <provider/model> argument"},
 		{args: []string{"adapter"}, want: "unknown command \"adapter\""},
 		{args: []string{"client", "enable", "other"}, want: "clients are claude, claude-desktop, codex, or hermes"},
@@ -277,17 +276,6 @@ func TestExecuteReturnsHumanOutputFailure(t *testing.T) {
 	err := cli.Execute(app, []string{"client", "list"})
 	if !errors.Is(err, want) {
 		t.Fatalf("Execute() error = %v, want %v", err, want)
-	}
-}
-
-func TestFailureSuggestionUsesCommandNamedInEnglishGuidance(t *testing.T) {
-	app, out, _, _, _ := testApp(t, "")
-	if err := app.Config.Save(twoModelConfig()); err != nil {
-		t.Fatal(err)
-	}
-	err := cli.Execute(app, []string{"setup", "--route", "new-route"})
-	if err == nil || !strings.Contains(out.String(), "AIGW is already configured") || !strings.Contains(out.String(), "Fix\n  aigw status\n") {
-		t.Fatalf("err=%v output=%s", err, out.String())
 	}
 }
 

@@ -384,7 +384,7 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{args: []string{"setup", "--help"}, want: []string{"With --from, a provider whose Token to read", "First route ID", "Read one Token from standard input"}},
+		{args: []string{"setup", "--help"}, want: []string{"With --from, a provider whose Token to read", "With --from, read the one --provider's Token from standard input"}},
 		{args: []string{"check", "--help"}, want: []string{"Check the enabled clients, or the named ones, enabled or not; <client> is claude, claude-desktop, codex, or hermes", "one bounded inference request, which may use quota", "client runs a real client session", "How far to check: local, endpoint, model or client (default model)", "Print every local check"}},
 		{args: []string{"completion", "--help"}, want: []string{"Generate shell completion"}},
 		{args: []string{"self", "update", "--help"}, want: []string{"Replace only a portable AIGW program", "Homebrew upgrades a program that it installed", "Client settings and Tokens do not change"}},

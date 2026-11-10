@@ -32,6 +32,35 @@ func (files *countingFiles) Open(name string) (*os.File, error) {
 	return os.Open(name)
 }
 
+// gatewayTeamFile is a team file whose provider gateway serves claude-team to
+// Claude Code.
+func gatewayTeamFile(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "team.toml")
+	writeFile(t, path, []byte(`version = 7
+
+[recommendations.claude.primary]
+route = "claude-team"
+
+[accounts.gateway]
+label = "Gateway"
+
+[accounts.gateway.endpoints]
+anthropic = "https://gateway.test"
+
+[models.claude-team]
+label = "Claude Team"
+
+[routes.claude-team]
+label = "Claude Team"
+account = "gateway"
+model = "claude-team"
+upstream_model = "claude-team"
+interfaces = { anthropic = [] }
+`), 0o600)
+	return path
+}
+
 func TestReaderCommandsReadEachAIGWExecutableOnce(t *testing.T) {
 	base, _, _, _, _ := testApp(t, "")
 	root := t.TempDir()
@@ -49,8 +78,7 @@ func TestReaderCommandsReadEachAIGWExecutableOnce(t *testing.T) {
 		// programReads counts identity plus, when the reader is installed, its copy.
 		programReads int
 	}{
-		{args: []string{"setup", "--account", "gateway", "--route", "claude-team", "--label", "Gateway",
-			"--anthropic-url", "https://gateway.test", "--for", "claude", "--upstream-model", "claude-team", "--token-stdin"}, stdin: "fixture-token\n", programReads: 2},
+		{args: []string{"setup", "--from", gatewayTeamFile(t), "--provider", "gateway", "--token-stdin"}, stdin: "fixture-token\n", programReads: 2},
 		{args: []string{"sync"}, programReads: 1},
 		{args: []string{"use", "claude", "gateway/claude-next"}, prepare: addNextClaudeModel, programReads: 1},
 	} {

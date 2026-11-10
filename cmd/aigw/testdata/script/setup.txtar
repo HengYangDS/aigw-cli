@@ -1,41 +1,9 @@
-# setup refuses a Token that the provider rejects and connects the first
-# provider from flags. In other homes it applies a team file: a preview, Token
-# input for one provider, a refused Token, a rerun on a configured home with
-# what stays local, pruning, deferred and empty Tokens, and the refusals of a
-# team file that sets clients, has another version or cannot be read.
+# setup asks in a terminal, or applies a team file: a preview, Token input for
+# one provider, a refused Token, a rerun on a configured home with what stays
+# local, pruning, deferred and empty Tokens, and the refusals of a team file
+# that sets clients, has another version or cannot be read.
 exec aigw setup --help
 cmp stdout help.txt
-
-# Previews read no Token and write nothing below the private home.
-snapshot $HOME before.txt
-# A preview's client file and credential reader paths differ by platform.
-exec aigw setup --account team --route team-route --anthropic-url $UPSTREAM --upstream-model team-model --for claude --dry-run
-stdout 'First-time setup preview'
-stdout 'API Token +Not read in a preview'
-stdout 'Credential entrypoint'
-stdout 'settings\.json +project'
-stdout 'aigw setup --account team --anthropic-url .* --for claude --route team-route --upstream-model team-model'
-exec aigw setup --account team --route team-route --anthropic-url $UPSTREAM --upstream-model team-model --for claude --dry-run --json
-normalize stdout preview-json.out '[0-9a-f]{64}'
-[darwin] cmp preview-json.out preview.json
-[linux] cmp preview-json.out preview-linux.json
-[windows] cmp preview-json.out preview-windows.json
-# The spelling that 0.5.0 hid is an unknown flag now, and changes nothing.
-exitcode 1 aigw setup --account team --route team-route --anthropic-url $UPSTREAM --model team-model --for claude
-cmp stdout spellings.txt
-exitcode 1 aigw setup --json --account team --route team-route --anthropic-url $UPSTREAM --model team-model --for claude
-fixloop -input stdout aigw setup --json --account team --route team-route --anthropic-url $UPSTREAM --model team-model --for claude
-snapshot $HOME after.txt
-cmp after.txt before.txt
-
-stdin rejected.txt
-exitcode 1 aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
-cmp stdout refusal.txt
-
-# Its fix runs here: the same setup with a Token that the provider accepts.
-stdin token.txt
-exec aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
-cmp stdout connected.txt
 
 # Guided setup asks in a terminal; without one, or with --json or --dry-run,
 # it names a team file instead.
@@ -233,11 +201,6 @@ fixloop -did 'named a team file that exists' stdout aigw setup --from dangling.t
 [!windows] chmod 600 unreadable.toml
 [!windows] fixloop -did 'made the team file readable' stdout aigw setup --from unreadable.toml --json
 
-mkdir $WORK/third
-env HOME=$WORK/third USERPROFILE=$WORK/third XDG_CONFIG_HOME=$WORK/third XDG_DATA_HOME=$WORK/third APPDATA=$WORK/third LOCALAPPDATA=$WORK/third
-stdin token.txt
-exec aigw setup --route json-route --account json-team --label 'JSON Gateway' --anthropic-url $UPSTREAM --upstream-model json-model --for claude --token-stdin --json
-cmp stdout flags.json
 
 -- preview.json --
 {
@@ -272,81 +235,6 @@ cmp stdout flags.json
   },
   "next_detail": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
 }
--- preview-linux.json --
-{
-  "schema_version": 2,
-  "ok": true,
-  "dry_run": true,
-  "imported": {
-    "accounts": [
-      "team"
-    ],
-    "routes": [
-      "team-route"
-    ]
-  },
-  "connected_accounts": [],
-  "selections": {
-    "claude": "team-route"
-  },
-  "projected_clients": [],
-  "online_verification": "not_checked",
-  "projections": [
-    {
-      "client": "claude",
-      "surface": "claude-settings",
-      "target": "~/.claude/settings.json",
-      "action": "project"
-    }
-  ],
-  "credential_entrypoint": {
-    "path": "$HOME/aigw/credential/<varies>/aigw",
-    "action": "install"
-  },
-  "next_detail": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
-}
--- preview-windows.json --
-{
-  "schema_version": 2,
-  "ok": true,
-  "dry_run": true,
-  "imported": {
-    "accounts": [
-      "team"
-    ],
-    "routes": [
-      "team-route"
-    ]
-  },
-  "connected_accounts": [],
-  "selections": {
-    "claude": "team-route"
-  },
-  "projected_clients": [],
-  "online_verification": "not_checked",
-  "projections": [
-    {
-      "client": "claude",
-      "surface": "claude-settings",
-      "target": "~/.claude/settings.json",
-      "action": "project"
-    }
-  ],
-  "credential_entrypoint": {
-    "path": "$HOME\\aigw\\credential\\<varies>\\aigw.exe",
-    "action": "install"
-  },
-  "next_detail": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
-}
--- spellings.txt --
-AIGW  Action required
-────────────────────────────────────────
-
-Problem
-  unknown option --model; run `aigw setup --help`
-
-Fix
-  aigw setup --help
 -- rejected.txt --
 sk-rejected-token
 -- token.txt --
@@ -368,73 +256,13 @@ Examples
   aigw setup --from team.toml --provider dmxapi --token-stdin
 
 Options
-      --account string          Account ID; guided setup uses the first Route ID when omitted
-      --anthropic-url string    Anthropic base URL
-      --chat-url string         OpenAI Chat Completions base URL
-      --dry-run                 Show what setup would change without reading a Token or writing anything
-      --for string              Client for the first route: claude, claude-desktop, codex, or hermes
-      --from string             Apply a team file: its providers, models, families and recommendations
-  -h, --help                    help for setup
-      --json                    Write the setup result as JSON
-      --label string            Provider display name
-      --openai-url string       OpenAI Responses base URL
-      --protocol string         Endpoint protocol when more than one URL is configured: anthropic, responses, or chat
-      --provider stringArray    With --from, a provider whose Token to read, at a prompt or from --token-stdin; repeatable
-      --prune                   With --from, remove the local models that no client selects and no recommendation names, and unused families
-      --route string            First route ID
-      --token-stdin             Read one Token from standard input; with --from, the one --provider's
-      --upstream-model string   Exact provider model ID for --for
--- refusal.txt --
-AIGW  Action required
-────────────────────────────────────────
-
-Problem
-  Token validation failed: Claude authentication was rejected (HTTP 401)
-
-Fix
-  Pipe a Token that the provider accepts into the same command.
--- connected.txt --
-AIGW  First-time setup
-────────────────────────────────────────
-
-Account
-  Account              team
-  Route                team-route
-  Model                team-model
-  ✓ API Token          Validated
-Clients
-  ✓ Claude             Projection configured
-  · Claude Desktop     Not configured
-  · Codex              Not configured
-  · Hermes             Not configured
-  ✓ Client projection configured; real-client use is not yet verified.
-
-Next
-  aigw check
--- flags.json --
-{
-  "schema_version": 2,
-  "ok": true,
-  "imported": {
-    "accounts": [
-      "json-team"
-    ],
-    "routes": [
-      "json-route"
-    ]
-  },
-  "connected_accounts": [
-    "json-team"
-  ],
-  "selections": {
-    "claude": "json-route"
-  },
-  "projected_clients": [
-    "claude"
-  ],
-  "online_verification": "not_checked",
-  "next_action": "aigw check"
-}
+      --dry-run                Show what setup would change without reading a Token or writing anything
+      --from string            Apply a team file: its providers, models, families and recommendations
+  -h, --help                   help for setup
+      --json                   Write the setup result as JSON
+      --provider stringArray   With --from, a provider whose Token to read, at a prompt or from --token-stdin; repeatable
+      --prune                  With --from, remove the local models that no client selects and no recommendation names, and unused families
+      --token-stdin            With --from, read the one --provider's Token from standard input
 -- team.in --
 version = 7
 [recommendations.claude.primary]
@@ -637,7 +465,7 @@ Next
 {
   "schema_version": 3,
   "ok": false,
-  "error": "--provider and --prune apply a team file, so they need --from; run `aigw setup --help`",
+  "error": "--provider, --prune and --token-stdin apply a team file, so they need --from; run `aigw setup --help`",
   "next_action": "aigw setup --help"
 }
 -- team-rejected.json --

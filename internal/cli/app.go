@@ -170,19 +170,14 @@ func refusedFlag(command *cobra.Command, err error) error {
 	return terminal.Usage(command.CommandPath(), fmt.Errorf("%w; run `%s --help`", err, command.CommandPath()))
 }
 
-// refusal marks a usage error that Cobra or the command reports: an unknown
-// command at the root, which Cobra returns while it finds the command and
-// before any command runs, and an argument that the command refused while it
-// ran.
+// refusal marks an unknown command at the root as a usage error, which Cobra
+// returns while it finds the command and before any command runs.
 func refusal(root, command *cobra.Command, args []string, err error) error {
 	if err == nil {
 		return nil
 	}
 	if _, _, unknown := root.Find(args); unknown != nil {
 		return terminal.Usage(root.CommandPath(), err)
-	}
-	if _, refused := errors.AsType[*invocation.ArgumentError](err); refused {
-		return terminal.Usage(command.CommandPath(), err)
 	}
 	return err
 }
