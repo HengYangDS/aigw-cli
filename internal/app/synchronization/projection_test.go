@@ -183,14 +183,15 @@ func TestDesiredClientConfigurationDoesNotActivateUnboundClients(t *testing.T) {
 func TestProjectionPlanningValidatesEnabledClients(t *testing.T) {
 	syncer := Synchronizer{Registry: builtinClients}
 	cfg := domain.NewConfig(clients.Admission())
-	plans, err := syncer.Plan(cfg, cfg)
+	projection, err := syncer.PreviewProjection(cfg, cfg)
+	plans := projection.Targets
 	if err != nil || len(plans) != 0 {
 		t.Fatalf("disabled plan = %#v, %v", plans, err)
 	}
 
 	invalid := testConfig("/target")
 	delete(invalid.Models, "gpt")
-	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}}).Plan(invalid, invalid); err == nil {
+	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}}).PreviewProjection(invalid, invalid); err == nil {
 		t.Fatal("planning accepted an invalid runtime")
 	}
 }
@@ -210,7 +211,8 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	}
 	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: staticDiscovery{}, Host: hostAt(dir), AIGWExecutable: filepath.Join(dir, "aigw")}
 
-	plans, err := syncer.Plan(before, after)
+	projection, err := syncer.PreviewProjection(before, after)
+	plans := projection.Targets
 	if err != nil || len(plans) != 1 || plans[0].Client != claude.ID || plans[0].Target != settingsPath || plans[0].Action != "project" {
 		t.Fatalf("project plans = %#v, %v", plans, err)
 	}
@@ -220,7 +222,8 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	if err := syncer.CommitProjection(t.Context(), before, after, "Claude projection"); err != nil {
 		t.Fatal(err)
 	}
-	plans, err = syncer.Plan(after, before)
+	projection, err = syncer.PreviewProjection(after, before)
+	plans = projection.Targets
 	if err != nil || len(plans) != 1 || plans[0].Client != claude.ID || plans[0].Action != "restore" {
 		t.Fatalf("restore plans = %#v, %v", plans, err)
 	}
@@ -254,7 +257,8 @@ func TestCommitProjectionPreservesClaudeModelAcrossHelperChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	syncer.AIGWExecutable = filepath.Join(root, "new-aigw")
-	plans, err := syncer.Plan(cfg, cfg)
+	projection, err := syncer.PreviewProjection(cfg, cfg)
+	plans := projection.Targets
 	if err != nil || len(plans) != 1 || plans[0].Action != "project" {
 		t.Fatalf("helper migration plan = %#v, %v", plans, err)
 	}
@@ -285,15 +289,15 @@ func TestPlanReportsClaudePlanningFailures(t *testing.T) {
 	after := before.Clone()
 	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 
-	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}}).Plan(before, after); err == nil || !strings.Contains(err.Error(), "settings path") {
+	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}}).PreviewProjection(before, after); err == nil || !strings.Contains(err.Error(), "settings path") {
 		t.Fatalf("missing settings path error = %v", err)
 	}
-	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}, Host: hostAt(t.TempDir())}).Plan(before, after); err == nil || !strings.Contains(err.Error(), "executable path") {
+	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}, Host: hostAt(t.TempDir())}).PreviewProjection(before, after); err == nil || !strings.Contains(err.Error(), "executable path") {
 		t.Fatalf("missing AIGW executable error = %v", err)
 	}
 	invalid := after.Clone()
 	delete(invalid.Models, "claude")
-	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}, Host: hostAt(t.TempDir()), AIGWExecutable: "/aigw"}).Plan(before, invalid); err == nil {
+	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}, Host: hostAt(t.TempDir()), AIGWExecutable: "/aigw"}).PreviewProjection(before, invalid); err == nil {
 		t.Fatal("invalid enabled Claude runtime was accepted")
 	}
 }
@@ -374,18 +378,18 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 
 func TestProjectionPlanningRequiresDiscoveryAndValidTargets(t *testing.T) {
 	base := testConfig("/target")
-	if _, err := (Synchronizer{Registry: builtinClients}).Plan(base, base); err == nil {
+	if _, err := (Synchronizer{Registry: builtinClients}).PreviewProjection(base, base); err == nil {
 		t.Fatal("expected discovery error")
 	}
 	syncer := Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}}
 	before := base.Clone()
 	before.SetClientActivation(codex.ID, true, "", []string{""})
-	if _, err := syncer.Plan(before, base); err == nil {
+	if _, err := syncer.PreviewProjection(before, base); err == nil {
 		t.Fatal("expected before-target error")
 	}
 	after := base.Clone()
 	after.SetClientActivation(codex.ID, true, "", []string{""})
-	if _, err := syncer.Plan(base, after); err == nil {
+	if _, err := syncer.PreviewProjection(base, after); err == nil {
 		t.Fatal("expected after-target error")
 	}
 }

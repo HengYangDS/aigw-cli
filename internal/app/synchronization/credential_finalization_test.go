@@ -107,7 +107,7 @@ func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, operation := range []func() error{
-				func() error { _, err := syncer.Plan(cfg, cfg); return err },
+				func() error { _, err := syncer.PreviewProjection(cfg, cfg); return err },
 				func() error { _, err := syncer.CredentialEntrypointPlan(cfg); return err },
 				func() error { return syncer.ReconcileClient(t.Context(), cfg, codex.ID) },
 				func() error { return syncer.CommitProjection(t.Context(), cfg, cfg, "test") },

@@ -9,18 +9,6 @@ import (
 	"aigw-cli/internal/secret"
 )
 
-// AdmitSetup requires an installation without providers before setup from
-// flags, which would otherwise replace an existing provider's label,
-// endpoints, balance probe and Token. A configuration may hold providers
-// without models, so providers, not models, mark an installation as
-// configured. Its fix is the status, which names each client's next step.
-func (Synchronizer) AdmitSetup(before domain.Config) error {
-	if len(before.Providers) > 0 || len(before.Models) > 0 {
-		return fmt.Errorf("AIGW is already configured, and setup does not change an existing provider; run `aigw status` for each client's next step, or `aigw provider add` to add a provider")
-	}
-	return nil
-}
-
 // Setup commits a setup's configuration, optional provider Tokens and client
 // files as one operation: the files of the named clients, which it activates,
 // and of every other client whose files the change affects. Configuration,

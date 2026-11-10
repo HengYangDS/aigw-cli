@@ -2,7 +2,6 @@ package synchronization
 
 import (
 	"errors"
-	"fmt"
 	"slices"
 
 	"aigw-cli/internal/adapter"
@@ -66,38 +65,6 @@ func (s Synchronizer) PreviewSetup(before, after domain.Config, providers []stri
 		return after, Projection{}, nil
 	}
 	projection, err := project(planner, before, after, reconciled...)
-	return after, projection, err
-}
-
-// PreviewConnection reports what ConnectProvider would write, as if the new
-// Account's Token were stored: the configuration, with the client's selection
-// of the new Route and its desired configuration, and its projection. It
-// reads, checks and stores no Token of that Account and writes nothing.
-func (s Synchronizer) PreviewConnection(before domain.Config, name, client string, account domain.Provider, route domain.Model) (domain.Config, Projection, error) {
-	after, err := s.PlanConnection(before, name, client, account, route)
-	if err != nil {
-		return domain.Config{}, Projection{}, err
-	}
-	selected, err := after.ResolveRuntime(client, "")
-	if err != nil {
-		return domain.Config{}, Projection{}, err
-	}
-	if !selected.RequiresProviderToken() {
-		return domain.Config{}, Projection{}, fmt.Errorf("route %q uses client-owned authentication; Account Token storage is not part of selection", name)
-	}
-	binding := after.Clients[client]
-	binding.Enabled = true
-	after.Clients[client] = binding
-	selector := s
-	selector.Secrets = presumedTokens{providers: []string{name}, store: s.Secrets}
-	selector.AuthorizedSelectionClient = client
-	if after, _, err = selector.DesiredClientConfiguration(after, client); err != nil {
-		return domain.Config{}, Projection{}, err
-	}
-	if err := validateTransition(after); err != nil {
-		return domain.Config{}, Projection{}, err
-	}
-	projection, err := project(selector, before, after, client)
 	return after, projection, err
 }
 

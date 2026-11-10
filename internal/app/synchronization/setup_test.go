@@ -216,20 +216,6 @@ func TestSetupCommitReportsBackendSelectionFailureWithoutErasingForeignState(t *
 	}
 }
 
-// Setup admits only an installation without providers: a provider without
-// models is configured too, and setup would replace it.
-func TestAdmitSetupRefusesAnyProvider(t *testing.T) {
-	cfg := domain.NewConfig(builtinclients.Admission())
-	if err := (Synchronizer{}).AdmitSetup(cfg); err != nil {
-		t.Fatalf("an empty installation = %v", err)
-	}
-	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	err := (Synchronizer{}).AdmitSetup(cfg)
-	if err == nil || !strings.Contains(err.Error(), "AIGW is already configured") || !strings.Contains(err.Error(), "`aigw status`") {
-		t.Fatalf("a provider without models = %v", err)
-	}
-}
-
 // Setup reconciles the clients that it activates and every other client whose
 // files change; a preview of an unchanged home without clients plans none.
 func TestSetupReconcilesTheActivatedAndTheChangedClients(t *testing.T) {

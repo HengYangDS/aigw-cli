@@ -142,7 +142,8 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	configurationStore := &configStoreStub{}
 	configurationStore.bindConfiguration(t, cfg)
 	syncer := Synchronizer{Registry: builtinClients, Config: configurationStore, Secrets: secret.NewMemoryStore(), Discovery: targetDiscovery(target), AIGWExecutable: candidate, ResolveCredentialPath: readerAt(reader), Host: hostAt(root)}
-	plans, err := syncer.Plan(cfg, cfg)
+	projection, err := syncer.PreviewProjection(cfg, cfg)
+	plans := projection.Targets
 	if err != nil || len(plans) == 0 {
 		t.Fatalf("ready native Codex has no projection plan: plans=%v error=%v", plans, err)
 	}

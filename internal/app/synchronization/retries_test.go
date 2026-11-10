@@ -108,15 +108,3 @@ func TestRetryConnectionTransitionGenericProviderCommit(t *testing.T) {
 		})
 	}
 }
-
-// A provider that setup connects for a client with retry budgets is another
-// provider, so the client's selection of it clears the budgets.
-func TestConnectingAnotherProviderClearsRetryBudgets(t *testing.T) {
-	cfg := retryTransitionFixture(t)
-	account := domain.Provider{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
-	route := domain.Model{Label: "Other", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	after, err := (Synchronizer{Registry: builtinClients}).PlanConnection(cfg, "other", codex.ID, account, route)
-	if err != nil || after.Clients[codex.ID].RetryPolicy != nil || after.SelectedModel(codex.ID) != "other" {
-		t.Fatalf("connection = %#v, %v", after.Clients[codex.ID], err)
-	}
-}

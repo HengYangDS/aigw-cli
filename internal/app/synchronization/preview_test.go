@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
-	"aigw-cli/internal/domain"
 )
 
 // presenceStore answers whether an Account's Token exists, records each
@@ -57,7 +56,7 @@ func TestPresumedTokensAskOnlyOtherProvidersPresence(t *testing.T) {
 }
 
 // TestPreviewsRefuseWhatTheirChangesRefuse shows that each preview refuses a
-// transition that its commit, setup or connection would refuse.
+// transition that its commit or setup would refuse.
 func TestPreviewsRefuseWhatTheirChangesRefuse(t *testing.T) {
 	before := setupConfiguration()
 	invalid := before.Clone()
@@ -73,9 +72,5 @@ func TestPreviewsRefuseWhatTheirChangesRefuse(t *testing.T) {
 	}
 	if _, _, err := syncer.PreviewSetup(before, invalid, []string{"team"}, claude.ID); err == nil {
 		t.Fatal("PreviewSetup admitted an invalid configuration")
-	}
-	account := domain.Provider{Label: "New", Endpoints: domain.Endpoints{Anthropic: "https://new.test"}}
-	if _, _, err := syncer.PreviewConnection(before, "claude", claude.ID, account, domain.Model{Label: "New", Family: "new-model"}); err == nil {
-		t.Fatal("PreviewConnection replaced an existing Route")
 	}
 }
