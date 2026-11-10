@@ -83,7 +83,7 @@
       verified snapshot when no client failed and every session-capable client
       ran one, recording each client's depth; a test with Claude Desktop
       enabled writes it.
-- [ ] 4.5 Rework `aigw setup` into a guided first run that can run again, and
+- [x] 4.5 Rework `aigw setup` into a guided first run that can run again, and
       `aigw setup --from <file>` with the team-file merge rules of design.md;
       without a terminal, bare `aigw setup` refuses naming `--from`;
       `setup.txtar` covers a differing endpoint kept and reported, `--prune`,
@@ -105,17 +105,37 @@
 - [ ] 4.11 State in the command-line delta the reason that each path
       condition prints on every platform, where the scenario now asks for the
       operating-system text; strict validation passes.
+- [ ] 4.12 Keep a disabled client disabled when the fix of its refused
+      selection runs; a script covers it.
+- [ ] 4.13 Make `model show` and `model list` mark a protocol whose provider
+      has no endpoint and name `aigw provider edit <provider> --endpoint`,
+      instead of an empty URL; scripts cover both.
+- [ ] 4.14 After a deferred Token is stored, make `status` name
+      `aigw setup --from <file>` again rather than `aigw provider rotate`; a
+      script covers it.
+- [ ] 4.15 Report a client whose provider holds an empty Token as deferred,
+      with the fix that stores one, in `status`; a test covers it.
+- [ ] 4.16 Name the entry of the team file to change in each refusal of an
+      invalid team file, instead of `aigw check`; scripts cover each refusal.
+- [ ] 4.17 Report each model once in `setup --from`; a test covers a model
+      that the file and the local configuration both name.
+- [ ] 4.18 State how a team file's provider order merges, in the
+      progressive-team-onboarding delta, and make setup follow it; strict
+      validation passes and a test covers it.
+- [ ] 4.19 Name the one compatible provider's command in an activation fix
+      that has one choice, instead of "Choose one compatible provider"; a
+      test covers it.
 
 ## 5. Maintenance commands and the command tree
 
-- [ ] 5.1 Fold `repair` into `aigw sync`, which shows models as
+- [x] 5.1 Fold `repair` into `aigw sync`, which shows models as
       `provider/model`, and add `aigw config path`, `aigw config export`,
       which writes a team file, and `aigw config rollback` with
       `--last-change`.
-- [ ] 5.2 Add `aigw self install|update|rollback|uninstall|status`, replacing
+- [x] 5.2 Add `aigw self install|update|rollback|uninstall|status`, replacing
       `install`, `update`, `update --rollback`, `uninstall` and
       `installation`.
-- [ ] 5.3 Add `aigw version`, and make bare `aigw` show `status` or, without
+- [x] 5.3 Add `aigw version`, and make bare `aigw` show `status` or, without
       configuration, name `aigw setup`.
 - [ ] 5.4 Remove every superseded command, flag and package, with
       `internal/app/renaming`; every script and acceptance test uses only the
@@ -132,14 +152,16 @@
       own coverage directory, merged after the run, so that concurrent
       processes no longer race on the coverage metadata file; the Windows
       guest job passes without that diagnostic.
-- [ ] 5.7 Embed only the GitHub release source in official builds: remove the
+- [x] 5.7 Embed only the GitHub release source in official builds: remove the
       GitLab build variables and their linker flags, make release construction
       refuse an environment that sets a GitLab release source, and update
       `docs/architecture/repository-tooling.md`; tests show the refusal and
       that `aigw self update` still reads a GitLab peer named at run time.
-- [ ] 5.8 Add a testscript command that reruns a failure's `next_action` and
+- [x] 5.8 Add a testscript command that reruns a failure's `next_action` and
       fails when the same problem recurs, and use it in each script that
       covers a failure.
+- [ ] 5.9 Print the JSON failure document of a usage error in a command run
+      with `--json`, wherever `--json` stands; fixloop's root exemption goes.
 
 ## 6. One configuration file
 
