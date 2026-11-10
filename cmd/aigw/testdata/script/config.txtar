@@ -1,6 +1,6 @@
 # config prints its path, exports a configuration that a team file set up as
-# a team file without clients, rolls back the last change, and previews a
-# migration; setup refuses a malformed team file.
+# a team file without clients, and rolls back the last change; setup refuses a
+# malformed team file.
 exec aigw config --help
 cmp stdout help.txt
 exec aigw config export --help
@@ -24,16 +24,6 @@ normalize stdout path.out
 envsubst manifest.in manifest.toml
 exec aigw setup --from manifest.toml --json
 fixloop -input -did 'applied a team file with aigw setup --from' rollback-empty.json aigw config rollback --json
-# config import stays until the command tree's last step removes it; setup
-# --from is what applies a team file. Its preview writes nothing.
-snapshot $HOME import-before.txt
-exec aigw config import manifest.toml --dry-run --json
-snapshot $HOME import-after.txt
-cmp import-after.txt import-before.txt
-exec aigw config import manifest.toml --json
-stdout '"ok": true'
-exitcode 1 aigw config import broken.toml --json
-stdout '"ok": false'
 
 exec aigw config export
 normalize stdout export.out
@@ -73,15 +63,6 @@ exitcode 1 aigw setup --from broken.toml --json
 cmp stdout refusal.json
 cp manifest.toml broken.toml
 fixloop -did 'corrected the document with the team file that setup applied above' refusal.json aigw setup --from broken.toml --json
-snapshot $HOME migrate-before.txt
-exec aigw config migrate --dry-run --json
-normalize stdout migrate.out
-cmp migrate.out migrate.json
-snapshot $HOME migrate-after.txt
-cmp migrate-after.txt migrate-before.txt
-exitcode 1 aigw config migrate extra --json
-cmp stdout migrate-refusal.json
-fixloop -input stdout aigw config migrate extra --json
 
 exec aigw config path --json
 normalize stdout path-json.out
@@ -119,8 +100,6 @@ Usage
 
 Commands
   export               Write the configuration as a secret-free team file, without clients
-  import               Merge a secret-free configuration manifest
-  migrate              Migrate retained local configuration to or from the current schema
   path                 Print the local configuration path
   rollback             Restore the configuration and client files, not the program
 
@@ -195,32 +174,6 @@ $HOME\aigw\config.toml
   "schema_version": 1,
   "ok": true,
   "path": "$HOME\\aigw\\config.toml"
-}
--- migrate.json --
-{
-  "schema_version": 2,
-  "ok": true,
-  "dry_run": true,
-  "required": false,
-  "direction": "upgrade",
-  "from_version": 6,
-  "to_version": 6,
-  "accounts": [
-    "team"
-  ],
-  "routes": [
-    "team-route"
-  ],
-  "clients": {},
-  "recommendations": {},
-  "next_action": "aigw check"
-}
--- migrate-refusal.json --
-{
-  "schema_version": 3,
-  "ok": false,
-  "error": "unknown command \"extra\"",
-  "next_action": "aigw config migrate --help"
 }
 -- export-help.txt --
 AIGW  aigw config export

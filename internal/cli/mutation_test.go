@@ -74,7 +74,6 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		{[]string{"client", "enable", "claude", "--executable", " "}, "--executable is required", "aigw client list"},
 		{[]string{"client", "enable", "codex", "--executable", "codex"}, "requires at least one --target", "aigw client enable --help"},
 		{[]string{"client", "enable", "codex", "--executable", "codex", "--target", " "}, "--target requires a non-empty path", "aigw client enable --help"},
-		{[]string{"config", "import", " "}, "manifest path must not be blank", "aigw config import --help"},
 	} {
 		t.Run(strings.Join(test.args, "/"), func(t *testing.T) {
 			root := filepath.Join(t.TempDir(), "configuration")
@@ -142,15 +141,6 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 		{name: "client edit dry-run", args: []string{"client", "edit", "codex", "--direct", "--dry-run"}, want: false},
 		{name: "client list", args: []string{"client", "list"}, want: false},
 		{name: "bare config", args: []string{"config"}, want: false},
-		{name: "config import", args: []string{"config", "import", "path"}, want: true},
-		{name: "config import dry-run", args: []string{"config", "import", "path", "--dry-run"}, want: false},
-		{name: "config import dry-run false", args: []string{"config", "import", "path", "--dry-run=false"}, want: true},
-		{name: "config import final dry-run false", args: []string{"config", "import", "path", "--dry-run", "--dry-run=false"}, want: true},
-		{name: "config import final dry-run true", args: []string{"config", "import", "path", "--dry-run=false", "--dry-run"}, want: false},
-		{name: "config migrate", args: []string{"config", "migrate"}, want: true},
-		{name: "config migrate dry-run", args: []string{"config", "migrate", "--dry-run"}, want: false},
-		{name: "config migration rollback", args: []string{"config", "migrate", "--rollback"}, want: true},
-		{name: "config migration rollback preview", args: []string{"config", "migrate", "--rollback", "--dry-run"}, want: false},
 		{name: "config export", args: []string{"config", "export"}, want: false},
 		{name: "config rollback", args: []string{"config", "rollback"}, want: true},
 		{name: "config rollback dry-run", args: []string{"config", "rollback", "--dry-run"}, want: false},
@@ -183,19 +173,19 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 	}
 }
 
-func TestConfigImportPreviewDoesNotCreateConfigurationDirectoryOrLock(t *testing.T) {
+func TestTeamSetupPreviewDoesNotCreateConfigurationDirectoryOrLock(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "configuration")
 	var output bytes.Buffer
-	app := &App{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()), Out: &output, Err: io.Discard}
+	app := &App{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()), Secrets: secret.NewMemoryStore(), Discovery: noClientDiscovery{}, Out: &output, Err: io.Discard}
 	manifest := filepath.Join("..", "..", "manifests", "team.toml")
-	if err := Execute(app, []string{"config", "import", manifest, "--dry-run", "--json"}); err != nil {
-		t.Fatal(err)
+	if err := Execute(app, []string{"setup", "--from", manifest, "--dry-run", "--json"}); err != nil {
+		t.Fatalf("team setup preview: %v\n%s", err, &output)
 	}
 	if _, err := os.Stat(root); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("read-only import created configuration storage: %v", err)
+		t.Fatalf("a team setup preview created configuration storage: %v", err)
 	}
 	if !strings.Contains(output.String(), `"dry_run": true`) {
-		t.Fatalf("import preview omitted structured result: %q", output.String())
+		t.Fatalf("the team setup preview omitted its structured result: %q", output.String())
 	}
 }
 

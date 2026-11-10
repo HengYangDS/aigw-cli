@@ -189,10 +189,12 @@ func TestPublishedV010RollbackRestoresExactBytes(t *testing.T) {
 	}
 }
 
-func TestPublishedConfigurationVersionDiagnosticOffersExplicitMigration(t *testing.T) {
+// A predecessor schema is the matching release's to read: no command of this
+// program migrates it.
+func TestPublishedConfigurationVersionDiagnosticNamesTheMatchingRelease(t *testing.T) {
 	message := (&domain.UnsupportedConfigVersionError{Version: domain.PublishedConfigVersion, ExpectedVersion: domain.ConfigVersion}).Error()
-	if !strings.Contains(message, "aigw config migrate --dry-run") {
-		t.Fatalf("published predecessor diagnostic omitted its admitted migration: %s", message)
+	if !strings.Contains(message, "use the matching AIGW release") || strings.Contains(message, "aigw config") {
+		t.Fatalf("published predecessor diagnostic = %s", message)
 	}
 }
 

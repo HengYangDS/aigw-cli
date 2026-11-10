@@ -6,15 +6,14 @@ import (
 	"aigw-cli/internal/terminal"
 )
 
-// discoverSchemaVersion and the other constants are the versions of the client
-// subcommands' JSON documents. list replaces discover's document, so it
-// continues from discover's schema_version plus one; edit has no predecessor.
+// listSchemaVersion and the other constants are the versions of the client
+// subcommands' JSON documents. list replaced the document of `aigw client
+// discover`, version 1, so it continues at 2; edit has no predecessor.
 const (
-	discoverSchemaVersion = 1
-	listSchemaVersion     = 2
-	enableSchemaVersion   = 1
-	disableSchemaVersion  = 1
-	editSchemaVersion     = 1
+	listSchemaVersion    = 2
+	enableSchemaVersion  = 1
+	disableSchemaVersion = 1
+	editSchemaVersion    = 1
 )
 
 // editDocument is `aigw client edit`'s JSON document: the client's settings
@@ -63,19 +62,6 @@ type clientItem struct {
 	Executable string `json:"executable,omitempty"`
 	Enabled    bool   `json:"enabled"`
 	Model      string `json:"model,omitempty"`
-}
-
-// discoverDocument is `aigw client discover`'s JSON document.
-type discoverDocument struct {
-	Clients []discoveredClient `json:"clients"`
-}
-
-// discoveredClient is one admitted client and the executable that discovery
-// found for it.
-type discoveredClient struct {
-	ID         string `json:"id"`
-	State      string `json:"state"`
-	Executable string `json:"executable,omitempty"`
 }
 
 // projectionDocument is the JSON document of `aigw client enable` and

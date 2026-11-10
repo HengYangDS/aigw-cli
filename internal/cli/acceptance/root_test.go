@@ -274,7 +274,7 @@ func TestExecuteReturnsHumanOutputFailure(t *testing.T) {
 	want := errors.New("output is unavailable")
 	app.Out = failingOutput{err: want}
 
-	err := cli.Execute(app, []string{"client", "discover"})
+	err := cli.Execute(app, []string{"client", "list"})
 	if !errors.Is(err, want) {
 		t.Fatalf("Execute() error = %v, want %v", err, want)
 	}

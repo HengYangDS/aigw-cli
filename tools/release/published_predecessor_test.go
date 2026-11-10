@@ -354,20 +354,6 @@ func (state *publishedNativeJourney) upgrade(t *testing.T) {
 	}
 	journey.requireVersion(state.version)
 	journey.requireProgramBytes(state.candidate)
-	var preview struct {
-		Required    bool `json:"required"`
-		FromVersion int  `json:"from_version"`
-		ToVersion   int  `json:"to_version"`
-	}
-	if err := json.Unmarshal(journey.run("config", "migrate", "--dry-run", "--json"), &preview); err != nil {
-		t.Fatal(err)
-	}
-	if preview.Required || preview.FromVersion != domain.ConfigVersion || preview.ToVersion != domain.ConfigVersion {
-		t.Fatalf("unchanged published configuration requires migration: %#v", preview)
-	}
-	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
-		t.Fatal("current-schema migration preview changed published configuration")
-	}
 	state.catalog = journey.importCatalogOrder()
 	journey.run("sync")
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {

@@ -88,7 +88,7 @@ func TestClientDiscoveryBranches(t *testing.T) {
 		}
 		app, out, _, _, _ := testApp(t, "")
 		app.Discovery = adapter.NewDiscoverer(clients.Registry(), discovery.System{GOOS: runtime.GOOS, Home: t.TempDir(), Path: dir})
-		if err := cli.Execute(app, []string{"client", "discover"}); err != nil {
+		if err := cli.Execute(app, []string{"client", "list"}); err != nil {
 			t.Fatal(err)
 		}
 		for name, path := range resolved {

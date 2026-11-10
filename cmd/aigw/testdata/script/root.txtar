@@ -64,6 +64,12 @@ exitcode 1 aigw rotate team
 stdout 'unknown command "rotate"'
 exitcode 1 aigw balance
 stdout 'unknown command "balance"'
+exitcode 1 aigw client discover
+stdout 'unknown command "discover"'
+exitcode 1 aigw config import team.toml
+stdout 'unknown command "import"'
+exitcode 1 aigw config migrate
+stdout 'unknown command "migrate"'
 snapshot $HOME removed-after.txt
 cmp removed-after.txt removed-before.txt
 

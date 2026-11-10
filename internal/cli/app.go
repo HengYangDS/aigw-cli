@@ -215,7 +215,7 @@ func requiresConfigurationLock(command *cobra.Command) bool {
 	case "setup",
 		"model add", "model edit", "model remove", "client enable", "client disable", "client edit",
 		"provider add", "provider edit", "provider remove",
-		"use", "sync", "config import", "config migrate",
+		"use", "sync",
 		"config rollback", "self update", "self rollback", "self uninstall":
 		dryRun, err := command.Flags().GetBool("dry-run")
 		return err != nil || !dryRun

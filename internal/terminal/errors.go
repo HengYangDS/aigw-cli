@@ -426,9 +426,6 @@ func typedErrorMessage(err error, at platform.PathContext) (string, bool) {
 			version.Version,
 			version.ExpectedVersion,
 		)
-		if (version.Version == domain.LegacyConfigVersion || version.Version == domain.PublishedConfigVersion) && version.ExpectedVersion == domain.ConfigVersion {
-			message += "; run `aigw config migrate --dry-run`"
-		}
 		return message, true
 	}
 	// An operating-system error at a path is titled by its condition; a

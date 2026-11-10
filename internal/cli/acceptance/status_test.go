@@ -86,7 +86,7 @@ func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
 	}
 }
 
-func TestStatusDirectsTheSupportedPredecessorToExplicitMigration(t *testing.T) {
+func TestStatusDirectsAPredecessorSchemaToTheMatchingRelease(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	if err := os.WriteFile(app.Config.Path(), []byte("version = 5\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -94,7 +94,7 @@ func TestStatusDirectsTheSupportedPredecessorToExplicitMigration(t *testing.T) {
 	if err := cli.Execute(app, []string{"status"}); err == nil {
 		t.Fatal("legacy configuration unexpectedly entered normal runtime")
 	}
-	if text := out.String(); !strings.Contains(text, "aigw config migrate --dry-run") {
+	if text := out.String(); strings.Contains(text, "aigw config migrate") || !strings.Contains(text, "unsupported configuration version: found 5") {
 		t.Fatalf("legacy configuration guidance = %s", text)
 	}
 }

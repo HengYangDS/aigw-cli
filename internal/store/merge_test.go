@@ -322,11 +322,11 @@ interfaces = { anthropic = [] }
 	cfg.Models["local"] = testModel("Local", "local", "claude-local", domain.ProtocolAnthropic)
 
 	_, err = domain.MergeWithOptions(cfg, team, domain.MergeOptions{ReplaceProviders: map[string]bool{"missing": true}})
-	if err == nil || !strings.Contains(err.Error(), `--replace-account "missing"`) {
+	if err == nil || !strings.Contains(err.Error(), `replaces account "missing"`) {
 		t.Fatalf("unused account replacement error = %v", err)
 	}
 	_, err = domain.MergeWithOptions(cfg, team, domain.MergeOptions{ReplaceModels: map[string]bool{"missing": true}})
-	if err == nil || !strings.Contains(err.Error(), `--replace-route "missing"`) {
+	if err == nil || !strings.Contains(err.Error(), `replaces route "missing"`) {
 		t.Fatalf("unused Route replacement error = %v", err)
 	}
 	for _, test := range []struct {
@@ -334,9 +334,9 @@ interfaces = { anthropic = [] }
 		options domain.MergeOptions
 		want    string
 	}{
-		{"missing local", domain.MergeOptions{KeepProviders: map[string]bool{"team": true}}, "does not name an existing local Account"},
-		{"missing incoming", domain.MergeOptions{KeepProviders: map[string]bool{"local": true}}, "does not name an Account in the imported"},
-		{"conflicting selectors", domain.MergeOptions{KeepProviders: map[string]bool{"team": true}, ReplaceProviders: map[string]bool{"team": true}}, "conflicts with --replace-account"},
+		{"missing local", domain.MergeOptions{KeepProviders: map[string]bool{"team": true}}, "which the local configuration does not have"},
+		{"missing incoming", domain.MergeOptions{KeepProviders: map[string]bool{"local": true}}, "which the imported configuration manifest does not have"},
+		{"conflicting selectors", domain.MergeOptions{KeepProviders: map[string]bool{"team": true}, ReplaceProviders: map[string]bool{"team": true}}, "both keeps and replaces account"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			_, err := domain.MergeWithOptions(cfg, team, test.options)

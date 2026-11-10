@@ -146,7 +146,7 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 				continue
 			}
 			if !options.ReplaceProviders[name] {
-				return Config{}, fmt.Errorf("account %q conflicts with local configuration; inspect it with `aigw config export`, then use --keep-account %s to retain local metadata or --replace-account %s to use incoming metadata; its Token is unchanged", name, name, name)
+				return Config{}, fmt.Errorf("account %q conflicts with local configuration; inspect it with `aigw config export`; the merge neither keeps nor replaces it, and its Token is unchanged", name)
 			}
 		}
 		merged.Providers[name] = account
@@ -157,7 +157,7 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 				continue
 			}
 			if !options.ReplaceFamilies[name] {
-				return Config{}, fmt.Errorf("model %q conflicts with local configuration; re-run with `aigw config import <toml> --replace-model %s` to explicitly replace it", name, name)
+				return Config{}, fmt.Errorf("model %q conflicts with local configuration, and the merge does not replace it", name)
 			}
 		}
 		merged.Families[name] = model
@@ -168,7 +168,7 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 				continue
 			}
 			if !options.ReplaceModels[name] {
-				return Config{}, fmt.Errorf("route %q conflicts with local configuration; re-run with `aigw config import <toml> --replace-route %s` to explicitly replace it", name, name)
+				return Config{}, fmt.Errorf("route %q conflicts with local configuration, and the merge does not replace it", name)
 			}
 		}
 		merged.Models[name] = route
@@ -228,28 +228,28 @@ func validateMergeSelectors(cfg Config, incoming Manifest, options MergeOptions)
 			continue
 		}
 		if options.ReplaceProviders[name] {
-			return fmt.Errorf("--keep-account %q conflicts with --replace-account for the same Account", name)
+			return fmt.Errorf("the merge both keeps and replaces account %q", name)
 		}
 		if _, exists := cfg.Providers[name]; !exists {
-			return fmt.Errorf("--keep-account %q does not name an existing local Account", name)
+			return fmt.Errorf("the merge keeps account %q, which the local configuration does not have", name)
 		}
 		if _, exists := incoming.Providers[name]; !exists {
-			return fmt.Errorf("--keep-account %q does not name an Account in the imported configuration manifest", name)
+			return fmt.Errorf("the merge keeps account %q, which the imported configuration manifest does not have", name)
 		}
 	}
 	for name := range options.ReplaceProviders {
 		if _, exists := incoming.Providers[name]; !exists {
-			return fmt.Errorf("--replace-account %q does not name an Account in the imported configuration manifest", name)
+			return fmt.Errorf("the merge replaces account %q, which the imported configuration manifest does not have", name)
 		}
 	}
 	for name := range options.ReplaceFamilies {
 		if _, exists := incoming.Families[name]; !exists {
-			return fmt.Errorf("--replace-model %q does not name a Model in the imported configuration manifest", name)
+			return fmt.Errorf("the merge replaces model %q, which the imported configuration manifest does not have", name)
 		}
 	}
 	for name := range options.ReplaceModels {
 		if _, exists := incoming.Models[name]; !exists {
-			return fmt.Errorf("--replace-route %q does not name a Route in the imported configuration manifest", name)
+			return fmt.Errorf("the merge replaces route %q, which the imported configuration manifest does not have", name)
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(options.RetireModels)) {
@@ -257,14 +257,14 @@ func validateMergeSelectors(cfg Config, incoming Manifest, options MergeOptions)
 			continue
 		}
 		if _, exists := cfg.Models[name]; !exists {
-			return fmt.Errorf("--retire-route %q does not name an existing Route", name)
+			return fmt.Errorf("the merge retires route %q, which the local configuration does not have", name)
 		}
 		if _, exists := incoming.Models[name]; exists {
-			return fmt.Errorf("--retire-route %q is also declared in the imported configuration manifest", name)
+			return fmt.Errorf("the merge retires route %q, which the imported configuration manifest declares", name)
 		}
 		for _, client := range slices.Sorted(maps.Keys(cfg.Clients)) {
 			if cfg.Clients[client].Model == name {
-				return fmt.Errorf("--retire-route %q is selected by client %q", name, client)
+				return fmt.Errorf("the merge retires route %q, which client %q selects", name, client)
 			}
 		}
 	}

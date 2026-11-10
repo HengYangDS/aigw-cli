@@ -1,5 +1,5 @@
-// Package client implements `aigw client`, which lists the clients, enables,
-// disables and edits them, and discovers their executables.
+// Package client implements `aigw client`, which lists the clients with their
+// installed executables, and enables, disables and edits them.
 package client
 
 import (
@@ -18,7 +18,7 @@ import (
 // NewCommand constructs the client lifecycle command tree.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	root := &cobra.Command{Use: "client", Short: "List, enable, disable and edit clients"}
-	root.AddCommand(newListCommand(runtime), newDiscoverCommand(runtime), newEnableCommand(runtime), newDisableCommand(runtime), newEditCommand(runtime))
+	root.AddCommand(newListCommand(runtime), newEnableCommand(runtime), newDisableCommand(runtime), newEditCommand(runtime))
 	return root
 }
 
@@ -46,42 +46,6 @@ func completeClient(runtime invocation.Context) cobra.CompletionFunc {
 		}
 		return clients(cmd, args, toComplete)
 	}
-}
-
-func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
-	var jsonMode bool
-	cmd := &cobra.Command{Use: "discover", Short: "Discover installed client executables", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
-		discovered, err := runtime.Discover()
-		if err != nil {
-			return err
-		}
-		if jsonMode {
-			document := discoverDocument{Clients: []discoveredClient{}}
-			for _, spec := range runtime.Clients.Admission().Specs() {
-				client := discoveredClient{ID: spec.ID, State: "not_found", Executable: discovered.Executable(spec.ID)}
-				if client.Executable != "" {
-					client.State = "found"
-				}
-				document.Clients = append(document.Clients, client)
-			}
-			return terminal.WriteDocument(runtime.Out, discoverSchemaVersion, true, document)
-		}
-		r := invocation.Renderer(runtime)
-		r.ProductTitle("Client discovery")
-		r.Section("Installed clients")
-		rows := make([]terminal.Field, 0, len(runtime.Clients.Admission().Specs()))
-		for _, spec := range runtime.Clients.Admission().Specs() {
-			row := terminal.Field{State: terminal.OK, Label: spec.Label, Value: discovered.Executable(spec.ID)}
-			if row.Value == "" {
-				row.State, row.Value = terminal.Info, "Not found"
-			}
-			rows = append(rows, row)
-		}
-		r.Rows(rows...)
-		return nil
-	}}
-	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the discovered clients as JSON")
-	return cmd
 }
 
 func newEnableCommand(runtime invocation.Context) *cobra.Command {

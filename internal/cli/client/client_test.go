@@ -105,32 +105,6 @@ func executeAdapter(t *testing.T, runtime invocation.Context, args ...string) er
 	return root.Execute()
 }
 
-func TestDiscoverReportsFoundAndMissingExecutables(t *testing.T) {
-	bin := t.TempDir()
-	claudePath := filepath.Join(bin, claude.ID)
-	if err := os.WriteFile(claudePath, []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	runtime, out, _, _ := adapterRuntime(t, adapterConfig())
-	runtime.Discovery = adapterDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: claudePath}}}
-
-	if err := executeAdapter(t, runtime, "discover"); err != nil {
-		t.Fatal(err)
-	}
-	text := out.String()
-	if !strings.Contains(text, claudePath) || !strings.Contains(text, "Codex") || !strings.Contains(text, "Not found") {
-		t.Fatalf("discover output = %q", text)
-	}
-}
-
-func TestDiscoverFailsWhenDiscoveryIsUnavailable(t *testing.T) {
-	runtime, _, _, _ := adapterRuntime(t, adapterConfig())
-	runtime.Discovery = nil
-	if err := executeAdapter(t, runtime, "discover"); err == nil || !strings.Contains(err.Error(), "discovery is unavailable") {
-		t.Fatalf("discover error = %v", err)
-	}
-}
-
 func TestEnableRejectsInvalidInputsBeforeMutation(t *testing.T) {
 	cfg := adapterConfig()
 	runtime, _, secretStore, _ := adapterRuntime(t, cfg)
@@ -528,16 +502,6 @@ func TestDisableCodexWithAMissingConfigurationFile(t *testing.T) {
 	}
 	if got, err := runtime.Config.Load(); err != nil || !got.Clients[codex.ID].Enabled {
 		t.Fatalf("a refused disable changed the configuration: %v", err)
-	}
-}
-
-func TestDiscoverRendersToTheInvocationOutput(t *testing.T) {
-	runtime, out, _, _ := adapterRuntime(t, adapterConfig())
-	if err := executeAdapter(t, runtime, "discover"); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out.String(), "Client discovery") {
-		t.Fatalf("output = %q", out.String())
 	}
 }
 

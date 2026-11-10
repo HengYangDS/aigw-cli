@@ -72,7 +72,7 @@ func TestManifestMergeTreatsOldPlainLabelAsDerivedButPreservesCustomOverride(t *
 	custom := current.Clone()
 	route.Label = "Personal Sol"
 	custom.Models["ucloud-gpt-6-sol"] = route
-	if _, err := domain.Merge(custom, incoming); err == nil || !strings.Contains(err.Error(), "--replace-route") {
+	if _, err := domain.Merge(custom, incoming); err == nil || !strings.Contains(err.Error(), "conflicts with local configuration") {
 		t.Fatalf("custom Route label was silently overwritten: %v", err)
 	}
 }

@@ -389,7 +389,6 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		{args: []string{"completion", "--help"}, want: []string{"Generate shell completion"}},
 		{args: []string{"self", "update", "--help"}, want: []string{"Replace only a portable AIGW program", "Homebrew upgrades a program that it installed", "Client settings and Tokens do not change"}},
 		{args: []string{"self", "uninstall", "--help"}, want: []string{"Remove AIGW's settings from the client files", "Providers, models and stored Tokens stay", "Homebrew removes a program that it installed"}},
-		{args: []string{"config", "import", "--help"}, want: []string{"Merge a secret-free configuration manifest", "Explicitly replace conflicting account metadata", "system tokens remain unchanged"}},
 	}
 	for _, tc := range cases {
 		out.Reset()

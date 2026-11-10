@@ -17,7 +17,7 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 	r.Rows(terminal.Field{Label: "Current route", Value: "GPT-5.6 Terra"})
 	r.Rows(terminal.Field{State: terminal.OK, Label: "Precise balance", Value: "Disabled until connected"})
 	r.Detail("Run aigw account diagnostics enable team-gateway")
-	r.Command("aigw config import configuration.toml")
+	r.Command("aigw setup --from configuration.toml")
 
 	got := out.String()
 	for _, want := range []string{
@@ -29,7 +29,7 @@ func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 		"    Run aigw account\n",
 		"    diagnostics enable\n",
 		"    team-gateway\n",
-		"  aigw config import configuration.toml\n",
+		"  aigw setup --from configuration.toml\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("narrow output missing %q:\n%s", want, got)
