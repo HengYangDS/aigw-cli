@@ -147,15 +147,6 @@ func secretExists(t testing.TB, store secret.Store, account string) bool {
 	return present
 }
 
-func providerCredentialExists(t testing.TB, store secret.DiagnosticCredentialStore, accountID string) bool {
-	t.Helper()
-	present, err := store.Exists(accountID)
-	if err != nil {
-		t.Fatalf("observe provider diagnostic credential for %q: %v", accountID, err)
-	}
-	return present
-}
-
 func assertSameExistingPath(t *testing.T, got, want string) {
 	t.Helper()
 	gotInfo, err := os.Stat(got)

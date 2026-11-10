@@ -22,7 +22,6 @@ func TestAccessiblePromptsChangeNothingAtTheEndOfInput(t *testing.T) {
 		{args: []string{"use"}, configured: true, title: "The client prompt was cancelled", fix: "aigw use"},
 		{args: []string{"use", "claude"}, configured: true, title: "The model prompt for Claude was cancelled", fix: "aigw use claude"},
 		{args: []string{"setup"}, title: "The provider ID prompt was cancelled", fix: "aigw setup"},
-		{args: []string{"route", "rename"}, configured: true, title: "The route selection was cancelled", fix: "aigw route rename"},
 	} {
 		t.Run(strings.Join(append([]string{"aigw"}, test.args...), " "), func(t *testing.T) {
 			app, _, secretStore, _, _ := testApp(t, "")

@@ -1,7 +1,9 @@
 package cli_test
 
 import (
+	"encoding/json"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -11,18 +13,17 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-// A forwarded client reaches the upstream that its forwarding records. An
-// Account edit that would move that upstream is refused before any write, and
-// the advised direct connection, which keeps the client's retry budgets, lets
-// the edit succeed.
-func TestProviderEditRefusesToMoveAForwardedUpstream(t *testing.T) {
+// A forwarded client reaches the upstream that its forwarding records. A
+// provider edit that moves that upstream clears the forwarding in the same
+// write and says so; the client's file then reaches the edited endpoint
+// directly, and the client's retry budgets stay.
+func TestProviderEditClearsTheForwardingOfAMovedUpstream(t *testing.T) {
 	for _, test := range []struct {
 		name      string
 		selection []string
-		advice    string
 	}{
-		{"native retries", nil, "aigw client edit codex --direct"},
-		{"retry policy", []string{"--request-retries", "2"}, "aigw client edit codex --direct"},
+		{"native retries", nil},
+		{"retry policy", []string{"--request-retries", "2"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, output, secretStore, _, _ := testApp(t, "")
@@ -43,37 +44,29 @@ func TestProviderEditRefusesToMoveAForwardedUpstream(t *testing.T) {
 			if err := cli.Execute(app, forwarding); err != nil {
 				t.Fatalf("forward Codex: %v\n%s", err, output)
 			}
-			forwarded := ownedFileSnapshot(t, filepath.Dir(target), app.Config.Path())
 
 			output.Reset()
-			edit := []string{"account", "edit", "gateway", "--openai-url", "https://moved.test/v1"}
-			if err := cli.Execute(app, edit); err == nil {
-				t.Fatalf("an Account edit silently moved the forwarded upstream:\n%s", output)
+			if err := cli.Execute(app, []string{"provider", "edit", "gateway", "--endpoint", "responses=https://moved.test/v1", "--json"}); err != nil {
+				t.Fatalf("the provider edit: %v\n%s", err, output)
 			}
-			if !strings.Contains(output.String(), test.advice) {
-				t.Fatalf("refusal does not advise %q:\n%s", test.advice, output)
+			var document struct {
+				ClearedForwarding []string `json:"cleared_forwarding"`
 			}
-			if after := ownedFileSnapshot(t, filepath.Dir(target), app.Config.Path()); !equalSnapshots(after, forwarded) {
-				t.Fatal("the refused Account edit changed client files or owned state")
-			}
-
-			output.Reset()
-			if err := cli.Execute(app, strings.Fields(test.advice)[1:]); err != nil {
-				t.Fatalf("the advised direct connection failed: %v\n%s", err, output)
-			}
-			output.Reset()
-			if err := cli.Execute(app, edit); err != nil {
-				t.Fatalf("the Account edit after the direct connection: %v\n%s", err, output)
+			if err := json.Unmarshal(output.Bytes(), &document); err != nil || !slices.Equal(document.ClearedForwarding, []string{codex.ID}) {
+				t.Fatalf("the edit's cleared forwarding = %q, %v\n%s", document.ClearedForwarding, err, output)
 			}
 			if projected := string(readFile(t, target)); !strings.Contains(projected, `base_url = "https://moved.test/v1"`) {
-				t.Fatalf("the direct connection does not reach the edited Account:\n%s", projected)
+				t.Fatalf("Codex does not reach the edited endpoint directly:\n%s", projected)
 			}
 			saved, err := app.Config.Load()
 			if err != nil {
 				t.Fatal(err)
 			}
+			if saved.Clients[codex.ID].ForwardingEndpoint != "" {
+				t.Fatalf("the forwarding stays: %q", saved.Clients[codex.ID].ForwardingEndpoint)
+			}
 			if policy := saved.Clients[codex.ID].RetryPolicy; test.selection != nil && (policy == nil || policy.RequestMaxRetries == nil || *policy.RequestMaxRetries != 2) {
-				t.Fatalf("the direct connection and the Account edit dropped the retry budget: %#v", policy)
+				t.Fatalf("the edit dropped the retry budget: %#v", policy)
 			}
 		})
 	}

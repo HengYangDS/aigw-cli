@@ -18,7 +18,6 @@ import (
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/app"
-	accountcli "aigw-cli/internal/cli/account"
 	"aigw-cli/internal/cli/add"
 	"aigw-cli/internal/cli/balance"
 	"aigw-cli/internal/cli/check"
@@ -30,7 +29,6 @@ import (
 	modelcli "aigw-cli/internal/cli/model"
 	providercli "aigw-cli/internal/cli/provider"
 	"aigw-cli/internal/cli/rotate"
-	"aigw-cli/internal/cli/route"
 	selfcli "aigw-cli/internal/cli/self"
 	"aigw-cli/internal/cli/setup"
 	"aigw-cli/internal/cli/status"
@@ -215,12 +213,12 @@ func requiresConfigurationLock(command *cobra.Command) bool {
 	// program file, never the configuration.
 	path := strings.TrimPrefix(command.CommandPath(), command.Root().Name()+" ")
 	switch path {
-	case "rotate", "provider rotate", "account diagnostics enable", "account diagnostics disable":
+	case "rotate", "provider rotate":
 		return true
-	case "setup", "add", "account edit",
-		"route add", "route edit", "route remove", "model add", "model edit", "model remove", "client enable", "client disable", "client edit",
+	case "setup", "add",
+		"model add", "model edit", "model remove", "client enable", "client disable", "client edit",
 		"provider add", "provider edit", "provider remove",
-		"use", "sync", "account rename", "route rename", "config import", "config migrate",
+		"use", "sync", "config import", "config migrate",
 		"config rollback", "self update", "self rollback", "self uninstall":
 		dryRun, err := command.Flags().GetBool("dry-run")
 		return err != nil || !dryRun
@@ -385,8 +383,8 @@ func NewRoot(app *App) *cobra.Command {
 		synccli.NewCommand(runtime), selfcli.NewCommand(runtime),
 	}
 	advanced := []*cobra.Command{
-		add.NewCommand(runtime), accountcli.NewCommand(runtime),
-		modelcli.NewCommand(runtime), providercli.NewCommand(runtime), route.NewCommand(runtime),
+		add.NewCommand(runtime),
+		modelcli.NewCommand(runtime), providercli.NewCommand(runtime),
 		clientcli.NewCommand(runtime),
 		config.NewCommand(runtime), balance.NewCommand(runtime),
 	}

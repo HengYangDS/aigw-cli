@@ -156,11 +156,11 @@ func TestNativeProviderRetirementWithoutClients(t *testing.T) {
 	if err := json.Unmarshal(journey.run("status", "--json"), &status); err != nil || status.State != "deferred" {
 		t.Fatalf("deferred setup reads as %q: %v", status.State, err)
 	}
-	journey.run("account", "rename", "native-system-keyring-probe", "renamed-account")
-	journey.run("account", "rename", "native-system-keyring-probe", "renamed-account", "--finalize")
+	journey.run("provider", "remove", "native-system-keyring-probe")
 	journey.requireNoClaudeProjection()
-	if !bytes.Equal(readFile(t, journey.config), readFile(t, journey.config+".bak")) {
-		t.Fatal("client-free retirement did not converge backup")
+	retired, err := store.NewStore(journey.config, builtinclients.Admission()).Load()
+	if _, kept := retired.Providers["native-system-keyring-probe"]; err != nil || kept || len(retired.Models) != 1 {
+		t.Fatalf("client-free retirement kept the provider or its model: %v", err)
 	}
 	journey.uninstallAndRequireInstallationRemoved()
 }

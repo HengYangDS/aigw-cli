@@ -112,14 +112,6 @@ func TestBalanceExplainsWhenConfiguredDiagnosticDriverIsNotBundled(t *testing.T)
 	}
 }
 
-func handleDMXBalance(req *http.Request) (*http.Response, error) {
-	body := `{"success":true,"data":{"quota":6250000}}`
-	if strings.Contains(req.URL.Path, "/api/token/search") {
-		body = `{"success":true,"data":{"items":[{"name":"Codex","key":"abcd**********wxyz","status":1,"used_quota":1000000,"remain_quota":2500000,"unlimited_quota":false,"unlimited_count":true,"expired_time":-1}]}}`
-	}
-	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
-}
-
 func TestBalanceExplainsOptionalProviderBinding(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
@@ -221,46 +213,6 @@ func TestBalanceNamesEnvironmentVariablesForAbsentDiagnostics(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "aigw account diagnostics enable") || httpClient.calls != 0 {
 		t.Fatalf("balance recommended a refused command or sent %d requests: %s", httpClient.calls, out.String())
-	}
-}
-
-func TestProviderDiagnosticsEnableStoresSeparateCredentialAndBalanceShowsDetails(t *testing.T) {
-	app, out, secretStore, _, httpClient := testApp(t, "")
-	accountStore := app.Providers
-	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-test")
-	providerAccount := cfg.Providers["dmx"]
-	providerAccount.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
-	cfg.Providers["dmx"] = providerAccount
-	cfg.SetSelectedModel(codex.ID, "dmx", "")
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	_ = secretStore.Set("dmx", "sk-abcd-middle-wxyz")
-	prompt := &scriptedPrompt{secrets: []string{"system-secret"}, texts: []string{"10000"}}
-	app.Prompt = prompt
-	app.Interactive = true
-	if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err != nil {
-		t.Fatal(err)
-	}
-	if !providerCredentialExists(t, accountStore, "dmx") {
-		t.Fatal("account credential not stored")
-	}
-	output := strings.Join(strings.Fields(out.String()), " ")
-	for _, want := range []string{"Account DMXAPI", "Account ID dmx", "Diagnostic credential Securely stored"} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("diagnostics enable output lacks %q:\n%s", want, out.String())
-		}
-	}
-	out.Reset()
-	httpClient.handler = handleDMXBalance
-	if err := cli.Execute(app, []string{"balance"}); err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{"Account balance", "$12.5000", "Token status", "Enabled", "Remaining quota", "$5.0000"} {
-		if !strings.Contains(out.String(), want) {
-			t.Fatalf("balance lacks %q:\n%s", want, out.String())
-		}
 	}
 }
 

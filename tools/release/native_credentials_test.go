@@ -66,7 +66,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	if value, err := store.Get(sourceAccount); err != nil || value != token {
 		t.Fatalf("candidate could not read the retained native Token slot: %v", err)
 	}
-	output := journey.runWithInput(candidate, diagnostic+"\n", "account", "diagnostics", "enable", sourceAccount, "--system-token-stdin", "--user-id", diagnosticID)
+	output := journey.runWithInput(candidate, diagnostic+"\n", "provider", "edit", sourceAccount, "--balance-token-stdin", "--balance-user-id", diagnosticID)
 	if bytes.Contains(output, []byte(diagnostic)) || bytes.Contains(output, []byte(diagnosticID)) {
 		t.Fatal("diagnostic credential input escaped into CLI output")
 	}
@@ -176,58 +176,49 @@ func finishNativeCredentialJourney(
 	if err != nil {
 		t.Fatal(err)
 	}
-	journey.run("account", "rename", sourceAccount, targetAccount)
+	// 0.7.0 has no rename: the clients move to the target provider, whose
+	// Token provider add stores in its own slot, and the source provider keeps
+	// its credentials until provider remove deletes them.
+	journey.replaceProvider(sourceAccount, targetAccount, replacement+"\n")
 	for _, account := range []string{sourceAccount, targetAccount} {
 		if value, err := store.Get(account); err != nil || value != replacement {
-			t.Fatalf("renamed credential %q = %q, %v", account, value, err)
-		}
-		if got, err := diagnostics.Get(account); err != nil || got != wantDiagnostic {
-			t.Fatalf("renamed diagnostic credential %q was not retained: %v", account, err)
+			t.Fatalf("credential %q = %q, %v", account, value, err)
 		}
 	}
 	journey.requireClaudeCredential(replacement)
 	journey.run("check", "--depth", "client")
-	journey.run("account", "rename", sourceAccount, targetAccount, "--finalize")
-	if exists, err := store.Exists(sourceAccount); err != nil || exists {
-		t.Fatalf("finalized source credential remains: exists=%t error=%v", exists, err)
-	}
-	if exists, err := diagnostics.Exists(sourceAccount); err != nil || exists {
-		t.Fatalf("finalized source diagnostic credential remains: exists=%t error=%v", exists, err)
-	}
-	if value, err := store.Get(targetAccount); err != nil || value != replacement {
-		t.Fatalf("finalized target credential = %q, %v", value, err)
-	}
-	if got, err := diagnostics.Get(targetAccount); err != nil || got != wantDiagnostic {
-		t.Fatalf("finalized target diagnostic credential was not retained: %v", err)
-	}
 	journey.uninstallAndRequireInstallationRemoved()
 	if exists, err := store.Exists(targetAccount); err != nil || !exists {
 		t.Fatalf("uninstall removed the retained credential: exists=%t error=%v", exists, err)
 	}
-	if got, err := diagnostics.Get(targetAccount); err != nil || got != wantDiagnostic {
+	if got, err := diagnostics.Get(sourceAccount); err != nil || got != wantDiagnostic {
 		t.Fatalf("uninstall removed the retained diagnostic credential: %v", err)
 	}
 	install := journey.lifecycle(journey.source, "install")
 	journey.runWith(journey.source, append(install, journey.pathFlag(journey.source, install...), journey.binary)...)
 	journey.run("sync")
 	journey.requireNoClaudeProjection()
-	// The finalized rename moved the route to the target provider; its model ID
-	// stays the manifest's upstream_model.
+	// The clients use the target provider's model, whose model ID stays the
+	// manifest's upstream_model.
 	journey.run("use", claude.ID, targetAccount+"/claude-test")
 	journey.requireCredentialBackend(replacement, backend)
 	journey.requireClaudeCredential(replacement)
+	journey.run("provider", "remove", sourceAccount)
+	if exists, err := store.Exists(sourceAccount); err != nil || exists {
+		t.Fatalf("the removed provider's credential remains: exists=%t error=%v", exists, err)
+	}
+	if exists, err := diagnostics.Exists(sourceAccount); err != nil || exists {
+		t.Fatalf("the removed provider's diagnostic credential remains: exists=%t error=%v", exists, err)
+	}
+	if value, err := store.Get(targetAccount); err != nil || value != replacement {
+		t.Fatalf("target credential = %q, %v", value, err)
+	}
 	journey.uninstallAndRequireInstallationRemoved()
 	if err := store.Delete(targetAccount); err != nil {
 		t.Fatal(err)
 	}
-	if err := diagnostics.Delete(targetAccount); err != nil {
-		t.Fatal(err)
-	}
 	if exists, err := store.Exists(targetAccount); err != nil || exists {
 		t.Fatalf("deleted credential remains: exists=%t error=%v", exists, err)
-	}
-	if exists, err := diagnostics.Exists(targetAccount); err != nil || exists {
-		t.Fatalf("deleted diagnostic credential remains: exists=%t error=%v", exists, err)
 	}
 }
 

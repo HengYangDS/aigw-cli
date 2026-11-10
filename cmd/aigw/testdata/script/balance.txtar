@@ -11,7 +11,7 @@ cmp stdout refusal.txt
 stdin token.txt
 exec aigw rotate team --token-stdin
 stdin system.txt
-exec aigw account diagnostics enable team --user-id 42 --system-token-stdin
+exec aigw provider edit team --balance-token-stdin --balance-user-id 42
 exec aigw balance team
 cmp stdout balance.txt
 

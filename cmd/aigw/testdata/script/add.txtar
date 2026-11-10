@@ -31,9 +31,6 @@ cmp after.txt before.txt
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 cmp stdout connected.txt
-exec aigw account list --json
-normalize stdout accounts.out
-cmp accounts.out accounts.json
 
 stdin token.txt
 exitcode 1 aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
@@ -175,20 +172,6 @@ Selection
 
 Next
   aigw check
--- accounts.json --
-{
-  "schema_version": 1,
-  "ok": true,
-  "accounts": [
-    {
-      "id": "team",
-      "label": "Team Gateway",
-      "endpoints": {
-        "anthropic": "$UPSTREAM"
-      }
-    }
-  ]
-}
 -- exists.txt --
 AIGW  Action required
 ────────────────────────────────────────

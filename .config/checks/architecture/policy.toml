@@ -33,7 +33,6 @@ package_children."internal/app" = [
   "activation",
   "diagnostics",
   "readiness",
-  "renaming",
   "synchronization",
 ]
 package_children."tools" = [
@@ -79,7 +78,6 @@ standard_library_only = ["internal/domain"]
 # package, as tools/architecture counts one.
 used_exports_only = [
   "internal/app",
-  "internal/cli/account",
   "internal/cli/add",
   "internal/cli/balance",
   "internal/cli/check",
@@ -91,7 +89,6 @@ used_exports_only = [
   "internal/cli/model",
   "internal/cli/provider",
   "internal/cli/rotate",
-  "internal/cli/route",
   "internal/cli/self",
   "internal/cli/setup",
   "internal/cli/status",
@@ -123,7 +120,6 @@ layers = [
   ["cmd/aigw"],
   ["internal/cli", "internal/clients"],
   ["internal/app", "internal/terminal"],
-  ["internal/app/renaming"],
   ["internal/app/activation", "internal/app/synchronization"],
   ["internal/app/readiness"],
   ["internal/app/diagnostics"],

@@ -15,7 +15,6 @@ import (
 	"aigw-cli/tools/release/identity"
 	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -217,9 +216,11 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	journey.testing = t
 	journey.requireNativeForwarding(client, token, server, continueClient)
 	journey.verifyNativeConfigEditing(client, executable)
+	// The client moves to a provider with another ID, which then serves it,
+	// and the provider that it left is removed.
 	const renamedAccount = "renamed-client-account"
 	journey.setEnvironment(secret.EnvironmentKey(renamedAccount), token)
-	journey.run("account", "rename", route.Provider, renamedAccount)
+	journey.replaceProvider(route.Provider, renamedAccount, "")
 	count := completions.Load()
 	journey.run("check", "--depth", "client")
 	if completions.Load() <= count {
@@ -230,13 +231,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		t.Fatalf("single-client checkpoint = %v: %v", checkpoint.Clients, err)
 	}
 	journey.environment = environmentWithout(journey.environment, secret.EnvironmentKey(route.Provider))
-	journey.run("account", "rename", route.Provider, renamedAccount, "--finalize")
-	var retirement struct {
-		Status string `json:"status"`
-	}
-	if err := json.Unmarshal(journey.run("account", "rename", route.Provider, renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already_finalized" {
-		t.Fatalf("repeated retirement = %q: %v", retirement.Status, err)
-	}
+	journey.run("provider", "remove", route.Provider)
 	journey.requireExternalCredentialClient(client, executable, renamedAccount, completions.Load)
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 	journey.requireNativePreferences(client)

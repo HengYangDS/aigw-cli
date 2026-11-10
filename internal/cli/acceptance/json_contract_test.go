@@ -111,8 +111,6 @@ func TestJSONCommandsNeverPrompt(t *testing.T) {
 		{name: "use without arguments", args: []string{"use", "--json"}, want: "aigw use with --json needs a <client> and a <provider/model> argument"},
 		{name: "use without a client", args: []string{"use", "dmx/gpt-test", "--json"}, want: "aigw use with --json needs a <client> argument before the model"},
 		{name: "use without a Token", args: []string{"use", "codex", "dmx/gpt-test", "--json"}, ready: true, want: "has no Token, and aigw use --json never prompts for one"},
-		{name: "Account rename without IDs", args: []string{"account", "rename", "--json"}, want: "requires <old> <new>"},
-		{name: "Route rename without its new ID", args: []string{"route", "rename", "gpt", "--json"}, want: "requires <old> <new>"},
 		{name: "setup without a Token", args: []string{"setup", "--route", "gpt", "--account", "dmx", "--label", "DMX", "--for", "codex",
 			"--openai-url", "https://example.test/v1", "--upstream-model", "gpt-test", "--json"}, want: "--json reads the Token only from --token-stdin"},
 	} {

@@ -233,7 +233,7 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 		"Connect", "setup",
 		"Use every day", "check", "rotate", "status", "use",
 		"Recover", "self", "sync",
-		"Advanced", "account", "add", "balance", "client", "completion", "config", "route",
+		"Advanced", "add", "balance", "client", "completion", "config",
 		"Options", "show help", "show version",
 	} {
 		_, after, found := strings.Cut(remaining, want)

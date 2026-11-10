@@ -75,7 +75,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	}
 	store := &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: errors.New("native metadata must not select external credentials")}
 	app.Secrets = store
-	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"check", "--depth", "local"}, {"route", "list"}, {"route", "show", "claude"}, {"use", "claude", "gateway/fixture"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[claude.ID].Executable}} {
+	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"check", "--depth", "local"}, {"model", "list"}, {"model", "show", "gateway/fixture"}, {"use", "claude", "gateway/fixture"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[claude.ID].Executable}} {
 		out.Reset()
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v required a native Token: %v", args, err)

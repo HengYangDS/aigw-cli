@@ -11,7 +11,6 @@ import (
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
-	"aigw-cli/internal/app/renaming"
 	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
@@ -89,13 +88,5 @@ func (d Dependencies) Synchronizer() synchronization.Synchronizer {
 		ResolveCredentialPath: d.ResolveCredentialPath,
 		ResolveProgram:        d.ResolveProgram,
 		Files:                 d.Files,
-	}
-}
-
-// Renamer migrates Account and Route identities with these capabilities.
-func (d Dependencies) Renamer() renaming.Renamer {
-	return renaming.Renamer{
-		Config: d.Config, Secrets: d.Secrets, Providers: d.Providers,
-		HTTP: d.HTTP, Synchronizer: d.Synchronizer(),
 	}
 }

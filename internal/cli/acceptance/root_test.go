@@ -21,8 +21,8 @@ func TestJSONCommandFailuresRemainMachineReadable(t *testing.T) {
 		{"sync", "--json"},
 		{"model", "search", "--json"},
 		{"setup", "--json"},
-		{"route", "rename", "old", "new", "--dry-run", "--json"},
-		{"account", "rename", "old", "new", "--dry-run", "--json"},
+		{"model", "remove", "old/model", "--dry-run", "--json"},
+		{"provider", "remove", "old", "--dry-run", "--json"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
@@ -186,7 +186,7 @@ func TestFlagErrorsSuggestTheCommandHelp(t *testing.T) {
 		{[]string{"status", "-x"}, "unknown shorthand flag: 'x' in -x; run `aigw status --help`"},
 		{[]string{"status", "--json=maybe"}, "invalid syntax; run `aigw status --help`"},
 		{[]string{"self", "install", "--path"}, "flag needs an argument: --path; run `aigw self install --help`"},
-		{[]string{"route", "add", "--not-a-flag"}, "unknown option --not-a-flag; run `aigw route add --help`"},
+		{[]string{"model", "add", "--not-a-flag"}, "unknown option --not-a-flag; run `aigw model add --help`"},
 		{[]string{"--not-a-flag"}, "unknown option --not-a-flag; run `aigw --help`"},
 		{[]string{"help", "setup", "--not-a-flag"}, "unknown option --not-a-flag; run `aigw --help`"},
 	} {
@@ -213,8 +213,9 @@ func TestFlagErrorsSuggestTheCommandHelp(t *testing.T) {
 
 // Only a usage error, an unknown command, flag or argument that Cobra refused
 // before the command ran, names the help of the command that refused it. A
-// failure while the command runs that names no fix of its own names the
-// diagnostic, which does not fail the same way.
+// failure while the command runs names its own fix; the terminal's own tests
+// show that one without a fix names the diagnostic, which does not fail the
+// same way.
 func TestUsageErrorsNameTheirHelpAndOtherFailuresTheDiagnostic(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	if err := app.Config.Save(twoModelConfig()); err != nil {
@@ -225,14 +226,14 @@ func TestUsageErrorsNameTheirHelpAndOtherFailuresTheDiagnostic(t *testing.T) {
 		fix  string
 	}{
 		{[]string{"not-a-command"}, "aigw --help"},
-		{[]string{"route", "list", "--not-a-flag"}, "aigw route list --help"},
-		{[]string{"route", "show"}, "aigw route show --help"},
-		{[]string{"route", "list", "extra"}, "aigw route list --help"},
+		{[]string{"model", "list", "--not-a-flag"}, "aigw model list --help"},
+		{[]string{"model", "show"}, "aigw model show --help"},
+		{[]string{"provider", "list", "extra"}, "aigw provider list --help"},
 		{[]string{"completion", "tcsh"}, "aigw completion --help"},
 		// An argument that a command finds missing while it runs is a usage
 		// error of that command too.
 		{[]string{"rotate"}, "aigw rotate --help"},
-		{[]string{"route", "show", "missing"}, "aigw check"},
+		{[]string{"model", "show", "missing"}, "aigw model list missing"},
 	} {
 		out.Reset()
 		if err := cli.Execute(app, tc.args); err == nil || !strings.Contains(out.String(), "Fix\n  "+tc.fix+"\n") {
@@ -240,13 +241,13 @@ func TestUsageErrorsNameTheirHelpAndOtherFailuresTheDiagnostic(t *testing.T) {
 		}
 	}
 	out.Reset()
-	if err := cli.Execute(app, []string{"route", "show", "--json"}); err == nil {
+	if err := cli.Execute(app, []string{"model", "show", "--json"}); err == nil {
 		t.Fatal("a missing argument succeeded")
 	}
 	var failure struct {
 		NextAction string `json:"next_action"`
 	}
-	if err := json.Unmarshal(out.Bytes(), &failure); err != nil || failure.NextAction != "aigw route show --help" {
+	if err := json.Unmarshal(out.Bytes(), &failure); err != nil || failure.NextAction != "aigw model show --help" {
 		t.Fatalf("JSON argument error = %s, %v", out.String(), err)
 	}
 }
@@ -258,7 +259,7 @@ func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 		want string
 	}{
 		{args: []string{"setup", "--route", "new-route", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, or hermes"},
-		{args: []string{"route", "add", "new-route"}, want: "--account, --model, and --protocol are required"},
+		{args: []string{"model", "add"}, want: "aigw model add needs a <provider/model> argument"},
 		{args: []string{"adapter"}, want: "unknown command \"adapter\""},
 		{args: []string{"client", "enable", "other"}, want: "clients are claude, claude-desktop, codex, or hermes"},
 	} {
@@ -297,7 +298,7 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 		{"status", "--json"},
 		{"check", "--json"},
 		{"model", "search", "--json"},
-		{"route", "show", "claude", "--json"},
+		{"model", "show", "one/claude-test", "--json"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
@@ -307,7 +308,7 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 				t.Fatal(err)
 			}
 			// check finds no enabled client, and search no Token to read with.
-			if err := cli.Execute(app, args); (err != nil) != (args[0] == "check" || args[0] == "model") {
+			if err := cli.Execute(app, args); (err != nil) != (args[0] == "check" || args[1] == "search") {
 				t.Fatalf("unexpected command outcome: %v\n%s", err, out)
 			}
 			var expected bytes.Buffer
@@ -329,8 +330,8 @@ func TestPublicMutationFailureDoesNotExposePrivatePath(t *testing.T) {
 	if err := os.Mkdir(privatePath, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := cli.Execute(app, []string{"route", "add", "two", "--account", "one", "--model", "m2", "--protocol", "anthropic"}); err == nil {
-		t.Fatal("route add accepted an unreadable backup target")
+	if err := cli.Execute(app, []string{"model", "add", "one/m2", "--protocol", "anthropic", "--unlisted"}); err == nil {
+		t.Fatal("model add accepted an unreadable backup target")
 	}
 	if strings.Contains(out.String(), privatePath) || !strings.Contains(out.String(), "aigw config path") {
 		t.Fatalf("public command exposed the private failure target: %s", out.String())
@@ -350,8 +351,8 @@ func TestCommandGroupsShowTheirHelp(t *testing.T) {
 		want string
 	}{
 		{[]string{"config"}, "Show, export and roll back the configuration"},
-		{[]string{"route"}, "Manage Routes"},
-		{[]string{"account", "diagnostics"}, "aigw account diagnostics [command]"},
+		{[]string{"model"}, "List, search, show, add, edit and remove models"},
+		{[]string{"provider"}, "aigw provider [command]"},
 		{[]string{"help", "sync"}, "aigw sync"},
 	} {
 		app, out, _, _, _ := testApp(t, "")
@@ -359,7 +360,7 @@ func TestCommandGroupsShowTheirHelp(t *testing.T) {
 			t.Fatalf("%v: %v\n%s", test.args, err, out.String())
 		}
 		// A group's help names its subcommands, not a usage line of its own.
-		if strings.Contains(out.String(), "aigw config [flags]") || strings.Contains(out.String(), "aigw route [flags]") {
+		if strings.Contains(out.String(), "aigw config [flags]") || strings.Contains(out.String(), "aigw model [flags]") {
 			t.Fatalf("%v: a group's help shows a usage line of its own:\n%s", test.args, out.String())
 		}
 	}
@@ -374,10 +375,10 @@ func TestUnknownCommandsRefuse(t *testing.T) {
 		want string
 	}{
 		{[]string{"config", "bogus"}, "run `aigw config --help`"},
-		{[]string{"route", "bogus"}, "run `aigw route --help`"},
-		{[]string{"account", "diagnostics", "bogus"}, "run `aigw account diagnostics --help`"},
+		{[]string{"model", "bogus"}, "run `aigw model --help`"},
+		{[]string{"provider", "bogus"}, "run `aigw provider --help`"},
 		{[]string{"help", "bogus"}, "run `aigw --help`"},
-		{[]string{"help", "route", "bogus"}, "run `aigw --help`"},
+		{[]string{"help", "model", "bogus"}, "run `aigw --help`"},
 	} {
 		app, out, _, _, _ := testApp(t, "")
 		err := cli.Execute(app, test.args)
@@ -387,7 +388,7 @@ func TestUnknownCommandsRefuse(t *testing.T) {
 	}
 	// A subcommand's name after a help flag still shows help.
 	app, out, _, _, _ := testApp(t, "")
-	if err := cli.Execute(app, []string{"route", "--help", "list"}); err != nil || !strings.Contains(out.String(), "Usage") {
-		t.Fatalf("route --help list: %v\n%s", err, out.String())
+	if err := cli.Execute(app, []string{"model", "--help", "list"}); err != nil || !strings.Contains(out.String(), "Usage") {
+		t.Fatalf("model --help list: %v\n%s", err, out.String())
 	}
 }

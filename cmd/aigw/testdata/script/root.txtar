@@ -54,6 +54,10 @@ exitcode 1 aigw catalog --all
 stdout 'unknown command "catalog"'
 exitcode 1 aigw models
 stdout 'unknown command "models"'
+exitcode 1 aigw route list
+stdout 'unknown command "route"'
+exitcode 1 aigw account rename old new
+stdout 'unknown command "account"'
 snapshot $HOME removed-after.txt
 cmp removed-after.txt removed-before.txt
 
@@ -85,7 +89,6 @@ Recover
   sync                 Make client files match the configuration
 
 Advanced
-  account              Manage account endpoints and optional precise diagnostics
   add                  Add and connect one Account with its first Route
   balance              Show account balance and token quota
   client               List, enable, disable and edit clients
@@ -93,7 +96,6 @@ Advanced
   config               Show, export and roll back the configuration
   model                List, search, show, add, edit and remove models
   provider             List, show, add, edit and remove providers; rotate Tokens; report balances
-  route                Manage Routes
   version              Show the program's version
 
 Options
