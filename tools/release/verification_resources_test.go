@@ -57,7 +57,9 @@ func TestNativeVerificationResources(t *testing.T) {
 
 func runNativeResourceCase(t *testing.T, program, client, mode string) {
 	t.Helper()
-	journey := newNativeJourney(t, program, "https://unused.example.test", false)
+	// check reaches a session through the endpoint and model depths.
+	server := newNativeJourneyServer(t)
+	journey := newNativeJourney(t, program, server.URL+"/v1", false)
 	t.Cleanup(journey.uninstallAndRequireInstallationRemoved)
 	journey.installClientFixture(client)
 	if client == hermes.ID {
@@ -75,7 +77,7 @@ func runNativeResourceCase(t *testing.T, program, client, mode string) {
 		journey.setEnvironment(key, temporary)
 	}
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-resource-token")
-	if err := os.WriteFile(journey.manifest, []byte(nativeResourceManifest(client)), 0o600); err != nil {
+	if err := os.WriteFile(journey.manifest, []byte(nativeResourceManifest(client, journey.endpoint)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	journey.run("setup", "--from", journey.manifest)
@@ -99,7 +101,7 @@ func verifyNativeClientRefusal(t *testing.T, journey *journeyFixture, client str
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
-		Executable: journey.binary, Args: []string{"verify", "--for", client}, Env: environment,
+		Executable: journey.binary, Args: []string{"check", client, "--depth", "client"}, Env: environment,
 	})
 	var exit *exec.ExitError
 	if ctx.Err() != nil || !errors.As(err, &exit) || exit.ExitCode() != 1 || len(stderr) != 0 ||
@@ -112,7 +114,7 @@ func verifyNativeClientRefusal(t *testing.T, journey *journeyFixture, client str
 	}
 }
 
-func nativeResourceManifest(client string) string {
+func nativeResourceManifest(client, endpoint string) string {
 	protocol, capabilities := "openai_chat_completions", `["text"]`
 	if client == codex.ID {
 		protocol, capabilities = "openai_responses", "[]"
@@ -126,7 +128,7 @@ route = "native-resource-%[1]s"
 label = "Native Resource Probe"
 
 [accounts.native-system-keyring-probe.endpoints]
-%[2]s = "https://unused.example.test/v1"
+%[2]s = %[4]q
 
 [models.native-resource-model]
 label = "Native Resource Model"
@@ -137,7 +139,7 @@ account = "native-system-keyring-probe"
 model = "native-resource-model"
 upstream_model = "native-resource-model"
 interfaces = { %[2]s = %[3]s }
-`, client, protocol, capabilities)
+`, client, protocol, capabilities, endpoint)
 }
 
 func TestVerificationResourceCleanupStopsOwnedFixture(t *testing.T) {
@@ -234,7 +236,7 @@ func verifyNativeResourceCase(t *testing.T, journey *journeyFixture, temporary, 
 	beforeTemporary := verificationInventory(t, temporary)
 	beforeProgram := sha256.Sum256(readFile(t, journey.binary))
 	ctx, cancel := context.WithTimeout(t.Context(), 70*time.Second)
-	command := exec.CommandContext(ctx, journey.binary, "verify", "--for", client)
+	command := exec.CommandContext(ctx, journey.binary, "check", client, "--depth", "client")
 	command.Env, command.Dir = environment, journey.root
 	prepareVerificationInterrupt(command)
 	var stdout, stderr bytes.Buffer

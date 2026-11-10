@@ -20,7 +20,7 @@ func testClientSpecs() []domain.ClientSpec {
 	return []domain.ClientSpec{
 		{
 			ID: ClientClaude, Label: "Claude", EndpointProtocols: []domain.EndpointProtocol{anthropic},
-			ProductName: "Claude Code", ModelDiscoveryOptional: true, Doctor: domain.DoctorWording{AdapterStates: true},
+			ProductName: "Claude Code", ModelDiscoveryOptional: true,
 			PublishedProfileProtocol: anthropic,
 		},
 		{
@@ -32,7 +32,7 @@ func testClientSpecs() []domain.ClientSpec {
 			ID: ClientCodex, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{responses},
 			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
 			DefaultModelProvider: "aigw", ClientNativeAuthentication: true,
-			PublishedProfileProtocol: responses, Doctor: domain.DoctorWording{AdapterStates: true, ModelBinding: true},
+			PublishedProfileProtocol: responses,
 		},
 		{
 			ID: ClientHermes, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml",

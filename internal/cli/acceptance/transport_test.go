@@ -200,7 +200,7 @@ func TestSelectedProviderWorksWithoutInstalledClient(t *testing.T) {
 	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatalf("sync without installed client: %v", err)
 	}
-	if err := cli.Execute(app, []string{"test", "--for", "codex"}); err != nil {
+	if err := cli.Execute(app, []string{"check", "codex", "--depth", "endpoint"}); err != nil {
 		t.Fatalf("test selected Account without installed client: %v", err)
 	}
 	select {

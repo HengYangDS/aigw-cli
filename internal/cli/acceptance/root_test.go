@@ -257,8 +257,6 @@ func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 		args []string
 		want string
 	}{
-		{args: []string{"test", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, or hermes"},
-		{args: []string{"verify", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, hermes, or all"},
 		{args: []string{"setup", "--route", "new-route", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, or hermes"},
 		{args: []string{"route", "add", "new-route"}, want: "--account, --model, and --protocol are required"},
 		{args: []string{"adapter"}, want: "unknown command \"adapter\""},
@@ -298,7 +296,6 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 	for _, args := range [][]string{
 		{"status", "--json"},
 		{"check", "--json"},
-		{"doctor", "--json"},
 		{"catalog", "--json"},
 		{"route", "show", "claude", "--json"},
 	} {

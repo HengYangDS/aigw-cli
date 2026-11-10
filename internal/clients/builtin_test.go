@@ -55,7 +55,7 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 	want := []domain.ClientSpec{
 		{
 			ID: claude.ID, Label: "Claude", EndpointProtocols: []domain.EndpointProtocol{anthropic},
-			ProductName: "Claude Code", ModelDiscoveryOptional: true, Doctor: domain.DoctorWording{AdapterStates: true},
+			ProductName: "Claude Code", ModelDiscoveryOptional: true,
 			PublishedProfileProtocol: anthropic,
 		},
 		{
@@ -67,7 +67,7 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 			ID: codex.ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{responses},
 			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
 			DefaultModelProvider: "aigw", ClientNativeAuthentication: true,
-			PublishedProfileProtocol: responses, Doctor: domain.DoctorWording{AdapterStates: true, ModelBinding: true},
+			PublishedProfileProtocol: responses,
 		},
 		{
 			ID: hermes.ID, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml",

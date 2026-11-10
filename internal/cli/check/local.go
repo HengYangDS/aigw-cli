@@ -79,8 +79,7 @@ func sharedChecks(deps app.Dependencies) ([]localCheck, secret.BackendSelection)
 
 // environmentCheck observes the variables that compete with AIGW's Token,
 // naming them and never their values. One that holds a value fails every
-// client's local depth, as it failed doctor's diagnostics; an empty one holds
-// no credential.
+// client's local depth; an empty one holds no credential.
 func environmentCheck(environment []string) localCheck {
 	set := map[string]bool{}
 	for _, entry := range environment {

@@ -133,7 +133,8 @@ func (plan teamManifestJourney) runProvider(t *testing.T, account string, client
 		t.Fatal(err)
 	}
 	journey.run("setup", "--from", journey.manifest)
-	journey.run("doctor", "--json")
+	// No client is enabled yet, which check refuses.
+	journey.run("status", "--json")
 	journey.requireNoClaudeProjection()
 	if account == "" {
 		journey.uninstallAndRequireInstallationRemoved()

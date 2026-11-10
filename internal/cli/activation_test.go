@@ -53,7 +53,7 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 					t.Fatal(err)
 				}
 			}
-			for _, args := range [][]string{{"status", "--json"}, {"sync", "--dry-run", "--json"}, {"check", "--json"}, {"doctor", "--json"}} {
+			for _, args := range [][]string{{"status", "--json"}, {"sync", "--dry-run", "--json"}, {"check", "--json"}} {
 				t.Run(args[0], func(t *testing.T) {
 					out := &bytes.Buffer{}
 					app := &App{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Providers: accounts, Discovery: noClientDiscovery{}, Out: out, Err: io.Discard}
@@ -111,7 +111,7 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := "Install Codex if needed, then run `aigw sync`"
-	for _, args := range [][]string{{"status", "--json"}, {"sync", "--dry-run", "--json"}, {"check", "--json"}, {"doctor", "--json"}} {
+	for _, args := range [][]string{{"status", "--json"}, {"sync", "--dry-run", "--json"}, {"check", "--json"}} {
 		t.Run(args[0], func(t *testing.T) {
 			out := &bytes.Buffer{}
 			app := &App{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Providers: accounts, Discovery: noClientDiscovery{}, Out: out, Err: io.Discard}

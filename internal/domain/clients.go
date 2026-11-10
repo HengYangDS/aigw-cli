@@ -112,18 +112,6 @@ type ClientSpec struct {
 	// InAppAcceptance marks a client whose session only acceptance inside its
 	// own app proves, so `aigw check` runs no session of it.
 	InAppAcceptance bool
-	// Doctor is how doctor words this client's checks.
-	Doctor DoctorWording
-}
-
-// DoctorWording is how doctor words one client's checks; the zero value keeps
-// the generic Healthy and Check failed.
-type DoctorWording struct {
-	// AdapterStates names the adapter's state and its missing executable or
-	// configuration file.
-	AdapterStates bool
-	// ModelBinding reports an unresolvable route as an unresolvable binding.
-	ModelBinding bool
 }
 
 func naturalChoices(choices []string) string {

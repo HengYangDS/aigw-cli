@@ -92,7 +92,7 @@ func ValidateRuntime(ctx context.Context, httpClient HTTPDoer, admission domain.
 }
 
 func probeEndpoint(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, client, endpoint string, protocol domain.EndpointProtocol, token string) error {
-	status, err := Status(ctx, httpClient, admission, client, endpoint, token, protocol)
+	status, err := endpointStatus(ctx, httpClient, admission, client, endpoint, token, protocol)
 	if err != nil {
 		return err
 	}
@@ -144,10 +144,10 @@ func (e *UnreachableError) Error() string {
 // Unwrap returns the transport failure.
 func (e *UnreachableError) Unwrap() error { return e.Err }
 
-// Status executes one bounded authenticated endpoint request and closes
-// its response before returning the status. A status is transport evidence;
-// callers own its interpretation as credential validation or diagnostics.
-func Status(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, client, endpoint, token string, protocols ...domain.EndpointProtocol) (int, error) {
+// endpointStatus executes one bounded authenticated endpoint request and
+// closes its response before returning the status. A status is transport
+// evidence; its callers interpret it as credential validation.
+func endpointStatus(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, client, endpoint, token string, protocols ...domain.EndpointProtocol) (int, error) {
 	ctx, cancel := context.WithTimeout(ctx, validationTimeout)
 	defer cancel()
 	request, err := domain.ProbeRequest(ctx, admission, client, endpoint, token, protocols...)

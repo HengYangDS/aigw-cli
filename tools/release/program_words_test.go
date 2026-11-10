@@ -52,6 +52,20 @@ func (j *journeyFixture) configRollback(program string, words ...string) []strin
 	return append([]string{"config", "rollback"}, words...)
 }
 
+// localCheck spells program's check of local readiness as JSON: `aigw check
+// --depth local` from 0.7.0, and `aigw doctor` in a published release before
+// it, so that a journey that starts from a published release keeps that
+// release's commands.
+func (j *journeyFixture) localCheck(program string) []string {
+	j.testing.Helper()
+	probe := exec.CommandContext(context.WithoutCancel(j.testing.Context()), program, "doctor", "--help")
+	probe.Env = j.environment
+	if probe.Run() == nil {
+		return []string{"doctor", "--json"}
+	}
+	return []string{"check", "--depth", "local", "--json"}
+}
+
 // lifecycle spells a command of program's own lifecycle in program's words.
 // words are the spelling after `aigw self` from 0.7.0, which a program with
 // `aigw self` runs; a published release before it runs the top-level command

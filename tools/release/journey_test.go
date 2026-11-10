@@ -86,7 +86,7 @@ func TestNativeProductJourney(t *testing.T) {
 		})
 		journey.requireClaudeCredential("native-journey-token")
 		journey.run("check")
-		journey.run("verify", "--for", "claude")
+		journey.run("check", "claude", "--depth", "client")
 		retained := journey.retainedCredential(claude.ID)
 		journey.uninstallAndRequireInstallationRemoved()
 		journey.requireWithdrawnCredentialDenied(retained, "native-journey-token")
@@ -106,11 +106,11 @@ func TestNativeProductJourney(t *testing.T) {
 		var diagnosis struct {
 			OK bool `json:"ok"`
 		}
-		if err := json.Unmarshal(journey.run("doctor", "--json"), &diagnosis); err != nil {
+		if err := json.Unmarshal(journey.run("check", "--depth", "local", "--json"), &diagnosis); err != nil {
 			t.Fatal(err)
 		}
 		if !diagnosis.OK {
-			t.Fatal("doctor rejected a healthy partially connected catalog")
+			t.Fatal("the local check rejected a healthy partially connected catalog")
 		}
 		journey.requireCredentialBackend("native-journey-token", secret.BackendSelection{
 			Kind: "env", Availability: "available", Mutability: "read_only", Persistence: "explicit",
@@ -149,11 +149,12 @@ func TestNativeProviderRetirementWithoutClients(t *testing.T) {
 	artifact := buildNativeProgram(t, root, "0.0.0")
 	journey := newNativeJourney(t, artifact, "https://unused.example.test", false)
 	journey.run("setup", "--from", journey.manifest)
-	var diagnosis struct {
-		OK bool `json:"ok"`
+	// No client is enabled, which check refuses, so status reads the setup.
+	var status struct {
+		State string `json:"state"`
 	}
-	if err := json.Unmarshal(journey.run("doctor", "--json"), &diagnosis); err != nil || !diagnosis.OK {
-		t.Fatalf("deferred setup is not corrupt: %v", err)
+	if err := json.Unmarshal(journey.run("status", "--json"), &status); err != nil || status.State != "deferred" {
+		t.Fatalf("deferred setup reads as %q: %v", status.State, err)
 	}
 	journey.run("account", "rename", "native-system-keyring-probe", "renamed-account")
 	journey.run("account", "rename", "native-system-keyring-probe", "renamed-account", "--finalize")

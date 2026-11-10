@@ -17,13 +17,10 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -205,7 +202,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 			}
 			continueClient()
 			count := completions.Load()
-			journey.runWith(p.candidate, "verify", "--for", client)
+			journey.runWith(p.candidate, "check", client, "--depth", "client")
 			journey.requireNativePreferences(client)
 			if completions.Load() <= count {
 				t.Fatal("client returned without an authenticated streaming request")
@@ -224,7 +221,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	journey.setEnvironment(secret.EnvironmentKey(renamedAccount), token)
 	journey.run("account", "rename", route.Provider, renamedAccount)
 	count := completions.Load()
-	journey.run("verify", "--for", "all")
+	journey.run("check", "--depth", "client")
 	if completions.Load() <= count {
 		t.Fatal("bulk verification did not invoke the enabled native client")
 	}
@@ -248,71 +245,6 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	}
 }
 
-func (j *journeyFixture) requireNativeForwarding(client, token string, upstream *httptest.Server, continueClient func()) {
-	j.testing.Helper()
-	configStore := store.NewStore(j.config, clients.Admission())
-	cfg, err := configStore.Load()
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	direct, err := cfg.ResolveRuntime(client, "")
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	retained := j.retainedCredential(client)
-	var requests atomic.Int64
-	path, _ := streamRequest(direct.Protocol, "")
-	forwarding := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Method == http.MethodPost && request.URL.Path == path {
-			requests.Add(1)
-		}
-		upstream.Config.Handler.ServeHTTP(response, request)
-	}))
-	defer forwarding.Close()
-	endpoint := forwarding.URL + strings.TrimPrefix(direct.Endpoint, upstream.URL)
-	j.run("use", client, j.modelName(direct.ModelID), "--protocol", direct.Protocol.Name())
-	args := []string{"client", "edit", client, "--via", endpoint}
-	before := capturePublishedSnapshot(j.testing, configStore)
-	preview := j.run(append(slices.Clone(args), "--dry-run", "--json")...)
-	if !bytes.Contains(preview, []byte(endpoint)) || bytes.Contains(preview, []byte(token)) || !reflect.DeepEqual(before, capturePublishedSnapshot(j.testing, configStore)) {
-		j.testing.Fatal("native forwarding preview leaked credentials or mutated state")
-	}
-	j.run(args...)
-	cfg, err = configStore.Load()
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	resolved, err := cfg.ResolveRuntime(client, "")
-	expected := direct
-	expected.Endpoint = endpoint
-	if err != nil || resolved != expected {
-		j.testing.Fatalf("native forwarding changed Account, model or protocol ownership: %v", err)
-	}
-	j.requireCredential(retained, token)
-	j.run("sync")
-	count := requests.Load()
-	j.run("verify", "--for", client)
-	if requests.Load() <= count {
-		j.testing.Fatal("native client did not load the selected forwarding endpoint")
-	}
-	// A retained session keeps the route it was created with where the native
-	// client freezes it, as Hermes does for its CLI sessions; it must still
-	// complete through its original credential reference.
-	continueClient()
-	j.run(j.configRollback(j.binary, "--last-change")...)
-	restored := capturePublishedSnapshot(j.testing, configStore)
-	if !restored.Config.Equal(before.Config) || !restored.Forwarding().Equal(before.Forwarding()) {
-		j.testing.Fatal("native forwarding rollback lost the original binding bytes")
-	}
-	j.requireCredential(retained, token)
-	count = requests.Load()
-	j.run("verify", "--for", client)
-	continueClient()
-	if requests.Load() != count {
-		j.testing.Fatal("native client retained the withdrawn forwarding endpoint")
-	}
-}
-
 // preprojectReplacement runs the candidate's sync before a step installs it,
 // which keeps the retained configuration and both credential commands.
 func (j *journeyFixture) preprojectReplacement(candidate, client, token string, configurationBefore []byte, retained process.Plan) {
@@ -331,7 +263,7 @@ func (j *journeyFixture) preprojectReplacement(candidate, client, token string, 
 func (j *journeyFixture) requireReplacementServes(candidate, client, token string, configurationBefore []byte, projected process.Plan, completions *atomic.Int64) {
 	j.testing.Helper()
 	count := completions.Load()
-	j.runWith(candidate, "verify", "--for", client)
+	j.runWith(candidate, "check", client, "--depth", "client")
 	if completions.Load() <= count {
 		j.testing.Fatal("retained client projection stopped serving authenticated inference before synchronization")
 	}

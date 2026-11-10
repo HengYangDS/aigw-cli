@@ -94,7 +94,6 @@ func assertClaudeOutsideEditRecovery(t *testing.T, recovery string, edit func(*t
 		{"sync", "--json"},
 		{"check", claude.ID, "--depth", "local", "--json"},
 		{"status", "--json"},
-		{"doctor", "--json"},
 	})
 
 	writeFile(t, settings, projected, 0o600)

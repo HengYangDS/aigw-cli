@@ -27,7 +27,6 @@ import (
 	completioncli "aigw-cli/internal/cli/completion"
 	"aigw-cli/internal/cli/config"
 	credentialcli "aigw-cli/internal/cli/credential"
-	"aigw-cli/internal/cli/doctor"
 	"aigw-cli/internal/cli/invocation"
 	modelcli "aigw-cli/internal/cli/model"
 	"aigw-cli/internal/cli/models"
@@ -38,9 +37,7 @@ import (
 	"aigw-cli/internal/cli/setup"
 	"aigw-cli/internal/cli/status"
 	synccli "aigw-cli/internal/cli/sync"
-	testcli "aigw-cli/internal/cli/test"
 	"aigw-cli/internal/cli/use"
-	"aigw-cli/internal/cli/verify"
 	versioncli "aigw-cli/internal/cli/version"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
@@ -387,14 +384,13 @@ func NewRoot(app *App) *cobra.Command {
 	connect := []*cobra.Command{setup.NewCommand(runtime)}
 	daily := []*cobra.Command{status.NewCommand(runtime), use.NewCommand(runtime), check.NewCommand(runtime), rotate.NewCommand(runtime)}
 	recoveryCommands := []*cobra.Command{
-		doctor.NewCommand(runtime), synccli.NewCommand(runtime), selfcli.NewCommand(runtime),
+		synccli.NewCommand(runtime), selfcli.NewCommand(runtime),
 	}
 	advanced := []*cobra.Command{
 		add.NewCommand(runtime), accountcli.NewCommand(runtime),
 		modelcli.NewCommand(runtime), providercli.NewCommand(runtime), route.NewCommand(runtime),
 		clientcli.NewCommand(runtime),
-		config.NewCommand(runtime), testcli.NewCommand(runtime),
-		verify.NewCommand(runtime), models.NewCommand(runtime),
+		config.NewCommand(runtime), models.NewCommand(runtime),
 		catalog.NewCommand(runtime), balance.NewCommand(runtime),
 	}
 	for group, commands := range map[string][]*cobra.Command{

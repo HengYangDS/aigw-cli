@@ -138,16 +138,6 @@ func planArgumentValue(arguments []string, name string) string {
 	return ""
 }
 
-func planEnvironmentValue(environment []string, name string) string {
-	prefix := name + "="
-	for _, value := range environment {
-		if after, ok := strings.CutPrefix(value, prefix); ok {
-			return after
-		}
-	}
-	return ""
-}
-
 func secretExists(t testing.TB, store secret.Store, account string) bool {
 	t.Helper()
 	present, err := store.Exists(account)

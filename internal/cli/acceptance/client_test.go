@@ -398,7 +398,7 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 	beforeConfig := readFile(t, app.Config.Path())
 	beforeSettings := readFile(t, claudeSettingsPath(t, app.Host))
 	app.Secrets = nil
-	if err := cli.Execute(app, []string{"verify", "--for", "claude"}); err != nil {
+	if err := cli.Execute(app, []string{"check", "claude", "--depth", "client"}); err != nil {
 		t.Fatal(err)
 	}
 	if len(runner.plans) != 1 || runner.plans[0].Executable != cfg.Clients[claude.ID].Executable {
@@ -410,7 +410,7 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 	out.Reset()
 	runner.output = []byte("public-secret-canary")
 	runner.capture = errors.New("public-secret-canary")
-	err := cli.Execute(app, []string{"verify", "--for", "claude"})
+	err := cli.Execute(app, []string{"check", "claude", "--depth", "client"})
 	if err == nil || strings.Contains(err.Error(), "public-secret-canary") || strings.Contains(out.String(), "public-secret-canary") {
 		t.Fatal("unknown helper diagnostics escaped or failure was accepted")
 	}
@@ -418,7 +418,7 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 		t.Fatal("verification retried or fell back")
 	}
 	runner.capture = nil
-	if err := cli.Execute(app, []string{"verify", "--for", "claude"}); err == nil || strings.Contains(err.Error(), "public-secret-canary") {
+	if err := cli.Execute(app, []string{"check", "claude", "--depth", "client"}); err == nil || strings.Contains(err.Error(), "public-secret-canary") {
 		t.Fatal("non-marker client success was accepted or disclosed its output")
 	}
 }

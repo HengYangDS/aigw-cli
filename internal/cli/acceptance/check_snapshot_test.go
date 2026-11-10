@@ -48,6 +48,31 @@ func TestCheckToTheClientDepthWritesTheVerifiedSnapshot(t *testing.T) {
 	}
 }
 
+// A client whose session warns stops at the client depth, and the check
+// writes no verified snapshot.
+func TestACheckWhoseSessionWarnsWritesNoSnapshot(t *testing.T) {
+	app, runner := readyVerificationApp(t)
+	runner.stderr = []byte("warning: native client capability is incomplete\n")
+	out := outputOf(t, app)
+	out.Reset()
+	if err := cli.Execute(app, []string{"check", "--depth", "client", "--json"}); err == nil {
+		t.Fatalf("a session that warned passed:\n%s", out)
+	}
+	report := decodeCheck(t, out)
+	stopped := 0
+	for _, client := range report.Clients {
+		if client.Failure != nil && client.Failure.Depth == "client" {
+			stopped++
+		}
+	}
+	if report.OK || len(report.Clients) != 2 || stopped != 2 {
+		t.Fatalf("the warning sessions = %s", out)
+	}
+	if _, err := os.Stat(app.Config.Path() + ".verified.json"); !os.IsNotExist(err) {
+		t.Fatalf("a verified snapshot exists: %v", err)
+	}
+}
+
 // A configuration that changes while a client's session runs keeps its newer
 // content, and the snapshot of the older one is refused with the same check
 // as its fix.

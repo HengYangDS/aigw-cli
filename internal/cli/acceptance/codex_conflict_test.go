@@ -49,10 +49,9 @@ func TestCodexOutsideRetryEditRecoveryDoesNotLoop(t *testing.T) {
 		{"sync", "--json"},
 		{"check", "--json"},
 		{"status", "--json"},
-		{"doctor", "--json"},
 	})
 	output.Reset()
-	if err := cli.Execute(app, []string{"doctor"}); err == nil {
+	if err := cli.Execute(app, []string{"check", "--depth", "local"}); err == nil {
 		t.Fatal("doctor passed with an outside edit to managed Codex settings")
 	}
 	if human := output.String(); !strings.Contains(human, "Next\n  "+recovery) {

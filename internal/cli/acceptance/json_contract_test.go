@@ -101,48 +101,6 @@ func TestUninstallWritesTheWithdrawnClientsAsJSON(t *testing.T) {
 	}
 }
 
-func TestVerifyAllWritesEachClientAsJSON(t *testing.T) {
-	for _, test := range []struct {
-		name    string
-		warning bool
-		states  []string
-	}{
-		{name: "completed", states: []string{"completed", "completed"}},
-		{name: "failed", warning: true, states: []string{"failed", "not_run"}},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			app, runner := readyVerificationApp(t)
-			if test.warning {
-				runner.stderr = []byte("warning: native client capability is incomplete\n")
-			}
-			out := applicationOutput(t, app)
-			out.Reset()
-			err := cli.Execute(app, []string{"verify", "--for", "all", "--json"})
-			var document struct {
-				OK      bool `json:"ok"`
-				Clients []struct {
-					Client string `json:"client"`
-					State  string `json:"state"`
-				} `json:"clients"`
-				CheckpointWritten bool `json:"checkpoint_written"`
-			}
-			if decodeErr := json.Unmarshal(out.Bytes(), &document); decodeErr != nil {
-				t.Fatalf("document %q: %v", out.String(), decodeErr)
-			}
-			var clients, states []string
-			for _, client := range document.Clients {
-				clients, states = append(clients, client.Client), append(states, client.State)
-			}
-			completed := !test.warning
-			_, checkpointErr := app.Config.LoadVerifiedCheckpoint()
-			if (err == nil) != completed || document.OK != completed || document.CheckpointWritten != completed || (checkpointErr == nil) != completed ||
-				!slices.Equal(clients, []string{claude.ID, codex.ID}) || !slices.Equal(states, test.states) {
-				t.Fatalf("verify error = %v, checkpoint %v, document %s", err, checkpointErr, out.String())
-			}
-		})
-	}
-}
-
 func TestJSONCommandsNeverPrompt(t *testing.T) {
 	for _, test := range []struct {
 		name  string

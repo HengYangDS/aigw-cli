@@ -66,8 +66,8 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	journey.run("setup", "--from", journey.manifest)
 	journey.enableNativeClient(codex.ID, executable)
 	for _, args := range [][]string{
-		{"verify", "--for", codex.ID},
-		{"verify", "--for", codex.ID, "--route", selection.Model},
+		{"check", codex.ID, "--depth", "client"},
+		{"check", codex.ID, "--model", journey.modelName(selection.Model), "--depth", "client"},
 	} {
 		before := completions.Load()
 		journey.run(args...)

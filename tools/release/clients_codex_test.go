@@ -109,7 +109,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralModels(t *testing.T) {
 			defer cancel()
 			stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
 				Executable: journey.binary, Env: journey.environment,
-				Args: []string{"verify", "--for", codex.ID, "--route", routeID},
+				Args: []string{"check", codex.ID, "--model", journey.modelName(routeID), "--depth", "client"},
 			})
 			completed := requireNativeCodexModelOutcome(t, executable, route, stdout, stderr, err, token)
 			want := int64(3)
@@ -134,7 +134,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralModels(t *testing.T) {
 func requireNativeCodexModelOutcome(t *testing.T, executable string, route domain.Model, stdout, stderr []byte, runErr error, token string) bool {
 	t.Helper()
 	if runErr == nil {
-		if !bytes.Contains(stdout, []byte("Completed")) || process.DiagnosticFailure(stderr) {
+		if !bytes.Contains(stdout, []byte("No checked client failed")) || process.DiagnosticFailure(stderr) {
 			t.Fatalf("native Route verification did not complete cleanly: %s", domain.Redact(string(stderr), token))
 		}
 		return true
@@ -197,7 +197,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), clientverification.ProtocolTimeout)
 	stdout, stderr, verifyErr := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
 		Executable: journey.binary, Env: journey.environment,
-		Args: []string{"verify", "--for", codex.ID},
+		Args: []string{"check", codex.ID, "--depth", "client"},
 	})
 	cancel()
 	route := p.manifest.Models[routeID]
@@ -311,7 +311,12 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 			http.Error(response, "decode request", http.StatusBadRequest)
 			return
 		}
-		if input.Model != "grok-4.7" || !input.Stream || input.Reasoning.Effort != "high" {
+		if !input.Stream {
+			// AIGW's own check of the model depth.
+			base.ServeHTTP(response, request)
+			return
+		}
+		if input.Model != "grok-4.7" || input.Reasoning.Effort != "high" {
 			probe.rejected.Add(1)
 			http.Error(response, "configured model and effort required", http.StatusBadRequest)
 			return

@@ -69,9 +69,6 @@ func assertDeferredJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer, co
 	if command == "check" && result.OK {
 		t.Fatalf("empty check reported success: %s", out)
 	}
-	if command == "doctor" && (!result.OK || result.OKScope != "local_diagnostics") {
-		t.Fatalf("doctor did not scope diagnostic success: %s", out)
-	}
 	// Check lists only the clients that it checked, and it checked none.
 	if command == "check" && len(result.Clients) != 0 {
 		t.Fatalf("check listed clients that it did not check: %+v", result.Clients)
@@ -96,9 +93,6 @@ func assertDeferredHumanCommand(t *testing.T, app *cli.App, out *bytes.Buffer, c
 	action := strings.Join(strings.Fields(wantAction), " ")
 	if !strings.Contains(human, "No client is enabled") || !strings.Contains(human, action) {
 		t.Fatalf("human %s implied usable health:\n%s", command, out)
-	}
-	if command == "doctor" && strings.Contains(out.String(), "No problems found") {
-		t.Fatalf("doctor implied product readiness: %s", out)
 	}
 }
 
@@ -128,10 +122,10 @@ func TestShippedTeamManifestWithoutProviderOrClientIsDeferred(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, command := range []string{"sync", "status", "check", "doctor"} {
+	for _, command := range []string{"sync", "status", "check"} {
 		assertDeferredJSONCommand(t, app, out, command, wantAction)
 	}
-	for _, command := range []string{"status", "check", "doctor"} {
+	for _, command := range []string{"status", "check"} {
 		assertDeferredHumanCommand(t, app, out, command, wantAction)
 	}
 	after, err := app.Config.CaptureSnapshot()
@@ -214,10 +208,10 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneProviderChoice(t *testin
 	if strings.Contains((setup.NextAction + setup.NextDetail), "aigw sync") {
 		t.Fatalf("setup recommended synchronization before its prerequisite: %q", (setup.NextAction + setup.NextDetail))
 	}
-	for _, command := range []string{"sync", "status", "check", "doctor"} {
+	for _, command := range []string{"sync", "status", "check"} {
 		assertDeferredJSONCommand(t, app, out, command, (setup.NextAction + setup.NextDetail))
 	}
-	for _, command := range []string{"status", "check", "doctor"} {
+	for _, command := range []string{"status", "check"} {
 		assertDeferredHumanCommand(t, app, out, command, (setup.NextAction + setup.NextDetail))
 	}
 	if len(runner.plans) != 0 || httpClient.calls != 0 {
@@ -284,7 +278,7 @@ func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T)
 	}
 	requestsBefore := httpClient.calls
 
-	for _, command := range []string{"sync", "status", "check", "doctor"} {
+	for _, command := range []string{"sync", "status", "check"} {
 		out.Reset()
 		args := []string{command, "--json"}
 		if command == "sync" {
@@ -309,7 +303,7 @@ func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T)
 			t.Fatalf("%s Hermes state = %+v", command, result.Clients[hermes.ID])
 		}
 	}
-	for _, command := range []string{"status", "check", "doctor"} {
+	for _, command := range []string{"status", "check"} {
 		out.Reset()
 		err := cli.Execute(app, []string{command})
 		if (err != nil) != (command == "check") {
@@ -345,7 +339,7 @@ func TestShippedTeamManifestTokenRemovedBeforeClientInstallation(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantAction := "run `aigw provider rotate ucloud`"
-	for _, command := range []string{"sync", "status", "check", "doctor"} {
+	for _, command := range []string{"sync", "status", "check"} {
 		assertTokenRemovedJSONCommand(t, app, out, command, wantAction)
 		assertTokenRemovedHumanCommand(t, app, out, command)
 	}
@@ -395,7 +389,7 @@ func TestShippedTeamManifestMixedClientProjectionHasOneContinuation(t *testing.T
 		t.Fatal(err)
 	}
 	beforeProbes := httpClient.calls
-	for _, command := range []string{"sync", "status", "check", "doctor"} {
+	for _, command := range []string{"sync", "status", "check"} {
 		out.Reset()
 		args := []string{command, "--json"}
 		if command == "sync" {
@@ -413,7 +407,7 @@ func TestShippedTeamManifestMixedClientProjectionHasOneContinuation(t *testing.T
 			t.Fatalf("%s next action = %q, want %q\n%s", command, (result.NextAction + result.NextDetail), wantAction, out)
 		}
 	}
-	for _, command := range []string{"sync", "status", "check", "doctor"} {
+	for _, command := range []string{"sync", "status", "check"} {
 		assertMixedClientHumanCommand(t, app, out, command, wantAction)
 	}
 	// Each check of the configured client sends one request without a model
@@ -451,7 +445,7 @@ func assertTokenRemovedJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer
 		args = []string{"sync", "--dry-run", "--json"}
 	}
 	err := cli.Execute(app, args)
-	if (err != nil) != (command == "check" || command == "doctor") {
+	if (err != nil) != (command == "check") {
 		t.Fatalf("%s error = %v\n%s", command, err, out)
 	}
 	var result deferredActivationDocument
@@ -459,7 +453,7 @@ func assertTokenRemovedJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer
 		t.Fatalf("decode %s: %v\n%s", command, err, out)
 	}
 	wantCommandAction := wantAction
-	if command == "doctor" || command == "check" {
+	if command == "check" {
 		wantCommandAction = "aigw provider rotate ucloud"
 	}
 	if command == "check" {
@@ -495,7 +489,7 @@ func assertTokenRemovedHumanCommand(t *testing.T, app *cli.App, out *bytes.Buffe
 		args = []string{"sync", "--dry-run"}
 	}
 	err := cli.Execute(app, args)
-	if (err != nil) != (command == "check" || command == "doctor") {
+	if (err != nil) != (command == "check") {
 		t.Fatalf("human %s error = %v\n%s", command, err, out)
 	}
 	// Status says that AIGW has not written the clients' files, sync that it

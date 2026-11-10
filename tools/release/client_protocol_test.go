@@ -242,7 +242,7 @@ func TestNativeClientInferenceEnvelope(t *testing.T) {
 				model:   "configured-model",
 			}
 			recorder.ServeHTTP(response, request)
-			if response.Code != http.StatusOK || completions.Load() != 1 || response.Header().Get("Content-Type") != "application/json" || !json.Valid(response.Body.Bytes()) || !strings.Contains(response.Body.String(), `"pong"`) {
+			if response.Code != http.StatusOK || completions.Load() != 0 || response.Header().Get("Content-Type") != "application/json" || !json.Valid(response.Body.Bytes()) || !strings.Contains(response.Body.String(), `"pong"`) {
 				t.Fatalf("non-stream inference response: status=%d completions=%d content-type=%q body=%s", response.Code, completions.Load(), response.Header().Get("Content-Type"), response.Body.String())
 			}
 			if len(recorder.inputCounts()) != 0 {
@@ -307,10 +307,10 @@ func clientResponseHandler(protocol domain.EndpointProtocol, completions map[str
 				http.Error(response, "configured inference request required", http.StatusBadRequest)
 				return
 			}
+			// This is AIGW's own check of the model depth, which the
+			// fixture answers without counting it as a client's turn.
 			response.Header().Set("Content-Type", "application/json")
-			if _, err := io.WriteString(response, body); err == nil {
-				completion.Add(1)
-			}
+			_, _ = io.WriteString(response, body)
 			return
 		}
 		if requiredEffort != "" && streamEffort(protocol, input.Reasoning.Effort, input.OutputConfig.Effort, input.ReasoningEffort) != requiredEffort {

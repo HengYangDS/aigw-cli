@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -74,12 +75,12 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	}
 	store := &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: errors.New("native metadata must not select external credentials")}
 	app.Secrets = store
-	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"doctor", "--json"}, {"doctor"}, {"route", "list"}, {"route", "show", "claude"}, {"use", "claude", "gateway/fixture"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[claude.ID].Executable}} {
+	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"check", "--depth", "local"}, {"route", "list"}, {"route", "show", "claude"}, {"use", "claude", "gateway/fixture"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[claude.ID].Executable}} {
 		out.Reset()
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v required a native Token: %v", args, err)
 		}
-		if args[0] == "check" || args[0] == "status" || (args[0] == "doctor" && len(args) > 1) {
+		if args[0] == "status" || slices.Equal(args, []string{"check", "--json"}) {
 			var result canonicalReadinessDocument
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 				t.Fatal(err)
@@ -89,12 +90,12 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 				t.Fatalf("external credential readiness = %#v", state)
 			}
 		}
-		if args[0] == "doctor" {
+		if slices.Equal(args, []string{"check", "--depth", "local"}) {
 			after, err := app.Config.CaptureSnapshot()
 			if err != nil || !before.Config.Equal(after.Config) || !before.Backup.Equal(after.Backup) || !before.Verified.Equal(after.Verified) {
 				t.Fatalf("diagnosis changed external credential policy: %v", err)
 			}
-			if !strings.Contains(out.String(), "aigw check claude --depth client") || strings.Contains(out.String(), "rotate") || strings.Contains(out.String(), "secret:gateway") {
+			if !strings.Contains(out.String(), "An external credential helper gives Claude Code its Token") || strings.Contains(out.String(), "rotate") || strings.Contains(out.String(), "secret:gateway") {
 				t.Fatalf("diagnosis confused credential retrieval with wire authentication: %s", out)
 			}
 		}
@@ -105,8 +106,9 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	if len(runner.plans) != 0 {
 		t.Fatal("local admission executed a client or credential helper")
 	}
-	if err := cli.Execute(app, []string{"test", "--for", "claude"}); err == nil || !strings.Contains(err.Error(), "external credential helper") {
-		t.Fatalf("direct endpoint test did not explain external credential ownership: %v", err)
+	out.Reset()
+	if err := cli.Execute(app, []string{"check", "claude", "--depth", "endpoint"}); err != nil || !strings.Contains(out.String(), "external credential helper") {
+		t.Fatalf("the endpoint check did not explain external credential ownership: %v\n%s", err, out)
 	}
 }
 
@@ -168,7 +170,7 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 }
 
 func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
-	for _, command := range []string{"status", "doctor"} {
+	for _, command := range []string{"status"} {
 		t.Run(command, func(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			app.Version = "1.0.0"
@@ -236,7 +238,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 }
 
 func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
-	commands := []string{"status", "check", "doctor"}
+	commands := []string{"status", "check"}
 	for _, command := range commands {
 		t.Run(command, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
@@ -282,7 +284,7 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 }
 
 func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T) {
-	for _, command := range []string{"status", "doctor"} {
+	for _, command := range []string{"status"} {
 		t.Run(command, func(t *testing.T) {
 			app, _, secretStore, runner, httpClient := testApp(t, "")
 			cfg := domain.NewConfig(clients.Admission())

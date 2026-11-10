@@ -44,6 +44,12 @@ exitcode 1 aigw repair
 stdout 'unknown command "repair"'
 exitcode 1 aigw rollback --last-change
 stdout 'unknown command "rollback"'
+exitcode 1 aigw doctor
+stdout 'unknown command "doctor"'
+exitcode 1 aigw test
+stdout 'unknown command "test"'
+exitcode 1 aigw verify --for claude
+stdout 'unknown command "verify"'
 snapshot $HOME removed-after.txt
 cmp removed-after.txt removed-before.txt
 
@@ -71,7 +77,6 @@ Use every day
   use                  Point a client at a model
 
 Recover
-  doctor               Show detailed diagnostics for configuration, secrets, and adapters
   self                 Install, update, roll back, remove or inspect this program
   sync                 Make client files match the configuration
 
@@ -87,8 +92,6 @@ Advanced
   models               Compare configured model IDs with provider catalogs; does not test inference
   provider             List, show, add, edit and remove providers; rotate Tokens; report balances
   route                Manage Routes
-  test                 Probe selected endpoints without model inference
-  verify               Verify a Route through a real native client (may use quota)
   version              Show the program's version
 
 Options

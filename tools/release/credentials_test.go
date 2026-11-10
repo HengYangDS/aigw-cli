@@ -13,7 +13,6 @@ import (
 	"aigw-cli/internal/store"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -189,7 +188,7 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	}
 	j.run("sync")
 	j.run("check", "--json")
-	j.run("verify", "--for", client)
+	j.run("check", client, "--depth", "client")
 	j.run("client", "disable", client)
 	j.run("sync")
 	args := []string{"client", "enable", client, "--executable", executable}
@@ -198,7 +197,7 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	}
 	j.run(args...)
 	j.run("sync")
-	j.run("verify", "--for", client)
+	j.run("check", client, "--depth", "client")
 	retained, err := configStore.Load()
 	if err != nil || retained.Clients[client].CredentialCommand != helper {
 		j.testing.Fatalf("native lifecycle discarded explicit helper: %v", err)
@@ -247,11 +246,11 @@ func (j *journeyFixture) requireCredential(plan process.Plan, want string) {
 	}
 }
 
-// requireCredentialBackend reads the credential backend from status and doctor,
-// which the baseline and the candidate both report in this shape.
+// requireCredentialBackend reads the credential backend from status and the
+// local check, which the baseline and the candidate both report in this shape.
 func (j *journeyFixture) requireCredentialBackend(token string, want secret.BackendSelection) {
 	j.testing.Helper()
-	for _, command := range [][]string{{"status", "--json"}, {"doctor", "--json"}} {
+	for _, command := range [][]string{{"status", "--json"}, j.localCheck(j.binary)} {
 		output := j.run(command...)
 		if bytes.Contains(output, []byte(token)) {
 			j.testing.Fatalf("%s disclosed the credential", strings.Join(command, " "))
@@ -284,17 +283,19 @@ func runNativeEphemeralCredentials(t *testing.T, artifact string) {
 	journey := newNativeJourney(t, artifact, endpoint.URL, false)
 	journey.run("setup", "--from", journey.manifest)
 	before := readFile(t, journey.config)
-	for _, format := range []string{"raw", "go-keyring-base64"} {
-		input := token + "\r\n"
-		if format == "go-keyring-base64" {
-			input = "go-keyring-base64:" + base64.StdEncoding.EncodeToString([]byte(token))
-		}
-		output := journey.runWithInput(journey.binary, input, "test", "--for", "claude", "--route", "native-system-keyring-probe-claude", "--token-stdin", "--token-format", format, "--config", journey.config)
-		if !bytes.Contains(output, []byte("not model inference")) || bytes.Contains(output, []byte(token)) {
-			t.Fatal("endpoint result lost its evidence or secret boundary")
-		}
+	model := journey.modelName("native-system-keyring-probe-claude")
+	output := journey.runWithInput(journey.binary, token+"\r\n", "check", "claude", "--model", model, "--token-stdin", "--depth", "endpoint", "--json")
+	var result struct {
+		Clients []struct {
+			Model string `json:"model"`
+			Depth string `json:"depth"`
+		} `json:"clients"`
 	}
-	if requests != 2 || !bytes.Equal(before, readFile(t, journey.config)) {
+	if err := json.Unmarshal(output, &result); err != nil || len(result.Clients) != 1 || result.Clients[0].Model != model ||
+		result.Clients[0].Depth != "endpoint" || bytes.Contains(output, []byte(token)) {
+		t.Fatalf("endpoint result lost its evidence or secret boundary: %v", err)
+	}
+	if requests != 1 || !bytes.Equal(before, readFile(t, journey.config)) {
 		t.Fatalf("ephemeral endpoint requests=%d or configuration changed", requests)
 	}
 	journey.requireNoClaudeProjection()

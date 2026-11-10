@@ -108,7 +108,7 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 				}
 				// A command that loads the configuration would fail the same
 				// way, and a load failure states no impact of its own.
-				for _, forbidden := range []string{"aigw doctor", "aigw check", "Impact", "impact"} {
+				for _, forbidden := range []string{"aigw check", "Impact", "impact"} {
 					if strings.Contains(rendered, forbidden) {
 						t.Fatalf("configuration diagnostic names %q: %q", forbidden, rendered)
 					}
@@ -427,7 +427,7 @@ func (nextActionError) NextAction() string { return "Move the directory, then ru
 
 func TestJSONErrorPreservesProblemAndOutputFailure(t *testing.T) {
 	cause := errors.New("internal cause")
-	problem := ProblemError("Cannot continue", "Observed failure", "Operation stopped", "aigw doctor", cause)
+	problem := ProblemError("Cannot continue", "Observed failure", "Operation stopped", "aigw check", cause)
 	var out bytes.Buffer
 	renderer := NewRenderer(&out, false)
 	RenderError(renderer, problem, true)
@@ -443,7 +443,7 @@ func TestJSONErrorPreservesProblemAndOutputFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	if result.OK || result.Error != "Cannot continue" || result.Evidence != "Observed failure" || result.Impact != "Operation stopped" ||
-		result.NextAction != "aigw doctor" || result.NextDetail != "" || renderer.Err() != nil {
+		result.NextAction != "aigw check" || result.NextDetail != "" || renderer.Err() != nil {
 		t.Fatalf("result=%+v error=%v", result, renderer.Err())
 	}
 	// A fix that a script cannot run as it stands is guidance.

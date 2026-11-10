@@ -132,8 +132,8 @@ stdout 'Codex +team/team-model · Enabled · Not installed'
 
 # Codex moves to a configuration file in its own folder, which is then
 # deleted, file and record together, leaving nothing to withdraw. AIGW does
-# not create a Codex home outside the default one, so status, doctor, check
-# and sync all name the file and the folder to create, since the folder alone
+# not create a Codex home outside the default one, so status, check and sync
+# all name the file and the folder to create, since the folder alone
 # leaves the same command refused; none names sync alone, which would refuse.
 # A check completes the repair with the sync that projects into the new file
 # and names no file outside the home directory, which the test's $WORK is,
@@ -147,9 +147,6 @@ exec aigw client edit codex --target $WORK/a/config.toml
 exec aigw sync
 rm $WORK/a
 exec aigw status --json
-stdout '"next_detail": "Create the file outside the home directory and the folder that holds it, then run `aigw sync`."'
-! stdout '"next_action": "aigw sync"'
-exitcode 1 aigw doctor --json
 stdout '"next_detail": "Create the file outside the home directory and the folder that holds it, then run `aigw sync`."'
 ! stdout '"next_action": "aigw sync"'
 exitcode 1 aigw check codex --json

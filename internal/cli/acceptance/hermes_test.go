@@ -61,10 +61,10 @@ interfaces = { anthropic = ["text", "streaming", "tools"] }
 		Executables: map[string]string{hermes.ID: executable},
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
-	for _, args := range [][]string{{"sync"}, {"status", "--json"}, {"check"}, {"test", "--for", "hermes"}, {"verify", "--for", "hermes"}} {
+	for _, args := range [][]string{{"sync"}, {"status", "--json"}, {"check"}, {"check", "hermes", "--depth", "endpoint"}, {"check", "hermes", "--depth", "client"}} {
 		output.Reset()
 		err := cli.Execute(app, args)
-		if args[0] == "verify" && runtime.GOOS == "windows" {
+		if slices.Contains(args, "client") && runtime.GOOS == "windows" {
 			// Installed Windows Hermes ignores the verification-only launcher opt-out.
 			if err == nil || !strings.Contains(err.Error()+output.String(), "cannot isolate") {
 				t.Fatalf("%v: Windows verification was not refused: %v\n%s", args, err, output.String())

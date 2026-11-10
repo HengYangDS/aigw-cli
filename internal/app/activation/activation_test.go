@@ -383,9 +383,9 @@ func TestNextActionForUsesOneOrderedReadinessDecision(t *testing.T) {
 			activation: Activation{EnabledClients: 2},
 			clients: []domainreadiness.Client{
 				{State: domainreadiness.Deferred, NextAction: "Install Claude, then sync"},
-				{State: domainreadiness.Configured, NextAction: "aigw verify --for codex"},
+				{State: domainreadiness.Configured, NextAction: "aigw check codex --depth client"},
 			},
-			want: "aigw verify --for codex",
+			want: "aigw check codex --depth client",
 		},
 		{
 			name:       "unclassified failure",

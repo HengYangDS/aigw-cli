@@ -18,6 +18,8 @@ func newNativeJourneyServer(t *testing.T, observe ...func(*http.Request)) *httpt
 			_, _ = response.Write([]byte(`{"type":"message","role":"assistant","content":[{"type":"text","text":"pong"}],"stop_reason":"end_turn"}`))
 		case "POST /v1/responses", "POST /selected/v1/responses":
 			_, _ = response.Write([]byte(`{"status":"completed","output":[{"type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"pong"}]}]}`))
+		case "POST /v1/chat/completions":
+			_, _ = response.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"pong"},"finish_reason":"stop"}]}`))
 		default:
 			_, _ = response.Write([]byte(`{"data":[]}`))
 		}

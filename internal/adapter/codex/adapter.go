@@ -35,7 +35,6 @@ func (codexAdapter) Spec() domain.ClientSpec {
 		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
 		DefaultModelProvider: modelProviderAIGW, ClientNativeAuthentication: true,
 		PublishedProfileProtocol: domain.ProtocolOpenAIResponses,
-		Doctor:                   domain.DoctorWording{AdapterStates: true, ModelBinding: true},
 	}
 }
 

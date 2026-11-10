@@ -131,7 +131,7 @@ func TestValuesAndDetailsContinueUnderTheValueColumn(t *testing.T) {
 			State:   terminal.Info,
 			Label:   "Claude",
 			Value:   "Configured · Claude Code uses a native model preference; its AIGW endpoint and credential helper remain configured",
-			Details: []string{"Verify the native model: aigw verify --for claude"},
+			Details: []string{"Verify the native model: aigw check claude --depth client"},
 		},
 		terminal.Field{State: terminal.Info, Label: "Claude Desktop", Value: "Configured"},
 	)
@@ -139,8 +139,8 @@ func TestValuesAndDetailsContinueUnderTheValueColumn(t *testing.T) {
 		"                       native model preference; its AIGW\n" +
 		"                       endpoint and credential helper remain\n" +
 		"                       configured\n" +
-		"                       Verify the native model: aigw verify\n" +
-		"                       --for claude\n" +
+		"                       Verify the native model: aigw check\n" +
+		"                       claude --depth client\n" +
 		"  · Claude Desktop     Configured\n"
 	if out.String() != want {
 		t.Fatalf("continuation layout mismatch\n--- want ---\n%s--- got ---\n%s", want, out.String())

@@ -262,10 +262,10 @@ type failureDocument struct {
 	Column     int    `json:"column,omitempty"`
 }
 
-// ConfigurationFailure names the configuration step at which err stopped,
+// configurationFailure names the configuration step at which err stopped,
 // configuration_read, configuration_parse or configuration_validate, and a
 // parse failure's line and column. Any other error has no stage.
-func ConfigurationFailure(err error) (stage string, line, column int) {
+func configurationFailure(err error) (stage string, line, column int) {
 	failure, ok := errors.AsType[*store.LoadError](err)
 	if !ok {
 		return "", 0, 0
@@ -288,7 +288,7 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 		failure := failureDocument{SchemaVersion: failureSchemaVersion,
 			Error: problem.Title, Evidence: problem.Evidence, Impact: problem.Impact}
 		failure.NextAction, failure.NextDetail = NextSteps(problem.Fix)
-		failure.Stage, failure.Line, failure.Column = ConfigurationFailure(err)
+		failure.Stage, failure.Line, failure.Column = configurationFailure(err)
 		renderer.err = WriteJSON(renderer.out, failure)
 		return
 	}

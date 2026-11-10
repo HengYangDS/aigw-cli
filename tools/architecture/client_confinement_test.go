@@ -45,7 +45,7 @@ var confinementSources = map[string]string{
 	"internal/neutral/neutral.go":          "package neutral\n\nconst label = \"client\"\n",
 	"internal/client/registry.go":          "package client\n\nfunc NewHermesSelection() {}\n",
 	"internal/client/codex/adapter.go":     "package codex\n\nvar codexHome = \"codex\"\n",
-	"internal/client/codex/leak.go":        "package codex\n\nvar other = \"aigw verify --for hermes\"\n",
+	"internal/client/codex/leak.go":        "package codex\n\nvar other = \"aigw check hermes\"\n",
 	"internal/client/claudedesktop/app.go": "package claudedesktop\n\nconst app = \"Claude.app\"\n\nvar ClaudeDesktopLibrary = \"x\"\n",
 	"internal/client/claude/settings.go":   "package claude\n\nconst settings = \"claude\"\n\nvar desktop = \"Claude Desktop\"\n",
 	"cmd/aigw/main.go":                     "package main\n\nimport \"aigw-cli/internal/client/codex\"\n\nvar _ = codex.New\n",
@@ -121,7 +121,7 @@ func TestClientConfinementDecodesLiteralValues(t *testing.T) {
 		"octal escape":    `"\143odex"`,
 		"unicode escape":  "\"\\" + "u0063odex\"",
 		"raw string":      "`codex`",
-		"inside sentence": `"aigw verify --for \x63odex"`,
+		"inside sentence": `"aigw check \x63odex"`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			root, files := confinementFixture(t, map[string]string{
@@ -199,7 +199,7 @@ func TestClientWordsSplitIdentifiersAndLiterals(t *testing.T) {
 		"ClaudeDesktopLibrary":     {"claude", "desktop", "library"},
 		"codexHome":                {"codex", "home"},
 		"NewHermesSelection":       {"new", "hermes", "selection"},
-		"aigw verify --for claude": {"aigw", "verify", "for", "claude"},
+		"aigw check claude --json": {"aigw", "check", "claude", "json"},
 		"claude-desktop":           {"claude", "desktop"},
 		"HTTPServer2":              {"http", "server2"},
 		"Claude.app":               {"claude", "app"},
