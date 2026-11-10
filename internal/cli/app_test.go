@@ -217,6 +217,52 @@ func TestGroupedHelpUsesDeclaredOrderAndTitles(t *testing.T) {
 	}
 }
 
+// TestTheCommandTreeIsTheDesignedOne pins design.md's command tree: twelve
+// top-level commands and thirty-two leaves, besides the hidden credential
+// command that client files run.
+func TestTheCommandTreeIsTheDesignedOne(t *testing.T) {
+	root := NewRoot(&App{Clients: clients.Registry()})
+	var top, leaves []string
+	var walk func(*cobra.Command)
+	walk = func(command *cobra.Command) {
+		for _, child := range command.Commands() {
+			if !child.IsAvailableCommand() {
+				continue
+			}
+			path := strings.TrimPrefix(child.CommandPath(), "aigw ")
+			if command == root {
+				top = append(top, path)
+			}
+			if child.HasAvailableSubCommands() {
+				walk(child)
+				continue
+			}
+			leaves = append(leaves, path)
+		}
+	}
+	walk(root)
+	wantTop := []string{"check", "client", "completion", "config", "model", "provider", "self", "setup", "status", "sync", "use", "version"}
+	wantLeaves := []string{
+		"check",
+		"client disable", "client edit", "client enable", "client list",
+		"completion",
+		"config export", "config path", "config rollback",
+		"model add", "model edit", "model list", "model remove", "model search", "model show",
+		"provider add", "provider balance", "provider edit", "provider list", "provider remove", "provider rotate", "provider show",
+		"self install", "self rollback", "self status", "self uninstall", "self update",
+		"setup", "status", "sync", "use", "version",
+	}
+	if !slices.Equal(top, wantTop) || !slices.Equal(leaves, wantLeaves) {
+		t.Fatalf("top-level commands %q (%d), leaves %q (%d)", top, len(top), leaves, len(leaves))
+	}
+	if len(wantTop) != 12 || len(wantLeaves) != 32 {
+		t.Fatalf("the designed tree has %d top-level commands and %d leaves", len(wantTop), len(wantLeaves))
+	}
+	if credential, _, err := root.Find([]string{"credential"}); err != nil || credential == root || !credential.Hidden {
+		t.Fatalf("the credential command = %v, %v", credential, err)
+	}
+}
+
 func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 	out := new(bytes.Buffer)
 	app := &App{Clients: clients.Registry(), Out: out, Err: out}
@@ -226,14 +272,15 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 	remaining := out.String()
 	for _, want := range []string{
 		"Start with one path",
-		"aigw setup", "Connect the first account",
+		"aigw setup", "Set up a provider, a client and a model",
 		"aigw use <client> <provider/model>", "Point a client at a model",
 		"aigw check", "Check enabled clients (may use quota)",
 		"Usage", "aigw [command]",
-		"Connect", "setup",
-		"Use every day", "check", "status", "use",
-		"Recover", "self", "sync",
-		"Advanced", "client", "completion", "config",
+		"Daily", "check", "status", "use",
+		"Models", "model",
+		"Providers", "provider",
+		"Clients", "client",
+		"Maintain", "completion", "config", "self", "setup", "sync", "version",
 		"Options", "show help", "show version",
 	} {
 		_, after, found := strings.Cut(remaining, want)
@@ -271,7 +318,7 @@ func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
 		semanticHelp := strings.Join(strings.Fields(help), " ")
 		column := -1
 		for _, row := range [][2]string{
-			{command.Name() + " setup", "Connect the first account"},
+			{command.Name() + " setup", "Set up a provider, a client and a model"},
 			{command.Name() + " use <client> <provider/model>", "Point a client at a model"},
 			{command.Name() + " check", "Check enabled clients (may use quota)"},
 		} {

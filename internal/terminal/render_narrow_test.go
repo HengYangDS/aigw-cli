@@ -84,7 +84,7 @@ func TestCommandLabelsStayWholeInNarrowGroups(t *testing.T) {
 			var out bytes.Buffer
 			r := terminal.NewRendererWithWidth(&out, color, width)
 			r.Rows(
-				terminal.Field{Label: commands[0], Value: "Connect the first account", Command: true},
+				terminal.Field{Label: commands[0], Value: "Set up a provider, a client and a model", Command: true},
 				terminal.Field{Label: commands[1], Value: "Select one Route for one client", Command: true},
 			)
 			lines := strings.Split(strings.TrimSuffix(ansi.Strip(out.String()), "\n"), "\n")

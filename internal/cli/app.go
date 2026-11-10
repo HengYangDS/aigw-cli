@@ -362,34 +362,32 @@ func NewRoot(app *App) *cobra.Command {
 		},
 	})
 	root.CompletionOptions.DisableDefaultCmd = true
+	// The groups follow design.md's command tree; the hidden credential
+	// command, which client files run, belongs to none.
 	root.AddGroup(
-		&cobra.Group{ID: "connect", Title: "Connect"},
-		&cobra.Group{ID: "daily", Title: "Use every day"},
-		&cobra.Group{ID: "recover", Title: "Recover"},
-		&cobra.Group{ID: "advanced", Title: "Advanced"},
+		&cobra.Group{ID: "daily", Title: "Daily"},
+		&cobra.Group{ID: "models", Title: "Models"},
+		&cobra.Group{ID: "providers", Title: "Providers"},
+		&cobra.Group{ID: "clients", Title: "Clients"},
+		&cobra.Group{ID: "maintain", Title: "Maintain"},
 	)
 	runtime := app.invocationContext()
-	connect := []*cobra.Command{setup.NewCommand(runtime)}
-	daily := []*cobra.Command{status.NewCommand(runtime), use.NewCommand(runtime), check.NewCommand(runtime)}
-	recoveryCommands := []*cobra.Command{
-		synccli.NewCommand(runtime), selfcli.NewCommand(runtime),
-	}
-	advanced := []*cobra.Command{
-		modelcli.NewCommand(runtime), providercli.NewCommand(runtime),
-		clientcli.NewCommand(runtime),
-		config.NewCommand(runtime),
-	}
 	for group, commands := range map[string][]*cobra.Command{
-		"connect": connect, "daily": daily, "recover": recoveryCommands, "advanced": advanced,
+		"daily":     {status.NewCommand(runtime), use.NewCommand(runtime), check.NewCommand(runtime)},
+		"models":    {modelcli.NewCommand(runtime)},
+		"providers": {providercli.NewCommand(runtime)},
+		"clients":   {clientcli.NewCommand(runtime)},
+		"maintain": {
+			setup.NewCommand(runtime), synccli.NewCommand(runtime), config.NewCommand(runtime),
+			selfcli.NewCommand(runtime), completioncli.NewCommand(), versioncli.NewCommand(runtime),
+		},
 	} {
 		for _, command := range commands {
 			command.GroupID = group
 			root.AddCommand(command)
 		}
 	}
-	completion, version := completioncli.NewCommand(), versioncli.NewCommand(runtime)
-	completion.GroupID, version.GroupID = "advanced", "advanced"
-	root.AddCommand(completion, version, credentialcli.NewCommand(runtime))
+	root.AddCommand(credentialcli.NewCommand(runtime))
 	// A flag error names the help of the command that refused the flag, as a
 	// flag-group failure does; a command that help does not list, such as the
 	// help command, names top-level help. An argument error is a usage error
@@ -436,7 +434,7 @@ func appVersion(app *App) string {
 // copy, so it stays whole at every width.
 func startPath(root string) []terminal.Field {
 	return []terminal.Field{
-		{Label: root + " setup", Value: "Connect the first account", Command: true},
+		{Label: root + " setup", Value: "Set up a provider, a client and a model", Command: true},
 		{Label: root + " use <client> <provider/model>", Value: "Point a client at a model", Command: true},
 		{Label: root + " check", Value: "Check enabled clients (may use quota)", Command: true},
 	}
