@@ -190,17 +190,16 @@ exec aigw use hermes team/team-model --protocol responses
 fixloop -did 'selected team/team-model for Hermes' edit-no-model.json aigw client edit hermes --via http://127.0.0.1:8792/v1 --json
 -- disable-preview.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
   "client": "claude",
   "state": "disabled",
   "restart_required": false,
-  "projections": [
+  "client_files": [
     {
       "client": "claude",
-      "surface": "claude-settings",
-      "target": "~/.claude/settings.json",
+      "file": "~/.claude/settings.json",
       "action": "restore"
     }
   ],
@@ -208,41 +207,40 @@ fixloop -did 'selected team/team-model for Hermes' edit-no-model.json aigw clien
 }
 -- disable-preview-windows.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
   "client": "claude",
   "state": "disabled",
   "restart_required": false,
-  "projections": [
+  "client_files": [
     {
       "client": "claude",
-      "surface": "claude-settings",
-      "target": "~/.claude/settings.json",
+      "file": "~/.claude/settings.json",
       "action": "restore"
     }
   ],
   "next_action": "aigw client disable claude"
 }
 -- enable-preview.txt --
-AIGW  Client projection preview
+AIGW  Client preview
 ────────────────────────────────────────
   Client               Claude
   Planned state        enabled
 
-Projection targets
+Client files
   $HOME/.claude/settings.json  project
   ✓ Preview did not write configuration, credentials or client files
 
 Next
   aigw client enable claude --executable $BIN/claude
 -- enable-preview-windows.txt --
-AIGW  Client projection preview
+AIGW  Client preview
 ────────────────────────────────────────
   Client               Claude
   Planned state        enabled
 
-Projection targets
+Client files
   $HOME\.claude\settings.json  project
   ✓ Preview did not write configuration, credentials or client files
 
@@ -259,9 +257,9 @@ Usage
   aigw client [command]
 
 Commands
-  disable              Disable a client and remove AIGW-owned projections
+  disable              Disable a client and remove AIGW's settings from its files
   edit                 Change a client's executable, configuration files, forwarding or retry budgets
-  enable               Enable a client projection
+  enable               Enable a client and write AIGW's settings into its files
   list                 List every client with its model, whether it is enabled and where it is installed
 
 Options
@@ -270,12 +268,12 @@ Options
 AIGW  Client disabled
 ────────────────────────────────────────
   Client               Claude
-  ✓ All AIGW-owned projections were safely removed
+  ✓ AIGW's settings were removed from the client's files
 -- enabled.txt --
 AIGW  Client enabled
 ────────────────────────────────────────
   Client               Claude
-  ✓ Projection         Configured
+  ✓ Client files       Configured
 
 Next
   aigw check
@@ -290,7 +288,7 @@ Fix
   aigw client list
 -- disabled.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "client": "claude",
   "state": "disabled",
@@ -298,7 +296,7 @@ Fix
 }
 -- already-disabled.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "client": "claude",
   "state": "already_disabled",
@@ -306,7 +304,7 @@ Fix
 }
 -- enabled.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "client": "claude",
   "state": "enabled",

@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
@@ -321,19 +320,24 @@ func TestUninstallPreviewNamesTheWithdrawal(t *testing.T) {
 	if err := cli.Execute(app, []string{"self", "uninstall", "--dry-run", "--json"}); err != nil {
 		t.Fatalf("uninstall preview failed: %v\n%s", err, out.String())
 	}
+	type clientFile struct {
+		Client string `json:"client"`
+		File   string `json:"file"`
+		Action string `json:"action"`
+	}
 	var document struct {
-		DryRun           bool                     `json:"dry_run"`
-		WithdrawnClients []string                 `json:"withdrawn_clients"`
-		Removed          []string                 `json:"removed"`
-		Targets          []adapter.ProjectionPlan `json:"projections"`
+		DryRun           bool         `json:"dry_run"`
+		WithdrawnClients []string     `json:"withdrawn_clients"`
+		Removed          []string     `json:"removed"`
+		Files            []clientFile `json:"client_files"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &document); err != nil {
 		t.Fatalf("uninstall preview document = %s, %v", out.String(), err)
 	}
 	// The document names the Codex file relative to the home directory; the
 	// withdrawal restores it.
-	withdrawsCodex := slices.ContainsFunc(document.Targets, func(plan adapter.ProjectionPlan) bool {
-		return plan.Client == codex.ID && plan.Target == "~/work/codex/config.toml" && plan.Action == "restore_external"
+	withdrawsCodex := slices.ContainsFunc(document.Files, func(file clientFile) bool {
+		return file.Client == codex.ID && file.File == "~/work/codex/config.toml" && file.Action == "restore_external"
 	})
 	if !document.DryRun || !slices.Equal(document.WithdrawnClients, []string{claude.ID, codex.ID}) || !slices.Equal(document.Removed, []string{app.Executable}) || !withdrawsCodex {
 		t.Fatalf("uninstall preview document = %s", out.String())

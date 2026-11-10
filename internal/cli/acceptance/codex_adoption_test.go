@@ -65,7 +65,7 @@ func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
 			Targets []struct {
 				Client string `json:"client"`
 				Action string `json:"action"`
-			} `json:"projections"`
+			} `json:"client_files"`
 		}
 		if err := json.Unmarshal(output.Bytes(), &preview); err != nil || len(preview.Adopted) != 0 {
 			t.Fatalf("dry run adopted again: %v, %v\n%s", preview.Adopted, err, output)

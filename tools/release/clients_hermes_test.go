@@ -94,16 +94,16 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 		j.testing.Fatal("selection adoption changed native settings or Account metadata")
 	}
 	var preview struct {
-		Projections []struct {
+		Files []struct {
 			Action string `json:"action"`
-		} `json:"projections"`
+		} `json:"client_files"`
 	}
 	if err := json.Unmarshal(j.run("sync", "--dry-run", "--json"), &preview); err != nil {
 		j.testing.Fatal(err)
 	}
-	for _, projection := range preview.Projections {
-		if projection.Action != "unchanged" && projection.Action != "already_converged" {
-			j.testing.Fatalf("native selection did not converge: %s", projection.Action)
+	for _, file := range preview.Files {
+		if file.Action != "unchanged" && file.Action != "already_converged" {
+			j.testing.Fatalf("native selection did not converge: %s", file.Action)
 		}
 	}
 	j.run("use", hermes.ID, j.modelName(selected.ModelID), "--protocol", selected.Protocol.Name())

@@ -397,28 +397,28 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 		t.Fatalf("dry-run wrote Claude settings state %s: %v", claudeSettings, err)
 	}
 	var preview struct {
-		DryRun      bool   `json:"dry_run"`
-		NextAction  string `json:"next_action"`
-		Projections []struct {
+		DryRun     bool   `json:"dry_run"`
+		NextAction string `json:"next_action"`
+		Files      []struct {
 			Client string `json:"client"`
-			Target string `json:"target"`
+			File   string `json:"file"`
 			Action string `json:"action"`
-		} `json:"projections"`
+		} `json:"client_files"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatalf("decode sync dry-run JSON: %v\n%s", err, out.String())
 	}
-	// Each target is named relative to the home directory.
+	// Each file is named relative to the home directory.
 	wantTargets := []string{"~/.claude/settings.json", "~/first.toml", "~/second.toml"}
 	wantClients := []string{claude.ID, codex.ID, codex.ID}
 	wantActions := []string{"project", "initial_project", "initial_project"}
-	if !preview.DryRun || preview.NextAction != "aigw sync" || len(preview.Projections) != len(wantTargets) {
+	if !preview.DryRun || preview.NextAction != "aigw sync" || len(preview.Files) != len(wantTargets) {
 		t.Fatalf("sync dry-run preview = %#v", preview)
 	}
 	for index, want := range wantTargets {
-		got := preview.Projections[index]
-		if got.Client != wantClients[index] || got.Action != wantActions[index] || got.Target != want {
-			t.Fatalf("projection %d = %+v, want %s %s %s", index, got, wantClients[index], wantActions[index], want)
+		got := preview.Files[index]
+		if got.Client != wantClients[index] || got.Action != wantActions[index] || got.File != want {
+			t.Fatalf("client file %d = %+v, want %s %s %s", index, got, wantClients[index], wantActions[index], want)
 		}
 	}
 	if strings.Contains(out.String(), dir) {
@@ -449,15 +449,15 @@ func TestSyncDryRunRecommendsCheckWhenProjectionIsConverged(t *testing.T) {
 		t.Fatal(err)
 	}
 	var result struct {
-		Projections []struct {
+		Files []struct {
 			Action string `json:"action"`
-		} `json:"projections"`
+		} `json:"client_files"`
 		NextAction string `json:"next_action"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Projections) != 1 || result.Projections[0].Action != "already_converged" || result.NextAction != "aigw check" {
+	if len(result.Files) != 1 || result.Files[0].Action != "already_converged" || result.NextAction != "aigw check" {
 		t.Fatalf("converged sync dry-run preview = %#v", result)
 	}
 }

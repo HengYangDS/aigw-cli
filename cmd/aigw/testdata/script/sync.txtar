@@ -65,11 +65,10 @@ Fix
   "selections": {
     "claude": "team/team-model"
   },
-  "projections": [
+  "client_files": [
     {
       "client": "claude",
-      "surface": "claude-settings",
-      "target": "~/.claude/settings.json",
+      "file": "~/.claude/settings.json",
       "action": "already_converged"
     }
   ],
@@ -99,11 +98,10 @@ Next
   "selections": {
     "claude": "team/team-model"
   },
-  "projections": [
+  "client_files": [
     {
       "client": "claude",
-      "surface": "claude-settings",
-      "target": "~/.claude/settings.json",
+      "file": "~/.claude/settings.json",
       "action": "already_converged"
     }
   ],

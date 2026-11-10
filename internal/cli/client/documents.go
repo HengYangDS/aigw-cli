@@ -8,11 +8,13 @@ import (
 
 // listSchemaVersion and the other constants are the versions of the client
 // subcommands' JSON documents. list replaced the document of `aigw client
-// discover`, version 1, so it continues at 2; edit has no predecessor.
+// discover`, version 1, so it continues at 2; enable and disable name their
+// client files as client_files, which replaced projections, so they continue
+// at 2; edit has no predecessor.
 const (
 	listSchemaVersion    = 2
-	enableSchemaVersion  = 1
-	disableSchemaVersion = 1
+	enableSchemaVersion  = 2
+	disableSchemaVersion = 2
 	editSchemaVersion    = 1
 )
 

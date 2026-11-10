@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
@@ -104,12 +103,15 @@ func assertClaudeNativePreferencePreview(t *testing.T, app *cli.App, out *bytes.
 	}
 	// sync and repair name the client files alike.
 	var preview struct {
-		Projections []adapter.ProjectionPlan `json:"projections"`
+		Files []struct {
+			Client string `json:"client"`
+			Action string `json:"action"`
+		} `json:"client_files"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatal(err)
 	}
-	if len(preview.Projections) != 1 || preview.Projections[0].Client != claude.ID || preview.Projections[0].Action != "already_converged" {
+	if len(preview.Files) != 1 || preview.Files[0].Client != claude.ID || preview.Files[0].Action != "already_converged" {
 		t.Fatalf("preview=%+v", preview)
 	}
 	after, err := app.Config.CaptureSnapshot()

@@ -20,8 +20,8 @@ import (
 // NewCommand builds the private credential-helper command used by admitted clients.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	return &cobra.Command{
-		Use:    "credential <client> <projection-fingerprint>",
-		Short:  "Read the Account Token matching a client projection",
+		Use:    "credential <client> <fingerprint>",
+		Short:  "Read the provider Token that a client file's fingerprint names",
 		Hidden: true,
 		Args:   cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {

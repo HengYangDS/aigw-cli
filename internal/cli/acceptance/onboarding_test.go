@@ -150,15 +150,15 @@ func TestSyncActivatesSelectedEnvironmentProviderAfterManifestSetup(t *testing.T
 		Selections map[string]string `json:"selections"`
 		Targets    []struct {
 			Client string `json:"client"`
-			Target string `json:"target"`
+			File   string `json:"file"`
 			Action string `json:"action"`
-		} `json:"projections"`
+		} `json:"client_files"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatalf("decode sync preview: %v\n%s", err, out.String())
 	}
 	// The document names the settings file relative to the home directory.
-	if !preview.DryRun || len(preview.Targets) != 1 || preview.Targets[0].Client != claude.ID || preview.Targets[0].Target != "~/.claude/settings.json" || preview.Targets[0].Action != "project" {
+	if !preview.DryRun || len(preview.Targets) != 1 || preview.Targets[0].Client != claude.ID || preview.Targets[0].File != "~/.claude/settings.json" || preview.Targets[0].Action != "project" {
 		t.Fatalf("sync preview = %#v", preview)
 	}
 	wantModels := map[string]string{

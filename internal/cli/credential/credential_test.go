@@ -341,7 +341,7 @@ func TestCredentialHelperUsesAccountTokenLanguage(t *testing.T) {
 	runtime, stdout := helperRuntime(t, claude.ID, true)
 	command := NewCommand(runtime)
 
-	if command.Short != "Read the Account Token matching a client projection" {
+	if command.Short != "Read the provider Token that a client file's fingerprint names" {
 		t.Fatalf("short help = %q", command.Short)
 	}
 	err := command.RunE(command, helperArgs(t, runtime, claude.ID))

@@ -78,7 +78,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	var executable string
 	var targets []string
 	var jsonMode, dryRun bool
-	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client projection", ValidArgsFunction: completeClient(runtime), Args: func(cmd *cobra.Command, args []string) error {
+	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client and write AIGW's settings into its files", ValidArgsFunction: completeClient(runtime), Args: func(cmd *cobra.Command, args []string) error {
 		spec, err := clientArgument(cmd, runtime.Clients.Admission(), args)
 		if err != nil {
 			return err
@@ -87,7 +87,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 			return fmt.Errorf("--executable is required; run `aigw client list`, which shows where each client is installed")
 		}
 		if spec.TargetFile != "" && len(targets) == 0 {
-			return fmt.Errorf("%s projection requires at least one --target %s; run `aigw client enable --help`", spec.Label, spec.TargetFile)
+			return fmt.Errorf("%s requires at least one --target %s; run `aigw client enable --help`", spec.Label, spec.TargetFile)
 		}
 		for _, target := range targets {
 			if strings.TrimSpace(target) == "" {
@@ -148,7 +148,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the client files that enabling would change without writing them")
 	cmd.Flags().StringVar(&executable, "executable", "", "Path to the real client executable")
 	cmd.Flags().StringArrayVar(&targets, "target", nil, targetHelp(runtime.Clients.Admission()))
-	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the enabled projection as JSON")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the enabled client as JSON")
 	return cmd
 }
 
@@ -220,7 +220,7 @@ func targetHelp(admission domain.Admission) string {
 
 func newDisableCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode, dryRun bool
-	cmd := &cobra.Command{Use: "disable <client>", Short: "Disable a client and remove AIGW-owned projections", ValidArgsFunction: completeClient(runtime), Args: func(cmd *cobra.Command, args []string) error {
+	cmd := &cobra.Command{Use: "disable <client>", Short: "Disable a client and remove AIGW's settings from its files", ValidArgsFunction: completeClient(runtime), Args: func(cmd *cobra.Command, args []string) error {
 		_, err := clientArgument(cmd, runtime.Clients.Admission(), args)
 		return err
 	}, RunE: func(cmd *cobra.Command, args []string) error {
@@ -239,7 +239,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 				return terminal.WriteDocument(runtime.Out, disableSchemaVersion, true, document)
 			}
 			r := invocation.Renderer(runtime)
-			r.ProductTitle("Client projections")
+			r.ProductTitle("Client unchanged")
 			r.Rows(terminal.Field{State: terminal.Info, Label: spec.Label, Value: "Already disabled"})
 			return nil
 		}
@@ -270,7 +270,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 	}}
 	cmd.Example = disableExamples(runtime.Clients.Admission())
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the client files that disabling would change without writing them")
-	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the disabled projection as JSON")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the disabled client as JSON")
 	return cmd
 }
 
@@ -283,7 +283,7 @@ func writeProjectionPreview(runtime invocation.Context, version int, jsonMode bo
 		return terminal.WriteDocument(runtime.Out, version, true, document)
 	}
 	r := invocation.Renderer(runtime)
-	r.ProductTitle("Client projection preview")
+	r.ProductTitle("Client preview")
 	r.Rows(terminal.Field{Label: "Client", Value: spec.Label}, terminal.Field{Label: "Planned state", Value: strings.ReplaceAll(state, "_", " ")})
 	invocation.RenderPreview(r, preview, apply)
 	return nil
@@ -292,7 +292,7 @@ func writeProjectionPreview(runtime invocation.Context, version int, jsonMode bo
 func renderEnabled(r *terminal.Renderer, spec domain.ClientSpec) {
 	rows := []terminal.Field{
 		{Label: "Client", Value: spec.Label},
-		{State: terminal.OK, Label: "Projection", Value: "Configured"},
+		{State: terminal.OK, Label: "Client files", Value: "Configured"},
 	}
 	if !spec.RestartAfterProjection {
 		r.ProductTitle("Client enabled")
@@ -329,7 +329,7 @@ func renderDisabled(r *terminal.Renderer, spec domain.ClientSpec) {
 		rows = append(rows, terminal.Field{State: terminal.Info, Label: "Deactivation", Value: "Restart required"})
 	}
 	r.Rows(rows...)
-	r.Success("All AIGW-owned projections were safely removed")
+	r.Success("AIGW's settings were removed from the client's files")
 	if next := disabledNext(spec); next != "" {
 		r.Next(next)
 	}

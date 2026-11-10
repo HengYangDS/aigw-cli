@@ -231,7 +231,7 @@ AIGW  Rollback preview
 Restore source
   Configuration        Previous configuration
 
-Projection targets
+Client files
   $HOME/.claude/settings.json  restore
   ✓ Preview did not write configuration, credentials or client files
 
@@ -243,11 +243,10 @@ Next
   "ok": true,
   "dry_run": true,
   "source": "previous_backup",
-  "projections": [
+  "client_files": [
     {
       "client": "claude",
-      "surface": "claude-settings",
-      "target": "~/.claude/settings.json",
+      "file": "~/.claude/settings.json",
       "action": "restore"
     }
   ],
@@ -276,7 +275,7 @@ AIGW  Rollback preview
 Restore source
   Configuration        Previous configuration
 
-Projection targets
+Client files
   $HOME\.claude\settings.json  restore
   ✓ Preview did not write configuration, credentials or client files
 

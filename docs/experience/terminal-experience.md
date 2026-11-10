@@ -198,7 +198,7 @@ contains `dry_run: true`, and every result names its next step as
 `next_action` or `next_detail`: previews with state changes point to the apply
 command, while a converged active `sync` binding points to `aigw check`. An
 empty `sync` selection instead reports deferred activation and an Account or
-client prerequisite. The `projections` list appears only in previews, each
+client prerequisite. The `client_files` list appears only in previews, each
 file relative to the home directory; applied output does not present an
 earlier plan as observed per-target completion. Neither operation changes
 credentials.

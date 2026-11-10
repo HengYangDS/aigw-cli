@@ -118,7 +118,7 @@ must also pass before this path is a released guarantee.
 
 Each local Adapter may set `credential_command` to one absolute executable
 path. The selected executable must accept
-`credential <client> <projection-fingerprint>`, validate the requested projection,
+`credential <client> <fingerprint>`, validate the requested projection,
 and emit only its Token on successful stdout. The fingerprint identifies a
 Client Binding; it is not caller authorization. The operator owns the executable's
 installation, trust, permissions and credential source. AIGW does not discover

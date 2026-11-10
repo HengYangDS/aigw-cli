@@ -26,9 +26,10 @@ const applyInProse = "Run the same command without --dry-run to apply this plan"
 // Preview is what applying a configuration change would do beyond the
 // configuration itself: the client files that it would change and the
 // credential reader that it would install. A command's preview document
-// embeds it; human output names each file by its full path.
+// embeds it and names each file as change documents do; human output names
+// each file by its full path.
 type Preview struct {
-	Projections          []Projection                  `json:"projections,omitempty"`
+	Files                []ClientFile                  `json:"client_files,omitempty"`
 	CredentialEntrypoint *app.CredentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
 	plans                []adapter.ProjectionPlan
 }
@@ -36,16 +37,6 @@ type Preview struct {
 // Plans returns the projection plans of the client files that the preview
 // names, for a command that renders its preview itself.
 func (preview Preview) Plans() []adapter.ProjectionPlan { return preview.plans }
-
-// Projection is one client file that a change writes or would write, as a
-// document names it: the client, its surface, the file relative to the home
-// directory, absent outside it, and the snake_case action.
-type Projection struct {
-	Client  string `json:"client"`
-	Surface string `json:"surface,omitempty"`
-	Target  string `json:"target,omitempty"`
-	Action  string `json:"action"`
-}
 
 // Home is the home directory from which documents name client files: the
 // observed host's, from which the client adapters locate them, else the
@@ -55,17 +46,6 @@ func Home(deps app.Dependencies) string {
 		return deps.Host.Home
 	}
 	return terminal.HomeDirectory(deps.Env)
-}
-
-// projections names projection plans as documents do, relative to Home.
-func projections(runtime Context, plans []adapter.ProjectionPlan) []Projection {
-	home := Home(runtime.Dependencies)
-	projections := make([]Projection, 0, len(plans))
-	for _, plan := range plans {
-		target, _ := platform.HomeTarget(plan.Target, home)
-		projections = append(projections, Projection{Client: plan.Client, Surface: plan.Surface, Target: target, Action: terminal.SnakeValue(plan.Action)})
-	}
-	return projections
 }
 
 // ClientFile is one client file that a change writes or would write, as a
@@ -79,9 +59,17 @@ type ClientFile struct {
 
 // ClientFiles names the client files of a preview as change documents do.
 func ClientFiles(runtime Context, preview Preview) []ClientFile {
-	files := make([]ClientFile, 0, len(preview.plans))
-	for _, projection := range projections(runtime, preview.plans) {
-		files = append(files, ClientFile{Client: projection.Client, File: projection.Target, Action: projection.Action})
+	return clientFiles(runtime, preview.plans)
+}
+
+// clientFiles names the client files of plans as documents do, relative to
+// Home.
+func clientFiles(runtime Context, plans []adapter.ProjectionPlan) []ClientFile {
+	home := Home(runtime.Dependencies)
+	files := make([]ClientFile, 0, len(plans))
+	for _, plan := range plans {
+		file, _ := platform.HomeTarget(plan.Target, home)
+		files = append(files, ClientFile{Client: plan.Client, File: file, Action: terminal.SnakeValue(plan.Action)})
 	}
 	return files
 }
@@ -129,7 +117,7 @@ func PreviewProjection(runtime Context, before, after domain.Config, clientIDs .
 func Planned(runtime Context, projection synchronization.Projection) Preview {
 	preview := Preview{plans: projection.Targets}
 	if len(projection.Targets) > 0 {
-		preview.Projections = projections(runtime, projection.Targets)
+		preview.Files = clientFiles(runtime, projection.Targets)
 	}
 	return preview
 }
@@ -246,15 +234,16 @@ func RenderPreview(r *terminal.Renderer, preview Preview, apply string) {
 		r.Section("Credential entrypoint")
 		r.Text("Install " + preview.CredentialEntrypoint.Path)
 	}
-	r.Section("Projection targets")
-	rows := []terminal.Field{{State: terminal.OK, Label: "Projection", Value: "No client configuration needs changing"}}
-	if len(preview.plans) > 0 {
-		rows = make([]terminal.Field, 0, len(preview.plans))
+	r.Section("Client files")
+	if len(preview.plans) == 0 {
+		r.Text("No client file needs changing")
+	} else {
+		rows := make([]terminal.Field, 0, len(preview.plans))
 		for _, plan := range preview.plans {
 			rows = append(rows, terminal.Field{Label: plan.Target, Value: plan.Action})
 		}
+		r.Rows(rows...)
 	}
-	r.Rows(rows...)
 	r.Success(previewSuccess)
 	r.Next(apply)
 }
