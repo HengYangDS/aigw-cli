@@ -134,18 +134,18 @@
       `installation`.
 - [x] 5.3 Add `aigw version`, and make bare `aigw` show `status` or, without
       configuration, name `aigw setup`.
-- [ ] 5.4 Remove every superseded command, flag and package, with
+- [x] 5.4 Remove every superseded command, flag and package, with
       `internal/app/renaming`; every script and acceptance test uses only the
       new tree, except that a journey's baseline program keeps its own
       commands, root help groups it as design.md does, and the command-tree
       test lists exactly its 12 top-level commands and 32 leaves.
-- [ ] 5.5 Give every leaf command one to three help examples, and add tests
+- [x] 5.5 Give every leaf command one to three help examples, and add tests
       that fail a leaf without examples, a positional argument or filter flag
       without completion, and any help, golden human output or JSON key that
       names an Account, Route, projection, binding, adapter, admitted or
       candidate; decide how help shows a boolean flag and take
       `spf13/pflag` v1.1.0, whose boolean help moves every help golden.
-- [ ] 5.6 Give each instrumented `aigw` process of the acceptance scripts its
+- [x] 5.6 Give each instrumented `aigw` process of the acceptance scripts its
       own coverage directory, merged after the run, so that concurrent
       processes no longer race on the coverage metadata file; the Windows
       guest job passes without that diagnostic.
@@ -159,6 +159,13 @@
       covers a failure.
 - [ ] 5.9 Print the JSON failure document of a usage error in a command run
       with `--json`, wherever `--json` stands; fixloop's root exemption goes.
+- [ ] 5.10 Name a model and a provider in every configuration failure text,
+      without "route" or "account", and use no retired word in any other
+      user-facing failure text; phase 1's final review found about 150
+      strings to change, such as `internal/domain/model_errors.go:12` and
+      `internal/adapter/claude/adapter_verify.go:37`. Add a test that renders
+      each `terminal` explanation of a domain error and fails on a retired
+      word.
 
 ## 6. One configuration file
 
@@ -183,6 +190,10 @@
 - [ ] 6.11 Derive Hermes provider IDs from the provider ID and the protocol
       name, without a map, once 6.1 shortens the names; a test pins
       `aigw-dmxapi-anthropic`, `aigw-dmxapi-responses` and `aigw-dmxapi-chat`.
+- [ ] 6.12 Rename the balance-credential variables to
+      `AIGW_BALANCE_TOKEN_<ID>` and `AIGW_BALANCE_USER_ID_<ID>`, without the
+      old names; every fix, document and CI file names only the new ones, and
+      a test covers the environment backend.
 
 ## 7. Documents
 
