@@ -243,7 +243,6 @@ func TestRendererColorIsOptionalAndNeverAffectsSpacing(t *testing.T) {
 			terminal.Field{State: terminal.Warn, Label: "Precise balance", Value: "Disabled until a diagnostic credential is connected", Details: []string{"aigw provider edit team-gateway --no-balance-token"}},
 		)
 		r.Success("Client configuration is aligned; authentication was unchanged")
-		r.StatusLine(terminal.Info, "Route", "team-gateway-claude")
 		r.Detail("Team Gateway · Claude · Available")
 		return out.String()
 	}
@@ -302,14 +301,12 @@ func TestRendererWritesNonCompactRowsAtConfiguredWidth(t *testing.T) {
 	renderer := terminal.NewRendererWithWidth(&out, false, 30)
 	renderer.Rows(terminal.Field{Label: "Label", Value: "Value"})
 	renderer.Rows(terminal.Field{State: terminal.Info, Label: "State", Value: "Value"})
-	renderer.StatusLine(terminal.Warn, "State", "Value")
 	renderer.Text("short")
 	renderer.Command("aigw ok")
 	renderer.Success("done")
 
 	want := "  Label                Value\n" +
 		"  · State              Value\n" +
-		"  ! State  Value\n" +
 		"  short\n" +
 		"  aigw ok\n" +
 		"  ✓ done\n"

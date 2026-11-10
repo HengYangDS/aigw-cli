@@ -335,25 +335,6 @@ func (c *Config) SelectedClientsForModel(routeID string) []string {
 	return clients
 }
 
-// ResolveProvider accepts either an Account ID or a Route ID and returns the
-// referenced Account with its map identity populated.
-func (c *Config) ResolveProvider(reference string) (string, Provider, error) {
-	if account, ok := c.Providers[reference]; ok {
-		account.ID = reference
-		return reference, account, nil
-	}
-	route, ok := c.Models[reference]
-	if !ok {
-		return "", Provider{}, fmt.Errorf("unknown account or route %q", reference)
-	}
-	account, ok := c.Providers[route.Provider]
-	if !ok {
-		return "", Provider{}, fmt.Errorf("route %q references unknown account %q", reference, route.Provider)
-	}
-	account.ID = route.Provider
-	return route.Provider, account, nil
-}
-
 // EnabledClientIDs returns the stable client scope explicitly enabled by this configuration.
 func (c *Config) EnabledClientIDs() []string {
 	clients := make([]string, 0, len(c.Clients))

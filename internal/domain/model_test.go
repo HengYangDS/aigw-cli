@@ -21,19 +21,8 @@ func TestConfigQueriesOwnProviderAndModelSelectionSemantics(t *testing.T) {
 	if got := cfg.ModelIDs(); !reflect.DeepEqual(got, []string{"alpha", "zeta"}) {
 		t.Fatalf("RouteIDs() = %#v", got)
 	}
-	accountID, providerAccount, err := cfg.ResolveProvider("alpha")
-	if err != nil || accountID != "gateway" || providerAccount.ID != "gateway" {
-		t.Fatalf("ResolveAccount(route) = %q, %#v, %v", accountID, providerAccount, err)
-	}
-	accountID, _, err = cfg.ResolveProvider("gateway")
-	if err != nil || accountID != "gateway" {
-		t.Fatalf("ResolveAccount(account) = %q, %v", accountID, err)
-	}
 	if got := cfg.SelectedProviderIDs(); !reflect.DeepEqual(got, []string{"gateway"}) {
 		t.Fatalf("SelectedAccountIDs() = %#v; want the selected Route's Account", got)
-	}
-	if _, _, err := cfg.ResolveProvider("missing"); err == nil {
-		t.Fatal("ResolveAccount() accepted an unknown reference")
 	}
 }
 

@@ -378,15 +378,6 @@ func TestClientEndpointRejectsUnknownClientAndMissingProtocolEndpoint(t *testing
 	}
 }
 
-func TestResolveProviderRejectsModelWithUnknownProvider(t *testing.T) {
-	cfg := NewConfig(testAdmission())
-	cfg.Models["orphan"] = testModel("Orphan", "missing", "", ProtocolAnthropic)
-	_, _, err := cfg.ResolveProvider("orphan")
-	if err == nil || !strings.Contains(err.Error(), "references unknown account") {
-		t.Fatalf("orphan route error = %v", err)
-	}
-}
-
 func TestDomainErrorTextAndModelSelectionBranches(t *testing.T) {
 	if got := ProtocolLabel(ProtocolAnthropic); got != "Anthropic Messages" {
 		t.Fatalf("Anthropic protocol name = %q", got)

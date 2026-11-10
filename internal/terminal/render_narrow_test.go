@@ -58,7 +58,6 @@ func TestExplanatoryElementsBoundLongAndMultilineContent(t *testing.T) {
 			r.Rows(terminal.Field{Label: label, Value: value, Details: []string{value}})
 			r.Rows(terminal.Field{State: terminal.Warn, Label: label, Value: value})
 			r.Rows(terminal.Field{Label: "Short", Value: value, Details: []string{value}})
-			r.StatusLine(terminal.Info, label, value)
 			r.Text(value)
 			r.Detail(value)
 			r.Success(value)
@@ -108,7 +107,6 @@ func TestRendererKeepsCompactOutputWithinTerminalWidth(t *testing.T) {
 	r := terminal.NewRendererWithWidth(&out, false, width)
 	r.Title("AIGW", "Action required")
 	r.Section("Fix")
-	r.StatusLine(terminal.Warn, "Precise balance", "Disabled until connected")
 	r.Success("Client configuration synchronized")
 	r.Problem(terminal.Problem{
 		Title:    "Token quota is exhausted",

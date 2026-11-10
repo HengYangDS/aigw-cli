@@ -230,18 +230,6 @@ func (r *Renderer) stacks(fields []Field, valueColumn int) bool {
 	return room < 1
 }
 
-// StatusLine renders a compact classified line without a label column.
-func (r *Renderer) StatusLine(state State, label, value string) {
-	cell := r.labelCell(Field{State: state, Label: label})
-	if strings.ContainsAny(label+value, "\n\r") || r.width > 0 && DisplayWidth("  "+cell+"  "+value) > r.width {
-		r.writeHanging("  ", cell, 2+DisplayWidth(cell)-DisplayWidth(label), lipgloss.NewStyle())
-		r.writeWrapped(value, noteIndent, r.styles.dim)
-	} else {
-		r.printf("  %s  %s\n", cell, value)
-	}
-	r.hasContent = true
-}
-
 // Detail renders a subordinate note under the preceding statement or group,
 // at one indentation for every width.
 func (r *Renderer) Detail(value string) {
