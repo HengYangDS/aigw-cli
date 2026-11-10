@@ -46,7 +46,7 @@ func TestRollbackReportsUnavailableRecoveryWithoutChangingCurrentConfiguration(t
 			if readErr != nil {
 				t.Fatal(readErr)
 			}
-			err := cli.Execute(app, append([]string{"rollback"}, test.args...))
+			err := cli.Execute(app, append([]string{"config", "rollback"}, test.args...))
 			if err == nil || err.Error() != "Configuration rollback is unavailable" {
 				t.Fatalf("error = %v", err)
 			}
@@ -93,7 +93,7 @@ func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
 	if err := app.Config.Save(after); err != nil {
 		t.Fatal(err)
 	}
-	if err := cli.Execute(app, []string{"rollback", "--last-change"}); err != nil {
+	if err := cli.Execute(app, []string{"config", "rollback", "--last-change"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
@@ -120,7 +120,7 @@ func TestRollbackUsesPreviousConfigurationWhenVerifiedRecoveryIsInvalid(t *testi
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"rollback"}); err != nil {
+	if err := cli.Execute(app, []string{"config", "rollback"}); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := app.Config.Load()
@@ -154,14 +154,14 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := cli.Execute(app, []string{"rollback"})
+	err := cli.Execute(app, []string{"config", "rollback"})
 	if err == nil || err.Error() != "Configuration rollback did not complete" {
 		t.Fatalf("error = %v", err)
 	}
 	for _, want := range []string{
 		"Configuration rollback did not complete",
 		"One rollback step failed; the cause identifies the affected boundary.",
-		"Configuration or client projections may have changed; inspect current state before retrying.",
+		"The configuration or client files may have changed; inspect them before you run it again.",
 		"aigw check --depth local",
 	} {
 		if !strings.Contains(out.String(), want) {
@@ -211,7 +211,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"rollback"}); err != nil {
+	if err := cli.Execute(app, []string{"config", "rollback"}); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := app.Config.Load()

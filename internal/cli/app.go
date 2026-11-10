@@ -32,8 +32,6 @@ import (
 	modelcli "aigw-cli/internal/cli/model"
 	"aigw-cli/internal/cli/models"
 	providercli "aigw-cli/internal/cli/provider"
-	"aigw-cli/internal/cli/repair"
-	"aigw-cli/internal/cli/rollback"
 	"aigw-cli/internal/cli/rotate"
 	"aigw-cli/internal/cli/route"
 	selfcli "aigw-cli/internal/cli/self"
@@ -171,7 +169,7 @@ func Execute(app *App, args []string) error {
 	// A failure names paths against the run's own home and configuration,
 	// never the process's.
 	at := platform.PathContext{Home: invocation.Home(app.invocationContext().Dependencies), Configuration: app.Config.Path(),
-		Rollback: command.CommandPath() == command.Root().Name()+" rollback" || command.CommandPath() == command.Root().Name()+" config rollback"}
+		Rollback: command.CommandPath() == command.Root().Name()+" config rollback"}
 	terminal.RenderError(renderer, terminal.LocalFailure(Version, at, invocation.TokenRejection(command, err)), jsonMode)
 	return terminal.Presented(errors.Join(err, renderer.Err()))
 }
@@ -224,10 +222,10 @@ func requiresConfigurationLock(command *cobra.Command) bool {
 	switch path {
 	case "rotate", "provider rotate", "account diagnostics enable", "account diagnostics disable":
 		return true
-	case "setup", "add", "rollback", "account edit",
+	case "setup", "add", "account edit",
 		"route add", "route edit", "route remove", "model add", "model edit", "model remove", "client enable", "client disable", "client edit",
 		"provider add", "provider edit", "provider remove",
-		"use", "sync", "repair", "account rename", "route rename", "config import", "config migrate",
+		"use", "sync", "account rename", "route rename", "config import", "config migrate",
 		"config rollback", "self update", "self rollback", "self uninstall":
 		dryRun, err := command.Flags().GetBool("dry-run")
 		return err != nil || !dryRun
@@ -389,8 +387,7 @@ func NewRoot(app *App) *cobra.Command {
 	connect := []*cobra.Command{setup.NewCommand(runtime)}
 	daily := []*cobra.Command{status.NewCommand(runtime), use.NewCommand(runtime), check.NewCommand(runtime), rotate.NewCommand(runtime)}
 	recoveryCommands := []*cobra.Command{
-		doctor.NewCommand(runtime), repair.NewCommand(runtime), synccli.NewCommand(runtime),
-		rollback.NewCommand(runtime), selfcli.NewCommand(runtime),
+		doctor.NewCommand(runtime), synccli.NewCommand(runtime), selfcli.NewCommand(runtime),
 	}
 	advanced := []*cobra.Command{
 		add.NewCommand(runtime), accountcli.NewCommand(runtime),

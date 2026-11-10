@@ -31,7 +31,7 @@ func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: "/different/claude"}}}
 
-	if err := cli.Execute(app, []string{"repair"}); err != nil {
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := app.Config.Load()
@@ -41,8 +41,8 @@ func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 	if got := restored.Clients[claude.ID].Executable; got != claudeExecutable {
 		t.Fatalf("repair replaced configured Claude executable: %q", got)
 	}
-	if !strings.Contains(out.String(), "Configuration") || !strings.Contains(out.String(), "Synchronized") {
-		t.Fatalf("repair did not report configuration reconciliation:\n%s", out.String())
+	if !strings.Contains(out.String(), "Synchronization completed") || !strings.Contains(out.String(), "Client configuration is aligned") {
+		t.Fatalf("sync did not report the configuration that it reconciled:\n%s", out.String())
 	}
 }
 
@@ -61,7 +61,7 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexModel(t *testing.T) {
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{}}
 
-	if err := cli.Execute(app, []string{"repair"}); err != nil {
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
@@ -77,7 +77,7 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 	t.Run("load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Config = store.NewStore(t.TempDir(), clients.Admission())
-		if err := cli.Execute(app, []string{"repair", "--dry-run"}); err == nil {
+		if err := cli.Execute(app, []string{"sync", "--dry-run"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
 	})
@@ -86,13 +86,13 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
 		saveCommandModel(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		app.Discovery = nil
-		if err := cli.Execute(app, []string{"repair", "--dry-run"}); err == nil || err.Error() != "Repair prerequisites are unavailable" {
+		if err := cli.Execute(app, []string{"sync", "--dry-run"}); err == nil || err.Error() != "Synchronization prerequisites are unavailable" {
 			t.Fatalf("error = %v", err)
 		}
 		for _, want := range []string{
-			"Repair prerequisites are unavailable",
-			"AIGW could not inspect the current clients and configuration needed to plan a repair.",
-			"Configuration and client projections remain unchanged.",
+			"Synchronization prerequisites are unavailable",
+			"AIGW could not determine which clients' files it can write with the clients and credentials available now.",
+			"Configuration and client files are unchanged.",
 			"aigw check --depth local",
 		} {
 			if !strings.Contains(out.String(), want) {
@@ -107,10 +107,10 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 	t.Run("human preview", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
 		saveCommandModel(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
-		if err := cli.Execute(app, []string{"repair", "--dry-run"}); err != nil {
+		if err := cli.Execute(app, []string{"sync", "--dry-run"}); err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(out.String(), "Repair preview") || !strings.Contains(out.String(), "Preview did not write") {
+		if !strings.Contains(out.String(), "Synchronization preview") || !strings.Contains(out.String(), "Preview did not write") {
 			t.Fatalf("output = %q", out.String())
 		}
 	})
@@ -140,14 +140,14 @@ func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 		Present:     true,
 		AutoManaged: true,
 	}}}}
-	if err := cli.Execute(app, []string{"repair"}); err != nil {
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := app.Config.Load()
 	if !got.Clients["claude"].Enabled || !got.Clients["codex"].Enabled || got.Clients["codex"].Executable != "/opt/codex" || len(runner.plans) != 0 {
 		t.Fatalf("repair config=%#v plans=%#v", got, runner.plans)
 	}
-	if !strings.Contains(out.String(), "Repair completed") || !strings.Contains(out.String(), "Configuration") || !strings.Contains(out.String(), "Synchronized") {
+	if !strings.Contains(out.String(), "Synchronization completed") || !strings.Contains(out.String(), "Client configuration is aligned") {
 		t.Fatalf("output = %s", out.String())
 	}
 }
@@ -188,7 +188,7 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 		}},
 	}}
 
-	if err := cli.Execute(app, []string{"repair"}); err != nil {
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
 	first, err := app.Config.Load()
@@ -202,7 +202,7 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 		t.Fatalf("repair invoked a client: %#v", runner.plans)
 	}
 
-	if err := cli.Execute(app, []string{"repair"}); err != nil {
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
 	second, err := app.Config.Load()
@@ -255,7 +255,7 @@ func TestRepairMigratesMissingClientExecutables(t *testing.T) {
 		}},
 	}}
 
-	if err := cli.Execute(app, []string{"repair"}); err != nil {
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatalf("repair after clients moved: %v", err)
 	}
 	after, err := app.Config.Load()
@@ -301,7 +301,7 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 		AutoManaged: true,
 	}}}}
 
-	if err := cli.Execute(app, []string{"repair"}); err != nil {
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatalf("repair did not resync the existing Codex projection: %v", err)
 	}
 	repaired, err := os.ReadFile(target)

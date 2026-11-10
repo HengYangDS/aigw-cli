@@ -19,7 +19,6 @@ func TestJSONCommandFailuresRemainMachineReadable(t *testing.T) {
 	for _, args := range [][]string{
 		{"status", "--json"},
 		{"sync", "--json"},
-		{"repair", "--json"},
 		{"catalog", "--json"},
 		{"setup", "--json"},
 		{"route", "rename", "old", "new", "--dry-run", "--json"},
@@ -57,9 +56,9 @@ func TestFailureFormatUsesParsedJSONFlag(t *testing.T) {
 		args []string
 		json bool
 	}{
-		{args: []string{"repair", "--json=true"}, json: true},
-		{args: []string{"repair", "--json=false"}},
-		{args: []string{"repair", "--", "--json"}},
+		{args: []string{"sync", "--json=true"}, json: true},
+		{args: []string{"sync", "--json=false"}},
+		{args: []string{"sync", "--", "--json"}},
 	} {
 		out.Reset()
 		if err := cli.Execute(app, test.args); err == nil {
@@ -115,14 +114,14 @@ func TestOutputFailureDoesNotLeakIntoTheNextInvocation(t *testing.T) {
 func TestErrorRenderingPreservesCommandAndWriterFailures(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	app.Out = failingOutput{err: io.ErrClosedPipe}
-	err := cli.Execute(app, []string{"repair", "--json"})
+	err := cli.Execute(app, []string{"sync", "--json"})
 	if !errors.Is(err, io.ErrClosedPipe) || !strings.Contains(strings.ToLower(err.Error()), "not configured") {
 		t.Fatalf("lost command or rendering failure: %v", err)
 	}
 }
 
 func TestUnconfiguredCommandsPointToSetupWithoutLoops(t *testing.T) {
-	for _, command := range [][]string{{"status"}, {"check"}, {"repair"}, {"models"}, {"catalog"}} {
+	for _, command := range [][]string{{"status"}, {"check"}, {"sync"}, {"models"}, {"catalog"}} {
 		app, out, _, _, _ := testApp(t, "")
 		err := cli.Execute(app, command)
 		if command[0] == "status" && err != nil {

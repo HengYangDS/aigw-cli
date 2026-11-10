@@ -188,12 +188,12 @@ func capturePublishedSnapshot(t *testing.T, configStore store.Store) store.Snaps
 func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint string, selected store.Snapshot, baseline string) {
 	journey := state.journey
 	configStore := store.NewStore(journey.config, builtinclients.Admission())
-	journey.run("rollback", "--last-change")
+	journey.run(journey.configRollback(journey.binary, "--last-change")...)
 	cfg, err := configStore.Load()
 	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != "" {
 		t.Fatalf("configuration rollback retained forwarding: %v", err)
 	}
-	journey.run("rollback", "--last-change")
+	journey.run(journey.configRollback(journey.binary, "--last-change")...)
 	restored, err := configStore.CaptureSnapshot()
 	if err != nil || !restored.Config.Equal(selected.Config) || !restored.Forwarding().Equal(selected.Forwarding()) {
 		t.Fatalf("configuration forward restore lost exact binding bytes: %v", err)

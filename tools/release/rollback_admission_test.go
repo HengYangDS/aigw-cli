@@ -71,7 +71,7 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 			t.Fatal(err)
 		}
 	} else {
-		journey.run("rollback", "--last-change")
+		journey.run(journey.configRollback(journey.binary, "--last-change")...)
 	}
 	journey.run(journey.lifecycle(journey.binary, "rollback")...)
 	journey.run("config", "export")

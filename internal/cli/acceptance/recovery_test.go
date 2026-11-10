@@ -23,7 +23,6 @@ func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
 		preview bool
 	}{
 		{"sync", []string{"sync"}, "", true},
-		{"repair", []string{"repair"}, "", true},
 		{"use", []string{"use", "claude", "one/claude-next"}, `"claude-next"`, false},
 		{"repeat-use", []string{"use", "claude", "one/claude-test"}, "", false},
 	} {
@@ -132,9 +131,7 @@ func TestRecoveryJSONSeparatesPreviewFromAppliedProjection(t *testing.T) {
 		nextAction string
 	}{
 		{[]string{"sync", "--json", "--dry-run"}, true, "aigw sync"},
-		{[]string{"repair", "--json", "--dry-run"}, true, "aigw repair"},
 		{[]string{"sync", "--json"}, false, "aigw check"},
-		{[]string{"repair", "--json"}, false, "aigw check"},
 	} {
 		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
 			app, out, credentials, _, _ := testApp(t, "")
@@ -193,7 +190,7 @@ func TestRecoveryJSONSeparatesPreviewFromAppliedProjection(t *testing.T) {
 }
 
 func TestRecoveryJSONOutputFailurePreservesCommittedProjection(t *testing.T) {
-	for _, command := range []string{"sync", "repair"} {
+	for _, command := range []string{"sync"} {
 		t.Run(command, func(t *testing.T) {
 			app, _, credentials, _, _ := testApp(t, "")
 			saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")

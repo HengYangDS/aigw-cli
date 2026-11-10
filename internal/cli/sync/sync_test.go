@@ -15,7 +15,6 @@ import (
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/cli/repair"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -28,104 +27,81 @@ type syncDiscovery struct{ result discovery.Result }
 func (candidate syncDiscovery) Discover(...string) discovery.Result { return candidate.result }
 
 func TestDryRunPreservesUnusedChangedCredentialEntrypointWithoutWriting(t *testing.T) {
-	for _, command := range []string{"sync", "repair"} {
-		t.Run(command, func(t *testing.T) {
-			store, _ := configuredRepairStore(t)
-			root := t.TempDir()
-			source := filepath.Join(root, "aigw")
-			helper := filepath.Join(root, "data", "credential", "aigw")
-			if err := os.WriteFile(source, []byte("AIGW fixture"), 0o700); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := secret.EnsureEntrypoint(source, helper); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(helper+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			before, err := os.ReadFile(store.Path())
-			if err != nil {
-				t.Fatal(err)
-			}
-			runtime := invocation.Context{Clients: clients.Registry(), Executable: source, ResolveCredentialPath: func() (string, error) { return helper, nil }, Config: store, Discovery: staticDiscovery{}, Out: &bytes.Buffer{}}
-			if command == "sync" {
-				cmd := NewCommand(runtime)
-				cmd.SilenceErrors = true
-				cmd.SilenceUsage = true
-				cmd.SetArgs([]string{"--dry-run", "--json"})
-				err = cmd.Execute()
-			} else {
-				cmd := repair.NewCommand(runtime)
-				cmd.SilenceErrors, cmd.SilenceUsage = true, true
-				cmd.SetArgs([]string{"--dry-run", "--json"})
-				err = cmd.Execute()
-			}
-			if err != nil {
-				t.Fatalf("%s dry-run inspected an unused cached entrypoint: %v", command, err)
-			}
-			after, readErr := os.ReadFile(store.Path())
-			if readErr != nil || !bytes.Equal(after, before) {
-				t.Fatalf("%s dry-run changed configuration: %v", command, readErr)
-			}
-			if _, statErr := os.Lstat(helper); statErr != nil {
-				t.Fatalf("%s dry-run removed a changed helper: %v", command, statErr)
-			}
-		})
+	store, _ := configuredRepairStore(t)
+	root := t.TempDir()
+	source := filepath.Join(root, "aigw")
+	helper := filepath.Join(root, "data", "credential", "aigw")
+	if err := os.WriteFile(source, []byte("AIGW fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := secret.EnsureEntrypoint(source, helper); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(helper+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(store.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := invocation.Context{Clients: clients.Registry(), Executable: source, ResolveCredentialPath: func() (string, error) { return helper, nil }, Config: store, Discovery: staticDiscovery{}, Out: &bytes.Buffer{}}
+	cmd := NewCommand(runtime)
+	cmd.SilenceErrors, cmd.SilenceUsage = true, true
+	cmd.SetArgs([]string{"--dry-run", "--json"})
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatalf("sync dry-run inspected an unused cached entrypoint: %v", err)
+	}
+	after, readErr := os.ReadFile(store.Path())
+	if readErr != nil || !bytes.Equal(after, before) {
+		t.Fatalf("sync dry-run changed configuration: %v", readErr)
+	}
+	if _, statErr := os.Lstat(helper); statErr != nil {
+		t.Fatalf("sync dry-run removed a changed helper: %v", statErr)
 	}
 }
 
 func TestDryRunUsesOneResolvedReaderWithoutWriting(t *testing.T) {
-	for _, operation := range []string{"sync", "repair"} {
-		t.Run(operation, func(t *testing.T) {
-			store, cfg := configuredRepairStore(t)
-			root := t.TempDir()
-			source, reader := filepath.Join(root, "source"), filepath.Join(root, "data", "credential", "reader")
-			cfg.SetClientActivation(claude.ID, true, source, nil)
-			if err := store.Save(cfg); err != nil {
-				t.Fatal(err)
-			}
-			before, err := os.ReadFile(store.Path())
-			if err != nil {
-				t.Fatal(err)
-			}
-			calls := 0
-			out := &bytes.Buffer{}
-			tokens := secret.NewMemoryStore()
-			if err := tokens.Set("one", "synthetic-fixture"); err != nil {
-				t.Fatal(err)
-			}
-			runtime := invocation.Context{Clients: clients.Registry(), Config: store, Executable: source, Secrets: tokens, Out: out, Discovery: staticDiscovery{}, Host: hostAt(root), ResolveCredentialPath: sync.OnceValues(func() (string, error) {
-				calls++
-				return reader, nil
-			})}
-			if operation == "sync" {
-				cmd := NewCommand(runtime)
-				cmd.SilenceErrors, cmd.SilenceUsage = true, true
-				cmd.SetArgs([]string{"--dry-run", "--json"})
-				err = cmd.Execute()
-			} else {
-				cmd := repair.NewCommand(runtime)
-				cmd.SilenceErrors, cmd.SilenceUsage = true, true
-				cmd.SetArgs([]string{"--dry-run", "--json"})
-				err = cmd.Execute()
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			var result struct {
-				Reader *app.CredentialEntrypointPlan `json:"credential_entrypoint"`
-			}
-			if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.Reader == nil || result.Reader.Path != reader || result.Reader.Action != "install" || calls != 1 {
-				t.Fatalf("preview reader = %+v; resolutions=%d error=%v", result.Reader, calls, err)
-			}
-			after, err := os.ReadFile(store.Path())
-			if err != nil || !bytes.Equal(before, after) {
-				t.Fatalf("preview changed configuration: %v", err)
-			}
-			if _, err := os.Lstat(reader); !os.IsNotExist(err) {
-				t.Fatalf("preview wrote reader: %v", err)
-			}
-		})
+	store, cfg := configuredRepairStore(t)
+	root := t.TempDir()
+	source, reader := filepath.Join(root, "source"), filepath.Join(root, "data", "credential", "reader")
+	cfg.SetClientActivation(claude.ID, true, source, nil)
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(store.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	out := &bytes.Buffer{}
+	tokens := secret.NewMemoryStore()
+	if err := tokens.Set("one", "synthetic-fixture"); err != nil {
+		t.Fatal(err)
+	}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: store, Executable: source, Secrets: tokens, Out: out, Discovery: staticDiscovery{}, Host: hostAt(root), ResolveCredentialPath: sync.OnceValues(func() (string, error) {
+		calls++
+		return reader, nil
+	})}
+	cmd := NewCommand(runtime)
+	cmd.SilenceErrors, cmd.SilenceUsage = true, true
+	cmd.SetArgs([]string{"--dry-run", "--json"})
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Reader *app.CredentialEntrypointPlan `json:"credential_entrypoint"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.Reader == nil || result.Reader.Path != reader || result.Reader.Action != "install" || calls != 1 {
+		t.Fatalf("preview reader = %+v; resolutions=%d error=%v", result.Reader, calls, err)
+	}
+	after, err := os.ReadFile(store.Path())
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatalf("preview changed configuration: %v", err)
+	}
+	if _, err := os.Lstat(reader); !os.IsNotExist(err) {
+		t.Fatalf("preview wrote reader: %v", err)
 	}
 }
 

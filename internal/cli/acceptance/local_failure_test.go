@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -66,7 +67,7 @@ func TestALocalFileFailureNamesAFixThatRunsInAFreshHome(t *testing.T) {
 // check, which inspects it.
 func TestRollbackWithoutAConfigurationNamesSetup(t *testing.T) {
 	app, output, _, _, _ := testApp(t, "")
-	if err := cli.Execute(app, []string{"rollback", "--json"}); err == nil {
+	if err := cli.Execute(app, []string{"config", "rollback", "--json"}); err == nil {
 		t.Fatal("a rollback without a configuration passed")
 	}
 	// Bare setup asks a person for a provider, so it is guidance for a script.
@@ -104,7 +105,7 @@ func TestAFileWhereAIGWsFolderBelongsToEveryCommand(t *testing.T) {
 	for _, args := range [][]string{
 		{"sync", "--json"},
 		{"use", "claude", "gateway/claude-test", "--json"},
-		{"rollback", "--json"},
+		{"config", "rollback", "--json"},
 		{"self", "uninstall", "--dry-run", "--json"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
@@ -134,7 +135,7 @@ func TestAFileWhereAIGWsFolderBelongsToEveryCommand(t *testing.T) {
 			want := "Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again."
 			// A rollback promises no rollback after setup, which leaves nothing
 			// to roll back.
-			if args[0] == "rollback" {
+			if slices.Contains(args, "rollback") {
 				want = "Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy, then run the same command again; otherwise run `aigw setup`, which leaves nothing to roll back."
 			}
 			if failure.NextDetail != want || failure.NextAction != "" || !strings.Contains(failure.Error, "not a directory") {
@@ -149,7 +150,7 @@ func TestAFileWhereAIGWsFolderBelongsToEveryCommand(t *testing.T) {
 				t.Fatal(err)
 			}
 			output.Reset()
-			if err := cli.Execute(app, args); err != nil && args[0] != "rollback" {
+			if err := cli.Execute(app, args); err != nil && !slices.Contains(args, "rollback") {
 				t.Fatalf("%v after its fix: %v\n%s", args, err, output)
 			}
 			if strings.Contains(output.String(), "not a directory") {

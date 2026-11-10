@@ -15,7 +15,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -314,34 +313,6 @@ func (j *journeyFixture) pathFlag(program string, command ...string) string {
 	return "--target"
 }
 
-// lifecycle spells a command of program's own lifecycle in program's words.
-// words are the spelling after `aigw self` from 0.7.0, which a program with
-// `aigw self` runs; a published release before it runs the top-level command
-// that 0.7.0 replaced, with update's --rollback for rollback, installation for
-// status and --candidate for --archive, so that a journey that starts from a
-// published release keeps that release's commands.
-func (j *journeyFixture) lifecycle(program string, words ...string) []string {
-	j.testing.Helper()
-	probe := exec.CommandContext(context.WithoutCancel(j.testing.Context()), program, "self", "--help")
-	probe.Env = j.environment
-	if probe.Run() == nil {
-		return append([]string{"self"}, words...)
-	}
-	switch words[0] {
-	case "rollback":
-		return append([]string{"update", "--rollback"}, words[1:]...)
-	case "status":
-		return append([]string{"installation"}, words[1:]...)
-	}
-	spelled := slices.Clone(words)
-	for index, word := range spelled {
-		if word == "--archive" {
-			spelled[index] = "--candidate"
-		}
-	}
-	return spelled
-}
-
 func (j *journeyFixture) installClientFixture(client string) {
 	j.testing.Helper()
 	// Synchronous copied clients need no race-runtime exit grace; keep all other options.
@@ -369,21 +340,6 @@ func (j *journeyFixture) installClientFixture(client string) {
 	if err := os.WriteFile(target, readFile(j.testing, program), 0o700); err != nil {
 		j.testing.Fatal(err)
 	}
-}
-
-// tokenOwner is the flag with which program's team setup names the provider
-// whose Token it reads from standard input: --provider from 0.7.0, and
-// --account in a published release before it, so that a journey that starts
-// from a published release keeps that release's words.
-func (j *journeyFixture) tokenOwner(program string) string {
-	j.testing.Helper()
-	probe := exec.CommandContext(context.WithoutCancel(j.testing.Context()), program, "setup", "--help")
-	probe.Env = j.environment
-	help, _ := probe.Output()
-	if bytes.Contains(help, []byte("--provider")) {
-		return "--provider"
-	}
-	return "--account"
 }
 
 func (j *journeyFixture) run(args ...string) []byte {
