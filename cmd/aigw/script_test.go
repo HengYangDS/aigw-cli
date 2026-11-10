@@ -81,6 +81,14 @@ func TestScripts(t *testing.T) {
 			env.Setenv("UPSTREAM", server.URL)
 			return os.MkdirAll(home, 0o700)
 		},
+		// root holds when the scripts run as root, whom file and folder
+		// permissions do not bind, as in a container's test job.
+		Condition: func(condition string) (bool, error) {
+			if condition != "root" {
+				return false, fmt.Errorf("unknown condition %q", condition)
+			}
+			return os.Geteuid() == 0, nil
+		},
 		Cmds: map[string]func(*testscript.TestScript, bool, []string){
 			"apikeyhelper": apiKeyHelper,
 			"envsubst":     envsubst,

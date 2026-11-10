@@ -412,6 +412,9 @@ func TestUninstallThatCannotRemoveTheProgramSaysWhatChanged(t *testing.T) {
 	if goruntime := os.Getenv("GOOS"); goruntime == "windows" || filepath.Separator == '\\' {
 		t.Skip("a read-only folder does not keep a file on Windows")
 	}
+	if os.Geteuid() == 0 {
+		t.Skip("folder permissions do not bind root")
+	}
 	for _, configured := range []bool{true, false} {
 		runtime, out := lifecycleRuntime(t, nil)
 		if configured {

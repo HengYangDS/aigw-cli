@@ -193,13 +193,13 @@ normalize stdout dangling.out
 cmp dangling.out dangling.json
 cp team.toml nowhere.toml
 fixloop -did 'named a team file that exists' stdout aigw setup --from dangling.toml --json
-[!windows] cp team.toml unreadable.toml
-[!windows] chmod 000 unreadable.toml
-[!windows] exitcode 1 aigw setup --from unreadable.toml --json
-[!windows] normalize stdout unreadable.out
-[!windows] cmp unreadable.out unreadable.json
-[!windows] chmod 600 unreadable.toml
-[!windows] fixloop -did 'made the team file readable' stdout aigw setup --from unreadable.toml --json
+[!windows] [!root] cp team.toml unreadable.toml
+[!windows] [!root] chmod 000 unreadable.toml
+[!windows] [!root] exitcode 1 aigw setup --from unreadable.toml --json
+[!windows] [!root] normalize stdout unreadable.out
+[!windows] [!root] cmp unreadable.out unreadable.json
+[!windows] [!root] chmod 600 unreadable.toml
+[!windows] [!root] fixloop -did 'made the team file readable' stdout aigw setup --from unreadable.toml --json
 
 
 -- rejected.txt --

@@ -202,6 +202,9 @@ func TestRollbackThatCannotWriteReportsWhatChanged(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("a read-only folder does not refuse a write on Windows")
 	}
+	if os.Geteuid() == 0 {
+		t.Skip("folder permissions do not bind root")
+	}
 	runtime, _ := rollbackRuntime(t)
 	folder := filepath.Dir(runtime.Config.Path())
 	if err := os.Chmod(folder, 0o500); err != nil {
