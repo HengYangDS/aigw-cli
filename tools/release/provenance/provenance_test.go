@@ -2,6 +2,7 @@ package provenance
 
 import (
 	"aigw-cli/internal/program/artifact"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,7 +63,12 @@ func TestWriteProvenanceBindsSourceLocksToolsAndUnsignedArtifacts(t *testing.T) 
 		}
 	}
 	for _, forbidden := range []string{root, candidate, "timestamp", "credential", "installer"} {
-		if strings.Contains(text, forbidden) {
+		// The document escapes every backslash of a Windows path.
+		escaped, encodeErr := json.Marshal(forbidden)
+		if encodeErr != nil {
+			t.Fatal(encodeErr)
+		}
+		if strings.Contains(text, string(escaped[1:len(escaped)-1])) {
 			t.Fatalf("provenance contains forbidden metadata %q: %s", forbidden, text)
 		}
 	}

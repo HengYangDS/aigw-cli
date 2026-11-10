@@ -3,6 +3,7 @@ package self
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -92,6 +93,18 @@ func homebrewProgram(t *testing.T, runtime *invocation.Context) {
 	runtime.Executable = filepath.Join(cask, "0.4.0", "aigw")
 	writeProgram(t, runtime.Executable, "managed")
 	writeProgram(t, filepath.Join(cask, ".metadata", "INSTALL_RECEIPT.json"), `{"homebrew_version":"5.1.0","source":{"tap":"owner/tap"}}`)
+}
+
+// samePath reports whether got names the file that want names: by their
+// cleaned paths, or, where the forms can differ, as a Windows short and long
+// name do, through os.SameFile on files that exist.
+func samePath(got, want string) bool {
+	if filepath.Clean(got) == filepath.Clean(want) {
+		return true
+	}
+	gotInfo, gotErr := os.Stat(got)
+	wantInfo, wantErr := os.Stat(want)
+	return gotErr == nil && wantErr == nil && os.SameFile(gotInfo, wantInfo)
 }
 
 func runSelf(runtime invocation.Context, args ...string) error {
@@ -321,11 +334,25 @@ func TestInstallAndUninstallPreviewAndRefuse(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"uninstall", "--dry-run", "--json"}, {"uninstall", "--dry-run"}} {
-		out.Reset()
-		if err := runSelf(runtime, args...); err != nil || !strings.Contains(out.String(), runtime.Executable) {
-			t.Fatalf("%v = %v\n%s", args, err, out)
-		}
+	// The document names the program in its fields, where JSON escapes every
+	// backslash of a Windows path, and the text names it in its Remove row.
+	out.Reset()
+	if err := runSelf(runtime, "uninstall", "--dry-run", "--json"); err != nil {
+		t.Fatalf("uninstall --dry-run --json = %v\n%s", err, out)
+	}
+	var document struct {
+		Path    string   `json:"path"`
+		Removed []string `json:"removed"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &document); err != nil || !samePath(document.Path, runtime.Executable) ||
+		len(document.Removed) != 1 || !samePath(document.Removed[0], runtime.Executable) {
+		t.Fatalf("uninstall --dry-run --json names %+v, not %s: %v\n%s", document, runtime.Executable, err, out)
+	}
+	var row bytes.Buffer
+	terminal.NewRendererWithWidth(&row, runtime.Color, runtime.Width).Rows(terminal.Field{Label: "Remove", Value: runtime.Executable})
+	out.Reset()
+	if err := runSelf(runtime, "uninstall", "--dry-run"); err != nil || !strings.Contains(out.String(), row.String()) {
+		t.Fatalf("uninstall --dry-run = %v, without the row\n%s\n%s", err, row.String(), out)
 	}
 	if _, err := os.Stat(runtime.Executable); err != nil {
 		t.Fatalf("a preview removed the program: %v", err)

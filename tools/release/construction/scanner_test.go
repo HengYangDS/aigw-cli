@@ -169,7 +169,7 @@ func TestDependencyReportsNameTheirScannerAndTheScanRetainsItsInvocation(t *test
 			named.Scanner.Tool != want.Tool || named.Scanner.Version != want.Version || named.Scanner.Platform != want.Platform || named.Scanner.SHA256 != want.SHA256 {
 			t.Fatalf("%s names scanner %+v (schema %d), want %+v: %v", report, named.Scanner, named.SchemaVersion, want, err)
 		}
-		if strings.Contains(string(data), root) {
+		if strings.Contains(string(data), jsonText(t, root)) {
 			t.Fatalf("%s contains the host path %s", report, root)
 		}
 	}

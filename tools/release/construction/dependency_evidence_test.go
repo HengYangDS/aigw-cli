@@ -95,6 +95,18 @@ func TestDependencyEvidenceBindsFixesToPackageAndVersionScheme(t *testing.T) {
 	}
 }
 
+// jsonText is value as a JSON document spells it inside a string, where a
+// Windows path has every backslash escaped, so that a test can tell whether
+// the document holds value.
+func jsonText(t *testing.T, value string) string {
+	t.Helper()
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(encoded[1 : len(encoded)-1])
+}
+
 func dependencyReportFixture(root string) osvFixtureReport {
 	return osvFixtureReport{
 		ExperimentalConfig: map[string]string{"credential": "must-not-survive"},
@@ -149,7 +161,7 @@ func TestNormalizeDependencyEvidenceRemovesHostAndVolatileMetadata(t *testing.T)
 		}
 		text := string(data)
 		for _, forbidden := range []string{root, "must-not-survive", "2026-09-07T00:00:00Z"} {
-			if strings.Contains(text, forbidden) {
+			if strings.Contains(text, jsonText(t, forbidden)) {
 				t.Fatalf("%s contains forbidden metadata %q: %s", path, forbidden, text)
 			}
 		}
