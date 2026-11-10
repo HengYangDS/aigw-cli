@@ -174,8 +174,8 @@ restoration failure reports both causes and retains recovery material.
 Rollback first verifies the actual retained program and its public export against
 byte-copied successor configuration in private HOME, environment backend and no
 Tokens/client paths. Require a nonempty valid TOML declaration; this proves schema
-readability, not inference. Rejection preserves programs/configuration;
-`aigw config migrate --rollback` restores exact predecessor state before retry.
+readability, not inference. Rejection preserves programs and configuration, and
+the operator restores a configuration that the retained program reads before retry.
 Native Windows tests hold real no-delete-sharing handles for update/rollback source,
 current and predecessor locks, delayed release and persistent failure. Keep native
 errors and surviving file bytes; compilation is not execution.

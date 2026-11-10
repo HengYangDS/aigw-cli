@@ -135,8 +135,8 @@ compares the selected entry with the family's bundled metadata apart from
 `slug`. Retain client version, executable checksum and entry digests. Exit 2
 means a missing client or unproved input, not acceptance.
 
-Live-client Route qualification instead uses `aigw verify --for codex` or
-`aigw verify --for claude`; catalog inspection and direct HTTP probes cannot
+Live-client model qualification instead uses `aigw check codex --depth client`
+or `aigw check claude --depth client`; catalog inspection and direct HTTP probes cannot
 replace it. The commands require the synchronized selection and report the real
 client version/digest without Token or response content. Claude runs in official
 [bare mode](https://code.claude.com/docs/en/headless#start-faster-with-bare-mode),

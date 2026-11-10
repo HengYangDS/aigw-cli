@@ -105,7 +105,7 @@ on first use, staging its Token so that no step can lose it, without a prompt or
 an access-list change. Any other AIGW executable, such as a versioned reader, an
 extracted release or a development build, cannot tell whether its installation
 still runs the predecessor, so it reads such an item through `/usr/bin/security`
-and never changes an item's owner. `aigw update --rollback` returns the items to
+and never changes an item's owner. `aigw self rollback` returns the items to
 the predecessor's reader after admitting a portable rollback, or before a
 Homebrew downgrade. The [credential decision](../decisions/dr-0011-single-portable-token-backend.md)
 records the migration and its custody rules.
@@ -130,8 +130,9 @@ Sync, check and dry-run do not execute the external helper; they cannot
 prove that it can retrieve a Token. With an external helper, check and status
 report only local projection readiness and direct the operator to live
 verification instead of requiring a duplicate Token in AIGW's store.
-Direct `aigw test` does not invoke an external helper: use real-client
-verification, or supply an explicit test Token through the existing stdin path.
+Direct `aigw check --depth endpoint` does not invoke an external helper: use
+`aigw check <client> --depth client`, or supply a one-time Token with
+`--model <provider/model> --token-stdin`.
 
 Explicit live verification uses the selected
 native client's synchronized settings. Claude verification does not first read
@@ -196,9 +197,10 @@ owns sequencing and compensation details.
 - Tokens are not placed on command lines or persisted in logs.
 - A loopback endpoint is not proof of listener health or ownership.
 - An explicit `aigw check` may consume quota because it probes selected-model
-  inference by default; `--endpoint-only` avoids that inference request.
-- An explicit `aigw verify` may make multiple quota-consuming real-client
-  requests. `--for all` writes a configuration checkpoint only after success.
+  inference by default; `--depth endpoint` avoids that inference request.
+- An explicit `aigw check --depth client` may make multiple quota-consuming
+  real-client requests. Without named clients it writes a configuration
+  checkpoint only after no client failed.
 
 A 401 or 403 is classified immediately after one bounded request; repeated
 credential probes cannot authorize access. Mixed non-authentication results or
