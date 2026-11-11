@@ -29,8 +29,9 @@ func TestAModelWithoutAProtocolIsRefused(t *testing.T) {
 }
 
 // Two provider IDs that differ only in case share one Token slot on a
-// case-insensitive store, so validation and a team file refuse the second;
-// a capitalized ID alone is refused for the same reason.
+// case-insensitive store, so validation and a team file refuse the second.
+// A capitalized ID alone collides with nothing: it is refused as one that
+// must be lowercase, naming its lowercase form, and no collision.
 func TestProviderIDsThatDifferOnlyInCaseAreRefused(t *testing.T) {
 	cfg := validConfig()
 	cfg.Providers["DMX"] = Provider{Label: "Upper", Endpoints: Endpoints{Responses: "https://upper.test/v1"}}
@@ -44,7 +45,8 @@ func TestProviderIDsThatDifferOnlyInCaseAreRefused(t *testing.T) {
 	cfg.Providers["Backup2"] = Provider{Label: "Upper", Endpoints: Endpoints{Responses: "https://upper.test/v1"}}
 	cfg.Normalize()
 	err = cfg.Validate()
-	if err == nil || !strings.Contains(err.Error(), `provider "Backup2" must be lowercase`) || !strings.Contains(err.Error(), reason) {
+	if err == nil || !strings.Contains(err.Error(), `provider "Backup2" must be lowercase; use "backup2"`) ||
+		strings.Contains(err.Error(), "differs only in case") || strings.Contains(err.Error(), reason) {
 		t.Fatalf("a capitalized provider = %v", err)
 	}
 	other := NewConfig(testAdmission())

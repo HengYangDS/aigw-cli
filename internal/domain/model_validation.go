@@ -237,7 +237,7 @@ func (provider Provider) validate(name string) error {
 		return fmt.Errorf("invalid provider ID %q; use letters, numbers, dot, dash, or underscore", name)
 	}
 	if name != strings.ToLower(name) {
-		return fmt.Errorf("provider %q must be lowercase, because IDs that differ only in case share one Token slot on a case-insensitive store", name)
+		return fmt.Errorf("provider %q must be lowercase; use %q", name, strings.ToLower(name))
 	}
 	if strings.TrimSpace(provider.Label) == "" {
 		return fmt.Errorf("provider %q has an empty label", name)
