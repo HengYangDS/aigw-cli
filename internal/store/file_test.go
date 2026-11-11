@@ -260,24 +260,17 @@ func TestSchemaEightRefusesWhatItCannotHold(t *testing.T) {
 	}
 }
 
-// A model that declares no protocol is written with an empty protocols
-// table, which reads back as the same model.
-func TestSchemaEightWritesAModelWithoutProtocols(t *testing.T) {
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Version = domain.ConfigVersion
-	if err := cfg.AppendProvider("team", domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}); err != nil {
-		t.Fatal(err)
-	}
-	if err := cfg.AppendModel(domain.Model{Provider: "team", ID: "bare"}); err != nil {
-		t.Fatal(err)
-	}
-	data, err := encodeConfig(cfg)
-	if err != nil || !strings.Contains(string(data), "[[providers.models]]\nid = 'bare'\nprotocols = {}\n") {
-		t.Fatalf("aigw.toml = %s, %v", data, err)
-	}
-	loaded, err := decodeTOMLConfig(data, testAdmission())
-	if err != nil || len(loaded.Models[domain.NewModelRef("team", "bare")].Protocols) != 0 {
-		t.Fatalf("the model without protocols read back as %+v, %v", loaded.Models, err)
+// A model that declares no protocol, absent or empty, is refused when read,
+// naming the model: no client can use it.
+func TestSchemaEightRefusesAModelWithoutProtocols(t *testing.T) {
+	const head = "version = 8\n\n[[providers]]\nid = 'team'\nlabel = 'Team'\nendpoints = { anthropic = 'https://team.test' }\n\n[[providers.models]]\nid = 'bare'\n"
+	for name, protocols := range map[string]string{"absent": "", "empty": "protocols = {}\n"} {
+		t.Run(name, func(t *testing.T) {
+			_, err := decodeTOMLConfig([]byte(head+protocols), testAdmission())
+			if err == nil || !strings.Contains(err.Error(), "model team/bare declares no protocol, so no client can use it") {
+				t.Fatalf("error = %v", err)
+			}
+		})
 	}
 }
 

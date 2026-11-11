@@ -74,6 +74,11 @@ func (c *Config) AppendProvider(id string, provider Provider) error {
 	if _, exists := c.Providers[id]; exists {
 		return fmt.Errorf("provider %q is defined twice", id)
 	}
+	for existing := range c.Providers {
+		if SameIdentifier(existing, id) {
+			return errCaseCollision(id, existing)
+		}
+	}
 	c.order.providers = append(c.ProviderIDs(), id)
 	if c.Providers == nil {
 		c.Providers = map[string]Provider{}

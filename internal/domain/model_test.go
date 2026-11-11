@@ -182,7 +182,7 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 		want string
 	}{
 		{"model stored under another reference", func(c *Config) { c.Models[NewModelRef("dmx", "other")] = c.Models[NewModelRef("dmx", "claude-test")] }, "is stored as dmx/other"},
-		{"uppercase account name", func(c *Config) { c.Providers["DMX"] = c.Providers["dmx"] }, "must be lowercase"},
+		{"uppercase account name", func(c *Config) { c.Providers["Alpha"] = c.Providers["dmx"] }, "must be lowercase"},
 		{"unknown selected model", func(c *Config) { c.SetSelectedModel(ClientClaude, NewModelRef("dmx", "missing"), "") }, "unknown model dmx/missing"},
 		{"unknown client", func(c *Config) { c.Clients["chat"] = ClientBinding{Model: NewModelRef("dmx", "claude-test")} }, "unknown client binding"},
 		{"unknown recommended model", func(c *Config) {

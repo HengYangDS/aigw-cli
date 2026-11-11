@@ -64,7 +64,7 @@ endpoints = {anthropic = "https://team.test"}
 id = "claude-team"
 family = "claude-team"
 label = "Team"
-protocols = {}
+protocols = {anthropic = []}
 
 [recommendations.claude]
 primary = {model = "unknown/missing"}

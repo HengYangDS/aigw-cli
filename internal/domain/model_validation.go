@@ -58,7 +58,15 @@ func (c *Config) validateCollections() error {
 	if c.Version != ConfigVersion {
 		return &UnsupportedConfigVersionError{Version: c.Version, ExpectedVersion: ConfigVersion}
 	}
-	for _, name := range slices.Sorted(maps.Keys(c.Providers)) {
+	names := slices.Sorted(maps.Keys(c.Providers))
+	for index, name := range names {
+		for _, earlier := range names[:index] {
+			if SameIdentifier(earlier, name) {
+				return NewEntryError("provider `"+name+"`", errCaseCollision(name, earlier))
+			}
+		}
+	}
+	for _, name := range names {
 		if err := c.Providers[name].validate(name); err != nil {
 			return NewEntryError("provider `"+name+"`", err)
 		}
@@ -229,7 +237,7 @@ func (provider Provider) validate(name string) error {
 		return fmt.Errorf("invalid account name %q; use letters, numbers, dot, dash, or underscore", name)
 	}
 	if name != strings.ToLower(name) {
-		return fmt.Errorf("invalid account name %q; environment-backed account IDs must be lowercase", name)
+		return fmt.Errorf("provider %q must be lowercase, because IDs that differ only in case share one Token slot on a case-insensitive store", name)
 	}
 	if strings.TrimSpace(provider.Label) == "" {
 		return fmt.Errorf("account %q has an empty label", name)
@@ -292,6 +300,9 @@ func (model Model) validate(ref ModelRef, providers map[string]Provider) error {
 	}
 	if model.Family != "" && !ValidIdentifier(model.Family) {
 		return fmt.Errorf("model %s names the invalid family %q", ref, model.Family)
+	}
+	if len(model.Protocols) == 0 {
+		return fmt.Errorf("model %s declares no protocol, so no client can use it", ref)
 	}
 	for _, protocol := range model.AdmittedProtocols() {
 		if !slices.Contains(knownProtocols, protocol) {
@@ -366,4 +377,10 @@ func IsLoopbackHost(host string) bool {
 	}
 	address, err := netip.ParseAddr(host)
 	return err == nil && address.IsLoopback()
+}
+
+// errCaseCollision refuses a provider ID that differs only in case from an
+// earlier one, which would share its Token slot on a case-insensitive store.
+func errCaseCollision(name, other string) error {
+	return fmt.Errorf("provider %q differs only in case from provider %q, and both would share one Token slot on a case-insensitive store", name, other)
 }
