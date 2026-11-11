@@ -188,8 +188,16 @@ exec aigw provider rotate team --token-stdin
 exec aigw setup --from team.toml --json
 normalize stdout deferred-empty.out
 cmp deferred-empty.out deferred-empty.json
+# Status finds the empty Token no more than it finds the missing one, and
+# names the fix that stores one; once a Token is stored, the team file applies
+# again, which selects the recommended model.
+exec aigw status
+stdout '(?m)^  aigw provider rotate team$'
 stdin token.txt
 exec aigw provider rotate team --token-stdin
+exec aigw status
+stdout '(?m)^  aigw setup --from <file>$'
+! stdout 'provider rotate'
 exec aigw setup --from team.toml --json
 stdout '"state": "stored"|"state": "present"'
 stdout '"id": "claude",\n\s+"state": "configured"'
@@ -869,7 +877,7 @@ Next
       "state": "not_selected"
     }
   ],
-  "next_detail": "Choose one compatible provider: aigw provider rotate team"
+  "next_detail": "aigw provider rotate team"
 }
 -- deferred-empty.json --
 {
@@ -910,7 +918,7 @@ Next
       "state": "not_selected"
     }
   ],
-  "next_detail": "Choose one compatible provider: aigw provider rotate team"
+  "next_detail": "aigw provider rotate team"
 }
 -- away.json --
 {

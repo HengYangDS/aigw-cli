@@ -144,6 +144,11 @@ func observeCredential(store secret.Store, observed map[string]credentialObserva
 	observation, exists := observed[account]
 	if !exists {
 		observation.available, observation.err = store.Exists(account)
+		// A slot that holds no value holds no Token: its metadata tells so
+		// without reading it.
+		if observation.available && observation.err == nil && secret.TokenSlotEmpty(store, account) {
+			observation.available = false
+		}
 		observed[account] = observation
 	}
 	return observation, true
@@ -242,14 +247,6 @@ func (assessment *inactiveClientAssessment) consider(client string, ref domain.M
 		assessment.backendMissing = true
 		return false
 	}
-	if !selected && !assessment.readOnly {
-		assessment.result.ClientCredentialPrerequisites[client], _ = secret.TokenRecovery(assessment.store, candidate.ProviderID)
-		if !assessment.seen[candidate.ProviderID] {
-			assessment.alternatives = append(assessment.alternatives, "aigw provider rotate "+candidate.ProviderID)
-			assessment.seen[candidate.ProviderID] = true
-		}
-		return false
-	}
 	observation, _ := observeCredential(assessment.store, assessment.result.observedCredentials, candidate.ProviderID)
 	if observation.err != nil {
 		assessment.result.State = domainreadiness.Unavailable
@@ -258,6 +255,12 @@ func (assessment *inactiveClientAssessment) consider(client string, ref domain.M
 	}
 	if observation.available {
 		delete(assessment.result.ClientCredentialPrerequisites, client)
+		if !selected && !assessment.readOnly {
+			// The recommendation's provider holds its Token, so applying the
+			// team file again selects the model; the file's path is not known
+			// here. An environment Token is adopted by a sync instead.
+			assessment.result.SelectionPrerequisite = "aigw setup --from <file>"
+		}
 		return true
 	}
 	action, _ := secret.TokenRecovery(assessment.store, candidate.ProviderID)
@@ -265,7 +268,11 @@ func (assessment *inactiveClientAssessment) consider(client string, ref domain.M
 	if selected && assessment.firstMissing == "" {
 		assessment.firstMissing = action
 	} else if !selected && !assessment.seen[candidate.ProviderID] {
-		assessment.alternatives = append(assessment.alternatives, secret.EnvironmentKey(candidate.ProviderID))
+		alternative := "aigw provider rotate " + candidate.ProviderID
+		if assessment.readOnly {
+			alternative = secret.EnvironmentKey(candidate.ProviderID)
+		}
+		assessment.alternatives = append(assessment.alternatives, alternative)
 		assessment.seen[candidate.ProviderID] = true
 	}
 	return false
@@ -281,6 +288,10 @@ func (assessment *inactiveClientAssessment) finish() Activation {
 		if assessment.readOnly {
 			// Only synchronization adopts an environment Token that appears later.
 			prefix, continuation = "Set one compatible provider's variable: ", ", then run `aigw sync`"
+		}
+		if len(assessment.alternatives) == 1 && !assessment.readOnly {
+			// One provider is no choice: its command stands alone.
+			prefix = ""
 		}
 		assessment.result.CredentialPrerequisite = prefix + strings.Join(assessment.alternatives, " or ") + continuation
 	case assessment.backendMissing:

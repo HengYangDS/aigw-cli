@@ -190,14 +190,17 @@ func TestAssessActivationListsUnselectedCompatibleEnvironmentProviders(t *testin
 	}
 }
 
-func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T) {
+// A recommendation's provider is observed by metadata alone, never read: a
+// Token that is missing is stored by its provider's command, and one that is
+// stored sends the operator back to the team file.
+func TestAssessActivationObservesRecommendedNativeCredentialsByMetadata(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Models[domain.NewModelRef("team", "fable")] = domain.Model{Provider: "team", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("team", "fable")}}
-	got := AssessActivation(cfg, unobservedWritableStore{})
-	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != "Choose one compatible provider: aigw provider rotate team" || got.CredentialPrerequisite == "" {
-		t.Fatalf("native backend activation = %+v", got)
+	got := AssessActivation(cfg, deniedMetadataStore{})
+	if got.State != domainreadiness.Unavailable || got.NextActionFor(nil) != "aigw check --depth local" {
+		t.Fatalf("an unobservable native backend = %+v", got)
 	}
 
 	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "fable"), "")
