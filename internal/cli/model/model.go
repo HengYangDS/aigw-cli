@@ -75,7 +75,9 @@ func describe(cfg domain.Config, ref domain.ModelRef) modelItem {
 				capabilities = append(capabilities, string(capability))
 			}
 		}
-		item.Protocols = append(item.Protocols, protocolItem{Protocol: protocol.Name(), Capabilities: capabilities})
+		item.Protocols = append(item.Protocols, protocolItem{
+			Protocol: protocol.Name(), Capabilities: capabilities, NoEndpoint: cfg.Providers[model.Provider].Endpoints.For(protocol) == "",
+		})
 	}
 	return item
 }
@@ -123,6 +125,9 @@ func modelFields(runtime invocation.Context, item modelItem) []terminal.Field {
 	protocols := make([]string, 0, len(item.Protocols))
 	for _, protocol := range item.Protocols {
 		text := protocolLabel(protocol.Protocol)
+		if protocol.NoEndpoint {
+			text += " (no endpoint)"
+		}
 		if len(protocol.Capabilities) > 0 {
 			text += " (" + strings.Join(protocol.Capabilities, ", ") + ")"
 		}

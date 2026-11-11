@@ -208,6 +208,29 @@ cp stdout remove-disabled.json
 exec aigw use hermes mixed/twin --protocol chat
 fixloop -did 'moved Hermes to mixed/twin' remove-disabled.json aigw model remove mixed/chat-only --json
 
+# A protocol that a model declares and its provider has no endpoint for is
+# marked, with the command that adds the endpoint, never shown as an empty
+# URL. No command writes such a configuration, so the script does. The fix
+# holds a placeholder for the URL, so fixloop does not follow it.
+[darwin] cp $HOME/Library/Application' 'Support/aigw/aigw.toml good.toml
+[!darwin] cp $HOME/aigw/aigw.toml good.toml
+envsubst no-endpoint.in no-endpoint.toml
+[darwin] cp no-endpoint.toml $HOME/Library/Application' 'Support/aigw/aigw.toml
+[!darwin] cp no-endpoint.toml $HOME/aigw/aigw.toml
+exec aigw model show team/team-model --json
+stdout '"protocol": "anthropic",\n\s+"url": "'$UPSTREAM'"'
+stdout '"protocol": "chat",\n\s+"fix": "aigw provider edit team --endpoint chat=\\u003curl\\u003e"'
+! stdout '"url": ""'
+exec aigw model show team/team-model
+stdout 'OpenAI Chat Completions +No endpoint; run `aigw provider edit team --endpoint chat=<url>`'
+exec aigw model list --provider team
+stdout 'OpenAI Chat Completions \(no endpoint\)'
+stdout '^  aigw provider edit team --endpoint chat=<url>$'
+exec aigw model list --provider team --json
+stdout '"protocol": "chat",\n\s+"capabilities": \[\],\n\s+"no_endpoint": true'
+[darwin] cp good.toml $HOME/Library/Application' 'Support/aigw/aigw.toml
+[!darwin] cp good.toml $HOME/aigw/aigw.toml
+
 -- token.txt --
 sk-team-token-0001
 -- mixed-token.txt --
@@ -1139,3 +1162,14 @@ Next
   ],
   "next_action": "aigw model search --json --provider broken"
 }
+-- no-endpoint.in --
+version = 8
+
+[[providers]]
+id = 'team'
+label = 'Team Gateway'
+endpoints = { anthropic = '$UPSTREAM' }
+
+[[providers.models]]
+id = 'team-model'
+protocols = { anthropic = [], chat = [] }

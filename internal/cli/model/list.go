@@ -92,7 +92,7 @@ func renderList(runtime invocation.Context, cfg domain.Config, document listDocu
 		r.Next("aigw model add <provider/model>")
 		return r.Err()
 	}
-	provider := ""
+	provider, fix := "", ""
 	for _, item := range document.Models {
 		if item.Provider != provider {
 			// A valid configuration gives every provider a label.
@@ -102,7 +102,11 @@ func renderList(runtime invocation.Context, cfg domain.Config, document listDocu
 		state, detail := terminal.Info, []string{item.Label}
 		protocols := make([]string, 0, len(item.Protocols))
 		for _, protocol := range item.Protocols {
-			protocols = append(protocols, protocolLabel(protocol.Protocol))
+			label := protocolLabel(protocol.Protocol)
+			if protocol.NoEndpoint {
+				label += " (no endpoint)"
+			}
+			protocols = append(protocols, label)
 		}
 		detail = append(detail, strings.Join(protocols, ", "))
 		if len(item.SelectedBy) > 0 {
@@ -114,6 +118,13 @@ func renderList(runtime invocation.Context, cfg domain.Config, document listDocu
 			detail = append(detail, "deprecated")
 		}
 		r.Rows(terminal.Field{State: state, Label: item.ID, Value: strings.Join(detail, " · ")})
+		if fix == "" {
+			fix = missingEndpointFix(item)
+		}
+	}
+	if fix != "" {
+		r.Next(fix)
+		return r.Err()
 	}
 	r.Next("aigw use <client> <provider/model>")
 	return r.Err()
@@ -135,7 +146,11 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			item := describe(cfg, model.Ref())
 			provider := cfg.Providers[model.Provider]
 			for _, protocol := range displayProtocols(model) {
-				item.Endpoints = append(item.Endpoints, endpointDetail{Protocol: protocol.Name(), URL: provider.Endpoints.For(protocol)})
+				endpoint := endpointDetail{Protocol: protocol.Name(), URL: provider.Endpoints.For(protocol)}
+				if endpoint.URL == "" {
+					endpoint.Fix = endpointFix(model.Provider, protocol.Name())
+				}
+				item.Endpoints = append(item.Endpoints, endpoint)
 			}
 			if jsonMode {
 				return terminal.WriteDocument(runtime.Out, showSchemaVersion, true, item)
@@ -148,7 +163,11 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 				fields = append(fields, terminal.Field{Label: "Protocol clients", Value: clientLabels(runtime.Clients.Admission(), item.ProtocolClients)})
 			}
 			for _, endpoint := range item.Endpoints {
-				fields = append(fields, terminal.Field{Label: protocolLabel(endpoint.Protocol), Value: endpoint.URL})
+				value := endpoint.URL
+				if endpoint.Fix != "" {
+					value = "No endpoint; run `" + endpoint.Fix + "`"
+				}
+				fields = append(fields, terminal.Field{Label: protocolLabel(endpoint.Protocol), Value: value})
 			}
 			r.Rows(fields...)
 			return r.Err()
@@ -156,4 +175,20 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the model as JSON")
 	return cmd
+}
+
+// endpointFix is the command that gives provider an endpoint for protocol.
+func endpointFix(provider, protocol string) string {
+	return "aigw provider edit " + provider + " --endpoint " + protocol + "=<url>"
+}
+
+// missingEndpointFix is the fix of the first protocol of item that its
+// provider has no endpoint for, or empty.
+func missingEndpointFix(item modelItem) string {
+	for _, protocol := range item.Protocols {
+		if protocol.NoEndpoint {
+			return endpointFix(item.Provider, protocol.Protocol)
+		}
+	}
+	return ""
 }

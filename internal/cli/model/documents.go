@@ -89,12 +89,17 @@ type modelItem struct {
 type protocolItem struct {
 	Protocol     string   `json:"protocol"`
 	Capabilities []string `json:"capabilities"`
+	// NoEndpoint marks a protocol that the model declares and its provider
+	// has no endpoint for; `aigw provider edit <provider> --endpoint` adds one.
+	NoEndpoint bool `json:"no_endpoint,omitempty"`
 }
 
 // endpointDetail is the provider's endpoint for one of the model's protocols.
 type endpointDetail struct {
 	Protocol string `json:"protocol"`
-	URL      string `json:"url"`
+	URL      string `json:"url,omitempty"`
+	// Fix, for a protocol without an endpoint, is the command that adds one.
+	Fix string `json:"fix,omitempty"`
 }
 
 // changeDocument is the JSON document of `aigw model add`, `edit` and
