@@ -23,7 +23,7 @@ func TestRetryBudgetsAreInlineInTheirClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(store.Path())
-	if err != nil || !bytes.Contains(data, []byte("[clients.codex]\nenabled = false\nmodel = 'backup/gpt-test'\nretries = {request = 0, stream = 3}\n")) {
+	if err != nil || !bytes.Contains(data, []byte("[clients.codex]\nenabled = false\nmodel = 'backup/gpt-test'\nretries = { request = 0, stream = 3 }\n")) {
 		t.Fatalf("retries are not inline in their client:\n%s\n%v", data, err)
 	}
 	loaded, err := store.Load()

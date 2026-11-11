@@ -276,9 +276,9 @@ func newClientDocument(binding domain.ClientBinding) clientDocument {
 }
 
 // encodeDocument writes the document as TOML, which separates its tables
-// with one blank line. The recommendations and clients tables hold only one
-// table per client, so their own empty headers, which TOML implies, are left
-// out.
+// with one blank line, in the layout of the repository's TOML formatter. The
+// recommendations and clients tables hold only one table per client, so
+// their own empty headers, which TOML implies, are left out.
 func encodeDocument(described document) ([]byte, error) {
 	data, err := toml.Marshal(described)
 	if err != nil {
@@ -287,5 +287,39 @@ func encodeDocument(described document) ([]byte, error) {
 	lines := slices.DeleteFunc(strings.Split(string(data), "\n"), func(line string) bool {
 		return line == "[recommendations]" || line == "[clients]"
 	})
+	for index, line := range lines {
+		lines[index] = spaceInlineTables(line)
+	}
 	return []byte(strings.Join(lines, "\n")), nil
+}
+
+// spaceInlineTables writes one space inside the braces of each inline table
+// on line that is not empty, as taplo formats one, and leaves strings as they
+// are. The encoder writes no multi-line string.
+func spaceInlineTables(line string) string {
+	var spaced strings.Builder
+	var quote byte
+	for index := 0; index < len(line); index++ {
+		char := line[index]
+		switch {
+		case quote == '"' && char == '\\' && index+1 < len(line):
+			spaced.WriteByte(char)
+			index++
+			char = line[index]
+		case quote != 0:
+			if char == quote {
+				quote = 0
+			}
+		case char == '"' || char == '\'':
+			quote = char
+		case char == '{' && index+1 < len(line) && line[index+1] != '}':
+			spaced.WriteString("{ ")
+			continue
+		case char == '}' && index > 0 && line[index-1] != '{':
+			spaced.WriteString(" }")
+			continue
+		}
+		spaced.WriteByte(char)
+	}
+	return spaced.String()
 }

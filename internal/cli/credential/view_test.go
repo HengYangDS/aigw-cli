@@ -37,12 +37,12 @@ func TestCredentialReaderIgnoresWhatItsViewLeavesOut(t *testing.T) {
 		},
 		"malformed fields outside the view": {
 			"label = 'Gateway'", "label = 5",
-			"protocols = {responses = []}", "protocols = 'responses'\ndeprecated = 'yes'\nfamily = 7",
+			"protocols = { responses = [] }", "protocols = 'responses'\ndeprecated = 'yes'\nfamily = 7",
 			"protocol = 'responses'", "protocol = 'messages'\nretries = 'many'",
 		},
 		"protocols that the reader does not know": {
-			"endpoints = {responses = 'https://gateway.test/v1'}", "endpoints = {responses = 'https://gateway.test/v1', messages = 'https://gateway.test/messages'}",
-			"protocols = {responses = []}", "protocols = {messages = [], responses = []}",
+			"endpoints = { responses = 'https://gateway.test/v1' }", "endpoints = { responses = 'https://gateway.test/v1', messages = 'https://gateway.test/messages' }",
+			"protocols = { responses = [] }", "protocols = { messages = [], responses = [] }",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

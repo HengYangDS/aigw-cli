@@ -27,7 +27,7 @@ func TestForwardingRoundTripsInTheConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(store.Path())
-	if err != nil || !strings.Contains(string(data), `forwarding = {endpoint = 'http://127.0.0.1:8792/backup/v1', upstream = '`+binding.ForwardingUpstreamIdentity+`', protocol = 'responses'}`) {
+	if err != nil || !strings.Contains(string(data), `forwarding = { endpoint = 'http://127.0.0.1:8792/backup/v1', upstream = '`+binding.ForwardingUpstreamIdentity+`', protocol = 'responses' }`) {
 		t.Fatalf("forwarding is not inline in its client:\n%s\n%v", data, err)
 	}
 	loaded, err := store.Load()

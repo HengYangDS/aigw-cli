@@ -20,27 +20,27 @@ const schemaEightText = `version = 8
 [[providers]]
 id = 'dmxapi'
 label = 'DMXAPI'
-balance = {kind = 'dmxapi', base_url = 'https://www.dmxapi.cn'}
-endpoints = {anthropic = 'https://www.dmxapi.cn', responses = 'https://www.dmxapi.cn/v1'}
+balance = { kind = 'dmxapi', base_url = 'https://www.dmxapi.cn' }
+endpoints = { anthropic = 'https://www.dmxapi.cn', responses = 'https://www.dmxapi.cn/v1' }
 
 [[providers.models]]
 id = 'gpt-6.1-sol-cdx'
 family = 'gpt-6.1-sol'
 label = 'DMXAPI · GPT-6.1 Sol · CDX'
-protocols = {responses = ['text', 'reasoning']}
+protocols = { responses = ['text', 'reasoning'] }
 
 [[providers.models]]
 id = 'claude-opus-5-5'
-protocols = {anthropic = ['text', 'tool_search']}
+protocols = { anthropic = ['text', 'tool_search'] }
 
 [[providers]]
 id = 'aihubmix'
 label = 'AIHubMix'
-endpoints = {chat = 'https://aihubmix.com/v1'}
+endpoints = { chat = 'https://aihubmix.com/v1' }
 
 [[providers.models]]
 id = 'gemini-3.8-flash'
-protocols = {chat = []}
+protocols = { chat = [] }
 deprecated = true
 
 [[families]]
@@ -48,11 +48,11 @@ id = 'gpt-6.1-sol'
 label = 'GPT-6.1 Sol'
 
 [recommendations.claude]
-primary = {model = 'dmxapi/claude-opus-5-5'}
+primary = { model = 'dmxapi/claude-opus-5-5' }
 
 [recommendations.codex]
-primary = {model = 'dmxapi/gpt-6.1-sol-cdx', protocol = 'responses'}
-alternatives = [{model = 'dmxapi/gpt-6.1-sol-cdx', protocol = 'responses', model_provider = 'amazon-bedrock', authentication = 'client-native'}]
+primary = { model = 'dmxapi/gpt-6.1-sol-cdx', protocol = 'responses' }
+alternatives = [{ model = 'dmxapi/gpt-6.1-sol-cdx', protocol = 'responses', model_provider = 'amazon-bedrock', authentication = 'client-native' }]
 
 [clients.claude]
 enabled = false
@@ -66,8 +66,8 @@ model = 'dmxapi/gpt-6.1-sol-cdx'
 protocol = 'responses'
 executable = '%[1]s'
 targets = ['%[2]s']
-retries = {request = 3, stream = 2}
-forwarding = {endpoint = 'http://127.0.0.1:8792/dmxapi/v1', upstream = '%[4]s', protocol = 'responses'}
+retries = { request = 3, stream = 2 }
+forwarding = { endpoint = 'http://127.0.0.1:8792/dmxapi/v1', upstream = '%[4]s', protocol = 'responses' }
 
 [clients.hermes]
 enabled = false
@@ -195,9 +195,9 @@ func TestSchemaEightRefusesAnUndefinedFieldOrAnotherVersion(t *testing.T) {
 		{"a retired model purpose", "id = 'claude-opus-5-5'\n", "id = 'claude-opus-5-5'\npurpose = 'Default agent'\n", "providers.models.purpose", "purpose ="},
 		{"a retired model lifecycle", "deprecated = true\n", "lifecycle = 'deprecated'\n", "providers.models.lifecycle", "lifecycle ="},
 		{"a retired family order", "label = 'GPT-6.1 Sol'\n", "label = 'GPT-6.1 Sol'\norder = 10\n", "families.order", "order = 10"},
-		{"a retired endpoint name", "endpoints = {chat = ", "endpoints = {openai_chat_completions = ", "providers.openai_chat_completions", "openai_chat_completions"},
-		{"a retired selection field", "primary = {model = 'dmxapi/claude-opus-5-5'}", "primary = {route = 'claude'}", "recommendations.claude.route", "route ="},
-		{"a retired retry policy", "retries = {request = 3, stream = 2}", "retry_policy = {request_max_retries = 3}", "clients.codex.retry_policy", "retry_policy ="},
+		{"a retired endpoint name", "endpoints = { chat = ", "endpoints = { openai_chat_completions = ", "providers.openai_chat_completions", "openai_chat_completions"},
+		{"a retired selection field", "primary = { model = 'dmxapi/claude-opus-5-5' }", "primary = { route = 'claude' }", "recommendations.claude.route", "route ="},
+		{"a retired retry policy", "retries = { request = 3, stream = 2 }", "retry_policy = { request_max_retries = 3 }", "clients.codex.retry_policy", "retry_policy ="},
 		{"an unknown top-level table", "version = 8\n", "version = 8\n[accounts.team]\nlabel = 'Team'\n", "accounts.team", "[accounts.team]"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -240,7 +240,7 @@ func TestSchemaEightRefusesWhatItCannotHold(t *testing.T) {
 		{"a repeated model", repeatedModel, LoadPhaseValidate, `provider "dmxapi" defines model "claude-opus-5-5" twice`},
 		{"a repeated family", valid + "\n[[families]]\nid = 'gpt-6.1-sol'\nlabel = 'Again'\n", LoadPhaseValidate, `family "gpt-6.1-sol" is defined twice`},
 		{"a client selection without a provider", strings.Replace(valid, "model = 'aihubmix/gemini-3.8-flash'", "model = 'gemini-3.8-flash'", 1), LoadPhaseValidate, `client "hermes"`},
-		{"a recommendation without a provider", strings.Replace(valid, "primary = {model = 'dmxapi/claude-opus-5-5'}", "primary = {model = 'claude-opus-5-5'}", 1), LoadPhaseValidate, "the claude recommendation"},
+		{"a recommendation without a provider", strings.Replace(valid, "primary = { model = 'dmxapi/claude-opus-5-5' }", "primary = { model = 'claude-opus-5-5' }", 1), LoadPhaseValidate, "the claude recommendation"},
 		{"a value of the wrong type", strings.Replace(valid, "enabled = true", "enabled = 'yes'", 1), LoadPhaseParse, ""},
 		{"a version of the wrong type", strings.Replace(valid, "version = 8", "version = 'eight'", 1), LoadPhaseParse, ""},
 	} {
@@ -275,5 +275,35 @@ func TestSchemaEightWritesAModelWithoutProtocols(t *testing.T) {
 	loaded, err := decodeTOMLConfig(data, testAdmission())
 	if err != nil || len(loaded.Models[domain.NewModelRef("team", "bare")].Protocols) != 0 {
 		t.Fatalf("the model without protocols read back as %+v, %v", loaded.Models, err)
+	}
+}
+
+// The encoder spaces the braces of each inline table as taplo does, and
+// leaves braces and quotes inside strings alone, so a label keeps its text.
+func TestSchemaEightSpacesInlineTablesOutsideStrings(t *testing.T) {
+	for line, want := range map[string]string{
+		"a = {b = 'c'}":               "a = { b = 'c' }",
+		"a = {}":                      "a = {}",
+		"a = [{b = 1}, {c = 2}]":      "a = [{ b = 1 }, { c = 2 }]",
+		`a = {b = '{x}', c = "q\"{"}`: `a = { b = '{x}', c = "q\"{" }`,
+		`label = "it's {here}"`:       `label = "it's {here}"`,
+	} {
+		if got := spaceInlineTables(line); got != want {
+			t.Errorf("spaceInlineTables(%q) = %q, want %q", line, got, want)
+		}
+	}
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Version = domain.ConfigVersion
+	label := `Team {beta} "quoted" 'single'`
+	if err := cfg.AppendProvider("team", domain.Provider{Label: label, Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := encodeConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := decodeTOMLConfig(data, testAdmission())
+	if err != nil || loaded.Providers["team"].Label != label {
+		t.Fatalf("the label read back as %q, %v:\n%s", loaded.Providers["team"].Label, err, data)
 	}
 }

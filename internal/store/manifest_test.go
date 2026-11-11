@@ -267,7 +267,7 @@ func TestExportOmitsClientsAndCredentials(t *testing.T) {
 			t.Fatalf("export contains %q:\n%s", forbidden, text)
 		}
 	}
-	if !strings.Contains(text, "[recommendations.claude]\nprimary = {model = 'team/claude-team'}") {
+	if !strings.Contains(text, "[recommendations.claude]\nprimary = { model = 'team/claude-team' }") {
 		t.Fatalf("export lost the declared recommendation:\n%s", text)
 	}
 }

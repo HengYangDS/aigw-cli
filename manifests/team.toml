@@ -3,308 +3,308 @@ version = 8
 [[providers]]
 id = 'dmxapi'
 label = 'DMXAPI'
-balance = {kind = 'dmxapi', base_url = 'https://www.dmxapi.cn'}
-endpoints = {anthropic = 'https://www.dmxapi.cn', responses = 'https://www.dmxapi.cn/v1'}
+balance = { kind = 'dmxapi', base_url = 'https://www.dmxapi.cn' }
+endpoints = { anthropic = 'https://www.dmxapi.cn', responses = 'https://www.dmxapi.cn/v1' }
 
 [[providers.models]]
 id = 'claude-opus-5-5'
 family = 'claude-opus-5-5'
-protocols = {anthropic = []}
+protocols = { anthropic = [] }
 
 [[providers.models]]
 id = 'claude-sonnet-5-5-cc'
 family = 'claude-sonnet-5-5'
 label = 'DMXAPI · Claude Sonnet 5.5 · CC'
-protocols = {anthropic = []}
+protocols = { anthropic = [] }
 
 [[providers.models]]
 id = 'claude-sonnet-5-5-ssvip'
 family = 'claude-sonnet-5-5'
 label = 'DMXAPI · Claude Sonnet 5.5 · SSVIP'
-protocols = {anthropic = []}
+protocols = { anthropic = [] }
 
 [[providers.models]]
 id = 'claude-haiku-5-5-cc'
 family = 'claude-haiku-5-5'
-protocols = {anthropic = []}
+protocols = { anthropic = [] }
 
 [[providers.models]]
 id = 'gpt-6.1-sol'
 family = 'gpt-6.1-sol'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'gpt-6.1-sol-cdx'
 family = 'gpt-6.1-sol'
 label = 'DMXAPI · GPT-6.1 Sol · CDX'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'gpt-6.1-terra-cdx'
 family = 'gpt-6.1-terra'
 label = 'DMXAPI · GPT-6.1 Terra · CDX'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'deepseek-v4.1-flash-1017'
 family = 'deepseek-v4.1-flash-1017'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'doubao-seed-2-1-pro-260915'
 family = 'doubao-seed-2-1-pro-260915'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'gemini-4-argon'
 family = 'gemini-4-argon'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'glm-5.3'
 family = 'glm-5.3'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'grok-4.7'
 family = 'grok-4.7'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'hy4'
 family = 'hy4'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'kimi-k3.1-pro'
 family = 'kimi-k3.1-pro'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'LongCat-2.5'
 family = 'longcat-2.5'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'MiniMax-M3.1-Flash'
 family = 'minimax-m3.1-flash'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'muse-wonder'
 family = 'muse-wonder'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'qwen3.8-max-0902'
 family = 'qwen3.8-max-0902'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'step-5-preview'
 family = 'step-5-preview'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers]]
 id = 'ucloud'
 label = 'UCloud'
-endpoints = {anthropic = 'https://api.modelverse.cn', responses = 'https://api.modelverse.cn/v1', chat = 'https://api.modelverse.cn/v1'}
+endpoints = { anthropic = 'https://api.modelverse.cn', responses = 'https://api.modelverse.cn/v1', chat = 'https://api.modelverse.cn/v1' }
 
 [[providers.models]]
 id = 'claude-opus-5-5'
 family = 'claude-opus-5-5'
-protocols = {anthropic = ['tool_search']}
+protocols = { anthropic = ['tool_search'] }
 
 [[providers.models]]
 id = 'claude-sonnet-5-5'
 family = 'claude-sonnet-5-5'
-protocols = {anthropic = ['tool_search']}
+protocols = { anthropic = ['tool_search'] }
 
 [[providers.models]]
 id = 'claude-haiku-5-5'
 family = 'claude-haiku-5-5'
-protocols = {anthropic = ['tool_search']}
+protocols = { anthropic = ['tool_search'] }
 
 [[providers.models]]
 id = 'gpt-6.1-sol'
 family = 'gpt-6.1-sol'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'gpt-6.1-terra'
 family = 'gpt-6.1-terra'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'deepseek-v4.1-flash-1017'
 family = 'deepseek-v4.1-flash-1017'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'doubao-seed-2-1-pro-260628'
 family = 'doubao-seed-2-1-pro-260628'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'grok-4.7'
 family = 'grok-4.7'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'kimi-k3.1-pro'
 family = 'kimi-k3.1-pro'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'mimo-v2.6-pro'
 family = 'mimo-v2.6-pro'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'minimax-m3.1-flash'
 family = 'minimax-m3.1-flash'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'muse-wonder-1.0'
 family = 'muse-wonder'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'gemini-4-argon'
 family = 'gemini-4-argon'
-protocols = {chat = []}
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'glm-5.3'
 family = 'glm-5.3'
-protocols = {chat = []}
+protocols = { chat = [] }
 
 [[providers]]
 id = 'aihubmix'
 label = 'AIHubMix'
-endpoints = {anthropic = 'https://api.inferera.com', responses = 'https://api.inferera.com/v1', chat = 'https://api.inferera.com/v1'}
+endpoints = { anthropic = 'https://api.inferera.com', responses = 'https://api.inferera.com/v1', chat = 'https://api.inferera.com/v1' }
 
 [[providers.models]]
 id = 'claude-opus-5-5'
 family = 'claude-opus-5-5'
-protocols = {anthropic = []}
+protocols = { anthropic = [] }
 
 [[providers.models]]
 id = 'claude-sonnet-5-5'
 family = 'claude-sonnet-5-5'
-protocols = {anthropic = []}
+protocols = { anthropic = [] }
 
 [[providers.models]]
 id = 'claude-haiku-5-5'
 family = 'claude-haiku-5-5'
-protocols = {anthropic = []}
+protocols = { anthropic = [] }
 
 [[providers.models]]
 id = 'gpt-6.1-sol'
 family = 'gpt-6.1-sol'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'gpt-6.1-terra'
 family = 'gpt-6.1-terra'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'deepseek-v4.1-flash-1017'
 family = 'deepseek-v4.1-flash-1017'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'doubao-seed-2-1-pro-260628'
 family = 'doubao-seed-2-1-pro-260628'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'ernie-5.1'
 family = 'ernie-5.1'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'gemini-4-argon'
 family = 'gemini-4-argon'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'glm-5.3'
 family = 'glm-5.3'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'grok-4.7'
 family = 'grok-4.7'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'minimax-m3.1-flash'
 family = 'minimax-m3.1-flash'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'muse-wonder'
 family = 'muse-wonder'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'qwen3.8-max-2026-09-02'
 family = 'qwen3.8-max-0902'
-protocols = {responses = []}
+protocols = { responses = [] }
 
 [[providers.models]]
 id = 'cohere-command-a'
 family = 'cohere-command-a'
-protocols = {chat = []}
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'hy4'
 family = 'hy4'
-protocols = {chat = []}
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'kimi-k3.1-pro'
 family = 'kimi-k3.1-pro'
-protocols = {chat = []}
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'laguna-s-2.1'
 family = 'laguna-s-2.1'
-protocols = {chat = []}
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'ling-3.0-flash'
 family = 'ling-3.0-flash'
-protocols = {chat = []}
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'mercury-2.5'
 family = 'mercury-2.5'
-protocols = {chat = []}
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'mistral-large-3'
 family = 'mistral-large-3'
-protocols = {chat = []}
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'nemotron-3-ultra-550b-a55b-free'
 family = 'nemotron-3-ultra-550b-a55b'
 label = 'AIHubMix · NVIDIA Nemotron 3 Ultra · FREE'
-protocols = {chat = []}
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'solar-pro4'
 family = 'solar-pro4'
-protocols = {chat = []}
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'step-5-preview'
 family = 'step-5-preview'
-protocols = {chat = []}
+protocols = { chat = [] }
 
 [[families]]
 id = 'claude-opus-5-5'
@@ -415,17 +415,17 @@ id = 'step-5-preview'
 label = 'Step 5 Preview'
 
 [recommendations.claude]
-primary = {model = 'dmxapi/claude-opus-5-5'}
-alternatives = [{model = 'ucloud/claude-opus-5-5'}]
+primary = { model = 'dmxapi/claude-opus-5-5' }
+alternatives = [{ model = 'ucloud/claude-opus-5-5' }]
 
 [recommendations.claude-desktop]
-primary = {model = 'dmxapi/claude-opus-5-5'}
-alternatives = [{model = 'ucloud/claude-opus-5-5'}]
+primary = { model = 'dmxapi/claude-opus-5-5' }
+alternatives = [{ model = 'ucloud/claude-opus-5-5' }]
 
 [recommendations.codex]
-primary = {model = 'dmxapi/gpt-6.1-sol-cdx'}
-alternatives = [{model = 'ucloud/gpt-6.1-sol'}]
+primary = { model = 'dmxapi/gpt-6.1-sol-cdx' }
+alternatives = [{ model = 'ucloud/gpt-6.1-sol' }]
 
 [recommendations.hermes]
-primary = {model = 'dmxapi/gpt-6.1-sol', protocol = 'responses'}
-alternatives = [{model = 'ucloud/gpt-6.1-sol', protocol = 'responses'}]
+primary = { model = 'dmxapi/gpt-6.1-sol', protocol = 'responses' }
+alternatives = [{ model = 'ucloud/gpt-6.1-sol', protocol = 'responses' }]

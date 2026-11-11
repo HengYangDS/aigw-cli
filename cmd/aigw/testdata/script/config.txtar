@@ -118,13 +118,13 @@ version = 8
 [[providers]]
 id = 'team'
 label = 'Team Gateway'
-endpoints = {anthropic = '$UPSTREAM'}
+endpoints = { anthropic = '$UPSTREAM' }
 
 [[providers.models]]
 id = 'team-model'
 family = 'team-model'
 label = 'Team Route'
-protocols = {anthropic = ['text']}
+protocols = { anthropic = ['text'] }
 
 [[families]]
 id = 'team-model'

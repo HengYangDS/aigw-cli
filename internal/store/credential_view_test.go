@@ -28,8 +28,8 @@ func TestCredentialViewHoldsOnlyTheFrozenFields(t *testing.T) {
 	newer := strings.NewReplacer(
 		"version = 8", "version = 99\nreader = 'unknown'",
 		"label = 'AIHubMix'", "label = 2\nregion = 'eu'",
-		"protocols = {chat = []}", "protocols = 'chat'\ncontext = 'large'",
-		"endpoints = {chat = 'https://aihubmix.com/v1'}", "endpoints = {chat = 'https://aihubmix.com/v1', messages = 'https://aihubmix.com/messages'}",
+		"protocols = { chat = [] }", "protocols = 'chat'\ncontext = 'large'",
+		"endpoints = { chat = 'https://aihubmix.com/v1' }", "endpoints = { chat = 'https://aihubmix.com/v1', messages = 'https://aihubmix.com/messages' }",
 		"enabled = true", "enabled = true\ntheme = 'dark'",
 	).Replace(text)
 	for name, document := range map[string]string{"schema 8": text, "a newer file": newer} {
