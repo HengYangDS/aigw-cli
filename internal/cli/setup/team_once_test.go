@@ -34,7 +34,7 @@ label = "Team Model"
 	}
 	text := home.out.String()
 	var rows []string
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		if strings.Contains(line, "team/team-model chat") {
 			rows = append(rows, line)
 		}

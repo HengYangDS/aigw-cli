@@ -4,7 +4,6 @@ import (
 	"path/filepath"
 
 	"aigw-cli/internal/adapter/discovery"
-	"aigw-cli/internal/app"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -39,7 +38,8 @@ func TestApplyCommandRepeatsTheGivenFlags(t *testing.T) {
 func TestGivenPathNamesHomeAsTheShellDoes(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "home")
 	outside := filepath.Join(t.TempDir(), "elsewhere", "aigw")
-	runtime := Context{Dependencies: app.Dependencies{Host: discovery.Host{Home: home}}}
+	var runtime Context
+	runtime.Host = discovery.Host{Home: home}
 	for _, test := range []struct{ path, want string }{
 		{filepath.Join(home, ".local", "bin", "aigw"), "~/.local/bin/aigw"},
 		{outside, outside},
