@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli/invocation"
@@ -388,4 +389,32 @@ func environmentBackend(getenv func(string) string) secret.Store {
 		panic(err)
 	}
 	return store
+}
+
+// Choosing a client in guided setup asks to use it, so a disabled client that
+// moves to another model is enabled, and the saved rows say so.
+func TestGuidedSetupEnablesTheDisabledClientItConfigures(t *testing.T) {
+	home := newGuidedHome(t, codex.ID)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Providers["team"] = domain.Provider{Label: "Team Gateway", Endpoints: domain.Endpoints{Responses: "https://team.test/v1"}}
+	old := domain.NewModelRef("team", "old-model")
+	cfg.Models[old] = domain.Model{Provider: "team", ID: "old-model", Family: "old-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Clients[codex.ID] = domain.ClientBinding{Model: old, Protocol: domain.ProtocolResponses}
+	if err := home.runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := home.secrets.Set("team", "sk-stored"); err != nil {
+		t.Fatal(err)
+	}
+	prompt := &guidedPrompt{selections: []string{"team", "team-model"}}
+	if err := home.run(t, prompt); err != nil {
+		t.Fatalf("guided setup: %v\n%s", err, home.out)
+	}
+	binding := home.config(t).Clients[codex.ID]
+	if !binding.Enabled || binding.Model != domain.NewModelRef("team", "team-model") {
+		t.Fatalf("the client after setup: %+v", binding)
+	}
+	if !strings.Contains(home.out.String(), "now enabled") {
+		t.Fatalf("setup did not report the enabling:\n%s", home.out)
+	}
 }

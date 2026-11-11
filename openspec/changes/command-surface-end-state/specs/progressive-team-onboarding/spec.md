@@ -63,6 +63,13 @@ with `--json` or `--dry-run`, it SHALL refuse and name
   say so, unless the operator replaces it explicitly with guarded
   compensation.
 
+#### Scenario: Guided setup enables the client it configures
+
+- **GIVEN** a client that is disabled on a model of its own
+- **WHEN** guided setup selects that client and another model for it
+- **THEN** the client SHALL be enabled
+- **AND** the saved rows SHALL say that it was disabled and is now enabled.
+
 ### Requirement: A team file merges without redirecting providers or clients
 
 `aigw setup --from <file>` SHALL apply a team file in one transaction. The

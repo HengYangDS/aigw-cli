@@ -86,10 +86,15 @@ func runGuided(cmd *cobra.Command, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
+	// Choosing a client here asks to use it, so its selection enables it.
+	wasDisabled := !g.before.Clients[spec.ID].Enabled && !g.before.Clients[spec.ID].Model.IsZero()
+	binding := after.Clients[spec.ID]
+	binding.Enabled = true
+	after.Clients[spec.ID] = binding
 	if _, _, _, err := synchronizer.SelectModel(cmd.Context(), cfg, after, spec.ID, provider.token); err != nil {
 		return err
 	}
-	if err := g.renderSaved(provider, spec, selected); err != nil {
+	if err := g.renderSaved(provider, spec, selected, wasDisabled); err != nil {
 		return err
 	}
 	return g.check(spec.ID)
@@ -359,11 +364,15 @@ func withModel(cfg *domain.Config, ref domain.ModelRef, protocol domain.Endpoint
 }
 
 // renderSaved reports what setup saved, before the check runs.
-func (g guidedSetup) renderSaved(provider guidedProvider, spec domain.ClientSpec, selected domain.Runtime) error {
+func (g guidedSetup) renderSaved(provider guidedProvider, spec domain.ClientSpec, selected domain.Runtime, enabled bool) error {
 	r := invocation.Renderer(g.runtime)
 	r.ProductTitle("Setup saved")
-	r.Rows(append(g.providerFields(provider),
-		terminal.Field{Label: spec.Label, Value: g.modelRef(selected).String() + " on " + domain.ProtocolLabel(selected.Protocol)})...)
+	rows := append(g.providerFields(provider),
+		terminal.Field{Label: spec.Label, Value: g.modelRef(selected).String() + " on " + domain.ProtocolLabel(selected.Protocol)})
+	if enabled {
+		rows = append(rows, terminal.Field{State: terminal.OK, Label: "Client", Value: spec.Label + " was disabled and is now enabled"})
+	}
+	r.Rows(rows...)
 	r.Success("Saved; the check below tells whether " + spec.Label + " works")
 	return r.Err()
 }

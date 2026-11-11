@@ -112,7 +112,9 @@ func (s Synchronizer) selectionClients(before, after domain.Config, client strin
 // client that is disabled on a model of its own is enabled only by selecting
 // that model and protocol again, the step that resumes it; moving its
 // selection to another model or protocol, which is what the fix of a refused
-// edit or removal runs, keeps it disabled until `aigw client enable`.
+// edit or removal runs, keeps it disabled until `aigw client enable`. A
+// caller that asks to use the client, as guided setup does, sets next.Enabled
+// itself.
 func selectionEnables(previous, next domain.ClientBinding) bool {
-	return previous.Enabled || previous.Model.IsZero() || (previous.Model == next.Model && (previous.Protocol == "" || previous.Protocol == next.Protocol))
+	return previous.Enabled || next.Enabled || previous.Model.IsZero() || (previous.Model == next.Model && (previous.Protocol == "" || previous.Protocol == next.Protocol))
 }
