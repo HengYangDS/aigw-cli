@@ -168,6 +168,14 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 				t.Fatalf("%s/%s leaks installation transport into product verification", projection.Path, name)
 			}
 			for _, step := range job.Steps {
+				for _, forbidden := range []string{"MISE_NETRC", "MISE_NETRC_FILE", "MISE_GITLAB_TOKEN"} {
+					if _, set := step.Env[forbidden]; set {
+						t.Fatalf("%s/%s step carries %s, a GitLab tool-supply credential, into a GitHub toolchain", projection.Path, name, forbidden)
+					}
+					if _, set := job.Env[forbidden]; set {
+						t.Fatalf("%s/%s carries %s, a GitLab tool-supply credential, into a GitHub toolchain", projection.Path, name, forbidden)
+					}
+				}
 				transport := ""
 				if strings.HasPrefix(step.Uses, "jdx/mise-action@") {
 					transport = "http2client=0"
