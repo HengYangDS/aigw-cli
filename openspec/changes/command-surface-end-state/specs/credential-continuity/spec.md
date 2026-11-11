@@ -3,10 +3,10 @@
 ### Requirement: The credential reader decodes a frozen view
 
 The credential reader SHALL decode from `aigw.toml` only each provider's ID and
-endpoints, the protocol keys of its models, and each client's enabled state and
-authentication. It SHALL ignore `version`, every other field and unknown
-protocol keys, refuse a client whose authentication kind it does not know,
-match fingerprints exactly and check no client's selection.
+endpoints and each client's enabled state and authentication. It SHALL ignore
+`version`, every other field and unknown protocol keys, refuse a client whose
+authentication kind it does not know, match fingerprints exactly and check no
+client's selection.
 
 #### Scenario: Unknown fields and a newer version are ignored
 
@@ -27,8 +27,7 @@ match fingerprints exactly and check no client's selection.
 
 #### Scenario: An unknown protocol key is ignored
 
-- **WHEN** a provider's endpoints or a model's protocols hold a protocol key
-  this reader does not know
+- **WHEN** a provider's endpoints hold a protocol key this reader does not know
 - **THEN** the reader SHALL ignore that key
 - **AND** it SHALL still return the Token for a fingerprint that matches an
   endpoint of a protocol it knows.

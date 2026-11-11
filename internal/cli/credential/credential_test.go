@@ -223,7 +223,10 @@ func TestCredentialHelperRejectsStaleBindingBeforeSecretAccess(t *testing.T) {
 				case "client":
 					fingerprintClient = "another-client"
 				case "account":
+					// The model moves to another provider with the same
+					// endpoints, and its provider goes.
 					cfg.Providers["other"] = cfg.Providers[projection.ProviderID]
+					delete(cfg.Providers, projection.ProviderID)
 					route := cfg.Models[clientModel(client)]
 					delete(cfg.Models, route.Ref())
 					route.Provider = "other"

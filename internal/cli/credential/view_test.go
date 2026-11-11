@@ -37,7 +37,7 @@ func TestCredentialReaderIgnoresWhatItsViewLeavesOut(t *testing.T) {
 		},
 		"malformed fields outside the view": {
 			"label = 'Gateway'", "label = 5",
-			"protocols = {responses = []}", "protocols = {responses = ['future_capability']}\ndeprecated = 'yes'\nfamily = 7",
+			"protocols = {responses = []}", "protocols = 'responses'\ndeprecated = 'yes'\nfamily = 7",
 			"protocol = 'responses'", "protocol = 'messages'\nretries = 'many'",
 		},
 		"protocols that the reader does not know": {
@@ -113,8 +113,10 @@ func TestCredentialReaderRefusesAClientItCannotServe(t *testing.T) {
 }
 
 // A session that a client left keeps its provider's Token while the provider
-// and its endpoint exist, because the reader checks no selection, and gets
-// none once either is gone.
+// and its endpoint exist, even when no model of the provider is left on that
+// protocol, because the reader checks no selection and reads no model; once
+// the endpoint or the provider goes, it returns no Token and reads no
+// credential.
 func TestCredentialReaderServesALeftProviderWhileItExists(t *testing.T) {
 	runtime, stdout := helperRuntime(t, codex.ID, true)
 	session := helperArgs(t, runtime, codex.ID)
@@ -136,16 +138,23 @@ func TestCredentialReaderServesALeftProviderWhileItExists(t *testing.T) {
 	if err := command.RunE(command, session); err != nil || stdout.String() != "gateway-token\n" {
 		t.Fatalf("the session that Codex left = %q, %v", stdout.String(), err)
 	}
+	// The provider's last model on the session's protocol goes; its endpoint
+	// stays.
+	delete(cfg.Models, clientModel(codex.ID))
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	if err := command.RunE(command, session); err != nil || stdout.String() != "gateway-token\n" {
+		t.Fatalf("the session without a model on its protocol = %q, %v", stdout.String(), err)
+	}
 	for name, change := range map[string]func(*domain.Config){
 		"the endpoint": func(cfg *domain.Config) {
 			provider := cfg.Providers["gateway"]
 			provider.Endpoints.Responses = "https://moved.test/v1"
 			cfg.Providers["gateway"] = provider
 		},
-		"the provider": func(cfg *domain.Config) {
-			delete(cfg.Models, clientModel(codex.ID))
-			delete(cfg.Providers, "gateway")
-		},
+		"the provider": func(cfg *domain.Config) { delete(cfg.Providers, "gateway") },
 	} {
 		t.Run(name, func(t *testing.T) {
 			changed := cfg.Clone()
@@ -154,9 +163,12 @@ func TestCredentialReaderServesALeftProviderWhileItExists(t *testing.T) {
 				t.Fatal(err)
 			}
 			stdout.Reset()
-			command := NewCommand(runtime)
-			if err := command.RunE(command, session); err == nil || stdout.Len() != 0 {
-				t.Fatalf("without %s the reader = %q, %v", name, stdout.String(), err)
+			secrets := &refusingSecretStore{}
+			reader := runtime
+			reader.Secrets = secrets
+			command := NewCommand(reader)
+			if err := command.RunE(command, session); err == nil || stdout.Len() != 0 || secrets.getCalls != 0 || secrets.existsCalls != 0 {
+				t.Fatalf("without %s the reader = %q, %v, reads %d/%d", name, stdout.String(), err, secrets.getCalls, secrets.existsCalls)
 			}
 		})
 	}

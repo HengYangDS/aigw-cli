@@ -178,9 +178,8 @@ func (s ClientSpec) CompatibleModelProtocols(account Provider, route Model) []En
 }
 
 // modelAdmittedProtocols returns the protocols that a model declares. A
-// model that declares none admits none, never every protocol, so that the
-// credential reader's view and the program agree on which endpoints a model
-// reaches.
+// model that declares none admits none, never every protocol, because AIGW
+// uses a model only on the protocols that it declares.
 func modelAdmittedProtocols(model Model) []EndpointProtocol {
 	return append([]EndpointProtocol{}, model.AdmittedProtocols()...)
 }

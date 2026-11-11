@@ -9,11 +9,7 @@ import (
 func credentialViewOf(cfg Config) CredentialView {
 	view := CredentialView{Clients: map[string]CredentialClient{}}
 	for _, id := range cfg.ProviderIDs() {
-		provider := CredentialProvider{ID: id, Endpoints: cfg.Providers[id].Endpoints}
-		for _, ref := range cfg.ProviderModelRefs(id) {
-			provider.Models = append(provider.Models, modelAdmittedProtocols(cfg.Models[ref]))
-		}
-		view.Providers = append(view.Providers, provider)
+		view.Providers = append(view.Providers, CredentialProvider{ID: id, Endpoints: cfg.Providers[id].Endpoints})
 	}
 	for client, binding := range cfg.Clients {
 		view.Clients[client] = CredentialClient{Enabled: binding.Enabled, Authentication: binding.Authentication}
@@ -63,18 +59,20 @@ func TestCredentialViewServesEveryFingerprintThatTheProgramProjects(t *testing.T
 }
 
 // TestCredentialViewRefusesWhatItCannotServe refuses a disabled client, a
-// client that authenticates itself or with an unknown authentication, and
-// an endpoint that no model of its provider declares, by name.
+// client that authenticates itself or with an unknown authentication, and a
+// fingerprint that no provider's endpoint has, by name. An endpoint serves
+// its fingerprint whatever the provider's models declare, because the view
+// holds no model.
 func TestCredentialViewRefusesWhatItCannotServe(t *testing.T) {
 	spec := ClientSpec{ID: ClientCodex, EndpointProtocols: []EndpointProtocol{ProtocolResponses}}
 	fingerprint := upstreamIdentity(ClientCodex, "gateway", "https://gateway.test/v1")
-	view := func(client CredentialClient, models ...[]EndpointProtocol) CredentialView {
+	view := func(client CredentialClient, endpoints Endpoints) CredentialView {
 		return CredentialView{
-			Providers: []CredentialProvider{{ID: "gateway", Endpoints: Endpoints{Responses: "https://gateway.test/v1"}, Models: models}},
+			Providers: []CredentialProvider{{ID: "gateway", Endpoints: endpoints}},
 			Clients:   map[string]CredentialClient{ClientCodex: client},
 		}
 	}
-	responses := []EndpointProtocol{ProtocolResponses}
+	responses := Endpoints{Responses: "https://gateway.test/v1/"}
 	if provider, err := view(CredentialClient{Enabled: true}, responses).TokenProvider(spec, fingerprint); err != nil || provider != "gateway" {
 		t.Fatalf("the served client = %q, %v", provider, err)
 	}
@@ -82,12 +80,12 @@ func TestCredentialViewRefusesWhatItCannotServe(t *testing.T) {
 		view CredentialView
 		want error
 	}{
-		"disabled":                  {view(CredentialClient{Authentication: AuthenticationProviderToken}, responses), ErrCredentialClientDisabled},
-		"absent":                    {CredentialView{}, ErrCredentialClientDisabled},
-		"authenticated by itself":   {view(CredentialClient{Enabled: true, Authentication: AuthenticationClientNative}, responses), ErrCredentialClientOwned},
-		"no model on the protocol":  {view(CredentialClient{Enabled: true}, []EndpointProtocol{ProtocolChat}), errCredentialUnmatched},
-		"a model without protocols": {view(CredentialClient{Enabled: true}, []EndpointProtocol{}), errCredentialUnmatched},
-		"no model":                  {view(CredentialClient{Enabled: true}), errCredentialUnmatched},
+		"disabled":                {view(CredentialClient{Authentication: AuthenticationProviderToken}, responses), ErrCredentialClientDisabled},
+		"absent":                  {CredentialView{}, ErrCredentialClientDisabled},
+		"authenticated by itself": {view(CredentialClient{Enabled: true, Authentication: AuthenticationClientNative}, responses), ErrCredentialClientOwned},
+		"another protocol":        {view(CredentialClient{Enabled: true}, Endpoints{Anthropic: "https://gateway.test/v1"}), errCredentialUnmatched},
+		"another endpoint":        {view(CredentialClient{Enabled: true}, Endpoints{Responses: "https://moved.test/v1"}), errCredentialUnmatched},
+		"no provider":             {CredentialView{Clients: map[string]CredentialClient{ClientCodex: {Enabled: true}}}, errCredentialUnmatched},
 	} {
 		if provider, err := test.view.TokenProvider(spec, fingerprint); !errors.Is(err, test.want) || provider != "" {
 			t.Errorf("%s = %q, %v; want %v", name, provider, err, test.want)

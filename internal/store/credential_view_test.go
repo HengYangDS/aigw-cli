@@ -13,27 +13,22 @@ import (
 )
 
 // TestCredentialViewHoldsOnlyTheFrozenFields pins the reader's view of a
-// file with every schema 8 field: each provider's ID and endpoints, the
-// protocols of its models and each client's enabled state and
-// authentication, which a newer version and unknown fields leave as they
-// are.
+// file with every schema 8 field: each provider's ID and endpoints and each
+// client's enabled state and authentication, which a newer version, unknown
+// fields and malformed models leave as they are.
 func TestCredentialViewHoldsOnlyTheFrozenFields(t *testing.T) {
 	_, text := schemaEightConfig(t)
 	want := domain.CredentialView{
 		Providers: []domain.CredentialProvider{
-			{
-				ID:        "dmxapi",
-				Endpoints: domain.Endpoints{Anthropic: "https://www.dmxapi.cn", Responses: "https://www.dmxapi.cn/v1"},
-				Models:    [][]domain.EndpointProtocol{{domain.ProtocolResponses}, {domain.ProtocolAnthropic}},
-			},
-			{ID: "aihubmix", Endpoints: domain.Endpoints{Chat: "https://aihubmix.com/v1"}, Models: [][]domain.EndpointProtocol{{domain.ProtocolChat}}},
+			{ID: "dmxapi", Endpoints: domain.Endpoints{Anthropic: "https://www.dmxapi.cn", Responses: "https://www.dmxapi.cn/v1"}},
+			{ID: "aihubmix", Endpoints: domain.Endpoints{Chat: "https://aihubmix.com/v1"}},
 		},
 		Clients: map[string]domain.CredentialClient{ClientClaude: {}, ClientCodex: {Enabled: true}, ClientHermes: {}},
 	}
 	newer := strings.NewReplacer(
 		"version = 8", "version = 99\nreader = 'unknown'",
 		"label = 'AIHubMix'", "label = 2\nregion = 'eu'",
-		"protocols = {chat = []}", "protocols = {chat = ['future'], messages = []}\ncontext = 'large'",
+		"protocols = {chat = []}", "protocols = 'chat'\ncontext = 'large'",
 		"endpoints = {chat = 'https://aihubmix.com/v1'}", "endpoints = {chat = 'https://aihubmix.com/v1', messages = 'https://aihubmix.com/messages'}",
 		"enabled = true", "enabled = true\ntheme = 'dark'",
 	).Replace(text)
