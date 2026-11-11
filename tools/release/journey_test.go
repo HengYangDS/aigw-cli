@@ -300,26 +300,9 @@ primary = {model = "native-system-keyring-probe/claude-test"}
 	if installClient {
 		journey.installClientFixture("claude")
 	}
-	install := journey.lifecycle(source, "install")
-	journey.runWith(source, append(install, journey.pathFlag(source, install...), journey.binary)...)
+	journey.runWith(source, "self", "install", "--path", journey.binary)
 	journey.run("--version")
 	return journey
-}
-
-// pathFlag is the flag with which program's install or uninstall, spelled as
-// command, names the installed program, as that command's own help lists it
-// in its flag column: --path, or --target in a release before 0.5.0, so a
-// journey can start from any published release. It reads the help outside
-// the test's context, which a registered cleanup's uninstall outlives.
-func (j *journeyFixture) pathFlag(program string, command ...string) string {
-	j.testing.Helper()
-	help := j.runWithContext(context.WithoutCancel(j.testing.Context()), program, "", append(slices.Clone(command), "--help")...)
-	for line := range strings.Lines(string(help)) {
-		if strings.HasPrefix(strings.TrimSpace(line), "--path ") {
-			return "--path"
-		}
-	}
-	return "--target"
 }
 
 func (j *journeyFixture) installClientFixture(client string) {
@@ -436,8 +419,7 @@ func (j *journeyFixture) uninstallAndRequireInstallationRemoved() {
 func (j *journeyFixture) uninstallWithAndRequireInstallationRemoved(binary string) {
 	j.testing.Helper()
 	reader := j.captureCredentialReader()
-	uninstall := j.lifecycle(binary, "uninstall")
-	j.runWithContext(context.WithoutCancel(j.testing.Context()), binary, "", append(uninstall, j.pathFlag(binary, uninstall...), j.binary)...)
+	j.runWithContext(context.WithoutCancel(j.testing.Context()), binary, "", "self", "uninstall", "--path", j.binary)
 	j.requireInstallationRemoved()
 	reader.requireUnchanged(j.testing)
 }

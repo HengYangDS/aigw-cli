@@ -226,7 +226,7 @@ label = "Claude Second"
 		j.setEnvironment(secret.EnvironmentKey(account), token)
 		j.run(args...)
 	} else {
-		j.runWithInput(j.binary, token+"\n", append(args, j.tokenOwner(j.binary), account, "--token-stdin")...)
+		j.runWithInput(j.binary, token+"\n", append(args, "--provider", account, "--token-stdin")...)
 	}
 	j.requireClaudeCredential(token)
 	var catalog struct {

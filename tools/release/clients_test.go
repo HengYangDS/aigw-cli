@@ -153,7 +153,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	server, hermesSession := newNativeClientServer(t, client, protocol, route.ID, token, &completions)
 	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
 	if client == hermes.ID && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
-		journey.run(journey.lifecycle(journey.binary, "update", "--archive", p.archive, "--checksums", p.checksums)...)
+		journey.run("self", "update", "--archive", p.archive, "--checksums", p.checksums)
 		journey.requireVersion(p.version)
 		journey.requireProgramBytes(p.candidate)
 	}
@@ -182,11 +182,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 				journey.preprojectReplacement(p.candidate, client, token, configurationBefore, retainedCredential)
 			}
 			projectedCredential := journey.retainedCredential(client)
-			args := step.args
-			if args[0] == "self" {
-				args = journey.lifecycle(journey.binary, args[1:]...)
-			}
-			journey.run(args...)
+			journey.run(step.args...)
 			if !bytes.Equal(readFile(t, journey.config), configurationBefore) {
 				t.Fatal("lifecycle operation changed the retained client configuration")
 			}

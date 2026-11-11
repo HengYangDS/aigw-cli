@@ -82,7 +82,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		t.Fatalf("candidate diagnostic credential did not survive update and rollback: %v", err)
 	}
 	configurationBeforeRotation := readFile(t, journey.config)
-	journey.runWithInput(journey.binary, replacement+"\n", journey.rotation(journey.binary, sourceAccount)...)
+	journey.runWithInput(journey.binary, replacement+"\n", "provider", "rotate", sourceAccount, "--token-stdin")
 	if !bytes.Equal(configurationBeforeRotation, readFile(t, journey.config)) {
 		t.Fatal("successor Token rotation changed retained configuration")
 	}
@@ -99,10 +99,10 @@ func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
 	const rotated = "native-system-keyring-rotated-after-rollback"
 	journey := state.journey
 	retained := append(prior, journey.retainedCredentials()...)
-	journey.run(journey.lifecycle(journey.binary, "rollback")...)
+	journey.run("self", "rollback")
 	journey.requireVersion(predecessorVersion)
 	configurationBefore := readFile(t, journey.config)
-	journey.runWithInput(journey.binary, rotated+"\n", journey.rotation(journey.binary, account)...)
+	journey.runWithInput(journey.binary, rotated+"\n", "provider", "rotate", account, "--token-stdin")
 	if !bytes.Equal(configurationBefore, readFile(t, journey.config)) {
 		t.Fatal("legacy Token rotation changed retained configuration")
 	}
@@ -116,7 +116,7 @@ func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
 	if !bytes.Equal(configurationBefore, readFile(t, journey.config)) {
 		t.Fatal("candidate reader preprojection changed retained configuration")
 	}
-	journey.run(journey.lifecycle(journey.binary, "update", "--archive", state.archive, "--checksums", state.checksums)...)
+	journey.run("self", "update", "--archive", state.archive, "--checksums", state.checksums)
 	for _, credential := range retained {
 		journey.requireCredential(credential, rotated)
 	}
@@ -142,7 +142,7 @@ func preprojectNativeCredentialJourney(t *testing.T, journey *journeyFixture, ca
 		journey: journey, candidate: candidate, predecessor: readFile(t, journey.config),
 		clients: clients, retained: retained,
 	}
-	bridge.preprojectForLinkGap(t, oldVersion, token)
+	bridge.preprojectForLinkGap(t, token)
 	return predecessorReaders
 }
 
@@ -192,8 +192,7 @@ func finishNativeCredentialJourney(
 	if got, err := diagnostics.Get(sourceAccount); err != nil || got != wantDiagnostic {
 		t.Fatalf("uninstall removed the retained diagnostic credential: %v", err)
 	}
-	install := journey.lifecycle(journey.source, "install")
-	journey.runWith(journey.source, append(install, journey.pathFlag(journey.source, install...), journey.binary)...)
+	journey.runWith(journey.source, "self", "install", "--path", journey.binary)
 	journey.run("sync")
 	journey.requireNoClaudeProjection()
 	// The clients use the target provider's model, whose model ID stays the
@@ -407,12 +406,12 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 		program string
 		args    []string
 	}{
-		{newVersion, candidate, []string{"update", "--archive", archive, "--checksums", checksums}},
-		{oldVersion, j.source, []string{"rollback"}},
-		{newVersion, candidate, []string{"update", "--archive", archive, "--checksums", checksums}},
+		{newVersion, candidate, []string{"self", "update", "--archive", archive, "--checksums", checksums}},
+		{oldVersion, j.source, []string{"self", "rollback"}},
+		{newVersion, candidate, []string{"self", "update", "--archive", archive, "--checksums", checksums}},
 	} {
 		configurationBefore := readFile(j.testing, j.config)
-		j.run(j.lifecycle(j.binary, step.args...)...)
+		j.run(step.args...)
 		if !bytes.Equal(readFile(j.testing, j.config), configurationBefore) {
 			j.testing.Fatal("credential lifecycle changed the retained client configuration")
 		}

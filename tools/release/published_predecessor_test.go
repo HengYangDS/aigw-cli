@@ -68,7 +68,7 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 	predecessorVersion := journey.journey.predecessorVersion(version)
 	journey.prepare(t, nativeCurrentSchemaManifest(server.URL+"/v1"))
 	if runtime.GOOS == "darwin" {
-		journey.preprojectForLinkGap(t, predecessorVersion, "native-journey-token")
+		journey.preprojectForLinkGap(t, "native-journey-token")
 	}
 	journey.upgrade(t)
 	journey.rollbackAndRecover(t, predecessorVersion)
@@ -125,7 +125,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	journey := newNativeJourney(t, baseline, upstream.URL+"/v1", true)
 	state := publishedNativeJourney{journey: journey, baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version, clients: deferredJourneyClientIDs()}
 	state.prepare(t, nativeCurrentSchemaManifest(upstream.URL+"/v1"))
-	journey.run(journey.lifecycle(journey.binary, "update", "--archive", archive, "--checksums", checksums)...)
+	journey.run("self", "update", "--archive", archive, "--checksums", checksums)
 	configStore := store.NewStore(journey.config, builtinclients.Admission())
 	before := capturePublishedSnapshot(t, configStore)
 	endpoint := forwarding.URL + "/selected/v1"
@@ -186,23 +186,23 @@ func capturePublishedSnapshot(t *testing.T, configStore store.Store) store.Snaps
 func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint string, selected store.Snapshot, baseline string) {
 	journey := state.journey
 	configStore := store.NewStore(journey.config, builtinclients.Admission())
-	journey.run(journey.configRollback(journey.binary, "--last-change")...)
+	journey.run("config", "rollback", "--last-change")
 	cfg, err := configStore.Load()
 	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != "" {
 		t.Fatalf("configuration rollback retained forwarding: %v", err)
 	}
-	journey.run(journey.configRollback(journey.binary, "--last-change")...)
+	journey.run("config", "rollback", "--last-change")
 	restored, err := configStore.CaptureSnapshot()
 	if err != nil || !restored.Config.Equal(selected.Config) {
 		t.Fatalf("configuration forward restore lost exact binding bytes: %v", err)
 	}
-	journey.run(journey.lifecycle(journey.binary, "rollback")...)
+	journey.run("self", "rollback")
 	journey.requireProgramBytes(baseline)
 	for _, client := range state.clients {
 		journey.requireCredential(state.retained[client], "native-journey-token")
 	}
 	journey.runWith(state.candidate, "sync")
-	journey.run(journey.lifecycle(journey.binary, "update", "--archive", state.archive, "--checksums", state.checksums)...)
+	journey.run("self", "update", "--archive", state.archive, "--checksums", state.checksums)
 	journey.requireProgramBytes(state.candidate)
 	cfg, err = configStore.Load()
 	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint {
@@ -298,7 +298,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	state.sessionBytes = sessionBytes
 }
 
-func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, predecessorVersion, token string) {
+func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, token string) {
 	journey := state.journey
 	journey.runWith(state.candidate, "sync")
 	for _, client := range state.clients {
@@ -326,11 +326,8 @@ func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, predeces
 	for _, client := range state.clients {
 		journey.requireCredential(journey.retainedCredential(client), token)
 		predecessor := state.retained[client]
-		legacyMutable := predecessor.Executable == journey.binary || strings.Contains(strings.Join(predecessor.Args, "\x00"), journey.binary)
-		if predecessorVersion == "0.3.1" && !legacyMutable {
-			t.Fatalf("0.3.1 %s fixture did not expose the mutable credential command", client)
-		}
-		if !legacyMutable {
+		referencesLink := predecessor.Executable == journey.binary || strings.Contains(strings.Join(predecessor.Args, "\x00"), journey.binary)
+		if !referencesLink {
 			journey.requireCredential(predecessor, token)
 			continue
 		}
@@ -345,7 +342,7 @@ func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, predeces
 
 func (state *publishedNativeJourney) upgrade(t *testing.T) {
 	journey := state.journey
-	journey.run(journey.lifecycle(journey.binary, "update", "--archive", state.archive, "--checksums", state.checksums)...)
+	journey.run("self", "update", "--archive", state.archive, "--checksums", state.checksums)
 	for _, client := range state.clients {
 		journey.requireCredential(state.retained[client], "native-journey-token")
 	}
@@ -370,7 +367,7 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), clientverification.ProtocolTimeout)
 	stdout, stderr, rollbackErr := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
-		Executable: journey.binary, Args: journey.lifecycle(journey.binary, "rollback"), Env: journey.environment,
+		Executable: journey.binary, Args: []string{"self", "rollback"}, Env: journey.environment,
 	})
 	cancel()
 	if len(stderr) != 0 {
@@ -399,7 +396,7 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
 	}
 
-	journey.run(journey.lifecycle(journey.binary, "update", "--archive", state.archive, "--checksums", state.checksums)...)
+	journey.run("self", "update", "--archive", state.archive, "--checksums", state.checksums)
 	for _, client := range state.clients {
 		journey.requireCredential(state.retained[client], "native-journey-token")
 		journey.requireCredential(successor[client], "native-journey-token")

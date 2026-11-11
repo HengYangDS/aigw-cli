@@ -250,7 +250,7 @@ func (j *journeyFixture) requireCredential(plan process.Plan, want string) {
 // local check, which the baseline and the candidate both report in this shape.
 func (j *journeyFixture) requireCredentialBackend(token string, want secret.BackendSelection) {
 	j.testing.Helper()
-	for _, command := range [][]string{{"status", "--json"}, j.localCheck(j.binary)} {
+	for _, command := range [][]string{{"status", "--json"}, {"check", "--depth", "local", "--json"}} {
 		output := j.run(command...)
 		if bytes.Contains(output, []byte(token)) {
 			j.testing.Fatalf("%s disclosed the credential", strings.Join(command, " "))

@@ -26,7 +26,7 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	journey := newNativeJourney(t, baseline, "https://unused.example.test", false)
 	journey.run("setup", "--from", journey.manifest)
 	original := readFile(t, journey.config)
-	journey.run(journey.lifecycle(journey.binary, "update", "--archive", archive, "--checksums", checksums)...)
+	journey.run("self", "update", "--archive", archive, "--checksums", checksums)
 	journey.run("setup", "--from", journey.manifest)
 	compatibility := exec.CommandContext(t.Context(), baseline, "config", "export")
 	compatibility.Env = journey.environment
@@ -52,7 +52,7 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 		}
 		want[path] = snapshot
 	}
-	command := exec.CommandContext(t.Context(), journey.binary, journey.lifecycle(journey.binary, "rollback")...)
+	command := exec.CommandContext(t.Context(), journey.binary, "self", "rollback")
 	command.Env = journey.environment
 	output, err := command.CombinedOutput()
 	if err == nil || !strings.Contains(string(output), "Program rollback did not complete") ||
@@ -71,12 +71,12 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 			t.Fatal(err)
 		}
 	} else {
-		journey.run(journey.configRollback(journey.binary, "--last-change")...)
+		journey.run("config", "rollback", "--last-change")
 	}
-	journey.run(journey.lifecycle(journey.binary, "rollback")...)
+	journey.run("self", "rollback")
 	journey.run("config", "export")
 	journey.requireProgramBytes(baseline)
-	journey.run(journey.lifecycle(journey.binary, "update", "--archive", archive, "--checksums", checksums)...)
+	journey.run("self", "update", "--archive", archive, "--checksums", checksums)
 	journey.requireProgramBytes(candidate)
 	journey.run("config", "export")
 	journey.uninstallAndRequireInstallationRemoved()

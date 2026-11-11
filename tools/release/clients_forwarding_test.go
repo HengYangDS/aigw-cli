@@ -74,7 +74,7 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	// client freezes it, as Hermes does for its CLI sessions; it must still
 	// complete through its original credential reference.
 	continueClient()
-	j.run(j.configRollback(j.binary, "--last-change")...)
+	j.run("config", "rollback", "--last-change")
 	restored := capturePublishedSnapshot(j.testing, configStore)
 	if !restored.Config.Equal(before.Config) {
 		j.testing.Fatal("native forwarding rollback lost the original binding bytes")

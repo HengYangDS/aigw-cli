@@ -6,14 +6,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -124,7 +121,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 		t.Fatalf("retry selection changed cached predecessor credential input: binding before=%+v after=%+v", before.Clients[codex.ID], after.Clients[codex.ID])
 	}
 	journey.requireCredential(retained, token)
-	journey.requireRetryRollbackBoundary(p.baseline)
+	journey.requireRetryRollbackAdmission(p.baseline)
 	path := filepath.Join(journey.root, "home", ".codex", "config.toml")
 	var native struct {
 		Provider  string `toml:"model_provider"`
@@ -158,36 +155,6 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 }
 
-// retryPolicyReaderFloor is the first release whose configuration reader decodes
-// a client retry policy: `--request-max-retries` shipped in 0.4.17.
-var retryPolicyReaderFloor = []int{0, 4, 17}
-
-// requireRetryRollbackBoundary holds a retained baseline to the boundary it
-// actually has. Program rollback probes the retained reader itself; the
-// release history supplies the independent expectation.
-func (j *journeyFixture) requireRetryRollbackBoundary(baseline string) {
-	j.testing.Helper()
-	if j.readsRetryPolicy(baseline) {
-		j.requireRetryRollbackAdmission(baseline)
-		return
-	}
-	j.requireRetryRollbackRefusal(baseline)
-}
-
-func (j *journeyFixture) readsRetryPolicy(executable string) bool {
-	t := j.testing
-	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-	defer cancel()
-	output, _, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: executable, Args: []string{"--version"}, Env: j.environment, Directory: j.root})
-	reported, found := strings.CutPrefix(strings.TrimSpace(string(output)), "aigw version ")
-	version := make([]int, 3)
-	if _, scanErr := fmt.Sscanf(reported, "%d.%d.%d", &version[0], &version[1], &version[2]); err != nil || !found || scanErr != nil {
-		t.Fatalf("read the retained program's version: %q, %v, %v", output, err, scanErr)
-	}
-	return slices.Compare(version, retryPolicyReaderFloor) >= 0
-}
-
 // requireRetryRollbackAdmission rolls back to a retained baseline that reads
 // retry policies while one is selected, then rolls back again to the candidate.
 // Both programs read the same declaration, and each rollback swaps exactly the
@@ -214,33 +181,6 @@ func (j *journeyFixture) requireRetryRollbackAdmission(baseline string) {
 		if !bytes.Equal(want[0], readFile(t, j.binary)) || !bytes.Equal(want[1], readFile(t, retained)) {
 			t.Fatal("rollback did not swap exactly the active and retained programs")
 		}
-	}
-	if err := os.Remove(retained); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func (j *journeyFixture) requireRetryRollbackRefusal(baseline string) {
-	t := j.testing
-	t.Helper()
-	admission, err := store.NewStore(j.config, clients.Admission()).RollbackConfiguration()
-	if err != nil {
-		t.Fatal(err)
-	}
-	retained := program.RollbackPath(j.binary)
-	previous := readFile(t, baseline)
-	active := readFile(t, j.binary)
-	if err := os.WriteFile(retained, previous, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-	defer cancel()
-	_, err = (program.Updater{Executable: j.binary, Runner: process.Runner{}}).Rollback(ctx, admission, nil)
-	if !errors.Is(err, program.ErrRollbackConfiguration) || ctx.Err() != nil {
-		t.Fatalf("retained reader did not refuse policy at its native boundary: %v", err)
-	}
-	if !bytes.Equal(active, readFile(t, j.binary)) || !bytes.Equal(previous, readFile(t, retained)) {
-		t.Fatal("refused capability probe changed program bytes")
 	}
 	if err := os.Remove(retained); err != nil {
 		t.Fatal(err)
