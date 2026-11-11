@@ -306,3 +306,14 @@ func lockedMiseMirrorPath(t *testing.T, repository string) string {
 	}
 	return fmt.Sprintf("packages/generic/mise-github/%x/", sha256.Sum256(content))
 }
+
+// refuseSupplyCredentials checks that a GitHub toolchain environment carries none of
+// the GitLab tool-supply credentials.
+func refuseSupplyCredentials(t *testing.T, owner string, environment map[string]string) {
+	t.Helper()
+	for _, forbidden := range []string{"MISE_NETRC", "MISE_NETRC_FILE", "MISE_GITLAB_TOKEN"} {
+		if _, set := environment[forbidden]; set {
+			t.Fatalf("%s carries %s, a GitLab tool-supply credential, into a GitHub toolchain", owner, forbidden)
+		}
+	}
+}
