@@ -11,6 +11,8 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-12
+
 ### Added
 
 - `aigw version` shows the program's version.
@@ -49,9 +51,9 @@ signing, and GA status remain separate evidence.
   To upgrade, run `aigw setup --from <team file>` or `aigw setup`, then
   `aigw use <client> <provider/model>` for each client. A provider that you add
   under its earlier ID finds the Token already stored for it, and `aigw setup`
-  uses it without a prompt and says so. Client sessions that started before the upgrade keep
-  working, because they call the credential reader they started with, which
-  still reads the untouched `config.toml`. Delete `config.toml` and
+  uses it without a prompt and says so. Client sessions that started before the
+  upgrade keep working, because they call the credential reader they started
+  with, which still reads the untouched `config.toml`. Delete `config.toml` and
   `config.*.toml` once those sessions have ended; AIGW never deletes them.
 - The shape of `aigw.toml`: each provider nests its models, which are named
   `provider/model`, and array order is display order, so `order` is refused.
