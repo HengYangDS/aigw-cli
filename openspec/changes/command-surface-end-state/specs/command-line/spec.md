@@ -167,10 +167,9 @@ missing argument or flag, or the command's help, never an unrelated command.
 
 #### Scenario: Self update receives invalid archive options
 
-- **WHEN** `aigw self update` receives a blank or whitespace-only `--archive`
-  or `--checksums` path, or one of them without the other
-- **THEN** it SHALL refuse before creating configuration storage or starting an
-  online or local update.
+- **WHEN** `aigw self update` receives a blank `--archive` or `--checksums`
+  path, or one of them without the other
+- **THEN** it SHALL refuse before creating configuration storage or updating.
 
 #### Scenario: Setup receives invalid team file arguments
 
@@ -188,23 +187,20 @@ missing argument or flag, or the command's help, never an unrelated command.
 
 #### Scenario: A provider or model command receives invalid arguments
 
-- **WHEN** `aigw provider add` receives an invalid provider ID, no
-  `--endpoint`, or an `--endpoint` that is not `<protocol>=<url>`,
-  `aigw provider edit` receives only one of `--balance-token-stdin` and
-  `--balance-user-id`, or a model command receives a malformed
-  `provider/model`
-- **THEN** the command SHALL refuse before configuration access, the
-  configuration lock or credential access.
+- **WHEN** `aigw provider add` receives an invalid provider ID or no valid
+  `--endpoint <protocol>=<url>`, `aigw provider edit` only one of
+  `--balance-token-stdin` and `--balance-user-id`, or a model command a
+  malformed `provider/model`
+- **THEN** it SHALL refuse before configuration, lock or credential access.
 
 #### Scenario: An edit names nothing to change
 
 - **WHEN** `aigw provider edit`, `aigw model edit` or `aigw client edit` runs
   without a flag that changes something, or with a blank provider label or
   endpoint
-- **THEN** it SHALL refuse before configuration access and name the command's
-  help
-- **AND** `aigw model edit <provider/model> --label ""` SHALL remain a valid
-  request to clear the model's label.
+- **THEN** it SHALL refuse before configuration access, naming its help
+- **AND** `aigw model edit <provider/model> --label ""` SHALL still clear the
+  model's label.
 
 ### Requirement: Every failure names one fix
 

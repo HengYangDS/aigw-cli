@@ -181,11 +181,9 @@ model, client, backend or endpoint and exactly one Fix.
 
 #### Scenario: Local client prerequisites are configured
 
-- **WHEN** a client's model resolves, its provider's Token is available, its
-  client configuration files match, and the command sends no authenticated
-  request
-- **THEN** `status` and `aigw check --depth local` SHALL report that client as
-  configured
+- **WHEN** a client's model resolves, its provider's Token is available and its
+  client files match, without an authenticated request
+- **THEN** `status` and `aigw check --depth local` SHALL report it configured
 - **AND** no unused provider and no absent client SHALL change the result.
 
 #### Scenario: An authenticated probe refines readiness
@@ -201,22 +199,17 @@ model, client, backend or endpoint and exactly one Fix.
 - **WHEN** check sends, at the `model` depth, a bounded authenticated request
   carrying the selected model's exact ID
 - **THEN** success SHALL report the `model` depth, not real-client readiness or
-  a guarantee of future availability
-- **AND** a provider's refusal of that model SHALL report degraded and name the
-  model without changing local configuration
-- **AND** a model that cannot be resolved SHALL fail closed rather than become
-  an endpoint-only success
-- **AND** AIGW SHALL retain no probe conversation, request no storage where the
-  protocol supports it, and make no claim about provider retention.
+  future availability
+- **AND** a provider's refusal of the model SHALL report degraded and name it,
+  and an unresolvable model SHALL fail closed, never an endpoint-only success
+- **AND** AIGW SHALL retain no probe conversation and request no storage where
+  the protocol allows it, and SHALL make no claim about provider retention.
 
 #### Scenario: A credential rejection is terminal for one diagnostic
 
-- **WHEN** an `endpoint` or `model` request receives an HTTP 401 or 403
-  credential rejection
-- **THEN** check SHALL report the typed credential failure after exactly one
-  request
-- **AND** it SHALL NOT repeat the request, prompt for credentials or change the
-  configuration.
+- **WHEN** an `endpoint` or `model` request receives HTTP 401 or 403
+- **THEN** check SHALL report the typed credential failure after one request
+- **AND** SHALL NOT repeat it, prompt for credentials or change configuration.
 
 #### Scenario: A capability is intentionally deferred
 
@@ -234,8 +227,7 @@ model, client, backend or endpoint and exactly one Fix.
 - **AND** `check` without named clients SHALL exit 1 at every depth, with
   `ok: false` in one JSON document and no endpoint or inference request
 - **AND** an environment-backed continuation SHALL name one compatible provider
-  variable from availability metadata, without exposing its value or requiring
-  every provider
+  variable from availability metadata, never its value or every provider
 - **AND** the `next_action` of `aigw sync` SHALL follow the activation state,
   and SHALL NOT be `aigw check` while nothing is selected.
 
@@ -243,21 +235,17 @@ model, client, backend or endpoint and exactly one Fix.
 
 - **WHEN** a checked client passes its configuration, client file, Token and
   endpoint checks but optional balance credentials are unavailable
-- **THEN** human and JSON check output SHALL both report the depth that client
-  reached
-- **AND** check SHALL NOT access optional balance credentials
-- **AND** `aigw provider edit` and `aigw provider balance` SHALL keep
-  responsibility for storing and using those credentials.
+- **THEN** human and JSON check output SHALL report the depth it reached
+- **AND** check SHALL NOT access balance credentials; `aigw provider edit`
+  stores them and `aigw provider balance` uses them.
 
 #### Scenario: Recovery is unavailable
 
 - **WHEN** no valid verified snapshot, predecessor or AIGW-owned client
   configuration exists for a recovery command
-- **THEN** the command SHALL identify the failed recovery boundary and state
-  that the current configuration or program remains the only confirmed state
-- **AND** SHALL present exactly one Fix
-- **AND** SHALL keep the underlying storage or transaction error only as a
-  diagnostic cause, not as the user problem.
+- **THEN** it SHALL name the failed recovery boundary and exactly one Fix, and
+  state that the current configuration or program is the only confirmed state
+- **AND** a storage or transaction error SHALL remain only a diagnostic cause.
 
 #### Scenario: A lower-priority recovery source remains valid
 
