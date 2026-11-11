@@ -25,6 +25,24 @@ type scopedView struct {
 type availabilityObservation struct {
 	mutex sync.Mutex
 	slots map[string]availabilityResult
+	empty map[string]bool
+}
+
+// emptiness runs ask once per slot in this scope and keeps the answer; a
+// failed ask counts as not empty.
+func (observation *availabilityObservation) emptiness(slot string, ask func() (bool, error)) bool {
+	observation.mutex.Lock()
+	defer observation.mutex.Unlock()
+	if empty, observed := observation.empty[slot]; observed {
+		return empty
+	}
+	empty, err := ask()
+	empty = err == nil && empty
+	if observation.empty == nil {
+		observation.empty = map[string]bool{}
+	}
+	observation.empty[slot] = empty
+	return empty
 }
 
 type availabilityResult struct {

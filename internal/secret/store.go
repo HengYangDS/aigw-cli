@@ -95,6 +95,11 @@ func TokenSlotEmpty(store Store, account string) bool {
 	if !ok {
 		return false
 	}
+	if view, scoped := store.(scopedView); scoped && view.availability != nil {
+		return view.availability.emptiness(slotName(APIToken, account), func() (bool, error) {
+			return observer.holdsNoValue(APIToken, account)
+		})
+	}
 	empty, err := observer.holdsNoValue(APIToken, account)
 	return err == nil && empty
 }

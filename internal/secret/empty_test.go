@@ -86,7 +86,8 @@ func TestReplaceTakesTheSlotOfAnEmptyToken(t *testing.T) {
 // Credential Manager alike, reaches the system keyring store, whose metadata
 // query cannot tell an empty item: TokenSlotEmpty asks its reader, which
 // returns only whether the item is empty. An absent item, a stored Token and
-// a failed read are not empty.
+// a failed worker are not empty. Within one availability scope the worker runs
+// once per Token slot.
 func TestTokenSlotEmptyOfTheSystemKeyring(t *testing.T) {
 	for _, test := range []struct {
 		name  string
@@ -97,9 +98,9 @@ func TestTokenSlotEmptyOfTheSystemKeyring(t *testing.T) {
 		{"an empty item", "", nil, true},
 		{"a stored Token", "sk-team-0001", nil, false},
 		{"an absent item", "", native.ErrNotFound, false},
-		{"a failed read", "", errors.New("keychain locked"), false},
+		{"a failed worker", "", errors.New("keychain locked"), false},
 	} {
-		store := scopedView{store: keyringStore{read: func(string, string) (string, error) { return test.value, test.err }}}
+		store := scopedView{store: keyringStore{empty: func(string, string) (bool, error) { return test.value == "", test.err }}}
 		if got := TokenSlotEmpty(store, "team"); got != test.want {
 			t.Errorf("%s: TokenSlotEmpty() = %t, want %t", test.name, got, test.want)
 		}
@@ -120,5 +121,28 @@ func TestTokenSlotEmptyOfTheEnvironmentBackend(t *testing.T) {
 	}
 	if TokenSlotEmpty(store, "team") {
 		t.Fatal("an empty variable counts as an empty slot, not as unset")
+	}
+}
+
+// One operation asks the worker once per slot, as it observes presence once.
+func TestTokenSlotEmptyAsksTheWorkerOncePerScope(t *testing.T) {
+	asked := 0
+	view := scopedView{store: keyringStore{empty: func(string, string) (bool, error) {
+		asked++
+		return true, nil
+	}}}
+	scoped := ObserveAvailability(view)
+	for range 3 {
+		if !TokenSlotEmpty(scoped, "team") {
+			t.Fatal("the empty item was not reported")
+		}
+	}
+	if asked != 1 {
+		t.Fatalf("the worker ran %d times in one scope, want once", asked)
+	}
+	TokenSlotEmpty(view, "team")
+	TokenSlotEmpty(view, "team")
+	if asked != 3 {
+		t.Fatalf("outside a scope the worker ran %d times in all, want 3", asked)
 	}
 }

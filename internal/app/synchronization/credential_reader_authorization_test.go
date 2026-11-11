@@ -177,15 +177,17 @@ func TestSyncObservesNativeAvailabilityOncePerInvocation(t *testing.T) {
 		if err := syncer.CommitProjection(t.Context(), before, after, "sync"); err != nil {
 			t.Fatal(err)
 		}
+		// AIGW's own program observes presence and asks whether the slot is
+		// empty, once each, and the reader copy reads the Token once.
 		for _, operation := range []struct{ executable, name string }{
-			{syncer.AIGWExecutable, "__aigw-native-credential-exists"},
-			{reader, "__aigw-native-credential-read"},
+			{syncer.AIGWExecutable, "__aigw-native-credential-exists " + secret.Service + " gateway\n__aigw-native-credential-empty " + secret.Service + " gateway\n"},
+			{reader, "__aigw-native-credential-read " + secret.Service + " gateway\n"},
 		} {
 			data, err := os.ReadFile(filepath.Join(filepath.Dir(operation.executable), "operations"))
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := operation.name + " " + secret.Service + " gateway\n"
+			want := operation.name
 			if string(data) != strings.Repeat(want, invocation) {
 				t.Fatalf("invocation %d: native operations = %q; want one exact operation per invocation: %q", invocation, data, want)
 			}

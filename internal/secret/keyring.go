@@ -16,6 +16,8 @@ type keyringStore struct {
 	write     func(service, slot, value string) error
 	remove    func(service, slot string) error
 	enumerate func(service string) ([]string, error)
+	// empty reports whether an item holds an empty value without returning it.
+	empty func(service, slot string) (bool, error)
 }
 
 // ErrNativeReaderUnverified marks a failed noninteractive access check for a
@@ -35,6 +37,7 @@ func newKeyringStore(executable string) keyringStore {
 		},
 		remove:    func(service, account string) error { return native.Delete(executable, service, account) },
 		enumerate: func(service string) ([]string, error) { return native.List(executable, service) },
+		empty:     func(service, account string) (bool, error) { return native.Empty(executable, service, account) },
 	}
 }
 
@@ -132,16 +135,17 @@ func (store keyringStore) exists(kind Kind, account string) (bool, error) {
 }
 
 // holdsNoValue reports whether a present item is empty. The native metadata
-// query cannot tell an empty item, so the reader runs and only whether its
-// value is empty leaves this function; the value is never returned or kept.
-// An absent item and a failed read are not empty.
+// query cannot tell an empty item, so the worker reads it and answers only
+// whether its value is empty; the value never reaches this process. An absent
+// item and a failed worker are not empty.
 func (store keyringStore) holdsNoValue(kind Kind, account string) (bool, error) {
-	value, err := store.read(Service, slotName(kind, account))
+	slot := slotName(kind, account)
+	empty, err := store.empty(Service, slot)
 	if errors.Is(err, keyring.ErrNotFound) || errors.Is(err, native.ErrNotFound) {
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("inspect %s/%s in system keyring: %w", Service, slotName(kind, account), err)
+		return false, fmt.Errorf("inspect %s/%s in system keyring: %w", Service, slot, err)
 	}
-	return value == "", nil
+	return empty, nil
 }

@@ -20,6 +20,9 @@ const (
 	writeCommand  = "__aigw-native-credential-write"
 	deleteCommand = "__aigw-native-credential-delete"
 	existsCommand = "__aigw-native-credential-exists"
+	// emptyCommand reads an item inside the worker and writes only whether
+	// its value is empty.
+	emptyCommand = "__aigw-native-credential-empty"
 	// listCommand writes the accounts of a service's items, one per line.
 	listCommand = "__aigw-native-credential-list"
 	// restoreCommand returns a macOS item to the predecessor's reader before rollback.
@@ -101,6 +104,24 @@ func Exists(executable, service, account string) (bool, error) {
 	}
 }
 
+// Empty reports whether one exact native item holds an empty value. The worker
+// reads the item and writes only that bit, so no value reaches the caller. An
+// absent item is ErrNotFound.
+func Empty(executable, service, account string) (bool, error) {
+	output, err := invoke(executable, emptyCommand, service, account, "")
+	if err != nil {
+		return false, err
+	}
+	switch output {
+	case "1":
+		return true, nil
+	case "0":
+		return false, nil
+	default:
+		return false, ErrUnavailable
+	}
+}
+
 func invoke(executable, operation, service, account, input string) (string, error) {
 	if strings.TrimSpace(executable) == "" {
 		return "", ErrUnavailable
@@ -164,7 +185,7 @@ func dispatch(args []string, input io.Reader, out, diagnostic io.Writer, service
 		return false, 0
 	}
 	switch args[0] {
-	case readCommand, writeCommand, deleteCommand, existsCommand, restoreCommand, reclaimCommand, listCommand:
+	case readCommand, writeCommand, deleteCommand, existsCommand, emptyCommand, restoreCommand, reclaimCommand, listCommand:
 	default:
 		return false, 0
 	}
@@ -181,8 +202,21 @@ func dispatch(args []string, input io.Reader, out, diagnostic io.Writer, service
 			return true, failureExit
 		}
 	}
-	value, err := query(args[0], service, account, data)
+	operation := args[0]
+	if operation == emptyCommand {
+		operation = readCommand
+	}
+	value, err := query(operation, service, account, data)
 	defer clear(value)
+	if args[0] == emptyCommand && err == nil {
+		// Only whether the value is empty leaves the worker.
+		answer := []byte{'0'}
+		if len(value) == 0 {
+			answer = []byte{'1'}
+		}
+		clear(value)
+		value = answer
+	}
 	if args[0] == listCommand {
 		value = joinAccounts(strings.Split(string(value), "\n"))
 	}
@@ -197,7 +231,7 @@ func dispatch(args []string, input io.Reader, out, diagnostic io.Writer, service
 		}
 		return true, failureExit
 	}
-	if args[0] == readCommand || args[0] == existsCommand || args[0] == listCommand {
+	if args[0] == readCommand || args[0] == existsCommand || args[0] == emptyCommand || args[0] == listCommand {
 		if n, err := out.Write(value); err != nil || n != len(value) {
 			return true, failureExit
 		}

@@ -220,6 +220,44 @@ func TestCredentialSubprocessReturnsOnlyPresenceMetadata(t *testing.T) {
 	}
 }
 
+// The empty operation reads inside the worker and writes only whether the
+// value is empty: the value never reaches the output, and a missing item or a
+// failed read is no answer.
+func TestCredentialSubprocessReturnsOnlyEmptiness(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		value  string
+		err    error
+		output string
+		code   int
+	}{
+		{name: "empty", output: "1"},
+		{name: "a stored value", value: "synthetic-token", output: "0"},
+		{name: "a missing item", err: ErrNotFound, code: missingExit},
+		{name: "a failed read", err: ErrUnavailable, code: failureExit},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var out bytes.Buffer
+			handled, code := dispatch(
+				[]string{emptyCommand, "AIGW_TOKEN", "team"},
+				strings.NewReader(""), &out, io.Discard, "AIGW_TOKEN",
+				func(operation, service, account string, data []byte) ([]byte, error) {
+					if operation != readCommand || service != "AIGW_TOKEN" || account != "team" || len(data) != 0 {
+						t.Fatalf("the worker queried %q, not a read", operation)
+					}
+					return []byte(test.value), test.err
+				},
+			)
+			if !handled || code != test.code || out.String() != test.output || strings.Contains(out.String(), "synthetic") {
+				t.Fatalf("emptiness result: handled=%v code=%d output=%q", handled, code, &out)
+			}
+		})
+	}
+	if empty, err := Empty("", "AIGW_TOKEN", "team"); empty || !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("Empty() without an executable = %t, %v", empty, err)
+	}
+}
+
 type shortWriter struct{}
 
 func (shortWriter) Write([]byte) (int, error) { return 0, nil }

@@ -102,7 +102,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 			t.Fatal(err)
 		}
 		for _, operation := range []struct{ file, commands string }{
-			{filepath.Join(root, "operations"), "__aigw-native-credential-exists " + secret.Service + " team\n"},
+			{filepath.Join(root, "operations"), "__aigw-native-credential-exists " + secret.Service + " team\n__aigw-native-credential-empty " + secret.Service + " team\n"},
 			{filepath.Join(filepath.Dir(reader), "operations"), "__aigw-native-credential-read " + secret.Service + " team\n"},
 		} {
 			data, err := os.ReadFile(operation.file)
@@ -110,7 +110,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 				t.Fatal(err)
 			}
 			if string(data) != strings.Repeat(operation.commands, invocation) {
-				t.Fatalf("invocation %d: %s = %q; want one presence observation and one reader read per invocation, and no Token read by setup", invocation, operation.file, data)
+				t.Fatalf("invocation %d: %s = %q; want one presence observation, one emptiness answer and one reader read per invocation, and no Token value returned to setup", invocation, operation.file, data)
 			}
 		}
 	}
