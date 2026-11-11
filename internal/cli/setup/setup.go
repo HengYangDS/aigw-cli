@@ -67,7 +67,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&request.From, "from", "", "Apply a team file: its providers, models, families and recommendations")
-	cmd.Flags().StringArrayVar(&request.Providers, "provider", nil, "With --from, a provider whose Token to read, at a prompt or from --token-stdin; repeatable")
+	cmd.Flags().StringArrayVar(&request.Providers, "provider", nil, "With --from, a provider whose Token to read, at a prompt or from --token-stdin, unless one is stored; repeatable")
 	cmd.Flags().BoolVar(&request.Prune, "prune", false, "With --from, remove the local models that no client selects and no recommendation names, and unused families")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "With --from, read the one --provider's Token from standard input")
 	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the setup result as JSON")
@@ -93,9 +93,10 @@ func admitGuided(runtime invocation.Context, request setupRequest) error {
 
 // admitTeamRequest refuses, before the team file or standard input is read, a
 // team setup whose Token input cannot run: a blank path, an invalid provider
-// ID, standard input without exactly one provider or with the read-only
-// environment backend, and a named provider whose Token would need a prompt
-// where none may appear.
+// ID, and standard input without exactly one provider or with the read-only
+// environment backend. A named provider whose Token would need a prompt where
+// none may appear is refused once its Token is known to be missing, because a
+// stored one needs no prompt.
 func admitTeamRequest(cmd *cobra.Command, runtime invocation.Context, request setupRequest) error {
 	path := cmd.CommandPath()
 	if request.From == "" {
@@ -112,14 +113,6 @@ func admitTeamRequest(cmd *cobra.Command, runtime invocation.Context, request se
 		return fmt.Errorf("--token-stdin reads one Token, so it needs exactly one --provider; run `%s --help`", path)
 	case request.TokenStdin && readOnly:
 		return readOnlyTokenInput(request.Providers[0], invocation.Rerun(cmd, nil, []string{"token-stdin"}))
-	case len(request.Providers) > 0 && !request.TokenStdin && !request.DryRun && !readOnly && (!runtime.Interactive || request.JSON):
-		reason := "a named provider's Token is read from --token-stdin without a terminal or with --json"
-		if len(request.Providers) == 1 {
-			if line := invocation.Rerun(cmd, nil, nil, "--token-stdin"); line != "" {
-				return fmt.Errorf("%s; pipe the Token to `%s`", reason, line)
-			}
-		}
-		return fmt.Errorf("%s, one provider at a time; run `%s --help`", reason, path)
 	}
 	return nil
 }

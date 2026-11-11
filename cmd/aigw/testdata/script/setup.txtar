@@ -61,6 +61,43 @@ fixloop -input -did 'previewed a team file with aigw setup --from team.toml --dr
 exec aigw setup --from team.toml --json
 fixloop -input -did 'applied a team file with aigw setup --from team.toml --json' guided-json.out aigw setup --json
 
+# Without a terminal or with --json, a named provider without a stored Token
+# needs its Token from --token-stdin, which the fix pipes; then the same
+# command uses the stored Token.
+mkdir $WORK/stored
+env HOME=$WORK/stored USERPROFILE=$WORK/stored XDG_CONFIG_HOME=$WORK/stored XDG_DATA_HOME=$WORK/stored APPDATA=$WORK/stored LOCALAPPDATA=$WORK/stored
+[darwin] env CONF=$HOME/Library/Application' 'Support/aigw
+[!darwin] env CONF=$HOME/aigw
+envsubst team.in team.toml
+exitcode 1 aigw setup --from team.toml --provider team --json
+normalize stdout named-without-input.out
+cmp named-without-input.out named-without-input.json
+stdin token.txt
+fixloop stdout aigw setup --from team.toml --provider team --json
+stdout '"provider": "team",\n\s+"state": "present"'
+# A Token that an earlier setup or release stored for a provider that the
+# configuration does not name is used without a prompt, and setup says so:
+# guided setup adds the provider, and a team file names it, without a
+# terminal and in one.
+rm $CONF/aigw.toml
+[!windows] envsubst guided-stored.in guided-stored-input.txt
+[!windows] ttyin -stdin guided-stored-input.txt
+[!windows] exec aigw setup
+[!windows] ! stdout 'Paste the'
+[!windows] stdout 'Provider +Team Gateway \(team\), added'
+[!windows] stdout 'Token +Already stored; used without a prompt'
+[!windows] ! stdout 'sk-team-token'
+rm $CONF/aigw.toml
+exec aigw setup --from team.toml --provider team
+stdout '✓ team +Already stored; used without a prompt'
+! stdout 'sk-team-token'
+rm $CONF/aigw.toml
+# A prompt would read the one empty line as an empty Token, which fails.
+[!windows] ttyin -stdin enter.txt
+[!windows] exec aigw setup --from team.toml --provider team
+[!windows] ! stdout 'Paste the'
+[!windows] stdout '✓ team +Already stored; used without a prompt'
+
 # Team setup: a preview reads no Token and writes nothing.
 mkdir $WORK/second
 env HOME=$WORK/second USERPROFILE=$WORK/second XDG_CONFIG_HOME=$WORK/second XDG_DATA_HOME=$WORK/second APPDATA=$WORK/second LOCALAPPDATA=$WORK/second
@@ -108,13 +145,6 @@ stdin token.txt
 fixloop -did 'piped a Token that the provider accepts' stdout aigw setup --from team.toml --provider team --token-stdin --json
 normalize stdout team-connected.out
 cmp team-connected.out team-connected.json
-
-# A named provider's Token comes from --token-stdin without a terminal.
-exitcode 1 aigw setup --from team.toml --provider team --json
-normalize stdout named-without-input.out
-cmp named-without-input.out named-without-input.json
-stdin token.txt
-fixloop -input stdout aigw setup --from team.toml --provider team --json
 
 # Setup runs again: the file's models, families and recommendations win, an
 # existing provider keeps its endpoints and Token, and no selection changes.
@@ -227,7 +257,7 @@ Options
       --from string                Apply a team file: its providers, models, families and recommendations
   -h, --help[=true|false]          help for setup
       --json[=true|false]          Write the setup result as JSON
-      --provider stringArray       With --from, a provider whose Token to read, at a prompt or from --token-stdin; repeatable
+      --provider stringArray       With --from, a provider whose Token to read, at a prompt or from --token-stdin, unless one is stored; repeatable
       --prune[=true|false]         With --from, remove the local models that no client selects and no recommendation names, and unused families
       --token-stdin[=true|false]   With --from, read the one --provider's Token from standard input
 -- team.in --
@@ -696,7 +726,7 @@ Kept local
   ! team/team-model chat       Unusable until the provider has the endpoint: aigw provider edit team --endpoint chat=<url>
 
 Tokens
-  ✓ team               Stored
+  ✓ team               Already stored; used without a prompt
 
 Clients
   ✓ Claude             team/team-model
@@ -1010,6 +1040,15 @@ Team Gateway
 1
 $UPSTREAM
 sk-team-token-0001
+
+
+-- enter.txt --
+
+-- guided-stored.in --
+team
+Team Gateway
+1
+$UPSTREAM
 
 
 -- guided-again.txt --

@@ -173,10 +173,11 @@ func setEndpoint(endpoints *domain.Endpoints, protocol domain.EndpointProtocol, 
 	}
 }
 
-// storedOrAsked keeps the provider's stored Token, or asks for one and
-// validates it as `aigw provider add` does. A new provider always asks: a
-// Token stored for an ID that the configuration does not name does not make
-// a provider. The read-only environment backend supplies the Token itself.
+// storedOrAsked uses the provider's stored Token without a prompt, also for a
+// provider that setup adds, whose Token an earlier setup or release stored,
+// or asks for one and validates it as `aigw provider add` does. Only adding
+// the provider makes it configured; a stored Token alone does not. The
+// read-only environment backend supplies the Token itself.
 func (g guidedSetup) storedOrAsked(ctx context.Context, provider *guidedProvider) error {
 	present, err := g.runtime.Secrets.Exists(provider.ID)
 	if err != nil {
@@ -189,7 +190,7 @@ func (g guidedSetup) storedOrAsked(ctx context.Context, provider *guidedProvider
 		}
 		return nil
 	}
-	if stored && !provider.added {
+	if stored {
 		return nil
 	}
 	token, err := g.runtime.Prompt.Secret("Paste the " + provider.Label + " Token: ")
@@ -380,6 +381,8 @@ func (g guidedSetup) providerFields(provider guidedProvider) []terminal.Field {
 		token.Value = "Accepted by the provider and stored"
 	case secret.IsReadOnly(g.runtime.Secrets):
 		token.Value = "Supplied by " + secret.EnvironmentKey(provider.ID)
+	case provider.added:
+		token.Value = storedTokenUsed
 	}
 	added := "Kept as it was"
 	if provider.added {

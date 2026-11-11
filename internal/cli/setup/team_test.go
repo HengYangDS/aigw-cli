@@ -89,7 +89,7 @@ func TestTeamSetupReportsWhatTheFileChangedAndWhatStayedLocal(t *testing.T) {
 	for _, want := range []string{
 		"Team file preview", "Pruned", "team/local", "team anthropic endpoint", "Kept http://127.0.0.1:8792/team; the team file has https://elsewhere.test",
 		"team responses endpoint", "Not added", "team balance probe", "team/team-model anthropic", "Dropped tool_search",
-		"team/team-model responses", "Unusable until the provider has the endpoint", "Stored", "Nothing was written",
+		"team/team-model responses", "Unusable until the provider has the endpoint", "Already stored; used without a prompt", "Nothing was written",
 	} {
 		if !strings.Contains(home.out.String(), want) {
 			t.Errorf("preview lacks %q:\n%s", want, home.out)
@@ -99,7 +99,7 @@ func TestTeamSetupReportsWhatTheFileChangedAndWhatStayedLocal(t *testing.T) {
 	if err := home.run(t, &guidedPrompt{}, "--from", path); err != nil {
 		t.Fatalf("apply: %v\n%s", err, home.out)
 	}
-	for _, want := range []string{"Team file applied", "Changed", "team", "Stored", "team/team-model; Install Claude if needed, then run `aigw sync`"} {
+	for _, want := range []string{"Team file applied", "Changed", "team", "Already stored; used without a prompt", "team/team-model; Install Claude if needed, then run `aigw sync`"} {
 		if !strings.Contains(home.out.String(), want) {
 			t.Errorf("apply lacks %q:\n%s", want, home.out)
 		}
@@ -268,14 +268,22 @@ func TestTeamSetupStoresANamedTokenAndKeepsASelectedModel(t *testing.T) {
 	home = newGuidedHome(t)
 	configuredTeam(t, home)
 	home.status = http.StatusNotFound
-	prompt := &guidedPrompt{secrets: []string{"sk-new"}}
-	err := home.run(t, prompt, "--from", path, "--provider", "team")
+	// A piped Token replaces the stored one explicitly, which the provider
+	// validates first.
+	home.runtime.In = strings.NewReader("sk-new\n")
+	err := home.run(t, &guidedPrompt{}, "--from", path, "--provider", "team", "--token-stdin")
 	if problem := terminal.ProblemFor(err); !strings.Contains(problem.Fix, "aigw provider edit team --endpoint anthropic=<url>") {
 		t.Fatalf("a refused endpoint of an existing provider: %#v", problem)
 	}
-	prompt = &guidedPrompt{fail: "Paste the"}
+	if err := home.secrets.Delete("team"); err != nil {
+		t.Fatal(err)
+	}
+	prompt := &guidedPrompt{fail: "Paste the"}
 	if problem := terminal.ProblemFor(home.run(t, prompt, "--from", path, "--provider", "team")); problem.Title != "The Token prompt for provider team was cancelled" {
 		t.Fatalf("a cancelled Token prompt: %#v", problem)
+	}
+	if err := home.secrets.Set("team", "sk-stored"); err != nil {
+		t.Fatal(err)
 	}
 	home.status = http.StatusOK
 	away := strings.Replace(teamFileText, `protocols = {anthropic = ["text", "tool_search"], responses = []}`, `protocols = {responses = []}`, 1)

@@ -37,6 +37,10 @@ const (
 	tokenUnobserved  = "unobserved"
 )
 
+// storedTokenUsed says that setup used a Token that the store held already,
+// which it never prints.
+const storedTokenUsed = "Already stored; used without a prompt"
+
 // teamSetup is one `aigw setup --from`: the configuration before it, the
 // merge of the team file into it, and the installed clients.
 type teamSetup struct {
@@ -219,8 +223,10 @@ func (t teamSetup) tokenStates() (map[string]string, error) {
 // acquire reads the Tokens that setup asks for: the named provider's from
 // standard input, each named provider's at a prompt, or, in a terminal
 // without a named provider, at a prompt each missing Token that the
-// recommended setup would select. Without a terminal it reads none, and the
-// read-only environment backend supplies every Token.
+// recommended setup would select. A named provider whose Token is stored
+// already uses it without a prompt, unless standard input replaces it; one
+// without a Token needs a terminal or standard input. Without a terminal it
+// reads none, and the read-only environment backend supplies every Token.
 func (t teamSetup) acquire(states map[string]string) (map[string]string, error) {
 	tokens := map[string]string{}
 	asked := t.request.Providers
@@ -238,6 +244,12 @@ func (t teamSetup) acquire(states map[string]string) (map[string]string, error) 
 		}
 	}
 	for _, id := range asked {
+		if states[id] == tokenPresent && !t.request.TokenStdin {
+			continue
+		}
+		if !t.request.TokenStdin && !t.runtime.Interactive {
+			return nil, t.promptRefusal()
+		}
 		var token string
 		var err error
 		if t.request.TokenStdin {
@@ -253,6 +265,19 @@ func (t teamSetup) acquire(states map[string]string) (map[string]string, error) 
 		tokens[id] = token
 	}
 	return tokens, nil
+}
+
+// promptRefusal refuses a named provider without a stored Token where no
+// prompt may appear, without a terminal or with --json, naming the standard
+// input that gives it.
+func (t teamSetup) promptRefusal() error {
+	reason := "a named provider's Token is read from --token-stdin without a terminal or with --json"
+	if len(t.request.Providers) == 1 {
+		if line := invocation.Rerun(t.cmd, nil, nil, "--token-stdin"); line != "" {
+			return fmt.Errorf("%s; pipe the Token to `%s`", reason, line)
+		}
+	}
+	return fmt.Errorf("%s, one provider at a time; run `%s --help`", reason, t.cmd.CommandPath())
 }
 
 // admitEnvironmentTokens refuses a named provider whose variable the

@@ -319,7 +319,7 @@ func tokenField(token tokenItem) terminal.Field {
 	case tokenStored:
 		field.Value = "Accepted by the provider and stored"
 	case tokenPresent:
-		field.Value = "Stored"
+		field.Value = storedTokenUsed
 	case tokenEnvironment:
 		field.Value = "Supplied by " + secret.EnvironmentKey(token.Provider)
 	case tokenUnobserved:
