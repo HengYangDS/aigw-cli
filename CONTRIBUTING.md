@@ -3,7 +3,7 @@
 ## Scope
 
 AIGW controls providers, Tokens, models, client selections and guarded native
-projections, not conversations, API traffic or external services. Start from the
+client files, not conversations, API traffic or external services. Start from the
 [architecture boundary](docs/architecture/authority-and-projection-boundary.md), its [layers](docs/architecture/authority-and-projection-boundary.md#semantic-packages), the [glossary](docs/concepts/product-concepts.md#glossary) and the current [OpenSpec](openspec/) requirement, not files or old code.
 
 ## License

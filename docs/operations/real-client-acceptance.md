@@ -80,9 +80,9 @@ Claude use current-schema fixtures and Hermes proves first adoption only.
 
 Before replacement the candidate stages its versioned helper; captured old/new
 commands must remain callable. Verify retained authenticated inference before
-active-program sync/check. The exact current candidate's per-client `verify`
-observes every lifecycle state; it owns an isolated probe, not the retained
-client or its settings. Original programs, byte checks, cached credential
+active-program sync/check. The exact current candidate's per-client
+`aigw check <client> --depth client` observes every lifecycle state; it owns an
+isolated probe, not the retained client or its settings. Original programs, byte checks, cached credential
 commands, and independent native tool/session requests still qualify succession.
 This does not prove the historical verifier works with a newer client.
 Uninstall preserves unowned settings and removes only the test installation.

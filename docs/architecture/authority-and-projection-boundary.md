@@ -366,9 +366,10 @@ filesystem-wide transaction against external editors.
 
 A client that uses a provider's Token calls a helper whose fingerprint binds the
 client, provider and endpoint. Before reading a Token, it compares that
-fingerprint with the client's selection. A mismatch requires synchronization
-and client reload without credential access. Model and label changes preserve
-the fingerprint; it detects stale projections, not caller authorization.
+fingerprint with each provider endpoint on the client's protocols and checks no
+selection. A mismatch requires synchronization and client reload without
+credential access. Model and label changes preserve the fingerprint; it detects
+stale projections, not caller authorization.
 Client-native Codex authentication uses no AIGW Token helper.
 
 The credential reader decodes a frozen view of `aigw.toml`: each provider's

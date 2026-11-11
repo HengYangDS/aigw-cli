@@ -59,23 +59,27 @@ then remove the old provider.
    deletes `config.toml` or its component files. A home that holds only those
    files has no configuration, and the bare program names the setup command.
 2. The upgrade is the setup command, with a team file or without one, then the
-   use command for each client and model. Token items are built
-   from provider IDs, which do not change, so a provider added under its
-   earlier ID reuses its stored Token without a prompt.
+   use command for each client and model. Token items are named from provider
+   IDs, which do not change, so a provider that the user adds under its earlier
+   ID finds the Token already stored for it and setup uses it without a prompt.
 3. A client session that started before the upgrade keeps calling the
    credential reader it started with, which still reads the untouched
    `config.toml`. The user deletes the old files after those sessions end.
    AIGW never deletes them.
 4. The credential reader decodes a frozen view of `aigw.toml` and ignores
    everything else: each provider's `id` and `endpoints`, and each client's
-   `enabled` and `authentication`. Changing a frozen field takes a new file
-   name, as this release does.
+   `enabled` and `authentication`. It checks no selection and no model, so a
+   running session keeps its provider's Token while the provider and its
+   endpoint exist. It refuses a disabled client, a client that authenticates
+   itself and a client whose authentication kind it does not know. Changing a
+   frozen field takes a new file name, as this release does.
 5. The program rollback command gives the retained program the current
    configuration and refuses a program that cannot read it, so it cannot return
    to a release older than 0.7.0. The Homebrew rollback keeps its Keychain
-   custody step and has no retry-policy refusal. Hermes provider IDs join aigw,
-   the provider ID and the protocol name, so a Hermes session that recorded an
-   earlier ID does not find it after the upgrade.
+   custody step and has no retry-policy refusal. A Hermes provider ID is
+   `aigw-<provider>-<protocol>`, such as `aigw-dmxapi-responses`. A Hermes
+   session that recorded an earlier ID on the responses or chat protocol does
+   not find it after the upgrade; the anthropic ID is unchanged.
 
 ## Alternatives Rejected
 

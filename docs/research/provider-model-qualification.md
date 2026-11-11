@@ -14,13 +14,14 @@ Listings, bounded inference and native-client tool loops prove distinct claims.
 
 Account, Route and commands such as `aigw catalog`, `aigw verify` and
 `aigw use --for` name 0.6.1 as it was when each dated record below was made.
-They appear only inside those dated, quoted records of what was run. Current
+They appear only in those dated records of what was run or qualified, including their
+table headings and Route counts, never as current guidance. Current
 names are provider, `provider/model` and `aigw model search`, `aigw check` and
 `aigw use`.
 
 ## Curated model choices
 
-Select one general model per vendor from exact Account/protocol Routes qualified
+Select one general model per vendor from exact provider and protocol pairs qualified
 by inference and native-client evidence; positioning, suffixes, listings and vendor
 benchmarks inform selection but do not prove independent quality rankings.
 
@@ -48,7 +49,7 @@ GPT/Claude, while DMXAPI required authentication. Neither omission nor anonymous
 401/disabled-pricing 403 proves model absence. Bindings, credentials and models were unchanged.
 
 Stable tool admission does not make inference models GA. Qualified general-agent
-Previews may remain explicitly named, non-default Routes; unqualified ones remain
+Previews may remain explicitly named, non-default models; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
 
 ## November 7 model refresh
@@ -176,11 +177,11 @@ operator-selected local Responses Proxy rejected these native inputs with
 `unproved provider-portable structure` while the direct channels passed; do not
 infer Proxy acceptance from direct-provider success.
 
-Import retains explicit selected Routes, credentials and endpoint overrides; retire
-an unselected older Route only through native import retirement after checking its
-projections and recovery consumer. The retained-state import then passed with 26
-Models and 58 Routes and preserved Account endpoints, client selections and
-credential commands; installed AIGW 0.3.1 still reported Hermes drift because its
+On 0.6.1, importing a team file retained explicit selected Routes, credentials and endpoint
+overrides, and an unselected older Route was retired only through its import
+retirement after checking its client files and recovery consumer. That
+retained-state import then passed with 26 Models and 58 Routes and preserved
+Account endpoints, client selections and credential commands; installed AIGW 0.3.1 still reported Hermes drift because its
 checker compared logical IDs.
 
 ## Provider catalog and route evidence
@@ -194,8 +195,8 @@ qualified the shipped Routes.
 Codex can execute a non-OpenAI Responses Route without listing it in its
 [native `/model` chooser](https://developers.openai.com/codex/cli/slash-commands).
 On 2026-09-27, an isolated Codex CLI 0.157.1 session ran Grok 4.7 but its chooser
-listed only bundled GPT models. Separately, the AIGW-projected Grok Route completed
-an authenticated tool loop against a controlled endpoint. Select such Routes with
+listed only bundled GPT models. Separately, the Grok model that AIGW wrote into Codex's files completed
+an authenticated tool loop against a controlled endpoint. Select such a model with
 [`aigw use codex <provider/model>`](../../README.md#use-it-every-day) and verify them through
 Codex; AIGW does not alter an existing Desktop conversation's model.
 

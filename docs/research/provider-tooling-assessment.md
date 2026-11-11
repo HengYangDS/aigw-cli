@@ -203,8 +203,8 @@ source also states that live files are not created for applications that have
 not initialized their own configuration. [CLI source][cc-cli-head], [release
 notes][cc-cli-release-5105]. AIGW's [documented
 boundary](../architecture/authority-and-projection-boundary.md) is narrower:
-provider Accounts, reusable model Routes, explicit client bindings and
-credential integration, without owning sessions or a traffic service.
+providers, their models, each client's selection and credential integration,
+without owning sessions or a traffic service.
 
 CC Switch CLI's breadth is a real benefit if it replaces several tools the user needs. AIGW's restraint is useful only if it makes setup, diagnosis, preservation and removal materially more predictable. Optional competitor features need not be enabled; comparing AIGW's minimal mode to a competitor's maximal deployment would bias the result. Conversely, the CLI's Windows foreground-proxy boundary must not be hidden by a generic platform checkmark.
 
@@ -439,8 +439,8 @@ The [official OpenAI guide][openai-bedrock] establishes a native
 Bedrock API key or the AWS SDK credential chain and leaves IAM, credential
 refresh, Region selection, quotas, and billing with AWS and the client.
 Anthropic's [Desktop deployment][claude-desktop-overview] separately documents
-Bedrock. AIGW should therefore project client-native selection when that path is
-sufficient, represent a bearer-compatible endpoint as ordinary Account data,
+Bedrock. AIGW should therefore write client-native selection when that path is
+sufficient, represent a bearer-compatible endpoint as ordinary provider data,
 and add no signer or gateway without a demonstrated remaining protocol gap.
 
 The [AWS pricing contract][aws-bedrock-pricing] is model-, Region-, and

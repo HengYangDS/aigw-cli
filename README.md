@@ -80,9 +80,9 @@ Client sessions that started before the upgrade keep working, because they call
 the credential reader they started with, and that reader still reads the
 untouched `config.toml`. Delete `config.toml` and `config.*.toml` once those
 sessions have ended; AIGW never deletes them. A Hermes session that started
-before the upgrade names provider IDs that no longer exist, because Hermes
-provider IDs are now `aigw-<provider>-<protocol>`, such as
-`aigw-dmxapi-responses`. `aigw self rollback` cannot return to a release older
+before the upgrade names a provider ID that no longer exists on the responses
+or chat protocol, because those Hermes provider IDs are now
+`aigw-<provider>-<protocol>`, such as `aigw-dmxapi-responses`. `aigw self rollback` cannot return to a release older
 than 0.7.0; see [Update and rollback](#update-and-rollback). A team member who
 still runs 0.6.1 cannot read a version 8 team file, so everyone upgrades first.
 
@@ -100,8 +100,8 @@ The guided flow asks for a protocol when a client speaks more than one that
 the provider serves. Without an installed client that can use the provider,
 it adds the provider and stops; install a client, then run `aigw setup` again
 to choose it and a model. Guided setup enables the client it configures, and
-it is the one write without a preview: `aigw setup --from team.toml --dry-run`
-previews a team file instead. `aigw check` checks the client files that AIGW
+it has no preview: `aigw setup --from team.toml --dry-run` previews a team
+file instead. `aigw check` checks the client files that AIGW
 wrote, not the act of installing a client.
 
 A script adds a provider and points a client at one of its models in two
@@ -332,10 +332,8 @@ On macOS, the installed AIGW program moves Keychain Tokens saved by 0.3.5 and
 earlier to its own reader the first time it uses them; nothing needs to be
 entered again. The versioned credential readers that clients call never move a
 Token, so a predecessor that is still installed keeps reading it.
-`aigw self rollback` returns the Tokens to the retained program's reader after
-admitting the rollback and before activating that program. Before a Homebrew
-downgrade to a release of 0.7.0 or later, run `aigw self rollback` on the
-Homebrew installation: it returns the Tokens without touching Homebrew's files,
+Before a Homebrew downgrade to a release of 0.7.0 or later, run
+`aigw self rollback` on the Homebrew installation: it returns the Tokens without touching Homebrew's files,
 and the next Token use by a kept release takes them back. If it cannot read the
 configuration, it moves no Token and reports that the credentials are not ready.
 Without that step, the older program asks macOS to allow access to each Token.
@@ -393,7 +391,7 @@ to its source, test, gate, and evidence boundary.
 ## Documentation
 
 - [Documentation index](docs/README.md)
-- [Architecture and projection boundary](docs/architecture/authority-and-projection-boundary.md)
+- [Architecture and client-file boundary](docs/architecture/authority-and-projection-boundary.md)
 - [Security model](docs/architecture/security-model.md)
 - [Team rollout](docs/guides/team-rollout.md)
 - [Terminal experience](docs/experience/terminal-experience.md)

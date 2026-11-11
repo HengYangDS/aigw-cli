@@ -46,5 +46,5 @@ posture, or another costly-to-reverse ruling.
 | [DR-0008](dr-0008-non-fetchable-product-build-identity.md)               | Use a non-fetchable product build identity.                          |
 | [DR-0009](dr-0009-forward-only-current-product-semantics.md)             | Keep only current product semantics.                                 |
 | [DR-0010](dr-0010-lifecycle-scoped-ci-evidence.md)                       | Route one CI execution to each product lifecycle stage.              |
-| [DR-0011](dr-0011-single-portable-token-backend.md)                      | Select one portable Account Token backend per installation.          |
+| [DR-0011](dr-0011-single-portable-token-backend.md)                      | Select one portable provider Token backend per installation.         |
 | [DR-0012](dr-0012-provider-model-client-and-upgrade-without-importer.md) | Name providers, models and clients, and upgrade without an importer. |

@@ -153,7 +153,7 @@ from its native `/model` chooser. Select it with
 Codex; the [dated client observation](../research/provider-model-qualification.md#codex-native-chooser)
 does not establish current upstream availability. For an AIGW-managed custom
 Provider, AIGW uses the installed Codex client's complete native catalog when
-no exact projection can be produced for the selected model. It never invents
+no exact entry can be produced for the selected model. It never invents
 an entry for an unknown model or treats a provider `/models` response as
 Codex-native metadata.
 An explicit user-owned `model_catalog_json` may mask newer models bundled with
@@ -252,8 +252,9 @@ each member:
 
 Client sessions that started before the upgrade keep working. Members delete
 `config.toml` and `config.*.toml` once those sessions have ended. Hermes
-sessions that started before the upgrade name provider IDs that no longer
-exist, because they are now `aigw-<provider>-<protocol>`. `aigw self rollback`
+sessions that started before the upgrade name a provider ID that no longer
+exists on the responses or chat protocol, because those IDs are now
+`aigw-<provider>-<protocol>`. `aigw self rollback`
 cannot return to a release older than 0.7.0.
 
 ## New member

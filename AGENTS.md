@@ -2,7 +2,7 @@
 
 This repository is **AIGW CLI**, a local control plane for providers,
 Tokens, models, each client's selection, and native client
-projections.
+files.
 It does not run a proxy, listen on a port, carry API traffic, or own Codex
 conversation state.
 

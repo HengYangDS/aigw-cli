@@ -104,13 +104,15 @@ homebrew_casks:
       Run aigw setup to configure a provider and explicitly enable clients.
 
       Upgrading from 0.6.1 or earlier: 0.7.0 reads only aigw.toml and never
-      reads or changes config.toml or its component files. After upgrading,
-      run aigw setup --from <team file> or aigw setup, then run
+      reads or changes AIGW's old config.toml or its component files. After
+      upgrading, run aigw setup --from <team file> or aigw setup, then run
       aigw use <client> <provider/model> for each client. Tokens already
       stored are reused. Client sessions started before the upgrade keep
-      working; delete config.toml and config.*.toml once they have ended.
-      Hermes sessions started before the upgrade name provider IDs that no
-      longer exist. aigw self rollback cannot return to a release older
+      working; once they have ended, delete AIGW's old config.toml and
+      config.*.toml beside aigw.toml, which aigw config path shows, and leave
+      Codex's own ~/.codex/config.toml alone. Hermes sessions started before
+      the upgrade name a provider ID that no longer exists on the responses
+      or chat protocol. aigw self rollback cannot return to a release older
       than 0.7.0.
 
       Before uninstalling, run aigw status and aigw client disable <client>

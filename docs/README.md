@@ -61,7 +61,7 @@ They answer different questions; none substitutes for all the others.
 ## Reference map
 
 - **Architecture:** [Architecture](architecture/README.md) explains current
-  authority, projections and security.
+  authority, client files and security.
 - **Concepts:** [Product concepts](concepts/product-concepts.md) holds the
   product glossary and defines providers, models, families, clients, Adapters,
   endpoints and updates.

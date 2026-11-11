@@ -14,8 +14,8 @@ AIGW keeps credentials local, mutations bounded, and client ownership explicit.
 
 - **Provider Tokens** use one selected local backend. They never appear in
   repository files or public configuration.
-- **Diagnostic credentials** use a separate typed slot in that same backend.
-  Their system Token and user ID are both required; neither substitutes for a
+- **Balance credentials** use a separate typed slot in that same backend.
+  Their balance Token and user ID are both required; neither substitutes for a
   provider Token. They never appear in repository files or public configuration.
 - **Forge credentials** belong to the protected CI or operator process, not
   AIGW's provider Token store. They are never tracked in Git.
@@ -105,9 +105,11 @@ on first use, staging its Token so that no step can lose it, without a prompt or
 an access-list change. Any other AIGW executable, such as a versioned reader, an
 extracted release or a development build, cannot tell whether its installation
 still runs the predecessor, so it reads such an item through `/usr/bin/security`
-and never changes an item's owner. `aigw self rollback` returns the items to
-the predecessor's reader after admitting a portable rollback, or before a
-Homebrew downgrade to a release of 0.7.0 or later. The [credential decision](../decisions/dr-0011-single-portable-token-backend.md)
+and never changes an item's owner. Before a Homebrew downgrade to a release of
+0.7.0 or later, `aigw self rollback` returns the items to the predecessor's
+reader, because it cannot tell which release Homebrew will install. A portable
+rollback admits only a release of 0.7.0 or later, which reads AIGW-owned
+items, so it moves none. The [credential decision](../decisions/dr-0011-single-portable-token-backend.md)
 records the migration and its custody rules.
 
 The [credential-continuity design](../../openspec/changes/archive/2026-10-16-terminal-product-convergence/design.md#4-decide-credential-command-continuity-before-cutover)
@@ -120,7 +122,7 @@ Each local client may set `credential_command` to one absolute executable
 path. The selected executable must accept
 `credential <client> <fingerprint>`, validate the requested projection,
 and emit only its Token on successful stdout. The fingerprint identifies a
-client's selection; it is not caller authorization. The operator owns the executable's
+client, provider and endpoint; it is not caller authorization. The operator owns the executable's
 installation, trust, permissions and credential source. AIGW does not discover
 an alternative reader, change native access control or install the helper.
 

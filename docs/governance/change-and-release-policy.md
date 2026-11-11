@@ -531,7 +531,7 @@ inputs, not guarantees for every host:
 | ------------------------------------------ | ------------------------------------------------------------- |
 | Warm version/help/configured status/export | p95 at most 100 ms                                            |
 | Projected helper including native shell    | p95 at most 100 ms                                            |
-| Binding change, first setup, or sync       | p95 at most 250 ms                                            |
+| Selection change, first setup, or sync     | p95 at most 250 ms                                            |
 | Peak resident memory                       | Review growth exceeding both 20% and 4 MiB versus predecessor |
 | Same-target uncompressed executable        | Review growth exceeding both 10% and 1 MiB versus predecessor |
 
@@ -542,7 +542,7 @@ local budgets but report them separately, not subtract them from end-to-end resu
 Each setup sample starts without the owned AIGW configuration or managed client
 projection; a bounded test-binary preparation resets only those fixture files
 outside the timed command. Credentials and the installed program remain intact.
-Sync starts from a converged explicit binding. Both include guarded durable
+Sync starts from a converged explicit selection. Both include guarded durable
 projection work with warm process and filesystem caches; human authorization,
 cold-cache onboarding, repository construction and CI duration remain separate.
 
