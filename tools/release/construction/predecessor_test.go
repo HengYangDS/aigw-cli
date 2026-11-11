@@ -48,3 +48,24 @@ func TestEveryPredecessorSelectorIsRefusedBeforeAnyToolRuns(t *testing.T) {
 		})
 	}
 }
+
+func TestParsedArgumentsRefuseAnOldPredecessor(t *testing.T) {
+	for _, tag := range []string{"v0.6.1", "v0.3.1"} {
+		_, err := ParseNativeAcceptance([]string{"--baseline-tag", tag, "--peer", "gitlab", "--repository", "group/product"})
+		if err == nil || !strings.Contains(err.Error(), "0.7.0 is the oldest release a journey can start from") {
+			t.Fatalf("arguments naming %s were parsed: %v", tag, err)
+		}
+	}
+	if _, err := ParseNativeAcceptance([]string{"--baseline-tag", "v0.7.0", "--peer", "gitlab", "--repository", "group/product"}); err != nil {
+		t.Fatalf("the oldest admissible predecessor was refused: %v", err)
+	}
+}
+
+func TestPredecessorTagNamesItsFormInEveryRefusal(t *testing.T) {
+	for _, tag := range []string{"0.7.0", "0.8.1", "vv0.7.0", "v0.7", "latest"} {
+		err := admitPredecessor(tag)
+		if err == nil || !strings.Contains(err.Error(), "must be a v<semver> tag") {
+			t.Fatalf("tag %q was admitted or refused for another reason: %v", tag, err)
+		}
+	}
+}

@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"aigw-cli/tools/release/construction"
 )
 
 // secretServiceCollection is the private session collection that becomes the
@@ -149,6 +151,10 @@ func windowsJobPath(getenv func(string) string, name string) string {
 func runNativeJob(host nativeHost, stdout io.Writer, runner commandRunner) error {
 	job, err := nativeJobFromEnvironment(host.getenv, host.platform, host.workdir)
 	if err != nil {
+		return err
+	}
+	// Refuse an unusable selection before any download, bootstrap or test.
+	if _, err := construction.ParseNativeAcceptance(job.arguments); err != nil {
 		return err
 	}
 	if job.secretService && !host.session {

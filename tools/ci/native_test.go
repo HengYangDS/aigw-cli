@@ -193,7 +193,7 @@ func TestNativeSourceQualificationRunsLifecycleOnce(t *testing.T) {
 func TestNativeExplicitReleaseScopeRemainsIndependent(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
-	selected := []string{"--baseline-tag", "v0.3.1", "--peer", "github", "--repository", "owner/product"}
+	selected := []string{"--baseline-tag", "v0.7.0", "--peer", "github", "--repository", "owner/product"}
 	var calls []command
 	if err := run(append([]string{"native", "--"}, selected...), &bytes.Buffer{}, func(call command) error {
 		calls = append(calls, call)
@@ -468,7 +468,7 @@ func TestNativePrebuiltAcceptanceDoesNotRepeatSourceQualification(t *testing.T) 
 		{"--artifacts", "/candidate with spaces", "--candidate"},
 		{"--artifacts=/candidate", "--candidate"},
 		{"--tag", "v0.3.1", "--peer", "gitlab", "--repository", "group/product"},
-		{"--input-package", "native-inputs", "--input-sha256", strings.Repeat("a", 64), "--candidate-source", strings.Repeat("b", 40), "--candidate", "--baseline-tag", "v0.3.1", "--peer", "gitlab", "--repository", "group/product"},
+		{"--input-package", "native-inputs", "--input-sha256", strings.Repeat("a", 64), "--candidate-source", strings.Repeat("b", 40), "--candidate", "--baseline-tag", "v0.7.0", "--peer", "gitlab", "--repository", "group/product"},
 	} {
 		var calls []command
 		err := run(append([]string{"native", "--"}, selected...), &bytes.Buffer{}, func(call command) error {
@@ -485,7 +485,7 @@ func TestNativePrebuiltAcceptanceDoesNotRepeatSourceQualification(t *testing.T) 
 		refresh string
 	}{
 		{[]string{"native", "--full-quality", "--", "--artifacts", "/candidate", "--candidate"}, ""},
-		{[]string{"native", "--", "--baseline-tag", "v0.3.1", "--peer", "gitlab", "--repository", "group/product"}, ""},
+		{[]string{"native", "--", "--baseline-tag", "v0.7.0", "--peer", "gitlab", "--repository", "group/product"}, ""},
 		{[]string{"native", "--", "--artifacts", "/candidate", "--candidate"}, "true"},
 	} {
 		t.Setenv("AIGW_REFRESH_LOCKS", source.refresh)

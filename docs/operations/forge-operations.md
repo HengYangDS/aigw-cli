@@ -316,7 +316,7 @@ published predecessor executable. After tagging, omit `--candidate` and select
 
 `--baseline-artifacts` with `--baseline-tag` instead admits the complete signed
 predecessor matrix and extracts its native executable through the same owner.
-Every selector admits only a predecessor of 0.7.0 or later, the oldest release a
+Every published selector admits only a predecessor of 0.7.0 or later, the oldest release a
 journey can start from. The 0.7.0 release has no admissible predecessor, so it
 runs no predecessor journey and no performance comparison; later releases run
 both against 0.7.0 or later.

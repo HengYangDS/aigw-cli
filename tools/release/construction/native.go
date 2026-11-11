@@ -191,12 +191,14 @@ func (input *NativeAcceptance) validateOptionalScopes() error {
 	if err := input.validateDiagnosticScopes(); err != nil {
 		return err
 	}
-	for _, tag := range []string{input.Tag, input.BaselineTag} {
-		if tag == "" {
-			continue
-		}
-		if _, err := semver.StrictNewVersion(strings.TrimPrefix(tag, "v")); err != nil || !strings.HasPrefix(tag, "v") {
+	if input.Tag != "" {
+		if _, err := semver.StrictNewVersion(strings.TrimPrefix(input.Tag, "v")); err != nil || !strings.HasPrefix(input.Tag, "v") {
 			return errors.New("native release tags require v<semver>")
+		}
+	}
+	if input.BaselineTag != "" {
+		if err := admitPredecessor(input.BaselineTag); err != nil {
+			return err
 		}
 	}
 	if (input.Clients || input.DiagnosticClient != "" || runtime.GOOS == "darwin" && os.Getenv("AIGW_VERIFY_SYSTEM_KEYRING") == "1") && input.BaselineTag == "" && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
@@ -423,6 +425,9 @@ func admitPredecessor(tag string) error {
 	version, err := semver.StrictNewVersion(strings.TrimPrefix(tag, "v"))
 	if err != nil {
 		return fmt.Errorf("published predecessor %q must be a v<semver> tag: %w", tag, err)
+	}
+	if !strings.HasPrefix(tag, "v") {
+		return fmt.Errorf("published predecessor %q must be a v<semver> tag", tag)
 	}
 	if version.LessThan(oldestPredecessor) {
 		return fmt.Errorf("published predecessor %s is older than %s; %s is the oldest release a journey can start from, because older releases cannot read aigw.toml; select a predecessor of %s or later", version, oldestPredecessor, oldestPredecessor, oldestPredecessor)
