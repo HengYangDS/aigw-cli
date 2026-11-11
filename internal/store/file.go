@@ -107,6 +107,15 @@ func (e *UndefinedFieldError) Error() string {
 	return fmt.Sprintf("schema %d does not define the field %s, on line %d", domain.ConfigVersion, e.Field, e.Line)
 }
 
+// MissingFieldError is a field that schema 8 requires and the file leaves
+// out, such as the endpoint of a client's forwarding.
+type MissingFieldError struct{ Field string }
+
+// Error names the field and the schema.
+func (e *MissingFieldError) Error() string {
+	return fmt.Sprintf("schema %d requires the field %s", domain.ConfigVersion, e.Field)
+}
+
 // readVersion reads only the document's version.
 func readVersion(data []byte) (int, error) {
 	var header struct {
@@ -208,6 +217,11 @@ func (declared clientDocument) binding(client string) (domain.ClientBinding, err
 		binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: declared.Retries.Request, StreamMaxRetries: declared.Retries.Stream}
 	}
 	if forwarding := declared.Forwarding; forwarding != nil {
+		// A table without an endpoint would forward nothing, and the next
+		// write would drop it.
+		if forwarding.Endpoint == "" {
+			return domain.ClientBinding{}, &MissingFieldError{Field: "clients." + client + ".forwarding.endpoint"}
+		}
 		binding.ForwardingEndpoint, binding.ForwardingUpstreamIdentity, binding.ForwardingProtocol = forwarding.Endpoint, forwarding.Upstream, forwarding.Protocol
 	}
 	return binding, nil

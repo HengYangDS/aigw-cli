@@ -281,6 +281,35 @@ func TestSchemaEightWritesAModelWithoutProtocols(t *testing.T) {
 	}
 }
 
+// A forwarding table names the endpoint that the client forwards to; one
+// without an endpoint, empty or not, is refused by the field's name, rather
+// than loaded as a client that forwards nothing and dropped on the next
+// write.
+func TestSchemaEightRefusesAForwardingTableWithoutAnEndpoint(t *testing.T) {
+	_, valid := schemaEightConfig(t)
+	lines := strings.Split(valid, "\n")
+	index := slices.IndexFunc(lines, func(line string) bool { return strings.HasPrefix(line, "forwarding = ") })
+	if index < 0 {
+		t.Fatalf("the fixture has no forwarding table:\n%s", valid)
+	}
+	for name, table := range map[string]string{
+		"an empty table":           "forwarding = {}",
+		"a table without endpoint": "forwarding = { upstream = 'abc', protocol = 'responses' }",
+	} {
+		t.Run(name, func(t *testing.T) {
+			edited := slices.Clone(lines)
+			edited[index] = table
+			_, err := decodeTOMLConfig([]byte(strings.Join(edited, "\n")), testAdmission())
+			loadErr, isLoad := errors.AsType[*LoadError](err)
+			missing, isMissing := errors.AsType[*MissingFieldError](err)
+			if !isLoad || loadErr.Phase != LoadPhaseValidate || !isMissing || missing.Field != "clients.codex.forwarding.endpoint" ||
+				!strings.Contains(err.Error(), "schema 8 requires the field clients.codex.forwarding.endpoint") {
+				t.Fatalf("load error = %v", err)
+			}
+		})
+	}
+}
+
 // The encoder spaces the braces of each inline table as taplo does, and
 // leaves braces and quotes inside strings alone, so a label keeps its text.
 func TestSchemaEightSpacesInlineTablesOutsideStrings(t *testing.T) {

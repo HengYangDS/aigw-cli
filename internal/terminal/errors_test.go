@@ -93,6 +93,11 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 			want: []string{"Cannot validate local configuration",
 				"AIGW 9.8.7 stopped at the configuration validate stage: schema 8 does not define the field providers.order, on line 6.", "aigw config path"},
 		},
+		"missing field": {
+			err: &store.LoadError{Phase: store.LoadPhaseValidate, Err: fmt.Errorf("%s: %w", content, &store.MissingFieldError{Field: "clients.codex.forwarding.endpoint"})},
+			want: []string{"Cannot validate local configuration",
+				"AIGW 9.8.7 stopped at the configuration validate stage: schema 8 requires the field clients.codex.forwarding.endpoint.", "aigw config path"},
+		},
 		"unknown stage": {
 			err:  &store.LoadError{Phase: "replay", Err: errors.New(content)},
 			want: []string{"Cannot load local configuration", "stopped at the configuration replay stage", "aigw config path"},
