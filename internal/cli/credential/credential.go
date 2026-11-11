@@ -26,25 +26,22 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Args:   cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			client := args[0]
-			if !runtime.Clients.Admission().Admits(client) {
+			spec, admitted := runtime.Clients.Admission().Spec(client)
+			if !admitted {
 				return fmt.Errorf("credential helper requires an admitted client: %s", runtime.Clients.Admission().Usage())
 			}
-			cfg, err := runtime.Config.Load()
+			// The reader decodes only the view that this release freezes, so
+			// that a later release's configuration keeps serving a running
+			// session.
+			view, err := runtime.Config.LoadCredentialView()
 			if err != nil {
 				return configurationProblem(runtime.Version, err)
 			}
-			adapter := cfg.Clients[client]
-			if !adapter.Enabled {
-				return terminal.ProblemError(fmt.Sprintf("%s adapter is not enabled", client), "", "Credential lookup did not start.", fmt.Sprintf("Enable the %s adapter before using its credential helper.", client), nil)
-			}
-			clientRuntime, err := resolveProjectedRuntime(cfg, client, args[1])
+			providerID, err := view.TokenProvider(spec, args[1])
 			if err != nil {
-				return terminal.ProblemError(fmt.Sprintf("%s credential projection no longer matches an available Account and endpoint", client), "", "No Account Token was read or returned.", "Run `aigw sync` and reload the client's configuration.", err)
+				return refusal(client, err)
 			}
-			if !clientRuntime.RequiresProviderToken() {
-				return terminal.ProblemError(fmt.Sprintf("%s uses client-owned authentication", client), "", "AIGW does not supply an Account Token for this route.", fmt.Sprintf("Run `aigw check %s --depth client` to verify authentication through the client.", client), nil)
-			}
-			token, err := runtime.Secrets.Get(clientRuntime.ProviderID)
+			token, err := runtime.Secrets.Get(providerID)
 			if err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {
 					return terminal.ProblemError("Account Token read exceeded its deadline", "", "The credential subprocess was stopped; no Token was returned.", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read.", err)
@@ -100,28 +97,17 @@ func configurationProblem(version string, err error) error {
 	return terminal.ProblemError("Cannot read AIGW configuration", evidence, "Credential lookup did not start.", fix, err)
 }
 
-func resolveProjectedRuntime(cfg domain.Config, client, fingerprint string) (domain.Runtime, error) {
-	spec, admitted := cfg.Admission().Spec(client)
-	if !admitted {
-		return domain.Runtime{}, fmt.Errorf("unknown client %q", client)
+// refusal explains why the view names no provider for the client, before any
+// Token is read.
+func refusal(client string, err error) error {
+	switch {
+	case errors.Is(err, domain.ErrCredentialClientDisabled):
+		return terminal.ProblemError(fmt.Sprintf("%s adapter is not enabled", client), "", "Credential lookup did not start.", fmt.Sprintf("Enable the %s adapter before using its credential helper.", client), nil)
+	case errors.Is(err, domain.ErrCredentialClientOwned):
+		return terminal.ProblemError(fmt.Sprintf("%s uses client-owned authentication", client), "", "AIGW does not supply an Account Token for this route.", fmt.Sprintf("Run `aigw check %s --depth client` to verify authentication through the client.", client), nil)
 	}
-	for _, ref := range cfg.ModelRefs() {
-		model := cfg.Models[ref]
-		provider, exists := cfg.Providers[model.Provider]
-		if !exists {
-			continue
-		}
-		provider.ID = model.Provider
-		protocols := spec.CompatibleModelProtocols(provider, model)
-		for _, protocol := range protocols {
-			clientRuntime, err := cfg.ResolveModelProtocol(client, ref, protocol)
-			if err != nil {
-				continue
-			}
-			if clientRuntime.CredentialProjectionFingerprint(client) == fingerprint {
-				return clientRuntime, nil
-			}
-		}
+	if unknown, ok := errors.AsType[*domain.UnknownAuthenticationError](err); ok {
+		return terminal.ProblemError(fmt.Sprintf("%s uses the authentication %q, which this credential reader does not know", client, unknown.Authentication), "", "No Token was read or returned.", "Run `aigw sync` with the installed AIGW and reload the client to use its current reader.", err)
 	}
-	return domain.Runtime{}, fmt.Errorf("unknown credential projection fingerprint")
+	return terminal.ProblemError(fmt.Sprintf("%s credential projection no longer matches an available Account and endpoint", client), "", "No Account Token was read or returned.", "Run `aigw sync` and reload the client's configuration.", err)
 }

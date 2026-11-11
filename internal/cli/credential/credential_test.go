@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -69,7 +68,7 @@ func TestCredentialHelperPrintsOnlyTheProjectedProviderToken(t *testing.T) {
 }
 
 func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
-	for _, stage := range []string{"read", "parse", "validate"} {
+	for _, stage := range []string{"read", "parse", "parse a field of the view"} {
 		t.Run(stage, func(t *testing.T) {
 			runtime, stdout := helperRuntime(t, codex.ID, true)
 			runtime.Version = "9.8.7"
@@ -79,7 +78,7 @@ func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := []string{"AIGW 9.8.7 credential reader", "configuration " + stage + " stage", "aigw sync", "reload the client"}
+			want := []string{"AIGW 9.8.7 credential reader", "configuration parse stage", "aigw sync", "reload the client"}
 			switch stage {
 			case "read":
 				if err := os.Remove(path); err != nil {
@@ -96,11 +95,8 @@ func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
 				want = []string{"AIGW 9.8.7 credential reader", "configuration read stage", "(" + failure.Op + ": " + failure.Err.Error() + ")", "read access", "aigw config path"}
 			case "parse":
 				data = []byte("[invalid configuration")
-			case "validate":
-				data = regexp.MustCompile(`(?m)^protocols = \{responses = \[\]\}$`).ReplaceAll(data, []byte("protocols = {responses = ['future_capability']}"))
-				if !bytes.Contains(data, []byte("future_capability")) {
-					t.Fatalf("fixture has no Responses interface to extend:\n%s", data)
-				}
+			default:
+				data = editConfiguration(t, data, "enabled = true", "enabled = 'yes'")
 			}
 			if stage != "read" {
 				if err := os.WriteFile(path, data, 0o600); err != nil {
@@ -122,7 +118,7 @@ func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
 			}
 			// The diagnostic names no path or configuration content, and no
 			// doctor, which loads the same configuration and fails the same way.
-			if strings.Contains(diagnostic, filepath.Dir(path)) || strings.Contains(diagnostic, "future_capability") || strings.Contains(diagnostic, "aigw check --depth local") {
+			if strings.Contains(diagnostic, filepath.Dir(path)) || strings.Contains(diagnostic, "'yes'") || strings.Contains(diagnostic, "aigw check --depth local") {
 				t.Fatalf("diagnostic disclosed a path or configuration content, or named doctor:\n%s", diagnostic)
 			}
 		})
