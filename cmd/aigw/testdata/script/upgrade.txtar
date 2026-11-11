@@ -1,0 +1,156 @@
+# A home that holds only the files of an earlier release, config.toml with
+# its component, backup and verified files and that release's credential
+# reader, is a home without a configuration: bare aigw names aigw setup and
+# exits 0, and a command that needs a configuration names it. setup, use and
+# sync leave each of those files as it was, and once aigw.toml exists, only
+# it loads.
+[darwin] env CONF=$HOME/Library/Application' 'Support/aigw
+[!darwin] env CONF=$HOME/aigw
+env READER=$CONF/credential/5d2c6a0f9e8b7a6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1
+
+# Without any file, bare aigw names aigw setup, and sync refuses, naming it.
+exec aigw
+cmp stdout bare-empty.txt
+exitcode 1 aigw sync
+stdout '^  aigw setup$'
+
+# The files of an earlier release change nothing of that, and they stay as
+# they were. That release stored the legacy provider's Token in the store
+# that this one shares, so the program stores it, and its own files go.
+stdin legacy-token.txt
+exec aigw provider add legacy --endpoint anthropic=$UPSTREAM --token-stdin
+rm $CONF/aigw.toml
+rm $CONF/aigw.toml.lock
+cp $CONF/secrets/tokens/legacy legacy-item
+# The earlier release kept its folders owner-only, as this one does.
+mkdir $READER
+chmod 0700 $CONF
+chmod 0700 $CONF/credential
+chmod 0700 $READER
+cp earlier/aigw $READER/aigw
+cp earlier/config.toml $CONF/config.toml
+cp earlier/config.toml $CONF/config.toml.bak
+cp earlier/config.toml.verified.json $CONF/config.toml.verified.json
+cp earlier/config.forwarding.toml $CONF/config.forwarding.toml
+cp earlier/config.retries.toml $CONF/config.retries.toml
+cp earlier/config.catalog.toml $CONF/config.catalog.toml
+cp earlier/config.capabilities.toml $CONF/config.capabilities.toml
+snapshot $HOME earlier-before.txt
+exec aigw
+cmp stdout bare-empty.txt
+exec aigw status --json
+stdout '"models": 0,'
+stdout '"next_detail": "aigw setup"'
+exitcode 1 aigw sync
+stdout '^  aigw setup$'
+# sync takes the configuration's lock, aigw.toml.lock, which is this
+# release's own file; nothing else is written.
+rm $CONF/aigw.toml.lock
+snapshot $HOME earlier-after.txt
+cmp earlier-after.txt earlier-before.txt
+
+# setup, use and sync beside them write aigw.toml and keep their bytes.
+envsubst team.in team.toml
+stdin token.txt
+exec aigw setup --from team.toml --provider team --token-stdin
+exec aigw use claude team/team-model
+exec aigw sync
+exists $CONF/aigw.toml
+cmp $READER/aigw earlier/aigw
+cmp $CONF/config.toml earlier/config.toml
+cmp $CONF/config.toml.bak earlier/config.toml
+cmp $CONF/config.toml.verified.json earlier/config.toml.verified.json
+cmp $CONF/config.forwarding.toml earlier/config.forwarding.toml
+cmp $CONF/config.retries.toml earlier/config.retries.toml
+cmp $CONF/config.catalog.toml earlier/config.catalog.toml
+cmp $CONF/config.capabilities.toml earlier/config.capabilities.toml
+cmp $CONF/secrets/tokens/legacy legacy-item
+
+# With both files, only aigw.toml loads: the provider that config.toml names
+# is not there, and config.toml keeps its bytes.
+exec aigw provider list
+stdout '^  team  +Team Gateway'
+! stdout legacy
+exec aigw status
+stdout 'Claude +team/team-model'
+cmp $CONF/config.toml earlier/config.toml
+
+-- token.txt --
+sk-team-token-0001
+-- legacy-token.txt --
+sk-legacy-token-0002
+-- team.in --
+version = 8
+
+[[providers]]
+id = "team"
+label = "Team Gateway"
+endpoints = {anthropic = "$UPSTREAM"}
+
+[[providers.models]]
+id = "team-model"
+family = "team-model"
+protocols = {anthropic = ["text"]}
+
+[[families]]
+id = "team-model"
+label = "Team Model"
+
+[recommendations.claude]
+primary = {model = "team/team-model"}
+-- earlier/aigw --
+An earlier release's credential reader, which a running session may call.
+-- earlier/config.toml --
+version = 7
+
+[accounts.legacy]
+label = 'Legacy Gateway'
+
+[accounts.legacy.endpoints]
+anthropic = 'https://legacy.invalid'
+
+[models.legacy-model]
+label = 'Legacy Model'
+
+[routes.legacy-route]
+account = 'legacy'
+model = 'legacy-model'
+upstream_model = 'legacy-model'
+
+[routes.legacy-route.interfaces]
+anthropic = []
+
+[clients.claude]
+enabled = true
+route = 'legacy-route'
+-- earlier/config.toml.verified.json --
+{"config": "version = 7\n", "clients": [{"client": "claude", "depth": "client"}], "verified_at": "2026-10-30T00:00:00Z"}
+-- earlier/config.forwarding.toml --
+version = 1
+
+[clients.claude]
+endpoint = 'http://127.0.0.1:8792/legacy'
+-- earlier/config.retries.toml --
+version = 1
+
+[clients.codex]
+request_max_retries = 3
+-- earlier/config.catalog.toml --
+version = 1
+
+[accounts.legacy]
+order = 10
+-- earlier/config.capabilities.toml --
+version = 1
+
+[routes.legacy-route.interfaces]
+anthropic = ['tool_search']
+-- bare-empty.txt --
+AIGW  Not configured
+────────────────────────────────────────
+
+Get started
+  Run the guided setup once to add a provider, its Token and a first model.
+
+Next
+  aigw setup
