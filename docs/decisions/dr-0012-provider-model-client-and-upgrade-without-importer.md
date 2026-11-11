@@ -21,7 +21,7 @@ DR-0003 made an Account rename a two-phase credential migration. Measured on
 0.6.1, those implementation objects reached help and output, and the user had
 to invent a Route ID that restated the Account and the provider's model ID. Five
 configuration files existed because earlier readers had to keep decoding
-`config.toml`, and `account rename` took about 700 lines of code to protect a
+`config.toml`, and the account rename command took about 700 lines of code to protect a
 rare operation.
 
 On 2026-11-06 the owner ruled that complete breaking changes are allowed and
@@ -46,20 +46,20 @@ AIGW speaks of three nouns: provider, model and client.
   `responses` and `chat`.
 
 Providers, which nest their models, families, recommendations and clients live
-in one file, `aigw.toml`, with `version = 8`. A team file has the same format
-without `[clients]`. Array order is display order.
+in one file, `aigw.toml`, at version 8. A team file has the same format
+without the `[clients]` table. Array order is display order.
 
 No command renames a provider or a model. To change a provider's ID, add the
-provider under the new ID, point each client at its models with `aigw use`,
+provider under the new ID, point each client at its models with the use command,
 then remove the old provider.
 
 0.7.0 upgrades without an importer:
 
 1. It reads and writes only `aigw.toml`, and never reads, changes, renames or
    deletes `config.toml` or its component files. A home that holds only those
-   files has no configuration, and `aigw` names `aigw setup`.
-2. The upgrade is `aigw setup --from <team file>` or `aigw setup`, then
-   `aigw use <client> <provider/model>` for each client. Token items are built
+   files has no configuration, and the bare program names the setup command.
+2. The upgrade is the setup command, with a team file or without one, then the
+   use command for each client and model. Token items are built
    from provider IDs, which do not change, so a provider added under its
    earlier ID reuses its stored Token without a prompt.
 3. A client session that started before the upgrade keeps calling the
@@ -70,12 +70,12 @@ then remove the old provider.
    everything else: each provider's `id` and `endpoints`, and each client's
    `enabled` and `authentication`. Changing a frozen field takes a new file
    name, as this release does.
-5. `aigw self rollback` gives the retained program the current configuration
-   and refuses a program that cannot read it, so it cannot return to a release
-   older than 0.7.0. The Homebrew rollback keeps its Keychain custody step and
-   has no retry-policy refusal. Hermes provider IDs are
-   `aigw-<provider>-<protocol>`, so a Hermes session that recorded an earlier
-   ID does not find it after the upgrade.
+5. The program rollback command gives the retained program the current
+   configuration and refuses a program that cannot read it, so it cannot return
+   to a release older than 0.7.0. The Homebrew rollback keeps its Keychain
+   custody step and has no retry-policy refusal. Hermes provider IDs join aigw,
+   the provider ID and the protocol name, so a Hermes session that recorded an
+   earlier ID does not find it after the upgrade.
 
 ## Alternatives Rejected
 
@@ -95,20 +95,20 @@ then remove the old provider.
 
 ## Consequences and Boundary
 
-Every user runs `aigw setup` after upgrading. A team file restores providers,
+Every user runs the setup command after upgrading. A team file restores providers,
 models and recommendations; client selections, forwarding and retries are set
-again with `aigw use` and `aigw client edit`. A team member on 0.6.1 cannot
+again with the use and client edit commands. A team member on 0.6.1 cannot
 read a version 8 team file, so everyone upgrades first.
 
-The old files stay on disk and hold no secrets. `aigw provider remove` deletes
+The old files stay on disk and hold no secrets. Removing a provider deletes
 a Token that `config.toml` still names, so a surviving old session loses that
 provider, which is what removing it means. An earlier release that the user
 installs by other means finds its own files as they were before the upgrade,
 without later changes.
 
 Credential storage, Keychain item labels, the contents of client files beyond
-the credential reader's path and the Hermes provider IDs, and the command line
-`aigw credential <client> <fingerprint>` that client files embed do not change.
+the credential reader's path and the Hermes provider IDs, and the credential
+command line that client files embed do not change.
 
 ## Evidence and Revisit
 

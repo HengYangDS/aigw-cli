@@ -3,7 +3,7 @@ subject: aigw:decision:0003
 role: decision
 state: canonical
 decision_id: DR-0003
-decision_status: superseded
+decision_status: accepted
 relations:
   canonical_for: Migrate Account Rename Credentials in Two Phases
 ---
@@ -12,7 +12,7 @@ relations:
 
 - Date: 2026-07-24
 - Last amended: 2026-09-14
-- Superseded by: [DR-0012](dr-0012-provider-model-client-and-upgrade-without-importer.md) on 2026-11-12; this record stays as written
+- Superseded by: [DR-0012](dr-0012-provider-model-client-and-upgrade-without-importer.md) on 2026-11-12; this record stays as written and no longer governs
 - Owner: AIGW maintainers
 
 ## Context

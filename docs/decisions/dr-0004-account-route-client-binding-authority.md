@@ -3,7 +3,7 @@ subject: aigw:decision:0004
 role: decision
 state: canonical
 decision_id: DR-0004
-decision_status: superseded
+decision_status: accepted
 relations:
   canonical_for: Use Account, Route, and Client Binding as Configuration Authority
 ---
@@ -12,7 +12,7 @@ relations:
 
 - Date: 2026-08-07
 - Last amended: 2026-09-21
-- Superseded by: [DR-0012](dr-0012-provider-model-client-and-upgrade-without-importer.md) on 2026-11-12; this record stays as written
+- Superseded by: [DR-0012](dr-0012-provider-model-client-and-upgrade-without-importer.md) on 2026-11-12; this record stays as written and no longer governs
 
 ## Context
 
