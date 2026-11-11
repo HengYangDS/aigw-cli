@@ -167,15 +167,9 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 			if job.Env["GODEBUG"] != "" {
 				t.Fatalf("%s/%s leaks installation transport into product verification", projection.Path, name)
 			}
+			refuseSupplyCredentials(t, projection.Path+"/"+name, job.Env)
 			for _, step := range job.Steps {
-				for _, forbidden := range []string{"MISE_NETRC", "MISE_NETRC_FILE", "MISE_GITLAB_TOKEN"} {
-					if _, set := step.Env[forbidden]; set {
-						t.Fatalf("%s/%s step carries %s, a GitLab tool-supply credential, into a GitHub toolchain", projection.Path, name, forbidden)
-					}
-					if _, set := job.Env[forbidden]; set {
-						t.Fatalf("%s/%s carries %s, a GitLab tool-supply credential, into a GitHub toolchain", projection.Path, name, forbidden)
-					}
-				}
+				refuseSupplyCredentials(t, projection.Path+"/"+name+" step", step.Env)
 				transport := ""
 				if strings.HasPrefix(step.Uses, "jdx/mise-action@") {
 					transport = "http2client=0"
@@ -512,6 +506,17 @@ func TestLockRefreshIsExplicitAndUsesOneNativeTask(t *testing.T) {
 		// The native command runs the same opt-in task when AIGW_REFRESH_LOCKS is true.
 		if !slices.Contains(job.Script, "mise exec --locked -- go run ./tools/ci native --platform "+platform+" --from-env") {
 			t.Fatalf("GitLab %s lacks the same opt-in lock task", platform)
+		}
+	}
+}
+
+// refuseSupplyCredentials checks that a GitHub toolchain environment carries none of
+// the GitLab tool-supply credentials.
+func refuseSupplyCredentials(t *testing.T, owner string, environment map[string]string) {
+	t.Helper()
+	for _, forbidden := range []string{"MISE_NETRC", "MISE_NETRC_FILE", "MISE_GITLAB_TOKEN"} {
+		if _, set := environment[forbidden]; set {
+			t.Fatalf("%s carries %s, a GitLab tool-supply credential, into a GitHub toolchain", owner, forbidden)
 		}
 	}
 }
