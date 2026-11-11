@@ -27,7 +27,7 @@ func ParseTeamFile(data []byte, admission domain.Admission) (domain.Config, erro
 		return domain.Config{}, fmt.Errorf("parse the team file: %w", err)
 	}
 	if key := findCredentialKey(raw, ""); key != "" {
-		return domain.Config{}, fmt.Errorf("the team file has the credential field %q, and a team file never holds a credential", key)
+		return domain.Config{}, domain.NewEntryError("the field `"+key+"`", fmt.Errorf("the team file has the credential field %q, and a team file never holds a credential", key))
 	}
 	if _, clients := raw["clients"]; clients {
 		return domain.Config{}, ErrTeamFileClients

@@ -214,6 +214,28 @@ cmp old-refusal.out old-refusal.json
 cp team.toml old.toml
 fixloop -did 'used the team file of version 8 that aigw config export wrote' stdout aigw setup --from old.toml --json
 
+# A team file that cannot be applied names the entry of the file to change,
+# never `aigw check`, which would not read the file. The fix is an edit of
+# the file, so fixloop has no command to rerun.
+exitcode 1 aigw setup --from undefined-field.toml --json
+stdout '"next_detail": "Correct the field `providers.bogus` on line 5 in the team file, then run the same command again."'
+! stdout 'aigw check'
+exitcode 1 aigw setup --from credential-field.toml --json
+stdout '"next_detail": "Correct the field `providers.token` in the team file, then run the same command again."'
+exitcode 1 aigw setup --from bad-provider.toml --json
+stdout '"next_detail": "Correct provider `A b` in the team file, then run the same command again."'
+exitcode 1 aigw setup --from bad-model.toml --json
+stdout '"next_detail": "Correct model `a/m` in the team file, then run the same command again."'
+exitcode 1 aigw setup --from bad-family.toml --json
+stdout '"next_detail": "Correct family `f` in the team file, then run the same command again."'
+exitcode 1 aigw setup --from bad-recommendation.toml --json
+stdout '"next_detail": "Correct the `codex` recommendation in the team file, then run the same command again."'
+exitcode 1 aigw setup --from unknown-model.toml --json
+stdout '"next_detail": "Correct the `codex` recommendation in the team file, then run the same command again."'
+exitcode 1 aigw setup --from no-endpoint.toml --json
+stdout '"next_detail": "Correct model `a/m` in the team file, then run the same command again."'
+! stdout 'aigw check'
+
 # A team file that cannot be read names the one classification and its fix.
 exitcode 1 aigw setup --from missing.toml --json
 normalize stdout missing.out
@@ -367,7 +389,7 @@ protocols = {chat = []}
   "ok": false,
   "error": "the team file declares fresh/fresh-chat on OpenAI Chat Completions, and provider fresh, which the file adds, has no OpenAI Chat Completions endpoint",
   "impact": "Nothing changed.",
-  "next_detail": "Correct the team file, then run the same command again."
+  "next_detail": "Correct model `fresh/fresh-chat` in the team file, then run the same command again."
 }
 -- clients.toml --
 version = 8
@@ -1086,3 +1108,61 @@ Fix
   "error": "guided setup is the one write without a preview; preview a team file with `aigw setup --from \u003cfile\u003e --dry-run`",
   "next_detail": "aigw setup --from \u003cfile\u003e --dry-run"
 }
+-- undefined-field.toml --
+version = 8
+
+[[providers]]
+id = 'a'
+bogus = 1
+-- credential-field.toml --
+version = 8
+
+[[providers]]
+id = 'a'
+label = 'A'
+endpoints = { responses = 'https://a.test/v1' }
+token = 'x'
+-- bad-provider.toml --
+version = 8
+
+[[providers]]
+id = 'A b'
+label = 'A'
+endpoints = { responses = 'https://a.test/v1' }
+-- bad-model.toml --
+version = 8
+
+[[providers]]
+id = 'a'
+label = 'A'
+endpoints = { responses = 'https://a.test/v1' }
+
+[[providers.models]]
+id = 'm'
+protocols = { bogus = [] }
+-- bad-family.toml --
+version = 8
+
+[[families]]
+id = 'f'
+-- bad-recommendation.toml --
+version = 8
+
+[recommendations.codex]
+primary = { model = 'nope' }
+-- unknown-model.toml --
+version = 8
+
+[recommendations.codex]
+primary = { model = 'a/m' }
+-- no-endpoint.toml --
+version = 8
+
+[[providers]]
+id = 'a'
+label = 'A'
+endpoints = { responses = 'https://a.test/v1' }
+
+[[providers.models]]
+id = 'm'
+protocols = { chat = [] }

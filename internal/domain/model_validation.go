@@ -60,17 +60,17 @@ func (c *Config) validateCollections() error {
 	}
 	for _, name := range slices.Sorted(maps.Keys(c.Providers)) {
 		if err := c.Providers[name].validate(name); err != nil {
-			return err
+			return NewEntryError("provider `"+name+"`", err)
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(c.Families)) {
 		if err := c.Families[name].validate(name); err != nil {
-			return err
+			return NewEntryError("family `"+name+"`", err)
 		}
 	}
 	for _, ref := range c.ModelRefs() {
 		if err := c.Models[ref].validate(ref, c.Providers); err != nil {
-			return err
+			return NewEntryError("model `"+ref.String()+"`", err)
 		}
 	}
 	return nil
@@ -78,12 +78,13 @@ func (c *Config) validateCollections() error {
 
 func (c *Config) validateRecommendations() error {
 	for _, client := range slices.Sorted(maps.Keys(c.Recommendations)) {
+		entry := "the `" + client + "` recommendation"
 		if !c.admission.Admits(client) {
-			return fmt.Errorf("unknown client recommendation %q; supported clients are %s", client, c.admission.Usage())
+			return NewEntryError(entry, fmt.Errorf("unknown client recommendation %q; supported clients are %s", client, c.admission.Usage()))
 		}
 		recommendation := c.Recommendations[client]
 		if recommendation.Primary.Model.IsZero() {
-			return fmt.Errorf("client recommendation %q has no primary model", client)
+			return NewEntryError(entry, fmt.Errorf("client recommendation %q has no primary model", client))
 		}
 		for index, selection := range append([]ClientSelection{recommendation.Primary}, recommendation.Alternatives...) {
 			// A recommended protocol that the provider has no endpoint for
@@ -94,10 +95,10 @@ func (c *Config) validateRecommendations() error {
 				err = selection.validate(spec, c.admission)
 			}
 			if err != nil {
-				return fmt.Errorf("client recommendation %q choice %d: %w", client, index+1, err)
+				return NewEntryError(entry, fmt.Errorf("client recommendation %q choice %d: %w", client, index+1, err))
 			}
 			if c.Models[selection.Model].Deprecated {
-				return fmt.Errorf("client recommendation %q choice %d names the deprecated model %s", client, index+1, selection.Model)
+				return NewEntryError(entry, fmt.Errorf("client recommendation %q choice %d names the deprecated model %s", client, index+1, selection.Model))
 			}
 		}
 	}

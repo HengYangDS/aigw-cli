@@ -318,3 +318,50 @@ func TestARecommendationWithoutAProtocolWaitsForAnEndpoint(t *testing.T) {
 		t.Fatal("a recommendation of a model that codex cannot speak was stored")
 	}
 }
+
+// A file that lists providers, and one provider's models, in another order
+// than the local configuration sets their display order: what the file names
+// comes first, in the file's order, and local-only entries follow in their
+// local order. Only the display order changes; no endpoint, Token or client
+// selection does.
+func TestMergeTeamFileOrdersByTheFileThenTheLocalEntries(t *testing.T) {
+	cfg := NewConfig(testAdmission())
+	for _, provider := range []struct {
+		id     string
+		models []string
+	}{{"b", []string{"m3", "m2", "m1"}}, {"c", []string{"c1"}}, {"a", []string{"x"}}} {
+		cfg.Providers[provider.id] = Provider{Label: strings.ToUpper(provider.id), Endpoints: Endpoints{Responses: "https://" + provider.id + ".example/v1"}}
+		for _, model := range provider.models {
+			cfg.Models[NewModelRef(provider.id, model)] = testModel("", provider.id, model, ProtocolResponses)
+		}
+	}
+	cfg.SetSelectedModel(ClientCodex, NewModelRef("b", "m3"), "")
+	cfg.Normalize()
+	// Local order: providers b, c, a; b's models m3, m2, m1.
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	file := Config{
+		Version:   ConfigVersion,
+		Providers: map[string]Provider{"a": cfg.Providers["a"], "b": cfg.Providers["b"]},
+		Families:  map[string]Family{},
+		Models: map[ModelRef]Model{
+			NewModelRef("a", "y"):  testModel("", "a", "y", ProtocolResponses),
+			NewModelRef("b", "m1"): cfg.Models[NewModelRef("b", "m1")],
+			NewModelRef("b", "m2"): cfg.Models[NewModelRef("b", "m2")],
+		},
+	}
+	file.SetAdmission(testAdmission())
+	file.order = displayOrder{providers: []string{"a", "b"}, models: []ModelRef{NewModelRef("a", "y"), NewModelRef("b", "m1"), NewModelRef("b", "m2")}}
+	merged, _ := mergeTeam(t, cfg, file, false)
+	if got := merged.ProviderIDs(); !slices.Equal(got, []string{"a", "b", "c"}) {
+		t.Errorf("providers = %v, want the file's a, b, then the local-only c", got)
+	}
+	want := []ModelRef{NewModelRef("a", "y"), NewModelRef("a", "x"), NewModelRef("b", "m1"), NewModelRef("b", "m2"), NewModelRef("b", "m3"), NewModelRef("c", "c1")}
+	if got := merged.ModelRefs(); !slices.Equal(got, want) {
+		t.Errorf("models = %v, want each provider's file models, then its local-only ones: %v", got, want)
+	}
+	if merged.Providers["b"].Endpoints != cfg.Providers["b"].Endpoints || merged.Clients[ClientCodex].Model != NewModelRef("b", "m3") {
+		t.Errorf("the order changed an endpoint or a selection: %+v", merged.Clients[ClientCodex])
+	}
+}

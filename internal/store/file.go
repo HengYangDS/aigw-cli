@@ -134,7 +134,8 @@ func decodeDocument(data []byte) (document, error) {
 	err := decoder.Decode(&decoded)
 	if strict, ok := errors.AsType[*toml.StrictMissingError](err); ok && len(strict.Errors) > 0 {
 		line, _ := strict.Errors[0].Position()
-		return document{}, &UndefinedFieldError{Field: strings.Join(strict.Errors[0].Key(), "."), Line: line}
+		field := strings.Join(strict.Errors[0].Key(), ".")
+		return document{}, domain.NewEntryError(fmt.Sprintf("the field `%s` on line %d", field, line), &UndefinedFieldError{Field: field, Line: line})
 	}
 	return decoded, err
 }
@@ -151,32 +152,33 @@ func (d document) config(admission domain.Admission) (domain.Config, error) {
 			entry.BalanceProbe = &domain.BalanceProbe{Kind: provider.Balance.Kind, BaseURL: provider.Balance.BaseURL}
 		}
 		if err := cfg.AppendProvider(provider.ID, entry); err != nil {
-			return domain.Config{}, err
+			return domain.Config{}, domain.NewEntryError("provider `"+provider.ID+"`", err)
 		}
 		for _, model := range provider.Models {
 			if err := cfg.AppendModel(domain.Model{
 				Provider: provider.ID, ID: model.ID, Family: model.Family, Label: model.Label,
 				Protocols: model.Protocols, Deprecated: model.Deprecated,
 			}); err != nil {
-				return domain.Config{}, err
+				return domain.Config{}, domain.NewEntryError("model `"+provider.ID+"/"+model.ID+"`", err)
 			}
 		}
 	}
 	for _, family := range d.Families {
 		if err := cfg.AppendFamily(family.ID, domain.Family{Label: family.Label}); err != nil {
-			return domain.Config{}, err
+			return domain.Config{}, domain.NewEntryError("family `"+family.ID+"`", err)
 		}
 	}
 	for client, recommendation := range d.Recommendations {
+		entry := "the `" + client + "` recommendation"
 		primary, err := recommendation.Primary.selection(client)
 		if err != nil {
-			return domain.Config{}, err
+			return domain.Config{}, domain.NewEntryError(entry, err)
 		}
 		decoded := domain.ClientRecommendation{Primary: primary}
 		for _, alternative := range recommendation.Alternatives {
 			selection, err := alternative.selection(client)
 			if err != nil {
-				return domain.Config{}, err
+				return domain.Config{}, domain.NewEntryError(entry, err)
 			}
 			decoded.Alternatives = append(decoded.Alternatives, selection)
 		}

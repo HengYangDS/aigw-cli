@@ -363,7 +363,7 @@ family = "fresh-chat"
 protocols = {chat = []}
 `)
 	problem := terminal.ProblemFor(home.run(t, &guidedPrompt{}, "--from", path, "--json"))
-	if !strings.Contains(problem.Title, "fresh/fresh-chat") || !strings.Contains(problem.Title, "provider fresh") || problem.Fix != "Correct the team file, then run the same command again." {
+	if !strings.Contains(problem.Title, "fresh/fresh-chat") || !strings.Contains(problem.Title, "provider fresh") || problem.Fix != "Correct model `fresh/fresh-chat` in the team file, then run the same command again." {
 		t.Fatalf("problem %#v", problem)
 	}
 	if _, err := os.Stat(home.runtime.Config.Path()); !errors.Is(err, os.ErrNotExist) {

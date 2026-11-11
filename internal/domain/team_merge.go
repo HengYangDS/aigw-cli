@@ -94,7 +94,7 @@ func MergeTeamFile(cfg Config, incoming Config, prune bool) (Config, TeamMerge, 
 		recommendation := incoming.Recommendations[client]
 		for _, choice := range recommendation.Selections() {
 			if _, defined := merged.Models[choice.Model]; !defined {
-				return Config{}, TeamMerge{}, fmt.Errorf("the team file's %s recommendation names %s, which neither the team file nor the configuration defines", client, choice.Model)
+				return Config{}, TeamMerge{}, NewEntryError("the `"+client+"` recommendation", fmt.Errorf("the team file's %s recommendation names %s, which neither the team file nor the configuration defines", client, choice.Model))
 			}
 		}
 		merged.Recommendations[client] = recommendation
@@ -179,7 +179,7 @@ func mergeModel(merged, before *Config, incoming Config, ref ModelRef, report *T
 		kept := provider.Endpoints.For(protocol)
 		switch {
 		case kept == "" && !existing:
-			return fmt.Errorf("the team file declares %s on %s, and provider %s, which the file adds, has no %s endpoint", ref, ProtocolLabel(protocol), model.Provider, ProtocolLabel(protocol))
+			return NewEntryError("model `"+ref.String()+"`", fmt.Errorf("the team file declares %s on %s, and provider %s, which the file adds, has no %s endpoint", ref, ProtocolLabel(protocol), model.Provider, ProtocolLabel(protocol)))
 		case kept == "":
 			report.Unusable = append(report.Unusable, UnusableProtocol{Model: ref, Protocol: protocol})
 		}

@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // RuntimeBindingUnselectedError reports that a client has no selected model.
 type RuntimeBindingUnselectedError struct {
@@ -61,4 +64,40 @@ func ProtocolLabel(protocol EndpointProtocol) string {
 	default:
 		return string(protocol)
 	}
+}
+
+// EntryError is a failure at one entry of a configuration or a team file,
+// named as the operator finds it there, such as provider `a`, model `a/m` or
+// the field `providers.bogus`. It reads as the failure it wraps, so only a
+// presentation that tells the operator which entry to correct uses the entry.
+type EntryError struct {
+	Entry string
+	Err   error
+}
+
+// NewEntryError names entry as the place of err, unless err is nil or names
+// an entry already.
+func NewEntryError(entry string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if _, named := EntryOf(err); named {
+		return err
+	}
+	return &EntryError{Entry: entry, Err: err}
+}
+
+// Error is the wrapped failure's text.
+func (e *EntryError) Error() string { return e.Err.Error() }
+
+// Unwrap returns the wrapped failure.
+func (e *EntryError) Unwrap() error { return e.Err }
+
+// EntryOf returns the entry that err names, and whether it names one.
+func EntryOf(err error) (string, bool) {
+	entry, named := errors.AsType[*EntryError](err)
+	if !named {
+		return "", false
+	}
+	return entry.Entry, true
 }

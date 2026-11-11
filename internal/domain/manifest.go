@@ -29,10 +29,10 @@ func (c *Config) AdmitTeamFile() (Config, error) {
 	check.Recommendations = make(map[string]ClientRecommendation, len(file.Recommendations))
 	for client, recommendation := range file.Recommendations {
 		if !file.admission.Admits(client) {
-			return Config{}, fmt.Errorf("recommendation uses unsupported client %q", client)
+			return Config{}, NewEntryError("the `"+client+"` recommendation", fmt.Errorf("recommendation uses unsupported client %q", client))
 		}
 		if recommendation.Primary.Model.IsZero() {
-			return Config{}, fmt.Errorf("client recommendation %q has no primary model", client)
+			return Config{}, NewEntryError("the `"+client+"` recommendation", fmt.Errorf("client recommendation %q has no primary model", client))
 		}
 		// A choice of a model that only the configuration defines is checked
 		// when the file is merged into it.

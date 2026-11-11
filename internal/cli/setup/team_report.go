@@ -294,13 +294,29 @@ func renderKept(r *terminal.Renderer, document teamDocument) {
 		value := "Kept, because " + kept.Client + " selects it on " + kept.Protocol + ", which the team file's model lacks"
 		rows = append(rows, terminal.Field{State: terminal.Info, Label: kept.Model, Value: value})
 	}
-	for _, dropped := range document.DroppedCapabilities {
-		rows = append(rows, terminal.Field{State: terminal.Info, Label: dropped.Model + " " + dropped.Protocol,
-			Value: "Dropped " + strings.Join(dropped.Capabilities, ", ") + ", qualified on the team file's endpoint"})
+	// A protocol of a model is one row, even when the file's capabilities
+	// were dropped on it and its provider has no endpoint for it.
+	unusable := map[string]unusableProtocol{}
+	for _, entry := range document.Unusable {
+		unusable[entry.Model+" "+entry.Protocol] = entry
 	}
-	for _, unusable := range document.Unusable {
-		rows = append(rows, terminal.Field{State: terminal.Warn, Label: unusable.Model + " " + unusable.Protocol,
-			Value: "Unusable until the provider has the endpoint: " + unusable.NextDetail})
+	for _, dropped := range document.DroppedCapabilities {
+		label := dropped.Model + " " + dropped.Protocol
+		value := "Dropped " + strings.Join(dropped.Capabilities, ", ") + ", qualified on the team file's endpoint"
+		if entry, both := unusable[label]; both {
+			rows = append(rows, terminal.Field{State: terminal.Warn, Label: label,
+				Value: "Unusable until the provider has the endpoint: " + entry.NextDetail + "; dropped " + strings.Join(dropped.Capabilities, ", ") + ", qualified on the team file's endpoint"})
+			delete(unusable, label)
+			continue
+		}
+		rows = append(rows, terminal.Field{State: terminal.Info, Label: label, Value: value})
+	}
+	for _, entry := range document.Unusable {
+		if _, left := unusable[entry.Model+" "+entry.Protocol]; !left {
+			continue
+		}
+		rows = append(rows, terminal.Field{State: terminal.Warn, Label: entry.Model + " " + entry.Protocol,
+			Value: "Unusable until the provider has the endpoint: " + entry.NextDetail})
 	}
 	if len(rows) == 0 {
 		return

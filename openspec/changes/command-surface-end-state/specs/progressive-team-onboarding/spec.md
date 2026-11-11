@@ -145,6 +145,16 @@ local and be reported.
 - **AND** providers, their endpoints and Tokens, and every client's selection
   SHALL stay unchanged.
 
+#### Scenario: The file lists providers or models in another order
+
+- **WHEN** a team file lists providers, or one provider's models, in another
+  order than the configuration
+- **THEN** what the file names SHALL come first, in the file's order, and the
+  entries that only the configuration holds SHALL follow in their local order,
+  for providers and for each provider's models alike
+- **AND** the merge SHALL change only that display order, never an endpoint, a
+  Token or a client's selection.
+
 #### Scenario: Preview a team file
 
 - **WHEN** `aigw setup --from <file> --dry-run --json` runs

@@ -71,6 +71,9 @@ func runTeamSetup(cmd *cobra.Command, runtime invocation.Context, request setupR
 	}
 	merged, report, err := domain.MergeTeamFile(cfg, file, request.Prune)
 	if err != nil {
+		if _, named := domain.EntryOf(err); named {
+			return teamFileRefusal(err)
+		}
 		return terminal.ProblemError(err.Error(), "", "Nothing changed.", "Correct the team file, then run the same command again.", err)
 	}
 	for _, id := range request.Providers {
@@ -99,15 +102,29 @@ func readTeamFile(runtime invocation.Context, path string) (domain.Config, error
 		return domain.Config{}, terminal.ManifestReadFailure(path, platform.PathContext{Home: invocation.Home(runtime.Dependencies)}, err)
 	}
 	file, err := store.ParseTeamFile(data, runtime.Config.Admission())
+	if err != nil {
+		return domain.Config{}, teamFileRefusal(err)
+	}
+	return file, nil
+}
+
+// teamFileRefusal presents the refusal of a team file that cannot be applied:
+// a version or a [clients] section by its own fix, a failure at one entry by
+// the entry to correct, and a document that does not parse as it is, with the
+// location it names.
+func teamFileRefusal(err error) error {
 	if version, ok := errors.AsType[*domain.UnsupportedTeamFileVersionError](err); ok {
-		return domain.Config{}, terminal.ProblemError(version.Error(), "", "Nothing changed.",
+		return terminal.ProblemError(version.Error(), "", "Nothing changed.",
 			fmt.Sprintf("Use a team file of version %d, which `aigw config export` writes, then run the same command again.", domain.ConfigVersion), err)
 	}
 	if errors.Is(err, store.ErrTeamFileClients) {
-		return domain.Config{}, terminal.ProblemError(err.Error(), "", "Nothing changed.",
+		return terminal.ProblemError(err.Error(), "", "Nothing changed.",
 			"Remove the [clients] section from the team file, or write the file again with `aigw config export`, then run the same command again.", err)
 	}
-	return file, err
+	if entry, ok := domain.EntryOf(err); ok {
+		return terminal.ProblemError(err.Error(), "", "Nothing changed.", "Correct "+entry+" in the team file, then run the same command again.", err)
+	}
+	return err
 }
 
 // apply connects the Tokens and commits the setup.
