@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/app/diagnostics"
+	"aigw-cli/internal/domain"
 )
 
 func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
@@ -15,7 +16,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 	}{
 		{
 			name:       "route is available but not selected",
-			facts:      ClientFacts{SuggestedModel: "claude", BindingAction: "aigw use claude team/claude"},
+			facts:      ClientFacts{SuggestedModel: domain.NewModelRef("gateway", "claude"), BindingAction: "aigw use claude team/claude"},
 			wantState:  Deferred,
 			wantAction: "aigw use claude team/claude",
 		},
@@ -23,14 +24,14 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{name: "nothing is selected, and the caller names no step", facts: ClientFacts{}, wantState: Deferred},
 		{
 			name:       "selected account is not connected",
-			facts:      ClientFacts{Model: "claude", Provider: "team", CredentialRequired: true},
+			facts:      ClientFacts{Model: domain.NewModelRef("gateway", "claude"), Provider: "team", CredentialRequired: true},
 			wantState:  Deferred,
 			wantAction: "aigw provider rotate team",
 		},
 		{
 			name: "credential metadata is unavailable",
 			facts: ClientFacts{
-				Model:                      "claude",
+				Model:                      domain.NewModelRef("gateway", "claude"),
 				Provider:                   "team",
 				CredentialRequired:         true,
 				CredentialObservationIssue: "Credential metadata is unavailable",
@@ -41,7 +42,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "a disabled client names no step of its own",
 			facts: ClientFacts{
-				Model:               "claude",
+				Model:               domain.NewModelRef("gateway", "claude"),
 				Provider:            "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -51,7 +52,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "a disabled client leaves its activation step to activation",
 			facts: ClientFacts{
-				Model:               "codex",
+				Model:               domain.NewModelRef("gateway", "codex"),
 				Provider:            "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -62,7 +63,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "enabled projection is invalid",
 			facts: ClientFacts{
-				Model:               "codex",
+				Model:               domain.NewModelRef("gateway", "codex"),
 				Provider:            "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -76,7 +77,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "invalid projection defaults to repair",
 			facts: ClientFacts{
-				Model:               "claude",
+				Model:               domain.NewModelRef("gateway", "claude"),
 				Provider:            "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -89,7 +90,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "local prerequisites are configured",
 			facts: ClientFacts{
-				Model:               "claude",
+				Model:               domain.NewModelRef("gateway", "claude"),
 				Provider:            "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -114,7 +115,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 // unless discovery finds it installed: then a sync writes them.
 func TestClassifyClientTellsAnInstalledClientFromOneThatIsNot(t *testing.T) {
 	facts := ClientFacts{
-		Model: "hermes-route", Provider: "team", ProjectionEnabled: true, ProjectionDeferred: true,
+		Model: domain.NewModelRef("gateway", "hermes-route"), Provider: "team", ProjectionEnabled: true, ProjectionDeferred: true,
 		ProjectionAction: "Install Hermes if needed, then run `aigw sync`",
 	}
 	if got := ClassifyClient(facts); got.State != Deferred || got.Detail != "The client is not installed" || got.NextAction != facts.ProjectionAction {
@@ -147,7 +148,7 @@ func TestStateLabelUsesTheCanonicalVocabulary(t *testing.T) {
 
 func TestClassifyClientIncludesModelFailures(t *testing.T) {
 	got := ClassifyClient(ClientFacts{
-		Model:         "missing",
+		Model:         domain.NewModelRef("gateway", "missing"),
 		BindingIssue:  "unknown route \"missing\"",
 		BindingAction: "aigw use <claude-route>",
 	})
@@ -162,7 +163,7 @@ func TestClassifyClientIncludesModelFailures(t *testing.T) {
 // way. With the Token, the files' own step comes first.
 func TestClassifyClientPutsTheTokenBeforeTheClientFiles(t *testing.T) {
 	drifted := ClientFacts{
-		Model: "codex", Provider: "team", CredentialRequired: true,
+		Model: domain.NewModelRef("gateway", "codex"), Provider: "team", CredentialRequired: true,
 		ProjectionEnabled: true, ProjectionIssue: "projection drift", ProjectionAction: "aigw sync",
 	}
 	missing := ClassifyClient(drifted)

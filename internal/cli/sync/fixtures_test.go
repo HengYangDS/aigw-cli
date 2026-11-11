@@ -26,11 +26,11 @@ func configuredRepairStore(t *testing.T) (store.Store, domain.Config) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Models["one"] = domain.Model{
-		Label: "One", Provider: "one", Family: "claude-test",
+	cfg.Models[domain.NewModelRef("one", "claude-test")] = domain.Model{
+		Label: "One", Provider: "one", Family: "claude-test", ID: "claude-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedModel(claude.ID, "one", "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-test"), "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

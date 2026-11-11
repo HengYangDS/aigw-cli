@@ -10,63 +10,50 @@ import (
 
 // AdoptSelection records Codex's own model choice as its Client Binding when
 // the root model is the only changed value AIGW owns in the Codex targets and
-// it names the upstream model of one Route of the selected Account and
-// protocol. The binding keeps its protocol, provider and forwarding.
-func (codexAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) (string, error) {
+// it names a model of the selected provider on the selected protocol. The
+// binding keeps its protocol, provider and forwarding.
+func (codexAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) (domain.ModelRef, error) {
 	binding := cfg.Clients[ID]
 	if !binding.Enabled || len(binding.Targets) == 0 {
-		return "", nil
+		return domain.ModelRef{}, nil
 	}
-	selected, err := cfg.ResolveRuntime(ID, "")
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
-		return "", nil
+		return domain.ModelRef{}, nil
 	}
 	chosen := ""
 	for _, target := range binding.Targets {
 		model, changed, err := ObserveSelection(target)
 		if err != nil {
-			return "", err
+			return domain.ModelRef{}, err
 		}
 		if changed && chosen != "" && model != chosen {
-			return "", fmt.Errorf("Codex targets select different models %q and %q; run `aigw use codex <provider/model>`", chosen, model)
+			return domain.ModelRef{}, fmt.Errorf("Codex targets select different models %q and %q; run `aigw use codex <provider/model>`", chosen, model)
 		}
 		if changed {
 			chosen = model
 		}
 	}
 	if chosen == "" {
-		return "", nil
+		return domain.ModelRef{}, nil
 	}
-	routeID, err := modelFor(*cfg, selected, chosen)
+	ref, err := modelFor(*cfg, selected, chosen)
 	if err != nil {
-		return "", err
+		return domain.ModelRef{}, err
 	}
-	cfg.SetSelectedModel(ID, routeID, "")
-	return routeID, nil
+	cfg.SetSelectedModel(ID, ref, "")
+	return ref, nil
 }
 
-// modelFor maps Codex's model to the one Route with the selected Account,
-// protocol and that upstream model, which the managed provider already reaches.
-func modelFor(cfg domain.Config, selected domain.Runtime, model string) (string, error) {
+// modelFor maps Codex's model to the model of the selected provider with
+// that ID, which the managed provider already reaches on the selected
+// protocol.
+func modelFor(cfg domain.Config, selected domain.Runtime, model string) (domain.ModelRef, error) {
 	spec := codexAdapter{}.Spec()
-	var matches []string
-	for _, routeID := range cfg.CatalogModelIDs() {
-		route := cfg.Models[routeID]
-		if route.Provider != selected.ProviderID || route.UpstreamModelID() != model {
-			continue
-		}
-		if slices.Contains(spec.CompatibleModelProtocols(cfg.Providers[route.Provider], route), selected.Protocol) {
-			matches = append(matches, routeID)
-		}
+	ref := domain.NewModelRef(selected.ProviderID, model)
+	added, exists := cfg.Models[ref]
+	if !exists || !slices.Contains(spec.CompatibleModelProtocols(cfg.Providers[added.Provider], added), selected.Protocol) {
+		return domain.ModelRef{}, fmt.Errorf("Codex selects model %q, which provider %q has not added; run `aigw use codex %s/%s`", model, selected.ProviderID, selected.ProviderID, model)
 	}
-	switch len(matches) {
-	case 1:
-		return matches[0], nil
-	case 0:
-		return "", fmt.Errorf("Codex selects model %q, which provider %q has not added; run `aigw use codex %s/%s`", model, selected.ProviderID, selected.ProviderID, model)
-	default:
-		// Only a configuration from before models were unique per provider
-		// can hold several, which no selection tells apart.
-		return "", fmt.Errorf("Codex selects model %q, which %d models of provider %q carry; correct the configuration, whose file `aigw config path` names", model, len(matches), selected.ProviderID)
-	}
+	return ref, nil
 }

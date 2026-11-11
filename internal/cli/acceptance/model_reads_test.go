@@ -25,9 +25,9 @@ func TestModelReadsNeitherObserveCredentialsNorShowClientAuthentication(t *testi
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["native"] = domain.Provider{Label: "Native", Endpoints: domain.Endpoints{Responses: "https://native.test/v1"}}
-	cfg.Models["native"] = domain.Model{Label: "Native", Provider: "native", Family: "native-model",
+	cfg.Models[domain.NewModelRef("native", "native-model")] = domain.Model{Label: "Native", Provider: "native", Family: "native-model", ID: "native-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.Clients[codex.ID] = domain.ClientBinding{Model: "native", ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative}
+	cfg.Clients[codex.ID] = domain.ClientBinding{Model: domain.NewModelRef("native", "native-model"), ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -68,8 +68,8 @@ func TestModelEditReachesTheFilesOfTheClientThatUsesIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
-	cfg.SetSelectedModel(codex.ID, "one", "")
+	addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt"), "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

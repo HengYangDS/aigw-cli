@@ -74,22 +74,25 @@ cmp stdout path-refusal.json
 fixloop -input stdout aigw config path extra --json
 
 -- manifest.in --
-version = 7
-[accounts.team]
+version = 8
+
+[[providers]]
+id = "team"
 label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "$UPSTREAM"
-[models.team-model]
-label = "Team Model"
-[routes.team-route]
+endpoints = {anthropic = "$UPSTREAM"}
+
+[[providers.models]]
+id = "team-model"
+family = "team-model"
 label = "Team Route"
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { anthropic = ["text"] }
+protocols = {anthropic = ["text"]}
+
+[[families]]
+id = "team-model"
+label = "Team Model"
 -- broken.toml --
-version = 7
-[accounts.team
+version = 8
+[providers
 -- help.txt --
 AIGW  aigw config
 ────────────────────────────────────────
@@ -106,38 +109,32 @@ Commands
 Options
   -h, --help[=true|false]   help for config
 -- path-darwin.txt --
-$HOME/Library/Application Support/aigw/config.toml
+$HOME/Library/Application Support/aigw/aigw.toml
 -- path-linux.txt --
-$HOME/aigw/config.toml
+$HOME/aigw/aigw.toml
 -- export.toml --
-version = 7
+version = 8
 
-[accounts]
-[accounts.team]
+[[providers]]
+id = 'team'
 label = 'Team Gateway'
+endpoints = {anthropic = '$UPSTREAM'}
 
-[accounts.team.endpoints]
-anthropic = '$UPSTREAM'
-
-[models]
-[models.team-model]
-label = 'Team Model'
-
-[routes]
-[routes.team-route]
+[[providers.models]]
+id = 'team-model'
+family = 'team-model'
 label = 'Team Route'
-account = 'team'
-model = 'team-model'
-upstream_model = 'team-model'
+protocols = {anthropic = ['text']}
 
-[routes.team-route.interfaces]
-anthropic = ['text']
+[[families]]
+id = 'team-model'
+label = 'Team Model'
 -- refusal.txt --
 AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  Cannot decode TOML document at line 2, column 15
+  Cannot decode TOML document at line 2, column 11
 
 Fix
   Correct the value at the reported document location and rerun the command.
@@ -145,16 +142,16 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "Cannot decode TOML document at line 2, column 15",
+  "error": "Cannot decode TOML document at line 2, column 11",
   "next_detail": "Correct the value at the reported document location and rerun the command."
 }
 -- path-windows.txt --
-$HOME\aigw\config.toml
+$HOME\aigw\aigw.toml
 -- path-darwin.json --
 {
   "schema_version": 1,
   "ok": true,
-  "path": "$HOME/Library/Application Support/aigw/config.toml"
+  "path": "$HOME/Library/Application Support/aigw/aigw.toml"
 }
 -- path-refusal.json --
 {
@@ -167,13 +164,13 @@ $HOME\aigw\config.toml
 {
   "schema_version": 1,
   "ok": true,
-  "path": "$HOME/aigw/config.toml"
+  "path": "$HOME/aigw/aigw.toml"
 }
 -- path-windows.json --
 {
   "schema_version": 1,
   "ok": true,
-  "path": "$HOME\\aigw\\config.toml"
+  "path": "$HOME\\aigw\\aigw.toml"
 }
 -- export-help.txt --
 AIGW  aigw config export

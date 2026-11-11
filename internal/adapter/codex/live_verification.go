@@ -39,7 +39,7 @@ func VerifyInvocation(ctx context.Context, runner process.VerificationRunner, cf
 		return ExecutableIdentity{}, fmt.Errorf("Codex configuration target is missing; run `aigw sync`")
 	}
 	if clientRuntime.UpstreamModel == "" {
-		return ExecutableIdentity{}, fmt.Errorf("Route %q has no Codex model", clientRuntime.ModelID)
+		return ExecutableIdentity{}, fmt.Errorf("Route %q has no Codex model", clientRuntime.Model)
 	}
 	targets := append([]string(nil), binding.Targets...)
 	sort.Strings(targets)

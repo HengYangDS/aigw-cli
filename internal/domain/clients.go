@@ -6,35 +6,28 @@ import (
 	"strings"
 )
 
-// EndpointProtocol identifies the upstream protocol required by an admitted client.
+// EndpointProtocol is a protocol that a provider's endpoint serves and a
+// client speaks. Its value is its name in the configuration, on the command
+// line and in output.
 type EndpointProtocol string
 
 const (
 	// ProtocolAnthropic identifies the native Anthropic Messages-compatible endpoint.
 	ProtocolAnthropic EndpointProtocol = "anthropic"
 	// ProtocolResponses identifies the OpenAI Responses-compatible endpoint.
-	ProtocolResponses EndpointProtocol = "openai_responses"
+	ProtocolResponses EndpointProtocol = "responses"
 	// ProtocolChat identifies OpenAI Chat Completions-compatible endpoints.
-	ProtocolChat EndpointProtocol = "openai_chat_completions"
+	ProtocolChat EndpointProtocol = "chat"
 )
 
-// protocolNames are the names that the command line and its output give the
-// protocols, in display order. The configuration keeps the protocols' own
-// values.
-var protocolNames = []struct {
-	name     string
-	protocol EndpointProtocol
-}{
-	{"anthropic", ProtocolAnthropic},
-	{"responses", ProtocolResponses},
-	{"chat", ProtocolChat},
-}
+// knownProtocols are the protocols in display order.
+var knownProtocols = []EndpointProtocol{ProtocolAnthropic, ProtocolResponses, ProtocolChat}
 
-// ProtocolNames returns the command-line protocol names in display order.
+// ProtocolNames returns the protocol names in display order.
 func ProtocolNames() []string {
-	names := make([]string, 0, len(protocolNames))
-	for _, entry := range protocolNames {
-		names = append(names, entry.name)
+	names := make([]string, 0, len(knownProtocols))
+	for _, protocol := range knownProtocols {
+		names = append(names, string(protocol))
 	}
 	return names
 }
@@ -42,27 +35,17 @@ func ProtocolNames() []string {
 // ProtocolUsage renders the protocol names for help and refusals.
 func ProtocolUsage() string { return naturalChoices(ProtocolNames()) }
 
-// ProtocolNamed returns the protocol that a command-line name names. Any other
-// spelling, including a protocol's configuration value, names none.
+// ProtocolNamed returns the protocol that name names. Any other spelling
+// names none.
 func ProtocolNamed(name string) (EndpointProtocol, bool) {
-	for _, entry := range protocolNames {
-		if entry.name == name {
-			return entry.protocol, true
-		}
+	if protocol := EndpointProtocol(name); slices.Contains(knownProtocols, protocol) {
+		return protocol, true
 	}
 	return "", false
 }
 
-// Name returns the command-line name of protocol, or its value when it has no
-// name.
-func (protocol EndpointProtocol) Name() string {
-	for _, entry := range protocolNames {
-		if entry.protocol == protocol {
-			return entry.name
-		}
-	}
-	return string(protocol)
-}
+// Name returns the protocol's name.
+func (protocol EndpointProtocol) Name() string { return string(protocol) }
 
 // ClientSpec is the canonical admission record for an implemented client
 // adapter. A provider or model alone never admits a client. Every adapter must
@@ -222,49 +205,49 @@ func (endpoints Endpoints) For(protocol EndpointProtocol) string {
 	}
 }
 
-// ClientSelection identifies one Route and the client-specific choices needed
-// to resolve it without coupling the Route to a client brand.
+// ClientSelection names one model and the client-specific choices needed to
+// resolve it, without coupling the model to a client brand.
 type ClientSelection struct {
-	Model          string           `json:"route,omitempty"              toml:"route,omitempty"`
-	Protocol       EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
-	ModelProvider  string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
-	Authentication Authentication   `json:"authentication,omitempty"     toml:"authentication,omitempty"`
+	Model          ModelRef
+	Protocol       EndpointProtocol
+	ModelProvider  string
+	Authentication Authentication
 }
 
 // ClientRecommendation orders reviewed choices without creating an active
 // selection or a global ranking attached to a family or model.
 type ClientRecommendation struct {
-	Primary      ClientSelection   `json:"primary"                toml:"primary"`
-	Alternatives []ClientSelection `json:"alternatives,omitempty" toml:"alternatives,omitempty"`
+	Primary      ClientSelection
+	Alternatives []ClientSelection
 }
 
 // Selections returns the reviewed choices in preference order.
 func (recommendation ClientRecommendation) Selections() []ClientSelection {
 	selections := make([]ClientSelection, 0, 1+len(recommendation.Alternatives))
-	if recommendation.Primary.Model != "" {
+	if !recommendation.Primary.Model.IsZero() {
 		selections = append(selections, recommendation.Primary)
 	}
 	return append(selections, recommendation.Alternatives...)
 }
 
-// ClientBinding records one client's explicit selection, enabled intent, and
-// owned native targets.
+// ClientBinding records one client's explicit selection, enabled intent,
+// owned native targets, retry budgets and forwarding.
 type ClientBinding struct {
-	RetryPolicy        *RetryPolicy `json:"retry_policy,omitempty" toml:"retry_policy,omitempty"`
-	ForwardingEndpoint string       `json:"forwarding_endpoint,omitempty" toml:"-"`
+	RetryPolicy        *RetryPolicy
+	ForwardingEndpoint string
 	// ForwardingUpstreamIdentity and ForwardingProtocol record the upstream that
 	// a forwarded binding reaches. SetForwardingEndpoint sets them with the
-	// endpoint, and a binding forwards only while its Route still reaches them.
-	ForwardingUpstreamIdentity string           `json:"-"                            toml:"-"`
-	ForwardingProtocol         EndpointProtocol `json:"-"                            toml:"-"`
-	Model                      string           `json:"route,omitempty"              toml:"route,omitempty"`
-	Enabled                    bool             `json:"enabled"                      toml:"enabled"`
-	Protocol                   EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
-	ModelProvider              string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
-	Authentication             Authentication   `json:"authentication,omitempty"     toml:"authentication,omitempty"`
-	Executable                 string           `json:"executable,omitempty"         toml:"executable,omitempty"`
-	Targets                    []string         `json:"targets,omitempty"            toml:"targets,omitempty"`
-	CredentialCommand          string           `json:"credential_command,omitempty" toml:"credential_command,omitempty"`
+	// endpoint, and a binding forwards only while its model still reaches them.
+	ForwardingUpstreamIdentity string
+	ForwardingProtocol         EndpointProtocol
+	Model                      ModelRef
+	Enabled                    bool
+	Protocol                   EndpointProtocol
+	ModelProvider              string
+	Authentication             Authentication
+	Executable                 string
+	Targets                    []string
+	CredentialCommand          string
 }
 
 func (binding ClientBinding) withoutForwarding() ClientBinding {
@@ -283,7 +266,7 @@ func (c *Config) SetForwardingEndpoint(client, endpoint string) error {
 		}
 		// The recorded identity names the Account upstream, which forwarding
 		// never replaces, so the current destination does not affect it.
-		runtime, err := c.ResolveRuntime(client, "")
+		runtime, err := c.ResolveRuntime(client, ModelRef{})
 		if err != nil {
 			return err
 		}
@@ -332,33 +315,33 @@ func (runtime Runtime) UsesAIGWCredentialStore() bool {
 
 // SetSelectedModel changes one client's model and endpoint protocol while
 // preserving enabled intent and native options. An empty protocol retains
-// compatible selection or infers the model's only admitted protocol.
-// Forwarding follows the upstream endpoint, so a change of provider, protocol
-// or endpoint drops it; retry budgets belong to the provider, so only a change
+// compatible selection or infers the model's only protocol. Forwarding
+// follows the upstream endpoint, so a change of provider, protocol or
+// endpoint drops it; retry budgets belong to the provider, so only a change
 // of provider drops them.
-func (c *Config) SetSelectedModel(client, routeID string, protocol EndpointProtocol) {
+func (c *Config) SetSelectedModel(client string, ref ModelRef, protocol EndpointProtocol) {
 	if c.Clients == nil {
 		c.Clients = map[string]ClientBinding{}
 	}
 	binding := c.Clients[client]
-	if bound, selected := c.Models[binding.Model]; !selected || bound.Provider != c.Models[routeID].Provider {
+	if bound, selected := c.Models[binding.Model]; !selected || bound.Provider != c.Models[ref].Provider {
 		binding.RetryPolicy = nil
 	}
-	previous, previousErr := c.ResolveRuntime(client, "")
-	if binding.Model == "" {
-		binding = binding.withSelection(c.recommendedSelectionFor(client, routeID))
+	previous, previousErr := c.ResolveRuntime(client, ModelRef{})
+	if binding.Model.IsZero() {
+		binding = binding.withSelection(c.recommendedSelectionFor(client, ref))
 	}
-	binding.Model = routeID
+	binding.Model = ref
 	if protocol != "" {
 		binding.Protocol = protocol
-	} else if route, exists := c.Models[routeID]; exists && !modelAdmitsProtocol(route, binding.Protocol) {
+	} else if model, exists := c.Models[ref]; exists && !modelAdmitsProtocol(model, binding.Protocol) {
 		binding.Protocol = ""
-		if protocols := route.AdmittedProtocols(); len(protocols) == 1 {
+		if protocols := model.AdmittedProtocols(); len(protocols) == 1 {
 			binding.Protocol = protocols[0]
 		}
 	}
 	c.Clients[client] = binding
-	current, currentErr := c.ResolveRuntime(client, "")
+	current, currentErr := c.ResolveRuntime(client, ModelRef{})
 	if previousErr != nil || currentErr != nil || !previous.SameUpstream(current) {
 		binding = binding.withoutForwarding()
 	}
@@ -366,7 +349,7 @@ func (c *Config) SetSelectedModel(client, routeID string, protocol EndpointProto
 }
 
 // SetClientActivation changes one client's enabled intent and native location
-// while preserving its selected Route and client-specific options.
+// while preserving its selected model and client-specific options.
 func (c *Config) SetClientActivation(client string, enabled bool, executable string, targets []string) {
 	if c.Clients == nil {
 		c.Clients = map[string]ClientBinding{}

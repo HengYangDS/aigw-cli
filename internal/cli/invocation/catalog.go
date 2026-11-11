@@ -74,7 +74,7 @@ func unlistedModel(cfg domain.Config, ref domain.ModelRef, listed []string, evid
 		return terminal.ProblemError(problem, evidence, "", confirmUnlisted(ref, commands), nil)
 	}
 	nearest := domain.NewModelRef(ref.Provider(), closest[0])
-	if len(cfg.ResolveModelRef(nearest)) > 0 {
+	if _, added := cfg.Models[nearest]; added {
 		fix := commands.Added(nearest.String())
 		if fix == "" {
 			fix = "Run `aigw model show` for " + nearest.String() + "."

@@ -110,22 +110,25 @@ func TestSetupPreviewsUseNoCredential(t *testing.T) {
 func recommendingManifest(t *testing.T) string {
 	t.Helper()
 	manifest := filepath.Join(t.TempDir(), "team.toml")
-	writeFile(t, manifest, []byte(`version = 7
-[recommendations.claude.primary]
-route = "team-route"
+	writeFile(t, manifest, []byte(`version = 8
 
-[accounts.team]
+[[providers]]
+id = "team"
 label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "https://team.test"
-[models.team-model]
-label = "Team Model"
-[routes.team-route]
+endpoints = {anthropic = "https://team.test"}
+
+[[providers.models]]
+id = "team-model"
+family = "team-model"
 label = "Team Route"
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { anthropic = ["text"] }
+protocols = {anthropic = ["text"]}
+
+[[families]]
+id = "team-model"
+label = "Team Model"
+
+[recommendations.claude]
+primary = {model = "team/team-model"}
 `), 0o600)
 	return manifest
 }

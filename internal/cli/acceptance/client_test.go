@@ -136,12 +136,12 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 		}
 	})
 
-	t.Run("enable unresolved route", func(t *testing.T) {
+	t.Run("enable without a selected model", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
 		saveCommandModel(t, app, domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
 		_ = secretStore.Set("one", "token")
 		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", "/x"})
-		if err == nil || !strings.Contains(err.Error(), "no Route selected for client \"claude\"") {
+		if err == nil || !strings.Contains(err.Error(), "no model selected for client \"claude\"") {
 			t.Fatalf("error = %v", err)
 		}
 	})
@@ -181,8 +181,8 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-model")
-	cfg.SetSelectedModel(claude.ID, "team", "")
+	addProviderModel(&cfg, "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-model")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "claude-model"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -236,8 +236,8 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "team", "team", "Team", domain.Endpoints{Responses: "https://team.test/v1"}, codex.ID, "gpt-model")
-	cfg.SetSelectedModel(codex.ID, "team", "")
+	addProviderModel(&cfg, "team", "Team", domain.Endpoints{Responses: "https://team.test/v1"}, codex.ID, "gpt-model")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("team", "gpt-model"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -276,8 +276,9 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 		if id == claude.ID {
 			protocol = domain.ProtocolAnthropic
 		}
-		cfg.Models[id] = qualifiedModel(id, "gateway", "fixture-model", protocol)
-		cfg.SetSelectedModel(id, id, "")
+		ref := domain.NewModelRef("gateway", "fixture-"+id)
+		cfg.Models[ref] = qualifiedModel(id, "gateway", "fixture-"+id, protocol)
+		cfg.SetSelectedModel(id, ref, "")
 		cfg.SetClientActivation(id, true, executable, nil)
 	}
 	clientAdapter := cfg.Clients[codex.ID]
@@ -382,8 +383,8 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://example.invalid"}}
-	cfg.Models["claude"] = qualifiedModel("Claude", "gateway", "fixture-model", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("gateway", "fixture-model")] = qualifiedModel("Claude", "gateway", "fixture-model", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "fixture-model"), "")
 	command := filepath.Join(t.TempDir(), "explicit-helper")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	binding := cfg.Clients[claude.ID]

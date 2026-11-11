@@ -56,7 +56,7 @@ func applyProjection(t *testing.T, paths Paths, desired Desired) {
 // disabled Desktop, have none to lose.
 func TestRegistryReportsALostToolSearch(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
-	declareToolSearch(fixture.cfg, "selected", "alternate", "manual")
+	declareToolSearch(fixture.cfg, domain.NewModelRef("gateway", "claude-fable-5-1"), domain.NewModelRef("gateway", "claude-opus-5"), domain.NewModelRef("gateway", "manual-model"))
 	registry, err := adapter.NewRegistry(New())
 	if err != nil {
 		t.Fatal(err)
@@ -66,9 +66,9 @@ func TestRegistryReportsALostToolSearch(t *testing.T) {
 	}
 	added := fixture.cfg.Clone()
 	added.Families["fresh"] = domain.Family{Label: "fresh"}
-	added.Models["fresh"] = domain.Model{Provider: added.Models["selected"].Provider, Family: "fresh", UpstreamModel: "fresh",
+	added.Models[domain.NewModelRef("gateway", "fresh")] = domain.Model{Provider: "gateway", Family: "fresh", ID: "fresh",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	want := []adapter.ToolSearchLoss{{Client: ID, Models: []string{"fresh"}}}
+	want := []adapter.ToolSearchLoss{{Client: ID, Models: []domain.ModelRef{domain.NewModelRef("gateway", "fresh")}}}
 	if lost := registry.ToolSearchLost(fixture.cfg, added); !reflect.DeepEqual(lost, want) {
 		t.Fatalf("lost tool search = %#v, want %#v", lost, want)
 	}
@@ -77,12 +77,12 @@ func TestRegistryReportsALostToolSearch(t *testing.T) {
 	}
 	twice := added.Clone()
 	twice.Families["second"] = domain.Family{Label: "second"}
-	twice.Models["second"] = domain.Model{Provider: added.Models["selected"].Provider, Family: "second", UpstreamModel: "second",
+	twice.Models[domain.NewModelRef("gateway", "second")] = domain.Model{Provider: "gateway", Family: "second", ID: "second",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	if lost := registry.ToolSearchLost(added, twice); len(lost) != 0 {
 		t.Fatalf("a tool search that was already off was reported lost: %#v", lost)
 	}
-	if enabled, lacking := (claudeDesktopAdapter{}).ToolSearch(twice); enabled || !slices.Equal(lacking, []string{"fresh", "second"}) {
+	if enabled, lacking := (claudeDesktopAdapter{}).ToolSearch(twice); enabled || !slices.Equal(lacking, []domain.ModelRef{domain.NewModelRef("gateway", "fresh"), domain.NewModelRef("gateway", "second")}) {
 		t.Fatalf("tool search = %t, lacking %q, want off for fresh and second", enabled, lacking)
 	}
 	disabled := fixture.cfg.Clone()

@@ -13,21 +13,21 @@ import (
 // recommendation of it waits, until the provider has one; a provider that
 // the file adds is refused.
 func TestParseAdmitsAModelOnAProtocolWithoutAnEndpoint(t *testing.T) {
-	manifest, err := Parse([]byte(`version = 7
+	manifest, err := ParseTeamFile([]byte(`version = 8
 
-[recommendations.codex.primary]
-route = "codex"
-
-[accounts.gateway]
+[[providers]]
+id = "gateway"
 label = "Gateway"
-[accounts.gateway.endpoints]
-anthropic = "https://gateway.test"
+endpoints = {anthropic = "https://gateway.test"}
 
-[routes.codex]
+[[providers.models]]
+id = "model"
+family = "model"
 label = "Codex"
-account = "gateway"
-model = "model"
-interfaces = { openai_responses = [] }
+protocols = {responses = []}
+
+[recommendations.codex]
+primary = {model = "gateway/model"}
 `), testAdmission())
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ interfaces = { openai_responses = [] }
 		t.Errorf("unusable protocols %+v", report.Unusable)
 	}
 	var missing *domain.RuntimeMissingEndpointError
-	if _, err := cfg.ResolveModelProtocol(ClientCodex, "codex", domain.ProtocolResponses); !errors.As(err, &missing) || missing.ProviderID != "gateway" {
+	if _, err := cfg.ResolveModelProtocol(ClientCodex, domain.NewModelRef("gateway", "model"), domain.ProtocolResponses); !errors.As(err, &missing) || missing.ProviderID != "gateway" {
 		t.Fatalf("a selection on the unusable protocol = %v", err)
 	}
 }
@@ -53,23 +53,27 @@ interfaces = { openai_responses = [] }
 // A recommendation may name a model that only the configuration defines, so
 // the merge, not the parser, refuses one that neither defines.
 func TestMergeRejectsRecommendedModelReferencingUnknownModel(t *testing.T) {
-	raw := []byte(`version = 7
-[recommendations.claude.primary]
-route = "missing"
-[accounts.team]
+	raw := []byte(`version = 8
+
+[[providers]]
+id = "team"
 label = "Team"
-[accounts.team.endpoints]
-anthropic = "https://team.test"
-[routes.team]
+endpoints = {anthropic = "https://team.test"}
+
+[[providers.models]]
+id = "claude-team"
+family = "claude-team"
 label = "Team"
-account = "team"
-model = "claude-team"
+protocols = {}
+
+[recommendations.claude]
+primary = {model = "unknown/missing"}
 `)
-	manifest, err := Parse(raw, testAdmission())
+	manifest, err := ParseTeamFile(raw, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false); err == nil || !strings.Contains(err.Error(), `claude recommendation names "missing"`) {
+	if _, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false); err == nil || !strings.Contains(err.Error(), `claude recommendation names unknown/missing`) {
 		t.Fatalf("unknown recommended model error = %v", err)
 	}
 }
@@ -77,7 +81,7 @@ model = "claude-team"
 // A team file never sets a client's selection, so a [clients] section is
 // refused before anything else of it is read.
 func TestParseRefusesATeamFileThatSetsClients(t *testing.T) {
-	_, err := Parse([]byte("version = 7\n[clients.claude]\nroute = \"team\"\n"), testAdmission())
+	_, err := ParseTeamFile([]byte("version = 8\n[clients.claude]\nmodel = \"team/model\"\n"), testAdmission())
 	if !errors.Is(err, ErrTeamFileClients) {
 		t.Fatalf("a [clients] section = %v", err)
 	}

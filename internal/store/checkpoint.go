@@ -19,9 +19,18 @@ import (
 // that a check of every enabled client proved, with the depth that each
 // client reached. It is suitable for rollback, not for credential recovery.
 type VerifiedCheckpoint struct {
-	Config     domain.Config    `json:"config"`
-	Clients    []VerifiedClient `json:"clients"`
-	VerifiedAt time.Time        `json:"verified_at"`
+	Config     domain.Config
+	Clients    []VerifiedClient
+	VerifiedAt time.Time
+}
+
+// checkpointDocument is aigw.verified.json: the verified configuration as the
+// exact aigw.toml text that it was, the clients and their depths, and the
+// time of the check.
+type checkpointDocument struct {
+	Configuration string           `json:"configuration"`
+	Clients       []VerifiedClient `json:"clients"`
+	VerifiedAt    time.Time        `json:"verified_at"`
 }
 
 // VerifiedClient is one client that a verified snapshot covers and the depth
@@ -42,7 +51,7 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, cl
 	if err := validateCheckpointClients(s.admission, clients); err != nil {
 		return err
 	}
-	_, err := encodeConfig(cfg)
+	data, err := encodeConfig(cfg)
 	if err != nil {
 		return err
 	}
@@ -55,14 +64,14 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, cl
 			resultErr = errors.Join(resultErr, fmt.Errorf("release checkpoint lock: %w", err))
 		}
 	}()
-	before, err := s.captureCurrent()
+	before, err := platform.CaptureFileSnapshot(s.path)
 	if err != nil {
 		return err
 	}
-	if !before.Config.Exists {
+	if !before.Exists {
 		return errors.New("configuration is unavailable; verification checkpoint was not saved")
 	}
-	current, err := s.loadSnapshot(before)
+	current, err := decodeTOMLConfig(before.Data, s.admission)
 	if err != nil {
 		return err
 	}
@@ -73,29 +82,29 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, cl
 	if !equal {
 		return errors.New("configuration changed during the check; run `aigw check --depth client` again")
 	}
-	checkpointPath := s.path + ".verified.json"
+	checkpointPath := s.verifiedPath()
 	checkpointBefore, err := platform.CaptureFileSnapshot(checkpointPath)
 	if err != nil {
 		return err
 	}
-	checkpoint := VerifiedCheckpoint{
-		Config:     publishedCheckpointConfig(current),
-		Clients:    append([]VerifiedClient(nil), clients...),
-		VerifiedAt: time.Now().UTC(),
+	checkpoint := checkpointDocument{
+		Configuration: string(data),
+		Clients:       append([]VerifiedClient(nil), clients...),
+		VerifiedAt:    time.Now().UTC(),
 	}
-	data, err := json.MarshalIndent(checkpoint, "", "  ")
+	encoded, err := json.MarshalIndent(checkpoint, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode verified checkpoint: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	checkpointAfter, err := writeConfigurationFileIfUnchanged(checkpointPath, checkpointBefore, append(data, '\n'), 0o600)
+	checkpointAfter, err := writeConfigurationFileIfUnchanged(checkpointPath, checkpointBefore, append(encoded, '\n'), 0o600)
 	if err != nil {
 		return err
 	}
-	after, err := s.captureCurrent()
-	if err == nil && before.sameCurrent(after) {
+	after, err := platform.CaptureFileSnapshot(s.path)
+	if err == nil && before.Equal(after) {
 		return nil
 	}
 	if err == nil {
@@ -105,45 +114,18 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, cl
 	return errors.Join(err, rollbackErr)
 }
 
-// publishedCheckpointConfig omits display order and later Route capabilities,
-// which their components restore when the checkpoint is read.
-func publishedCheckpointConfig(current domain.Config) domain.Config {
-	cfg := current.Clone()
-	for id, account := range cfg.Providers {
-		account.Order = 0
-		cfg.Providers[id] = account
-	}
-	for id, model := range cfg.Families {
-		model.Order = 0
-		cfg.Families[id] = model
-	}
-	keepPublishedCapabilities(cfg)
-	return cfg
-}
-
-// LoadVerifiedCheckpoint restores verified routing with current presentation
-// metadata and recorded Route capabilities for identities that still exist in
-// the checkpoint.
+// LoadVerifiedCheckpoint reads the verified snapshot, with the configuration
+// that the check proved.
 func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
-	data, err := os.ReadFile(s.path + ".verified.json")
+	data, err := os.ReadFile(s.verifiedPath())
 	if err != nil {
 		return VerifiedCheckpoint{}, fmt.Errorf("read verified checkpoint: %w", err)
 	}
-	checkpoint, err := decodeVerifiedCheckpoint(data, s.admission)
-	if err != nil {
-		return VerifiedCheckpoint{}, err
-	}
-	catalog, catalogErr := platform.CaptureFileSnapshot(s.componentPath(catalogComponent))
-	capabilities, capabilitiesErr := platform.CaptureFileSnapshot(s.componentPath(capabilitiesComponent))
-	if err = errors.Join(catalogErr, capabilitiesErr); err != nil {
-		return VerifiedCheckpoint{}, err
-	}
-	checkpoint.Config, err = decodeComponents(checkpoint.Config, catalog, capabilities)
-	return checkpoint, err
+	return decodeVerifiedCheckpoint(data, s.admission)
 }
 
 func decodeVerifiedCheckpoint(data []byte, admission domain.Admission) (VerifiedCheckpoint, error) {
-	var checkpoint VerifiedCheckpoint
+	var checkpoint checkpointDocument
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&checkpoint); err != nil {
@@ -158,18 +140,11 @@ func decodeVerifiedCheckpoint(data []byte, admission domain.Admission) (Verified
 	if err := validateCheckpointClients(admission, checkpoint.Clients); err != nil {
 		return VerifiedCheckpoint{}, err
 	}
-	checkpoint.Config.SetAdmission(admission)
-	checkpoint.Config.Normalize()
-	// The checkpoint keeps the shape a retained reader decodes, so it carries no
-	// recorded upstream; each forwarded binding is bound to the upstream it
-	// reaches in the checkpoint itself.
-	if err := recordForwardingUpstreams(&checkpoint.Config); err != nil {
+	cfg, err := decodeTOMLConfig([]byte(checkpoint.Configuration), admission)
+	if err != nil {
 		return VerifiedCheckpoint{}, fmt.Errorf("validate verified checkpoint: %w", err)
 	}
-	if err := checkpoint.Config.Validate(); err != nil {
-		return VerifiedCheckpoint{}, fmt.Errorf("validate verified checkpoint: %w", err)
-	}
-	return checkpoint, nil
+	return VerifiedCheckpoint{Config: cfg, Clients: checkpoint.Clients, VerifiedAt: checkpoint.VerifiedAt}, nil
 }
 
 func validateCheckpointClients(admission domain.Admission, clients []VerifiedClient) error {

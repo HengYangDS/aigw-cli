@@ -77,7 +77,7 @@ func describe(cfg domain.Config, id string) providerItem {
 // configuration order.
 func providerModels(cfg domain.Config, id string) []string {
 	names := []string{}
-	for _, key := range cfg.CatalogModelIDs() {
+	for _, key := range cfg.ModelRefs() {
 		if model := cfg.Models[key]; model.Provider == id && !slices.Contains(names, model.Ref().String()) {
 			names = append(names, model.Ref().String())
 		}

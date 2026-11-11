@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"encoding/json"
@@ -66,7 +67,7 @@ func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutProviderT
 	httpCalls := 0
 	app.HTTP = &fakeHTTP{handler: func(*http.Request) (*http.Response, error) {
 		httpCalls++
-		return nil, errors.New("account-token probe must not run")
+		return nil, errors.New("provider Token probe must not run")
 	}}
 	target := filepath.Join(t.TempDir(), "codex", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
@@ -84,26 +85,25 @@ func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutProviderT
 			AutoManaged: true,
 		}},
 	}}
-	manifestPath := writeConfigurationManifest(t, `version = 7
-[recommendations.codex.primary]
-route = "bedrock"
-model_provider = "amazon-bedrock"
-authentication = "client-native"
+	manifestPath := writeConfigurationManifest(t, `version = 8
 
-[accounts.aws]
+[[providers]]
+id = "aws"
 label = "AWS"
-[accounts.aws.endpoints]
-openai_responses = "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"
+endpoints = {responses = "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"}
 
-[models.gpt-5-6-sol]
+[[providers.models]]
+id = "openai.gpt-5.6-sol"
+family = "gpt-5-6-sol"
+label = "AWS Bedrock"
+protocols = {responses = ["text", "reasoning", "streaming", "tools"]}
+
+[[families]]
+id = "gpt-5-6-sol"
 label = "GPT-5.6 Sol"
 
-[routes.bedrock]
-label = "AWS Bedrock"
-account = "aws"
-model = "gpt-5-6-sol"
-upstream_model = "openai.gpt-5.6-sol"
-interfaces = { openai_responses = ["text", "reasoning", "streaming", "tools"] }
+[recommendations.codex]
+primary = {model = "aws/openai.gpt-5.6-sol", model_provider = "amazon-bedrock", authentication = "client-native"}
 `)
 
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--json"}); err != nil {
@@ -113,7 +113,7 @@ interfaces = { openai_responses = ["text", "reasoning", "streaming", "tools"] }
 		t.Fatalf("client-native setup accessed AIGW credentials: get %q exists %q set %q", credentials.getCalls, credentials.existsCalls, credentials.setCalls)
 	}
 	if httpCalls != 0 {
-		t.Fatalf("setup made %d account-token probes", httpCalls)
+		t.Fatalf("setup made %d provider Token probes", httpCalls)
 	}
 	var result teamSetupDocument
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
@@ -223,7 +223,7 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 			}
 			for _, client := range clients.Admission().IDs() {
 				_, installed := test.installed[client]
-				selected := cfg.SelectedModel(client) != ""
+				selected := !cfg.SelectedModel(client).IsZero()
 				if cfg.Clients[client].Enabled != selected {
 					t.Errorf("%s enabled intent = %v, want %v", client, cfg.Clients[client].Enabled, selected)
 				}
@@ -307,10 +307,10 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if selected := cfg.SelectedModel(codex.ID); selected != "dmxapi-gpt" {
+			if selected := cfg.SelectedModel(codex.ID); selected != domain.NewModelRef("dmxapi", "gpt-test") {
 				t.Fatalf("Codex selected Route = %q", selected)
 			}
-			projectedRuntime, err := cfg.ResolveRuntime(codex.ID, "")
+			projectedRuntime, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 			if err != nil {
 				t.Fatal(err)
 			}

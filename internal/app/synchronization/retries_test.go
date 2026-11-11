@@ -23,19 +23,20 @@ func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
 	if err := cfg.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
-	model := cfg.Models["gpt"]
-	model.Family, model.UpstreamModel = "other-model", "other-model"
-	cfg.Models["model-only"] = model
+	model := cfg.Models[domain.NewModelRef("gateway", "gpt-test")]
+	model.Family, model.ID = "other-model", "other-model"
+	cfg.Models[model.Ref()] = model
 	cfg.Families["other-model"] = domain.Family{Label: "Other model"}
 	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Responses: "https://other.test/v1"}}
-	cfg.Models["other"] = domain.Model{Label: "Other", Provider: "other", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models[domain.NewModelRef("other", "gpt-test")] = domain.Model{Label: "Other", Provider: "other", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.Normalize()
 	for _, test := range []struct {
-		name, route string
-		kept        bool
+		name  string
+		route domain.ModelRef
+		kept  bool
 	}{
-		{"another model of the provider", "model-only", true},
-		{"another provider", "other", false},
+		{"another model of the provider", domain.NewModelRef("gateway", "other-model"), true},
+		{"another provider", domain.NewModelRef("other", "gpt-test"), false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			before := cfg.Clone()
@@ -62,8 +63,8 @@ func retryTransitionFixture(t *testing.T) domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Responses: "https://one.test/v1"}}
 	cfg.Families["gpt"] = domain.Family{Label: "GPT"}
-	cfg.Models["one"] = domain.Model{Label: "One", Provider: "one", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.SetSelectedModel(codex.ID, "one", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("one", "gpt")] = domain.Model{Label: "One", Provider: "one", Family: "gpt", ID: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt"), domain.ProtocolResponses)
 	zero := uint64(0)
 	binding := cfg.Clients[codex.ID]
 	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero}

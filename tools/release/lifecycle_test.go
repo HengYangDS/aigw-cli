@@ -153,7 +153,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	if got := readFile(t, codexConfig); string(got) != originalCodex {
 		t.Fatalf("uninstall changed original Codex configuration: %q", got)
 	}
-	for _, path := range []string{journey.settings + ".aigw-state.json", journey.config + ".verified.json", codexConfig + ".aigw-state.json", codexConfig + ".aigw-model-catalog.json"} {
+	for _, path := range []string{journey.settings + ".aigw-state.json", verifiedSnapshot(journey.config), codexConfig + ".aigw-state.json", codexConfig + ".aigw-model-catalog.json"} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatalf("uninstall retained owned state %s: %v", path, err)
 		}
@@ -168,7 +168,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 func (j *journeyFixture) prepareCodexLifecycle() (string, string) {
 	j.testing.Helper()
 	j.installClientFixture("codex")
-	manifest, err := store.Parse(readFile(j.testing, j.manifest), clients.Admission())
+	manifest, err := store.ParseTeamFile(readFile(j.testing, j.manifest), clients.Admission())
 	if err != nil {
 		j.testing.Fatal(err)
 	}
@@ -176,12 +176,12 @@ func (j *journeyFixture) prepareCodexLifecycle() (string, string) {
 	account.Endpoints.Responses = j.endpoint
 	manifest.Providers["native-system-keyring-probe"] = account
 	manifest.Families["gpt-test"] = domain.Family{Label: "GPT Test"}
-	manifest.Models["native-codex"] = domain.Model{
-		Label: "Native Codex", Provider: "native-system-keyring-probe", Family: "gpt-test", UpstreamModel: "gpt-test",
+	manifest.Models[domain.NewModelRef("native-system-keyring-probe", "gpt-test")] = domain.Model{
+		Label: "Native Codex", Provider: "native-system-keyring-probe", Family: "gpt-test", ID: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
-	manifest.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "native-codex"}}
-	manifestData, err := toml.Marshal(manifest)
+	manifest.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("native-system-keyring-probe", "gpt-test")}}
+	manifestData, err := store.ExportTeamFile(manifest)
 	if err != nil {
 		j.testing.Fatal(err)
 	}

@@ -80,9 +80,9 @@ func runGuided(cmd *cobra.Command, runtime invocation.Context) error {
 		return err
 	}
 	working := g.withProvider(provider)
-	key := withModel(&working, ref, protocol)
+	withModel(&working, ref, protocol)
 	synchronizer := runtime.Synchronizer()
-	after, selected, err := synchronizer.PrepareSelection(working, spec.ID, key, protocol)
+	after, selected, err := synchronizer.PrepareSelection(working, spec.ID, ref, protocol)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func runGuided(cmd *cobra.Command, runtime invocation.Context) error {
 // provider asks for an existing provider or a new one, and for the Token of
 // either when the store holds none.
 func (g guidedSetup) provider(ctx context.Context) (guidedProvider, error) {
-	ids := g.before.CatalogProviderIDs()
+	ids := g.before.ProviderIDs()
 	if len(ids) > 0 {
 		choices := make([]terminal.Choice, 0, len(ids)+1)
 		for _, id := range ids {
@@ -337,20 +337,16 @@ func (g guidedSetup) withProvider(provider guidedProvider) domain.Config {
 }
 
 // withModel adds the model that ref names on protocol to cfg, or the protocol
-// to the model when it lacks it, declaring no capability, and returns the
-// model's key. A new model takes the family that its ID names, ignoring
-// case, or is its own family, as `aigw use` adds one.
-func withModel(cfg *domain.Config, ref domain.ModelRef, protocol domain.EndpointProtocol) string {
-	keys := cfg.ResolveModelRef(ref)
-	for _, key := range keys {
-		if _, declared := cfg.Models[key].Protocols[protocol]; declared {
-			return key
-		}
+// to the model when it lacks it, declaring no capability. A new model takes
+// the family that its ID names, ignoring case, or is its own family, as
+// `aigw use` adds one.
+func withModel(cfg *domain.Config, ref domain.ModelRef, protocol domain.EndpointProtocol) {
+	model, added := cfg.Models[ref]
+	if !added {
+		model = domain.Model{Provider: ref.Provider(), ID: ref.ID(), Family: cfg.AddedModelFamily(ref.ID())}
 	}
-	key := domain.ModelKey(ref)
-	model := domain.Model{Provider: ref.Provider(), UpstreamModel: ref.ID(), Family: cfg.AddedModelFamily(ref.ID())}
-	if len(keys) > 0 {
-		key, model = keys[0], cfg.Models[keys[0]]
+	if _, declared := model.Protocols[protocol]; declared {
+		return
 	}
 	protocols := maps.Clone(model.Protocols)
 	if protocols == nil {
@@ -358,8 +354,7 @@ func withModel(cfg *domain.Config, ref domain.ModelRef, protocol domain.Endpoint
 	}
 	protocols[protocol] = []domain.Capability{}
 	model.Protocols = protocols
-	cfg.Models[key] = model
-	return key
+	cfg.Models[ref] = model
 }
 
 // renderSaved reports what setup saved, before the check runs.

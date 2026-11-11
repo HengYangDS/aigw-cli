@@ -101,16 +101,16 @@ func newSearchFixture(t *testing.T) searchFixture {
 	cfg.Providers["unreadable"] = domain.Provider{Label: "Unreadable", Endpoints: domain.Endpoints{Responses: "https://unreadable.test/v1"}}
 	cfg.Providers["notoken"] = domain.Provider{Label: "No Token", Endpoints: domain.Endpoints{Anthropic: "https://notoken.test"}}
 	anthropic := map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}
-	for key, model := range map[string]domain.Model{
-		"full-a":        {Provider: "full", Family: "full-a", Label: "Full Sonnet"},
-		"full-old":      {Provider: "full", Family: "full-old", Lifecycle: domain.ModelDeprecated},
-		"full-gone":     {Provider: "full", Family: "full-gone"},
-		"full-gone-old": {Provider: "full", Family: "full-gone-old", Lifecycle: domain.ModelDeprecated},
-		"partial-a":     {Provider: "partial", Family: "partial-a"},
-		"partial-gone":  {Provider: "partial", Family: "partial-gone"},
+	for _, model := range []domain.Model{
+		{Provider: "full", ID: "full-a", Label: "Full Sonnet"},
+		{Provider: "full", ID: "full-old", Deprecated: true},
+		{Provider: "full", ID: "full-gone"},
+		{Provider: "full", ID: "full-gone-old", Deprecated: true},
+		{Provider: "partial", ID: "partial-a"},
+		{Provider: "partial", ID: "partial-gone"},
 	} {
 		model.Protocols = anthropic
-		cfg.Models[key] = model
+		cfg.Models[model.Ref()] = model
 	}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)

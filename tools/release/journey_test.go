@@ -52,7 +52,7 @@ func TestNativeProductJourney(t *testing.T) {
 			)
 		}
 		journey.run("setup", "--from", journey.manifest)
-		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
+		journey.requireConfigContains(`id = 'native-system-keyring-probe'`, `id = 'unused'`)
 		journey.requireNoClaudeProjection()
 
 		journey.installClientFixture("claude")
@@ -72,7 +72,10 @@ func TestNativeProductJourney(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := configured.Models["native-system-keyring-probe-claude"].Ref().String()
+		want := probeModel.String()
+		if _, found := configured.Models[probeModel]; !found {
+			t.Fatalf("the journey configuration has no %s", probeModel)
+		}
 		if preview.Selections[claude.ID] != want || !bytes.Equal(beforePreview, readFile(t, journey.config)) {
 			t.Fatalf("late sync preview did not plan the available Account without writing: %+v, want %s", preview, want)
 		}
@@ -90,7 +93,7 @@ func TestNativeProductJourney(t *testing.T) {
 		retained := journey.retainedCredential(claude.ID)
 		journey.uninstallAndRequireInstallationRemoved()
 		journey.requireWithdrawnCredentialDenied(retained, "native-journey-token")
-		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
+		journey.requireConfigContains(`id = 'native-system-keyring-probe'`, `id = 'unused'`)
 	})
 
 	runDeferredClientInstallation(t, currentProgram, server.URL+"/v1")
@@ -100,7 +103,7 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.prepareCodexLifecycle()
 		journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 		journey.run("setup", "--from", journey.manifest)
-		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
+		journey.requireConfigContains(`id = 'native-system-keyring-probe'`, `id = 'unused'`)
 		journey.requireClaudeProjection()
 		journey.run("check")
 		var diagnosis struct {
@@ -192,20 +195,28 @@ func TestNativeJourneyCleanupSurvivesTestCancellation(t *testing.T) {
 	})
 }
 
-// modelName is the provider/model name of the configured model with key, as
-// aigw use takes it.
-func (j *journeyFixture) modelName(key string) string {
+// modelName is the provider/model name of a configured model, as aigw use
+// takes it.
+func (j *journeyFixture) modelName(ref domain.ModelRef) string {
 	j.testing.Helper()
 	cfg, err := store.NewStore(j.config, builtinclients.Admission()).Load()
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	model, found := cfg.Models[key]
-	if !found {
-		j.testing.Fatalf("no configured model %q", key)
+	if _, found := cfg.Models[ref]; !found {
+		j.testing.Fatalf("no configured model %s", ref)
 	}
-	return model.Ref().String()
+	return ref.String()
 }
+
+// verifiedSnapshot is the verified snapshot beside a configuration file.
+func verifiedSnapshot(config string) string {
+	return strings.TrimSuffix(config, filepath.Ext(config)) + ".verified.json"
+}
+
+// probeModel is the model of the native journey's provider that Claude Code
+// is recommended.
+var probeModel = domain.NewModelRef("native-system-keyring-probe", "claude-test")
 
 func newNativeJourney(t *testing.T, source, endpoint string, installClient bool) *journeyFixture {
 	t.Helper()
@@ -230,11 +241,11 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 	}
 	switch runtime.GOOS {
 	case "darwin":
-		journey.config = filepath.Join(home, "Library", "Application Support", "aigw", "config.toml")
+		journey.config = filepath.Join(home, "Library", "Application Support", "aigw", "aigw.toml")
 	case "linux":
-		journey.config = filepath.Join(root, "config", "aigw", "config.toml")
+		journey.config = filepath.Join(root, "config", "aigw", "aigw.toml")
 	case "windows":
-		journey.config = filepath.Join(root, "appdata", "aigw", "config.toml")
+		journey.config = filepath.Join(root, "appdata", "aigw", "aigw.toml")
 	default:
 		t.Fatalf("unsupported native journey platform %s", runtime.GOOS)
 	}
@@ -252,39 +263,36 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 		"AIGW_SECRET_BACKEND": "env",
 		"NO_COLOR":            "1",
 	})
-	manifest := fmt.Sprintf(`version = 7
+	manifest := fmt.Sprintf(`version = 8
 
-[recommendations.claude.primary]
-route = "native-system-keyring-probe-claude"
-
-[accounts.native-system-keyring-probe]
+[[providers]]
+id = "native-system-keyring-probe"
 label = "Native System Keyring Probe"
+endpoints = {anthropic = %q}
 
-[accounts.native-system-keyring-probe.endpoints]
-anthropic = %q
+[[providers.models]]
+id = "claude-test"
+family = "claude-test"
+label = "Native System Keyring Probe Claude"
+protocols = {anthropic = ["text"]}
 
-[accounts.unused]
+[[providers]]
+id = "unused"
 label = "Unused"
+endpoints = {anthropic = %q}
 
-[accounts.unused.endpoints]
-anthropic = %q
+[[providers.models]]
+id = "claude-test"
+family = "claude-test"
+label = "Unused Claude"
+protocols = {anthropic = ["text"]}
 
-[models.claude-test]
+[[families]]
+id = "claude-test"
 label = "Claude Test"
 
-[routes.native-system-keyring-probe-claude]
-label = "Native System Keyring Probe Claude"
-account = "native-system-keyring-probe"
-model = "claude-test"
-upstream_model = "claude-test"
-interfaces = { anthropic = ["text"] }
-
-[routes.unused-claude]
-label = "Unused Claude"
-account = "unused"
-model = "claude-test"
-upstream_model = "claude-test"
-interfaces = { anthropic = ["text"] }
+[recommendations.claude]
+primary = {model = "native-system-keyring-probe/claude-test"}
 `, endpoint, endpoint)
 	if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
@@ -420,7 +428,7 @@ func (j *journeyFixture) uninstallAndRequireInstallationRemoved() {
 	j.testing.Helper()
 	j.uninstallWithAndRequireInstallationRemoved(j.source)
 	j.requireNoClaudeProjection()
-	if _, err := os.Stat(j.config + ".verified.json"); !os.IsNotExist(err) {
+	if _, err := os.Stat(verifiedSnapshot(j.config)); !os.IsNotExist(err) {
 		j.testing.Fatalf("uninstall retained verified checkpoint: %v", err)
 	}
 }

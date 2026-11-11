@@ -89,16 +89,20 @@ func TestUseRefusesAConfigurationChangedDuringDiscovery(t *testing.T) {
 	if err := newer.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/operator/v1"); err != nil {
 		t.Fatal(err)
 	}
+	var saved []byte
 	run.Discovery = staticDiscovery{onDiscover: func() {
 		if err := run.Config.Save(newer); err != nil {
+			t.Fatal(err)
+		}
+		var err error
+		if saved, err = os.ReadFile(run.Config.Path()); err != nil {
 			t.Fatal(err)
 		}
 	}}
 	if err := execute(run, codex.ID, "gateway/gpt-test"); err == nil || !strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("selection must reject a newer assembled configuration: %v", err)
 	}
-	got, err := run.Config.Load()
-	if err != nil || !reflect.DeepEqual(got, newer) {
+	if got, err := os.ReadFile(run.Config.Path()); err != nil || !bytes.Equal(got, saved) {
 		t.Fatalf("selection overwrote the operator's configuration: %v", err)
 	}
 }
@@ -120,7 +124,7 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 	if err := run.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	selected, err := cfg.ResolveRuntime(codex.ID, "")
+	selected, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,9 +191,9 @@ func TestUseClearsForwardingAndRetriesOnlyForAnotherProvider(t *testing.T) {
 	if err := cfg.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Models["next"] = domain.Model{Label: "Next", Provider: "gateway", Family: "gpt-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models[domain.NewModelRef("gateway", "gpt-next")] = domain.Model{Label: "Next", Provider: "gateway", Family: "gpt-next", ID: "gpt-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Responses: "https://other.example.test/v1"}}
-	cfg.Models["other"] = domain.Model{Label: "Other", Provider: "other", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models[domain.NewModelRef("other", "gpt-test")] = domain.Model{Label: "Other", Provider: "other", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +243,7 @@ func TestUseSelectsOnlyItsClient(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models[domain.NewModelRef("gateway", "claude-next")] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-next", ID: "claude-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +254,7 @@ func TestUseSelectsOnlyItsClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SelectedModel(claude.ID) != "claude" || got.SelectedModel(codex.ID) != "codex" || len(got.Clients) != 2 {
+	if got.SelectedModel(claude.ID) != domain.NewModelRef("gateway", "claude-next") || got.SelectedModel(codex.ID) != domain.NewModelRef("gateway", "gpt-test") || len(got.Clients) != 2 {
 		t.Fatalf("client selections = %#v", got.Clients)
 	}
 	for _, want := range []string{"Model selected", "Claude", "gateway/claude-next", "Install Claude if needed, then run `aigw sync`"} {
@@ -271,7 +275,7 @@ func TestUseSaysThatItEnablesADisabledClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Secrets = credentials
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models[domain.NewModelRef("gateway", "claude-next")] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-next", ID: "claude-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetClientActivation(codex.ID, false, "", nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -365,8 +369,8 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 			if err := store.Set("gateway", "token"); err != nil {
 				t.Fatal(err)
 			}
-			cfg.Models["desktop"] = domain.Model{
-				Label: "Desktop", Provider: "gateway", Family: "claude-test",
+			cfg.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{
+				Label: "Desktop", Provider: "gateway", Family: "claude-test", ID: "claude-test",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 			}
 			var executable, library string
@@ -382,7 +386,7 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 				}}
 			}
 			if test.preselected {
-				cfg.SetSelectedModel(claudedesktop.ID, "desktop", "")
+				cfg.SetSelectedModel(claudedesktop.ID, domain.NewModelRef("gateway", "claude-test"), "")
 				cfg.SetClientActivation(claudedesktop.ID, true, executable, []string{library})
 			}
 			if err := runtime.Config.Save(cfg); err != nil {
@@ -513,15 +517,15 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 			Responses: "https://gateway.example.test/v1",
 		},
 	}
-	cfg.Models["codex"] = domain.Model{
+	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = domain.Model{
 		Label:    "Codex",
 		Provider: "gateway",
-		Family:   "gpt-test",
+		Family:   "gpt-test", ID: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolResponses: {},
 		},
 	}
-	cfg.SetSelectedModel(codex.ID, "codex", "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-test"), "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

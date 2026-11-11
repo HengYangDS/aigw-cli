@@ -34,7 +34,7 @@ func TestWorkloadAcceptsItsResolvedForwardingProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	binding := domain.Runtime{Client: claude.ID, ModelID: "selected-route", ProviderID: "account", UpstreamModel: "claude-selected",
+	binding := domain.Runtime{Client: claude.ID, Model: domain.NewModelRef("account", "claude-selected"), ProviderID: "account", UpstreamModel: "claude-selected",
 		Protocol: domain.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "http://127.0.0.1:18792/v1"}
 	workload := Workload{Name: "projection", Command: []string{program, "use", "claude", "account/claude-selected"}, Mode: "forwarding", Runtime: binding}
 	if err := workload.Review(&selected); err != nil {

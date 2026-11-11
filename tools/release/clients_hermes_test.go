@@ -49,19 +49,19 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	selected, err := before.ResolveRuntime(hermes.ID, "")
+	selected, err := before.ResolveRuntime(hermes.ID, domain.ModelRef{})
 	if err != nil {
 		j.testing.Fatal(err)
 	}
 	var alternative domain.Runtime
-	for _, id := range before.ModelIDs() {
+	for _, id := range before.ModelRefs() {
 		candidate, err := before.ResolveRuntime(hermes.ID, id)
 		if err == nil && candidate.ProviderID == selected.ProviderID && candidate.Protocol == selected.Protocol && candidate.UpstreamModel != selected.UpstreamModel {
 			alternative = candidate
 			break
 		}
 	}
-	if alternative.ModelID == "" {
+	if alternative.Model.IsZero() {
 		j.testing.Fatal("native Hermes selection requires another owned model on the same protocol")
 	}
 	target := j.clientProjectionPaths(hermes.ID)[0]
@@ -70,17 +70,17 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 	var adoption struct {
 		AdoptedSelections map[string]string `json:"adopted_selections"`
 	}
-	if err := json.Unmarshal(j.run("sync", "--dry-run", "--json"), &adoption); err != nil || adoption.AdoptedSelections[hermes.ID] != alternative.ModelID {
+	if err := json.Unmarshal(j.run("sync", "--dry-run", "--json"), &adoption); err != nil || adoption.AdoptedSelections[hermes.ID] != alternative.Model.String() {
 		j.testing.Fatalf("synchronization preview did not adopt the native selection: %v, %v", adoption.AdoptedSelections, err)
 	}
-	args := []string{"use", hermes.ID, j.modelName(alternative.ModelID), "--protocol", alternative.Protocol.Name()}
+	args := []string{"use", hermes.ID, j.modelName(alternative.Model), "--protocol", alternative.Protocol.Name()}
 	j.run(append(slices.Clone(args), "--dry-run", "--json")...)
 	if !bytes.Equal(readFile(j.testing, target), nativeBefore) || !bytes.Equal(readFile(j.testing, target+".aigw-state.json"), stateBefore) {
 		j.testing.Fatal("selection preview changed the native preimages")
 	}
 	j.run(args...)
 	after, err := configStore.Load()
-	if err != nil || after.SelectedModel(hermes.ID) != alternative.ModelID {
+	if err != nil || after.SelectedModel(hermes.ID) != alternative.Model {
 		j.testing.Fatalf("native selection adoption: %v", err)
 	}
 	var original, adopted map[string]any
@@ -106,7 +106,7 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 			j.testing.Fatalf("native selection did not converge: %s", file.Action)
 		}
 	}
-	j.run("use", hermes.ID, j.modelName(selected.ModelID), "--protocol", selected.Protocol.Name())
+	j.run("use", hermes.ID, j.modelName(selected.Model), "--protocol", selected.Protocol.Name())
 	j.run("check")
 	j.requireNativePreferences(hermes.ID)
 }

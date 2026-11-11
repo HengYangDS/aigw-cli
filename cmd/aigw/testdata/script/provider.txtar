@@ -231,48 +231,48 @@ sk-rejected-token
 -- system.txt --
 dmx-system-token
 -- probe.in --
-version = 7
-[accounts.spare]
+version = 8
+
+[[providers]]
+id = "spare"
 label = "spare"
-[accounts.spare.endpoints]
-openai_responses = "$UPSTREAM/spare/v1"
-[accounts.spare.account_probe]
-kind = "dmxapi"
-base_url = "$UPSTREAM"
+balance = {kind = "dmxapi", base_url = "$UPSTREAM"}
+endpoints = {responses = "$UPSTREAM/spare/v1"}
 -- manifest.in --
-version = 7
-[recommendations.hermes.primary]
-route = "mixed-chat"
-protocol = "openai_chat_completions"
-[accounts.team]
-label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "$UPSTREAM"
-[accounts.team.account_probe]
-kind = "dmxapi"
-base_url = "$UPSTREAM"
-[accounts.mixed]
+version = 8
+
+[[providers]]
+id = "mixed"
 label = "Mixed"
-[accounts.mixed.endpoints]
-anthropic = "$UPSTREAM/mixed"
-openai_chat_completions = "$UPSTREAM/mixed/v1"
-[accounts.mixed.account_probe]
-kind = "dmxapi"
-base_url = "$UPSTREAM"
-[models.team-model]
-label = "Team Model"
-[models.chat-only]
+balance = {kind = "dmxapi", base_url = "$UPSTREAM"}
+endpoints = {anthropic = "$UPSTREAM/mixed", chat = "$UPSTREAM/mixed/v1"}
+
+[[providers.models]]
+id = "chat-only"
+family = "chat-only"
+protocols = {chat = []}
+
+[[providers]]
+id = "team"
+label = "Team Gateway"
+balance = {kind = "dmxapi", base_url = "$UPSTREAM"}
+endpoints = {anthropic = "$UPSTREAM"}
+
+[[providers.models]]
+id = "team-model"
+family = "team-model"
+protocols = {anthropic = ["tool_search"]}
+
+[[families]]
+id = "chat-only"
 label = "Chat Only"
-[routes.team-route]
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { anthropic = ["tool_search"] }
-[routes.mixed-chat]
-account = "mixed"
-model = "chat-only"
-upstream_model = "chat-only"
-interfaces = { openai_chat_completions = [] }
+
+[[families]]
+id = "team-model"
+label = "Team Model"
+
+[recommendations.hermes]
+primary = {model = "mixed/chat-only", protocol = "chat"}
 -- help.txt --
 AIGW  aigw provider
 ────────────────────────────────────────
@@ -649,12 +649,6 @@ Next
       "next_detail": "aigw provider edit mixed --balance-token-stdin --balance-user-id \u003cuser-id\u003e"
     },
     {
-      "id": "spare",
-      "label": "Spare",
-      "state": "no_probe",
-      "detail": "No balance probe"
-    },
-    {
       "id": "team",
       "label": "Team Gateway",
       "state": "reported",
@@ -668,6 +662,12 @@ Next
         "remaining_requests": 42,
         "unlimited_requests": false
       }
+    },
+    {
+      "id": "spare",
+      "label": "Spare",
+      "state": "no_probe",
+      "detail": "No balance probe"
     }
   ],
   "next_detail": "aigw provider edit mixed --balance-token-stdin --balance-user-id \u003cuser-id\u003e"
@@ -788,8 +788,8 @@ Fix
 -- list-after.txt --
 AIGW  Providers
 ────────────────────────────────────────
-  spare                Spare · OpenAI Responses · 0 models
   team                 Team Gateway · Anthropic Messages · 1 model
+  spare                Spare · OpenAI Responses · 0 models
 
 Next
   aigw provider show <provider>

@@ -115,20 +115,20 @@ func joined(words []string, conjunction string) string {
 // with it.
 func (c *checker) local(ctx context.Context, id string) result {
 	spec, _ := c.cfg.Admission().Spec(id)
-	r := result{spec: spec, enabled: c.cfg.Clients[id].Enabled, tried: c.named.key != ""}
-	selected, selectErr := c.cfg.ResolveRuntime(id, "")
+	r := result{spec: spec, enabled: c.cfg.Clients[id].Enabled, tried: !c.named.ref.IsZero()}
+	selected, selectErr := c.cfg.ResolveRuntime(id, domain.ModelRef{})
 	if selectErr == nil {
-		r.selection = modelName(c.cfg, selected.ModelID)
+		r.selection = selected.Model.String()
 	}
 	r.runtime, r.resolved = selected, selectErr == nil
 	modelErr := selectErr
 	if r.tried {
 		// The client files still match the client's own selection.
-		r.runtime, modelErr = c.cfg.ResolveRuntime(id, c.named.key)
+		r.runtime, modelErr = c.cfg.ResolveRuntime(id, c.named.ref)
 		r.resolved = modelErr == nil
 	}
 	if r.resolved {
-		r.model = modelName(c.cfg, r.runtime.ModelID)
+		r.model = r.runtime.Model.String()
 	}
 	r.checks = append(r.checks, c.modelCheck(&r, modelErr))
 	r.checks = append(r.checks, c.tokenCheck(r))
@@ -144,14 +144,6 @@ func (c *checker) local(ctx context.Context, id string) result {
 	return r
 }
 
-// modelName names the model stored under key as provider/model.
-func modelName(cfg domain.Config, key string) string {
-	if model, found := cfg.Models[key]; found {
-		return model.Ref().String()
-	}
-	return key
-}
-
 // modelCheck observes whether the client's model resolves to a provider and
 // an endpoint for one of its protocols.
 func (c *checker) modelCheck(r *result, selectErr error) localCheck {
@@ -163,7 +155,7 @@ func (c *checker) modelCheck(r *result, selectErr error) localCheck {
 		}
 		return passedCheck(name, label, detail)
 	}
-	if c.cfg.SelectedModel(r.spec.ID) == "" {
+	if c.cfg.SelectedModel(r.spec.ID).IsZero() {
 		return failedCheck(name, label, "No model is selected", c.selectionFix(r.spec.ID), domainreadiness.Deferred)
 	}
 	return failedCheck(name, label, r.spec.Label+"'s selected model cannot be resolved", "aigw use "+r.spec.ID+" <provider/model>", domainreadiness.Invalid)
@@ -284,7 +276,7 @@ func noClientProblem(cfg domain.Config, activation clientactivation.Activation) 
 		return "No client is enabled", "No model has been added, so no client can use one."
 	}
 	for _, id := range cfg.Admission().IDs() {
-		if cfg.SelectedModel(id) != "" {
+		if !cfg.SelectedModel(id).IsZero() {
 			return "No client is enabled", "Each client that selects a model is disabled."
 		}
 	}

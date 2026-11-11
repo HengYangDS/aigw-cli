@@ -109,8 +109,8 @@ func (claudeDesktopAdapter) ProjectionChanged(before, after domain.Config) bool 
 	if !current.Enabled {
 		return false
 	}
-	left, leftErr := before.ResolveRuntime(ID, "")
-	right, rightErr := after.ResolveRuntime(ID, "")
+	left, leftErr := before.ResolveRuntime(ID, domain.ModelRef{})
+	right, rightErr := after.ResolveRuntime(ID, domain.ModelRef{})
 	if leftErr != nil || rightErr != nil || left != right {
 		return true
 	}
@@ -179,8 +179,8 @@ func (claudeDesktopAdapter) Verify(context.Context, adapter.Dependencies, domain
 
 // AdoptSelection adopts nothing: Claude Desktop has no native selection that AIGW
 // records as its Client Binding.
-func (claudeDesktopAdapter) AdoptSelection(adapter.Dependencies, *domain.Config) (string, error) {
-	return "", nil
+func (claudeDesktopAdapter) AdoptSelection(adapter.Dependencies, *domain.Config) (domain.ModelRef, error) {
+	return domain.ModelRef{}, nil
 }
 
 func (claudeDesktopAdapter) Withdraw(cfg *domain.Config) {
@@ -197,7 +197,7 @@ func claudeDesktopPlans(deps adapter.Dependencies, before, after domain.Config) 
 		if len(current.Targets) != 1 {
 			return nil, nil, errors.New("Claude Desktop requires one configuration library")
 		}
-		selected, err := after.ResolveRuntime(ID, "")
+		selected, err := after.ResolveRuntime(ID, domain.ModelRef{})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -244,35 +244,34 @@ func claudeDesktopDesired(deps adapter.Dependencies, cfg domain.Config, selected
 	}, nil
 }
 
-// claudeDesktopModelIDs lists the models the profile exposes: the selected
-// model, then each compatible model of its provider with a distinct family.
-func claudeDesktopModelIDs(cfg domain.Config, selected domain.Runtime) []string {
-	routeIDs := []string{selected.ModelID}
-	seen := map[string]bool{cfg.Models[selected.ModelID].Family: true}
+// claudeDesktopModelRefs lists the models the profile exposes: the selected
+// model, then, in configuration order, the first compatible model of its
+// provider of each other family. A model that is its own family counts as one
+// family.
+func claudeDesktopModelRefs(cfg domain.Config, selected domain.Runtime) []domain.ModelRef {
+	refs := []domain.ModelRef{selected.Model}
+	seen := map[string]bool{cfg.Models[selected.Model].FamilyID(): true}
 	spec := claudeDesktopAdapter{}.Spec()
-	for _, routeID := range cfg.CatalogModelIDs() {
-		if routeID == selected.ModelID {
+	for _, ref := range cfg.ProviderModelRefs(selected.ProviderID) {
+		model := cfg.Models[ref]
+		if ref == selected.Model || seen[model.FamilyID()] {
 			continue
 		}
-		route := cfg.Models[routeID]
-		if route.Provider != selected.ProviderID || seen[route.Family] {
+		provider := cfg.Providers[model.Provider]
+		if !slices.Contains(spec.CompatibleModelProtocols(provider, model), selected.Protocol) {
 			continue
 		}
-		account := cfg.Providers[route.Provider]
-		if !slices.Contains(spec.CompatibleModelProtocols(account, route), selected.Protocol) {
-			continue
-		}
-		routeIDs = append(routeIDs, routeID)
-		seen[route.Family] = true
+		refs = append(refs, ref)
+		seen[model.FamilyID()] = true
 	}
-	return routeIDs
+	return refs
 }
 
 func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {
-	routeIDs := claudeDesktopModelIDs(cfg, selected)
+	refs := claudeDesktopModelRefs(cfg, selected)
 	models := []Model{{Name: selected.UpstreamModel, Label: selected.ModelLabel}}
-	for _, routeID := range routeIDs[1:] {
-		models = append(models, Model{Name: cfg.Models[routeID].UpstreamModelID(), Label: cfg.ModelLabel(routeID)})
+	for _, ref := range refs[1:] {
+		models = append(models, Model{Name: ref.ID(), Label: cfg.ModelLabel(ref)})
 	}
 	return models
 }
@@ -281,11 +280,11 @@ func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {
 // Desktop is enabled with a selection, and every model that its profile lists
 // declares tool_search on the selected protocol. It names the listed models
 // that do not; a disabled Desktop, or one without a selection, lists none.
-func (claudeDesktopAdapter) ToolSearch(cfg domain.Config) (bool, []string) {
+func (claudeDesktopAdapter) ToolSearch(cfg domain.Config) (bool, []domain.ModelRef) {
 	if !cfg.Clients[ID].Enabled {
 		return false, nil
 	}
-	selected, err := cfg.ResolveRuntime(ID, "")
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		return false, nil
 	}
@@ -294,18 +293,18 @@ func (claudeDesktopAdapter) ToolSearch(cfg domain.Config) (bool, []string) {
 }
 
 // claudeDesktopToolSearch enables Desktop's profile-wide host tool search only
-// when every exposed Route qualified it on the selected protocol.
+// when every exposed model qualified it on the selected protocol.
 func claudeDesktopToolSearch(cfg domain.Config, selected domain.Runtime) bool {
 	return len(claudeDesktopLackingToolSearch(cfg, selected)) == 0
 }
 
 // claudeDesktopLackingToolSearch returns, in the profile's order, the exposed
-// Routes that did not qualify tool search on the selected protocol.
-func claudeDesktopLackingToolSearch(cfg domain.Config, selected domain.Runtime) []string {
-	var lacking []string
-	for _, routeID := range claudeDesktopModelIDs(cfg, selected) {
-		if !cfg.Models[routeID].Declares(selected.Protocol, domain.CapabilityToolSearch) {
-			lacking = append(lacking, routeID)
+// models that did not qualify tool search on the selected protocol.
+func claudeDesktopLackingToolSearch(cfg domain.Config, selected domain.Runtime) []domain.ModelRef {
+	var lacking []domain.ModelRef
+	for _, ref := range claudeDesktopModelRefs(cfg, selected) {
+		if !cfg.Models[ref].Declares(selected.Protocol, domain.CapabilityToolSearch) {
+			lacking = append(lacking, ref)
 		}
 	}
 	return lacking

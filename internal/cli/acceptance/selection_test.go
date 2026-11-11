@@ -47,16 +47,16 @@ func TestUseSelectsClientNativeModelWithoutAccessingProviderTokens(t *testing.T)
 		Label:     "AWS Bedrock",
 		Endpoints: domain.Endpoints{Responses: "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"},
 	}
-	cfg.Models["bedrock"] = domain.Model{
+	cfg.Models[domain.NewModelRef("aws", "openai.gpt-5.6-sol")] = domain.Model{
 		Label:    "AWS Bedrock",
 		Provider: "aws",
-		Family:   "openai.gpt-5.6-sol",
+		Family:   "openai.gpt-5.6-sol", ID: "openai.gpt-5.6-sol",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolResponses: {},
 		},
 	}
 	cfg.Clients[codex.ID] = domain.ClientBinding{
-		Model: "bedrock", ModelProvider: "amazon-bedrock",
+		Model: domain.NewModelRef("aws", "openai.gpt-5.6-sol"), ModelProvider: "amazon-bedrock",
 		Authentication: domain.AuthenticationClientNative,
 	}
 	if err := app.Config.Save(cfg); err != nil {
@@ -73,7 +73,7 @@ func TestUseSelectsClientNativeModelWithoutAccessingProviderTokens(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := selected.SelectedModel(codex.ID); got != "bedrock" {
+	if got := selected.SelectedModel(codex.ID); got != domain.NewModelRef("aws", "openai.gpt-5.6-sol") {
 		t.Fatalf("Codex route = %q", got)
 	}
 	projection := string(readFile(t, target))
@@ -97,11 +97,11 @@ func TestUseForClaudeLeavesUnselectedCodexDriftUntouched(t *testing.T) {
 	}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "gateway", "gpt-test", domain.ProtocolResponses)
-	cfg.Models["claude-fable"] = qualifiedModel("Claude Fable", "gateway", "claude-fable", domain.ProtocolAnthropic)
-	cfg.Models["claude-sonnet"] = qualifiedModel("Claude Sonnet", "gateway", "claude-sonnet", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(codex.ID, "gpt", "")
-	cfg.SetSelectedModel(claude.ID, "claude-fable", "")
+	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("GPT", "gateway", "gpt-test", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("gateway", "claude-fable")] = qualifiedModel("Claude Fable", "gateway", "claude-fable", domain.ProtocolAnthropic)
+	cfg.Models[domain.NewModelRef("gateway", "claude-sonnet")] = qualifiedModel("Claude Sonnet", "gateway", "claude-sonnet", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-test"), "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-fable"), "")
 	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -133,7 +133,7 @@ func TestUseForClaudeLeavesUnselectedCodexDriftUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SelectedModel(codex.ID) != "gpt" || got.SelectedModel(claude.ID) != "claude-sonnet" {
+	if got.SelectedModel(codex.ID) != domain.NewModelRef("gateway", "gpt-test") || got.SelectedModel(claude.ID) != domain.NewModelRef("gateway", "claude-sonnet") {
 		t.Fatalf("client bindings = %#v", got.Clients)
 	}
 	if after := readFile(t, target); !bytes.Equal(after, codexProjection) {
@@ -155,8 +155,8 @@ func TestUseForCodexLeavesUnselectedClaudeDriftUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
-	cfg.Models["claude"] = qualifiedModel("Claude", "one", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("one", "claude-test")] = qualifiedModel("Claude", "one", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	for _, account := range []string{"one", "two"} {
 		if err := credentials.Set(account, "token"); err != nil {
@@ -184,7 +184,7 @@ func TestUseForCodexLeavesUnselectedClaudeDriftUntouched(t *testing.T) {
 		t.Fatalf("Codex selection was blocked by an unselected Claude projection: %v", err)
 	}
 	after, err := app.Config.Load()
-	if err != nil || after.SelectedModel(codex.ID) != "two" || after.SelectedModel(claude.ID) != "claude" {
+	if err != nil || after.SelectedModel(codex.ID) != domain.NewModelRef("two", "model-two") || after.SelectedModel(claude.ID) != domain.NewModelRef("one", "claude-test") {
 		t.Fatalf("client-scoped selection = %#v, %v", after.Clients, err)
 	}
 	if !bytes.Equal(readFile(t, claudeSettingsPath(t, app.Host)), foreign) || !bytes.Equal(readFile(t, claudeSettingsPath(t, app.Host)+".aigw-state.json"), state) {
@@ -212,8 +212,8 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 		}},
 	}}
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "claude", "claude-gateway", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
-	addProviderModel(&cfg, "codex", "codex-gateway", "Codex", domain.Endpoints{Responses: "https://codex.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "claude-gateway", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "codex-gateway", "Codex", domain.Endpoints{Responses: "https://codex.test/v1"}, codex.ID, "gpt-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +252,7 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if selected.SelectedModel(claude.ID) != "claude" || selected.SelectedModel(codex.ID) != "codex" {
+	if selected.SelectedModel(claude.ID) != domain.NewModelRef("claude-gateway", "claude-test") || selected.SelectedModel(codex.ID) != domain.NewModelRef("codex-gateway", "gpt-test") {
 		t.Fatalf("independent client bindings = %#v", selected.Clients)
 	}
 	for account, want := range map[string]string{"claude-gateway": "claude-token", "codex-gateway": "codex-token"} {
@@ -285,7 +285,7 @@ func TestRepeatedUseOfActiveModelDoesNotRewriteOwnedState(t *testing.T) {
 		claude.ID: claudeExecutable,
 	}}}
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "claude", "gateway", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "gateway", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +303,7 @@ func TestRepeatedUseOfActiveModelDoesNotRewriteOwnedState(t *testing.T) {
 	ownedPaths := []string{
 		app.Config.Path(),
 		app.Config.Path() + ".bak",
-		app.Config.Path() + ".verified.json",
+		verifiedPath(app.Config.Path()),
 		claudeSettingsPath(t, app.Host),
 		claudeSettingsPath(t, app.Host) + ".aigw-state.json",
 	}
@@ -413,9 +413,9 @@ func TestUseRollsBackModelWhenAdapterSyncFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-one")
-	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{Responses: "https://two.test/v1"}, codex.ID, "gpt-two")
-	cfg.SetSelectedModel(codex.ID, "one", "")
+	addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-one")
+	addProviderModel(&cfg, "two", "Two", domain.Endpoints{Responses: "https://two.test/v1"}, codex.ID, "gpt-two")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-one"), "")
 	cfg.SetClientActivation(codex.ID, true, "/missing/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -430,7 +430,7 @@ func TestUseRollsBackModelWhenAdapterSyncFails(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 	got, _ := app.Config.Load()
-	if got.SelectedModel(codex.ID) != "one" {
+	if got.SelectedModel(codex.ID) != domain.NewModelRef("one", "gpt-one") {
 		t.Fatalf("selection was not rolled back: %#v", got.Clients)
 	}
 }
@@ -443,9 +443,9 @@ func TestUseCodexModelOnSameProviderDoesNotRebindCredentials(t *testing.T) {
 	}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Responses: "https://example.test/v1"}}
-	cfg.Models["sol"] = qualifiedModel("Sol", "dmx", "gpt-5.6-sol", domain.ProtocolResponses)
-	cfg.Models["terra"] = qualifiedModel("Terra", "dmx", "gpt-5.6-terra", domain.ProtocolResponses)
-	cfg.SetSelectedModel(codex.ID, "sol", "")
+	cfg.Models[domain.NewModelRef("dmx", "gpt-5.6-sol")] = qualifiedModel("Sol", "dmx", "gpt-5.6-sol", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("dmx", "gpt-5.6-terra")] = qualifiedModel("Terra", "dmx", "gpt-5.6-terra", domain.ProtocolResponses)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-5.6-sol"), "")
 	cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -481,8 +481,8 @@ func TestUseSurfacesConfigLoadFailure(t *testing.T) {
 func TestUseRejectsUnknownModel(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	cfg.SetSelectedModel(claude.ID, "one", "")
+	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-one"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -508,27 +508,27 @@ func TestUseSurfacesUnknownProviderReference(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Models["one"] = qualifiedModel("One", "one", "claude-one", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(claude.ID, "one", "")
+	cfg.Models[domain.NewModelRef("one", "claude-one")] = qualifiedModel("One", "one", "claude-one", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-one"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("one", "one-secret")
-	// Store.Save validates referential integrity, so a dangling account
-	// reference can only reach accountForInput through a file edited
-	// outside AIGW (e.g. by hand or by another tool) after the fact.
+	// Store.Save validates referential integrity, so a selection of a
+	// provider that the file does not hold can only come from a file edited
+	// outside AIGW, by hand or by another tool, after the fact.
 	data, err := os.ReadFile(app.Config.Path())
 	if err != nil {
 		t.Fatal(err)
 	}
-	data = append(data, []byte("\n[routes.broken]\nlabel = \"Broken\"\naccount = \"ghost\"\nmodel = \"claude-broken\"\ninterfaces = { anthropic = [] }\n")...)
+	data = append(data, []byte("\n[clients.codex]\nenabled = false\nmodel = \"ghost/claude-broken\"\n")...)
 	if err := os.WriteFile(app.Config.Path(), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// Loading the configuration refuses the model that names a provider the
-	// file does not hold, before any Token is read.
+	// Loading the configuration refuses the selection, before any Token is
+	// read.
 	err = cli.Execute(app, []string{"use", "claude", "ghost/claude-broken"})
-	if err == nil || !strings.Contains(err.Error(), "references unknown account") {
+	if err == nil || !strings.Contains(err.Error(), "names the unknown model ghost/claude-broken") {
 		t.Fatalf("error = %v", err)
 	}
 }

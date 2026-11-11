@@ -37,11 +37,11 @@ func TestHermesNativeProjection(t *testing.T) {
 			hermesHome := filepath.Join(home, "hermes")
 			cfg := domain.NewConfig(testAdmission())
 			cfg.Providers["fixture"] = domain.Provider{Label: "Fixture", Endpoints: domain.Endpoints{Anthropic: "https://provider.invalid", Responses: "https://provider.invalid/v1", Chat: "https://provider.invalid/v1"}}
-			cfg.Models["hermes"] = domain.Model{
-				Label: "Hermes", Provider: "fixture", Family: "fixture-model",
+			cfg.Models[domain.NewModelRef("fixture", "fixture-model")] = domain.Model{
+				Label: "Hermes", Provider: "fixture", Family: "fixture-model", ID: "fixture-model",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
-			cfg.Clients[ID] = domain.ClientBinding{Model: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
+			cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("fixture", "fixture-model"), Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
 			if err := store.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -93,7 +93,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := store.Parse(manifestData, testAdmission())
+	manifest, err := store.ParseTeamFile(manifestData, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	binding.Executable = python
 	binding.Targets = []string{filepath.Join(hermesHome, "config.yaml")}
 	cfg.Clients[ID] = binding
-	selected, err := cfg.ResolveRuntime(ID, "")
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func runHermesNativeScript(t *testing.T, python, home string, env map[string]str
 	return output
 }
 
-func assertNativeHermesCatalog(t *testing.T, routes map[string]domain.Model, accounts []string, providers map[string][]string) {
+func assertNativeHermesCatalog(t *testing.T, routes map[domain.ModelRef]domain.Model, accounts []string, providers map[string][]string) {
 	t.Helper()
 	connected := map[string]bool{}
 	for _, accountID := range accounts {
@@ -194,7 +194,7 @@ func assertNativeHermesCatalog(t *testing.T, routes map[string]domain.Model, acc
 		}
 		for _, protocol := range route.AdmittedProtocols() {
 			providerID := hermesProviderID(route.Provider, protocol)
-			want[providerID] = append(want[providerID], route.UpstreamModelID())
+			want[providerID] = append(want[providerID], route.ID)
 		}
 	}
 	if len(providers) != len(want) {

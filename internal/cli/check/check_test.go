@@ -283,9 +283,11 @@ func TestCheckStopsAtALocalFailureBeforeAnyRequest(t *testing.T) {
 func TestCheckObservesOnlyTheCheckedClients(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
 	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.example.test"}}
-	model := cfg.Models["claude"]
+	model := cfg.Models[domain.NewModelRef("one", "claude-test")]
 	model.Provider = "two"
-	cfg.Models["claude"] = model
+	cfg.Models[model.Ref()] = model
+	cfg.SetSelectedModel(claude.ID, model.Ref(), "")
+	delete(cfg.Models, domain.NewModelRef("one", "claude-test"))
 	enable(t, runtime, &cfg, claude.ID, codex.ID)
 	provider := &recorder{respond: answer}
 	runtime.HTTP = provider

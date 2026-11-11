@@ -58,7 +58,8 @@ func TestRollbackCoversLoadSnapshotAndBackupFailures(t *testing.T) {
 	})
 	t.Run("invalid verified snapshot", func(t *testing.T) {
 		configStore := rollbackStore(t)
-		if err := os.WriteFile(configStore.Path()+".verified.json", []byte("not-json"), 0o600); err != nil {
+		verified := strings.TrimSuffix(configStore.Path(), filepath.Ext(configStore.Path())) + ".verified.json"
+		if err := os.WriteFile(verified, []byte("not-json"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		if err := run(configStore); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "parse verified checkpoint") {
@@ -81,11 +82,11 @@ func rollbackStore(t *testing.T) store.Store {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Models["one"] = domain.Model{
-		Label: "One", Provider: "one", Family: "claude-test",
+	cfg.Models[domain.NewModelRef("one", "claude-test")] = domain.Model{
+		Label: "One", Provider: "one", Family: "claude-test", ID: "claude-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedModel(claude.ID, "one", "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-test"), "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +149,7 @@ func TestRollbackRestoresTheLastChange(t *testing.T) {
 			want = `"next_action": "aigw check --depth local"`
 		}
 		cfg, err := runtime.Config.Load()
-		if err != nil || cfg.Providers["local"].Label != "Local" || cfg.SelectedModel(codex.ID) != "local" || !strings.Contains(out.String(), want) {
+		if err != nil || cfg.Providers["local"].Label != "Local" || cfg.SelectedModel(codex.ID) != domain.NewModelRef("local", "gpt-local") || !strings.Contains(out.String(), want) {
 			t.Fatalf("restored label = %q, %v\n%s", cfg.Providers["local"].Label, err, out)
 		}
 	}

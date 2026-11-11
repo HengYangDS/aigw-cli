@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"aigw-cli/internal/domain"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,7 +37,7 @@ func TestCodexVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing.
 		t.Run(failure, func(t *testing.T) {
 			cfg, _ := codexVerificationFixture(t)
 			binding := cfg.Clients[ID]
-			selected, err := cfg.ResolveRuntime(ID, "")
+			selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -46,9 +47,9 @@ func TestCodexVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing.
 			}
 			runner := &modelVerificationRunner{}
 			deps := adapter.Dependencies{Runner: runner, Secrets: store}
-			want := "unknown route"
+			want := "unknown model"
 			if failure == "selected route" {
-				binding.Model = "missing"
+				binding.Model = domain.NewModelRef("gateway", "missing")
 				cfg.Clients[ID] = binding
 			} else {
 				_, deps.AIGWExecutable = versionedReaders(t)

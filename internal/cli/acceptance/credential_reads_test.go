@@ -37,26 +37,25 @@ func (files *countingFiles) Open(name string) (*os.File, error) {
 func gatewayTeamFile(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "team.toml")
-	writeFile(t, path, []byte(`version = 7
+	writeFile(t, path, []byte(`version = 8
 
-[recommendations.claude.primary]
-route = "claude-team"
-
-[accounts.gateway]
+[[providers]]
+id = "gateway"
 label = "Gateway"
+endpoints = {anthropic = "https://gateway.test"}
 
-[accounts.gateway.endpoints]
-anthropic = "https://gateway.test"
+[[providers.models]]
+id = "claude-team"
+family = "claude-team"
+label = "Claude Team"
+protocols = {anthropic = []}
 
-[models.claude-team]
+[[families]]
+id = "claude-team"
 label = "Claude Team"
 
-[routes.claude-team]
-label = "Claude Team"
-account = "gateway"
-model = "claude-team"
-upstream_model = "claude-team"
-interfaces = { anthropic = [] }
+[recommendations.claude]
+primary = {model = "gateway/claude-team"}
 `), 0o600)
 	return path
 }
@@ -117,7 +116,7 @@ func addNextClaudeModel(t *testing.T, app *cli.App) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	addProviderModel(&cfg, "claude-next", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-next")
+	addProviderModel(&cfg, "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-next")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

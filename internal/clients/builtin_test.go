@@ -36,15 +36,15 @@ func qualifiedModel(label, account, model string, protocols ...domain.EndpointPr
 		interfaces[protocol] = []domain.Capability{}
 	}
 	return domain.Model{
-		Label: label, Provider: account, Family: model, UpstreamModel: model, Protocols: interfaces,
+		Label: label, Provider: account, Family: model, ID: model, Protocols: interfaces,
 	}
 }
 
 func codexConfiguration(target string) domain.Config {
 	cfg := domain.NewConfig(Admission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-	cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
-	cfg.Clients[codex.ID] = domain.ClientBinding{Model: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
+	cfg.Clients[codex.ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }
 
@@ -85,8 +85,8 @@ func TestChangedClientsRetainsAdmissionOrderAndIndependentResults(t *testing.T) 
 	account := before.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Providers["gateway"] = account
-	before.Models["claude"] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
-	before.SetSelectedModel(claude.ID, "claude", "")
+	before.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	after := before.Clone()
 	account.Endpoints = domain.Endpoints{Responses: "https://replacement.test/v1", Anthropic: "https://replacement.test"}
@@ -126,10 +126,10 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 		Anthropic: "https://gateway.test",
 		Responses: "https://gateway.test/v1",
 	}}
-	before.Models["claude"] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
-	before.Models["codex"] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolResponses)
-	before.SetSelectedModel(claude.ID, "claude", "")
-	before.SetSelectedModel(codex.ID, "codex", "")
+	before.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
+	before.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolResponses)
+	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
+	before.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-test"), "")
 	after := before.Clone()
 	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	after.SetClientActivation(codex.ID, true, "/opt/codex", []string{codexTarget})
@@ -194,10 +194,10 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 			Responses: "http://127.0.0.1:9876/v1",
 		},
 	}
-	before.Models["claude"] = qualifiedModel("", "direct", "claude-test", domain.ProtocolAnthropic)
-	before.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
-	before.SetSelectedModel(claude.ID, "claude", "")
-	before.SetSelectedModel(codex.ID, "codex", "")
+	before.Models[domain.NewModelRef("direct", "claude-test")] = qualifiedModel("", "direct", "claude-test", domain.ProtocolAnthropic)
+	before.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
+	before.SetSelectedModel(claude.ID, domain.NewModelRef("direct", "claude-test"), "")
+	before.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-test"), "")
 	before.SetClientActivation(claude.ID, true, "/clients/claude", nil)
 	before.SetClientActivation(codex.ID, true, "/clients/codex", []string{"/clients/codex.toml"})
 	wantUnchanged := before.Clone()
@@ -224,8 +224,8 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 func TestRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 	cfg := domain.NewConfig(Admission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["claude"] = domain.Model{
-		Provider: "gateway", Family: "claude-test",
+	cfg.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{
+		Provider: "gateway", Family: "claude-test", ID: "claude-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	store := secret.NewMemoryStore()
@@ -237,7 +237,7 @@ func TestRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 	for _, clientID := range []string{claudedesktop.ID, hermes.ID} {
 		t.Run(clientID, func(t *testing.T) {
 			deferred := cfg.Clone()
-			deferred.SetSelectedModel(clientID, "claude", "")
+			deferred.SetSelectedModel(clientID, domain.NewModelRef("gateway", "claude-test"), "")
 			deferred.SetClientActivation(clientID, true, "", nil)
 			plans, err := Registry().Plan(deps, domain.NewConfig(Admission()), deferred, clientID)
 			if err != nil {

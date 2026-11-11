@@ -117,14 +117,14 @@ func (codexAdapter) ProjectionChanged(before, after domain.Config) bool {
 	if !beforeBinding.Enabled || !slices.Equal(beforeBinding.Targets, afterBinding.Targets) {
 		return true
 	}
-	beforeRuntime, beforeErr := before.ResolveRuntime(ID, "")
-	afterRuntime, afterErr := after.ResolveRuntime(ID, "")
+	beforeRuntime, beforeErr := before.ResolveRuntime(ID, domain.ModelRef{})
+	afterRuntime, afterErr := after.ResolveRuntime(ID, domain.ModelRef{})
 	if beforeErr != nil || afterErr != nil {
 		return true
 	}
 	return beforeRuntime.ProviderID != afterRuntime.ProviderID ||
 		!beforeRuntime.SameUpstream(afterRuntime) ||
-		beforeRuntime.ModelID != afterRuntime.ModelID ||
+		beforeRuntime.Model != afterRuntime.Model ||
 		beforeRuntime.ModelLabel != afterRuntime.ModelLabel ||
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
 		beforeRuntime.UpstreamModel != afterRuntime.UpstreamModel ||
@@ -145,7 +145,7 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 	}
 	status := adapter.Status{Ready: true, Checks: make([]adapter.Check, 0, len(binding.Targets))}
 	for index, target := range binding.Targets {
-		check := adapter.Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "route " + runtime.ModelID, Target: target}
+		check := adapter.Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "model " + runtime.Model.String(), Target: target}
 		issue, detail, repair := inspectTarget(deps, cfg, runtime, target)
 		if detail != "" {
 			check.Ready = false
@@ -270,14 +270,14 @@ func reconciliationInputs(deps adapter.Dependencies, before, after domain.Config
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
-	previous, _ := before.ResolveRuntime(ID, "")
+	previous, _ := before.ResolveRuntime(ID, domain.ModelRef{})
 	if previous.RequiresProviderToken() {
 		previous.CredentialCommand = previous.CredentialExecutable(deps.AIGWExecutable)
 	}
 	if !afterBinding.Enabled {
 		return beforeRefs, nil, previous, domain.Runtime{}, nil
 	}
-	runtime, err := after.ResolveRuntime(ID, "")
+	runtime, err := after.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}

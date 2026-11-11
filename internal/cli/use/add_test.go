@@ -180,7 +180,7 @@ func TestUsePreviewNextActionKeepsTheFlagsThatChangeTheSelection(t *testing.T) {
 // one whose ID only begins its model ID.
 func TestUseGivesAModelTheClientsProtocolAndTakesOnlyTheFamilyWithItsID(t *testing.T) {
 	runtime, cfg := addingRuntime(t)
-	cfg.Models["chat"] = domain.Model{Label: "Chat", Provider: "gateway", Family: "chat-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models[domain.NewModelRef("gateway", "chat-test")] = domain.Model{Label: "Chat", Provider: "gateway", Family: "chat-test", ID: "chat-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.Families["minimax-m3"] = domain.Family{Label: "MiniMax M3"}
 	cfg.Families["gpt-test"] = domain.Family{Label: "GPT Test"}
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -192,7 +192,7 @@ func TestUseGivesAModelTheClientsProtocolAndTakesOnlyTheFamilyWithItsID(t *testi
 		t.Fatalf("a gained protocol = %#v", gained)
 	}
 	saved, err := runtime.Config.Load()
-	if model := saved.Models["chat"]; err != nil || len(model.Protocols) != 2 {
+	if model := saved.Models[domain.NewModelRef("gateway", "chat-test")]; err != nil || len(model.Protocols) != 2 {
 		t.Fatalf("the model after its gain = %#v, %v", model, err)
 	}
 	if named := useDocument(t, runtime, claude.ID, "gateway/MiniMax-M3"); named.Family != "minimax-m3" {
@@ -249,7 +249,7 @@ func desktopRuntime(t *testing.T) (invocation.Context, domain.Config) {
 		Executables: executables,
 		Surfaces:    []discovery.Surface{{ID: "claude-desktop-config-library", ConfigPath: library, Present: true, AutoManaged: true}},
 	}}
-	cfg.Models["desktop"] = domain.Model{Label: "Desktop", Provider: "gateway", Family: "claude-test",
+	cfg.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{Label: "Desktop", Provider: "gateway", Family: "claude-test", ID: "claude-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityToolSearch}}}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -304,7 +304,7 @@ func TestUseReportsOtherClientsAndALostToolSearch(t *testing.T) {
 // the result's own line.
 func TestUseNamesAToolSearchFixThatKeepsTheModelsCapabilities(t *testing.T) {
 	runtime, cfg := desktopRuntime(t)
-	cfg.Models["minimax"] = domain.Model{Provider: "gateway", Family: "minimax-m3", UpstreamModel: "MiniMax-M3",
+	cfg.Models[domain.NewModelRef("gateway", "MiniMax-M3")] = domain.Model{Provider: "gateway", Family: "minimax-m3", ID: "MiniMax-M3",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {domain.CapabilityText, domain.CapabilityTools}}}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -342,8 +342,8 @@ func TestUseNamesAToolSearchFixThatKeepsTheModelsCapabilities(t *testing.T) {
 func TestUseNamesEachListedModelThatTurnsToolSearchOff(t *testing.T) {
 	runtime, cfg := desktopRuntime(t)
 	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Anthropic: "https://other.example.test"}}
-	cfg.Models["first"] = domain.Model{Provider: "other", Family: "first-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityTools}}}
-	cfg.Models["second"] = domain.Model{Provider: "other", Family: "second-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models[domain.NewModelRef("other", "first-model")] = domain.Model{Provider: "other", Family: "first-model", ID: "first-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityTools}}}
+	cfg.Models[domain.NewModelRef("other", "second-model")] = domain.Model{Provider: "other", Family: "second-model", ID: "second-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

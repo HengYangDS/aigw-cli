@@ -1,634 +1,431 @@
-version = 7
+version = 8
 
-[recommendations]
+[[providers]]
+id = 'dmxapi'
+label = 'DMXAPI'
+balance = {kind = 'dmxapi', base_url = 'https://www.dmxapi.cn'}
+endpoints = {anthropic = 'https://www.dmxapi.cn', responses = 'https://www.dmxapi.cn/v1'}
+
+[[providers.models]]
+id = 'claude-opus-5-5'
+family = 'claude-opus-5-5'
+protocols = {anthropic = []}
+
+[[providers.models]]
+id = 'claude-sonnet-5-5-cc'
+family = 'claude-sonnet-5-5'
+label = 'DMXAPI · Claude Sonnet 5.5 · CC'
+protocols = {anthropic = []}
+
+[[providers.models]]
+id = 'claude-sonnet-5-5-ssvip'
+family = 'claude-sonnet-5-5'
+label = 'DMXAPI · Claude Sonnet 5.5 · SSVIP'
+protocols = {anthropic = []}
+
+[[providers.models]]
+id = 'claude-haiku-5-5-cc'
+family = 'claude-haiku-5-5'
+protocols = {anthropic = []}
+
+[[providers.models]]
+id = 'gpt-6.1-sol'
+family = 'gpt-6.1-sol'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'gpt-6.1-sol-cdx'
+family = 'gpt-6.1-sol'
+label = 'DMXAPI · GPT-6.1 Sol · CDX'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'gpt-6.1-terra-cdx'
+family = 'gpt-6.1-terra'
+label = 'DMXAPI · GPT-6.1 Terra · CDX'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'deepseek-v4.1-flash-1017'
+family = 'deepseek-v4.1-flash-1017'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'doubao-seed-2-1-pro-260915'
+family = 'doubao-seed-2-1-pro-260915'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'gemini-4-argon'
+family = 'gemini-4-argon'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'glm-5.3'
+family = 'glm-5.3'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'grok-4.7'
+family = 'grok-4.7'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'hy4'
+family = 'hy4'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'kimi-k3.1-pro'
+family = 'kimi-k3.1-pro'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'LongCat-2.5'
+family = 'longcat-2.5'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'MiniMax-M3.1-Flash'
+family = 'minimax-m3.1-flash'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'muse-wonder'
+family = 'muse-wonder'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'qwen3.8-max-0902'
+family = 'qwen3.8-max-0902'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'step-5-preview'
+family = 'step-5-preview'
+protocols = {responses = []}
+
+[[providers]]
+id = 'ucloud'
+label = 'UCloud'
+endpoints = {anthropic = 'https://api.modelverse.cn', responses = 'https://api.modelverse.cn/v1', chat = 'https://api.modelverse.cn/v1'}
+
+[[providers.models]]
+id = 'claude-opus-5-5'
+family = 'claude-opus-5-5'
+protocols = {anthropic = ['tool_search']}
+
+[[providers.models]]
+id = 'claude-sonnet-5-5'
+family = 'claude-sonnet-5-5'
+protocols = {anthropic = ['tool_search']}
+
+[[providers.models]]
+id = 'claude-haiku-5-5'
+family = 'claude-haiku-5-5'
+protocols = {anthropic = ['tool_search']}
+
+[[providers.models]]
+id = 'gpt-6.1-sol'
+family = 'gpt-6.1-sol'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'gpt-6.1-terra'
+family = 'gpt-6.1-terra'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'deepseek-v4.1-flash-1017'
+family = 'deepseek-v4.1-flash-1017'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'doubao-seed-2-1-pro-260628'
+family = 'doubao-seed-2-1-pro-260628'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'grok-4.7'
+family = 'grok-4.7'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'kimi-k3.1-pro'
+family = 'kimi-k3.1-pro'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'mimo-v2.6-pro'
+family = 'mimo-v2.6-pro'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'minimax-m3.1-flash'
+family = 'minimax-m3.1-flash'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'muse-wonder-1.0'
+family = 'muse-wonder'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'gemini-4-argon'
+family = 'gemini-4-argon'
+protocols = {chat = []}
+
+[[providers.models]]
+id = 'glm-5.3'
+family = 'glm-5.3'
+protocols = {chat = []}
+
+[[providers]]
+id = 'aihubmix'
+label = 'AIHubMix'
+endpoints = {anthropic = 'https://api.inferera.com', responses = 'https://api.inferera.com/v1', chat = 'https://api.inferera.com/v1'}
+
+[[providers.models]]
+id = 'claude-opus-5-5'
+family = 'claude-opus-5-5'
+protocols = {anthropic = []}
+
+[[providers.models]]
+id = 'claude-sonnet-5-5'
+family = 'claude-sonnet-5-5'
+protocols = {anthropic = []}
+
+[[providers.models]]
+id = 'claude-haiku-5-5'
+family = 'claude-haiku-5-5'
+protocols = {anthropic = []}
+
+[[providers.models]]
+id = 'gpt-6.1-sol'
+family = 'gpt-6.1-sol'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'gpt-6.1-terra'
+family = 'gpt-6.1-terra'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'deepseek-v4.1-flash-1017'
+family = 'deepseek-v4.1-flash-1017'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'doubao-seed-2-1-pro-260628'
+family = 'doubao-seed-2-1-pro-260628'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'ernie-5.1'
+family = 'ernie-5.1'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'gemini-4-argon'
+family = 'gemini-4-argon'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'glm-5.3'
+family = 'glm-5.3'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'grok-4.7'
+family = 'grok-4.7'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'minimax-m3.1-flash'
+family = 'minimax-m3.1-flash'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'muse-wonder'
+family = 'muse-wonder'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'qwen3.8-max-2026-09-02'
+family = 'qwen3.8-max-0902'
+protocols = {responses = []}
+
+[[providers.models]]
+id = 'cohere-command-a'
+family = 'cohere-command-a'
+protocols = {chat = []}
+
+[[providers.models]]
+id = 'hy4'
+family = 'hy4'
+protocols = {chat = []}
+
+[[providers.models]]
+id = 'kimi-k3.1-pro'
+family = 'kimi-k3.1-pro'
+protocols = {chat = []}
+
+[[providers.models]]
+id = 'laguna-s-2.1'
+family = 'laguna-s-2.1'
+protocols = {chat = []}
+
+[[providers.models]]
+id = 'ling-3.0-flash'
+family = 'ling-3.0-flash'
+protocols = {chat = []}
+
+[[providers.models]]
+id = 'mercury-2.5'
+family = 'mercury-2.5'
+protocols = {chat = []}
+
+[[providers.models]]
+id = 'mistral-large-3'
+family = 'mistral-large-3'
+protocols = {chat = []}
+
+[[providers.models]]
+id = 'nemotron-3-ultra-550b-a55b-free'
+family = 'nemotron-3-ultra-550b-a55b'
+label = 'AIHubMix · NVIDIA Nemotron 3 Ultra · FREE'
+protocols = {chat = []}
+
+[[providers.models]]
+id = 'solar-pro4'
+family = 'solar-pro4'
+protocols = {chat = []}
+
+[[providers.models]]
+id = 'step-5-preview'
+family = 'step-5-preview'
+protocols = {chat = []}
+
+[[families]]
+id = 'claude-opus-5-5'
+label = 'Claude Opus 5.5'
+
+[[families]]
+id = 'claude-sonnet-5-5'
+label = 'Claude Sonnet 5.5'
+
+[[families]]
+id = 'claude-haiku-5-5'
+label = 'Claude Haiku 5.5'
+
+[[families]]
+id = 'gpt-6.1-sol'
+label = 'GPT-6.1 Sol'
+
+[[families]]
+id = 'gpt-6.1-terra'
+label = 'GPT-6.1 Terra'
+
+[[families]]
+id = 'cohere-command-a'
+label = 'Cohere Command A'
+
+[[families]]
+id = 'deepseek-v4.1-flash-1017'
+label = 'DeepSeek V4.1 Flash 1017'
+
+[[families]]
+id = 'doubao-seed-2-1-pro-260915'
+label = 'Doubao Seed 2.1 Pro 260915'
+
+[[families]]
+id = 'doubao-seed-2-1-pro-260628'
+label = 'Doubao Seed 2.1 Pro 260628'
+
+[[families]]
+id = 'ernie-5.1'
+label = 'ERNIE 5.1'
+
+[[families]]
+id = 'gemini-4-argon'
+label = 'Gemini 4 Argon'
+
+[[families]]
+id = 'glm-5.3'
+label = 'GLM 5.3'
+
+[[families]]
+id = 'grok-4.7'
+label = 'Grok 4.7'
+
+[[families]]
+id = 'hy4'
+label = 'HY4'
+
+[[families]]
+id = 'kimi-k3.1-pro'
+label = 'Kimi K3.1 Pro'
+
+[[families]]
+id = 'laguna-s-2.1'
+label = 'Poolside Laguna S 2.1'
+
+[[families]]
+id = 'ling-3.0-flash'
+label = 'Ling 3.0 Flash'
+
+[[families]]
+id = 'longcat-2.5'
+label = 'LongCat 2.5'
+
+[[families]]
+id = 'mercury-2.5'
+label = 'Mercury 2.5'
+
+[[families]]
+id = 'mimo-v2.6-pro'
+label = 'MiMo V2.6 Pro'
+
+[[families]]
+id = 'minimax-m3.1-flash'
+label = 'MiniMax M3.1 Flash'
+
+[[families]]
+id = 'mistral-large-3'
+label = 'Mistral Large 3'
+
+[[families]]
+id = 'muse-wonder'
+label = 'Muse Wonder'
+
+[[families]]
+id = 'nemotron-3-ultra-550b-a55b'
+label = 'NVIDIA Nemotron 3 Ultra'
+
+[[families]]
+id = 'qwen3.8-max-0902'
+label = 'Qwen 3.8 Max 0902'
+
+[[families]]
+id = 'solar-pro4'
+label = 'Solar Pro 4'
+
+[[families]]
+id = 'step-5-preview'
+label = 'Step 5 Preview'
+
 [recommendations.claude]
-[recommendations.claude.primary]
-route = 'dmxapi-claude-opus-5-5'
-
-[[recommendations.claude.alternatives]]
-route = 'ucloud-claude-opus-5-5'
+primary = {model = 'dmxapi/claude-opus-5-5'}
+alternatives = [{model = 'ucloud/claude-opus-5-5'}]
 
 [recommendations.claude-desktop]
-[recommendations.claude-desktop.primary]
-route = 'dmxapi-claude-opus-5-5'
-
-[[recommendations.claude-desktop.alternatives]]
-route = 'ucloud-claude-opus-5-5'
+primary = {model = 'dmxapi/claude-opus-5-5'}
+alternatives = [{model = 'ucloud/claude-opus-5-5'}]
 
 [recommendations.codex]
-[recommendations.codex.primary]
-route = 'dmxapi-gpt-6.1-sol-cdx'
-
-[[recommendations.codex.alternatives]]
-route = 'ucloud-gpt-6.1-sol'
+primary = {model = 'dmxapi/gpt-6.1-sol-cdx'}
+alternatives = [{model = 'ucloud/gpt-6.1-sol'}]
 
 [recommendations.hermes]
-[recommendations.hermes.primary]
-route = 'dmxapi-gpt-6.1-sol'
-protocol = 'openai_responses'
-
-[[recommendations.hermes.alternatives]]
-route = 'ucloud-gpt-6.1-sol'
-protocol = 'openai_responses'
-
-[accounts]
-[accounts.aihubmix]
-label = 'AIHubMix'
-order = 30
-
-[accounts.aihubmix.endpoints]
-openai_chat_completions = 'https://api.inferera.com/v1'
-openai_responses = 'https://api.inferera.com/v1'
-anthropic = 'https://api.inferera.com'
-
-[accounts.dmxapi]
-label = 'DMXAPI'
-order = 10
-
-[accounts.dmxapi.endpoints]
-openai_responses = 'https://www.dmxapi.cn/v1'
-anthropic = 'https://www.dmxapi.cn'
-
-[accounts.dmxapi.account_probe]
-kind = 'dmxapi'
-base_url = 'https://www.dmxapi.cn'
-
-[accounts.ucloud]
-label = 'UCloud'
-order = 20
-
-[accounts.ucloud.endpoints]
-openai_chat_completions = 'https://api.modelverse.cn/v1'
-openai_responses = 'https://api.modelverse.cn/v1'
-anthropic = 'https://api.modelverse.cn'
-
-[models]
-[models.claude-haiku-5-5]
-label = 'Claude Haiku 5.5'
-order = 40
-
-[models.claude-opus-5-5]
-label = 'Claude Opus 5.5'
-order = 20
-
-[models.claude-sonnet-5-5]
-label = 'Claude Sonnet 5.5'
-order = 30
-
-[models.cohere-command-a]
-label = 'Cohere Command A'
-order = 200
-
-[models.'deepseek-v4.1-flash-1017']
-label = 'DeepSeek V4.1 Flash 1017'
-order = 210
-
-[models.doubao-seed-2-1-pro-260628]
-label = 'Doubao Seed 2.1 Pro 260628'
-order = 220
-
-[models.doubao-seed-2-1-pro-260915]
-label = 'Doubao Seed 2.1 Pro 260915'
-order = 219
-
-[models.'ernie-5.1']
-label = 'ERNIE 5.1'
-order = 230
-
-[models.gemini-4-argon]
-label = 'Gemini 4 Argon'
-order = 240
-
-[models.'glm-5.3']
-label = 'GLM 5.3'
-order = 250
-
-[models.'gpt-6.1-sol']
-label = 'GPT-6.1 Sol'
-order = 120
-
-[models.'gpt-6.1-terra']
-label = 'GPT-6.1 Terra'
-order = 130
-
-[models.'grok-4.7']
-label = 'Grok 4.7'
-order = 260
-
-[models.hy4]
-label = 'HY4'
-order = 270
-
-[models.'kimi-k3.1-pro']
-label = 'Kimi K3.1 Pro'
-order = 280
-
-[models.'laguna-s-2.1']
-label = 'Poolside Laguna S 2.1'
-order = 290
-
-[models.'ling-3.0-flash']
-label = 'Ling 3.0 Flash'
-order = 300
-
-[models.'longcat-2.5']
-label = 'LongCat 2.5'
-order = 310
-
-[models.'mercury-2.5']
-label = 'Mercury 2.5'
-order = 320
-
-[models.'mimo-v2.6-pro']
-label = 'MiMo V2.6 Pro'
-order = 330
-
-[models.'minimax-m3.1-flash']
-label = 'MiniMax M3.1 Flash'
-order = 340
-
-[models.mistral-large-3]
-label = 'Mistral Large 3'
-order = 350
-
-[models.muse-wonder]
-label = 'Muse Wonder'
-order = 360
-
-[models.nemotron-3-ultra-550b-a55b]
-label = 'NVIDIA Nemotron 3 Ultra'
-order = 370
-
-[models.'qwen3.8-max-0902']
-label = 'Qwen 3.8 Max 0902'
-order = 380
-
-[models.solar-pro4]
-label = 'Solar Pro 4'
-order = 385
-
-[models.step-5-preview]
-label = 'Step 5 Preview'
-order = 390
-
-[routes]
-[routes.aihubmix-claude-haiku-5-5]
-account = 'aihubmix'
-model = 'claude-haiku-5-5'
-upstream_model = 'claude-haiku-5-5'
-
-[routes.aihubmix-claude-haiku-5-5.interfaces]
-anthropic = []
-
-[routes.aihubmix-claude-opus-5-5]
-account = 'aihubmix'
-model = 'claude-opus-5-5'
-upstream_model = 'claude-opus-5-5'
-
-[routes.aihubmix-claude-opus-5-5.interfaces]
-anthropic = []
-
-[routes.aihubmix-claude-sonnet-5-5]
-account = 'aihubmix'
-model = 'claude-sonnet-5-5'
-upstream_model = 'claude-sonnet-5-5'
-
-[routes.aihubmix-claude-sonnet-5-5.interfaces]
-anthropic = []
-
-[routes.aihubmix-cohere-command-a]
-account = 'aihubmix'
-model = 'cohere-command-a'
-upstream_model = 'cohere-command-a'
-
-[routes.aihubmix-cohere-command-a.interfaces]
-openai_chat_completions = []
-
-[routes.'aihubmix-deepseek-v4.1-flash-1017']
-account = 'aihubmix'
-model = 'deepseek-v4.1-flash-1017'
-upstream_model = 'deepseek-v4.1-flash-1017'
-
-[routes.'aihubmix-deepseek-v4.1-flash-1017'.interfaces]
-openai_responses = []
-
-[routes.aihubmix-doubao-seed-2-1-pro-260628]
-account = 'aihubmix'
-model = 'doubao-seed-2-1-pro-260628'
-upstream_model = 'doubao-seed-2-1-pro-260628'
-
-[routes.aihubmix-doubao-seed-2-1-pro-260628.interfaces]
-openai_responses = []
-
-[routes.'aihubmix-ernie-5.1']
-account = 'aihubmix'
-model = 'ernie-5.1'
-upstream_model = 'ernie-5.1'
-
-[routes.'aihubmix-ernie-5.1'.interfaces]
-openai_responses = []
-
-[routes.aihubmix-gemini-4-argon]
-account = 'aihubmix'
-model = 'gemini-4-argon'
-upstream_model = 'gemini-4-argon'
-
-[routes.aihubmix-gemini-4-argon.interfaces]
-openai_responses = []
-
-[routes.'aihubmix-glm-5.3']
-account = 'aihubmix'
-model = 'glm-5.3'
-upstream_model = 'glm-5.3'
-
-[routes.'aihubmix-glm-5.3'.interfaces]
-openai_responses = []
-
-[routes.'aihubmix-gpt-6.1-sol']
-account = 'aihubmix'
-model = 'gpt-6.1-sol'
-upstream_model = 'gpt-6.1-sol'
-
-[routes.'aihubmix-gpt-6.1-sol'.interfaces]
-openai_responses = []
-
-[routes.'aihubmix-gpt-6.1-terra']
-account = 'aihubmix'
-model = 'gpt-6.1-terra'
-upstream_model = 'gpt-6.1-terra'
-
-[routes.'aihubmix-gpt-6.1-terra'.interfaces]
-openai_responses = []
-
-[routes.'aihubmix-grok-4.7']
-account = 'aihubmix'
-model = 'grok-4.7'
-upstream_model = 'grok-4.7'
-
-[routes.'aihubmix-grok-4.7'.interfaces]
-openai_responses = []
-
-[routes.aihubmix-hy4]
-account = 'aihubmix'
-model = 'hy4'
-upstream_model = 'hy4'
-
-[routes.aihubmix-hy4.interfaces]
-openai_chat_completions = []
-
-[routes.'aihubmix-kimi-k3.1-pro']
-account = 'aihubmix'
-model = 'kimi-k3.1-pro'
-upstream_model = 'kimi-k3.1-pro'
-
-[routes.'aihubmix-kimi-k3.1-pro'.interfaces]
-openai_chat_completions = []
-
-[routes.'aihubmix-laguna-s-2.1']
-account = 'aihubmix'
-model = 'laguna-s-2.1'
-upstream_model = 'laguna-s-2.1'
-
-[routes.'aihubmix-laguna-s-2.1'.interfaces]
-openai_chat_completions = []
-
-[routes.'aihubmix-ling-3.0-flash']
-account = 'aihubmix'
-model = 'ling-3.0-flash'
-upstream_model = 'ling-3.0-flash'
-
-[routes.'aihubmix-ling-3.0-flash'.interfaces]
-openai_chat_completions = []
-
-[routes.'aihubmix-mercury-2.5']
-account = 'aihubmix'
-model = 'mercury-2.5'
-upstream_model = 'mercury-2.5'
-
-[routes.'aihubmix-mercury-2.5'.interfaces]
-openai_chat_completions = []
-
-[routes.'aihubmix-minimax-m3.1-flash']
-account = 'aihubmix'
-model = 'minimax-m3.1-flash'
-upstream_model = 'minimax-m3.1-flash'
-
-[routes.'aihubmix-minimax-m3.1-flash'.interfaces]
-openai_responses = []
-
-[routes.aihubmix-mistral-large-3]
-account = 'aihubmix'
-model = 'mistral-large-3'
-upstream_model = 'mistral-large-3'
-
-[routes.aihubmix-mistral-large-3.interfaces]
-openai_chat_completions = []
-
-[routes.aihubmix-muse-wonder]
-account = 'aihubmix'
-model = 'muse-wonder'
-upstream_model = 'muse-wonder'
-
-[routes.aihubmix-muse-wonder.interfaces]
-openai_responses = []
-
-[routes.aihubmix-nemotron-3-ultra-550b-a55b-free]
-label = 'AIHubMix · NVIDIA Nemotron 3 Ultra · FREE'
-account = 'aihubmix'
-model = 'nemotron-3-ultra-550b-a55b'
-upstream_model = 'nemotron-3-ultra-550b-a55b-free'
-
-[routes.aihubmix-nemotron-3-ultra-550b-a55b-free.interfaces]
-openai_chat_completions = []
-
-[routes.'aihubmix-qwen3.8-max-0902']
-account = 'aihubmix'
-model = 'qwen3.8-max-0902'
-upstream_model = 'qwen3.8-max-2026-09-02'
-
-[routes.'aihubmix-qwen3.8-max-0902'.interfaces]
-openai_responses = []
-
-[routes.aihubmix-solar-pro4]
-account = 'aihubmix'
-model = 'solar-pro4'
-upstream_model = 'solar-pro4'
-
-[routes.aihubmix-solar-pro4.interfaces]
-openai_chat_completions = []
-
-[routes.aihubmix-step-5-preview]
-account = 'aihubmix'
-model = 'step-5-preview'
-upstream_model = 'step-5-preview'
-
-[routes.aihubmix-step-5-preview.interfaces]
-openai_chat_completions = []
-
-[routes.dmxapi-claude-haiku-5-5-cc]
-account = 'dmxapi'
-model = 'claude-haiku-5-5'
-upstream_model = 'claude-haiku-5-5-cc'
-
-[routes.dmxapi-claude-haiku-5-5-cc.interfaces]
-anthropic = []
-
-[routes.dmxapi-claude-opus-5-5]
-account = 'dmxapi'
-model = 'claude-opus-5-5'
-upstream_model = 'claude-opus-5-5'
-
-[routes.dmxapi-claude-opus-5-5.interfaces]
-anthropic = []
-
-[routes.dmxapi-claude-sonnet-5-5-cc]
-label = 'DMXAPI · Claude Sonnet 5.5 · CC'
-account = 'dmxapi'
-model = 'claude-sonnet-5-5'
-upstream_model = 'claude-sonnet-5-5-cc'
-
-[routes.dmxapi-claude-sonnet-5-5-cc.interfaces]
-anthropic = []
-
-[routes.dmxapi-claude-sonnet-5-5-ssvip]
-label = 'DMXAPI · Claude Sonnet 5.5 · SSVIP'
-account = 'dmxapi'
-model = 'claude-sonnet-5-5'
-upstream_model = 'claude-sonnet-5-5-ssvip'
-
-[routes.dmxapi-claude-sonnet-5-5-ssvip.interfaces]
-anthropic = []
-
-[routes.'dmxapi-deepseek-v4.1-flash-1017']
-account = 'dmxapi'
-model = 'deepseek-v4.1-flash-1017'
-upstream_model = 'deepseek-v4.1-flash-1017'
-
-[routes.'dmxapi-deepseek-v4.1-flash-1017'.interfaces]
-openai_responses = []
-
-[routes.dmxapi-doubao-seed-2-1-pro-260915]
-account = 'dmxapi'
-model = 'doubao-seed-2-1-pro-260915'
-upstream_model = 'doubao-seed-2-1-pro-260915'
-
-[routes.dmxapi-doubao-seed-2-1-pro-260915.interfaces]
-openai_responses = []
-
-[routes.dmxapi-gemini-4-argon]
-account = 'dmxapi'
-model = 'gemini-4-argon'
-upstream_model = 'gemini-4-argon'
-
-[routes.dmxapi-gemini-4-argon.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-glm-5.3']
-account = 'dmxapi'
-model = 'glm-5.3'
-upstream_model = 'glm-5.3'
-
-[routes.'dmxapi-glm-5.3'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-gpt-6.1-sol']
-account = 'dmxapi'
-model = 'gpt-6.1-sol'
-upstream_model = 'gpt-6.1-sol'
-
-[routes.'dmxapi-gpt-6.1-sol'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-gpt-6.1-sol-cdx']
-label = 'DMXAPI · GPT-6.1 Sol · CDX'
-account = 'dmxapi'
-model = 'gpt-6.1-sol'
-upstream_model = 'gpt-6.1-sol-cdx'
-
-[routes.'dmxapi-gpt-6.1-sol-cdx'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-gpt-6.1-terra-cdx']
-label = 'DMXAPI · GPT-6.1 Terra · CDX'
-account = 'dmxapi'
-model = 'gpt-6.1-terra'
-upstream_model = 'gpt-6.1-terra-cdx'
-
-[routes.'dmxapi-gpt-6.1-terra-cdx'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-grok-4.7']
-account = 'dmxapi'
-model = 'grok-4.7'
-upstream_model = 'grok-4.7'
-
-[routes.'dmxapi-grok-4.7'.interfaces]
-openai_responses = []
-
-[routes.dmxapi-hy4]
-account = 'dmxapi'
-model = 'hy4'
-upstream_model = 'hy4'
-
-[routes.dmxapi-hy4.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-kimi-k3.1-pro']
-account = 'dmxapi'
-model = 'kimi-k3.1-pro'
-upstream_model = 'kimi-k3.1-pro'
-
-[routes.'dmxapi-kimi-k3.1-pro'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-longcat-2.5']
-account = 'dmxapi'
-model = 'longcat-2.5'
-upstream_model = 'LongCat-2.5'
-
-[routes.'dmxapi-longcat-2.5'.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-minimax-m3.1-flash']
-account = 'dmxapi'
-model = 'minimax-m3.1-flash'
-upstream_model = 'MiniMax-M3.1-Flash'
-
-[routes.'dmxapi-minimax-m3.1-flash'.interfaces]
-openai_responses = []
-
-[routes.dmxapi-muse-wonder]
-account = 'dmxapi'
-model = 'muse-wonder'
-upstream_model = 'muse-wonder'
-
-[routes.dmxapi-muse-wonder.interfaces]
-openai_responses = []
-
-[routes.'dmxapi-qwen3.8-max-0902']
-account = 'dmxapi'
-model = 'qwen3.8-max-0902'
-upstream_model = 'qwen3.8-max-0902'
-
-[routes.'dmxapi-qwen3.8-max-0902'.interfaces]
-openai_responses = []
-
-[routes.dmxapi-step-5-preview]
-account = 'dmxapi'
-model = 'step-5-preview'
-upstream_model = 'step-5-preview'
-
-[routes.dmxapi-step-5-preview.interfaces]
-openai_responses = []
-
-[routes.ucloud-claude-haiku-5-5]
-account = 'ucloud'
-model = 'claude-haiku-5-5'
-upstream_model = 'claude-haiku-5-5'
-
-[routes.ucloud-claude-haiku-5-5.interfaces]
-anthropic = ['tool_search']
-
-[routes.ucloud-claude-opus-5-5]
-account = 'ucloud'
-model = 'claude-opus-5-5'
-upstream_model = 'claude-opus-5-5'
-
-[routes.ucloud-claude-opus-5-5.interfaces]
-anthropic = ['tool_search']
-
-[routes.ucloud-claude-sonnet-5-5]
-account = 'ucloud'
-model = 'claude-sonnet-5-5'
-upstream_model = 'claude-sonnet-5-5'
-
-[routes.ucloud-claude-sonnet-5-5.interfaces]
-anthropic = ['tool_search']
-
-[routes.'ucloud-deepseek-v4.1-flash-1017']
-account = 'ucloud'
-model = 'deepseek-v4.1-flash-1017'
-upstream_model = 'deepseek-v4.1-flash-1017'
-
-[routes.'ucloud-deepseek-v4.1-flash-1017'.interfaces]
-openai_responses = []
-
-[routes.ucloud-doubao-seed-2-1-pro-260628]
-account = 'ucloud'
-model = 'doubao-seed-2-1-pro-260628'
-upstream_model = 'doubao-seed-2-1-pro-260628'
-
-[routes.ucloud-doubao-seed-2-1-pro-260628.interfaces]
-openai_responses = []
-
-[routes.ucloud-gemini-4-argon]
-account = 'ucloud'
-model = 'gemini-4-argon'
-upstream_model = 'gemini-4-argon'
-
-[routes.ucloud-gemini-4-argon.interfaces]
-openai_chat_completions = []
-
-[routes.'ucloud-glm-5.3']
-account = 'ucloud'
-model = 'glm-5.3'
-upstream_model = 'glm-5.3'
-
-[routes.'ucloud-glm-5.3'.interfaces]
-openai_chat_completions = []
-
-[routes.'ucloud-gpt-6.1-sol']
-account = 'ucloud'
-model = 'gpt-6.1-sol'
-upstream_model = 'gpt-6.1-sol'
-
-[routes.'ucloud-gpt-6.1-sol'.interfaces]
-openai_responses = []
-
-[routes.'ucloud-gpt-6.1-terra']
-account = 'ucloud'
-model = 'gpt-6.1-terra'
-upstream_model = 'gpt-6.1-terra'
-
-[routes.'ucloud-gpt-6.1-terra'.interfaces]
-openai_responses = []
-
-[routes.'ucloud-grok-4.7']
-account = 'ucloud'
-model = 'grok-4.7'
-upstream_model = 'grok-4.7'
-
-[routes.'ucloud-grok-4.7'.interfaces]
-openai_responses = []
-
-[routes.'ucloud-kimi-k3.1-pro']
-account = 'ucloud'
-model = 'kimi-k3.1-pro'
-upstream_model = 'kimi-k3.1-pro'
-
-[routes.'ucloud-kimi-k3.1-pro'.interfaces]
-openai_responses = []
-
-[routes.'ucloud-mimo-v2.6-pro']
-account = 'ucloud'
-model = 'mimo-v2.6-pro'
-upstream_model = 'mimo-v2.6-pro'
-
-[routes.'ucloud-mimo-v2.6-pro'.interfaces]
-openai_responses = []
-
-[routes.'ucloud-minimax-m3.1-flash']
-account = 'ucloud'
-model = 'minimax-m3.1-flash'
-upstream_model = 'minimax-m3.1-flash'
-
-[routes.'ucloud-minimax-m3.1-flash'.interfaces]
-openai_responses = []
-
-[routes.ucloud-muse-wonder]
-account = 'ucloud'
-model = 'muse-wonder'
-upstream_model = 'muse-wonder-1.0'
-
-[routes.ucloud-muse-wonder.interfaces]
-openai_responses = []
+primary = {model = 'dmxapi/gpt-6.1-sol', protocol = 'responses'}
+alternatives = [{model = 'ucloud/gpt-6.1-sol', protocol = 'responses'}]

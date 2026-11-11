@@ -4,6 +4,7 @@ package main
 
 import (
 	"aigw-cli/internal/clients"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/store"
 	"bytes"
 	"encoding/json"
@@ -27,7 +28,7 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	direct, err := cfg.ResolveRuntime(client, "")
+	direct, err := cfg.ResolveRuntime(client, domain.ModelRef{})
 	if err != nil {
 		j.testing.Fatal(err)
 	}
@@ -44,7 +45,7 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	}))
 	defer forwarding.Close()
 	endpoint := forwarding.URL + strings.TrimPrefix(direct.Endpoint, upstream.URL)
-	j.run("use", client, j.modelName(direct.ModelID), "--protocol", direct.Protocol.Name())
+	j.run("use", client, j.modelName(direct.Model), "--protocol", direct.Protocol.Name())
 	args := []string{"client", "edit", client, "--via", endpoint}
 	before := capturePublishedSnapshot(j.testing, configStore)
 	preview := j.run(append(slices.Clone(args), "--dry-run", "--json")...)
@@ -56,7 +57,7 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	resolved, err := cfg.ResolveRuntime(client, "")
+	resolved, err := cfg.ResolveRuntime(client, domain.ModelRef{})
 	expected := direct
 	expected.Endpoint = endpoint
 	if err != nil || resolved != expected {
@@ -75,7 +76,7 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	continueClient()
 	j.run(j.configRollback(j.binary, "--last-change")...)
 	restored := capturePublishedSnapshot(j.testing, configStore)
-	if !restored.Config.Equal(before.Config) || !restored.Forwarding().Equal(before.Forwarding()) {
+	if !restored.Config.Equal(before.Config) {
 		j.testing.Fatal("native forwarding rollback lost the original binding bytes")
 	}
 	j.requireCredential(retained, token)

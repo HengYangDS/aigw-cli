@@ -77,7 +77,7 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 	if err != nil {
 		return err
 	}
-	if len(cfg.ResolveModelRef(ref)) > 0 {
+	if _, added := cfg.Models[ref]; added {
 		fix := invocation.Command("model", "show", ref.String())
 		if fix == "" {
 			fix = "Run `aigw model show` for " + ref.String() + "."
@@ -94,10 +94,10 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 		return capabilityRefusal(cmd, provider, unadmitted)
 	}
 	before := cfg.Clone()
-	model := domain.Model{Label: strings.TrimSpace(options.label), Provider: ref.Provider(), UpstreamModel: ref.ID(), Protocols: declared}
+	model := domain.Model{Label: strings.TrimSpace(options.label), Provider: ref.Provider(), ID: ref.ID(), Protocols: declared}
 	family, created := familyFor(&cfg, ref, options.family)
 	model.Family = family
-	cfg.Models[domain.ModelKey(ref)] = model
+	cfg.Models[ref] = model
 	// A preview and --unlisted read no catalog.
 	checked := !options.dryRun && !options.unlisted
 	if checked {
@@ -111,7 +111,7 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 			return err
 		}
 	}
-	item := describe(cfg, domain.ModelKey(ref))
+	item := describe(cfg, ref)
 	rows := append(modelFields(runtime, item), catalogField(options))
 	if created != "" {
 		rows = append(rows, terminal.Field{Label: "New family", Value: created})

@@ -32,8 +32,8 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryProviderChoices(t 
 				t.Fatal(err)
 			}
 			cfg := domain.NewConfig(clients.Admission())
-			addProviderModel(&cfg, "codex", "provider", "Provider", domain.Endpoints{Responses: test.endpoint}, codex.ID, "gpt-test")
-			cfg.SetSelectedModel(codex.ID, "codex", "")
+			addProviderModel(&cfg, "provider", "Provider", domain.Endpoints{Responses: test.endpoint}, codex.ID, "gpt-test")
+			cfg.SetSelectedModel(codex.ID, domain.NewModelRef("provider", "gpt-test"), "")
 			cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -78,8 +78,8 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryProviderChoices(t 
 func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "local", "local", "Local Endpoint", domain.Endpoints{Anthropic: "http://127.0.0.2:4567"}, claude.ID, "model-test")
-	cfg.SetSelectedModel(claude.ID, "local", "")
+	addProviderModel(&cfg, "local", "Local Endpoint", domain.Endpoints{Anthropic: "http://127.0.0.2:4567"}, claude.ID, "model-test")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("local", "model-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -105,8 +105,8 @@ func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *tes
 func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "remote", "remote", "Remote Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "model-test")
-	cfg.SetSelectedModel(claude.ID, "remote", "")
+	addProviderModel(&cfg, "remote", "Remote Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "model-test")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("remote", "model-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -146,8 +146,8 @@ func TestEndpointOnlyCheckUsesSelectedTLSOrLoopbackProvider(t *testing.T) {
 				t.Fatal(err)
 			}
 			cfg := domain.NewConfig(clients.Admission())
-			addProviderModel(&cfg, "codex", "selected", "Selected", domain.Endpoints{Responses: server.URL + "/v1"}, codex.ID, "gpt-test")
-			cfg.SetSelectedModel(codex.ID, "codex", "")
+			addProviderModel(&cfg, "selected", "Selected", domain.Endpoints{Responses: server.URL + "/v1"}, codex.ID, "gpt-test")
+			cfg.SetSelectedModel(codex.ID, domain.NewModelRef("selected", "gpt-test"), "")
 			cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -189,8 +189,8 @@ func TestSelectedProviderWorksWithoutInstalledClient(t *testing.T) {
 	app.Discovery = fakeDiscovery{}
 	app.HTTP = server.Client()
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "codex", "provider", "Provider", domain.Endpoints{Responses: server.URL + "/v1"}, codex.ID, "gpt-test")
-	cfg.SetSelectedModel(codex.ID, "codex", "")
+	addProviderModel(&cfg, "provider", "Provider", domain.Endpoints{Responses: server.URL + "/v1"}, codex.ID, "gpt-test")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("provider", "gpt-test"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

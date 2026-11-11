@@ -27,7 +27,7 @@ func TestRollbackReportsUnavailableRecoveryWithoutChangingCurrentConfiguration(t
 			name: "invalid recovery sources",
 			prepare: func(t *testing.T, path string) {
 				t.Helper()
-				for _, recoveryPath := range []string{path + ".verified.json", path + ".bak"} {
+				for _, recoveryPath := range []string{verifiedPath(path), path + ".bak"} {
 					if err := os.WriteFile(recoveryPath, []byte("invalid\n"), 0o600); err != nil {
 						t.Fatal(err)
 					}
@@ -82,14 +82,14 @@ func TestRollbackReportsUnavailableRecoveryWithoutChangingCurrentConfiguration(t
 func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	before := domain.NewConfig(clients.Admission())
-	addProviderModel(&before, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	before.SetSelectedModel(claude.ID, "one", "")
+	addProviderModel(&before, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	before.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-one"), "")
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
 	}
 	after := before
-	after.Models = map[string]domain.Model{"two": qualifiedModel("Two", "one", "claude-two", domain.ProtocolAnthropic)}
-	after.SetSelectedModel(claude.ID, "two", "")
+	after.Models = map[domain.ModelRef]domain.Model{domain.NewModelRef("one", "claude-two"): qualifiedModel("Two", "one", "claude-two", domain.ProtocolAnthropic)}
+	after.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-two"), "")
 	if err := app.Config.Save(after); err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
-	if err != nil || got.SelectedModel(claude.ID) != "one" || !strings.Contains(out.String(), "Previous configuration") {
+	if err != nil || got.SelectedModel(claude.ID) != domain.NewModelRef("one", "claude-one") || !strings.Contains(out.String(), "Previous configuration") {
 		t.Fatalf("config=%#v output=%q error=%v", got, out.String(), err)
 	}
 }
@@ -105,18 +105,18 @@ func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
 func TestRollbackUsesPreviousConfigurationWhenVerifiedRecoveryIsInvalid(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	previous := domain.NewConfig(clients.Admission())
-	addProviderModel(&previous, "stable", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-stable")
-	previous.SetSelectedModel(claude.ID, "stable", "")
+	addProviderModel(&previous, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-stable")
+	previous.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-stable"), "")
 	if err := app.Config.Save(previous); err != nil {
 		t.Fatal(err)
 	}
 	current := previous
-	current.Models = map[string]domain.Model{"current": qualifiedModel("Current", "one", "claude-current", domain.ProtocolAnthropic)}
-	current.SetSelectedModel(claude.ID, "current", "")
+	current.Models = map[domain.ModelRef]domain.Model{domain.NewModelRef("one", "claude-current"): qualifiedModel("Current", "one", "claude-current", domain.ProtocolAnthropic)}
+	current.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-current"), "")
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(app.Config.Path()+".verified.json", []byte("not-json\n"), 0o600); err != nil {
+	if err := os.WriteFile(verifiedPath(app.Config.Path()), []byte("not-json\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -127,7 +127,7 @@ func TestRollbackUsesPreviousConfigurationWhenVerifiedRecoveryIsInvalid(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if restored.SelectedModel(claude.ID) != "stable" {
+	if restored.SelectedModel(claude.ID) != domain.NewModelRef("one", "claude-stable") {
 		t.Fatalf("rollback selection = %q, want stable", restored.SelectedModel(claude.ID))
 	}
 	if !strings.Contains(out.String(), "Previous configuration") {
@@ -139,8 +139,8 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	target := t.TempDir()
 	verified := domain.NewConfig(clients.Admission())
-	addProviderModel(&verified, "stable", "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-stable")
-	verified.SetSelectedModel(codex.ID, "stable", "")
+	stable := addProviderModel(&verified, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-stable")
+	verified.SetSelectedModel(codex.ID, stable, "")
 	verified.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(verified); err != nil {
 		t.Fatal(err)
@@ -149,7 +149,8 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	current := verified.Clone()
-	current.Models["stable"] = qualifiedModel("Stable", "one", "gpt-current", domain.ProtocolResponses)
+	current.Models[stable] = qualifiedModel("Stable", "one", "gpt-stable", domain.ProtocolResponses)
+	current.Models[stable].Protocols[domain.ProtocolResponses] = []domain.Capability{domain.CapabilityText}
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
 	}
@@ -179,8 +180,8 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	app, _, secretStore, _, _ := testApp(t, "")
 	verified := domain.NewConfig(clients.Admission())
 	verified.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Responses: "https://example.test/v1"}}
-	verified.Models["stable"] = qualifiedModel("Stable", "dmx", "gpt-stable", domain.ProtocolResponses)
-	verified.SetSelectedModel(codex.ID, "stable", "")
+	verified.Models[domain.NewModelRef("dmx", "gpt-stable")] = qualifiedModel("Stable", "dmx", "gpt-stable", domain.ProtocolResponses)
+	verified.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-stable"), "")
 	if err := app.Config.Save(verified); err != nil {
 		t.Fatal(err)
 	}
@@ -188,24 +189,16 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 		t.Fatal(err)
 	}
 	current := verified.Clone()
-	account := current.Providers["dmx"]
-	account.Order = 10
-	current.Providers["dmx"] = account
-	current.Models = map[string]domain.Model{"experimental": qualifiedModel("Experimental", "dmx", "gpt-experimental", domain.ProtocolResponses)}
-	current.SetSelectedModel(codex.ID, "experimental", "")
-	// External edits leave the historical checkpoint available for recovery.
-	canonical := current.Clone()
-	account.Order = 0
-	canonical.Providers["dmx"] = account
-	isolated := store.NewStore(filepath.Join(t.TempDir(), "config.toml"), clients.Admission())
-	if err := isolated.Save(canonical); err != nil {
+	current.Models = map[domain.ModelRef]domain.Model{domain.NewModelRef("dmx", "gpt-experimental"): qualifiedModel("Experimental", "dmx", "gpt-experimental", domain.ProtocolResponses)}
+	current.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-experimental"), "")
+	// An external edit leaves the verified snapshot available for recovery.
+	isolated := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
+	if err := isolated.Save(current); err != nil {
 		t.Fatal(err)
 	}
 	writeFile(t, app.Config.Path(), readFile(t, isolated.Path()), 0o600)
-	writeFile(t, strings.TrimSuffix(app.Config.Path(), filepath.Ext(app.Config.Path()))+".catalog.toml", []byte("[accounts]\ndmx = 10\n"), 0o600)
-	checkpoint, err := app.Config.LoadVerifiedCheckpoint()
-	if err != nil || checkpoint.Config.Providers["dmx"].Order != 10 {
-		t.Fatalf("checkpoint did not restore current presentation: error=%v", err)
+	if _, err := app.Config.LoadVerifiedCheckpoint(); err != nil {
+		t.Fatalf("the verified snapshot is not readable: %v", err)
 	}
 	if err := secretStore.Set("dmx", "token"); err != nil {
 		t.Fatal(err)
@@ -218,10 +211,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if restored.SelectedModel(codex.ID) != "stable" {
+	if restored.SelectedModel(codex.ID) != domain.NewModelRef("dmx", "gpt-stable") {
 		t.Fatalf("rollback selection = %q, want stable", restored.SelectedModel(codex.ID))
-	}
-	if restored.Providers["dmx"].Order != 10 {
-		t.Fatal("verified rollback discarded current Account presentation")
 	}
 }

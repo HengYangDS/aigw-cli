@@ -1,6 +1,6 @@
-// Package store persists AIGW's configuration: the canonical file and its
-// components, verified checkpoints, backups, and the TOML form of the team
-// manifest.
+// Package store persists AIGW's configuration in one file, aigw.toml, with
+// its backup, its verified snapshot and its lock, and reads and writes team
+// files, which have the configuration's form without clients.
 package store
 
 import (
@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"strings"
 	"time"
 
@@ -19,40 +18,46 @@ import (
 	"aigw-cli/internal/platform"
 
 	"github.com/gofrs/flock"
-	"github.com/pelletier/go-toml/v2"
 )
 
-// Store owns the canonical configuration file, lock, verified checkpoint, and
+// Store owns the configuration file, its lock, verified snapshot and
 // rollback backup at one path, and decodes them for the clients it admits.
 type Store struct {
 	path      string
 	admission domain.Admission
 }
 
-// Snapshot captures the exact config and one-version backup state around a
-// configuration mutation. It is intentionally file-level because an empty
-// pre-setup state is not a valid  Config and cannot be restored through
-// Save.
+// Snapshot captures the exact configuration, backup and verified snapshot
+// around a configuration mutation. It is file-level because an empty
+// pre-setup state is not a valid Config and cannot be restored through a
+// save.
 type Snapshot struct {
 	Config   platform.FileSnapshot
 	Backup   platform.FileSnapshot
 	Verified platform.FileSnapshot
-	// components and backups are the optional components' two generations.
-	components componentSnapshots
-	backups    componentSnapshots
 }
 
-// NewStore binds configuration persistence to one canonical path and the
+// NewStore binds configuration persistence to one configuration file and the
 // clients that its configurations admit.
 func NewStore(path string, admission domain.Admission) Store {
 	return Store{path: path, admission: admission}
 }
 
-// Path returns the canonical configuration path owned by the Store.
+// Path returns the configuration file that the Store owns.
 func (s Store) Path() string { return s.path }
 
 // Admission returns the clients that the Store's configurations admit.
 func (s Store) Admission() domain.Admission { return s.admission }
+
+// backupPath is the backup that each change keeps of the configuration it
+// replaces, aigw.toml.bak.
+func (s Store) backupPath() string { return s.path + ".bak" }
+
+// verifiedPath is the verified snapshot beside the configuration,
+// aigw.verified.json.
+func (s Store) verifiedPath() string {
+	return strings.TrimSuffix(s.path, filepath.Ext(s.path)) + ".verified.json"
+}
 
 // CaptureSnapshot reads the current configuration and owned recovery files without mutation.
 func (s Store) CaptureSnapshot() (Snapshot, error) {
@@ -60,27 +65,15 @@ func (s Store) CaptureSnapshot() (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	backupSnapshot, err := platform.CaptureFileSnapshot(s.path + ".bak")
+	backupSnapshot, err := platform.CaptureFileSnapshot(s.backupPath())
 	if err != nil {
 		return Snapshot{}, err
 	}
-	verifiedSnapshot, err := platform.CaptureFileSnapshot(s.path + ".verified.json")
+	verifiedSnapshot, err := platform.CaptureFileSnapshot(s.verifiedPath())
 	if err != nil {
 		return Snapshot{}, err
 	}
-	snapshot := Snapshot{Config: configSnapshot, Backup: backupSnapshot, Verified: verifiedSnapshot}
-	for index, component := range components {
-		current, err := platform.CaptureFileSnapshot(s.componentPath(index))
-		if err != nil && !component.bothGenerations {
-			return Snapshot{}, err
-		}
-		backup, backupErr := platform.CaptureFileSnapshot(s.componentPath(index) + ".bak")
-		if failure := errors.Join(err, backupErr); failure != nil {
-			return Snapshot{}, failure
-		}
-		snapshot.components[index], snapshot.backups[index] = current, backup
-	}
-	return snapshot, nil
+	return Snapshot{Config: configSnapshot, Backup: backupSnapshot, Verified: verifiedSnapshot}, nil
 }
 
 // Commit saves one configuration and returns the exact postimage needed for a
@@ -91,26 +84,7 @@ func (s Store) Commit(before Snapshot, cfg domain.Config) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	forwarding, err := encodeForwarding(cfg)
-	if err != nil {
-		return Snapshot{}, err
-	}
-	catalog, catalogErr := encodeCatalogOrder(cfg)
-	capabilities, capabilitiesErr := encodeModelCapabilities(cfg)
-	if err = errors.Join(catalogErr, capabilitiesErr); err != nil {
-		return Snapshot{}, err
-	}
-	retries, err := encodeRetryPolicies(cfg)
-	if err != nil {
-		return Snapshot{}, err
-	}
-	return s.commitComponents(before, data, [componentCount][]byte{
-		forwardingComponent: forwarding, retriesComponent: retries, catalogComponent: catalog, capabilitiesComponent: capabilities,
-	})
-}
-
-func (s Store) commitComponents(before Snapshot, data []byte, next [componentCount][]byte) (Snapshot, error) {
-	if before.Config.Exists && configurationDataEquivalent(before.Config.Data, data, s.admission) && componentsUnchanged(before.components, next) {
+	if before.Config.Exists && configurationDataEquivalent(before.Config.Data, data, s.admission) {
 		current, err := s.CaptureSnapshot()
 		if err != nil {
 			return Snapshot{}, err
@@ -122,27 +96,18 @@ func (s Store) commitComponents(before Snapshot, data []byte, next [componentCou
 	}
 	after := before
 	if before.Config.Exists {
-		backedUp, err := s.backUp(before)
+		backup, err := writeConfigurationFileIfUnchanged(s.backupPath(), before.Backup, before.Config.Data, 0o600)
 		if err != nil {
-			return Snapshot{}, err
+			return Snapshot{}, fmt.Errorf("back up current config: %w", err)
 		}
-		after = backedUp
+		after.Backup = backup
 	}
-	if !before.Config.Exists || !configurationDataEquivalent(before.Config.Data, data, s.admission) {
-		config, err := writeConfigurationFileIfUnchanged(s.path, before.Config, data, 0o600)
-		if err != nil {
-			return Snapshot{}, errors.Join(fmt.Errorf("write config: %w", err), s.RestoreSnapshot(before, after))
-		}
-		after.Config = config
+	config, err := writeConfigurationFileIfUnchanged(s.path, before.Config, data, 0o600)
+	if err != nil {
+		return Snapshot{}, errors.Join(fmt.Errorf("write config: %w", err), s.RestoreSnapshot(before, after))
 	}
-	for index, component := range components {
-		written, err := s.writeOptional(s.componentPath(index), before.components[index], next[index])
-		if err != nil {
-			return Snapshot{}, errors.Join(fmt.Errorf("write %s: %w", component.whole, err), s.RestoreSnapshot(before, after))
-		}
-		after.components[index] = written
-	}
-	verified, err := removeConfigurationFileIfUnchanged(s.path+".verified.json", before.Verified)
+	after.Config = config
+	verified, err := removeConfigurationFileIfUnchanged(s.verifiedPath(), before.Verified)
 	if err != nil {
 		return Snapshot{}, errors.Join(fmt.Errorf("invalidate verified checkpoint: %w", err), s.RestoreSnapshot(before, after))
 	}
@@ -154,18 +119,19 @@ func (s Store) commitComponents(before Snapshot, data []byte, next [componentCou
 	return after, nil
 }
 
-// MatchesConfiguration binds an earlier assembled selection to these exact
-// canonical and component preimages, including the empty pre-setup state.
+func (snapshot Snapshot) equal(other Snapshot) bool {
+	return snapshot.Config.Equal(other.Config) && snapshot.Backup.Equal(other.Backup) && snapshot.Verified.Equal(other.Verified)
+}
+
+// MatchesConfiguration binds an earlier assembled selection to this exact
+// configuration preimage, including the empty pre-setup state.
 func (snapshot Snapshot) MatchesConfiguration(expected domain.Config) (bool, error) {
 	if !snapshot.Config.Exists {
-		if slices.ContainsFunc(snapshot.components[:], func(component platform.FileSnapshot) bool { return component.Exists }) {
-			return false, errors.New("configuration component has no canonical configuration")
-		}
 		expected = expected.Clone()
 		expected.Normalize()
 		return reflect.DeepEqual(expected, domain.NewConfig(expected.Admission())), nil
 	}
-	current, err := (Store{admission: expected.Admission()}).loadSnapshot(snapshot)
+	current, err := decodeTOMLConfig(snapshot.Config.Data, expected.Admission())
 	if err != nil {
 		return false, err
 	}
@@ -181,6 +147,16 @@ func configurationDataEquivalent(before, after []byte, admission domain.Admissio
 	return previousErr == nil && nextErr == nil && reflect.DeepEqual(previous, next)
 }
 
+// configurationsEqual reports whether two configurations are the same file.
+func configurationsEqual(left, right domain.Config) (bool, error) {
+	leftData, leftErr := encodeConfig(left)
+	rightData, rightErr := encodeConfig(right)
+	if err := errors.Join(leftErr, rightErr); err != nil {
+		return false, err
+	}
+	return bytes.Equal(leftData, rightData), nil
+}
+
 // RestoreSnapshot independently restores configuration, backup and checkpoint
 // while each still matches its written postimage. Conflicts preserve newer
 // state without suppressing other restoration attempts or their errors.
@@ -189,19 +165,11 @@ func (s Store) RestoreSnapshot(before, after Snapshot) error {
 	if err := platform.RestoreFileAtomicIfPostimage(s.path, before.Config, after.Config); err != nil {
 		failures = append(failures, fmt.Errorf("restore config snapshot: %w", err))
 	}
-	if err := platform.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, after.Backup); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.backupPath(), before.Backup, after.Backup); err != nil {
 		failures = append(failures, fmt.Errorf("restore config backup snapshot: %w", err))
 	}
-	if err := platform.RestoreFileAtomicIfPostimage(s.path+".verified.json", before.Verified, after.Verified); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.verifiedPath(), before.Verified, after.Verified); err != nil {
 		failures = append(failures, fmt.Errorf("restore verified checkpoint snapshot: %w", err))
-	}
-	for _, index := range restoreOrder {
-		if err := platform.RestoreFileAtomicIfPostimage(s.componentPath(index), before.components[index], after.components[index]); err != nil {
-			failures = append(failures, fmt.Errorf("restore %s snapshot: %w", components[index].record, err))
-		}
-		if err := platform.RestoreFileAtomicIfPostimage(s.componentPath(index)+".bak", before.backups[index], after.backups[index]); err != nil {
-			failures = append(failures, fmt.Errorf("restore %s: %w", components[index].restoredBackup, err))
-		}
 	}
 	return errors.Join(failures...)
 }
@@ -231,19 +199,9 @@ func (s Store) Lock(ctx context.Context) (func() error, error) {
 	return guard.Unlock, nil
 }
 
-// Load reads, parses, normalizes, and validates the current configuration.
+// Load reads, parses, normalizes, and validates the current configuration. A
+// home without aigw.toml has no configuration, whatever else it holds.
 func (s Store) Load() (domain.Config, error) {
-	cfg, err := s.LoadCredentialConfig()
-	if err != nil {
-		return domain.Config{}, err
-	}
-	return s.withComponents(cfg, "")
-}
-
-// LoadCredentialConfig reads only the routing and credential authority. Display
-// metadata and later Route capabilities cannot interrupt a cached native
-// credential reader.
-func (s Store) LoadCredentialConfig() (domain.Config, error) {
 	data, err := os.ReadFile(s.path)
 	// A file in the way or a link that leads nowhere, at the configuration or
 	// at its folder, is no first run: a setup would write through it, or
@@ -252,20 +210,12 @@ func (s Store) LoadCredentialConfig() (domain.Config, error) {
 		if failure.Blocked() {
 			return domain.Config{}, newLoadError(LoadPhaseRead, failure)
 		}
-		forwarding, forwardingErr := platform.CaptureFileSnapshot(s.componentPath(forwardingComponent))
-		if forwardingErr != nil || forwarding.Exists {
-			return domain.Config{}, newLoadError(LoadPhaseRead, errors.Join(errors.New("client forwarding has no canonical configuration"), forwardingErr))
-		}
 		return domain.NewConfig(s.admission), nil
 	}
 	if err != nil {
 		return domain.Config{}, newLoadError(LoadPhaseRead, err)
 	}
-	forwarding, err := platform.CaptureFileSnapshot(s.componentPath(forwardingComponent))
-	if err != nil {
-		return domain.Config{}, newLoadError(LoadPhaseRead, err)
-	}
-	return decodeStoreConfig(data, forwarding, s.admission)
+	return decodeTOMLConfig(data, s.admission)
 }
 
 // Save validates and atomically persists configuration while maintaining its recovery boundary.
@@ -278,92 +228,66 @@ func (s Store) Save(cfg domain.Config) error {
 	return err
 }
 
+// RollbackConfiguration returns the configuration file that a program
+// rollback gives the retained program to read, or nothing without one.
+func (s Store) RollbackConfiguration() ([]byte, error) {
+	snapshot, err := platform.CaptureFileSnapshot(s.path)
+	if err != nil || !snapshot.Exists {
+		return nil, err
+	}
+	return snapshot.Data, nil
+}
+
 var writeConfigurationFileIfUnchanged = platform.WriteFileAtomicExactModeIfUnchanged
 var removeConfigurationFileIfUnchanged = platform.RemoveFileIfUnchanged
 
 func encodeConfig(cfg domain.Config) ([]byte, error) {
-	cfg.Normalize()
 	cfg = cfg.Clone()
+	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("refuse invalid config: %w", err)
 	}
-	for id, account := range cfg.Providers {
-		account.Order = 0
-		cfg.Providers[id] = account
-	}
-	for id, model := range cfg.Families {
-		model.Order = 0
-		cfg.Families[id] = model
-	}
-	keepPublishedCapabilities(cfg)
-	for client, binding := range cfg.Clients {
-		binding.RetryPolicy = nil
-		cfg.Clients[client] = binding
-	}
-	data, err := toml.Marshal(cfg)
+	data, err := encodeDocument(newDocument(cfg))
 	if err != nil {
 		return nil, fmt.Errorf("encode config: %w", err)
 	}
-	return separateTOMLTableBlocks(data), nil
-}
-
-// separateTOMLTableBlocks inserts exactly one separator before each generated
-// table after the first. TOML ignores blank lines, so this is a presentation-
-// only normalization of AIGW-owned output.
-func separateTOMLTableBlocks(data []byte) []byte {
-	lines := strings.Split(string(data), "\n")
-	formatted := make([]string, 0, len(lines)+8)
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "[") && len(formatted) > 0 {
-			previous := strings.TrimSpace(formatted[len(formatted)-1])
-			if previous != "" && !strings.HasPrefix(previous, "#") {
-				formatted = append(formatted, "")
-			}
-		}
-		formatted = append(formatted, line)
-	}
-	return []byte(strings.Join(formatted, "\n"))
+	return data, nil
 }
 
 // LoadBackup returns the validated rollback configuration retained by the Store.
 func (s Store) LoadBackup() (domain.Config, error) {
-	data, err := os.ReadFile(s.path + ".bak")
+	data, err := os.ReadFile(s.backupPath())
 	if err != nil {
 		return domain.Config{}, fmt.Errorf("read previous config backup: %w", err)
 	}
-	forwarding, err := platform.CaptureFileSnapshot(s.componentPath(forwardingComponent) + ".bak")
-	if err != nil {
-		return domain.Config{}, newLoadError(LoadPhaseRead, err)
-	}
-	cfg, err := decodeStoreConfig(data, forwarding, s.admission)
-	if err != nil {
-		return domain.Config{}, err
-	}
-	return s.withComponents(cfg, ".bak")
+	return decodeTOMLConfig(data, s.admission)
 }
 
+// decodeTOMLConfig decodes a schema 8 configuration: another version is
+// refused by its number before any other field is read, and a field that
+// schema 8 does not define by its name.
 func decodeTOMLConfig(data []byte, admission domain.Admission) (domain.Config, error) {
-	var header struct {
-		Version int `toml:"version"`
-	}
-	if err := toml.Unmarshal(data, &header); err != nil {
+	version, err := readVersion(data)
+	if err != nil {
 		return domain.Config{}, newLoadError(LoadPhaseParse, err)
 	}
-	if header.Version != domain.ConfigVersion {
+	if version != domain.ConfigVersion {
 		return domain.Config{}, newLoadError(LoadPhaseValidate, &domain.UnsupportedConfigVersionError{
-			Version:         header.Version,
+			Version:         version,
 			ExpectedVersion: domain.ConfigVersion,
 		})
 	}
-
-	var cfg domain.Config
-	decoder := toml.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&cfg); err != nil {
+	decoded, err := decodeDocument(data)
+	if _, undefined := errors.AsType[*undefinedFieldError](err); undefined {
+		return domain.Config{}, newLoadError(LoadPhaseValidate, err)
+	}
+	if err != nil {
 		return domain.Config{}, newLoadError(LoadPhaseParse, err)
 	}
-	cfg.SetAdmission(admission)
+	cfg, err := decoded.config(admission)
+	if err != nil {
+		return domain.Config{}, newLoadError(LoadPhaseValidate, err)
+	}
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
 		return domain.Config{}, newLoadError(LoadPhaseValidate, err)

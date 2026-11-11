@@ -2,19 +2,19 @@ package domain
 
 import "slices"
 
-// RemoveRecommendedModel drops the model with key from every client's
+// RemoveRecommendedModel drops the model that ref names from every client's
 // recommendation, making the first remaining alternative primary when the
 // primary goes, and dropping a recommendation that has no choice left. It
 // returns the clients whose recommendation changed, in sorted order.
-func (c *Config) RemoveRecommendedModel(key string) []string {
+func (c *Config) RemoveRecommendedModel(ref ModelRef) []string {
 	changed := []string{}
 	for client, recommendation := range c.Recommendations {
 		before := len(recommendation.Alternatives)
 		recommendation.Alternatives = slices.DeleteFunc(recommendation.Alternatives, func(selection ClientSelection) bool {
-			return selection.Model == key
+			return selection.Model == ref
 		})
 		switch {
-		case recommendation.Primary.Model != key:
+		case recommendation.Primary.Model != ref:
 			if len(recommendation.Alternatives) == before {
 				continue
 			}

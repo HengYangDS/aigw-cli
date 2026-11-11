@@ -21,7 +21,7 @@ func TestAWithdrawalWithoutTheRecordRefusesAndSaysWhatStays(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"theme":"dark","model":"user-model"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runtime := domain.Runtime{ModelID: "team", ProviderID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "team-model"}
+	runtime := domain.Runtime{Model: domain.NewModelRef("gateway", "team-model"), ProviderID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "team-model"}
 	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}

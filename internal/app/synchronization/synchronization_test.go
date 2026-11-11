@@ -101,8 +101,8 @@ func (s *configStoreStub) RestoreSnapshot(store.Snapshot, store.Snapshot) error 
 func testConfig(target string) domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-	cfg.Models["gpt"] = domain.Model{Label: "GPT", Provider: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.SetSelectedModel(codex.ID, "gpt", "")
+	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = domain.Model{Label: "GPT", Provider: "gateway", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-test"), "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	return cfg
 }
@@ -159,7 +159,7 @@ func TestCommitRestoresTargetRemovedFromAdapter(t *testing.T) {
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := before.ResolveRuntime(codex.ID, "")
+	runtime, err := before.ResolveRuntime(codex.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,7 @@ func TestCommitPersistenceFailureBoundaries(t *testing.T) {
 	// persistence failures are the ones that stop the commit.
 	after := domain.NewConfig(clients.Admission())
 	after.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-	after.Models["gpt"] = domain.Model{Label: "GPT", Provider: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	after.Models[domain.NewModelRef("gateway", "gpt-test")] = domain.Model{Label: "GPT", Provider: "gateway", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	want := errors.New("failure")
 	tests := []struct {
 		name  string
@@ -282,8 +282,8 @@ func TestCommitCancellationAtPersistenceAndProjectionAdmission(t *testing.T) {
 			if err := configStore.Save(before); err != nil {
 				t.Fatal(err)
 			}
-			for suffix, data := range map[string]string{".bak": "prior backup", ".verified.json": "{}\n"} {
-				if err := os.WriteFile(configStore.Path()+suffix, []byte(data), 0o600); err != nil {
+			for path, data := range map[string]string{configStore.Path() + ".bak": "prior backup", filepath.Join(root, "aigw.verified.json"): "{}\n"} {
+				if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -415,11 +415,11 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	}
 	before := domain.NewConfig(clients.Admission())
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Models["claude"] = domain.Model{
-		Label: "Claude", Provider: "gateway", Family: "claude-team",
+	before.Models[domain.NewModelRef("gateway", "claude-team")] = domain.Model{
+		Label: "Claude", Provider: "gateway", Family: "claude-team", ID: "claude-team",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	before.SetSelectedModel(claude.ID, "claude", "")
+	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-team"), "")
 	after := before.Clone()
 	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
@@ -451,7 +451,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	if err := decoder.Decode(&document); err != nil {
 		t.Fatal(err)
 	}
-	projection, err := after.ResolveRuntime(claude.ID, "")
+	projection, err := after.ResolveRuntime(claude.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -489,11 +489,11 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	}
 	before := domain.NewConfig(clients.Admission())
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Models["claude"] = domain.Model{
-		Label: "Claude", Provider: "gateway", Family: "claude-team",
+	before.Models[domain.NewModelRef("gateway", "claude-team")] = domain.Model{
+		Label: "Claude", Provider: "gateway", Family: "claude-team", ID: "claude-team",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	before.SetSelectedModel(claude.ID, "claude", "")
+	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-team"), "")
 	after := before.Clone()
 	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())

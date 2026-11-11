@@ -35,7 +35,7 @@ func (s Synchronizer) Inspect(ctx context.Context, cfg domain.Config, clientID s
 // Verify runs one explicit live request through the admitted client adapter.
 func (s Synchronizer) Verify(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime, explicitRoute string) (adapter.Verification, error) {
 	selected := cfg.Clone()
-	selected.SetSelectedModel(clientID, runtime.ModelID, runtime.Protocol)
+	selected.SetSelectedModel(clientID, runtime.Model, runtime.Protocol)
 	binding := selected.Clients[clientID]
 	binding.ModelProvider, binding.Authentication = runtime.ModelProvider, runtime.Authentication
 	selected.Clients[clientID] = binding
@@ -165,7 +165,7 @@ func (s Synchronizer) DesiredClientConfiguration(before domain.Config, clientIDs
 // AIGW's projected catalog recorded as its Client Binding, and the adopted
 // Route per client. Only synchronization adopts: an explicit selection names
 // the Route that wins.
-func (s Synchronizer) AdoptNativeSelections(before domain.Config) (domain.Config, map[string]string, error) {
+func (s Synchronizer) AdoptNativeSelections(before domain.Config) (domain.Config, map[string]domain.ModelRef, error) {
 	after := before.Clone()
 	dependencies, err := s.clientDependencies(nil)
 	if err != nil {
@@ -316,7 +316,7 @@ func (s Synchronizer) credentialEntrypointProviders(cfg domain.Config, clientIDs
 		if !cfg.Clients[clientID].Enabled {
 			continue
 		}
-		runtime, err := cfg.ResolveRuntime(clientID, "")
+		runtime, err := cfg.ResolveRuntime(clientID, domain.ModelRef{})
 		if err != nil {
 			return nil, err
 		}

@@ -10,15 +10,15 @@ import (
 func configuredCatalog() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	cfg.Models["codex"] = domain.Model{
-		Label: "Codex", Provider: "gateway", Family: "gpt-codex",
+	cfg.Models[domain.NewModelRef("gateway", "gpt-codex")] = domain.Model{
+		Label: "Codex", Provider: "gateway", Family: "gpt-codex", ID: "gpt-codex",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
-	cfg.Models["claude"] = domain.Model{
-		Label: "Claude", Provider: "gateway", Family: "gpt-claude",
+	cfg.Models[domain.NewModelRef("gateway", "gpt-claude")] = domain.Model{
+		Label: "Claude", Provider: "gateway", Family: "gpt-claude", ID: "gpt-claude",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedModel(codex.ID, "codex", "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-codex"), "")
 	return cfg
 }
 

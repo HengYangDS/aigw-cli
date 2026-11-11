@@ -20,7 +20,6 @@ import (
 type choice struct {
 	client   domain.ClientSpec
 	ref      domain.ModelRef
-	key      string
 	protocol domain.EndpointProtocol
 	chosen   bool
 	adds     bool
@@ -100,21 +99,21 @@ func chooseClient(runtime invocation.Context, cfg domain.Config, ref domain.Mode
 // the client's recommendation names first, in its order, and then the others
 // in configuration order. Each model is offered once, by its name.
 func chooseModel(runtime invocation.Context, cfg domain.Config, spec domain.ClientSpec) (domain.ModelRef, error) {
-	keys := []string{}
+	refs := []domain.ModelRef{}
 	for _, selection := range cfg.Recommendations[spec.ID].Selections() {
-		keys = append(keys, selection.Model)
+		refs = append(refs, selection.Model)
 	}
-	recommended := len(keys)
-	keys = append(keys, cfg.CatalogModelIDs()...)
-	choices, offered := []terminal.Choice{}, map[string]bool{}
-	for index, key := range keys {
-		model, added := cfg.Models[key]
-		name := model.Ref().String()
-		if !added || offered[name] || len(spec.CompatibleProtocols(cfg.Providers[model.Provider])) == 0 {
+	recommended := len(refs)
+	refs = append(refs, cfg.ModelRefs()...)
+	choices, offered := []terminal.Choice{}, map[domain.ModelRef]bool{}
+	for index, ref := range refs {
+		model, added := cfg.Models[ref]
+		if !added || offered[ref] || len(spec.CompatibleProtocols(cfg.Providers[model.Provider])) == 0 {
 			continue
 		}
-		offered[name] = true
-		label := name + " · " + cfg.ModelLabel(key)
+		offered[ref] = true
+		name := ref.String()
+		label := name + " · " + cfg.ModelLabel(ref)
 		if index < recommended {
 			label += " · recommended"
 		}
@@ -131,15 +130,7 @@ func chooseModel(runtime invocation.Context, cfg domain.Config, spec domain.Clie
 	return domain.ParseModelRef(selected)
 }
 
-// option is one way to make the selection: a model's key and a protocol on
-// which the client uses it.
-type option struct {
-	key      string
-	protocol domain.EndpointProtocol
-}
-
-// chooseProtocol resolves the model's key and the protocol on which the
-// client uses it: --protocol, the only protocol that the model declares, the
+// chooseProtocol resolves the protocol on which the client uses the model: --protocol, the only protocol that the model declares, the
 // client speaks and the provider serves, or among several the client's
 // current protocol, the one that its recommendation of this model names, or
 // one that a prompt asks for. Without a prompt, several protocols are refused
@@ -153,48 +144,35 @@ func chooseProtocol(runtime invocation.Context, cfg domain.Config, spec domain.C
 	if err := admitProtocol(spec, ref, provider, served, requested); err != nil {
 		return choice{}, err
 	}
-	keys := cfg.ResolveModelRef(ref)
-	var options []option
+	model, added := cfg.Models[ref]
+	var options []domain.EndpointProtocol
 	for _, protocol := range served {
-		for _, key := range keys {
-			if _, declared := cfg.Models[key].Protocols[protocol]; declared && (requested == "" || protocol == requested) {
-				options = append(options, option{key: key, protocol: protocol})
-			}
+		if _, declared := model.Protocols[protocol]; declared && (requested == "" || protocol == requested) {
+			options = append(options, protocol)
 		}
 	}
 	selected := choice{client: spec, ref: ref, chosen: requested != ""}
 	if len(options) == 0 {
-		if len(keys) > 1 {
-			// Only a configuration from before models were unique per
-			// provider holds several, which a protocol may not tell apart.
-			_, _, err := invocation.ResolveModel(cfg, ref, requested, nil)
-			return choice{}, err
-		}
-		key := domain.ModelKey(ref)
-		selected.adds = len(keys) == 0
-		if !selected.adds {
-			key, selected.gains = keys[0], true
-		}
+		selected.adds, selected.gains = !added, added
 		for _, protocol := range served {
 			if requested == "" || protocol == requested {
-				options = append(options, option{key: key, protocol: protocol})
+				options = append(options, protocol)
 			}
 		}
 	}
-	switch {
-	case len(options) == 1:
-		selected.key, selected.protocol = options[0].key, options[0].protocol
+	if len(options) == 1 {
+		selected.protocol = options[0]
 		return selected, nil
 	}
-	if preferred, found := preferredOption(cfg, spec, ref, options); found {
-		selected.key, selected.protocol = preferred.key, preferred.protocol
+	if preferred, found := preferredProtocol(cfg, spec, ref, options); found {
+		selected.protocol = preferred
 		return selected, nil
 	}
 	picked, err := askProtocol(runtime, spec, ref, options)
 	if err != nil {
 		return choice{}, err
 	}
-	selected.key, selected.protocol, selected.chosen = picked.key, picked.protocol, true
+	selected.protocol, selected.chosen = picked, true
 	return selected, nil
 }
 
@@ -220,48 +198,48 @@ func admitProtocol(spec domain.ClientSpec, ref domain.ModelRef, provider domain.
 	return nil
 }
 
-// preferredOption is the option on the client's current protocol, or else on
-// the protocol that the client's recommendation of this model names.
-func preferredOption(cfg domain.Config, spec domain.ClientSpec, ref domain.ModelRef, options []option) (option, bool) {
+// preferredProtocol is the client's current protocol, or else the protocol
+// that the client's recommendation of this model names, when it is one of
+// options.
+func preferredProtocol(cfg domain.Config, spec domain.ClientSpec, ref domain.ModelRef, options []domain.EndpointProtocol) (domain.EndpointProtocol, bool) {
 	var preferred []domain.EndpointProtocol
-	if current, err := cfg.ResolveRuntime(spec.ID, ""); err == nil {
+	if current, err := cfg.ResolveRuntime(spec.ID, domain.ModelRef{}); err == nil {
 		preferred = append(preferred, current.Protocol)
 	}
 	for _, selection := range cfg.Recommendations[spec.ID].Selections() {
-		if model, added := cfg.Models[selection.Model]; added && model.Ref() == ref && selection.Protocol != "" {
+		if _, added := cfg.Models[selection.Model]; added && selection.Model == ref && selection.Protocol != "" {
 			preferred = append(preferred, selection.Protocol)
 		}
 	}
 	for _, protocol := range preferred {
-		if index := slices.IndexFunc(options, func(candidate option) bool { return candidate.protocol == protocol }); index >= 0 {
-			return options[index], true
+		if slices.Contains(options, protocol) {
+			return protocol, true
 		}
 	}
-	return option{}, false
+	return "", false
 }
 
 // askProtocol asks for one of several protocols in a terminal, and without
 // one refuses with the command that names the choice.
-func askProtocol(runtime invocation.Context, spec domain.ClientSpec, ref domain.ModelRef, options []option) (option, error) {
-	names, protocols, choices := []string{}, []domain.EndpointProtocol{}, []terminal.Choice{}
-	for _, candidate := range options {
-		names = append(names, candidate.protocol.Name())
-		protocols = append(protocols, candidate.protocol)
-		choices = append(choices, terminal.Choice{Value: candidate.protocol.Name(), Label: domain.ProtocolLabel(candidate.protocol)})
+func askProtocol(runtime invocation.Context, spec domain.ClientSpec, ref domain.ModelRef, protocols []domain.EndpointProtocol) (domain.EndpointProtocol, error) {
+	names, choices := []string{}, []terminal.Choice{}
+	for _, protocol := range protocols {
+		names = append(names, protocol.Name())
+		choices = append(choices, terminal.Choice{Value: protocol.Name(), Label: domain.ProtocolLabel(protocol)})
 	}
 	if !runtime.Interactive {
-		return option{}, terminal.ProblemError(fmt.Sprintf("%s can use %s on %s, so the protocol must be chosen", spec.Label, ref, protocolLabels(protocols)),
+		return "", terminal.ProblemError(fmt.Sprintf("%s can use %s on %s, so the protocol must be chosen", spec.Label, ref, protocolLabels(protocols)),
 			"", "", fmt.Sprintf("aigw use %s %s --protocol %s", spec.ID, ref, protocolChoice(protocols)), nil)
 	}
 	picked, err := runtime.Prompt.Select("Select the protocol for "+ref.String()+": ", choices)
 	if err != nil {
-		return option{}, invocation.Prompted("The protocol prompt for "+ref.String(), err)
+		return "", invocation.Prompted("The protocol prompt for "+ref.String(), err)
 	}
-	index := slices.IndexFunc(options, func(candidate option) bool { return candidate.protocol.Name() == picked })
-	if index < 0 {
-		return option{}, fmt.Errorf("protocol %q is not one of %s", picked, strings.Join(names, ", "))
+	protocol, known := domain.ProtocolNamed(picked)
+	if !known || !slices.Contains(protocols, protocol) {
+		return "", fmt.Errorf("protocol %q is not one of %s", picked, strings.Join(names, ", "))
 	}
-	return options[index], nil
+	return protocol, nil
 }
 
 // protocolLabels names protocols by their labels, in a list for prose.

@@ -22,33 +22,30 @@ import (
 // differs from the configured one's, with a balance probe, a capability that
 // was qualified on its endpoint, a model on a protocol that the configured
 // team has no endpoint for, and a recommendation for Claude Code.
-const teamFileText = `version = 7
-[recommendations.claude.primary]
-route = "team-route"
-[accounts.team]
-label = "Team Gateway Again"
-[accounts.team.endpoints]
-anthropic = "https://elsewhere.test"
-openai_responses = "https://elsewhere.test/v1"
-[accounts.team.account_probe]
-kind = "dmxapi"
-base_url = "https://elsewhere.test"
-[accounts.spare]
+const teamFileText = `version = 8
+
+[[providers]]
+id = "spare"
 label = "Spare"
-[accounts.spare.endpoints]
-anthropic = "https://spare.test"
-[models.team-model]
+endpoints = {anthropic = "https://spare.test"}
+
+[[providers]]
+id = "team"
+label = "Team Gateway Again"
+balance = {kind = "dmxapi", base_url = "https://elsewhere.test"}
+endpoints = {anthropic = "https://elsewhere.test", responses = "https://elsewhere.test/v1"}
+
+[[providers.models]]
+id = "team-model"
+family = "team-model"
+protocols = {anthropic = ["text", "tool_search"], responses = []}
+
+[[families]]
+id = "team-model"
 label = "Team Model"
-[routes.team-route]
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { anthropic = ["text", "tool_search"] }
-[routes.team-responses]
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { openai_responses = [] }
+
+[recommendations.claude]
+primary = {model = "team/team-model"}
 `
 
 func writeTeamFile(t *testing.T, text string) string {
@@ -68,9 +65,9 @@ func configuredTeam(t *testing.T, home *guidedHome) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "http://127.0.0.1:8792/team"},
 		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://team.test"}}
-	cfg.Models["team-route"] = domain.Model{Provider: "team", Family: "team-model", UpstreamModel: "team-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
-	cfg.Models["local"] = domain.Model{Provider: "team", Family: "local", UpstreamModel: "local", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedModel(claude.ID, "team-route", "")
+	cfg.Models[domain.NewModelRef("team", "team-model")] = domain.Model{Provider: "team", Family: "team-model", ID: "team-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
+	cfg.Models[domain.NewModelRef("team", "local")] = domain.Model{Provider: "team", Family: "local", ID: "local", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "team-model"), "")
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	cfg.Normalize()
 	if err := home.runtime.Config.Save(cfg); err != nil {
@@ -162,13 +159,14 @@ func TestTeamSetupRefusesWhatItCannotRead(t *testing.T) {
 	home := newGuidedHome(t)
 	home.runtime.Interactive = false
 	for _, test := range []struct {
-		text, want string
+		text, title, want string
 	}{
-		{"version = 6\n", "Export the team file again"},
-		{"version = 7\n[clients.claude]\nroute = \"team\"\n", "Remove the [clients] section"},
+		{"version = 7\n", "the team file has version 7, and this AIGW reads version 8", "Use a team file of version 8, which `aigw config export` writes"},
+		{"version = 9\n", "the team file has version 9, and this AIGW reads version 8", "Use a team file of version 8, which `aigw config export` writes"},
+		{"version = 8\n[clients.claude]\nmodel = \"team/team-model\"\n", "", "Remove the [clients] section"},
 	} {
 		err := home.run(t, &guidedPrompt{}, "--from", writeTeamFile(t, test.text), "--json")
-		if problem := terminal.ProblemFor(err); !strings.Contains(problem.Fix, test.want) || problem.Impact != "Nothing changed." {
+		if problem := terminal.ProblemFor(err); !strings.Contains(problem.Title, test.title) || !strings.Contains(problem.Fix, test.want) || problem.Impact != "Nothing changed." {
 			t.Errorf("%q: %#v", test.text, problem)
 		}
 	}
@@ -218,8 +216,8 @@ func TestTeamSetupRendersEveryRow(t *testing.T) {
 		Added:   teamEntries{Providers: []string{"team"}, Models: []string{}, Families: []string{}},
 		Changed: teamEntries{Providers: []string{}, Models: []string{}, Families: []string{}},
 		KeptModels: []keptModel{
-			{Model: "team/one", Client: claude.ID, Protocol: "anthropic", File: "team/one"},
-			{Model: "team/two", Client: codex.ID, File: "team/two-new"},
+			{Model: "team/one", Client: claude.ID, Protocol: "anthropic"},
+			{Model: "team/two", Client: codex.ID, Protocol: "responses"},
 		},
 		Tokens: []tokenItem{
 			{Provider: "env", State: tokenEnvironment}, {Provider: "gone", State: tokenMissing, NextDetail: "aigw provider rotate gone"},
@@ -232,7 +230,8 @@ func TestTeamSetupRendersEveryRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"Kept, because claude selects it on anthropic, which the team file's model lacks", "and the team file names team/two-new",
+		"Kept, because claude selects it on anthropic, which the team file's model lacks",
+		"Kept, because codex selects it on responses, which the team file's model lacks",
 		"Supplied by " + secret.EnvironmentKey("env"), "None; aigw provider rotate gone", "bare               None", "Accepted by the provider and stored",
 		"team/one; aigw provider rotate team",
 	} {
@@ -279,8 +278,11 @@ func TestTeamSetupStoresANamedTokenAndKeepsASelectedModel(t *testing.T) {
 		t.Fatalf("a cancelled Token prompt: %#v", problem)
 	}
 	home.status = http.StatusOK
-	away := strings.Replace(teamFileText, `interfaces = { anthropic = ["text", "tool_search"] }`, `interfaces = { openai_responses = [] }`, 1)
-	away = strings.Replace(away, "[recommendations.claude.primary]\nroute = \"team-route\"\n", "", 1)
+	away := strings.Replace(teamFileText, `protocols = {anthropic = ["text", "tool_search"], responses = []}`, `protocols = {responses = []}`, 1)
+	away = strings.Replace(away, "[recommendations.claude]\nprimary = {model = \"team/team-model\"}\n", "", 1)
+	if away == teamFileText {
+		t.Fatal("the team file fixture changed shape")
+	}
 	home.out.Reset()
 	if err := home.run(t, &guidedPrompt{}, "--from", writeTeamFile(t, away), "--json"); err != nil {
 		t.Fatal(err)
@@ -340,15 +342,17 @@ func TestTeamSetupPreviewMatchesItsRun(t *testing.T) {
 func TestTeamSetupRefusesANewProviderWithoutTheModelsEndpoint(t *testing.T) {
 	home := newGuidedHome(t)
 	home.runtime.Interactive = false
-	path := writeTeamFile(t, `version = 7
-[accounts.fresh]
+	path := writeTeamFile(t, `version = 8
+
+[[providers]]
+id = "fresh"
 label = "Fresh"
-[accounts.fresh.endpoints]
-anthropic = "https://fresh.test"
-[routes.fresh-chat]
-account = "fresh"
-model = "fresh-chat"
-interfaces = { openai_chat_completions = [] }
+endpoints = {anthropic = "https://fresh.test"}
+
+[[providers.models]]
+id = "fresh-chat"
+family = "fresh-chat"
+protocols = {chat = []}
 `)
 	problem := terminal.ProblemFor(home.run(t, &guidedPrompt{}, "--from", path, "--json"))
 	if !strings.Contains(problem.Title, "fresh/fresh-chat") || !strings.Contains(problem.Title, "provider fresh") || problem.Fix != "Correct the team file, then run the same command again." {

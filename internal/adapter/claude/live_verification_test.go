@@ -26,7 +26,7 @@ func (runner captureRunner) RunCaptureStreams(context.Context, process.Plan) ([]
 }
 
 func TestClaudeWarningsDoNotQualifyVerification(t *testing.T) {
-	selected := domain.Runtime{ModelID: "claude", UpstreamModel: "claude-test", CredentialCommand: filepath.Join(t.TempDir(), "aigw")}
+	selected := domain.Runtime{Model: domain.NewModelRef("test", "claude-test"), UpstreamModel: "claude-test", CredentialCommand: filepath.Join(t.TempDir(), "aigw")}
 	for _, diagnostic := range []string{"warning: native capability incomplete\n", "ERROR client could not initialize\n"} {
 		runner := captureRunner{output: []byte("AIGW_OK\n"), stderr: []byte(diagnostic)}
 		if err := verifyRuntime(t.Context(), runner, "claude", filepath.Join(t.TempDir(), "settings.json"), selected, "token", ""); err == nil {
@@ -41,16 +41,16 @@ func verificationConfig() domain.Config {
 		Responses: "https://one.test/v1",
 		Anthropic: "https://one.test",
 	}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "one", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "one", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedModel(otherClient.ID, "codex", "")
-	cfg.SetSelectedModel(ID, "claude", "")
+	cfg.Models[domain.NewModelRef("one", "gpt-test")] = domain.Model{Label: "Codex", Provider: "one", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models[domain.NewModelRef("one", "claude-test")] = domain.Model{Label: "Claude", Provider: "one", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(otherClient.ID, domain.NewModelRef("one", "gpt-test"), "")
+	cfg.SetSelectedModel(ID, domain.NewModelRef("one", "claude-test"), "")
 	return cfg
 }
 
 func TestVerifyClaude(t *testing.T) {
 	cfg := verificationConfig()
-	runtime, err := cfg.ResolveRuntime(ID, "")
+	runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestVerifyClaude(t *testing.T) {
 	if _, err := ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
-	if err := verifyRuntime(t.Context(), nil, "claude", settings, domain.Runtime{ModelID: "one"}, "token", ""); err == nil || !strings.Contains(err.Error(), "no Claude model") {
+	if err := verifyRuntime(t.Context(), nil, "claude", settings, domain.Runtime{Model: domain.NewModelRef("test", "one")}, "token", ""); err == nil || !strings.Contains(err.Error(), "no Claude model") {
 		t.Fatalf("model error = %v", err)
 	}
 	if err := verifyRuntime(t.Context(), nil, "", settings, runtime, "token", ""); err == nil || !strings.Contains(err.Error(), "executable is not configured") {

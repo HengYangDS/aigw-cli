@@ -272,7 +272,7 @@ func targetFailure(client string, targets []string, err error) error {
 // admitConnection refuses forwarding or retry budgets for a client that
 // selects no model: both belong to its connection to the model's provider.
 func admitConnection(cmd *cobra.Command, cfg domain.Config, spec domain.ClientSpec, options editOptions) error {
-	if cfg.SelectedModel(spec.ID) != "" || !cmd.Flags().Changed("via") && !options.request.given && !options.stream.given {
+	if !cfg.SelectedModel(spec.ID).IsZero() || !cmd.Flags().Changed("via") && !options.request.given && !options.stream.given {
 		return nil
 	}
 	return terminal.ProblemError(spec.Label+" selects no model, so it has no provider connection to forward or to give retry budgets",
@@ -325,7 +325,7 @@ func admitTargets(runtime invocation.Context, cfg domain.Config, spec domain.Cli
 	if len(targets) == 0 || !cfg.Clients[spec.ID].Enabled {
 		return nil
 	}
-	selected, err := cfg.ResolveRuntime(spec.ID, "")
+	selected, err := cfg.ResolveRuntime(spec.ID, domain.ModelRef{})
 	if err != nil || !selected.UsesAIGWCredentialStore() {
 		return nil
 	}

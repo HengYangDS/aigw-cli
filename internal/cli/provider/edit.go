@@ -206,10 +206,10 @@ func editProvider(cfg *domain.Config, id, label string, endpoints []endpoint) cl
 // protocol and returns each model whose capabilities it cleared.
 func clearCapabilities(cfg *domain.Config, id string, protocol domain.EndpointProtocol) []clearedCapability {
 	cleared := []clearedCapability{}
-	for _, key := range cfg.CatalogModelIDs() {
-		model := cfg.Models[key]
+	for _, ref := range cfg.ProviderModelRefs(id) {
+		model := cfg.Models[ref]
 		capabilities := model.Protocols[protocol]
-		if model.Provider != id || len(capabilities) == 0 {
+		if len(capabilities) == 0 {
 			continue
 		}
 		names := make([]string, 0, len(capabilities))
@@ -218,18 +218,8 @@ func clearCapabilities(cfg *domain.Config, id string, protocol domain.EndpointPr
 		}
 		model.Protocols = maps.Clone(model.Protocols)
 		model.Protocols[protocol] = []domain.Capability{}
-		cfg.Models[key] = model
-		// A name that several models carry, one per protocol until task 6.1,
-		// is reported once, with every capability cleared under it.
-		if index := slices.IndexFunc(cleared, func(entry clearedCapability) bool { return entry.Model == model.Ref().String() }); index >= 0 {
-			for _, name := range names {
-				if !slices.Contains(cleared[index].Capabilities, name) {
-					cleared[index].Capabilities = append(cleared[index].Capabilities, name)
-				}
-			}
-			continue
-		}
-		cleared = append(cleared, clearedCapability{Model: model.Ref().String(), Protocol: protocol.Name(), Capabilities: names})
+		cfg.Models[ref] = model
+		cleared = append(cleared, clearedCapability{Model: ref.String(), Protocol: protocol.Name(), Capabilities: names})
 	}
 	return cleared
 }
@@ -242,7 +232,7 @@ func budgetClients(cfg domain.Config, id string, protocol domain.EndpointProtoco
 		if cfg.Clients[client].RetryPolicy == nil {
 			continue
 		}
-		if runtime, err := cfg.ResolveRuntime(client, ""); err == nil && runtime.ProviderID == id && runtime.Protocol == protocol {
+		if runtime, err := cfg.ResolveRuntime(client, domain.ModelRef{}); err == nil && runtime.ProviderID == id && runtime.Protocol == protocol {
 			clients = append(clients, client)
 		}
 	}
@@ -258,7 +248,7 @@ func clearForwarding(cfg *domain.Config, id string, protocol domain.EndpointProt
 		if cfg.Clients[client].ForwardingEndpoint == "" {
 			continue
 		}
-		if runtime, err := cfg.ResolveRuntime(client, ""); err != nil || runtime.ProviderID != id || runtime.Protocol != protocol {
+		if runtime, err := cfg.ResolveRuntime(client, domain.ModelRef{}); err != nil || runtime.ProviderID != id || runtime.Protocol != protocol {
 			continue
 		}
 		// Clearing forwarding sets no endpoint, which cannot fail.

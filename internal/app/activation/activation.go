@@ -183,7 +183,7 @@ func assessEnabledProjection(cfg domain.Config, store secret.Store, result Activ
 		if !cfg.Clients[spec.ID].Enabled {
 			continue
 		}
-		runtime, err := cfg.ResolveRuntime(spec.ID, "")
+		runtime, err := cfg.ResolveRuntime(spec.ID, domain.ModelRef{})
 		if err == nil && runtime.UsesAIGWCredentialStore() {
 			observation, observed := observeCredential(store, result.observedCredentials, runtime.ProviderID)
 			switch {
@@ -219,11 +219,11 @@ type inactiveClientAssessment struct {
 	backendMissing bool
 }
 
-func (assessment *inactiveClientAssessment) consider(client, route string, selected bool) bool {
-	if route == "" {
+func (assessment *inactiveClientAssessment) consider(client string, ref domain.ModelRef, selected bool) bool {
+	if ref.IsZero() {
 		return false
 	}
-	candidate, err := assessment.cfg.ResolveRuntime(client, route)
+	candidate, err := assessment.cfg.ResolveRuntime(client, ref)
 	if err != nil {
 		return false
 	}
@@ -231,7 +231,7 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 	assessment.result.ProjectionPrerequisites[client] = projectionAction(spec)
 	if selected {
 		// Every binding is disabled here; synchronization skips a disabled selection.
-		assessment.result.ProjectionPrerequisites[client] = enableAction(client, assessment.cfg.Models[route])
+		assessment.result.ProjectionPrerequisites[client] = enableAction(client, assessment.cfg.Models[ref])
 	}
 	if !candidate.UsesAIGWCredentialStore() {
 		delete(assessment.result.ClientCredentialPrerequisites, client)
@@ -307,7 +307,7 @@ func assessInactiveClients(cfg domain.Config, store secret.Store, result Activat
 		}
 	}
 	for _, client := range cfg.Admission().IDs() {
-		if cfg.SelectedModel(client) != "" {
+		if !cfg.SelectedModel(client).IsZero() {
 			continue
 		}
 		recommendation := cfg.Recommendations[client]
@@ -328,14 +328,14 @@ func assessInactiveClients(cfg domain.Config, store secret.Store, result Activat
 // select a Route, or mutate client configuration.
 func NextActionAfterProviderConnection(cfg domain.Config, accountID string) string {
 	for _, spec := range cfg.Admission().Specs() {
-		runtime, resolveErr := cfg.ResolveRuntime(spec.ID, "")
+		runtime, resolveErr := cfg.ResolveRuntime(spec.ID, domain.ModelRef{})
 		if resolveErr != nil || runtime.ProviderID != accountID {
 			continue
 		}
 		binding := cfg.Clients[spec.ID]
 		switch {
 		case !binding.Enabled:
-			return enableAction(spec.ID, cfg.Models[runtime.ModelID])
+			return enableAction(spec.ID, cfg.Models[runtime.Model])
 		case binding.Executable == "":
 			return projectionAction(spec)
 		}
@@ -346,16 +346,16 @@ func NextActionAfterProviderConnection(cfg domain.Config, accountID string) stri
 		return "aigw status"
 	}
 	for _, spec := range cfg.Admission().Specs() {
-		if cfg.SelectedModel(spec.ID) != "" {
+		if !cfg.SelectedModel(spec.ID).IsZero() {
 			continue
 		}
 		binding := prospective.Clients[spec.ID]
-		route := prospective.Models[binding.Model]
-		if binding.Model == "" || route.Provider != accountID {
+		model := prospective.Models[binding.Model]
+		if binding.Model.IsZero() || model.Provider != accountID {
 			continue
 		}
-		action := "aigw use " + spec.ID + " " + route.Ref().String()
-		if len(route.Protocols) > 1 {
+		action := "aigw use " + spec.ID + " " + binding.Model.String()
+		if len(model.Protocols) > 1 {
 			action += " --protocol " + binding.Protocol.Name()
 		}
 		return action

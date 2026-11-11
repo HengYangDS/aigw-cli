@@ -51,9 +51,9 @@ func (rehearsalAdapter) projection(cfg domain.Config) ([]byte, error) {
 	}
 	route, found := cfg.Models[binding.Model]
 	if !found {
-		return nil, fmt.Errorf("rehearsal binding names unknown route %q", binding.Model)
+		return nil, fmt.Errorf("rehearsal binding names unknown model %s", binding.Model)
 	}
-	return json.Marshal(map[string]string{"route": binding.Model, "model": route.Family})
+	return json.Marshal(map[string]string{"model": binding.Model.String(), "family": route.FamilyID()})
 }
 
 // change compares the current projection with the one that cfg wants.
@@ -131,8 +131,8 @@ func (rehearsalAdapter) Verify(context.Context, adapter.Dependencies, domain.Con
 	return adapter.Verification{}, errors.New("rehearsal verification runs no client")
 }
 
-func (rehearsalAdapter) AdoptSelection(adapter.Dependencies, *domain.Config) (string, error) {
-	return "", nil
+func (rehearsalAdapter) AdoptSelection(adapter.Dependencies, *domain.Config) (domain.ModelRef, error) {
+	return domain.ModelRef{}, nil
 }
 
 func (rehearsalAdapter) Withdraw(cfg *domain.Config) {
@@ -144,9 +144,9 @@ func (rehearsalAdapter) Withdraw(cfg *domain.Config) {
 func rehearsalConfiguration(admission domain.Admission) (domain.Config, domain.Config) {
 	before := domain.NewConfig(admission)
 	before.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-	before.Models["rehearsal"] = qualifiedModel("", "gateway", "rehearsal-model", domain.ProtocolResponses)
+	before.Models[domain.NewModelRef("gateway", "rehearsal-model")] = qualifiedModel("", "gateway", "rehearsal-model", domain.ProtocolResponses)
 	after := before.Clone()
-	after.Clients[rehearsalID] = domain.ClientBinding{Model: "rehearsal", Enabled: true}
+	after.Clients[rehearsalID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "rehearsal-model"), Enabled: true}
 	return before, after
 }
 

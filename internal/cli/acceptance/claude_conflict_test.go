@@ -72,8 +72,8 @@ func assertClaudeOutsideEditRecovery(t *testing.T, recovery string, edit func(*t
 	bindCredentialReader(t, app)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["opus"] = qualifiedModel("Opus", "gateway", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(claude.ID, "opus", "")
+	cfg.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("Opus", "gateway", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

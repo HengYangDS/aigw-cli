@@ -24,8 +24,8 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 	t.Run("disabled", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
 		cfg := domain.NewConfig(clients.Admission())
-		addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
-		cfg.SetSelectedModel(codex.ID, "one", "")
+		addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
+		cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt"), "")
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -44,8 +44,8 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 			t.Fatal(err)
 		}
 		cfg := domain.NewConfig(clients.Admission())
-		addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
-		cfg.SetSelectedModel(codex.ID, "one", "")
+		addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
+		cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt"), "")
 		cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
@@ -80,8 +80,8 @@ func TestCodexSyncReconcilesEachConfiguredHomeWithoutLoggingIn(t *testing.T) {
 		}
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "team", "team", "Team", domain.Endpoints{Responses: "https://team.test/v1"}, codex.ID, "team-model")
-	cfg.SetSelectedModel(codex.ID, "team", "")
+	addProviderModel(&cfg, "team", "Team", domain.Endpoints{Responses: "https://team.test/v1"}, codex.ID, "team-model")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("team", "team-model"), "")
 	cfg.SetClientActivation("codex", true, "/opt/codex-real", targets)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -112,8 +112,8 @@ func TestSyncReconcilesCodexConfigWithoutRebindingCredentials(t *testing.T) {
 	}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Responses: "https://example.test/v1"}}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
-	cfg.SetSelectedModel(codex.ID, "gpt", "")
+	cfg.Models[domain.NewModelRef("dmx", "gpt-test")] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-test"), "")
 	cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -168,12 +168,12 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 		Anthropic: "https://gateway.test",
 		Responses: "https://gateway.test/v1",
 	}}
-	cfg.Models = map[string]domain.Model{
-		"claude": qualifiedModel("Claude", "gateway", "claude-team", domain.ProtocolAnthropic),
-		"codex":  qualifiedModel("Codex", "gateway", "gpt-team", domain.ProtocolResponses),
+	cfg.Models = map[domain.ModelRef]domain.Model{
+		domain.NewModelRef("gateway", "claude-team"): qualifiedModel("Claude", "gateway", "claude-team", domain.ProtocolAnthropic),
+		domain.NewModelRef("gateway", "gpt-team"):    qualifiedModel("Codex", "gateway", "gpt-team", domain.ProtocolResponses),
 	}
-	cfg.SetSelectedModel(claude.ID, "claude", "")
-	cfg.SetSelectedModel(codex.ID, "codex", "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-team"), "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-team"), "")
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	cfg.SetClientActivation(codex.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -221,7 +221,7 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	if !reflect.DeepEqual(settings, wantSettings) {
 		t.Fatalf("Claude settings = %#v, want %#v", settings, wantSettings)
 	}
-	projection, err := after.ResolveRuntime(claude.ID, "")
+	projection, err := after.ResolveRuntime(claude.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,8 +265,8 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 	}}}
 
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "claude", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-team")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	addProviderModel(&cfg, "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-team")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-team"), "")
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -362,10 +362,10 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 	}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "http://127.0.0.1:48721/v1", Anthropic: "https://gateway.test"}}
-	cfg.Models["terra"] = qualifiedModel("GPT-5.6 Terra", "gateway", "gpt-5.6-terra", domain.ProtocolResponses)
-	cfg.Models["claude"] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(codex.ID, "terra", "")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("gateway", "gpt-5.6-terra")] = qualifiedModel("GPT-5.6 Terra", "gateway", "gpt-5.6-terra", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-5.6-terra"), "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 	cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{first, second})
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -432,8 +432,8 @@ func TestSyncDryRunRecommendsCheckWhenProjectionIsConverged(t *testing.T) {
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: "/usr/local/bin/claude"}}}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["claude"] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

@@ -12,26 +12,26 @@ import (
 	"aigw-cli/internal/secret"
 )
 
-// PrepareSelection returns cfg with client's selection of the model with key
-// on protocol, or on the protocol that the configuration resolves when it is
+// PrepareSelection returns cfg with client's selection of the model that ref
+// names on protocol, or on the protocol that the configuration resolves when it is
 // empty, and the runtime that it resolves to, without changing cfg. Setting
 // the selection drops forwarding when the upstream endpoint changes and retry
 // budgets when the provider changes. The same result is used for credential
 // admission and commit.
-func (Synchronizer) PrepareSelection(cfg domain.Config, client, key string, protocol domain.EndpointProtocol) (domain.Config, domain.Runtime, error) {
+func (Synchronizer) PrepareSelection(cfg domain.Config, client string, ref domain.ModelRef, protocol domain.EndpointProtocol) (domain.Config, domain.Runtime, error) {
 	if protocol == "" {
-		resolved, err := cfg.ResolveRuntime(client, key)
+		resolved, err := cfg.ResolveRuntime(client, ref)
 		if err != nil {
 			return domain.Config{}, domain.Runtime{}, err
 		}
 		protocol = resolved.Protocol
 	}
 	selected := cfg.Clone()
-	selected.SetSelectedModel(client, key, protocol)
+	selected.SetSelectedModel(client, ref, protocol)
 	if err := selected.Validate(); err != nil {
 		return domain.Config{}, domain.Runtime{}, err
 	}
-	runtime, err := selected.ResolveRuntime(client, "")
+	runtime, err := selected.ResolveRuntime(client, domain.ModelRef{})
 	if err != nil {
 		return domain.Config{}, domain.Runtime{}, err
 	}
@@ -53,7 +53,7 @@ func (s Synchronizer) selectModel(ctx context.Context, before, after domain.Conf
 	if err := ctx.Err(); err != nil {
 		return false, false, domain.ClientBinding{}, err
 	}
-	selected, err := after.ResolveRuntime(client, "")
+	selected, err := after.ResolveRuntime(client, domain.ModelRef{})
 	if err != nil {
 		return false, false, domain.ClientBinding{}, err
 	}

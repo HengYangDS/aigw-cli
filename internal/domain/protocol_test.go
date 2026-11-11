@@ -11,12 +11,12 @@ import (
 func TestModelSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
 	cfg := NewConfig(testAdmission())
 	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{Responses: "https://responses.test/v1", Anthropic: "https://messages.test", Chat: "https://chat.test/v1"}}
-	cfg.Models["hermes"] = Model{Label: "Hermes", Provider: "team", Family: "model-test", Protocols: map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}}
-	cfg.Clients[ClientHermes] = ClientBinding{Model: "hermes", Protocol: ProtocolAnthropic}
+	cfg.Models[NewModelRef("team", "model-test")] = Model{Label: "Hermes", Provider: "team", Family: "model-test", ID: "model-test", Protocols: map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}}
+	cfg.Clients[ClientHermes] = ClientBinding{Model: NewModelRef("team", "model-test"), Protocol: ProtocolAnthropic}
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := cfg.ResolveRuntime("hermes", "")
+	runtime, err := cfg.ResolveRuntime("hermes", ModelRef{})
 	if err != nil || runtime.Endpoint != "https://messages.test" || runtime.Protocol != ProtocolAnthropic {
 		t.Fatalf("explicit protocol resolution = %#v, %v", runtime, err)
 	}
@@ -34,13 +34,13 @@ func TestModelSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
 	binding := cfg.Clients[ClientHermes]
 	binding.Protocol = ""
 	cfg.Clients[ClientHermes] = binding
-	if runtime, err := cfg.ResolveRuntime("hermes", ""); err != nil || runtime.Protocol != ProtocolAnthropic {
+	if runtime, err := cfg.ResolveRuntime("hermes", ModelRef{}); err != nil || runtime.Protocol != ProtocolAnthropic {
 		t.Fatalf("Route interface did not resolve the sole admitted protocol: %#v, %v", runtime, err)
 	}
-	route := cfg.Models["hermes"]
+	route := cfg.Models[NewModelRef("team", "model-test")]
 	route.Protocols = nil
-	cfg.Models["hermes"] = route
-	if _, err := cfg.ResolveRuntime("hermes", ""); err == nil || !strings.Contains(err.Error(), "compatible endpoint") {
+	cfg.Models[NewModelRef("team", "model-test")] = route
+	if _, err := cfg.ResolveRuntime("hermes", ModelRef{}); err == nil || !strings.Contains(err.Error(), "compatible endpoint") {
 		t.Fatalf("unqualified Route did not reject implicit endpoint inference: %v", err)
 	}
 }
@@ -61,31 +61,31 @@ func TestModelProtocolsConstrainClientCompatibilityAndRuntimeSelection(t *testin
 		Responses: "https://responses.test/v1",
 		Chat:      "https://chat.test/v1",
 	}}
-	cfg.Models["chat-only"] = Model{
-		Label:     "Chat only",
-		Provider:  "team",
-		Family:    "model-test",
+	cfg.Models[NewModelRef("team", "model-test")] = Model{
+		Label:    "Chat only",
+		Provider: "team",
+		Family:   "model-test", ID: "model-test",
 		Protocols: map[EndpointProtocol][]Capability{ProtocolChat: {}},
 	}
-	cfg.Clients[ClientHermes] = ClientBinding{Model: "chat-only", Protocol: ProtocolChat}
+	cfg.Clients[ClientHermes] = ClientBinding{Model: NewModelRef("team", "model-test"), Protocol: ProtocolChat}
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if compatible, err := cfg.ProtocolClientIDs("chat-only"); err != nil || len(compatible) != 1 || compatible[0] != ClientHermes {
+	if compatible, err := cfg.ProtocolClientIDs(NewModelRef("team", "model-test")); err != nil || len(compatible) != 1 || compatible[0] != ClientHermes {
 		t.Fatalf("compatible clients = %v, %v", compatible, err)
 	}
-	runtime, err := cfg.ResolveRuntime(ClientHermes, "")
+	runtime, err := cfg.ResolveRuntime(ClientHermes, ModelRef{})
 	if err != nil || runtime.Protocol != ProtocolChat {
 		t.Fatalf("chat-only runtime = %#v, %v", runtime, err)
 	}
-	cfg.Models["responses-only"] = Model{
-		Label:     "Responses only",
-		Provider:  "team",
-		Family:    "another-model",
+	cfg.Models[NewModelRef("team", "another-model")] = Model{
+		Label:    "Responses only",
+		Provider: "team",
+		Family:   "another-model", ID: "another-model",
 		Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}},
 	}
-	runtime, err = cfg.ResolveRuntime(ClientHermes, "responses-only")
+	runtime, err = cfg.ResolveRuntime(ClientHermes, NewModelRef("team", "another-model"))
 	if err != nil || runtime.Protocol != ProtocolResponses {
 		t.Fatalf("explicit Route did not replace the previous incompatible protocol: %#v, %v", runtime, err)
 	}
@@ -108,9 +108,9 @@ func TestModelProtocolsRejectUnknownProtocols(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			cfg := validConfig()
-			route := cfg.Models["dmx"]
+			route := cfg.Models[NewModelRef("dmx", "claude-test")]
 			route.Protocols = testCase.interfaces
-			cfg.Models["dmx"] = route
+			cfg.Models[NewModelRef("dmx", "claude-test")] = route
 			if err := cfg.Validate(); err == nil {
 				t.Fatalf("accepted invalid Route interfaces: %v", testCase.interfaces)
 			}
@@ -125,14 +125,14 @@ func TestModelProtocolsKeepProtocolAndCapabilitySeparate(t *testing.T) {
 		wantError    string
 	}{
 		{name: "known", capabilities: []Capability{CapabilityText, CapabilityReasoning, CapabilityStreaming}},
-		{name: "duplicate", capabilities: []Capability{CapabilityText, CapabilityText}, wantError: "repeats capability"},
+		{name: "duplicate", capabilities: []Capability{CapabilityText, CapabilityText}, wantError: "repeats the capability"},
 		{name: "unknown", capabilities: []Capability{"future"}, wantError: "unknown capability"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			cfg := validConfig()
-			route := cfg.Models["backup"]
+			route := cfg.Models[NewModelRef("backup", "gpt-test")]
 			route.Protocols = map[EndpointProtocol][]Capability{ProtocolResponses: testCase.capabilities}
-			cfg.Models["backup"] = route
+			cfg.Models[NewModelRef("backup", "gpt-test")] = route
 			err := cfg.Validate()
 			if testCase.wantError == "" && err != nil {
 				t.Fatal(err)
@@ -151,10 +151,10 @@ func TestModelToolSearchBelongsToTheAnthropicInterface(t *testing.T) {
 			account := cfg.Providers["dmx"]
 			account.Endpoints.Chat = "https://example.test/chat/v1"
 			cfg.Providers["dmx"] = account
-			route := cfg.Models["dmx"]
+			route := cfg.Models[NewModelRef("dmx", "claude-test")]
 			route.Protocols = map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}
 			route.Protocols[protocol] = []Capability{CapabilityTools, Capability("tool_search")}
-			cfg.Models["dmx"] = route
+			cfg.Models[NewModelRef("dmx", "claude-test")] = route
 			err := cfg.Validate()
 			if protocol == ProtocolAnthropic {
 				if err != nil {
@@ -162,7 +162,7 @@ func TestModelToolSearchBelongsToTheAnthropicInterface(t *testing.T) {
 				}
 				return
 			}
-			if err == nil || !strings.Contains(err.Error(), "only the anthropic interface") {
+			if err == nil || !strings.Contains(err.Error(), "which only the anthropic protocol admits") {
 				t.Fatalf("error = %v, want an Anthropic-only refusal", err)
 			}
 		})
@@ -172,7 +172,7 @@ func TestModelToolSearchBelongsToTheAnthropicInterface(t *testing.T) {
 func TestModelCapabilitiesRemainScopedToTheExactWireInterface(t *testing.T) {
 	route := Model{
 		Provider: "team",
-		Family:   "model",
+		Family:   "model", ID: "model",
 		Protocols: map[EndpointProtocol][]Capability{
 			ProtocolResponses: {CapabilityText, CapabilityReasoning},
 			ProtocolChat:      {CapabilityText},
@@ -201,7 +201,7 @@ func TestManifestEquivalenceIncludesEveryEndpointAndProtocol(t *testing.T) {
 	if equivalentProvider(left, right) {
 		t.Fatal("a team-file merge treated different Chat Completions endpoints as equivalent")
 	}
-	route := Model{Provider: "team", Family: "model", Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}}}
+	route := Model{Provider: "team", Family: "model", ID: "model", Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}}}
 	if !equivalentModel(route, route) {
 		t.Fatal("a team-file merge treated equal provider model identities as different")
 	}

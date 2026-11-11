@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"testing"
 
-	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
@@ -480,8 +479,7 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 		err  error
 		want string
 	}{
-		{name: "route client mismatch", err: &domain.RuntimeModelClientMismatchError{ModelID: "one", ExpectedClient: codex.ID, ActualClient: claude.ID}, want: `route "one" is for codex, not claude`},
-		{name: "route unknown account", err: &domain.RuntimeModelUnknownProviderError{ModelID: "one", ProviderID: "missing"}, want: `route "one" references unknown account "missing"`},
+		{name: "model of an unknown provider", err: &domain.RuntimeModelUnknownProviderError{Model: domain.NewModelRef("missing", "one"), ProviderID: "missing"}, want: `model missing/one names the unknown provider "missing"`},
 		{name: "Anthropic endpoint", err: &domain.RuntimeMissingEndpointError{ProviderID: "one", Protocol: domain.ProtocolAnthropic}, want: `account "one" has no Anthropic Messages endpoint`},
 		{name: "OpenAI Responses endpoint", err: &domain.RuntimeMissingEndpointError{ProviderID: "one", Protocol: domain.ProtocolResponses}, want: `account "one" has no OpenAI Responses endpoint`},
 		{name: "OpenAI Chat Completions endpoint", err: &domain.RuntimeMissingEndpointError{ProviderID: "one", Protocol: domain.ProtocolChat}, want: `account "one" has no OpenAI Chat Completions endpoint`},

@@ -112,7 +112,7 @@ func TestCodexProviderNameDoesNotSelectCredentialOwnership(t *testing.T) {
 		runtime.CredentialProjectionFingerprint(codex.ID),
 	} {
 		if !strings.Contains(string(data), want) {
-			t.Fatalf("account-token projection lacks %q:\n%s", want, data)
+			t.Fatalf("provider-token projection lacks %q:\n%s", want, data)
 		}
 	}
 	if strings.Contains(string(data), "[model_providers.amazon-bedrock]") {

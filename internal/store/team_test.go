@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func loadTeamManifest(t *testing.T) ([]byte, domain.Manifest) {
+func loadTeamManifest(t *testing.T) ([]byte, domain.Config) {
 	t.Helper()
 	manifestDirectory := filepath.Join("..", "..", "manifests")
 	files, err := filepath.Glob(filepath.Join(manifestDirectory, "*.toml"))
@@ -28,22 +28,31 @@ func loadTeamManifest(t *testing.T) ([]byte, domain.Manifest) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsedManifest, err := Parse(data, testAdmission())
+	parsedManifest, err := ParseTeamFile(data, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
 	return data, parsedManifest
 }
 
-func TestTeamConfigurationManifestIsReviewedVersionSeven(t *testing.T) {
-	_, parsedManifest := loadTeamManifest(t)
-	if parsedManifest.Version != 7 || len(parsedManifest.Providers) != 3 || len(parsedManifest.Families) == 0 || len(parsedManifest.Models) == 0 {
-		t.Fatalf("team manifest = version %d, %d Accounts, %d Models, %d Routes", parsedManifest.Version, len(parsedManifest.Providers), len(parsedManifest.Families), len(parsedManifest.Models))
+// teamModel returns the team file's model that name, `provider/model`, names.
+func teamModel(t *testing.T, file domain.Config, name string) (domain.Model, bool) {
+	t.Helper()
+	ref, err := domain.ParseModelRef(name)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for accountID, order := range map[string]int{"dmxapi": 10, "ucloud": 20, "aihubmix": 30} {
-		if account, ok := parsedManifest.Providers[accountID]; !ok || account.Order != order {
-			t.Fatalf("team account %q order = %d, want %d", accountID, account.Order, order)
-		}
+	model, ok := file.Models[ref]
+	return model, ok
+}
+
+func TestTeamFileIsReviewedVersionEight(t *testing.T) {
+	_, parsedManifest := loadTeamManifest(t)
+	if parsedManifest.Version != 8 || len(parsedManifest.Providers) != 3 || len(parsedManifest.Families) == 0 || len(parsedManifest.Models) != 57 {
+		t.Fatalf("team file = version %d, %d providers, %d families, %d models", parsedManifest.Version, len(parsedManifest.Providers), len(parsedManifest.Families), len(parsedManifest.Models))
+	}
+	if got := parsedManifest.ProviderIDs(); !slices.Equal(got, []string{"dmxapi", "ucloud", "aihubmix"}) {
+		t.Fatalf("team providers in file order = %v", got)
 	}
 	recommendations := map[string]struct {
 		model          string
@@ -82,7 +91,7 @@ func TestTeamManifestSelectsOnlyDeclaredRecommendationsForConnectedProvider(t *t
 			t.Fatal(err)
 		}
 		for client, recommendation := range manifest.Recommendations {
-			wantRoute := ""
+			var wantRoute domain.ModelRef
 			for _, option := range recommendation.Selections() {
 				if manifest.Models[option.Model].Provider == accountID {
 					wantRoute = option.Model
@@ -94,10 +103,10 @@ func TestTeamManifestSelectsOnlyDeclaredRecommendationsForConnectedProvider(t *t
 				t.Errorf("%s with Account %q selected %q, want declared recommendation %q", client, accountID, routeID, wantRoute)
 				continue
 			}
-			if wantRoute == "" {
+			if wantRoute.IsZero() {
 				continue
 			}
-			runtime, err := selected.ResolveRuntime(client, "")
+			runtime, err := selected.ResolveRuntime(client, domain.ModelRef{})
 			if err != nil {
 				t.Fatalf("resolve %s Route %q: %v", client, routeID, err)
 			}
@@ -117,22 +126,22 @@ func TestTeamRecommendationsPermitSparseProvidersAndPreserveExplicitBindings(t *
 	cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{Responses: "https://cloud.test/v1"}}
 	cfg.Families["fable"] = domain.Family{Label: "Fable"}
 	cfg.Families["sol"] = domain.Family{Label: "Sol"}
-	cfg.Models["aihubmix-fable"] = domain.Model{Provider: "aihubmix", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
-	cfg.Models["ucloud-sol"] = domain.Model{Provider: "ucloud", Family: "sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {domain.CapabilityText}}}
-	cfg.SetRecommendedModel(ClientClaude, "aihubmix-fable")
-	cfg.SetRecommendedModel(ClientCodex, "ucloud-sol")
+	cfg.Models[domain.NewModelRef("aihubmix", "fable")] = domain.Model{Provider: "aihubmix", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
+	cfg.Models[domain.NewModelRef("ucloud", "sol")] = domain.Model{Provider: "ucloud", Family: "sol", ID: "sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {domain.CapabilityText}}}
+	cfg.SetRecommendedModel(ClientClaude, domain.NewModelRef("aihubmix", "fable"))
+	cfg.SetRecommendedModel(ClientCodex, domain.NewModelRef("ucloud", "sol"))
 
 	cloud, err := cfg.SelectModelsForConnectedProviders([]string{"ucloud"})
-	if err != nil || cloud.SelectedModel(ClientClaude) != "" || cloud.SelectedModel(ClientCodex) != "ucloud-sol" {
+	if err != nil || !cloud.SelectedModel(ClientClaude).IsZero() || cloud.SelectedModel(ClientCodex) != domain.NewModelRef("ucloud", "sol") {
 		t.Fatalf("sparse UCloud activation = %+v, %v", cloud.Clients, err)
 	}
 	hub, err := cfg.SelectModelsForConnectedProviders([]string{"aihubmix"})
-	if err != nil || hub.SelectedModel(ClientClaude) != "aihubmix-fable" || hub.SelectedModel(ClientCodex) != "" {
+	if err != nil || hub.SelectedModel(ClientClaude) != domain.NewModelRef("aihubmix", "fable") || !hub.SelectedModel(ClientCodex).IsZero() {
 		t.Fatalf("sparse AIHubMix activation = %+v, %v", hub.Clients, err)
 	}
-	cfg.SetSelectedModel(ClientCodex, "ucloud-sol", "")
+	cfg.SetSelectedModel(ClientCodex, domain.NewModelRef("ucloud", "sol"), "")
 	hub, err = cfg.SelectModelsForConnectedProviders([]string{"aihubmix"})
-	if err != nil || hub.SelectedModel(ClientCodex) != "ucloud-sol" || hub.SelectedModel(ClientClaude) != "aihubmix-fable" {
+	if err != nil || hub.SelectedModel(ClientCodex) != domain.NewModelRef("ucloud", "sol") || hub.SelectedModel(ClientClaude) != domain.NewModelRef("aihubmix", "fable") {
 		t.Fatalf("explicit Codex binding was replaced: %+v, %v", hub.Clients, err)
 	}
 }
@@ -151,12 +160,9 @@ func TestTeamManifestUsesRequestedFamilies(t *testing.T) {
 	if got := slices.Sorted(maps.Keys(manifest.Families)); !slices.Equal(got, want) {
 		t.Fatalf("team logical Models = %v, want %v", got, want)
 	}
-	for model, order := range map[string]int{
-		"claude-opus-5-5": 20, "claude-sonnet-5-5": 30, "claude-haiku-5-5": 40, "gpt-6.1-sol": 120, "gpt-6.1-terra": 130,
-	} {
-		if got := manifest.Families[model].Order; got != order {
-			t.Errorf("team Model %q order = %d, want %d", model, got, order)
-		}
+	order := manifest.FamilyIDs()
+	if !slices.Equal(order[:5], []string{"claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "gpt-6.1-sol", "gpt-6.1-terra"}) {
+		t.Errorf("team families in file order = %v", order)
 	}
 	if manifest.Families["claude-opus-5-5"].Label != "Claude Opus 5.5" {
 		t.Errorf("Opus 5.5 identity = %#v", manifest.Families["claude-opus-5-5"])
@@ -166,9 +172,9 @@ func TestTeamManifestUsesRequestedFamilies(t *testing.T) {
 			if account == "dmxapi" && model == "claude-sonnet-5-5" {
 				continue
 			}
-			id := account + "-" + model
-			route, ok := manifest.Models[id]
-			if !ok || route.Provider != account || route.Family != model || route.UpstreamModelID() != model {
+			id := account + "/" + model
+			route, ok := teamModel(t, manifest, id)
+			if !ok || route.Provider != account || route.Family != model || route.ID != model {
 				t.Errorf("verified Route %q = %+v, want exact Account, Model, and wire identity", id, route)
 			}
 		}
@@ -178,9 +184,9 @@ func TestTeamManifestUsesRequestedFamilies(t *testing.T) {
 			doubao = "doubao-seed-2-1-pro-260915"
 		}
 		for _, model := range []string{"deepseek-v4.1-flash-1017", doubao} {
-			id := account + "-" + model
-			route, ok := manifest.Models[id]
-			if !ok || route.Provider != account || route.Family != model || route.UpstreamModelID() != model {
+			id := account + "/" + model
+			route, ok := teamModel(t, manifest, id)
+			if !ok || route.Provider != account || route.Family != model || route.ID != model {
 				t.Errorf("qualified general Route %q = %+v", id, route)
 			}
 		}
@@ -197,9 +203,9 @@ func TestTeamManifestGPTProviderModelsFollowInferenceEvidence(t *testing.T) {
 	}
 	for model, accounts := range want {
 		for _, account := range accounts {
-			id := account + "-" + model
-			route, ok := manifest.Models[id]
-			if !ok || route.Provider != account || route.Family != model || route.UpstreamModelID() != model ||
+			id := account + "/" + model
+			route, ok := teamModel(t, manifest, id)
+			if !ok || route.Provider != account || route.Family != model || route.ID != model ||
 				!slices.Equal(route.AdmittedProtocols(), []domain.EndpointProtocol{domain.ProtocolResponses}) {
 				t.Errorf("verified GPT Route %q = %+v", id, route)
 			}
@@ -210,9 +216,9 @@ func TestTeamManifestGPTProviderModelsFollowInferenceEvidence(t *testing.T) {
 func TestTeamManifestGrokUpgradeKeepsAllThreeProviders(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	for _, account := range []string{"aihubmix", "dmxapi", "ucloud"} {
-		id := account + "-grok-4.7"
-		route, ok := manifest.Models[id]
-		if !ok || route.Provider != account || route.Family != "grok-4.7" || route.UpstreamModelID() != "grok-4.7" ||
+		id := account + "/grok-4.7"
+		route, ok := teamModel(t, manifest, id)
+		if !ok || route.Provider != account || route.Family != "grok-4.7" || route.ID != "grok-4.7" ||
 			!slices.Equal(route.AdmittedProtocols(), []domain.EndpointProtocol{domain.ProtocolResponses}) {
 			t.Errorf("qualified Grok Route %q = %+v", id, route)
 		}
@@ -224,13 +230,13 @@ func TestTeamManifestGrokUpgradeKeepsAllThreeProviders(t *testing.T) {
 
 func TestTeamManifestKeepsOnlyQualifiedMiMoModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	route, ok := manifest.Models["ucloud-mimo-v2.6-pro"]
-	if !ok || route.Provider != "ucloud" || route.Family != "mimo-v2.6-pro" || route.UpstreamModelID() != "mimo-v2.6-pro" ||
+	route, ok := teamModel(t, manifest, "ucloud/mimo-v2.6-pro")
+	if !ok || route.Provider != "ucloud" || route.Family != "mimo-v2.6-pro" || route.ID != "mimo-v2.6-pro" ||
 		!slices.Contains(route.AdmittedProtocols(), domain.ProtocolResponses) {
 		t.Errorf("qualified UCloud MiMo Route = %+v", route)
 	}
 	for _, account := range []string{"aihubmix", "dmxapi"} {
-		if _, admitted := manifest.Models[account+"-mimo-v2.6-pro"]; admitted {
+		if _, admitted := teamModel(t, manifest, account+"/mimo-v2.6-pro"); admitted {
 			t.Errorf("unavailable or unqualified %s MiMo Route was admitted", account)
 		}
 	}
@@ -238,7 +244,7 @@ func TestTeamManifestKeepsOnlyQualifiedMiMoModels(t *testing.T) {
 
 func TestTeamManifestUsesQualifiedChatProtocolForUCloudGLM(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	route, ok := manifest.Models["ucloud-glm-5.3"]
+	route, ok := teamModel(t, manifest, "ucloud/glm-5.3")
 	if !ok || !slices.Equal(route.AdmittedProtocols(), []domain.EndpointProtocol{domain.ProtocolChat}) {
 		t.Fatalf("UCloud GLM 5.3 protocols = %v, want Chat Completions", route.AdmittedProtocols())
 	}
@@ -254,24 +260,24 @@ func TestTeamManifestKeepsQualifiedAdditionalVendorModels(t *testing.T) {
 		wire     string
 		protocol domain.EndpointProtocol
 	}{
-		"aihubmix-cohere-command-a":                {"cohere-command-a", "cohere-command-a", domain.ProtocolChat},
-		"aihubmix-ernie-5.1":                       {"ernie-5.1", "ernie-5.1", domain.ProtocolResponses},
-		"aihubmix-laguna-s-2.1":                    {"laguna-s-2.1", "laguna-s-2.1", domain.ProtocolChat},
-		"aihubmix-ling-3.0-flash":                  {"ling-3.0-flash", "ling-3.0-flash", domain.ProtocolChat},
-		"aihubmix-mercury-2.5":                     {"mercury-2.5", "mercury-2.5", domain.ProtocolChat},
-		"aihubmix-mistral-large-3":                 {"mistral-large-3", "mistral-large-3", domain.ProtocolChat},
-		"aihubmix-nemotron-3-ultra-550b-a55b-free": {"nemotron-3-ultra-550b-a55b", "nemotron-3-ultra-550b-a55b-free", domain.ProtocolChat},
-		"aihubmix-step-5-preview":                  {"step-5-preview", "step-5-preview", domain.ProtocolChat},
+		"aihubmix/cohere-command-a":                {"cohere-command-a", "cohere-command-a", domain.ProtocolChat},
+		"aihubmix/ernie-5.1":                       {"ernie-5.1", "ernie-5.1", domain.ProtocolResponses},
+		"aihubmix/laguna-s-2.1":                    {"laguna-s-2.1", "laguna-s-2.1", domain.ProtocolChat},
+		"aihubmix/ling-3.0-flash":                  {"ling-3.0-flash", "ling-3.0-flash", domain.ProtocolChat},
+		"aihubmix/mercury-2.5":                     {"mercury-2.5", "mercury-2.5", domain.ProtocolChat},
+		"aihubmix/mistral-large-3":                 {"mistral-large-3", "mistral-large-3", domain.ProtocolChat},
+		"aihubmix/nemotron-3-ultra-550b-a55b-free": {"nemotron-3-ultra-550b-a55b", "nemotron-3-ultra-550b-a55b-free", domain.ProtocolChat},
+		"aihubmix/step-5-preview":                  {"step-5-preview", "step-5-preview", domain.ProtocolChat},
 	}
 	for id, expected := range want {
-		route, ok := manifest.Models[id]
-		if !ok || route.Provider != "aihubmix" || route.Family != expected.model || route.UpstreamModelID() != expected.wire ||
+		route, ok := teamModel(t, manifest, id)
+		if !ok || route.Provider != "aihubmix" || route.Family != expected.model || route.ID != expected.wire ||
 			!slices.Equal(route.AdmittedProtocols(), []domain.EndpointProtocol{expected.protocol}) {
 			t.Errorf("qualified vendor Route %q = %+v, want %+v", id, route, expected)
 		}
 	}
-	for _, superseded := range []string{"aihubmix-command-a-03-2025", "aihubmix-nemotron-3-super-120b-a12b-free"} {
-		if _, retained := manifest.Models[superseded]; retained {
+	for _, superseded := range []string{"aihubmix/command-a-03-2025", "aihubmix/nemotron-3-super-120b-a12b-free"} {
+		if _, retained := teamModel(t, manifest, superseded); retained {
 			t.Errorf("superseded Route %q remains in the shipped manifest", superseded)
 		}
 	}
@@ -284,24 +290,24 @@ func TestTeamManifestFrontierRefreshUsesQualifiedProviderProtocols(t *testing.T)
 		wire     string
 		protocol domain.EndpointProtocol
 	}{
-		"aihubmix-gemini-4-argon": {"gemini-4-argon", "gemini-4-argon", domain.ProtocolResponses},
-		"dmxapi-gemini-4-argon":   {"gemini-4-argon", "gemini-4-argon", domain.ProtocolResponses},
-		"ucloud-gemini-4-argon":   {"gemini-4-argon", "gemini-4-argon", domain.ProtocolChat},
-		"dmxapi-hy4":              {"hy4", "hy4", domain.ProtocolResponses},
-		"aihubmix-hy4":            {"hy4", "hy4", domain.ProtocolChat},
-		"dmxapi-longcat-2.5":      {"longcat-2.5", "LongCat-2.5", domain.ProtocolResponses},
-		"dmxapi-step-5-preview":   {"step-5-preview", "step-5-preview", domain.ProtocolResponses},
+		"aihubmix/gemini-4-argon": {"gemini-4-argon", "gemini-4-argon", domain.ProtocolResponses},
+		"dmxapi/gemini-4-argon":   {"gemini-4-argon", "gemini-4-argon", domain.ProtocolResponses},
+		"ucloud/gemini-4-argon":   {"gemini-4-argon", "gemini-4-argon", domain.ProtocolChat},
+		"dmxapi/hy4":              {"hy4", "hy4", domain.ProtocolResponses},
+		"aihubmix/hy4":            {"hy4", "hy4", domain.ProtocolChat},
+		"dmxapi/LongCat-2.5":      {"longcat-2.5", "LongCat-2.5", domain.ProtocolResponses},
+		"dmxapi/step-5-preview":   {"step-5-preview", "step-5-preview", domain.ProtocolResponses},
 	}
 	for id, expected := range want {
-		route, ok := manifest.Models[id]
-		if !ok || route.Family != expected.model || route.UpstreamModelID() != expected.wire ||
+		route, ok := teamModel(t, manifest, id)
+		if !ok || route.Family != expected.model || route.ID != expected.wire ||
 			!slices.Equal(route.AdmittedProtocols(), []domain.EndpointProtocol{expected.protocol}) {
 			t.Errorf("qualified frontier Route %q = %+v, want %+v", id, route, expected)
 		}
 	}
-	for _, superseded := range []string{"aihubmix-gemini-3.8-flash", "dmxapi-gemini-3.8-flash", "ucloud-gemini-3.8-flash",
-		"dmxapi-hy4-preview", "dmxapi-longcat-2.5-preview", "dmxapi-doubao-seed-2-1-pro-260628"} {
-		if _, retained := manifest.Models[superseded]; retained {
+	for _, superseded := range []string{"aihubmix/gemini-3.8-flash", "dmxapi/gemini-3.8-flash", "ucloud/gemini-3.8-flash",
+		"dmxapi/hy4-preview", "dmxapi/longcat-2.5-preview", "dmxapi/doubao-seed-2-1-pro-260628"} {
+		if _, retained := teamModel(t, manifest, superseded); retained {
 			t.Errorf("superseded Route %q remains in the shipped manifest", superseded)
 		}
 	}
@@ -310,22 +316,23 @@ func TestTeamManifestFrontierRefreshUsesQualifiedProviderProtocols(t *testing.T)
 func TestTeamManifestRefreshPreservesExplicitSupersededModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	for _, selected := range []struct{ model, label, route, wire string }{
-		{"command-a-03-2025", "Cohere Command A", "aihubmix-command-a-03-2025", "command-a-03-2025"},
-		{"nemotron-3-super-120b-a12b", "NVIDIA Nemotron 3 Super", "aihubmix-nemotron-3-super-120b-a12b-free", "nemotron-3-super-120b-a12b-free"},
+		{"command-a-03-2025", "Cohere Command A", "aihubmix/command-a-03-2025", "command-a-03-2025"},
+		{"nemotron-3-super-120b-a12b", "NVIDIA Nemotron 3 Super", "aihubmix/nemotron-3-super-120b-a12b-free", "nemotron-3-super-120b-a12b-free"},
 	} {
 		t.Run(selected.model, func(t *testing.T) {
 			cfg := domain.NewConfig(testAdmission())
 			cfg.Providers["aihubmix"] = manifest.Providers["aihubmix"]
 			cfg.Families[selected.model] = domain.Family{Label: selected.label}
-			cfg.Models[selected.route] = domain.Model{Provider: "aihubmix", Family: selected.model, UpstreamModel: selected.wire,
+			ref := domain.NewModelRef("aihubmix", selected.wire)
+			cfg.Models[ref] = domain.Model{Provider: "aihubmix", Family: selected.model, ID: selected.wire,
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
-			cfg.SetSelectedModel(ClientHermes, selected.route, "")
+			cfg.SetSelectedModel(ClientHermes, ref, "")
 			merged, _, err := domain.MergeTeamFile(cfg, manifest, false)
 			if err != nil {
 				t.Fatal(err)
 			}
-			runtime, err := merged.ResolveRuntime(ClientHermes, "")
-			if err != nil || merged.SelectedModel(ClientHermes) != selected.route || runtime.UpstreamModel != selected.wire {
+			runtime, err := merged.ResolveRuntime(ClientHermes, domain.ModelRef{})
+			if err != nil || merged.SelectedModel(ClientHermes) != ref || runtime.UpstreamModel != selected.wire {
 				t.Fatalf("team refresh replaced explicit Route %q: %+v, %v", selected.route, runtime, err)
 			}
 		})
@@ -339,8 +346,8 @@ func TestTeamManifestModelsUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 		t.Fatal(err)
 	}
 	for routeID, route := range manifest.Models {
-		if routeID != strings.ToLower(routeID) || route.Family != strings.ToLower(route.Family) {
-			t.Errorf("Route %q or canonical Model %q is not lower-case", routeID, route.Family)
+		if route.Family != strings.ToLower(route.Family) {
+			t.Errorf("model %s's family %q is not lower-case", routeID, route.Family)
 		}
 		if _, ok := manifest.Providers[route.Provider]; !ok {
 			t.Errorf("Route %q references unknown Account %q", routeID, route.Provider)
@@ -349,36 +356,36 @@ func TestTeamManifestModelsUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 			t.Errorf("Route %q references unknown Model %q", routeID, route.Family)
 		}
 		compatible, compatibilityErr := cfg.ProtocolClientIDs(routeID)
-		if route.UpstreamModelID() == "" || len(route.AdmittedProtocols()) == 0 || compatibilityErr != nil || len(compatible) == 0 {
+		if route.ID == "" || len(route.AdmittedProtocols()) == 0 || compatibilityErr != nil || len(compatible) == 0 {
 			t.Errorf("Route %q has no exact wire ID or compatible client/protocol: %v", routeID, compatibilityErr)
 		}
 	}
 	wireIdentities := map[string]struct{ model, wire string }{
-		"aihubmix-claude-haiku-5-5":      {"claude-haiku-5-5", "claude-haiku-5-5"},
-		"dmxapi-claude-haiku-5-5-cc":     {"claude-haiku-5-5", "claude-haiku-5-5-cc"},
-		"ucloud-claude-haiku-5-5":        {"claude-haiku-5-5", "claude-haiku-5-5"},
-		"dmxapi-claude-sonnet-5-5-cc":    {"claude-sonnet-5-5", "claude-sonnet-5-5-cc"},
-		"dmxapi-claude-sonnet-5-5-ssvip": {"claude-sonnet-5-5", "claude-sonnet-5-5-ssvip"},
-		"dmxapi-gpt-6.1-sol-cdx":         {"gpt-6.1-sol", "gpt-6.1-sol-cdx"},
-		"dmxapi-gpt-6.1-terra-cdx":       {"gpt-6.1-terra", "gpt-6.1-terra-cdx"},
+		"aihubmix/claude-haiku-5-5":      {"claude-haiku-5-5", "claude-haiku-5-5"},
+		"dmxapi/claude-haiku-5-5-cc":     {"claude-haiku-5-5", "claude-haiku-5-5-cc"},
+		"ucloud/claude-haiku-5-5":        {"claude-haiku-5-5", "claude-haiku-5-5"},
+		"dmxapi/claude-sonnet-5-5-cc":    {"claude-sonnet-5-5", "claude-sonnet-5-5-cc"},
+		"dmxapi/claude-sonnet-5-5-ssvip": {"claude-sonnet-5-5", "claude-sonnet-5-5-ssvip"},
+		"dmxapi/gpt-6.1-sol-cdx":         {"gpt-6.1-sol", "gpt-6.1-sol-cdx"},
+		"dmxapi/gpt-6.1-terra-cdx":       {"gpt-6.1-terra", "gpt-6.1-terra-cdx"},
 	}
 	for routeID, want := range wireIdentities {
-		route, ok := manifest.Models[routeID]
-		if !ok || route.Family != want.model || route.UpstreamModelID() != want.wire {
+		route, ok := teamModel(t, manifest, routeID)
+		if !ok || route.Family != want.model || route.ID != want.wire {
 			t.Errorf("channel Route %q = %+v, want canonical Model %q and wire %q", routeID, route, want.model, want.wire)
 		}
 	}
-	if _, admitted := manifest.Models["dmxapi-claude-fable-5-1-cc"]; admitted {
+	if _, admitted := teamModel(t, manifest, "dmxapi/claude-fable-5-1-cc"); admitted {
 		t.Error("the unqualified DMXAPI Fable 5.1 CC channel remains in the shipped manifest")
 	}
-	if _, admitted := manifest.Models["dmxapi-claude-sonnet-5-5"]; admitted {
+	if _, admitted := teamModel(t, manifest, "dmxapi/claude-sonnet-5-5"); admitted {
 		t.Error("the unqualified plain DMXAPI Sonnet 5.5 continuation route remains in the shipped manifest")
 	}
 	for _, obsolete := range []string{
-		"aihubmix-claude-sonnet-5", "dmxapi-claude-sonnet-5", "dmxapi-claude-sonnet-5-cc",
-		"dmxapi-claude-sonnet-5-ssvip", "ucloud-claude-sonnet-5",
+		"aihubmix/claude-sonnet-5", "dmxapi/claude-sonnet-5", "dmxapi/claude-sonnet-5-cc",
+		"dmxapi/claude-sonnet-5-ssvip", "ucloud/claude-sonnet-5",
 	} {
-		if _, retained := manifest.Models[obsolete]; retained {
+		if _, retained := teamModel(t, manifest, obsolete); retained {
 			t.Errorf("obsolete Sonnet 5 Route %q remains in the shipped team manifest", obsolete)
 		}
 	}
@@ -388,10 +395,10 @@ func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	sol := "gpt-6.1-sol"
 	for client, want := range map[string][]string{
-		ClientClaude:        {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5"},
-		ClientClaudeDesktop: {"dmxapi-claude-opus-5-5", "ucloud-claude-opus-5-5"},
-		ClientCodex:         {"dmxapi-" + sol + "-cdx", "ucloud-" + sol},
-		ClientHermes:        {"dmxapi-" + sol, "ucloud-" + sol},
+		ClientClaude:        {"dmxapi/claude-opus-5-5", "ucloud/claude-opus-5-5"},
+		ClientClaudeDesktop: {"dmxapi/claude-opus-5-5", "ucloud/claude-opus-5-5"},
+		ClientCodex:         {"dmxapi/" + sol + "-cdx", "ucloud/" + sol},
+		ClientHermes:        {"dmxapi/" + sol, "ucloud/" + sol},
 	} {
 		choices := manifest.Recommendations[client].Selections()
 		if len(choices) != len(want) {
@@ -399,7 +406,7 @@ func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 			continue
 		}
 		for index, selection := range choices {
-			if selection.Model != want[index] {
+			if selection.Model.String() != want[index] {
 				t.Errorf("%s recommendation %d = %q, want %q", client, index, selection.Model, want[index])
 			}
 		}
@@ -408,12 +415,12 @@ func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetSelectedModel(ClientCodex, "ucloud-"+sol, "")
+	cfg.SetSelectedModel(ClientCodex, domain.NewModelRef("ucloud", sol), "")
 	selected, err := cfg.SelectModelsForConnectedProviders([]string{"dmxapi"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if selected.SelectedModel(ClientCodex) != "ucloud-"+sol {
+	if selected.SelectedModel(ClientCodex) != domain.NewModelRef("ucloud", sol) {
 		t.Fatalf("qualified recommendation replaced explicit Codex selection: %+v", selected.Clients)
 	}
 	if _, exists := manifest.Families["gpt-6-sol"]; exists {
@@ -452,9 +459,6 @@ func TestTeamManifestDerivesPlainModelLabelsAndKeepsChannelOverrides(t *testing.
 	}
 	channel := regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
 	for routeID, route := range manifest.Models {
-		if route.Purpose != "" {
-			t.Errorf("model catalog Route %q must omit workflow purpose", routeID)
-		}
 		base := manifest.Providers[route.Provider].Label + " · " + manifest.Families[route.Family].Label
 		if route.Label == "" {
 			if got := cfg.ModelLabel(routeID); got != base {
@@ -479,33 +483,32 @@ func TestModelLabelDerivesDisplayWithoutChangingExactWireModel(t *testing.T) {
 		Label: "UCloud", Endpoints: domain.Endpoints{Responses: "https://ucloud.test/v1"},
 	}
 	cfg.Families["minimax-m3"] = domain.Family{Label: "MiniMax M3"}
-	cfg.Models["ucloud-minimax-m3"] = domain.Model{
-		Provider: "ucloud", Family: "minimax-m3", UpstreamModel: "MiniMax-M3",
+	cfg.Models[domain.NewModelRef("ucloud", "MiniMax-M3")] = domain.Model{
+		Provider: "ucloud", Family: "minimax-m3", ID: "MiniMax-M3",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {domain.CapabilityText}},
 	}
-	if got := cfg.ModelLabel("ucloud-minimax-m3"); got != "UCloud · MiniMax M3" {
+	if got := cfg.ModelLabel(domain.NewModelRef("ucloud", "MiniMax-M3")); got != "UCloud · MiniMax M3" {
 		t.Fatalf("derived Route label = %q", got)
 	}
-	runtime, err := cfg.ResolveRuntime(ClientCodex, "ucloud-minimax-m3")
+	runtime, err := cfg.ResolveRuntime(ClientCodex, domain.NewModelRef("ucloud", "MiniMax-M3"))
 	if err != nil || runtime.ModelLabel != "UCloud · MiniMax M3" || runtime.UpstreamModel != "MiniMax-M3" {
 		t.Fatalf("resolved label and exact wire model = %+v, %v", runtime, err)
 	}
-	route := cfg.Models["ucloud-minimax-m3"]
+	route := cfg.Models[domain.NewModelRef("ucloud", "MiniMax-M3")]
 	route.Label = "UCloud · MiniMax M3 · Channel"
-	cfg.Models["ucloud-minimax-m3"] = route
-	if got := cfg.ModelLabel("ucloud-minimax-m3"); got != route.Label {
+	cfg.Models[domain.NewModelRef("ucloud", "MiniMax-M3")] = route
+	if got := cfg.ModelLabel(domain.NewModelRef("ucloud", "MiniMax-M3")); got != route.Label {
 		t.Fatalf("explicit Route label = %q, want %q", got, route.Label)
 	}
 }
 
 func TestTeamManifestUsesNativeExportLayout(t *testing.T) {
 	data, manifest := loadTeamManifest(t)
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers = manifest.Providers
-	cfg.Families = manifest.Families
-	cfg.Models = manifest.Models
-	cfg.Recommendations = manifest.Recommendations
-	canonical, err := Export(cfg)
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := ExportTeamFile(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

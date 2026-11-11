@@ -72,7 +72,7 @@ or a model's name.
 Model IDs are the provider's own strings. AIGW does not infer a capability or
 version policy from their spelling.
 
-Authentication defaults to `account-token`, which uses the provider's Token in
+Authentication defaults to `provider-token`, which uses the provider's Token in
 the selected backend. A client may instead select admitted client-native
 authentication and its native provider identity. That client then owns
 credentials and any signing, so AIGW does not require a Token. This

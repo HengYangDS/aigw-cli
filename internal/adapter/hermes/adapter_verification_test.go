@@ -26,14 +26,14 @@ func hermesVerificationFixture(t *testing.T) (domain.Config, domain.Runtime, ada
 	}
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["hermes"] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	cfg.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
 	target := filepath.Join(t.TempDir(), "config.yaml")
-	cfg.SetSelectedModel(ID, "hermes", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(ID, domain.NewModelRef("gateway", "claude-test"), domain.ProtocolAnthropic)
 	cfg.SetClientActivation(ID, true, executable, []string{target})
 	if err := os.WriteFile(target, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	selected, err := cfg.ResolveRuntime(ID, "")
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,9 +201,9 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Chat: "https://gateway.test/v1"}}
-	cfg.Models["selected"] = qualifiedModel("", "gateway", "mistral-large-3", domain.ProtocolChat)
-	cfg.SetSelectedModel(ID, "selected", "")
-	selected, err := cfg.ResolveRuntime(ID, "")
+	cfg.Models[domain.NewModelRef("gateway", "mistral-large-3")] = qualifiedModel("", "gateway", "mistral-large-3", domain.ProtocolChat)
+	cfg.SetSelectedModel(ID, domain.NewModelRef("gateway", "mistral-large-3"), "")
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}

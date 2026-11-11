@@ -15,21 +15,21 @@ func TestTeamManifestKeepsOnlyQualifiedRefreshModels(t *testing.T) {
 		model, wire string
 		protocol    domain.EndpointProtocol
 	}{
-		"aihubmix-kimi-k3.1-pro":      {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolChat},
-		"dmxapi-kimi-k3.1-pro":        {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolResponses},
-		"ucloud-kimi-k3.1-pro":        {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolResponses},
-		"aihubmix-minimax-m3.1-flash": {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolResponses},
-		"dmxapi-minimax-m3.1-flash":   {"minimax-m3.1-flash", "MiniMax-M3.1-Flash", domain.ProtocolResponses},
-		"ucloud-minimax-m3.1-flash":   {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolResponses},
-		"aihubmix-muse-wonder":        {"muse-wonder", "muse-wonder", domain.ProtocolResponses},
-		"dmxapi-muse-wonder":          {"muse-wonder", "muse-wonder", domain.ProtocolResponses},
-		"ucloud-muse-wonder":          {"muse-wonder", "muse-wonder-1.0", domain.ProtocolResponses},
-		"aihubmix-qwen3.8-max-0902":   {"qwen3.8-max-0902", "qwen3.8-max-2026-09-02", domain.ProtocolResponses},
-		"dmxapi-qwen3.8-max-0902":     {"qwen3.8-max-0902", "qwen3.8-max-0902", domain.ProtocolResponses},
-		"aihubmix-solar-pro4":         {"solar-pro4", "solar-pro4", domain.ProtocolChat},
+		"aihubmix/kimi-k3.1-pro":          {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolChat},
+		"dmxapi/kimi-k3.1-pro":            {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolResponses},
+		"ucloud/kimi-k3.1-pro":            {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolResponses},
+		"aihubmix/minimax-m3.1-flash":     {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolResponses},
+		"dmxapi/MiniMax-M3.1-Flash":       {"minimax-m3.1-flash", "MiniMax-M3.1-Flash", domain.ProtocolResponses},
+		"ucloud/minimax-m3.1-flash":       {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolResponses},
+		"aihubmix/muse-wonder":            {"muse-wonder", "muse-wonder", domain.ProtocolResponses},
+		"dmxapi/muse-wonder":              {"muse-wonder", "muse-wonder", domain.ProtocolResponses},
+		"ucloud/muse-wonder-1.0":          {"muse-wonder", "muse-wonder-1.0", domain.ProtocolResponses},
+		"aihubmix/qwen3.8-max-2026-09-02": {"qwen3.8-max-0902", "qwen3.8-max-2026-09-02", domain.ProtocolResponses},
+		"dmxapi/qwen3.8-max-0902":         {"qwen3.8-max-0902", "qwen3.8-max-0902", domain.ProtocolResponses},
+		"aihubmix/solar-pro4":             {"solar-pro4", "solar-pro4", domain.ProtocolChat},
 	} {
-		route, ok := manifest.Models[id]
-		if !ok || route.Family != expected.model || route.UpstreamModelID() != expected.wire ||
+		route, ok := teamModel(t, manifest, id)
+		if !ok || route.Family != expected.model || route.ID != expected.wire ||
 			!slices.Equal(route.AdmittedProtocols(), []domain.EndpointProtocol{expected.protocol}) {
 			t.Errorf("qualified Route %q = %+v, want Model %q, wire %q and %s", id, route, expected.model, expected.wire, expected.protocol)
 		}
@@ -37,8 +37,8 @@ func TestTeamManifestKeepsOnlyQualifiedRefreshModels(t *testing.T) {
 	// UCloud lists only the undated Qwen ID, whose build its Account does not
 	// document; AIHubMix serves Kimi K3.1 Pro only on Chat Completions, as
 	// asserted above.
-	for _, id := range []string{"ucloud-qwen3.8-max-0902", "ucloud-qwen3.8-max"} {
-		if _, admitted := manifest.Models[id]; admitted {
+	for _, id := range []string{"ucloud/qwen3.8-max-0902", "ucloud/qwen3.8-max"} {
+		if _, admitted := teamModel(t, manifest, id); admitted {
 			t.Errorf("unqualified Route %q was admitted", id)
 		}
 	}

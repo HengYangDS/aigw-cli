@@ -18,10 +18,10 @@ import (
 func (codexAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, explicitRoute string) (_ adapter.Verification, result error) {
 	binding := cfg.Clients[ID]
 	reader := deps.AIGWExecutable
-	if binding.Enabled && binding.Executable != "" && len(binding.Targets) > 0 && binding.Model != "" {
+	if binding.Enabled && binding.Executable != "" && len(binding.Targets) > 0 && !binding.Model.IsZero() {
 		targets := append([]string(nil), binding.Targets...)
 		sort.Strings(targets)
-		selected, err := cfg.ResolveRuntime(ID, "")
+		selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 		if err != nil {
 			return adapter.Verification{}, err
 		}
@@ -100,7 +100,7 @@ func isolateProjection(cfg domain.Config, runtime domain.Runtime, binding domain
 	after := before
 	after.Executable = binding.Executable
 	after.CreateIfAbsent = true
-	selected, err := cfg.ResolveRuntime(ID, "")
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		return domain.Config{}, workspace, fmt.Errorf("resolve selected Codex projection: %w", err)
 	}

@@ -118,10 +118,10 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 	root := t.TempDir()
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://claude.example.test", Responses: "https://codex.example.test/v1"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "one", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "one", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.SetSelectedModel(claude.ID, "claude", "")
-	cfg.SetSelectedModel(codex.ID, "codex", "")
+	cfg.Models[domain.NewModelRef("one", "claude-test")] = domain.Model{Label: "Claude", Provider: "one", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models[domain.NewModelRef("one", "gpt-test")] = domain.Model{Label: "Codex", Provider: "one", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-test"), "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{
 		Clients: clients.Registry(), Config: store.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission()),
@@ -205,7 +205,7 @@ func enable(t *testing.T, runtime invocation.Context, cfg *domain.Config, ids ..
 
 func resolve(t *testing.T, cfg domain.Config, id string) domain.Runtime {
 	t.Helper()
-	selected, err := cfg.ResolveRuntime(id, "")
+	selected, err := cfg.ResolveRuntime(id, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -278,7 +278,7 @@ func (j *journeyFixture) measureMemory(variant string, block int) (performance.M
 	if err != nil {
 		return row, err
 	}
-	row.Runtime, err = config.ResolveRuntime(claude.ID, "")
+	row.Runtime, err = config.ResolveRuntime(claude.ID, domain.ModelRef{})
 	if err != nil {
 		return row, err
 	}
@@ -422,8 +422,8 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 		}
 		config := domain.NewConfig(clients.Admission())
 		config.Providers["memory"] = domain.Provider{Label: "Memory", Endpoints: domain.Endpoints{Anthropic: "https://unused.example.test"}}
-		config.Models["memory"] = domain.Model{Provider: "memory", Family: "memory", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
-		config.SetSelectedModel(claude.ID, "memory", domain.ProtocolAnthropic)
+		config.Models[domain.NewModelRef("memory", "memory")] = domain.Model{Provider: "memory", Family: "memory", ID: "memory", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
+		config.SetSelectedModel(claude.ID, domain.NewModelRef("memory", "memory"), domain.ProtocolAnthropic)
 		configStore := store.NewStore(filepath.Join(output, "config.toml"), clients.Admission())
 		if err := configStore.Save(config); err != nil {
 			t.Fatal(err)
@@ -470,8 +470,8 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 	if row.Variant != "candidate" || row.Case != "status" || row.Block != 1 || len(row.Bytes) != 2 || slices.Contains(row.Bytes, 0) {
 		t.Fatalf("interrupted block lost its two completed native observations: %#v", row)
 	}
-	identity := []string{row.Mode, row.Runtime.ModelID, row.Runtime.Client, string(readFile(t, filepath.Join(output, "observations")))}
-	if !slices.Equal(identity, []string{"direct", "memory", claude.ID, "8"}) || row.Executable == nil {
+	identity := []string{row.Mode, row.Runtime.Model.String(), row.Runtime.Client, string(readFile(t, filepath.Join(output, "observations")))}
+	if !slices.Equal(identity, []string{"direct", "test/memory", claude.ID, "8"}) || row.Executable == nil {
 		t.Fatalf("interrupted memory observations lost their Runtime or native provenance: %q", identity)
 	}
 	if err := performance.ReviewMemory([]performance.Memory{row}); err == nil {

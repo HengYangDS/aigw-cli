@@ -15,7 +15,8 @@ import (
 // ValidIdentifier reports whether a user-defined identifier is safe for configuration and credential slots.
 func ValidIdentifier(name string) bool { return identifierPattern.MatchString(name) }
 
-// Normalize fills deterministic defaults and canonicalizes collection state in place.
+// Normalize fills deterministic defaults and canonicalizes collection state in
+// place: every collection exists, and the display order names every entry.
 func (c *Config) Normalize() {
 	if c.Providers == nil {
 		c.Providers = map[string]Provider{}
@@ -24,7 +25,7 @@ func (c *Config) Normalize() {
 		c.Families = map[string]Family{}
 	}
 	if c.Models == nil {
-		c.Models = map[string]Model{}
+		c.Models = map[ModelRef]Model{}
 	}
 	if c.Recommendations == nil {
 		c.Recommendations = map[string]ClientRecommendation{}
@@ -32,22 +33,12 @@ func (c *Config) Normalize() {
 	if c.Clients == nil {
 		c.Clients = map[string]ClientBinding{}
 	}
-	for _, id := range c.ModelIDs() {
-		route := c.Models[id]
-		if route.UpstreamModel == "" {
-			route.UpstreamModel = route.Family
-		}
-		if route.Family != "" {
-			if _, exists := c.Families[route.Family]; !exists {
-				c.Families[route.Family] = Family{Label: route.Family}
-			}
-		}
-		c.Models[id] = route
-	}
+	c.normalizeOrder()
 }
 
-// Validate checks schema, accounts, routes, recommendations, then client bindings without mutation.
-// Within each collection, lexical key order determines the first diagnostic.
+// Validate checks schema, providers, families, models, recommendations, then
+// client bindings without mutation. Within each collection, a fixed order
+// determines the first diagnostic.
 func (c *Config) Validate() error {
 	if err := c.validateCollections(); err != nil {
 		return err
@@ -77,8 +68,8 @@ func (c *Config) validateCollections() error {
 			return err
 		}
 	}
-	for _, name := range c.ModelIDs() {
-		if err := c.Models[name].validate(name, c.Providers, c.Families); err != nil {
+	for _, ref := range c.ModelRefs() {
+		if err := c.Models[ref].validate(ref, c.Providers); err != nil {
 			return err
 		}
 	}
@@ -91,8 +82,8 @@ func (c *Config) validateRecommendations() error {
 			return fmt.Errorf("unknown client recommendation %q; supported clients are %s", client, c.admission.Usage())
 		}
 		recommendation := c.Recommendations[client]
-		if recommendation.Primary.Model == "" {
-			return fmt.Errorf("client recommendation %q has no primary route", client)
+		if recommendation.Primary.Model.IsZero() {
+			return fmt.Errorf("client recommendation %q has no primary model", client)
 		}
 		for index, selection := range append([]ClientSelection{recommendation.Primary}, recommendation.Alternatives...) {
 			// A recommended protocol that the provider has no endpoint for
@@ -105,8 +96,8 @@ func (c *Config) validateRecommendations() error {
 			if err != nil {
 				return fmt.Errorf("client recommendation %q choice %d: %w", client, index+1, err)
 			}
-			if c.Models[selection.Model].LifecycleState() == ModelDeprecated {
-				return fmt.Errorf("client recommendation %q choice %d references deprecated route %q", client, index+1, selection.Model)
+			if c.Models[selection.Model].Deprecated {
+				return fmt.Errorf("client recommendation %q choice %d names the deprecated model %s", client, index+1, selection.Model)
 			}
 		}
 	}
@@ -120,9 +111,9 @@ func (c *Config) validateClientBindings() error {
 			return fmt.Errorf("unknown client binding %q", client)
 		}
 		binding := c.clientBinding(client)
-		if binding.Model == "" {
+		if binding.Model.IsZero() {
 			if binding.Enabled || binding.Protocol != "" || binding.ModelProvider != "" || binding.Authentication != "" || binding.ForwardingEndpoint != "" || binding.RetryPolicy != nil {
-				return fmt.Errorf("client binding %q must select a route before it can be enabled or define runtime options", client)
+				return fmt.Errorf("client %q must select a model before it can be enabled or define runtime options", client)
 			}
 			if err := binding.validate(client, spec); err != nil {
 				return err
@@ -142,14 +133,14 @@ func (c *Config) validateClientBindings() error {
 	return nil
 }
 
-// validateForwarding refuses a forwarded binding whose Route no longer reaches
+// validateForwarding refuses a forwarded binding whose model no longer reaches
 // the upstream recorded with its endpoint. Rebinding the destination silently
 // would send the client's traffic somewhere the operator did not choose.
 func (c *Config) validateForwarding(client string, binding ClientBinding) error {
 	if binding.ForwardingEndpoint == "" {
 		return nil
 	}
-	runtime, err := c.ResolveRuntime(client, "")
+	runtime, err := c.ResolveRuntime(client, ModelRef{})
 	if err != nil {
 		return fmt.Errorf("client binding %q: %w", client, err)
 	}
@@ -162,15 +153,15 @@ func (c *Config) validateForwarding(client string, binding ClientBinding) error 
 }
 
 func (c *Config) validateSelection(client string, selection ClientSelection) error {
-	route, ok := c.Models[selection.Model]
+	model, ok := c.Models[selection.Model]
 	if !ok {
-		return fmt.Errorf("references unknown route %q", selection.Model)
+		return fmt.Errorf("names the unknown model %s", selection.Model)
 	}
-	account := c.Providers[route.Provider]
-	account.ID = route.Provider
+	provider := c.Providers[model.Provider]
+	provider.ID = model.Provider
 	spec, _ := c.admission.Spec(client)
-	if _, _, err := spec.resolveModelEndpoint(account, route, selection.Protocol); err != nil {
-		return fmt.Errorf("route %q: %w", selection.Model, err)
+	if _, _, err := spec.resolveModelEndpoint(provider, model, selection.Protocol); err != nil {
+		return fmt.Errorf("model %s: %w", selection.Model, err)
 	}
 	return selection.validate(spec, c.admission)
 }
@@ -242,9 +233,6 @@ func (provider Provider) validate(name string) error {
 	if strings.TrimSpace(provider.Label) == "" {
 		return fmt.Errorf("account %q has an empty label", name)
 	}
-	if provider.Order < 0 {
-		return fmt.Errorf("account %q order must not be negative", name)
-	}
 	if provider.Endpoints.Responses == "" && provider.Endpoints.Anthropic == "" && provider.Endpoints.Chat == "" {
 		return fmt.Errorf("account %q must define at least one endpoint", name)
 	}
@@ -282,67 +270,43 @@ func (family Family) validate(name string) error {
 	if strings.TrimSpace(family.Label) == "" {
 		return fmt.Errorf("model %q has an empty label", name)
 	}
-	if family.Order < 0 {
-		return fmt.Errorf("model %q order must not be negative", name)
-	}
 	return nil
 }
 
-// validate checks one model against the providers and families. A model may
-// declare a protocol for which its provider has no endpoint, as a team file
-// leaves one whose provider keeps its local endpoints: the protocol is
-// unusable until the provider has the endpoint, because no client selection
-// resolves on it.
-func (model Model) validate(name string, providers map[string]Provider, families map[string]Family) error {
-	if !ValidIdentifier(name) {
-		return fmt.Errorf("invalid route name %q; use letters, numbers, dot, dash, or underscore", name)
-	}
-	if model.Provider == "" {
-		return fmt.Errorf("route %q must reference an account", name)
+// validate checks one model, stored under ref, against the providers. A
+// family that the model names needs an entry only for its label: without one,
+// its ID labels it. A model may declare a protocol for which its provider has
+// no endpoint, as a team file leaves one whose provider keeps its local
+// endpoints: the protocol is unusable until the provider has the endpoint,
+// because no client selection resolves on it.
+func (model Model) validate(ref ModelRef, providers map[string]Provider) error {
+	if model.Ref() != ref {
+		return fmt.Errorf("model %s is stored as %s", model.Ref(), ref)
 	}
 	if _, ok := providers[model.Provider]; !ok {
-		return fmt.Errorf("route %q references unknown account %q", name, model.Provider)
+		return fmt.Errorf("model %s names the unknown provider %q", ref, model.Provider)
 	}
-	if strings.TrimSpace(model.Family) == "" {
-		return fmt.Errorf("route %q must reference a model", name)
+	if strings.TrimSpace(model.ID) == "" {
+		return fmt.Errorf("provider %q has a model with an empty ID", model.Provider)
 	}
-	if len(families) > 0 {
-		if _, ok := families[model.Family]; !ok {
-			return fmt.Errorf("route %q references unknown model %q", name, model.Family)
+	if model.Family != "" && !ValidIdentifier(model.Family) {
+		return fmt.Errorf("model %s names the invalid family %q", ref, model.Family)
+	}
+	for _, protocol := range model.AdmittedProtocols() {
+		if !slices.Contains(knownProtocols, protocol) {
+			return fmt.Errorf("model %s has the unknown protocol %q", ref, protocol)
 		}
-	}
-	if model.UpstreamModel != "" && strings.TrimSpace(model.UpstreamModel) == "" {
-		return fmt.Errorf("route %q has an empty upstream model", name)
-	}
-	switch model.LifecycleState() {
-	case ModelAdmitted, ModelDeprecated:
-	default:
-		return fmt.Errorf("route %q has invalid lifecycle %q", name, model.Lifecycle)
-	}
-	protocols := modelAdmittedProtocols(model)
-	seen := make(map[EndpointProtocol]bool, len(protocols))
-	for _, protocol := range protocols {
-		switch protocol {
-		case ProtocolAnthropic, ProtocolResponses, ProtocolChat:
-		default:
-			return fmt.Errorf("route %q has unknown protocol %q", name, protocol)
-		}
-		if seen[protocol] {
-			return fmt.Errorf("route %q repeats protocol %q", name, protocol)
-		}
-		seen[protocol] = true
-	}
-	for protocol, capabilities := range model.Protocols {
+		capabilities := model.Protocols[protocol]
 		seenCapabilities := make(map[Capability]bool, len(capabilities))
 		for _, capability := range capabilities {
 			if !capability.Known() {
-				return fmt.Errorf("route %q interface %q has unknown capability %q", name, protocol, capability)
+				return fmt.Errorf("model %s has the unknown capability %q on %s", ref, capability, protocol)
 			}
 			if seenCapabilities[capability] {
-				return fmt.Errorf("route %q interface %q repeats capability %q", name, protocol, capability)
+				return fmt.Errorf("model %s repeats the capability %q on %s", ref, capability, protocol)
 			}
 			if !protocol.Admits(capability) {
-				return fmt.Errorf("route %q interface %q declares %q, which only the %s interface admits", name, protocol, capability, ProtocolAnthropic)
+				return fmt.Errorf("model %s declares %q on %s, which only the %s protocol admits", ref, capability, protocol, ProtocolAnthropic)
 			}
 			seenCapabilities[capability] = true
 		}

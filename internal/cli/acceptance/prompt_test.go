@@ -116,7 +116,7 @@ func TestUseWithoutNameSelectsModelAndCollectsMissingToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg, _ := app.Config.Load()
-	if cfg.SelectedModel(claude.ID) != "two" || cfg.SelectedModel(codex.ID) != "one" || !secretExists(t, secretStore, "two") || len(prompt.secretCalls) != 1 {
+	if cfg.SelectedModel(claude.ID) != domain.NewModelRef("two", "model-two") || cfg.SelectedModel(codex.ID) != domain.NewModelRef("one", "model-one") || !secretExists(t, secretStore, "two") || len(prompt.secretCalls) != 1 {
 		t.Fatalf("config=%#v hasSecret=%v prompts=%d", cfg, secretExists(t, secretStore, "two"), len(prompt.secretCalls))
 	}
 }
@@ -124,8 +124,8 @@ func TestUseWithoutNameSelectsModelAndCollectsMissingToken(t *testing.T) {
 func TestUseWithoutModelRequiresInteractiveTerminal(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	cfg.SetSelectedModel(claude.ID, "one", "")
+	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-one"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -139,9 +139,9 @@ func TestUseWithoutModelRequiresInteractiveTerminal(t *testing.T) {
 func TestUseWithoutModelPromptsInteractively(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
-	cfg.SetSelectedModel(claude.ID, "one", "")
+	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-one"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func TestUseWithoutModelPromptsInteractively(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SelectedModel(claude.ID) != "two" {
+	if got.SelectedModel(claude.ID) != domain.NewModelRef("two", "claude-two") {
 		t.Fatalf("bindings = %#v, want the interactively chosen route", got.Clients)
 	}
 }
@@ -164,8 +164,8 @@ func TestUseWithoutModelPromptsInteractively(t *testing.T) {
 func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	cfg.SetSelectedModel(claude.ID, "one", "")
+	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-one"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -182,9 +182,9 @@ func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
 func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
-	cfg.SetSelectedModel(claude.ID, "one", "")
+	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-one"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -197,9 +197,9 @@ func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
-	cfg.SetSelectedModel(claude.ID, "one", "")
+	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-one"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -214,9 +214,9 @@ func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 	app, _, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
-	cfg.SetSelectedModel(claude.ID, "one", "")
+	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-one"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -236,9 +236,9 @@ func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
-	cfg.SetSelectedModel(claude.ID, "one", "")
+	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-one"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func TestSetupAtATerminalRunsTheWizard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected, err := cfg.ResolveRuntime(codex.ID, "")
+	selected, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 	if err != nil || selected.ProviderID != "team-gateway" || selected.UpstreamModel != "gpt-5.6-terra" || cfg.Clients[claude.ID].Enabled || !cfg.Clients[codex.ID].Enabled {
 		t.Fatalf("configured state = %+v, %v", selected, err)
 	}
@@ -377,7 +377,7 @@ func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected, err := cfg.ResolveRuntime(claude.ID, "")
+	selected, err := cfg.ResolveRuntime(claude.ID, domain.ModelRef{})
 	if !secretExists(t, secretStore, "team-gateway") || err != nil || selected.UpstreamModel != "claude-sonnet-5-5" {
 		t.Fatalf("setup state = %+v, %v", selected, err)
 	}
@@ -394,8 +394,8 @@ func TestGuidedSetupRunsAgainOnAConfiguredHome(t *testing.T) {
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: executableFixture(t, "claude")}}}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["claude"] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -412,7 +412,7 @@ func TestGuidedSetupRunsAgainOnAConfiguredHome(t *testing.T) {
 		t.Fatalf("prompts: secret %q, provider choices %q", prompt.secretCalls, values)
 	}
 	after, err := app.Config.Load()
-	if err != nil || after.Clients[claude.ID].Model != "claude" || len(after.Models) != 1 {
+	if err != nil || after.Clients[claude.ID].Model != domain.NewModelRef("gateway", "claude-test") || len(after.Models) != 1 {
 		t.Fatalf("configured home after guided setup = %+v, %v", after, err)
 	}
 	if token, err := secretStore.Get("gateway"); err != nil || token != "stored-token" {

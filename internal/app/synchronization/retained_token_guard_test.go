@@ -39,7 +39,7 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := testConfig(target)
-	runtime, err := cfg.ResolveRuntime(codex.ID, "")
+	runtime, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,8 +60,8 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 	}
 	afterConfig := cfg.Clone()
 	afterConfig.Providers["ready"] = domain.Provider{Label: "Ready", Endpoints: domain.Endpoints{Anthropic: "https://ready.test"}}
-	afterConfig.Models["claude"] = domain.Model{Label: "Claude", Provider: "ready", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	afterConfig.SetSelectedModel(claude.ID, "claude", "")
+	afterConfig.Models[domain.NewModelRef("ready", "claude-test")] = domain.Model{Label: "Claude", Provider: "ready", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	afterConfig.SetSelectedModel(claude.ID, domain.NewModelRef("ready", "claude-test"), "")
 	afterConfig.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 
 	workerSource := filepath.Join(root, "candidate.go")
@@ -119,8 +119,8 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	codexBinding.ModelProvider = "amazon-bedrock"
 	cfg.Clients[codex.ID] = codexBinding
 	cfg.Providers["missing"] = domain.Provider{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "missing", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("missing", "claude-test")] = domain.Model{Label: "Claude", Provider: "missing", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("missing", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)

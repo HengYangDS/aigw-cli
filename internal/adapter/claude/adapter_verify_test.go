@@ -21,10 +21,10 @@ func TestClaudeVerificationBoundsClientProcesses(t *testing.T) {
 	}
 	claudeConfig := domain.NewConfig(testAdmission())
 	claudeConfig.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	claudeConfig.Models["claude"] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
-	claudeConfig.SetSelectedModel(ID, "claude", "")
+	claudeConfig.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	claudeConfig.SetSelectedModel(ID, domain.NewModelRef("gateway", "claude-test"), "")
 	claudeConfig.SetClientActivation(ID, true, claudeExecutable, nil)
-	claudeRuntime, err := claudeConfig.ResolveRuntime(ID, "")
+	claudeRuntime, err := claudeConfig.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestClaudeVerificationRequiresTheSynchronizedProjection(t *testing.T) {
 	}
 	runner := &captureAdapterRunner{err: errors.New("client must not start")}
 	deps := adapter.Dependencies{Runner: runner, Secrets: store, Host: hostAt(root), AIGWExecutable: filepath.Join(root, "aigw")}
-	runtime := domain.Runtime{ProviderID: "gateway", ModelID: "claude", UpstreamModel: "claude-model", Endpoint: "https://gateway.test"}
+	runtime := domain.Runtime{ProviderID: "gateway", Model: domain.NewModelRef("gateway", "claude-model"), UpstreamModel: "claude-model", Endpoint: "https://gateway.test"}
 	_, err := (claudeAdapter{}).Verify(context.Background(), deps, cfg, runtime, "")
 	if err == nil || !strings.Contains(err.Error(), "not synchronized") || runner.calls != 0 {
 		t.Fatalf("unsynchronized projection: calls=%d error=%v", runner.calls, err)
@@ -130,11 +130,11 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedModel(t *testi
 	}
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["selected"] = qualifiedModel("", "gateway", "claude-selected", domain.ProtocolAnthropic)
-	cfg.Models["alternate"] = qualifiedModel("", "gateway", "claude-alternate", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(ID, "selected", "")
+	cfg.Models[domain.NewModelRef("gateway", "claude-selected")] = qualifiedModel("", "gateway", "claude-selected", domain.ProtocolAnthropic)
+	cfg.Models[domain.NewModelRef("gateway", "claude-alternate")] = qualifiedModel("", "gateway", "claude-alternate", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(ID, domain.NewModelRef("gateway", "claude-selected"), "")
 	cfg.SetClientActivation(ID, true, executable, nil)
-	selected, err := cfg.ResolveRuntime(ID, "")
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedModel(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := cfg.ResolveRuntime(ID, "alternate")
+	runtime, err := cfg.ResolveRuntime(ID, domain.NewModelRef("gateway", "claude-alternate"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,10 +199,10 @@ func TestClaudeVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing
 			}
 			cfg := domain.NewConfig(testAdmission())
 			cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-			cfg.Models["claude"] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
-			binding := domain.ClientBinding{Model: "claude", Enabled: true, Executable: executable}
+			cfg.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
+			binding := domain.ClientBinding{Model: domain.NewModelRef("gateway", "claude-test"), Enabled: true, Executable: executable}
 			cfg.Clients[ID] = binding
-			selected, err := cfg.ResolveRuntime(ID, "")
+			selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -212,9 +212,9 @@ func TestClaudeVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing
 			}
 			runner := &captureAdapterRunner{}
 			deps := adapter.Dependencies{Runner: runner, Secrets: store, Host: hostAt(home)}
-			want := "unknown route"
+			want := "unknown model"
 			if failure == "selected route" {
-				binding.Model = "missing"
+				binding.Model = domain.NewModelRef("gateway", "missing")
 				cfg.Clients[ID] = binding
 			} else {
 				_, deps.AIGWExecutable = versionedReaders(t)

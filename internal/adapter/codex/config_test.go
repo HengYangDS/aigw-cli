@@ -16,7 +16,7 @@ func codexRuntime(profileID, label, endpoint, model string) domain.Runtime {
 	}
 	return domain.Runtime{
 		CredentialCommand: executable,
-		ModelID:           profileID,
+		Model:             domain.NewModelRef("dmx", model),
 		ModelLabel:        label,
 		ProviderID:        "dmx",
 		Client:            codex.ID,

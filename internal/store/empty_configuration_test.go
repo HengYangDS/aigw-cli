@@ -33,7 +33,7 @@ func TestConfigurationsWithoutModelsRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			credential, err := store.LoadCredentialConfig()
+			credential, err := store.Load()
 			if err != nil {
 				t.Fatal(err)
 			}

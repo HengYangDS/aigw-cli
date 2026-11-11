@@ -49,8 +49,8 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 			document := listDocument{Models: []modelItem{}}
-			for _, keys := range modelsByName(cfg) {
-				if item := describe(cfg, keys...); filters.admit(item, args) {
+			for _, ref := range cfg.ModelRefs() {
+				if item := describe(cfg, ref); filters.admit(item, args) {
 					document.Models = append(document.Models, item)
 				}
 			}
@@ -67,23 +67,6 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 	invocation.CompleteFlag(cmd, "provider", invocation.CompleteProviders(runtime))
 	invocation.CompleteFlag(cmd, "client", invocation.CompleteClients(runtime))
 	return cmd
-}
-
-// modelsByName groups the keys of the added models by name, in display order:
-// each name once, at the position of its first model.
-func modelsByName(cfg domain.Config) [][]string {
-	var groups [][]string
-	index := map[string]int{}
-	for _, key := range cfg.CatalogModelIDs() {
-		name := cfg.Models[key].Ref().String()
-		if position, seen := index[name]; seen {
-			groups[position] = append(groups[position], key)
-			continue
-		}
-		index[name] = len(groups)
-		groups = append(groups, []string{key})
-	}
-	return groups
 }
 
 // admit reports whether a model passes every filter and every query word.
@@ -130,9 +113,6 @@ func renderList(runtime invocation.Context, cfg domain.Config, document listDocu
 			state = terminal.Warn
 			detail = append(detail, "deprecated")
 		}
-		if item.Duplicate {
-			detail = append(detail, "one model per protocol")
-		}
 		r.Rows(terminal.Field{State: state, Label: item.ID, Value: strings.Join(detail, " · ")})
 	}
 	r.Next("aigw use <client> <provider/model>")
@@ -141,19 +121,18 @@ func renderList(runtime invocation.Context, cfg domain.Config, document listDocu
 
 func newShowCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
-	var protocol domain.EndpointProtocol
 	cmd := &cobra.Command{
 		Use:               "show <provider/model>",
 		Short:             "Show one model: its protocols, capabilities and the clients that use it",
 		Example:           "aigw model show dmxapi/gpt-6.1-sol\naigw model show ucloud/minimax-m3 --json",
 		Args:              modelArgument,
 		ValidArgsFunction: invocation.CompleteModels(runtime),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, key, model, err := loadModel(runtime, args[0], protocolSelector(cmd, protocol))
+		RunE: func(_ *cobra.Command, args []string) error {
+			cfg, model, err := loadModel(runtime, args[0], "")
 			if err != nil {
 				return err
 			}
-			item := describe(cfg, key)
+			item := describe(cfg, model.Ref())
 			provider := cfg.Providers[model.Provider]
 			for _, protocol := range displayProtocols(model) {
 				item.Endpoints = append(item.Endpoints, endpointDetail{Protocol: protocol.Name(), URL: provider.Endpoints.For(protocol)})
@@ -175,7 +154,6 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			return r.Err()
 		},
 	}
-	invocation.BindProtocol(cmd, &protocol, "The model that declares this protocol, when one name names several")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the model as JSON")
 	return cmd
 }

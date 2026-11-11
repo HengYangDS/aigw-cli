@@ -23,9 +23,9 @@ func (found foundExecutables) Discover(...string) discovery.Result {
 // keys, under schema_version 3. A disabled client keeps its selection.
 func TestStatusNamesEachModelProviderModel(t *testing.T) {
 	runtime, cfg, out := configuredReadinessRuntime(t)
-	twin := cfg.Models["claude"]
-	twin.Protocols = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}
-	cfg.Models["claude-responses"] = twin
+	twin := cfg.Models[domain.NewModelRef("one", "claude-test")]
+	twin.Protocols[domain.ProtocolResponses] = []domain.Capability{}
+	cfg.Models[twin.Ref()] = twin
 	cfg.SetClientActivation(claude.ID, false, "", nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)

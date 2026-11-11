@@ -36,22 +36,9 @@ func (status CatalogStatus) Label() string {
 	}
 }
 
-// CatalogModel is one model that a provider catalog lists, with the Routes
-// that use it.
+// CatalogModel is one model ID that a provider catalog lists.
 type CatalogModel struct {
-	ID     string            `json:"id"`
-	State  CatalogEntryState `json:"state"`
-	Models []ConfiguredModel `json:"routes,omitempty"`
-}
-
-// ConfiguredModel is a configured model as one catalog observation sees it.
-type ConfiguredModel struct {
-	ID            string                `json:"id"`
-	Family        string                `json:"model"`
-	UpstreamModel string                `json:"upstream_model"`
-	Capabilities  []domain.Capability   `json:"capabilities"`
-	Lifecycle     domain.ModelLifecycle `json:"lifecycle"`
-	Evidence      CatalogEvidence       `json:"evidence"`
+	ID string `json:"id"`
 }
 
 // CatalogSource is the endpoint and protocol that one observation read.
@@ -60,16 +47,16 @@ type CatalogSource struct {
 	Endpoint string                  `json:"endpoint"`
 }
 
-// CatalogObservation is one Account's catalog for one protocol.
+// CatalogObservation is one provider's catalog for one protocol: the model
+// IDs that it lists, in sorted order.
 type CatalogObservation struct {
-	ObservationID   string            `json:"observation_id,omitempty"`
-	Provider        string            `json:"account"`
-	Label           string            `json:"label"`
-	Source          CatalogSource     `json:"source"`
-	SecretAvailable bool              `json:"secret_available"`
-	Status          CatalogStatus     `json:"status"`
-	Models          []CatalogModel    `json:"models"`
-	MissingModels   []ConfiguredModel `json:"missing_routes"`
+	ObservationID   string         `json:"observation_id,omitempty"`
+	Provider        string         `json:"provider"`
+	Label           string         `json:"label"`
+	Source          CatalogSource  `json:"source"`
+	SecretAvailable bool           `json:"secret_available"`
+	Status          CatalogStatus  `json:"status"`
+	Models          []CatalogModel `json:"models"`
 	// Failure is why the catalog could not be read: the credential backend's
 	// failure or the request's, such as a CatalogStatusError. Documents do
 	// not carry it.
@@ -92,27 +79,13 @@ var ErrCatalogFormat = errors.New("the response is not a model catalog")
 // CatalogStatus is the outcome of one catalog observation.
 type CatalogStatus string
 
-// CatalogEntryState says whether a listed model is admitted, deprecated or a
-// candidate for qualification.
-type CatalogEntryState string
-
-// CatalogEvidence says how a Route's catalog membership is known.
-type CatalogEvidence string
-
-// The catalog statuses, entry states and evidence kinds.
+// The catalog statuses.
 const (
 	CatalogOK                    CatalogStatus = "ok"
 	CatalogEndpointUnavailable   CatalogStatus = "catalog_endpoint_unavailable"
 	CatalogCredentialUnavailable CatalogStatus = "credential_backend_failed"
 	CatalogTokenUnavailable      CatalogStatus = "token_unavailable"
 	CatalogRequestFailed         CatalogStatus = "request_failed"
-
-	CatalogCandidate  CatalogEntryState = "candidate"
-	CatalogAdmitted   CatalogEntryState = "admitted"
-	CatalogDeprecated CatalogEntryState = "deprecated"
-
-	CatalogObserved                CatalogEvidence = "observed"
-	CatalogRequalificationRequired CatalogEvidence = "requalification_required"
 )
 
 // CatalogReport holds every catalog observation of one discovery.
@@ -129,13 +102,12 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 	result := CatalogReport{Observations: []CatalogObservation{}}
 	var reads []*catalogRead
 	pending := map[string]*catalogRead{}
-	for _, providerID := range cfg.CatalogProviderIDs() {
+	for _, providerID := range cfg.ProviderIDs() {
 		provider := cfg.Providers[providerID]
 		sources := catalogSources(provider)
 		if len(sources) == 0 {
 			result.Observations = append(result.Observations, CatalogObservation{
-				Provider: providerID, Label: provider.Label, Status: CatalogEndpointUnavailable,
-				Models: []CatalogModel{}, MissingModels: []ConfiguredModel{},
+				Provider: providerID, Label: provider.Label, Status: CatalogEndpointUnavailable, Models: []CatalogModel{},
 			})
 			continue
 		}
@@ -147,7 +119,7 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 		for _, source := range sources {
 			entry := CatalogObservation{
 				Provider: providerID, Label: provider.Label, Source: source,
-				SecretAvailable: secretAvailable, Models: []CatalogModel{}, MissingModels: []ConfiguredModel{},
+				SecretAvailable: secretAvailable, Models: []CatalogModel{},
 			}
 			switch {
 			case observationErr != nil:
@@ -174,7 +146,7 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 	wait.Wait()
 	for _, read := range reads {
 		for _, index := range read.observations {
-			read.record(cfg, &result.Observations[index])
+			read.record(&result.Observations[index])
 		}
 	}
 	return result
@@ -192,15 +164,18 @@ type catalogRead struct {
 }
 
 // record completes an observation that the read answers: a failure, or the
-// models that the catalog lists and the configured models that it does not.
-func (read *catalogRead) record(cfg domain.Config, entry *CatalogObservation) {
+// model IDs that the catalog lists.
+func (read *catalogRead) record(entry *CatalogObservation) {
 	if read.err != nil {
 		entry.Status, entry.Failure = CatalogRequestFailed, read.err
 		return
 	}
 	entry.Status = CatalogOK
 	entry.Source.Endpoint = read.endpoint
-	entry.Models, entry.MissingModels = catalogDifference(cfg, entry.Provider, entry.Source.Protocol, read.ids)
+	ids := slices.Sorted(slices.Values(read.ids))
+	for _, id := range ids {
+		entry.Models = append(entry.Models, CatalogModel{ID: id})
+	}
 	entry.ObservationID = catalogObservationID(entry.Provider, entry.Source.Protocol, read.endpoint, read.ids)
 }
 
@@ -218,65 +193,6 @@ func catalogSources(account domain.Provider) []CatalogSource {
 		}
 	}
 	return sources
-}
-
-func catalogDifference(cfg domain.Config, account string, protocol domain.EndpointProtocol, ids []string) ([]CatalogModel, []ConfiguredModel) {
-	ids = slices.Clone(ids)
-	slices.Sort(ids)
-	observed := make(map[string]bool, len(ids))
-	for _, id := range ids {
-		observed[id] = true
-	}
-
-	routesByModel := make(map[string][]ConfiguredModel)
-	missing := []ConfiguredModel{}
-	for _, routeID := range cfg.CatalogModelIDs() {
-		route := cfg.Models[routeID]
-		capabilities, admitted := route.Protocols[protocol]
-		if route.Provider != account || !admitted {
-			continue
-		}
-		capabilities = slices.Clone(capabilities)
-		slices.Sort(capabilities)
-		entry := ConfiguredModel{
-			ID: routeID, Family: route.Family, UpstreamModel: route.UpstreamModelID(),
-			Capabilities: capabilities, Lifecycle: route.LifecycleState(), Evidence: CatalogObserved,
-		}
-		routesByModel[entry.UpstreamModel] = append(routesByModel[entry.UpstreamModel], entry)
-		if !observed[entry.UpstreamModel] {
-			entry.Evidence = CatalogRequalificationRequired
-			missing = append(missing, entry)
-		}
-	}
-
-	models := make([]CatalogModel, 0, len(ids))
-	for _, id := range ids {
-		routes := routesByModel[id]
-		state := CatalogCandidate
-		for _, route := range routes {
-			if route.Lifecycle == domain.ModelAdmitted {
-				state = CatalogAdmitted
-				break
-			}
-			state = CatalogDeprecated
-		}
-		models = append(models, CatalogModel{ID: id, State: state, Models: routes})
-	}
-	slices.SortStableFunc(models, func(left, right CatalogModel) int {
-		if len(left.Models) == 0 && len(right.Models) > 0 {
-			return 1
-		}
-		if len(right.Models) == 0 && len(left.Models) > 0 {
-			return -1
-		}
-		if len(left.Models) > 0 && len(right.Models) > 0 {
-			if rank := cfg.CompareFamilies(left.Models[0].Family, right.Models[0].Family); rank != 0 {
-				return rank
-			}
-		}
-		return strings.Compare(left.ID, right.ID)
-	})
-	return models, missing
 }
 
 func catalogObservationID(account string, protocol domain.EndpointProtocol, endpoint string, ids []string) string {

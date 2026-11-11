@@ -115,30 +115,29 @@ func verifyNativeClientRefusal(t *testing.T, journey *journeyFixture, client str
 }
 
 func nativeResourceManifest(client, endpoint string) string {
-	protocol, capabilities := "openai_chat_completions", `["text"]`
+	protocol, capabilities := "chat", `["text"]`
 	if client == codex.ID {
-		protocol, capabilities = "openai_responses", "[]"
+		protocol, capabilities = "responses", "[]"
 	}
-	return fmt.Sprintf(`version = 7
+	return fmt.Sprintf(`version = 8
 
-[recommendations.%[1]s.primary]
-route = "native-resource-%[1]s"
-
-[accounts.native-system-keyring-probe]
+[[providers]]
+id = "native-system-keyring-probe"
 label = "Native Resource Probe"
+endpoints = {%[2]s = %[4]q}
 
-[accounts.native-system-keyring-probe.endpoints]
-%[2]s = %[4]q
+[[providers.models]]
+id = "native-resource-model"
+family = "native-resource-model"
+label = "Native Resource Route"
+protocols = {%[2]s = %[3]s}
 
-[models.native-resource-model]
+[[families]]
+id = "native-resource-model"
 label = "Native Resource Model"
 
-[routes.native-resource-%[1]s]
-label = "Native Resource Route"
-account = "native-system-keyring-probe"
-model = "native-resource-model"
-upstream_model = "native-resource-model"
-interfaces = { %[2]s = %[3]s }
+[recommendations.%[1]s]
+primary = {model = "native-system-keyring-probe/native-resource-model"}
 `, client, protocol, capabilities, endpoint)
 }
 

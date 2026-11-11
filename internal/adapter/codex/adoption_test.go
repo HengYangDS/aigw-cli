@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"aigw-cli/internal/domain"
 	"os"
 	"path/filepath"
 	"strings"
@@ -104,7 +105,7 @@ func TestReconcileConfigsTransitionAcceptsTheModelBeingProjected(t *testing.T) {
 				t.Fatal(err)
 			}
 			next := previous
-			next.ModelID, next.ModelLabel, next.UpstreamModel = "next", "Next", "gpt-next"
+			next.Model, next.ModelLabel, next.UpstreamModel = domain.NewModelRef(next.ProviderID, "gpt-next"), "Next", "gpt-next"
 			target := HomeTarget(path)
 			_, err = ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, previous, next, false)
 			after, readErr := os.ReadFile(path)

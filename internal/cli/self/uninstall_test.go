@@ -88,11 +88,11 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		configStore := store.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission())
 		cfg := domain.NewConfig(clients.Admission())
 		cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-		cfg.Models["claude"] = domain.Model{
-			Label: "Claude", Provider: "gateway", Family: "claude-test",
+		cfg.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{
+			Label: "Claude", Provider: "gateway", Family: "claude-test", ID: "claude-test",
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 		}
-		cfg.SetSelectedModel(claude.ID, "claude", "")
+		cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 		cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 		if err := configStore.Save(cfg); err != nil {
 			t.Fatal(err)

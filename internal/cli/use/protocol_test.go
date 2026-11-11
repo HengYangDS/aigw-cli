@@ -20,8 +20,8 @@ import (
 
 func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
-	cfg.Models["shared"] = domain.Model{
-		Provider: "gateway", Family: "shared-model",
+	cfg.Models[domain.NewModelRef("gateway", "shared-model")] = domain.Model{
+		Provider: "gateway", Family: "shared-model", ID: "shared-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {}, domain.ProtocolResponses: {},
 		},
@@ -60,8 +60,8 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Secrets = store
-	cfg.Models["shared"] = domain.Model{
-		Provider: "gateway", Family: "shared-model",
+	cfg.Models[domain.NewModelRef("gateway", "shared-model")] = domain.Model{
+		Provider: "gateway", Family: "shared-model", ID: "shared-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {}, domain.ProtocolResponses: {},
 		},
@@ -86,7 +86,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		t.Fatalf("ambiguous Hermes error = %v, want explicit protocol guidance", err)
 	}
 	unchanged, err := runtime.Config.Load()
-	if err != nil || unchanged.SelectedModel(hermes.ID) != "" {
+	if err != nil || !unchanged.SelectedModel(hermes.ID).IsZero() {
 		t.Fatalf("ambiguous selection changed Hermes binding: %#v, %v", unchanged.Clients, err)
 	}
 
@@ -109,9 +109,9 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		t.Fatal(err)
 	}
 	selected, err := runtime.Config.Load()
-	if err != nil || selected.SelectedModel(hermes.ID) != "shared" ||
+	if err != nil || selected.SelectedModel(hermes.ID) != domain.NewModelRef("gateway", "shared-model") ||
 		selected.Clients[hermes.ID].Protocol != domain.ProtocolAnthropic ||
-		selected.SelectedModel(codex.ID) != "codex" {
+		selected.SelectedModel(codex.ID) != domain.NewModelRef("gateway", "gpt-test") {
 		t.Fatalf("explicit Hermes protocol selection = %#v, %v", selected.Clients, err)
 	}
 	if output := out.String(); !strings.Contains(output, "Install Hermes if needed, then run `aigw sync`") || strings.Contains(output, "aigw check") {
@@ -135,8 +135,8 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 
 func TestUseValidatesSelectedProtocolWhenAcquiringToken(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
-	cfg.Models["shared"] = domain.Model{
-		Provider: "gateway", Family: "shared-model",
+	cfg.Models[domain.NewModelRef("gateway", "shared-model")] = domain.Model{
+		Provider: "gateway", Family: "shared-model", ID: "shared-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {}, domain.ProtocolResponses: {},
 		},
@@ -188,7 +188,7 @@ func TestUseRefusesAProtocolThatCannotCarryTheSelection(t *testing.T) {
 				provider := cfg.Providers["gateway"]
 				provider.Endpoints = test.endpoints
 				cfg.Providers["gateway"] = provider
-				delete(cfg.Models, "codex")
+				delete(cfg.Models, domain.NewModelRef("gateway", "gpt-test"))
 				delete(cfg.Clients, codex.ID)
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)

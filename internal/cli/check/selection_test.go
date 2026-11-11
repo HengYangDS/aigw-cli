@@ -38,7 +38,7 @@ func TestCheckOfAClientWithoutAModel(t *testing.T) {
 		}, problem: "No model is selected", state: domainreadiness.Deferred, detail: "aigw use codex <provider/model>"},
 		{name: "a recommendation", prepare: func(cfg *domain.Config) {
 			delete(cfg.Clients, codex.ID)
-			cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "codex"}}
+			cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("one", "gpt-test")}}
 		}, problem: "No model is selected", state: domainreadiness.Deferred, action: "aigw use codex one/gpt-test"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

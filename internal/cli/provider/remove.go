@@ -100,7 +100,7 @@ func runRemove(cmd *cobra.Command, runtime invocation.Context, args []string, dr
 // provider's. The fix previews the provider's removal, which changes nothing
 // if it is run as it stands.
 func refuseCaseVariant(cfg domain.Config, id string) error {
-	for _, configured := range cfg.CatalogProviderIDs() {
+	for _, configured := range cfg.ProviderIDs() {
 		if domain.SameIdentifier(configured, id) {
 			return terminal.ProblemError(fmt.Sprintf("%q differs only in case from provider %q, so AIGW does not remove it as a leftover", id, configured),
 				"", "Nothing was deleted.", "aigw provider remove "+configured+" --dry-run", nil)
@@ -249,12 +249,9 @@ func blockedRemoval(runtime invocation.Context, document removeDocument, refusal
 // from recommendations, and returns the clients whose recommendation changed.
 func removeProvider(cfg *domain.Config, id string) []string {
 	changed := []string{}
-	for _, key := range cfg.ModelIDs() {
-		if cfg.Models[key].Provider != id {
-			continue
-		}
-		delete(cfg.Models, key)
-		for _, client := range cfg.RemoveRecommendedModel(key) {
+	for _, ref := range cfg.ProviderModelRefs(id) {
+		delete(cfg.Models, ref)
+		for _, client := range cfg.RemoveRecommendedModel(ref) {
 			if !slices.Contains(changed, client) {
 				changed = append(changed, client)
 			}

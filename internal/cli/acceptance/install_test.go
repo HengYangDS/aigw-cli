@@ -296,7 +296,7 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 		codexTarget + ".aigw-state.json",
 		codexTarget + ".aigw-model-catalog.json",
 		claudeSettingsPath(t, app.Host) + ".aigw-state.json",
-		app.Config.Path() + ".verified.json",
+		verifiedPath(app.Config.Path()),
 	}
 	if manager == "portable" {
 		removedPaths = append(removedPaths, app.Executable, previousExecutable)
@@ -324,7 +324,7 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	if len(retained.Clients) != expectedBindings || len(retained.EnabledClientIDs()) != 0 || len(retained.Providers) != 1 || len(retained.Models) != 2 {
 		t.Fatalf("retained capability configuration = %#v", retained)
 	}
-	if manager == "homebrew" && (retained.SelectedModel(claude.ID) != "claude" || retained.SelectedModel(codex.ID) != "codex") {
+	if manager == "homebrew" && (retained.SelectedModel(claude.ID) != domain.NewModelRef("team", "claude-model") || retained.SelectedModel(codex.ID) != domain.NewModelRef("team", "gpt-model")) {
 		t.Fatalf("package-managed uninstall changed retained client selections: %#v", retained.Clients)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "token" {
@@ -366,10 +366,10 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 	}}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", Responses: "https://team.test/v1"}}
-	cfg.Models["claude"] = qualifiedModel("Claude", "team", "claude-model", domain.ProtocolAnthropic)
-	cfg.Models["codex"] = qualifiedModel("Codex", "team", "gpt-model", domain.ProtocolResponses)
-	cfg.SetSelectedModel(claude.ID, "claude", "")
-	cfg.SetSelectedModel(codex.ID, "codex", "")
+	cfg.Models[domain.NewModelRef("team", "claude-model")] = qualifiedModel("Claude", "team", "claude-model", domain.ProtocolAnthropic)
+	cfg.Models[domain.NewModelRef("team", "gpt-model")] = qualifiedModel("Codex", "team", "gpt-model", domain.ProtocolResponses)
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "claude-model"), "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("team", "gpt-model"), "")
 	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)
 	cfg.SetClientActivation(codex.ID, true, codexExecutable, []string{codexTarget})
 	if err := app.Config.Save(cfg); err != nil {

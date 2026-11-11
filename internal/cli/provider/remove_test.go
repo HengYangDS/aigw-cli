@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"aigw-cli/internal/domain"
 	"errors"
 	"os"
 	"path/filepath"
@@ -108,7 +109,7 @@ func TestRemoveTakesTheLastModelAndTheLastProvider(t *testing.T) {
 	cfg := f.load(t)
 	cfg.Clients = nil
 	cfg.Recommendations = nil
-	delete(cfg.Models, "mixed-chat")
+	delete(cfg.Models, domain.NewModelRef("mixed", "chat-only"))
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

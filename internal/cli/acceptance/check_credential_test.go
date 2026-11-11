@@ -66,8 +66,8 @@ func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
 func TestCheckNamesTheEnvironmentTokenForARejectedToken(t *testing.T) {
 	app, out, _, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
-	cfg.SetSelectedModel(claude.ID, "dmx", "")
+	addProviderModel(&cfg, "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("dmx", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -177,8 +177,8 @@ func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			app, out, secretStore, _, httpClient := testApp(t, "")
 			cfg := domain.NewConfig(clients.Admission())
-			addProviderModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
-			cfg.SetSelectedModel(claude.ID, "dmx", "")
+			addProviderModel(&cfg, "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
+			cfg.SetSelectedModel(claude.ID, domain.NewModelRef("dmx", "claude-test"), "")
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
@@ -245,10 +245,10 @@ func syncedCheckApp(t *testing.T, endpoints domain.Endpoints) (*cli.App, *bytes.
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: endpoints}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
-	cfg.Models["claude"] = qualifiedModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(codex.ID, "gpt", "")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("dmx", "gpt-test")] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("dmx", "claude-test")] = qualifiedModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-test"), "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("dmx", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {

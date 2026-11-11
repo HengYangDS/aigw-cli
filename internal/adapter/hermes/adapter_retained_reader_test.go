@@ -47,8 +47,8 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	}
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["hermes"] = qualifiedModel("Hermes", "team", "model-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(ID, "hermes", "")
+	cfg.Models[domain.NewModelRef("team", "model-test")] = qualifiedModel("Hermes", "team", "model-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(ID, domain.NewModelRef("team", "model-test"), "")
 	cfg.SetClientActivation(ID, true, executable, []string{target})
 	store := secret.NewMemoryStore()
 	if err := store.Set("team", "fixture-token"); err != nil {
@@ -56,7 +56,7 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	}
 	clientAdapter := hermesAdapter{}
 	deps := adapter.Dependencies{Secrets: store, AIGWExecutable: retained}
-	selected, err := cfg.ResolveRuntime(ID, "")
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	account := changed.Providers["team"]
 	account.Endpoints.Anthropic = "https://changed.test"
 	changed.Providers["team"] = account
-	changedRuntime, err := changed.ResolveRuntime(ID, "")
+	changedRuntime, err := changed.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}

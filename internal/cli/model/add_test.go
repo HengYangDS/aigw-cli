@@ -20,16 +20,11 @@ func TestAddChecksTheCatalogAndStoresAKeyThatOutputNeverShows(t *testing.T) {
 		t.Fatalf("added model = %v after %d requests", document, f.catalog.requests)
 	}
 	cfg := f.load(t)
-	ref, _ := domain.ParseModelRef("team/spare-model")
-	keys := cfg.ResolveModelRef(ref)
-	if len(keys) != 1 || keys[0] != domain.ModelKey(ref) || strings.Contains(f.out.String(), keys[0]) {
-		t.Fatalf("stored keys %q, in output %t", keys, len(keys) > 0 && strings.Contains(f.out.String(), keys[0]))
-	}
-	key := keys[0]
-	if model := cfg.Models[key]; model.Family != "spare-model" || model.UpstreamModelID() != "spare-model" || len(model.Protocols[domain.ProtocolAnthropic]) != 0 {
+	key, _ := domain.ParseModelRef("team/spare-model")
+	if model := cfg.Models[key]; model.Family != "" || model.ID != "spare-model" || len(model.Protocols[domain.ProtocolAnthropic]) != 0 {
 		t.Fatalf("added model = %#v", model)
 	}
-	if cfg.SelectedModel("claude") != "team" || cfg.SelectedModel("hermes") != "" {
+	if cfg.SelectedModel("claude") != domain.NewModelRef("team", "team-model") || !cfg.SelectedModel("hermes").IsZero() {
 		t.Fatalf("adding a model changed a selection: %#v", cfg.Clients)
 	}
 }
@@ -90,9 +85,9 @@ func TestAddWithoutTheCatalogCheck(t *testing.T) {
 	if f.catalog.requests != 0 || !strings.Contains(f.text(), "! Catalog Not checked: --unlisted") || !strings.Contains(f.text(), "Next aigw use <client> team/openai/gpt-oss") {
 		t.Fatalf("an unlisted addition sent %d requests:\n%s", f.catalog.requests, f.out)
 	}
-	model := f.load(t).Models[domain.ModelKey(must(domain.ParseModelRef("team/openai/gpt-oss")))]
-	// A model ID that is not an identifier forms a family with a derived ID.
-	if model.UpstreamModelID() != "openai/gpt-oss" || model.Family != domain.FamilyID("openai/gpt-oss") || !domain.ValidIdentifier(model.Family) {
+	model := f.load(t).Models[must(domain.ParseModelRef("team/openai/gpt-oss"))]
+	// A model ID that matches no family is its own family.
+	if model.ID != "openai/gpt-oss" || model.Family != "" || model.FamilyID() != "openai/gpt-oss" {
 		t.Fatalf("a model ID with a slash = %#v", model)
 	}
 }
@@ -176,7 +171,7 @@ func TestAddDeclaresCapabilitiesOnTheProtocolsThatAdmitThem(t *testing.T) {
 	if err := f.run("add", "mixed/tools", "--protocol", "anthropic", "--capability", "tool_search", "--capability", "text", "--capability", "text", "--unlisted"); err != nil {
 		t.Fatal(err)
 	}
-	model := f.load(t).Models[domain.ModelKey(must(domain.ParseModelRef("mixed/tools")))]
+	model := f.load(t).Models[must(domain.ParseModelRef("mixed/tools"))]
 	if got := model.Protocols[domain.ProtocolAnthropic]; len(got) != 2 || got[0] != domain.CapabilityText || got[1] != domain.CapabilityToolSearch {
 		t.Fatalf("declared capabilities = %v", got)
 	}
@@ -220,25 +215,6 @@ func TestAddRefusesAnExistingModelOrAnUnknownProvider(t *testing.T) {
 	}
 	if p := problem(f.run("add", "spare-model")); p.Title != `"spare-model" names no provider; a model is named provider/model` {
 		t.Fatalf("an argument without a slash = %q", p.Title)
-	}
-}
-
-func TestModelKeyAndFamilyIDAreValidIdentifiers(t *testing.T) {
-	for _, text := range []string{"team/spare-model", "team/openai/gpt-oss", "team/" + strings.Repeat("long-", 30), "team/模型", "team/a b", "a/....."} {
-		ref := must(domain.ParseModelRef(text))
-		key := domain.ModelKey(ref)
-		if !domain.ValidIdentifier(key) || key != domain.ModelKey(ref) {
-			t.Errorf("ModelKey(%s) = %q, not a stable identifier", text, key)
-		}
-		if family := domain.FamilyID(ref.ID()); !domain.ValidIdentifier(family) {
-			t.Errorf("FamilyID(%q) = %q, not an identifier", ref.ID(), family)
-		}
-	}
-	if domain.ModelKey(must(domain.ParseModelRef("team/a.b"))) == domain.ModelKey(must(domain.ParseModelRef("team/a/b"))) {
-		t.Fatal("two references share a key")
-	}
-	if got := domain.FamilyID("gpt-6.1-sol"); got != "gpt-6.1-sol" {
-		t.Fatalf("FamilyID of an identifier = %q", got)
 	}
 }
 

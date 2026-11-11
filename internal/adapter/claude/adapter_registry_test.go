@@ -25,12 +25,12 @@ func TestClaudeProjectionTreatsAnInvalidRuntimeAsChanged(t *testing.T) {
 	t.Run("invalid enabled Claude runtime", func(t *testing.T) {
 		before := domain.NewConfig(testAdmission())
 		before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-		before.Models["claude"] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
-		before.SetSelectedModel(ID, "claude", "")
+		before.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
+		before.SetSelectedModel(ID, domain.NewModelRef("gateway", "claude-test"), "")
 		before.SetClientActivation(ID, true, "/opt/claude", nil)
 		after := before.Clone()
-		delete(before.Models, "claude")
-		delete(after.Models, "claude")
+		delete(before.Models, domain.NewModelRef("gateway", "claude-test"))
+		delete(after.Models, domain.NewModelRef("gateway", "claude-test"))
 		if changed := claudeRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != ID {
 			t.Fatal("invalid Claude runtime was treated as unchanged")
 		}
@@ -44,10 +44,10 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 		Anthropic: "https://gateway.test",
 		Responses: "https://gateway.test/v1",
 	}}
-	cfg.Models["claude"] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
-	cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
-	cfg.SetSelectedModel(ID, "claude", "")
-	cfg.SetSelectedModel(otherClient.ID, "codex", "")
+	cfg.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
+	cfg.SetSelectedModel(ID, domain.NewModelRef("gateway", "claude-test"), "")
+	cfg.SetSelectedModel(otherClient.ID, domain.NewModelRef("gateway", "gpt-test"), "")
 	cfg.SetClientActivation(ID, true, missing, nil)
 
 	after, err := claudeRegistry().Converge(adapter.Dependencies{}, cfg, discovery.Result{}, ID)
@@ -80,8 +80,8 @@ func TestClaudeConvergenceIgnoresOnlyAnUnselectedModel(t *testing.T) {
 
 		t.Run(clientID+" with a broken route", func(t *testing.T) {
 			cfg := domain.NewConfig(testAdmission())
-			cfg.SetSelectedModel(clientID, "missing-route", "")
-			if _, err := claudeRegistry().Converge(adapter.Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
+			cfg.SetSelectedModel(clientID, domain.NewModelRef("gateway", "missing"), "")
+			if _, err := claudeRegistry().Converge(adapter.Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown model gateway/missing`) {
 				t.Fatalf("Converge(%q) broken route error = %v", clientID, err)
 			}
 		})

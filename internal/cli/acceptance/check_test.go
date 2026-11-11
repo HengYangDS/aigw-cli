@@ -22,8 +22,8 @@ import (
 func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
-	cfg.SetSelectedModel(claude.ID, "dmx", "")
+	addProviderModel(&cfg, "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("dmx", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -54,8 +54,8 @@ func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, secretStore, _, httpClient := testApp(t, "")
 			cfg := domain.NewConfig(clients.Admission())
-			addProviderModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
-			cfg.SetSelectedModel(claude.ID, "dmx", "")
+			addProviderModel(&cfg, "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
+			cfg.SetSelectedModel(claude.ID, domain.NewModelRef("dmx", "claude-test"), "")
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
@@ -88,8 +88,8 @@ func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T)
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Responses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Models["claude-fable-5"] = qualifiedModel("Claude Fable", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(claude.ID, "claude-fable-5", "")
+	cfg.Models[domain.NewModelRef("dmx", "claude-fable-5")] = qualifiedModel("Claude Fable", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("dmx", "claude-fable-5"), "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude-real", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -107,9 +107,9 @@ func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T)
 func TestCheckJSONReportsOnlyActiveModels(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "claude", "claude-account", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
-	addProviderModel(&cfg, "unused", "unused-account", "Unused", domain.Endpoints{Anthropic: "https://unused.test"}, claude.ID, "unused-test")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	addProviderModel(&cfg, "claude-account", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "unused-account", "Unused", domain.Endpoints{Anthropic: "https://unused.test"}, claude.ID, "unused-test")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("claude-account", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -137,8 +137,8 @@ func TestCheckJSONReportsOnlyActiveModels(t *testing.T) {
 func TestCheckJSONMakesMissingActiveCredentialActionable(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "claude", "claude-account", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	addProviderModel(&cfg, "claude-account", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("claude-account", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -240,8 +240,8 @@ func TestCheckSurfacesMissingSelectedModelToken(t *testing.T) {
 func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "claude", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	addProviderModel(&cfg, "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("dmx", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -261,15 +261,15 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 func TestCheckRejectsAnEnabledClientModelWithoutItsProviderToken(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "claude", "claude-account", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
-	addProviderModel(&cfg, "codex", "codex-account", "Codex", domain.Endpoints{Responses: "https://codex.test/v1"}, codex.ID, "gpt-test")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
-	cfg.SetSelectedModel(codex.ID, "codex", "")
+	addProviderModel(&cfg, "claude-account", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "codex-account", "Codex", domain.Endpoints{Responses: "https://codex.test/v1"}, codex.ID, "gpt-test")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("claude-account", "claude-test"), "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("codex-account", "gpt-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	target := filepath.Join(t.TempDir(), "config.toml")
 	writeFile(t, target, nil, 0o600)
 	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
-	clientRuntime, err := cfg.ResolveRuntime(codex.ID, "")
+	clientRuntime, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,20 +310,20 @@ func TestCheckProbesEveryEnabledClientModelAndIgnoresUnselectedModel(t *testing.
 		"claude-account": {Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://claude.test"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
 		"codex-account":  {Label: "Codex", Endpoints: domain.Endpoints{Responses: "https://codex.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
 	}
-	cfg.Models = map[string]domain.Model{
-		"stale":  qualifiedModel("Stale", "stale-account", "stale-model", domain.ProtocolResponses),
-		"claude": qualifiedModel("Claude", "claude-account", "claude-test", domain.ProtocolAnthropic),
-		"codex":  qualifiedModel("Codex", "codex-account", "gpt-test", domain.ProtocolResponses),
+	cfg.Models = map[domain.ModelRef]domain.Model{
+		domain.NewModelRef("stale-account", "stale-model"):  qualifiedModel("Stale", "stale-account", "stale-model", domain.ProtocolResponses),
+		domain.NewModelRef("claude-account", "claude-test"): qualifiedModel("Claude", "claude-account", "claude-test", domain.ProtocolAnthropic),
+		domain.NewModelRef("codex-account", "gpt-test"):     qualifiedModel("Codex", "codex-account", "gpt-test", domain.ProtocolResponses),
 	}
 	cfg.Clients = map[string]domain.ClientBinding{
-		claude.ID: {Model: "claude", Enabled: true, Executable: executableFixture(t, "claude")},
-		codex.ID:  {Model: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}},
+		claude.ID: {Model: domain.NewModelRef("claude-account", "claude-test"), Enabled: true, Executable: executableFixture(t, "claude")},
+		codex.ID:  {Model: domain.NewModelRef("codex-account", "gpt-test"), Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}},
 	}
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	codexRuntime, err := cfg.ResolveRuntime(codex.ID, "")
+	codexRuntime, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,7 +351,7 @@ func TestCheckProbesEveryEnabledClientModelAndIgnoresUnselectedModel(t *testing.
 	app.Prompt = prompt
 	before := map[string][]byte{
 		app.Config.Path():                                    readFile(t, app.Config.Path()),
-		app.Config.Path() + ".verified.json":                 readFile(t, app.Config.Path()+".verified.json"),
+		verifiedPath(app.Config.Path()):                      readFile(t, verifiedPath(app.Config.Path())),
 		codexTarget:                                          readFile(t, codexTarget),
 		codexTarget + ".aigw-state.json":                     readFile(t, codexTarget+".aigw-state.json"),
 		claudeSettingsPath(t, app.Host):                      readFile(t, claudeSettingsPath(t, app.Host)),
@@ -414,8 +414,8 @@ func TestCheckEvaluatesModelsIndependentlyOfProgramVersion(t *testing.T) {
 				app, out, store, _, _ := testApp(t, "")
 				app.Version = version
 				cfg := domain.NewConfig(clients.Admission())
-				addProviderModel(&cfg, "claude", "account", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
-				cfg.SetSelectedModel(claude.ID, "claude", "")
+				addProviderModel(&cfg, "account", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
+				cfg.SetSelectedModel(claude.ID, domain.NewModelRef("account", "claude-test"), "")
 				cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 				synchronizeClaudeProjection(t, app, cfg)
 				if err := app.Config.Save(cfg); err != nil {
@@ -448,8 +448,8 @@ func TestCheckKeepsGenericHealthAvailableWhenExactDiagnosticDriverIsNotBundled(t
 		Endpoints:    domain.Endpoints{Anthropic: "https://future.test"},
 		BalanceProbe: &domain.BalanceProbe{Kind: "future-provider", BaseURL: "https://future.test"},
 	}
-	cfg.Models["claude"] = qualifiedModel("Claude", "future", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("future", "claude-test")] = qualifiedModel("Claude", "future", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("future", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {

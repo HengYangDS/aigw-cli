@@ -170,8 +170,8 @@ func observeWithoutEffects(ctx context.Context, fixture Fixture, when string) er
 // explicitModel is the Route that one verification names: the fixture's
 // selected Route, or a placeholder when the fixture selects none.
 func explicitModel(fixture Fixture) string {
-	if fixture.Runtime.ModelID != "" {
-		return fixture.Runtime.ModelID
+	if !fixture.Runtime.Model.IsZero() {
+		return fixture.Runtime.Model.String()
 	}
 	return "contract"
 }

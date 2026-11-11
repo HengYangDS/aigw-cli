@@ -77,9 +77,9 @@ func TestListRendersEachProviderOnce(t *testing.T) {
 func TestListMarksADeprecatedModel(t *testing.T) {
 	f := newFixture(t)
 	cfg := f.load(t)
-	model := cfg.Models["mixed-chat"]
-	model.Lifecycle = domain.ModelDeprecated
-	cfg.Models["mixed-chat"] = model
+	model := cfg.Models[domain.NewModelRef("mixed", "Chat-Only")]
+	model.Deprecated = true
+	cfg.Models[domain.NewModelRef("mixed", "Chat-Only")] = model
 	delete(cfg.Recommendations, "hermes")
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)

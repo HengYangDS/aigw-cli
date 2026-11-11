@@ -26,18 +26,16 @@ import (
 	"aigw-cli/tools/release/identity"
 
 	builtinclients "aigw-cli/internal/clients"
-
-	"github.com/pelletier/go-toml/v2"
 )
 
 type publishedNativeJourney struct {
-	journey                            *journeyFixture
-	baseline, candidate                string
-	archive, checksums, version        string
-	predecessor, sessionBytes, catalog []byte
-	session                            string
-	clients                            []string
-	retained                           map[string]process.Plan
+	journey                     *journeyFixture
+	baseline, candidate         string
+	archive, checksums, version string
+	predecessor, sessionBytes   []byte
+	session                     string
+	clients                     []string
+	retained                    map[string]process.Plan
 }
 
 func TestNativePublishedPredecessorJourney(t *testing.T) {
@@ -158,7 +156,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 		t.Fatalf("forwarded requests = %q, want %q", got, want)
 	}
 	for _, client := range state.clients {
-		resolved, err := cfg.ResolveRuntime(client, "")
+		resolved, err := cfg.ResolveRuntime(client, domain.ModelRef{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -195,7 +193,7 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint s
 	}
 	journey.run(journey.configRollback(journey.binary, "--last-change")...)
 	restored, err := configStore.CaptureSnapshot()
-	if err != nil || !restored.Config.Equal(selected.Config) || !restored.Forwarding().Equal(selected.Forwarding()) {
+	if err != nil || !restored.Config.Equal(selected.Config) {
 		t.Fatalf("configuration forward restore lost exact binding bytes: %v", err)
 	}
 	journey.run(journey.lifecycle(journey.binary, "rollback")...)
@@ -217,26 +215,25 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint s
 }
 
 func nativeCurrentSchemaManifest(endpoint string) string {
-	return fmt.Sprintf(`version = 7
+	return fmt.Sprintf(`version = 8
 
-[recommendations.claude.primary]
-route = "native-system-keyring-probe-claude"
-
-[accounts.native-system-keyring-probe]
+[[providers]]
+id = "native-system-keyring-probe"
 label = "Native System Keyring Probe"
+endpoints = {anthropic = %q}
 
-[accounts.native-system-keyring-probe.endpoints]
-anthropic = %q
+[[providers.models]]
+id = "claude-test"
+family = "claude-test"
+label = "Native System Keyring Probe Claude"
+protocols = {anthropic = []}
 
-[models.claude-test]
+[[families]]
+id = "claude-test"
 label = "Claude Test"
 
-[routes.native-system-keyring-probe-claude]
-label = "Native System Keyring Probe Claude"
-account = "native-system-keyring-probe"
-model = "claude-test"
-upstream_model = "claude-test"
-interfaces = { anthropic = [] }
+[recommendations.claude]
+primary = {model = "native-system-keyring-probe/claude-test"}
 `, endpoint)
 }
 
@@ -251,19 +248,19 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	}
 	journey.installClientFixture(hermes.ID)
 	journey.setEnvironment("HERMES_HOME", filepath.Join(journey.root, "home", ".hermes"))
-	configured, err := store.Parse(readFile(t, journey.manifest), builtinclients.Admission())
+	configured, err := store.ParseTeamFile(readFile(t, journey.manifest), builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
 	configured.Recommendations[hermes.ID] = domain.ClientRecommendation{
-		Primary: domain.ClientSelection{Model: "native-system-keyring-probe-claude", Protocol: domain.ProtocolAnthropic},
+		Primary: domain.ClientSelection{Model: probeModel, Protocol: domain.ProtocolAnthropic},
 	}
 	if slices.Contains(state.clients, claudedesktop.ID) {
 		configured.Recommendations[claudedesktop.ID] = domain.ClientRecommendation{
-			Primary: domain.ClientSelection{Model: "native-system-keyring-probe-claude"},
+			Primary: domain.ClientSelection{Model: probeModel},
 		}
 	}
-	data, err := toml.Marshal(configured)
+	data, err := store.ExportTeamFile(configured)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +351,6 @@ func (state *publishedNativeJourney) upgrade(t *testing.T) {
 	}
 	journey.requireVersion(state.version)
 	journey.requireProgramBytes(state.candidate)
-	state.catalog = journey.importCatalogOrder()
 	journey.run("sync")
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
 		t.Fatal("unchanged synchronization rewrote published configuration")
@@ -364,37 +360,6 @@ func (state *publishedNativeJourney) upgrade(t *testing.T) {
 		journey.requireCredential(state.retained[client], "native-journey-token")
 		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
 	}
-}
-
-func (j *journeyFixture) importCatalogOrder() []byte {
-	j.testing.Helper()
-	before := readFile(j.testing, j.config)
-	ranked, err := store.Parse(readFile(j.testing, j.manifest), builtinclients.Admission())
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	account, model := ranked.Providers["native-system-keyring-probe"], ranked.Families["claude-test"]
-	account.Order, model.Order = 10, 20
-	ranked.Providers["native-system-keyring-probe"], ranked.Families["claude-test"] = account, model
-	data, err := toml.Marshal(ranked)
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	if err := os.WriteFile(j.manifest, data, 0o600); err != nil {
-		j.testing.Fatal(err)
-	}
-	j.run("setup", "--from", j.manifest)
-	configStore := store.NewStore(j.config, builtinclients.Admission())
-	updated := capturePublishedSnapshot(j.testing, configStore)
-	selected, err := configStore.Load()
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	if selected.Providers["native-system-keyring-probe"].Order != 10 || selected.Families["claude-test"].Order != 20 ||
-		!updated.Catalog().Exists || !bytes.Equal(updated.Config.Data, before) {
-		j.testing.Fatal("catalog ranks were not isolated from published routing")
-	}
-	return updated.Catalog().Data
 }
 
 func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecessorVersion string) {
@@ -422,14 +387,13 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 		journey.requireCredential(state.retained[client], "native-journey-token")
 		journey.requireCredential(successor[client], "native-journey-token")
 	}
-	if !bytes.Equal(readFile(t, journey.config), state.predecessor) ||
-		!bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog().Data, state.catalog) {
-		t.Fatal("current-schema rollback changed published routing or catalog presentation")
+	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
+		t.Fatal("current-schema rollback changed the published configuration")
 	}
 	journey.run("sync")
 	journey.run("check")
-	if !bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog().Data, state.catalog) {
-		t.Fatal("published predecessor synchronization changed catalog presentation")
+	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
+		t.Fatal("published predecessor synchronization changed the configuration")
 	}
 	for _, client := range state.clients {
 		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
@@ -444,9 +408,8 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 	journey.run("check")
 	journey.requireVersion(state.version)
 	journey.requireProgramBytes(state.candidate)
-	if !bytes.Equal(readFile(t, journey.config), state.predecessor) ||
-		!bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog().Data, state.catalog) {
-		t.Fatal("current-schema recovery rewrote published routing or catalog presentation")
+	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
+		t.Fatal("current-schema recovery rewrote the published configuration")
 	}
 	state.finish(t)
 }

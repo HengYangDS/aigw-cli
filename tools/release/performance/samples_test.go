@@ -120,7 +120,7 @@ func TestMeasurementRejectsWarningsAfterValidatingItsWorkload(t *testing.T) {
 func TestPooledKeepsDirectAndForwardingBindingsSeparate(t *testing.T) {
 	var rows []Measurement
 	for _, mode := range []string{"direct", "forwarding"} {
-		binding := domain.Runtime{Client: claude.ID, ModelID: "route", ProviderID: "account",
+		binding := domain.Runtime{Client: claude.ID, Model: domain.NewModelRef("account", "route"), ProviderID: "account",
 			Protocol: domain.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "https://upstream.example/v1"}
 		if mode == "forwarding" {
 			binding.Endpoint = "http://127.0.0.1:18792/v1"
@@ -149,7 +149,7 @@ func TestMemoryRequiresOneResolvedMeasurementBinding(t *testing.T) {
 	}{
 		{name: "resolved forwarding"},
 		{name: "candidate block drift", reject: true, mutate: func(summary *Summary) { summary.Memory[3].Runtime.ProviderID = "different-account" }},
-		{name: "predecessor block drift", reject: true, mutate: func(summary *Summary) { summary.Memory[1].Runtime.ModelID = "different-route" }},
+		{name: "predecessor block drift", reject: true, mutate: func(summary *Summary) { summary.Memory[1].Runtime.Model = domain.NewModelRef("different", "model") }},
 		{name: "timing differs from memory", reject: true, mutate: func(summary *Summary) {
 			for index := range summary.Memory {
 				if summary.Memory[index].Variant == "candidate" {
@@ -173,7 +173,7 @@ func TestMemoryRequiresOneResolvedMeasurementBinding(t *testing.T) {
 			summary := Summary{Scope: "forwarding-performance"}
 			for _, variant := range []string{"baseline", "candidate"} {
 				mode := "direct"
-				binding := domain.Runtime{Client: claude.ID, ModelID: "route", ProviderID: "account",
+				binding := domain.Runtime{Client: claude.ID, Model: domain.NewModelRef("account", "route"), ProviderID: "account",
 					Protocol: domain.ProtocolAnthropic, Endpoint: "https://upstream.example/v1", UpstreamEndpoint: "https://upstream.example/v1"}
 				if variant == "candidate" {
 					mode, binding.Endpoint = "forwarding", "http://127.0.0.1:18792/v1"

@@ -411,11 +411,8 @@ func typedErrorMessage(err error, at platform.PathContext) (string, bool) {
 		// surrounding context still names the target.
 		return err.Error(), true
 	}
-	if mismatch, ok := errors.AsType[*domain.RuntimeModelClientMismatchError](err); ok {
-		return fmt.Sprintf("route %q is for %s, not %s", mismatch.ModelID, mismatch.ExpectedClient, mismatch.ActualClient), true
-	}
-	if unknownAccount, ok := errors.AsType[*domain.RuntimeModelUnknownProviderError](err); ok {
-		return fmt.Sprintf("route %q references unknown account %q", unknownAccount.ModelID, unknownAccount.ProviderID), true
+	if unknownProvider, ok := errors.AsType[*domain.RuntimeModelUnknownProviderError](err); ok {
+		return unknownProvider.Error(), true
 	}
 	if missingEndpoint, ok := errors.AsType[*domain.RuntimeMissingEndpointError](err); ok {
 		return missingEndpoint.Error(), true

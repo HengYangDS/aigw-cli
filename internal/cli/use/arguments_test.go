@@ -88,7 +88,7 @@ func TestUseRefusesALoneClientTypoWithoutTheConfiguration(t *testing.T) {
 	t.Run("a model like it", func(t *testing.T) {
 		runtime, cfg, _ := configuredRuntime(t)
 		cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{Anthropic: "https://ucloud.example.test"}}
-		cfg.Models["sonnet"] = domain.Model{Provider: "ucloud", Family: "claude-sonnet-5-6", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+		cfg.Models[domain.NewModelRef("ucloud", "claude-sonnet-5-6")] = domain.Model{Provider: "ucloud", Family: "claude-sonnet-5-6", ID: "claude-sonnet-5-6", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 		if err := runtime.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}

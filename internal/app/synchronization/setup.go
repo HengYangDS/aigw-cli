@@ -83,8 +83,8 @@ func (s Synchronizer) admitSetupTransition(after domain.Config, tokens map[strin
 			return domain.Config{}, fmt.Errorf("setup client %q has no admitted operational adapter", client)
 		}
 		binding := after.Clients[client]
-		if binding.Model == "" {
-			return domain.Config{}, fmt.Errorf("setup client %q has no selected route", client)
+		if binding.Model.IsZero() {
+			return domain.Config{}, fmt.Errorf("setup client %q has no selected model", client)
 		}
 		binding.Enabled = true
 		after.Clients[client] = binding

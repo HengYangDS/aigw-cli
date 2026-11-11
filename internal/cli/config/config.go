@@ -49,7 +49,7 @@ func newExportCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data, err := store.Export(cfg)
+			data, err := store.ExportTeamFile(cfg)
 			if err != nil {
 				return err
 			}

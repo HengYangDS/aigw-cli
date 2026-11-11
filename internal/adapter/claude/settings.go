@@ -197,10 +197,10 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 		return change.withdrawal(document, previousModel)
 	}
 	if runtime.Endpoint == "" {
-		return settingsChange{}, fmt.Errorf("route %q has no Claude endpoint", runtime.ModelID)
+		return settingsChange{}, fmt.Errorf("route %q has no Claude endpoint", runtime.Model)
 	}
 	if runtime.ProviderID == "" {
-		return settingsChange{}, fmt.Errorf("route %q has no account", runtime.ModelID)
+		return settingsChange{}, fmt.Errorf("route %q has no account", runtime.Model)
 	}
 	executable, err = validateExecutable(executable)
 	if err != nil {

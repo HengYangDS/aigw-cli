@@ -21,7 +21,6 @@ import (
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
 
-	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -69,10 +68,10 @@ func adapterConfig() domain.Config {
 			Responses: "https://gateway.test/v1",
 		},
 	}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "gateway", Family: "codex-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.SetSelectedModel(claude.ID, "claude", "")
-	cfg.SetSelectedModel(codex.ID, "codex", "")
+	cfg.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models[domain.NewModelRef("gateway", "codex-test")] = domain.Model{Label: "Codex", Provider: "gateway", Family: "codex-test", ID: "codex-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "codex-test"), "")
 	return cfg
 }
 
@@ -130,16 +129,17 @@ func TestEnableRejectsInvalidInputsBeforeMutation(t *testing.T) {
 }
 
 func TestEnableRejectsInvalidConfigurationAndMissingSecret(t *testing.T) {
-	missingEndpoint := adapterConfig()
-	account := missingEndpoint.Providers["gateway"]
-	account.Endpoints.Anthropic = ""
-	missingEndpoint.Providers["gateway"] = account
+	// The file loses the Anthropic endpoint that Claude's selection uses.
 	runtime, _, _, _ := adapterRuntime(t, adapterConfig())
-	data, err := toml.Marshal(missingEndpoint)
+	saved, err := os.ReadFile(runtime.Config.Path())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(runtime.Config.Path(), data, 0o600); err != nil {
+	missingEndpoint := strings.Replace(string(saved), "anthropic = 'https://gateway.test', ", "", 1)
+	if missingEndpoint == string(saved) {
+		t.Fatalf("the fixture has no Anthropic endpoint to remove:\n%s", saved)
+	}
+	if err := os.WriteFile(runtime.Config.Path(), []byte(missingEndpoint), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	err = executeAdapter(t, runtime, "enable", claude.ID, "--executable", "/opt/claude")
@@ -358,7 +358,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	if adapter, ok := got.Clients[claude.ID]; !ok || adapter.Enabled {
 		t.Fatalf("explicit disabled intent was not retained: %#v", got.Clients)
 	}
-	if got.SelectedModel(claude.ID) != "claude" || got.Models["claude"].Provider != "gateway" {
+	if got.SelectedModel(claude.ID) != domain.NewModelRef("gateway", "claude-test") || got.Models[domain.NewModelRef("gateway", "claude-test")].Provider != "gateway" {
 		t.Fatalf("capability configuration changed: %#v", got)
 	}
 	if token, err := secretStore.Get("gateway"); err != nil || token != "token" {
@@ -371,7 +371,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	if !strings.Contains(string(settings), `"theme": "dark"`) || strings.Contains(string(settings), "apiKeyHelper") || strings.Contains(string(settings), "ANTHROPIC_BASE_URL") {
 		t.Fatalf("restored Claude settings = %s", settings)
 	}
-	for _, path := range []string{claudeSettingsPath(t, runtime.Host) + ".aigw-state.json", runtime.Config.Path() + ".verified.json"} {
+	for _, path := range []string{claudeSettingsPath(t, runtime.Host) + ".aigw-state.json", strings.TrimSuffix(runtime.Config.Path(), ".toml") + ".verified.json"} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatalf("retired AIGW state remains at %s: %v", path, err)
 		}
@@ -464,7 +464,7 @@ func TestEnablePropagatesRuntimeResolutionError(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", "/opt/claude")
-	if err == nil || !strings.Contains(err.Error(), "no Route selected") {
+	if err == nil || !strings.Contains(err.Error(), "no model selected") {
 		t.Fatalf("runtime error = %v", err)
 	}
 }

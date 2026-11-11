@@ -4,9 +4,8 @@
 # anything, and the refusals name their own fix: the catalog check names
 # --unlisted or the closest listed ID, a protocol that the provider does not
 # serve is refused, an edit keeps the protocols that a client or a
-# recommendation uses, a name with a model per protocol is selected with
-# --protocol, a model that a client uses is not removed, and search names the
-# fix of each catalog that it could not read while the others print.
+# recommendation uses, a model that a client uses is not removed, and search
+# names the fix of each catalog that it could not read while the others print.
 exec aigw model --help
 cmp stdout help.txt
 exec aigw model add --help
@@ -143,14 +142,10 @@ fixloop stdout aigw model edit mixed/chat-only --protocol anthropic --json
 exec aigw use hermes mixed/chat-only --protocol chat
 exec aigw model edit mixed/chat-only --protocol chat
 
-# The team file gives mixed/twin a Route on each of two protocols: show
-# refuses the name and names --protocol, which selects one.
-exitcode 1 aigw model show mixed/twin --json
-cmp stdout show-twin.json
-exec aigw model show mixed/twin --protocol anthropic --json
-normalize stdout show-twin-anthropic.out
-cmp show-twin-anthropic.out show-twin-anthropic.json
-fixloop -input -did 'showed mixed/twin with --protocol anthropic' show-twin.json aigw model show mixed/twin --json
+# The team file gives mixed/twin two protocols, and show names both.
+exec aigw model show mixed/twin --json
+normalize stdout show-twin.out
+cmp show-twin.out show-twin.json
 exec aigw model list twin
 cmp stdout list-twin.txt
 
@@ -158,10 +153,6 @@ cmp stdout list-twin.txt
 # another one is, and the recommendation that names it drops it.
 exitcode 1 aigw model remove team/team-model --json
 cmp stdout remove-selected.json
-# --protocol selects only a model that declares it.
-exitcode 1 aigw model remove mixed/chat-only --protocol anthropic --json
-cmp stdout remove-protocol.json
-fixloop -input stdout aigw model remove mixed/chat-only --protocol anthropic --json
 exec aigw client disable hermes
 exitcode 1 aigw model remove mixed/chat-only
 cmp stdout remove-disabled.txt
@@ -224,93 +215,102 @@ sk-mixed-token-0001
 -- fresh-token.txt --
 sk-fresh-token-0001
 -- search.in --
-version = 7
-[accounts.fresh]
-label = "Fresh"
-[accounts.fresh.endpoints]
-anthropic = "$UPSTREAM/fresh"
-openai_chat_completions = "$UPSTREAM/unavailable/v1"
-[accounts.bare]
+version = 8
+
+[[providers]]
+id = "bare"
 label = "Bare"
-[accounts.bare.endpoints]
-anthropic = "$UPSTREAM/bare"
-[accounts.broken]
+endpoints = {anthropic = "$UPSTREAM/bare"}
+
+[[providers.models]]
+id = "bare-model"
+family = "bare-model"
+protocols = {anthropic = []}
+
+[[providers]]
+id = "broken"
 label = "Broken"
-[accounts.broken.endpoints]
-openai_responses = "$UPSTREAM/unavailable/v1"
-[models.fresh-old]
-label = "Fresh Old"
-[models.gone-model]
-label = "Gone Model"
-[models.bare-model]
+endpoints = {responses = "$UPSTREAM/unavailable/v1"}
+
+[[providers.models]]
+id = "broken-model"
+family = "broken-model"
+protocols = {responses = []}
+
+[[providers]]
+id = "fresh"
+label = "Fresh"
+endpoints = {anthropic = "$UPSTREAM/fresh", chat = "$UPSTREAM/unavailable/v1"}
+
+[[providers.models]]
+id = "team-model"
+family = "fresh-old"
+protocols = {anthropic = []}
+deprecated = true
+
+[[providers.models]]
+id = "gone-model"
+family = "gone-model"
+protocols = {anthropic = []}
+
+[[families]]
+id = "bare-model"
 label = "Bare Model"
-[models.broken-model]
+
+[[families]]
+id = "broken-model"
 label = "Broken Model"
-[routes.fresh-old]
-account = "fresh"
-model = "fresh-old"
-upstream_model = "team-model"
-lifecycle = "deprecated"
-interfaces = { anthropic = [] }
-[routes.fresh-gone]
-account = "fresh"
-model = "gone-model"
-upstream_model = "gone-model"
-interfaces = { anthropic = [] }
-[routes.bare-route]
-account = "bare"
-model = "bare-model"
-upstream_model = "bare-model"
-interfaces = { anthropic = [] }
-[routes.broken-route]
-account = "broken"
-model = "broken-model"
-upstream_model = "broken-model"
-interfaces = { openai_responses = [] }
+
+[[families]]
+id = "fresh-old"
+label = "Fresh Old"
+
+[[families]]
+id = "gone-model"
+label = "Gone Model"
 -- recommended.in --
-version = 7
-[recommendations.hermes.primary]
-route = "mixed-chat"
-protocol = "openai_chat_completions"
+version = 8
+
+[recommendations.hermes]
+primary = {model = "mixed/chat-only", protocol = "chat"}
 -- mixed.in --
-version = 7
-[recommendations.hermes.primary]
-route = "mixed-spare"
-protocol = "openai_chat_completions"
-[[recommendations.hermes.alternatives]]
-route = "mixed-chat"
-protocol = "openai_chat_completions"
-[accounts.mixed]
+version = 8
+
+[[providers]]
+id = "mixed"
 label = "Mixed"
-[accounts.mixed.endpoints]
-anthropic = "$UPSTREAM/mixed"
-openai_chat_completions = "$UPSTREAM/mixed/v1"
-[models.chat-only]
+endpoints = {anthropic = "$UPSTREAM/mixed", chat = "$UPSTREAM/mixed/v1"}
+
+[[providers.models]]
+id = "twin"
+family = "twin"
+protocols = {anthropic = [], chat = []}
+
+[[providers.models]]
+id = "chat-only"
+family = "chat-only"
+protocols = {chat = []}
+
+[[providers.models]]
+id = "spare-chat"
+family = "spare-chat"
+protocols = {chat = []}
+
+[[families]]
+id = "chat-only"
 label = "Chat Only"
-[models.spare-chat]
+
+[[families]]
+id = "spare-chat"
 label = "Spare Chat"
-[models.twin]
+
+[[families]]
+id = "twin"
 label = "Twin"
-[routes.mixed-chat]
-account = "mixed"
-model = "chat-only"
-upstream_model = "chat-only"
-interfaces = { openai_chat_completions = [] }
-[routes.mixed-spare]
-account = "mixed"
-model = "spare-chat"
-upstream_model = "spare-chat"
-interfaces = { openai_chat_completions = [] }
-[routes.mixed-twin-chat]
-account = "mixed"
-model = "twin"
-upstream_model = "twin"
-interfaces = { openai_chat_completions = [] }
-[routes.mixed-twin-messages]
-account = "mixed"
-model = "twin"
-upstream_model = "twin"
-interfaces = { anthropic = [] }
+
+[recommendations.hermes]
+primary = {model = "mixed/spare-chat", protocol = "chat"}
+alternatives = [{model = "mixed/chat-only", protocol = "chat"}]
 -- help.txt --
 AIGW  aigw model
 ────────────────────────────────────────
@@ -357,7 +357,7 @@ AIGW  Models
 ────────────────────────────────────────
 
 Mixed
-  · mixed/twin         Mixed · Twin · Anthropic Messages, OpenAI Chat Completions · one model per protocol
+  · mixed/twin         Mixed · Twin · Anthropic Messages, OpenAI Chat Completions
   · mixed/chat-only    Mixed · Chat Only · OpenAI Chat Completions
   · mixed/spare-chat   Mixed · Spare Chat · OpenAI Chat Completions
 
@@ -391,8 +391,7 @@ Next
         "claude-desktop",
         "hermes"
       ],
-      "selected_by": [],
-      "duplicate": true
+      "selected_by": []
     },
     {
       "id": "mixed/chat-only",
@@ -845,9 +844,9 @@ AIGW  Models
 ────────────────────────────────────────
 
 Mixed
-  · mixed/twin         Mixed · Twin · Anthropic Messages, OpenAI Chat Completions · one model per protocol
-  · mixed/new-model    Mixed · new-model · Anthropic Messages, OpenAI Chat Completions
+  · mixed/twin         Mixed · Twin · Anthropic Messages, OpenAI Chat Completions
   ✓ mixed/chat-only    Mixed · Chat Only · OpenAI Chat Completions · used by Hermes
+  · mixed/new-model    Mixed · new-model · Anthropic Messages, OpenAI Chat Completions
 
 Next
   aigw use <client> <provider/model>
@@ -868,13 +867,6 @@ Next
 }
 -- show-twin.json --
 {
-  "schema_version": 3,
-  "ok": false,
-  "error": "mixed/twin names 2 models; each of the protocols anthropic, chat selects one",
-  "next_detail": "aigw model show mixed/twin --protocol \u003canthropic|chat\u003e"
-}
--- show-twin-anthropic.json --
-{
   "schema_version": 2,
   "ok": true,
   "id": "mixed/twin",
@@ -884,6 +876,10 @@ Next
   "protocols": [
     {
       "protocol": "anthropic",
+      "capabilities": []
+    },
+    {
+      "protocol": "chat",
       "capabilities": []
     }
   ],
@@ -897,6 +893,10 @@ Next
     {
       "protocol": "anthropic",
       "url": "$UPSTREAM/mixed"
+    },
+    {
+      "protocol": "chat",
+      "url": "$UPSTREAM/mixed/v1"
     }
   ]
 }
@@ -905,7 +905,7 @@ AIGW  Models
 ────────────────────────────────────────
 
 Mixed
-  · mixed/twin         Mixed · Twin · Anthropic Messages, OpenAI Chat Completions · one model per protocol
+  · mixed/twin         Mixed · Twin · Anthropic Messages, OpenAI Chat Completions
 
 Next
   aigw use <client> <provider/model>
@@ -915,13 +915,6 @@ Next
   "ok": false,
   "error": "the team catalog does not list team-modl; team/team-model is already added",
   "next_action": "aigw model show team/team-model"
-}
--- remove-protocol.json --
-{
-  "schema_version": 3,
-  "ok": false,
-  "error": "mixed/chat-only declares no Anthropic Messages",
-  "next_action": "aigw model show mixed/chat-only"
 }
 -- search-help.txt --
 AIGW  aigw model search
@@ -969,15 +962,15 @@ Options
           "listed_by": []
         },
         {
-          "id": "mixed/new-model",
-          "state": "missing",
-          "label": "Mixed · new-model",
-          "listed_by": []
-        },
-        {
           "id": "mixed/chat-only",
           "state": "missing",
           "label": "Mixed · Chat Only",
+          "listed_by": []
+        },
+        {
+          "id": "mixed/new-model",
+          "state": "missing",
+          "label": "Mixed · new-model",
           "listed_by": []
         },
         {
@@ -1010,17 +1003,17 @@ Options
       ],
       "models": [
         {
-          "id": "team/spare-model",
+          "id": "team/team-model",
           "state": "added",
-          "label": "Team Gateway · spare-model",
+          "label": "Team Gateway · team-model",
           "listed_by": [
             "anthropic"
           ]
         },
         {
-          "id": "team/team-model",
+          "id": "team/spare-model",
           "state": "added",
-          "label": "Team Gateway · team-model",
+          "label": "Team Gateway · spare-model",
           "listed_by": [
             "anthropic"
           ]
@@ -1061,14 +1054,14 @@ Fresh
 
 Mixed
   ! mixed/twin         missing · Mixed · Twin
-  ! mixed/new-model    missing · Mixed · new-model
   ! mixed/chat-only    missing · Mixed · Chat Only
+  ! mixed/new-model    missing · Mixed · new-model
   · mixed/spare-model  available
   · mixed/team-model   available
 
 Team Gateway
-  ✓ team/spare-model   added · Team Gateway · spare-model
   ✓ team/team-model    added · Team Gateway · team-model
+  ✓ team/spare-model   added · Team Gateway · spare-model
 
 9 models from 3 providers
 

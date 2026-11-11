@@ -6,32 +6,32 @@ import (
 )
 
 func TestRecommendationsAreValidatedExportedAndDoNotOverridePersonalChoices(t *testing.T) {
-	raw := []byte(`version = 7
-[recommendations.claude.primary]
-route = "team-claude"
+	raw := []byte(`version = 8
 
-[recommendations.codex.primary]
-route = "team-codex"
-
-[accounts.team]
+[[providers]]
+id = "team"
 label = "Team"
-[accounts.team.endpoints]
-openai_responses = "https://team.test/v1"
-anthropic = "https://team.test"
+endpoints = {anthropic = "https://team.test", responses = "https://team.test/v1"}
 
-[routes.team-claude]
+[[providers.models]]
+id = "claude-test"
+family = "claude-test"
 label = "Team Claude"
-account = "team"
-model = "claude-test"
-interfaces = { anthropic = [] }
+protocols = {anthropic = []}
 
-[routes.team-codex]
+[[providers.models]]
+id = "gpt-test"
+family = "gpt-test"
 label = "Team Codex"
-account = "team"
-model = "gpt-test"
-interfaces = { openai_responses = [] }
+protocols = {responses = []}
+
+[recommendations.claude]
+primary = {model = "team/claude-test"}
+
+[recommendations.codex]
+primary = {model = "team/gpt-test"}
 `)
-	team, err := Parse(raw, testAdmission())
+	team, err := ParseTeamFile(raw, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,80 +44,80 @@ interfaces = { openai_responses = [] }
 	}
 
 	got.Providers["personal"] = domain.Provider{Label: "Personal", Endpoints: domain.Endpoints{Anthropic: "https://personal.test"}}
-	got.Models["personal-claude"] = testModel("Personal Claude", "personal", "personal-model", domain.ProtocolAnthropic)
-	got.SetSelectedModel(ClientClaude, "personal-claude", "")
+	got.Models[domain.NewModelRef("personal", "personal-model")] = testModel("Personal Claude", "personal", "personal-model", domain.ProtocolAnthropic)
+	got.SetSelectedModel(ClientClaude, domain.NewModelRef("personal", "personal-model"), "")
 	merged, _, err := domain.MergeTeamFile(got, team, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if merged.SelectedModel(ClientClaude) != "personal-claude" || merged.SelectedModel(ClientCodex) != "" {
+	if merged.SelectedModel(ClientClaude) != domain.NewModelRef("personal", "personal-model") || !merged.SelectedModel(ClientCodex).IsZero() {
 		t.Fatalf("merge replaced a personal client selection: %#v", merged.Clients)
 	}
 
-	exported, err := Export(merged)
+	exported, err := ExportTeamFile(merged)
 	if err != nil {
 		t.Fatal(err)
 	}
-	exportedTeam, err := Parse(exported, testAdmission())
+	exportedTeam, err := ParseTeamFile(exported, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if exportedTeam.Recommendations[ClientClaude].Primary.Model != "team-claude" || exportedTeam.Recommendations[ClientCodex].Primary.Model != "team-codex" {
+	if exportedTeam.Recommendations[ClientClaude].Primary.Model != domain.NewModelRef("team", "claude-test") || exportedTeam.Recommendations[ClientCodex].Primary.Model != domain.NewModelRef("team", "gpt-test") {
 		t.Fatalf("exported recommendations = %#v", exportedTeam.Recommendations)
 	}
 }
 
 func TestParseConfigurationManifestAndMergePreservesPersonalState(t *testing.T) {
-	raw := []byte(`version = 7
+	raw := []byte(`version = 8
 
-[accounts.team]
+[[providers]]
+id = "team"
 label = "Team Gateway"
+endpoints = {anthropic = "https://gateway.test", responses = "https://gateway.test/v1"}
 
-[accounts.team.endpoints]
-openai_responses = "https://gateway.test/v1"
-anthropic = "https://gateway.test"
-
-[routes.team]
+[[providers.models]]
+id = "claude-team"
+family = "claude-team"
 label = "Team Gateway"
-account = "team"
-model = "claude-team"
-interfaces = { anthropic = [] }
+protocols = {anthropic = []}
 `)
-	m, err := Parse(raw, testAdmission())
+	m, err := ParseTeamFile(raw, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(testAdmission())
 	cfg.SetClientActivation(ClientClaude, true, "/personal/claude", nil)
-	cfg.SetSelectedModel(ClientClaude, "personal", "")
+	cfg.SetSelectedModel(ClientClaude, domain.NewModelRef("personal", "claude-personal"), "")
 	cfg.Providers["personal"] = domain.Provider{Label: "Personal", Endpoints: domain.Endpoints{Anthropic: "https://personal.test"}}
-	cfg.Models["personal"] = testModel("Personal", "personal", "claude-personal", domain.ProtocolAnthropic)
+	cfg.Models[domain.NewModelRef("personal", "claude-personal")] = testModel("Personal", "personal", "claude-personal", domain.ProtocolAnthropic)
 	got, _, err := domain.MergeTeamFile(cfg, m, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SelectedModel(ClientClaude) != "personal" {
+	if got.SelectedModel(ClientClaude) != domain.NewModelRef("personal", "claude-personal") {
 		t.Fatalf("personal selection changed: %#v", got.Clients)
 	}
 	if got.Clients[ClientClaude].Executable != "/personal/claude" {
 		t.Fatalf("personal adapter changed: %#v", got.Clients)
 	}
-	if got.Models["team"].Label != "Team Gateway" {
+	if got.Models[domain.NewModelRef("team", "claude-team")].Label != "Team Gateway" {
 		t.Fatalf("imported route missing: %#v", got.Models)
 	}
 }
 
 func TestMergeDefaultsToFirstImportedModelWhenNeitherSideChoosesADefault(t *testing.T) {
-	team, err := Parse([]byte(`version = 7
-[accounts.team]
+	team, err := ParseTeamFile([]byte(`version = 8
+
+[[providers]]
+id = "team"
 label = "Team"
-[accounts.team.endpoints]
-anthropic = "https://team.test"
-[routes.solo]
+endpoints = {anthropic = "https://team.test"}
+
+[[providers.models]]
+id = "claude-solo"
+family = "claude-solo"
 label = "Solo"
-account = "team"
-model = "claude-solo"
-interfaces = { anthropic = [] }
+protocols = {anthropic = []}
 `), testAdmission())
 	if err != nil {
 		t.Fatal(err)

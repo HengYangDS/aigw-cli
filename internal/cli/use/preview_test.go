@@ -1,6 +1,7 @@
 package use
 
 import (
+	"aigw-cli/internal/domain"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -38,7 +39,7 @@ func TestUsePreviewRefusesAnEditedOwnedTarget(t *testing.T) {
 	if err := run.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	selected, err := cfg.ResolveRuntime(codex.ID, "")
+	selected, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}

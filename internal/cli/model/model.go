@@ -41,83 +41,43 @@ func modelArgument(cmd *cobra.Command, args []string) error {
 }
 
 // loadModel loads the configuration and resolves the command's model
-// argument to the configured model and its key.
-func loadModel(runtime invocation.Context, text string, selector modelSelector) (domain.Config, string, domain.Model, error) {
+// argument to the configured model. A given protocol must be one that the
+// model declares.
+func loadModel(runtime invocation.Context, text string, protocol domain.EndpointProtocol) (domain.Config, domain.Model, error) {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
-		return domain.Config{}, "", domain.Model{}, err
+		return domain.Config{}, domain.Model{}, err
 	}
 	ref, err := invocation.ParseModelArgument(cfg, text)
 	if err != nil {
-		return domain.Config{}, "", domain.Model{}, err
+		return domain.Config{}, domain.Model{}, err
 	}
-	key, model, err := invocation.ResolveModel(cfg, ref, selector.protocol, selector.rerun)
-	return cfg, key, model, err
-}
-
-// modelSelector is how a command selects among the models of one name: the
-// protocol of its --protocol filter, which a model must declare, and the
-// command rerun with another one. A command whose --protocol means something
-// else selects nothing.
-type modelSelector struct {
-	protocol domain.EndpointProtocol
-	rerun    func(choice string) string
-}
-
-// protocolSelector selects by cmd's --protocol filter, protocol.
-func protocolSelector(cmd *cobra.Command, protocol domain.EndpointProtocol) modelSelector {
-	return modelSelector{protocol: protocol, rerun: func(choice string) string {
-		return invocation.Rerun(cmd, cmd.Flags().Args(), []string{"protocol"}, "--protocol", choice)
-	}}
+	model, err := invocation.ResolveModel(cfg, ref, protocol)
+	return cfg, model, err
 }
 
 // describe reports one added model as list and show do: its name, label,
 // family, protocols with their capabilities, the clients that can use it and
-// the clients that select it. Several keys are the models of one name, one per
-// protocol, which it reports as one model with their protocols merged; the
-// first supplies the label and family.
-func describe(cfg domain.Config, keys ...string) modelItem {
-	first := cfg.Models[keys[0]]
+// the clients that select it.
+func describe(cfg domain.Config, ref domain.ModelRef) modelItem {
+	model := cfg.Models[ref]
+	// A loaded configuration is valid, so every model has its provider.
+	clients, _ := cfg.ProtocolClientIDs(ref)
 	item := modelItem{
-		ID: first.Ref().String(), Provider: first.Provider, Label: cfg.ModelLabel(keys[0]), Family: first.Family,
-		Protocols: []protocolItem{}, ProtocolClients: []string{}, SelectedBy: []string{}, Duplicate: len(keys) > 1,
+		ID: ref.String(), Provider: model.Provider, Label: cfg.ModelLabel(ref), Family: model.FamilyID(),
+		Protocols: []protocolItem{}, ProtocolClients: append([]string{}, clients...),
+		SelectedBy: append([]string{}, cfg.SelectedClientsForModel(ref)...), Deprecated: model.Deprecated,
 	}
-	protocols := map[domain.EndpointProtocol][]domain.Capability{}
-	for _, key := range keys {
-		model := cfg.Models[key]
-		for protocol, capabilities := range model.Protocols {
-			protocols[protocol] = append(protocols[protocol], capabilities...)
-		}
-		// A loaded configuration is valid, so every model has its provider.
-		clients, _ := cfg.ProtocolClientIDs(key)
-		item.ProtocolClients = append(item.ProtocolClients, clients...)
-		item.SelectedBy = append(item.SelectedBy, cfg.SelectedClientsForModel(key)...)
-		item.Deprecated = item.Deprecated || model.LifecycleState() == domain.ModelDeprecated
-	}
-	item.ProtocolClients = inAdmissionOrder(cfg.Admission(), item.ProtocolClients)
-	item.SelectedBy = inAdmissionOrder(cfg.Admission(), item.SelectedBy)
-	for _, protocol := range displayProtocols(domain.Model{Protocols: protocols}) {
+	for _, protocol := range displayProtocols(model) {
 		capabilities := []string{}
 		for _, capability := range domain.Capabilities() {
-			if slices.Contains(protocols[protocol], capability) {
+			if slices.Contains(model.Protocols[protocol], capability) {
 				capabilities = append(capabilities, string(capability))
 			}
 		}
 		item.Protocols = append(item.Protocols, protocolItem{Protocol: protocol.Name(), Capabilities: capabilities})
 	}
 	return item
-}
-
-// inAdmissionOrder returns the clients among ids, each once, in admission
-// order.
-func inAdmissionOrder(admission domain.Admission, ids []string) []string {
-	ordered := []string{}
-	for _, id := range admission.IDs() {
-		if slices.Contains(ids, id) {
-			ordered = append(ordered, id)
-		}
-	}
-	return ordered
 }
 
 // displayProtocols returns a model's protocols in display order: anthropic,

@@ -69,12 +69,12 @@ cmp stdout desktop.txt
 # clients writes none.
 exec aigw check claude claude-desktop --depth client --json
 stdout '"snapshot_written": false'
-[darwin] ! exists $HOME/Library/Application' 'Support/aigw/config.toml.verified.json
-[!darwin] ! exists $HOME/aigw/config.toml.verified.json
+[darwin] ! exists $HOME/Library/Application' 'Support/aigw/aigw.verified.json
+[!darwin] ! exists $HOME/aigw/aigw.verified.json
 exec aigw check --depth client
 cmp stdout snapshot.txt
-[darwin] cp $HOME/Library/Application' 'Support/aigw/config.toml.verified.json verified.json
-[!darwin] cp $HOME/aigw/config.toml.verified.json verified.json
+[darwin] cp $HOME/Library/Application' 'Support/aigw/aigw.verified.json verified.json
+[!darwin] cp $HOME/aigw/aigw.verified.json verified.json
 grep '"client": "claude",\n\s+"depth": "client"' verified.json
 grep '"client": "claude-desktop",\n\s+"depth": "model"' verified.json
 # A client that stops leaves the verified snapshot as it was: here a variable
@@ -84,8 +84,8 @@ exitcode 1 aigw check --depth client --json
 stdout '"snapshot_written": false'
 stdout '"problem": "2 of 2 checked clients stopped before the client depth"'
 cp stdout competing.json
-[darwin] cmp $HOME/Library/Application' 'Support/aigw/config.toml.verified.json verified.json
-[!darwin] cmp $HOME/aigw/config.toml.verified.json verified.json
+[darwin] cmp $HOME/Library/Application' 'Support/aigw/aigw.verified.json verified.json
+[!darwin] cmp $HOME/aigw/aigw.verified.json verified.json
 env ANTHROPIC_API_KEY=
 fixloop -did 'unset ANTHROPIC_API_KEY' competing.json aigw check --depth client --json
 stdin token.txt
@@ -149,8 +149,8 @@ stdout '"depth": "model",\n\s+"skipped": \[\n\s+\{\n\s+"depth": "endpoint"'
 # skipped, which fails nothing, and only a session proves them. No command
 # sets either, so the script writes the configuration.
 envsubst own-authentication.toml expanded.toml
-[darwin] cp expanded.toml $HOME/Library/Application' 'Support/aigw/config.toml
-[!darwin] cp expanded.toml $HOME/aigw/config.toml
+[darwin] cp expanded.toml $HOME/Library/Application' 'Support/aigw/aigw.toml
+[!darwin] cp expanded.toml $HOME/aigw/aigw.toml
 mkdir $HOME/.codex
 cp empty-file $HOME/.codex/config.toml
 exec aigw sync
@@ -163,14 +163,14 @@ stdout 'Endpoint skipped: An external credential helper gives Claude Code its To
 stdout 'Model skipped: An external credential helper gives Claude Code its Token, which only a session of it proves'
 stdout 'Deeper check: aigw check claude --depth client'
 
-[darwin] cp $HOME/Library/Application' 'Support/aigw/config.toml good.toml
-[!darwin] cp $HOME/aigw/config.toml good.toml
-[darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/config.toml
-[!darwin] cp broken.toml $HOME/aigw/config.toml
+[darwin] cp $HOME/Library/Application' 'Support/aigw/aigw.toml good.toml
+[!darwin] cp $HOME/aigw/aigw.toml good.toml
+[darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/aigw.toml
+[!darwin] cp broken.toml $HOME/aigw/aigw.toml
 exitcode 1 aigw check --json
 cmp stdout broken.json
-[darwin] cp good.toml $HOME/Library/Application' 'Support/aigw/config.toml
-[!darwin] cp good.toml $HOME/aigw/config.toml
+[darwin] cp good.toml $HOME/Library/Application' 'Support/aigw/aigw.toml
+[!darwin] cp good.toml $HOME/aigw/aigw.toml
 fixloop -did 'restored the configuration file from a copy' broken.json aigw check --json
 
 -- token.txt --
@@ -190,7 +190,7 @@ sk-once-token-0002
       "model": "team/spare-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "endpoint",
@@ -332,7 +332,7 @@ Fix
       "model": "team/team-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "local",
@@ -447,7 +447,7 @@ Result
       "model": "team/team-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "endpoint",
@@ -562,7 +562,7 @@ Next
       "model": "team/team-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "model",
@@ -591,7 +591,7 @@ Next
       "model": "down/team-model",
       "provider": "down",
       "protocol": "anthropic",
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "degraded",
       "depth": "local",
@@ -668,7 +668,7 @@ Next
       "model": "team/team-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "model",
@@ -752,7 +752,7 @@ Fix
       "model": "team/team-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "local",
@@ -900,7 +900,7 @@ Fix
       "model": "team/team-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "local",
@@ -962,49 +962,42 @@ Fix
   "next_action": "aigw check claude --depth client"
 }
 -- own-authentication.toml --
-version = 6
+version = 8
 
-[accounts.team]
-label = 'Team Gateway'
+[[providers]]
+id = "team"
+label = "Team Gateway"
+endpoints = {anthropic = "$UPSTREAM", responses = "$UPSTREAM/v1"}
 
-[accounts.team.endpoints]
-anthropic = '$UPSTREAM'
-openai_responses = '$UPSTREAM/v1'
+[[providers.models]]
+id = "team-model"
+family = "team-model"
+protocols = {anthropic = []}
 
-[models.team-model]
-label = 'Team Model'
+[[providers.models]]
+id = "native-model"
+family = "team-model"
+protocols = {responses = []}
 
-[routes.helper]
-account = 'team'
-model = 'team-model'
-upstream_model = 'team-model'
-
-[routes.helper.interfaces]
-anthropic = []
-
-[routes.native]
-account = 'team'
-model = 'team-model'
-upstream_model = 'native-model'
-
-[routes.native.interfaces]
-openai_responses = []
+[[families]]
+id = "team-model"
+label = "Team Model"
 
 [clients.claude]
-route = 'helper'
 enabled = true
-protocol = 'anthropic'
-executable = '$BIN/claude$exe'
-credential_command = '$BIN/aigw$exe'
+model = "team/team-model"
+protocol = "anthropic"
+executable = "$BIN/claude$exe"
+credential_command = "$BIN/aigw$exe"
 
 [clients.codex]
-route = 'native'
 enabled = true
-protocol = 'openai_responses'
-model_provider = 'amazon-bedrock'
-authentication = 'client-native'
-executable = '$BIN/claude$exe'
-targets = ['$HOME/.codex/config.toml']
+model = "team/native-model"
+protocol = "responses"
+model_provider = "amazon-bedrock"
+authentication = "client-native"
+executable = "$BIN/claude$exe"
+targets = ["$HOME/.codex/config.toml"]
 -- unused.txt --
 AIGW  Check
 ────────────────────────────────────────
@@ -1018,16 +1011,16 @@ Stored Tokens that no provider uses
 Result
   ✓ No checked client failed
 -- broken.toml --
-version = 7
-[accounts.team
+version = 8
+[providers
 -- broken.json --
 {
   "schema_version": 3,
   "ok": false,
   "error": "Cannot parse local configuration",
-  "evidence": "AIGW 0.1.0-dev stopped at the configuration parse stage at line 2, column 15.",
+  "evidence": "AIGW 0.1.0-dev stopped at the configuration parse stage at line 2, column 11.",
   "next_detail": "Correct the configuration file at that parse position, or restore it from a backup; `aigw config path` prints its location.",
   "stage": "configuration_parse",
   "line": 2,
-  "column": 15
+  "column": 11
 }

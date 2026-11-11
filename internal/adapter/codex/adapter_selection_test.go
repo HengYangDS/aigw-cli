@@ -13,10 +13,10 @@ func TestAdoptCodexSelectionRecordsTheOneMatchingModel(t *testing.T) {
 	cfg, targets := codexAdoptionFixture(t, 1)
 	native := chooseCodexModel(t, targets[0], "gpt-terra")
 	routeID, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg)
-	if err != nil || routeID != "terra" {
+	if err != nil || routeID != domain.NewModelRef("gateway", "gpt-terra") {
 		t.Fatalf("adopted Route = %q, %v", routeID, err)
 	}
-	if runtime, err := cfg.ResolveRuntime(ID, ""); err != nil || runtime.ModelID != "terra" || runtime.Protocol != domain.ProtocolResponses {
+	if runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{}); err != nil || runtime.Model != domain.NewModelRef("gateway", "gpt-terra") || runtime.Protocol != domain.ProtocolResponses {
 		t.Fatalf("Codex binding = %#v, %v", cfg.Clients[ID], err)
 	}
 	if after, err := os.ReadFile(targets[0]); err != nil || string(after) != native {
@@ -31,12 +31,13 @@ func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
 		want        []string
 	}{
 		{name: "none", model: "gpt-luna", want: []string{"which provider \"gateway\" has not added", "`aigw use codex gateway/gpt-luna`"}},
-		{name: "several", model: "gpt-terra", copy: true, want: []string{"which 2 models of provider \"gateway\" carry", "`aigw config path`"}},
+		{name: "on another protocol", model: "gpt-chat", copy: true, want: []string{"which provider \"gateway\" has not added", "`aigw use codex gateway/gpt-chat`"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cfg, targets := codexAdoptionFixture(t, 1)
 			if test.copy {
-				cfg.Models["terra-copy"] = qualifiedModel("Terra copy", "gateway", "gpt-terra", domain.ProtocolResponses)
+				// The model exists, but not on the protocol that Codex uses.
+				cfg.Models[domain.NewModelRef("gateway", "gpt-chat")] = qualifiedModel("Chat", "gateway", "gpt-chat", domain.ProtocolChat)
 				cfg.Normalize()
 			}
 			chooseCodexModel(t, targets[0], test.model)
@@ -46,7 +47,7 @@ func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
 					t.Fatalf("adoption error = %v, want %s", err, want)
 				}
 			}
-			if cfg.SelectedModel(ID) != "sol" {
+			if cfg.SelectedModel(ID) != domain.NewModelRef("gateway", "gpt-sol") {
 				t.Fatal("a refused adoption changed the Codex binding")
 			}
 		})
@@ -60,7 +61,7 @@ func TestAdoptCodexSelectionRefusesDisagreeingTargets(t *testing.T) {
 	if _, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg); err == nil || !strings.Contains(err.Error(), "aigw use codex <provider/model>") {
 		t.Fatalf("disagreeing targets were adopted: %v", err)
 	}
-	if cfg.SelectedModel(ID) != "sol" {
+	if cfg.SelectedModel(ID) != domain.NewModelRef("gateway", "gpt-sol") {
 		t.Fatal("a refused adoption changed the Codex binding")
 	}
 }
@@ -87,7 +88,7 @@ func TestAdoptCodexSelectionLeavesUnchangedBindings(t *testing.T) {
 			prepare(&cfg, targets[0])
 			before := cfg.Clients[ID]
 			routeID, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg)
-			if err != nil || routeID != "" || cfg.Clients[ID].Model != before.Model {
+			if err != nil || !routeID.IsZero() || cfg.Clients[ID].Model != before.Model {
 				t.Fatalf("adoption = %q, %v; binding %#v", routeID, err, cfg.Clients[ID])
 			}
 		})
@@ -101,9 +102,9 @@ func codexAdoptionFixture(t *testing.T, count int) (domain.Config, []string) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
 	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Responses: "https://other.test/v1"}}
-	cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
-	cfg.Models["terra"] = qualifiedModel("Terra", "gateway", "gpt-terra", domain.ProtocolResponses)
-	cfg.Models["other-terra"] = qualifiedModel("Other terra", "other", "gpt-terra", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("gateway", "gpt-sol")] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("gateway", "gpt-terra")] = qualifiedModel("Terra", "gateway", "gpt-terra", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("other", "gpt-terra")] = qualifiedModel("Other terra", "other", "gpt-terra", domain.ProtocolResponses)
 	targets := make([]string, 0, count)
 	for range count {
 		target := filepath.Join(t.TempDir(), "config.toml")
@@ -112,10 +113,10 @@ func codexAdoptionFixture(t *testing.T, count int) (domain.Config, []string) {
 		}
 		targets = append(targets, target)
 	}
-	cfg.SetSelectedModel(ID, "sol", "")
+	cfg.SetSelectedModel(ID, domain.NewModelRef("gateway", "gpt-sol"), "")
 	cfg.SetClientActivation(ID, true, "/opt/codex", targets)
 	cfg.Normalize()
-	runtime, err := cfg.ResolveRuntime(ID, "")
+	runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -26,6 +26,12 @@ import (
 	"aigw-cli/internal/terminal"
 )
 
+// verifiedPath is the verified snapshot beside the configuration at path:
+// aigw.verified.json beside aigw.toml.
+func verifiedPath(path string) string {
+	return strings.TrimSuffix(path, filepath.Ext(path)) + ".verified.json"
+}
+
 func readFile(t *testing.T, path string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -235,7 +241,10 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secret.Store,
 	return app, out, secretStore, runner, httpClient
 }
 
-func addProviderModel(cfg *domain.Config, routeName, accountName, label string, endpoints domain.Endpoints, client, model string) {
+// addProviderModel adds a provider with endpoints, unless cfg has it already,
+// and its model on the protocol that client resolves there, and returns the
+// model.
+func addProviderModel(cfg *domain.Config, accountName, label string, endpoints domain.Endpoints, client, model string) domain.ModelRef {
 	if _, exists := cfg.Providers[accountName]; !exists {
 		cfg.Providers[accountName] = domain.Provider{Label: label, Endpoints: endpoints}
 	}
@@ -249,19 +258,21 @@ func addProviderModel(cfg *domain.Config, routeName, accountName, label string, 
 	if err != nil {
 		panic("test fixture cannot resolve a wire interface: " + err.Error())
 	}
-	cfg.Models[routeName] = qualifiedModel(label, accountName, model, protocol)
+	ref := domain.NewModelRef(accountName, model)
+	cfg.Models[ref] = qualifiedModel(label, accountName, model, protocol)
+	return ref
 }
 
 func qualifiedModel(label, account, model string, protocol domain.EndpointProtocol) domain.Model {
 	return domain.Model{
-		Label: label, Provider: account, Family: model, UpstreamModel: model,
+		Label: label, Provider: account, Family: model, ID: model,
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 	}
 }
 
 func synchronizeClaudeProjection(t *testing.T, app *cli.App, cfg domain.Config) {
 	t.Helper()
-	runtime, err := cfg.ResolveRuntime(claude.ID, "")
+	runtime, err := cfg.ResolveRuntime(claude.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -319,8 +330,8 @@ func blockRemoval(t *testing.T, path string) {
 func saveCommandModel(t *testing.T, app *cli.App, endpoints domain.Endpoints, client, model string) {
 	t.Helper()
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", endpoints, client, model)
-	cfg.SetSelectedModel(client, "one", "")
+	ref := addProviderModel(&cfg, "one", "One", endpoints, client, model)
+	cfg.SetSelectedModel(client, ref, "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -328,14 +339,14 @@ func saveCommandModel(t *testing.T, app *cli.App, endpoints domain.Endpoints, cl
 
 func twoModelConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One Gateway", domain.Endpoints{Anthropic: "https://one.test", Responses: "https://one.test/v1"}, codex.ID, "model-one")
-	addProviderModel(&cfg, "two", "two", "Two Gateway", domain.Endpoints{Anthropic: "https://two.test", Responses: "https://two.test/v1"}, codex.ID, "model-two")
-	for _, routeID := range []string{"one", "two"} {
-		route := cfg.Models[routeID]
-		route.Protocols[domain.ProtocolAnthropic] = []domain.Capability{}
-		cfg.Models[routeID] = route
+	one := addProviderModel(&cfg, "one", "One Gateway", domain.Endpoints{Anthropic: "https://one.test", Responses: "https://one.test/v1"}, codex.ID, "model-one")
+	two := addProviderModel(&cfg, "two", "Two Gateway", domain.Endpoints{Anthropic: "https://two.test", Responses: "https://two.test/v1"}, codex.ID, "model-two")
+	for _, ref := range []domain.ModelRef{one, two} {
+		model := cfg.Models[ref]
+		model.Protocols[domain.ProtocolAnthropic] = []domain.Capability{}
+		cfg.Models[ref] = model
 	}
-	cfg.SetSelectedModel(codex.ID, "one", "")
+	cfg.SetSelectedModel(codex.ID, one, "")
 	return cfg
 }
 
@@ -352,54 +363,50 @@ func directoryNames(t *testing.T, path string) []string {
 	return names
 }
 
-const configurationManifestFixture = `version = 7
-[recommendations.claude.primary]
-route = "aihubmix-claude"
+const configurationManifestFixture = `version = 8
 
-[[recommendations.claude.alternatives]]
-route = "dmxapi-claude"
-
-[recommendations.codex.primary]
-route = "dmxapi-gpt"
-
-[accounts.aihubmix]
+[[providers]]
+id = "aihubmix"
 label = "AIHubMix"
-[accounts.aihubmix.endpoints]
-openai_responses = "https://aihubmix.test/v1"
-anthropic = "https://aihubmix.test"
+endpoints = {anthropic = "https://aihubmix.test", responses = "https://aihubmix.test/v1"}
 
-[accounts.dmxapi]
+[[providers.models]]
+id = "claude-test"
+family = "claude-test"
+label = "AIHubMix Claude"
+protocols = {anthropic = []}
+
+[[providers]]
+id = "dmxapi"
 label = "DMXAPI"
-[accounts.dmxapi.endpoints]
-openai_responses = "https://dmxapi.test/v1"
-anthropic = "https://dmxapi.test"
+endpoints = {anthropic = "https://dmxapi.test", responses = "https://dmxapi.test/v1"}
 
-[models.claude-test]
+[[providers.models]]
+id = "claude-test"
+family = "claude-test"
+label = "DMXAPI Claude"
+protocols = {anthropic = []}
+
+[[providers.models]]
+id = "gpt-test"
+family = "gpt-test"
+label = "DMXAPI GPT"
+protocols = {responses = []}
+
+[[families]]
+id = "claude-test"
 label = "Claude Test"
 
-[models.gpt-test]
+[[families]]
+id = "gpt-test"
 label = "GPT Test"
 
-[routes.aihubmix-claude]
-label = "AIHubMix Claude"
-account = "aihubmix"
-model = "claude-test"
-upstream_model = "claude-test"
-interfaces = { anthropic = [] }
+[recommendations.claude]
+primary = {model = "aihubmix/claude-test"}
+alternatives = [{model = "dmxapi/claude-test"}]
 
-[routes.dmxapi-claude]
-label = "DMXAPI Claude"
-account = "dmxapi"
-model = "claude-test"
-upstream_model = "claude-test"
-interfaces = { anthropic = [] }
-
-[routes.dmxapi-gpt]
-label = "DMXAPI GPT"
-account = "dmxapi"
-model = "gpt-test"
-upstream_model = "gpt-test"
-interfaces = { openai_responses = [] }
+[recommendations.codex]
+primary = {model = "dmxapi/gpt-test"}
 `
 
 func writeConfigurationManifest(t *testing.T, body string) string {
@@ -420,10 +427,10 @@ func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Responses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
-	cfg.Models["claude"] = qualifiedModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(codex.ID, "gpt", "")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("dmx", "gpt-test")] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("dmx", "claude-test")] = qualifiedModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-test"), "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("dmx", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {

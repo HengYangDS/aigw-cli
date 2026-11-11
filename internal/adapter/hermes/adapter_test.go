@@ -59,8 +59,8 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	source := discovery.System{GOOS: runtime.GOOS, Home: home, Path: home}
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://provider.test"}}
-	cfg.Models["hermes"] = qualifiedModel("Hermes", "team", "model-test", domain.ProtocolAnthropic)
-	cfg.Clients[ID] = domain.ClientBinding{Model: "hermes", Enabled: true, Protocol: domain.ProtocolAnthropic}
+	cfg.Models[domain.NewModelRef("team", "model-test")] = qualifiedModel("Hermes", "team", "model-test", domain.ProtocolAnthropic)
+	cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("team", "model-test"), Enabled: true, Protocol: domain.ProtocolAnthropic}
 	store := secret.NewMemoryStore()
 	if err := store.Set("team", "fixture-token"); err != nil {
 		t.Fatal(err)
@@ -114,7 +114,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 			t.Fatal("Hermes target was admitted as a Codex home")
 		}
 	}
-	clientRuntime, err := after.ResolveRuntime("hermes", "")
+	clientRuntime, err := after.ResolveRuntime("hermes", domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,15 +137,15 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-	before.Models["selected"] = qualifiedModel("Selected", "gateway", "gpt-6-sol", domain.ProtocolResponses)
-	before.Models["extra"] = qualifiedModel("Extra", "gateway", "grok-4.6", domain.ProtocolResponses)
-	before.SetSelectedModel(ID, "selected", "")
+	before.Models[domain.NewModelRef("gateway", "gpt-6-sol")] = qualifiedModel("Selected", "gateway", "gpt-6-sol", domain.ProtocolResponses)
+	before.Models[domain.NewModelRef("gateway", "grok-4.6")] = qualifiedModel("Extra", "gateway", "grok-4.6", domain.ProtocolResponses)
+	before.SetSelectedModel(ID, domain.NewModelRef("gateway", "gpt-6-sol"), "")
 	before.SetClientActivation(ID, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
 	before.Normalize()
 	after := before.Clone()
-	delete(after.Models, "extra")
-	oldRuntime, oldErr := before.ResolveRuntime(ID, "")
-	newRuntime, newErr := after.ResolveRuntime(ID, "")
+	delete(after.Models, domain.NewModelRef("gateway", "grok-4.6"))
+	oldRuntime, oldErr := before.ResolveRuntime(ID, domain.ModelRef{})
+	newRuntime, newErr := after.ResolveRuntime(ID, domain.ModelRef{})
 	if oldErr != nil || newErr != nil || oldRuntime != newRuntime {
 		t.Fatalf("selected Hermes Route changed: before=%#v (%v), after=%#v (%v)", oldRuntime, oldErr, newRuntime, newErr)
 	}
@@ -157,14 +157,14 @@ func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 func TestHermesCatalogUsesProviderWireModelIDs(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-	for routeID, wireID := range map[string]string{"ordinary": "gpt-6-astra", "variant": "gpt-6-astra-ssvip"} {
-		cfg.Models[routeID] = domain.Model{
-			Provider: "gateway", Family: "gpt-6-astra", UpstreamModel: wireID,
+	for _, wireID := range []string{"gpt-6-astra", "gpt-6-astra-ssvip"} {
+		cfg.Models[domain.NewModelRef("gateway", wireID)] = domain.Model{
+			Provider: "gateway", Family: "gpt-6-astra", ID: wireID,
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 		}
 	}
-	cfg.SetSelectedModel(ID, "variant", "")
-	selected, err := cfg.ResolveRuntime(ID, "")
+	cfg.SetSelectedModel(ID, domain.NewModelRef("gateway", "gpt-6-astra-ssvip"), "")
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,17 +181,20 @@ func TestHermesCatalogUsesProviderWireModelIDs(t *testing.T) {
 	}
 }
 
-func TestHermesCatalogFollowsDeclaredProviderAndFamilyOrder(t *testing.T) {
+func TestHermesCatalogFollowsConfigurationOrder(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
-	for id, order := range map[string]int{"alpha": 20, "zulu": 10} {
-		cfg.Providers[id] = domain.Provider{Label: id, Order: order, Endpoints: domain.Endpoints{
+	for _, id := range []string{"zulu", "alpha"} {
+		if err := cfg.AppendProvider(id, domain.Provider{Label: id, Endpoints: domain.Endpoints{
 			Anthropic: "https://messages.test", Responses: "https://responses.test/v1",
-		}}
-		for model, rank := range map[string]int{"first": 10, "second": 20} {
-			cfg.Families[model] = domain.Family{Label: model, Order: rank}
-			cfg.Models[id+"-"+model] = domain.Model{Provider: id, Family: model, UpstreamModel: map[string]string{"first": "wire-z", "second": "wire-a"}[model], Protocols: map[domain.EndpointProtocol][]domain.Capability{
+		}}); err != nil {
+			t.Fatal(err)
+		}
+		for _, model := range []string{"wire-z", "wire-a"} {
+			if err := cfg.AppendModel(domain.Model{Provider: id, ID: model, Protocols: map[domain.EndpointProtocol][]domain.Capability{
 				domain.ProtocolAnthropic: {}, domain.ProtocolResponses: {},
-			}}
+			}}); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	catalog, err := hermesCatalog(cfg)
@@ -205,7 +208,7 @@ func TestHermesCatalogFollowsDeclaredProviderAndFamilyOrder(t *testing.T) {
 			t.Fatalf("provider %s reordered exact wires lexically: %v", provider.ID, provider.Models)
 		}
 	}
-	want := []string{"aigw-zulu-anthropic", "aigw-zulu-openai-responses", "aigw-alpha-anthropic", "aigw-alpha-openai-responses"}
+	want := []string{"aigw-zulu-anthropic", "aigw-zulu-responses", "aigw-alpha-anthropic", "aigw-alpha-responses"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("provider Account/protocol order = %v, want %v", got, want)
 	}
@@ -216,7 +219,7 @@ func TestHermesCatalogCoversShippedModelWireIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := store.Parse(team, builtInAdmission())
+	manifest, err := store.ParseTeamFile(team, builtInAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,12 +236,12 @@ func TestHermesCatalogCoversShippedModelWireIDs(t *testing.T) {
 		models[provider.ID] = provider.Models
 	}
 	spec := New().Spec()
-	for _, routeID := range cfg.ModelIDs() {
+	for _, routeID := range cfg.ModelRefs() {
 		route := cfg.Models[routeID]
 		for _, protocol := range spec.CompatibleModelProtocols(cfg.Providers[route.Provider], route) {
 			providerID := hermesProviderID(route.Provider, protocol)
-			if !slices.Contains(models[providerID], route.UpstreamModelID()) {
-				t.Errorf("Hermes provider %q omits Route %q wire ID %q", providerID, routeID, route.UpstreamModelID())
+			if !slices.Contains(models[providerID], route.ID) {
+				t.Errorf("Hermes provider %q omits Route %q wire ID %q", providerID, routeID, route.ID)
 			}
 		}
 	}
@@ -247,16 +250,15 @@ func TestHermesCatalogCoversShippedModelWireIDs(t *testing.T) {
 func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-	before.Models["selected"] = qualifiedModel("Selected", "gateway", "gpt-6-sol", domain.ProtocolResponses)
-	before.Models["extra"] = qualifiedModel("Extra", "gateway", "grok-4.6", domain.ProtocolResponses)
-	before.SetSelectedModel(ID, "selected", "")
+	before.Models[domain.NewModelRef("gateway", "gpt-6-sol")] = qualifiedModel("Selected", "gateway", "gpt-6-sol", domain.ProtocolResponses)
+	before.Models[domain.NewModelRef("gateway", "grok-4.6")] = qualifiedModel("Extra", "gateway", "grok-4.6", domain.ProtocolResponses)
+	before.SetSelectedModel(ID, domain.NewModelRef("gateway", "gpt-6-sol"), "")
 	before.SetClientActivation(ID, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
 	before.Normalize()
 	after := before.Clone()
-	route := after.Models["extra"]
+	route := after.Models[domain.NewModelRef("gateway", "grok-4.6")]
 	route.Label = "Edited display label"
-	route.Purpose = "Edited purpose"
-	after.Models["extra"] = route
+	after.Models[domain.NewModelRef("gateway", "grok-4.6")] = route
 	if got := hermesRegistry().ChangedClients(before, after); len(got) != 0 {
 		t.Fatalf("display-only edit affected clients %v", got)
 	}
@@ -277,12 +279,12 @@ func TestHermesProjectionGroupsEveryConnectedProvidersCuratedModelsByProtocol(t 
 	cfg.Providers["offline"] = domain.Provider{Label: "Offline", Endpoints: domain.Endpoints{
 		Responses: "https://offline.test/v1",
 	}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-fable-5-1", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["grok"] = domain.Model{Label: "Grok", Provider: "team", Family: "grok-4.6", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.Models["gemini"] = domain.Model{Label: "Gemini", Provider: "team", Family: "gemini-3.8-flash", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
-	cfg.Models["qwen"] = domain.Model{Label: "Qwen", Provider: "connected", Family: "qwen-max", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.Models["deepseek"] = domain.Model{Label: "DeepSeek", Provider: "offline", Family: "deepseek-v3", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.Clients[ID] = domain.ClientBinding{Model: "claude", Enabled: true, Protocol: domain.ProtocolAnthropic, Targets: []string{target}}
+	cfg.Models[domain.NewModelRef("team", "claude-fable-5-1")] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-fable-5-1", ID: "claude-fable-5-1", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models[domain.NewModelRef("team", "grok-4.6")] = domain.Model{Label: "Grok", Provider: "team", Family: "grok-4.6", ID: "grok-4.6", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models[domain.NewModelRef("team", "gemini-3.8-flash")] = domain.Model{Label: "Gemini", Provider: "team", Family: "gemini-3.8-flash", ID: "gemini-3.8-flash", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
+	cfg.Models[domain.NewModelRef("connected", "qwen-max")] = domain.Model{Label: "Qwen", Provider: "connected", Family: "qwen-max", ID: "qwen-max", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models[domain.NewModelRef("offline", "deepseek-v3")] = domain.Model{Label: "DeepSeek", Provider: "offline", Family: "deepseek-v3", ID: "deepseek-v3", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("team", "claude-fable-5-1"), Enabled: true, Protocol: domain.ProtocolAnthropic, Targets: []string{target}}
 	store := secret.NewMemoryStore()
 	for _, accountID := range []string{"team", "connected"} {
 		if err := store.Set(accountID, "fixture-token"); err != nil {
@@ -304,12 +306,12 @@ func TestHermesProjectionGroupsEveryConnectedProvidersCuratedModelsByProtocol(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"aigw-team-anthropic", "aigw-team-openai-responses", "aigw-team-openai-chat-completions", "aigw-connected-openai-responses", "claude-fable-5-1", "grok-4.6", "gemini-3.8-flash", "qwen-max", "discover_models: false"} {
+	for _, want := range []string{"aigw-team-anthropic", "aigw-team-responses", "aigw-team-chat", "aigw-connected-responses", "claude-fable-5-1", "grok-4.6", "gemini-3.8-flash", "qwen-max", "discover_models: false"} {
 		if !strings.Contains(string(data), want) {
 			t.Errorf("Hermes projection missing %q:\n%s", want, data)
 		}
 	}
-	for _, unwanted := range []string{"aigw-offline-openai-responses", "deepseek-v3"} {
+	for _, unwanted := range []string{"aigw-offline-responses", "deepseek-v3"} {
 		if strings.Contains(string(data), unwanted) {
 			t.Errorf("Hermes projection contains disconnected Account value %q:\n%s", unwanted, data)
 		}
@@ -322,7 +324,7 @@ func qualifiedModel(label, account, model string, protocols ...domain.EndpointPr
 		interfaces[protocol] = []domain.Capability{}
 	}
 	return domain.Model{
-		Label: label, Provider: account, Family: model, UpstreamModel: model, Protocols: interfaces,
+		Label: label, Provider: account, Family: model, ID: model, Protocols: interfaces,
 	}
 }
 

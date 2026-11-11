@@ -43,8 +43,8 @@ func TestEditKeepsRecommendationsOnTheirProtocols(t *testing.T) {
 	f := newFixture(t)
 	cfg := f.load(t)
 	cfg.Recommendations["hermes"] = domain.ClientRecommendation{
-		Primary:      domain.ClientSelection{Model: "team"},
-		Alternatives: []domain.ClientSelection{{Model: "mixed-chat"}},
+		Primary:      domain.ClientSelection{Model: domain.NewModelRef("team", "team-model")},
+		Alternatives: []domain.ClientSelection{{Model: domain.NewModelRef("mixed", "Chat-Only")}},
 	}
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -66,8 +66,8 @@ func TestEditKeepsRecommendationsOnTheirProtocols(t *testing.T) {
 	}
 	got := f.load(t).Recommendations["hermes"]
 	want := domain.ClientRecommendation{
-		Primary:      domain.ClientSelection{Model: "team"},
-		Alternatives: []domain.ClientSelection{{Model: "mixed-chat", Protocol: domain.ProtocolChat}},
+		Primary:      domain.ClientSelection{Model: domain.NewModelRef("team", "team-model")},
+		Alternatives: []domain.ClientSelection{{Model: domain.NewModelRef("mixed", "Chat-Only"), Protocol: domain.ProtocolChat}},
 	}
 	if got.Primary != want.Primary || !slices.Equal(got.Alternatives, want.Alternatives) {
 		t.Fatalf("recommendation = %#v, want %#v", got, want)

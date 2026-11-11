@@ -168,7 +168,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	}
 	chosen.unlisted = options.unlisted && (chosen.adds || chosen.gains)
 	synchronizer := operation.Synchronizer()
-	after, selected, err := synchronizer.PrepareSelection(withAddition(cfg, chosen), chosen.client.ID, chosen.key, chosen.protocol)
+	after, selected, err := synchronizer.PrepareSelection(withAddition(cfg, chosen), chosen.client.ID, chosen.ref, chosen.protocol)
 	if err != nil {
 		return err
 	}
@@ -230,9 +230,9 @@ func withAddition(cfg domain.Config, chosen choice) domain.Config {
 		return cfg
 	}
 	working := cfg.Clone()
-	model := working.Models[chosen.key]
+	model := working.Models[chosen.ref]
 	if chosen.adds {
-		model = domain.Model{Provider: chosen.ref.Provider(), UpstreamModel: chosen.ref.ID(), Family: working.AddedModelFamily(chosen.ref.ID())}
+		model = domain.Model{Provider: chosen.ref.Provider(), ID: chosen.ref.ID(), Family: working.AddedModelFamily(chosen.ref.ID())}
 	}
 	protocols := maps.Clone(model.Protocols)
 	if protocols == nil {
@@ -240,7 +240,7 @@ func withAddition(cfg domain.Config, chosen choice) domain.Config {
 	}
 	protocols[chosen.protocol] = []domain.Capability{}
 	model.Protocols = protocols
-	working.Models[chosen.key] = model
+	working.Models[chosen.ref] = model
 	return working
 }
 

@@ -31,8 +31,8 @@ func aliasedCodex(t *testing.T, named func(file, alias string) []string) (*cli.A
 	app.Discovery = fakeDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: filepath.Join(dir, ".codex", "config.toml"), Present: true, AutoManaged: true}}}}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-	cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
-	cfg.SetSelectedModel(codex.ID, "sol", "")
+	cfg.Models[domain.NewModelRef("gateway", "gpt-sol")] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-sol"), "")
 	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), named(file, alias))
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

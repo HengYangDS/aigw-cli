@@ -36,10 +36,10 @@ func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
 				t.Fatal(err)
 			}
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
-			route := cfg.Models["one"]
+			route := cfg.Models[domain.NewModelRef("one", "claude-test")]
 			route.Family = "claude-next"
-			route.UpstreamModel = "claude-next"
-			cfg.Models["next"] = route
+			route.ID = "claude-next"
+			cfg.Models[route.Ref()] = route
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}

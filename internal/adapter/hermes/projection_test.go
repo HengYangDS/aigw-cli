@@ -18,7 +18,7 @@ func testDesired() Desired {
 		SelectedModel:    "model-test",
 		Providers: []Provider{{
 			ID: "aigw", Models: []string{"model-test"}, Endpoint: "https://provider.test/v1",
-			Protocol: "openai_responses", CredentialCommand: "aigw credential hermes projection-test",
+			Protocol: "responses", CredentialCommand: "aigw credential hermes projection-test",
 		}},
 	}
 }
@@ -229,8 +229,8 @@ func TestProjectionPublishesTheCuratedModelsForEachOwnedProvider(t *testing.T) {
 		SelectedModel:    "claude-fable-5-1",
 		Providers: []Provider{
 			{ID: "aigw-ucloud-anthropic", Name: "UCloud · Anthropic Messages", Endpoint: "https://messages.test", Protocol: "anthropic", CredentialCommand: "aigw credential hermes messages", Models: []string{"claude-fable-5-1", "claude-opus-5"}},
-			{ID: "aigw-ucloud-responses", Name: "UCloud · OpenAI Responses", Endpoint: "https://responses.test/v1", Protocol: "openai_responses", CredentialCommand: "aigw credential hermes responses", Models: []string{"gpt-6-astra", "grok-4.6"}},
-			{ID: "aigw-ucloud-chat", Name: "UCloud · OpenAI Chat Completions", Endpoint: "https://chat.test/v1", Protocol: "openai_chat_completions", CredentialCommand: "aigw credential hermes chat", Models: []string{"gemini-3.8-flash"}},
+			{ID: "aigw-ucloud-responses", Name: "UCloud · OpenAI Responses", Endpoint: "https://responses.test/v1", Protocol: "responses", CredentialCommand: "aigw credential hermes responses", Models: []string{"gpt-6-astra", "grok-4.6"}},
+			{ID: "aigw-ucloud-chat", Name: "UCloud · OpenAI Chat Completions", Endpoint: "https://chat.test/v1", Protocol: "chat", CredentialCommand: "aigw credential hermes chat", Models: []string{"gemini-3.8-flash"}},
 		},
 	}
 	plan, err := Prepare(path, &desired)
@@ -395,7 +395,7 @@ func TestProjectionCompensatesConfigWhenStateWriteConflicts(t *testing.T) {
 }
 
 func TestProjectionSupportsEveryHermesWireAndScalarModel(t *testing.T) {
-	for protocol, native := range map[string]string{"openai_responses": "codex_responses", "anthropic": "anthropic_messages", "openai_chat_completions": "chat_completions"} {
+	for protocol, native := range map[string]string{"responses": "codex_responses", "anthropic": "anthropic_messages", "chat": "chat_completions"} {
 		t.Run(protocol, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.yaml")
 			if err := os.WriteFile(path, []byte("model: previous-model\n"), 0o600); err != nil {

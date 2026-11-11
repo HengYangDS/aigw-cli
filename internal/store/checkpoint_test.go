@@ -26,11 +26,11 @@ func TestForwardingChangedDuringVerificationRejectsCheckpoint(t *testing.T) {
 	if err := changed.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
-	data, err := encodeForwarding(changed)
+	data, err := encodeConfig(changed)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(store.componentPath(forwardingComponent), data, 0o600); err != nil {
+	if err := os.WriteFile(store.Path(), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	before, err := store.CaptureSnapshot()
@@ -56,7 +56,7 @@ func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) 
 	if err := changed.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
-	newer, err := encodeForwarding(changed)
+	newer, err := encodeConfig(changed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,8 +64,8 @@ func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) 
 	t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
 	writeConfigurationFileIfUnchanged = func(path string, expected platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 		postimage, err := originalWrite(path, expected, data, mode)
-		if err == nil && path == store.Path()+".verified.json" {
-			err = os.WriteFile(store.componentPath(forwardingComponent), newer, 0o600)
+		if err == nil && path == store.verifiedPath() {
+			err = os.WriteFile(store.Path(), newer, 0o600)
 		}
 		return postimage, err
 	}
@@ -73,7 +73,7 @@ func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) 
 		t.Fatalf("concurrent forwarding update was certified: %v", err)
 	}
 	after, err := store.CaptureSnapshot()
-	if err != nil || after.Verified.Exists || !bytes.Equal(after.Forwarding().Data, newer) {
+	if err != nil || after.Verified.Exists || !bytes.Equal(after.Config.Data, newer) {
 		t.Fatalf("checkpoint compensation lost newer forwarding or retained stale proof: %v", err)
 	}
 }
@@ -84,8 +84,8 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	cfg := admitted(domain.Config{
 		Version:   domain.ConfigVersion,
 		Providers: map[string]domain.Provider{"dmx": {Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
-		Models:    map[string]domain.Model{"claude": testModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)},
-		Clients:   map[string]domain.ClientBinding{ClientClaude: {Model: "claude"}},
+		Models:    map[domain.ModelRef]domain.Model{domain.NewModelRef("dmx", "claude-test"): testModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)},
+		Clients:   map[string]domain.ClientBinding{ClientClaude: {Model: domain.NewModelRef("dmx", "claude-test")}},
 	})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -97,10 +97,10 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if checkpoint.Config.SelectedModel(ClientClaude) != "claude" || len(checkpoint.Clients) != 2 || checkpoint.VerifiedAt.IsZero() {
+	if checkpoint.Config.SelectedModel(ClientClaude) != domain.NewModelRef("dmx", "claude-test") || len(checkpoint.Clients) != 2 || checkpoint.VerifiedAt.IsZero() {
 		t.Fatalf("checkpoint = %#v", checkpoint)
 	}
-	data, err := os.ReadFile(path + ".verified.json")
+	data, err := os.ReadFile(NewStore(path, testAdmission()).verifiedPath())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,13 +118,13 @@ func TestVerifiedCheckpointRequiresOneCompleteDocument(t *testing.T) {
 	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(store.Path() + ".verified.json")
+	data, err := os.ReadFile(store.verifiedPath())
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, suffix := range []string{" \n\t", "{}", "null", "truncated", `{"config":`} {
 		t.Run(fmt.Sprintf("suffix=%q", suffix), func(t *testing.T) {
-			if err := os.WriteFile(store.Path()+".verified.json", append(bytes.Clone(data), suffix...), 0o600); err != nil {
+			if err := os.WriteFile(store.verifiedPath(), append(bytes.Clone(data), suffix...), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			_, err := store.LoadVerifiedCheckpoint()
@@ -144,9 +144,13 @@ func TestVerifiedCheckpointUsesOneClientScopeContract(t *testing.T) {
 	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
-	checkpoint, err := store.LoadVerifiedCheckpoint()
-	if err != nil {
+	// The checkpoint as the file holds it, whose clients each case replaces.
+	var checkpoint checkpointDocument
+	if err := json.Unmarshal(readTestFile(t, store.verifiedPath()), &checkpoint); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := decodeVerifiedCheckpoint(mustMarshal(t, checkpoint), testAdmission()); err != nil {
+		t.Fatalf("the unchanged checkpoint does not read: %v", err)
 	}
 	// A client must be admitted, named once, and recorded at a depth of aigw
 	// check.
@@ -168,11 +172,7 @@ func TestVerifiedCheckpointUsesOneClientScopeContract(t *testing.T) {
 			}
 			invalid := checkpoint
 			invalid.Clients = clients
-			data, err := json.Marshal(invalid)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := decodeVerifiedCheckpoint(data, testAdmission()); err == nil {
+			if _, err := decodeVerifiedCheckpoint(mustMarshal(t, invalid), testAdmission()); err == nil {
 				t.Errorf("reader accepted invalid client scope: %v", clients)
 			}
 		})
@@ -210,7 +210,7 @@ func TestVerifiedCheckpointRequiresExistingConfiguration(t *testing.T) {
 	if err := store.SaveVerifiedCheckpoint(t.Context(), convergenceConfig("missing"), sessions(ClientCodex)); err == nil {
 		t.Fatal("verification created a checkpoint without configuration")
 	}
-	if _, err := os.Stat(store.Path() + ".verified.json"); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(store.verifiedPath()); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("checkpoint exists after rejected verification: %v", err)
 	}
 }
@@ -235,7 +235,7 @@ func TestVerifiedCheckpointWaitsForMutationLockAndHonorsCancellation(t *testing.
 	if err := store.SaveVerifiedCheckpoint(ctx, cfg, sessions(ClientCodex)); !errors.Is(err, context.Canceled) {
 		t.Fatalf("checkpoint ignored mutation lock or cancellation: %v", err)
 	}
-	if _, err := os.Stat(store.Path() + ".verified.json"); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(store.verifiedPath()); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("cancelled checkpoint was written: %v", err)
 	}
 }
@@ -288,7 +288,7 @@ func TestLoadVerifiedCheckpointRejectsLegacyProfileOwnedEndpointResidue(t *testi
   "clients": [{"client": "codex", "depth": "client"}],
   "verified_at": "2026-07-11T00:00:00Z"
 }`
-	if err := os.WriteFile(path+".verified.json", []byte(checkpoint), 0o600); err != nil {
+	if err := os.WriteFile(NewStore(path, testAdmission()).verifiedPath(), []byte(checkpoint), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := NewStore(path, testAdmission()).LoadVerifiedCheckpoint(); err == nil {
@@ -326,7 +326,7 @@ func TestLoadVerifiedCheckpointSurfacesMissingFile(t *testing.T) {
 
 func TestLoadVerifiedCheckpointRejectsIncompleteCheckpoint(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(path+".verified.json", []byte(`{}`), 0o600); err != nil {
+	if err := os.WriteFile(NewStore(path, testAdmission()).verifiedPath(), []byte(`{}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := NewStore(path, testAdmission()).LoadVerifiedCheckpoint(); err == nil || !strings.Contains(err.Error(), "incomplete") {
@@ -337,16 +337,11 @@ func TestLoadVerifiedCheckpointRejectsIncompleteCheckpoint(t *testing.T) {
 func TestLoadVerifiedCheckpointRejectsNonCanonicalConfigVersion(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	checkpoint := `{
-  "config": {
-    "version": 1,
-    "accounts": {"team": {"label": "Team", "endpoints": {"anthropic": "https://team.test"}}},
-    "routes": {"team": {"label": "Team", "account": "team"}},
-    "clients": {"codex": {"route": "team"}}
-  },
+  "configuration": "version = 7\n",
   "clients": [{"client": "codex", "depth": "client"}],
   "verified_at": "2026-07-11T00:00:00Z"
 }`
-	if err := os.WriteFile(path+".verified.json", []byte(checkpoint), 0o600); err != nil {
+	if err := os.WriteFile(NewStore(path, testAdmission()).verifiedPath(), []byte(checkpoint), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := NewStore(path, testAdmission()).LoadVerifiedCheckpoint(); err == nil || !strings.Contains(err.Error(), "validate verified checkpoint") {
@@ -361,7 +356,7 @@ func TestSaveVerifiedCheckpointSurfacesInvalidCheckpointTarget(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir(path+".verified.json", 0o700); err != nil {
+	if err := os.Mkdir(NewStore(path, testAdmission()).verifiedPath(), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions("codex")); err == nil {
@@ -401,7 +396,7 @@ func TestVerifiedCheckpointCompensatesConfigurationChangeDuringWrite(t *testing.
 			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err == nil || !strings.Contains(err.Error(), "configuration changed") {
 				t.Fatalf("changed configuration was certified: %v", err)
 			}
-			data, err := os.ReadFile(store.Path() + ".verified.json")
+			data, err := os.ReadFile(store.verifiedPath())
 			if replaceCheckpoint {
 				if err != nil || string(data) != "newer checkpoint" {
 					t.Fatalf("newer checkpoint was changed: %q, %v", data, err)
@@ -425,4 +420,31 @@ func sessions(clients ...string) []VerifiedClient {
 		verified = append(verified, VerifiedClient{Client: client, Depth: "client"})
 	}
 	return verified
+}
+
+// A check whose configuration file no longer reads writes no snapshot.
+func TestSaveVerifiedCheckpointRefusesAConfigurationThatNoLongerReads(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
+	cfg := convergenceConfig("current")
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(store.Path(), []byte("version = 8\n[[providers]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err == nil {
+		t.Fatal("a snapshot of a configuration that no longer reads was written")
+	}
+	if _, err := os.Stat(store.verifiedPath()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("a snapshot exists: %v", err)
+	}
+}
+
+func mustMarshal(t *testing.T, value any) []byte {
+	t.Helper()
+	data, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }

@@ -45,7 +45,7 @@ func (j *journeyFixture) replaceProvider(old, replacement, input string) {
 				protocol = only
 			}
 		}
-		ref := replacement + "/" + model.UpstreamModelID()
+		ref := replacement + "/" + model.ID
 		if !added[ref] {
 			args := []string{"model", "add", ref, "--family", model.Family, "--protocol", protocol.Name(), "--unlisted"}
 			for _, capability := range model.Protocols[protocol] {

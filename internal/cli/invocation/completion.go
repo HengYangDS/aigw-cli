@@ -41,7 +41,7 @@ func CompleteProviders(runtime Context) cobra.CompletionFunc {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
 		completions := []cobra.Completion{}
-		for _, id := range cfg.CatalogProviderIDs() {
+		for _, id := range cfg.ProviderIDs() {
 			completions = append(completions, cobra.CompletionWithDesc(id, cfg.Providers[id].Label))
 		}
 		return completions, cobra.ShellCompDirectiveNoFileComp
@@ -105,7 +105,7 @@ func modelCompletions(runtime Context, client string) ([]cobra.Completion, cobra
 	spec, admitted := cfg.Admission().Spec(client)
 	completions := []cobra.Completion{}
 	offered := map[string]bool{}
-	for _, key := range cfg.CatalogModelIDs() {
+	for _, key := range cfg.ModelRefs() {
 		model := cfg.Models[key]
 		name := model.Ref().String()
 		if offered[name] || admitted && len(spec.CompatibleProtocols(cfg.Providers[model.Provider])) == 0 {

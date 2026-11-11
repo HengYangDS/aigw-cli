@@ -6,66 +6,39 @@ import (
 	"strings"
 )
 
-// ManifestVersion is the only team manifest schema version that this build
-// accepts and exports.
-const ManifestVersion = 7
-
-// Manifest is the credential-free team capability document accepted by setup and export.
-type Manifest struct {
-	Version         int                             `toml:"version"`
-	Recommendations map[string]ClientRecommendation `toml:"recommendations,omitempty"`
-	Providers       map[string]Provider             `toml:"accounts,omitempty"`
-	Families        map[string]Family               `toml:"models"`
-	Models          map[string]Model                `toml:"routes"`
-}
-
-// UnsupportedManifestVersionError reports a team manifest of another schema
+// UnsupportedTeamFileVersionError reports a team file of another schema
 // version, which AIGW never reinterprets.
-type UnsupportedManifestVersionError struct{ Version int }
+type UnsupportedTeamFileVersionError struct{ Version int }
 
-// Error formats the version refusal. It names no way to convert the
-// manifest, because no AIGW command converts one.
-func (err *UnsupportedManifestVersionError) Error() string {
-	return fmt.Sprintf(
-		"unsupported configuration manifest version %d; expected %d; AIGW does not reinterpret schema versions",
-		err.Version,
-		ManifestVersion,
-	)
+// Error names the file's version and the one that this AIGW reads. It names
+// no conversion, because no AIGW command converts a team file.
+func (err *UnsupportedTeamFileVersionError) Error() string {
+	return fmt.Sprintf("the team file has version %d, and this AIGW reads version %d", err.Version, ConfigVersion)
 }
 
-// Admit validates a decoded team manifest for the admitted clients and returns
-// its normalized form: it recommends models only for admitted clients, and
-// validates as a configuration. A recommendation may name a model that only
-// the configuration defines, which the merge checks. Like a configuration, it
-// may declare providers without Routes, which is what `aigw config export`
-// writes for a configuration without models.
-func (m Manifest) Admit(admission Admission) (Manifest, error) {
-	if m.Providers == nil {
-		m.Providers = map[string]Provider{}
-	}
-	if m.Recommendations == nil {
-		m.Recommendations = map[string]ClientRecommendation{}
-	}
-	check := NewConfig(admission)
-	check.Providers = m.Providers
-	check.Families = m.Families
-	check.Models = m.Models
-	check.Normalize()
-	m.Families = check.Families
-	m.Models = check.Models
-	check.Recommendations = make(map[string]ClientRecommendation, len(m.Recommendations))
-	for client, recommendation := range m.Recommendations {
-		if !admission.Admits(client) {
-			return Manifest{}, fmt.Errorf("recommendation uses unsupported client %q", client)
+// AdmitTeamFile validates a decoded team file, which is a configuration
+// without clients, and returns its normalized form: it recommends models only
+// for admitted clients and validates as a configuration. A recommendation may
+// name a model that only the configuration defines, which the merge checks.
+// Like a configuration, it may declare providers without models, which is
+// what `aigw config export` writes for a configuration without models.
+func (c *Config) AdmitTeamFile() (Config, error) {
+	file := c.Clone()
+	file.Normalize()
+	check := file.Clone()
+	check.Recommendations = make(map[string]ClientRecommendation, len(file.Recommendations))
+	for client, recommendation := range file.Recommendations {
+		if !file.admission.Admits(client) {
+			return Config{}, fmt.Errorf("recommendation uses unsupported client %q", client)
 		}
-		if recommendation.Primary.Model == "" {
-			return Manifest{}, fmt.Errorf("client recommendation %q has no primary route", client)
+		if recommendation.Primary.Model.IsZero() {
+			return Config{}, fmt.Errorf("client recommendation %q has no primary model", client)
 		}
 		// A choice of a model that only the configuration defines is checked
 		// when the file is merged into it.
 		var defined []ClientSelection
 		for _, selection := range recommendation.Selections() {
-			if _, ok := m.Models[selection.Model]; ok {
+			if _, ok := file.Models[selection.Model]; ok {
 				defined = append(defined, selection)
 			}
 		}
@@ -74,33 +47,34 @@ func (m Manifest) Admit(admission Admission) (Manifest, error) {
 		}
 	}
 	if err := check.Validate(); err != nil {
-		return Manifest{}, fmt.Errorf("invalid configuration manifest: %w", err)
+		return Config{}, fmt.Errorf("invalid team file: %w", err)
 	}
-	return m, nil
+	return file, nil
 }
 
-// ExportManifest projects configuration into the canonical credential-free team
-// manifest. Recommendations are the declared team preference and stay as
-// declared; Client Bindings are the operator's own choices and stay local; a
-// model label that its provider and family would derive is omitted.
-func ExportManifest(cfg Config) (Manifest, error) {
+// ExportTeamFile returns the team file of cfg: its providers, models,
+// families and recommendations in its display order, and no clients.
+// Recommendations are the declared team preference and stay as declared;
+// client selections are the operator's own and stay local; a model label that
+// its provider and family would derive is omitted.
+func ExportTeamFile(cfg Config) (Config, error) {
 	cfg = cfg.Clone()
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
-		return Manifest{}, err
+		return Config{}, err
 	}
-	for routeID, route := range cfg.Models {
-		derived := modelLabel(Model{Provider: route.Provider, Family: route.Family}, cfg.Providers[route.Provider], cfg.Families[route.Family])
-		if route.Label == derived {
-			route.Label = ""
-			cfg.Models[routeID] = route
+	for ref, model := range cfg.Models {
+		if model.Label == modelLabel(Model{Provider: model.Provider, ID: model.ID, Family: model.Family}, cfg.Providers[model.Provider], cfg.Families[model.Family]) {
+			model.Label = ""
+			cfg.Models[ref] = model
 		}
 	}
-	return Manifest{Version: ManifestVersion, Recommendations: cfg.Recommendations, Providers: cfg.Providers, Families: cfg.Families, Models: cfg.Models}, nil
+	cfg.Clients = map[string]ClientBinding{}
+	return cfg, nil
 }
 
 func equivalentProvider(left, right Provider) bool {
-	return left.Label == right.Label && left.Order == right.Order &&
+	return left.Label == right.Label &&
 		normalizeEndpoint(left.Endpoints.Responses) == normalizeEndpoint(right.Endpoints.Responses) &&
 		normalizeEndpoint(left.Endpoints.Chat) == normalizeEndpoint(right.Endpoints.Chat) &&
 		normalizeEndpoint(left.Endpoints.Anthropic) == normalizeEndpoint(right.Endpoints.Anthropic) &&
@@ -117,15 +91,14 @@ func equivalentProbe(left, right *BalanceProbe) bool {
 func normalizeEndpoint(value string) string { return strings.TrimRight(strings.TrimSpace(value), "/") }
 
 func equivalentModel(left, right Model) bool {
-	return left.Purpose == right.Purpose &&
-		left.Provider == right.Provider &&
+	return left.Provider == right.Provider &&
+		left.ID == right.ID &&
 		left.Family == right.Family &&
-		left.UpstreamModelID() == right.UpstreamModelID() &&
-		left.LifecycleState() == right.LifecycleState() &&
-		equalInterfaces(left.Protocols, right.Protocols)
+		left.Deprecated == right.Deprecated &&
+		equalProtocols(left.Protocols, right.Protocols)
 }
 
-func equalInterfaces(left, right map[EndpointProtocol][]Capability) bool {
+func equalProtocols(left, right map[EndpointProtocol][]Capability) bool {
 	if len(left) != len(right) {
 		return false
 	}

@@ -18,11 +18,11 @@ func TestTeamSetupOffersEqualCompatibleProvidersWithoutTokens(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	for _, account := range []string{"ucloud", "dmx"} {
 		cfg.Providers[account] = domain.Provider{Label: account, Endpoints: domain.Endpoints{Anthropic: "https://" + account + ".test"}}
-		cfg.Models[account] = domain.Model{Label: account, Provider: account, Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+		cfg.Models[domain.NewModelRef(account, "fable")] = domain.Model{Label: account, Provider: account, Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	}
-	cfg.SetRecommendedModel(claude.ID, "ucloud")
+	cfg.SetRecommendedModel(claude.ID, domain.NewModelRef("ucloud", "fable"))
 	recommendation := cfg.Recommendations[claude.ID]
-	recommendation.Alternatives = []domain.ClientSelection{{Model: "dmx"}}
+	recommendation.Alternatives = []domain.ClientSelection{{Model: domain.NewModelRef("dmx", "fable")}}
 	cfg.Recommendations[claude.ID] = recommendation
 	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}
 	team := teamSetup{runtime: runtime, merged: cfg}

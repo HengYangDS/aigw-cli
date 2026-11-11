@@ -56,8 +56,8 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://example.invalid"}}
-	cfg.Models["claude"] = qualifiedModel("Claude", "gateway", "fixture", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("gateway", "fixture")] = qualifiedModel("Claude", "gateway", "fixture", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "fixture"), "")
 	command := filepath.Join(t.TempDir(), "credential adapter")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	binding := cfg.Clients[claude.ID]
@@ -133,14 +133,13 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 			cfg := domain.NewConfig(clients.Admission())
 			addProviderModel(
 				&cfg,
-				"claude",
 				"team",
 				"Team",
 				domain.Endpoints{Anthropic: "https://team.test"},
 				claude.ID,
 				"claude-test",
 			)
-			cfg.SetSelectedModel(claude.ID, "claude", "")
+			cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "claude-test"), "")
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
@@ -177,14 +176,13 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 			cfg := domain.NewConfig(clients.Admission())
 			addProviderModel(
 				&cfg,
-				"claude",
 				"team",
 				"Team",
 				domain.Endpoints{Anthropic: "https://team.test"},
 				claude.ID,
 				"claude-test",
 			)
-			cfg.SetSelectedModel(claude.ID, "claude", "")
+			cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "claude-test"), "")
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
@@ -213,14 +211,13 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(
 		&cfg,
-		"claude",
 		"team",
 		"Team",
 		domain.Endpoints{Anthropic: "https://team.test"},
 		claude.ID,
 		"claude-test",
 	)
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -246,14 +243,13 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 			cfg := domain.NewConfig(clients.Admission())
 			addProviderModel(
 				&cfg,
-				"claude",
 				"team",
 				"Team",
 				domain.Endpoints{Anthropic: "https://team.test"},
 				claude.ID,
 				"claude-test",
 			)
-			cfg.SetRecommendedModel(claude.ID, "claude")
+			cfg.SetRecommendedModel(claude.ID, domain.NewModelRef("team", "claude-test"))
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -290,7 +286,6 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 			cfg := domain.NewConfig(clients.Admission())
 			addProviderModel(
 				&cfg,
-				"claude",
 				"team",
 				"Team",
 				domain.Endpoints{Anthropic: "https://team.test"},
@@ -302,7 +297,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 				Endpoints:    domain.Endpoints{Anthropic: "https://team.test"},
 				BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 			}
-			cfg.SetSelectedModel(claude.ID, "claude", "")
+			cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "claude-test"), "")
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
@@ -365,7 +360,6 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(
 		&cfg,
-		"claude",
 		"team",
 		"Team",
 		domain.Endpoints{Anthropic: "https://team.test"},
@@ -377,7 +371,7 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 		Endpoints:    domain.Endpoints{Anthropic: "https://team.test"},
 		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 	}
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -418,16 +412,16 @@ func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
 			Responses: "https://codex.example.test/v1",
 		},
 	}
-	cfg.Models["claude"] = domain.Model{
-		Label: "Claude", Provider: "one", Family: "claude-test",
+	cfg.Models[domain.NewModelRef("one", "claude-test")] = domain.Model{
+		Label: "Claude", Provider: "one", Family: "claude-test", ID: "claude-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.Models["codex"] = domain.Model{
-		Label: "Codex", Provider: "one", Family: "gpt-test",
+	cfg.Models[domain.NewModelRef("one", "gpt-test")] = domain.Model{
+		Label: "Codex", Provider: "one", Family: "gpt-test", ID: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
-	cfg.SetSelectedModel(claude.ID, "claude", "")
-	cfg.SetSelectedModel(codex.ID, "codex", "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-test"), "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

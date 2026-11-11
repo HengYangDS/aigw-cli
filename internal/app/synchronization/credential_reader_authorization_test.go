@@ -82,9 +82,10 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			}
 			selected := testConfig(target)
 			selected.Providers[account] = selected.Providers["gateway"]
-			route := selected.Models["gpt"]
+			route := selected.Models[domain.NewModelRef("gateway", "gpt-test")]
 			route.Provider = account
-			selected.Models["gpt"] = route
+			selected.Models[route.Ref()] = route
+			selected.SetSelectedModel(codex.ID, route.Ref(), "")
 			err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), selected, "test")
 			if err == nil {
 				t.Fatal("copied reader denied by the native store was accepted")
@@ -106,9 +107,10 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			}
 			deferred := testConfig(target)
 			deferred.Providers["missing"] = deferred.Providers["gateway"]
-			route = deferred.Models["gpt"]
+			route = deferred.Models[domain.NewModelRef("gateway", "gpt-test")]
 			route.Provider = "missing"
-			deferred.Models["gpt"] = route
+			deferred.Models[route.Ref()] = route
+			deferred.SetSelectedModel(codex.ID, route.Ref(), "")
 			if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), deferred, "deferred", codex.ID); err != nil {
 				t.Fatalf("absent Token blocked deferred selection: %v", err)
 			}
@@ -125,11 +127,11 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			selected.Providers["blocked"] = domain.Provider{
 				Label: "Blocked", Endpoints: domain.Endpoints{Anthropic: "https://blocked.test"},
 			}
-			selected.Models["blocked-claude"] = domain.Model{
-				Provider: "blocked", Family: "claude-test",
+			selected.Models[domain.NewModelRef("blocked", "claude-test")] = domain.Model{
+				Provider: "blocked", Family: "claude-test", ID: "claude-test",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 			}
-			selected.SetSelectedModel(claude.ID, "blocked-claude", "")
+			selected.SetSelectedModel(claude.ID, domain.NewModelRef("blocked", "claude-test"), "")
 			selected.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 			if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), selected, "codex", codex.ID); err != nil {
 				t.Fatalf("unrelated Claude Token blocked a Codex-only projection: %v", err)

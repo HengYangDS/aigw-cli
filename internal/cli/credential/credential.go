@@ -29,7 +29,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if !runtime.Clients.Admission().Admits(client) {
 				return fmt.Errorf("credential helper requires an admitted client: %s", runtime.Clients.Admission().Usage())
 			}
-			cfg, err := runtime.Config.LoadCredentialConfig()
+			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return configurationProblem(runtime.Version, err)
 			}
@@ -105,16 +105,16 @@ func resolveProjectedRuntime(cfg domain.Config, client, fingerprint string) (dom
 	if !admitted {
 		return domain.Runtime{}, fmt.Errorf("unknown client %q", client)
 	}
-	for _, routeID := range cfg.ModelIDs() {
-		route := cfg.Models[routeID]
-		account, exists := cfg.Providers[route.Provider]
+	for _, ref := range cfg.ModelRefs() {
+		model := cfg.Models[ref]
+		provider, exists := cfg.Providers[model.Provider]
 		if !exists {
 			continue
 		}
-		account.ID = route.Provider
-		protocols := spec.CompatibleModelProtocols(account, route)
+		provider.ID = model.Provider
+		protocols := spec.CompatibleModelProtocols(provider, model)
 		for _, protocol := range protocols {
-			clientRuntime, err := cfg.ResolveModelProtocol(client, routeID, protocol)
+			clientRuntime, err := cfg.ResolveModelProtocol(client, ref, protocol)
 			if err != nil {
 				continue
 			}

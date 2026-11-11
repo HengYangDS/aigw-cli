@@ -85,8 +85,8 @@ func TestCodexEndpointRequiresConfiguration(t *testing.T) {
 		expected string
 		wantErr  bool
 	}{
-		{"missing", domain.Runtime{ModelID: "p"}, "", true},
-		{"valid", domain.Runtime{ModelID: "p", Endpoint: "https://example.com/", Authentication: domain.AuthenticationClientNative}, "https://example.com/", false},
+		{"missing", domain.Runtime{Model: domain.NewModelRef("test", "p")}, "", true},
+		{"valid", domain.Runtime{Model: domain.NewModelRef("test", "p"), Endpoint: "https://example.com/", Authentication: domain.AuthenticationClientNative}, "https://example.com/", false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -180,13 +180,13 @@ func TestValidateConfigRejectsIncompleteOrMismatchedProjection(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "configuration.toml")
 
-	err := ValidateConfig(path, domain.Runtime{ModelID: "p"})
+	err := ValidateConfig(path, domain.Runtime{Model: domain.NewModelRef("test", "p")})
 	if err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
 		t.Errorf("expected endpoint error, got %v", err)
 	}
 
 	runtime := atomicTestRuntime()
-	runtime.ModelID = "p"
+	runtime.Model = domain.NewModelRef("p", "p")
 	runtime.Endpoint = "https://e.t"
 	runtime.UpstreamModel = ""
 	err = ValidateConfig(path, runtime)

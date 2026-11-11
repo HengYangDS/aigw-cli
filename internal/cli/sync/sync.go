@@ -82,16 +82,19 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				)
 			}
 			activation := clientactivation.AssessActivation(after, operation.Secrets)
-			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, AdoptedSelections: adopted, next: activation.NextActionFor(nil)}
+			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, next: activation.NextActionFor(nil)}
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
 			for _, client := range runtime.Clients.Admission().IDs() {
-				if key := after.SelectedModel(client); key != "" {
-					result.Selections[client] = after.Models[key].Ref().String()
+				if selected := after.SelectedModel(client); !selected.IsZero() {
+					result.Selections[client] = selected.String()
 				}
 			}
-			for client, key := range result.AdoptedSelections {
-				result.AdoptedSelections[client] = after.Models[key].Ref().String()
+			if len(adopted) > 0 {
+				result.AdoptedSelections = map[string]string{}
+				for client, ref := range adopted {
+					result.AdoptedSelections[client] = ref.String()
+				}
 			}
 			if dryRun {
 				if err := prepareSyncPreview(operation, before, after, &result); err != nil {

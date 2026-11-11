@@ -1,6 +1,7 @@
 package synchronization
 
 import (
+	"aigw-cli/internal/domain"
 	"errors"
 	"slices"
 	"testing"
@@ -60,9 +61,9 @@ func TestPresumedTokensAskOnlyOtherProvidersPresence(t *testing.T) {
 func TestPreviewsRefuseWhatTheirChangesRefuse(t *testing.T) {
 	before := setupConfiguration()
 	invalid := before.Clone()
-	route := invalid.Models["claude"]
+	route := invalid.Models[domain.NewModelRef("team", "claude-test")]
 	route.Provider = "missing"
-	invalid.Models["claude"] = route
+	invalid.Models[domain.NewModelRef("team", "claude-test")] = route
 	syncer := Synchronizer{Registry: builtinClients}
 	if _, err := syncer.Preview(before, invalid); err == nil {
 		t.Fatal("Preview admitted an invalid configuration")

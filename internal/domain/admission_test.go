@@ -96,7 +96,7 @@ func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
 	admission := NewAdmission(plain, provider, native, other)
 	base := NewConfig(admission)
 	base.Providers["gateway"] = Provider{Label: "Gateway", Endpoints: Endpoints{Responses: "https://gateway.test/v1"}}
-	base.Models["route"] = testModel("Route", "gateway", "model", ProtocolResponses)
+	base.Models[NewModelRef("gateway", "model")] = testModel("Route", "gateway", "model", ProtocolResponses)
 
 	for name, test := range map[string]struct {
 		client  string
@@ -104,15 +104,15 @@ func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
 		want    string
 	}{
 		"model provider": {
-			client: "plain", binding: ClientBinding{Model: "route", ModelProvider: "explicit"},
+			client: "plain", binding: ClientBinding{Model: NewModelRef("gateway", "model"), ModelProvider: "explicit"},
 			want: "model_provider is only supported for provider, native, or other",
 		},
 		"client-native authentication": {
-			client: "provider", binding: ClientBinding{Model: "route", ModelProvider: "explicit", Authentication: AuthenticationClientNative},
+			client: "provider", binding: ClientBinding{Model: NewModelRef("gateway", "model"), ModelProvider: "explicit", Authentication: AuthenticationClientNative},
 			want: "client-native authentication is only supported for native or other",
 		},
 		"retry budgets": {
-			client: "provider", binding: ClientBinding{Model: "route", RetryPolicy: &RetryPolicy{RequestMaxRetries: new(uint64)}},
+			client: "provider", binding: ClientBinding{Model: NewModelRef("gateway", "model"), RetryPolicy: &RetryPolicy{RequestMaxRetries: new(uint64)}},
 			want: `client "provider" has no admitted native retry-budget capability`,
 		},
 	} {
@@ -126,13 +126,13 @@ func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
 	}
 
 	cfg := base.Clone()
-	cfg.Clients["plain"] = ClientBinding{Model: "route"}
-	cfg.Clients["native"] = ClientBinding{Model: "route", RetryPolicy: &RetryPolicy{RequestMaxRetries: new(uint64)}}
+	cfg.Clients["plain"] = ClientBinding{Model: NewModelRef("gateway", "model")}
+	cfg.Clients["native"] = ClientBinding{Model: NewModelRef("gateway", "model"), RetryPolicy: &RetryPolicy{RequestMaxRetries: new(uint64)}}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("capable clients are refused: %v", err)
 	}
 	for client, want := range map[string]string{"plain": "", "native": "native-default"} {
-		if runtime, err := cfg.ResolveRuntime(client, ""); err != nil || runtime.ModelProvider != want {
+		if runtime, err := cfg.ResolveRuntime(client, ModelRef{}); err != nil || runtime.ModelProvider != want {
 			t.Fatalf("%s model provider = %q, %v; want %q", client, runtime.ModelProvider, err, want)
 		}
 	}

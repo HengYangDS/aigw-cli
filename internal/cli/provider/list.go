@@ -25,7 +25,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			document := listDocument{Providers: []providerItem{}}
-			for _, id := range cfg.CatalogProviderIDs() {
+			for _, id := range cfg.ProviderIDs() {
 				document.Providers = append(document.Providers, describe(cfg, id))
 			}
 			if jsonMode {

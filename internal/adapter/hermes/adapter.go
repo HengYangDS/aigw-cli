@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
-	"strings"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
@@ -120,45 +119,43 @@ type hermesCatalogProvider struct {
 	Models   []string
 }
 
+// hermesCatalog groups the models that Hermes can use under one Hermes
+// provider per provider and protocol, in configuration order and then the
+// protocols' order.
 func hermesCatalog(cfg domain.Config) ([]hermesCatalogProvider, error) {
 	spec := hermesAdapter{}.Spec()
-	providers := make(map[string]hermesCatalogProvider)
-	var ids []string
-	for _, routeID := range cfg.CatalogModelIDs() {
-		route := cfg.Models[routeID]
-		account := cfg.Providers[route.Provider]
-		for _, protocol := range spec.CompatibleModelProtocols(account, route) {
-			id := hermesProviderID(route.Provider, protocol)
-			item, present := providers[id]
-			if !present {
-				ids = append(ids, id)
-				selected, err := cfg.ResolveModelProtocol(ID, routeID, protocol)
-				if err != nil {
-					return nil, err
+	var result []hermesCatalogProvider
+	for _, providerID := range cfg.ProviderIDs() {
+		provider := cfg.Providers[providerID]
+		var items []hermesCatalogProvider
+		for _, ref := range cfg.ProviderModelRefs(providerID) {
+			model := cfg.Models[ref]
+			for _, protocol := range spec.CompatibleModelProtocols(provider, model) {
+				index := slices.IndexFunc(items, func(item hermesCatalogProvider) bool { return item.Protocol == protocol })
+				if index < 0 {
+					selected, err := cfg.ResolveModelProtocol(ID, ref, protocol)
+					if err != nil {
+						return nil, err
+					}
+					items = append(items, hermesCatalogProvider{ID: hermesProviderID(providerID, protocol), Name: provider.Label + " · " + domain.ProtocolLabel(protocol),
+						Provider: providerID, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected})
+					index = len(items) - 1
 				}
-				item = hermesCatalogProvider{ID: id, Name: account.Label + " · " + domain.ProtocolLabel(protocol), Provider: route.Provider, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected}
+				items[index].Models = append(items[index].Models, model.ID)
 			}
-			if !slices.Contains(item.Models, route.UpstreamModelID()) {
-				item.Models = append(item.Models, route.UpstreamModelID())
-			}
-			providers[id] = item
 		}
+		slices.SortStableFunc(items, func(left, right hermesCatalogProvider) int {
+			return domain.CompareProtocols(left.Protocol, right.Protocol)
+		})
+		result = append(result, items...)
 	}
-	result := make([]hermesCatalogProvider, 0, len(providers))
-	for _, id := range ids {
-		result = append(result, providers[id])
-	}
-	slices.SortFunc(result, func(left, right hermesCatalogProvider) int {
-		if order := cfg.CompareProviders(left.Provider, right.Provider); order != 0 {
-			return order
-		}
-		return domain.CompareProtocols(left.Protocol, right.Protocol)
-	})
 	return result, nil
 }
 
-func hermesProviderID(accountID string, protocol domain.EndpointProtocol) string {
-	return "aigw-" + accountID + "-" + strings.ReplaceAll(string(protocol), "_", "-")
+// hermesProviderID joins aigw, the provider ID and the protocol name, so that
+// each provider gets one Hermes provider per protocol.
+func hermesProviderID(providerID string, protocol domain.EndpointProtocol) string {
+	return "aigw-" + providerID + "-" + protocol.Name()
 }
 
 func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan, []string, error) {
@@ -171,7 +168,7 @@ func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan
 		if len(current.Targets) != 1 {
 			return nil, nil, errors.New("hermes requires one configured home")
 		}
-		selected, err := after.ResolveRuntime(ID, "")
+		selected, err := after.ResolveRuntime(ID, domain.ModelRef{})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -216,7 +213,7 @@ func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan
 }
 
 func hermesPreviousDesired(deps adapter.Dependencies, before domain.Config) (Desired, error) {
-	selected, err := before.ResolveRuntime(ID, "")
+	selected, err := before.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		return Desired{}, err
 	}
@@ -225,71 +222,54 @@ func hermesPreviousDesired(deps adapter.Dependencies, before domain.Config) (Des
 
 // AdoptSelection records Hermes' own model choice as its Client Binding
 // when the operator selected another model of AIGW's projected catalog in
-// Hermes and nothing else that AIGW owns changed. It returns the adopted Route,
-// or an empty string when Hermes still shows the bound selection.
-func (hermesAdapter) AdoptSelection(deps adapter.Dependencies, cfg *domain.Config) (string, error) {
+// Hermes and nothing else that AIGW owns changed. It returns the adopted
+// model, or the zero reference when Hermes still shows the bound selection.
+func (hermesAdapter) AdoptSelection(deps adapter.Dependencies, cfg *domain.Config) (domain.ModelRef, error) {
 	binding := cfg.Clients[ID]
 	if !binding.Enabled || len(binding.Targets) != 1 {
-		return "", nil
+		return domain.ModelRef{}, nil
 	}
-	selected, err := cfg.ResolveRuntime(ID, "")
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
-		return "", nil
+		return domain.ModelRef{}, nil
 	}
 	current, err := hermesDesired(deps, *cfg, selected)
 	if err != nil {
-		return "", err
+		return domain.ModelRef{}, err
 	}
 	native, changed, err := ObserveSelection(binding.Targets[0], current)
 	if err != nil || !changed {
-		return "", err
+		return domain.ModelRef{}, err
 	}
-	routeID, protocol, err := hermesModelFor(*cfg, native)
+	ref, protocol, err := hermesModelFor(*cfg, native)
 	if err != nil {
-		return "", err
+		return domain.ModelRef{}, err
 	}
-	if routeID == binding.Model && protocol == selected.Protocol {
+	if ref == binding.Model && protocol == selected.Protocol {
 		// The binding already names the native choice; only the record is stale.
-		return "", nil
+		return domain.ModelRef{}, nil
 	}
-	cfg.SetSelectedModel(ID, routeID, protocol)
-	return routeID, nil
+	cfg.SetSelectedModel(ID, ref, protocol)
+	return ref, nil
 }
 
-// hermesModelFor maps a projected provider and model to the one catalog
-// Route with that provider's Account, protocol and upstream model.
-func hermesModelFor(cfg domain.Config, native Selection) (string, domain.EndpointProtocol, error) {
+// hermesModelFor maps a projected provider and model to the model of that
+// provider with that ID, on the projected provider's protocol.
+func hermesModelFor(cfg domain.Config, native Selection) (domain.ModelRef, domain.EndpointProtocol, error) {
 	catalog, err := hermesCatalog(cfg)
 	if err != nil {
-		return "", "", err
+		return domain.ModelRef{}, "", err
 	}
 	index := slices.IndexFunc(catalog, func(item hermesCatalogProvider) bool { return item.ID == native.Provider })
 	if index < 0 {
-		return "", "", fmt.Errorf("Hermes selects provider %q, which AIGW no longer projects; run `aigw use hermes <provider/model>`", native.Provider)
+		return domain.ModelRef{}, "", fmt.Errorf("Hermes selects provider %q, which AIGW no longer projects; run `aigw use hermes <provider/model>`", native.Provider)
 	}
 	provider := catalog[index]
-	spec := hermesAdapter{}.Spec()
-	var matches []string
-	for _, routeID := range cfg.CatalogModelIDs() {
-		route := cfg.Models[routeID]
-		if route.Provider != provider.Provider || route.UpstreamModelID() != native.Model {
-			continue
-		}
-		if slices.Contains(spec.CompatibleModelProtocols(cfg.Providers[route.Provider], route), provider.Protocol) {
-			matches = append(matches, routeID)
-		}
-	}
-	switch len(matches) {
-	case 1:
-		return matches[0], provider.Protocol, nil
-	case 0:
-		return "", "", fmt.Errorf("Hermes selects model %q, which provider %q has not added; run `aigw use hermes %s/%s --protocol %s`",
+	if !slices.Contains(provider.Models, native.Model) {
+		return domain.ModelRef{}, "", fmt.Errorf("Hermes selects model %q, which provider %q has not added; run `aigw use hermes %s/%s --protocol %s`",
 			native.Model, provider.Provider, provider.Provider, native.Model, provider.Protocol.Name())
-	default:
-		// Only a configuration from before models were unique per provider
-		// can hold several, which no selection tells apart.
-		return "", "", fmt.Errorf("Hermes selects model %q, which %d models of provider %q carry; correct the configuration, whose file `aigw config path` names", native.Model, len(matches), provider.Provider)
 	}
+	return domain.NewModelRef(provider.Provider, native.Model), provider.Protocol, nil
 }
 
 func (hermesAdapter) Plan(deps adapter.Dependencies, before, after domain.Config) ([]adapter.ProjectionPlan, error) {
@@ -331,8 +311,8 @@ func (hermesAdapter) ProjectionChanged(before, after domain.Config) bool {
 	if previous.CredentialCommand != current.CredentialCommand || !slices.Equal(previous.Targets, current.Targets) {
 		return true
 	}
-	left, leftErr := before.ResolveRuntime(ID, "")
-	right, rightErr := after.ResolveRuntime(ID, "")
+	left, leftErr := before.ResolveRuntime(ID, domain.ModelRef{})
+	right, rightErr := after.ResolveRuntime(ID, domain.ModelRef{})
 	if leftErr != nil || rightErr != nil || left != right {
 		return true
 	}

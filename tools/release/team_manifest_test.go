@@ -25,12 +25,12 @@ import (
 type teamManifestJourney struct {
 	program  string
 	team     []byte
-	manifest domain.Manifest
+	manifest domain.Config
 	clients  []string
 }
 
 type manualModelSelection struct {
-	model    string
+	model    domain.ModelRef
 	protocol domain.EndpointProtocol
 }
 
@@ -62,13 +62,13 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testing.T) {
 	team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
 	sol := "gpt-6.1-sol"
-	manifest, err := store.Parse(team, builtinclients.Admission())
+	manifest, err := store.ParseTeamFile(team, builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, account := range []string{"dmxapi", "aihubmix", "ucloud"} {
-		route, exists := manifest.Models[account+"-gpt-6.1-sol"]
-		if !exists || route.Provider != account || route.Family != "gpt-6.1-sol" || route.UpstreamModelID() != "gpt-6.1-sol" {
+		route, exists := manifest.Models[domain.NewModelRef(account, sol)]
+		if !exists || route.Provider != account || route.Family != "gpt-6.1-sol" || route.ID != "gpt-6.1-sol" {
 			t.Fatalf("%s 6.1 Sol Route = %#v, present=%t", account, route, exists)
 		}
 		if len(route.Protocols) != 1 {
@@ -81,9 +81,9 @@ func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testi
 	if got := manifest.Providers["dmxapi"].Endpoints.Responses; got != "https://www.dmxapi.cn/v1" {
 		t.Fatalf("team DMXAPI endpoint = %q, want direct provider", got)
 	}
-	for client, want := range map[string][]string{
-		codex.ID:  {"dmxapi-" + sol + "-cdx", "ucloud-" + sol},
-		hermes.ID: {"dmxapi-" + sol, "ucloud-" + sol},
+	for client, want := range map[string][]domain.ModelRef{
+		codex.ID:  {domain.NewModelRef("dmxapi", sol+"-cdx"), domain.NewModelRef("ucloud", sol)},
+		hermes.ID: {domain.NewModelRef("dmxapi", sol), domain.NewModelRef("ucloud", sol)},
 	} {
 		selections := manifest.Recommendations[client].Selections()
 		if len(selections) != len(want) {
@@ -91,7 +91,7 @@ func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testi
 		}
 		for index, selection := range selections {
 			if selection.Model != want[index] {
-				t.Fatalf("%s setup choice %d = %q, want %q", client, index, selection.Model, want[index])
+				t.Fatalf("%s setup choice %d = %s, want %s", client, index, selection.Model, want[index])
 			}
 		}
 	}
@@ -104,7 +104,7 @@ func newTeamManifestJourney(t *testing.T) teamManifestJourney {
 		t.Fatal(err)
 	}
 	team := readFile(t, filepath.Join(root, "manifests", "team.toml"))
-	manifest, err := store.Parse(team, builtinclients.Admission())
+	manifest, err := store.ParseTeamFile(team, builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,11 +186,11 @@ func (plan teamManifestJourney) runProvider(t *testing.T, account string, client
 		// sync names the model as provider/model, which the selected model's
 		// provider and ID make; the configuration keeps its key.
 		reference := ""
-		if route != "" {
+		if !route.IsZero() {
 			reference = selected.Models[route].Ref().String()
 		}
 		if planned, got := preview.Selections[client], actual.SelectedModel(client); planned != reference || got != route {
-			t.Fatalf("late sync selected %s Route %q after preview %q, want %q as %q", client, got, planned, route, reference)
+			t.Fatalf("late sync selected %s model %s after preview %q, want %s as %q", client, got, planned, route, reference)
 		}
 		if _, isManual := manual[client]; isManual && actual.Clients[client].Enabled {
 			t.Fatalf("sync activated manually selected %s for Account %q", client, account)
@@ -203,7 +203,7 @@ func (plan teamManifestJourney) runProvider(t *testing.T, account string, client
 			t.Fatal(err)
 		}
 		if got := actual.SelectedModel(client); got != choice.model {
-			t.Fatalf("explicit use selected %s Route %q, want %q", client, got, choice.model)
+			t.Fatalf("explicit use selected %s model %s, want %s", client, got, choice.model)
 		}
 	}
 	plan.requireSelectedProvider(t, journey, account)
@@ -215,7 +215,7 @@ func (plan teamManifestJourney) manualSelections(
 	t.Helper()
 	manual := make(map[string]manualModelSelection)
 	for _, client := range plan.clients {
-		if selected.SelectedModel(client) != "" {
+		if !selected.SelectedModel(client).IsZero() {
 			continue
 		}
 		choice, ok := plan.manualModel(account, client)
@@ -237,7 +237,7 @@ func (plan teamManifestJourney) manualModel(account, client string) (manualModel
 		return manualModelSelection{}, false
 	}
 	model := plan.manifest.Models[recommendation.Primary.Model].Family
-	for _, routeID := range slices.Sorted(maps.Keys(plan.manifest.Models)) {
+	for _, routeID := range plan.manifest.ProviderModelRefs(account) {
 		route := plan.manifest.Models[routeID]
 		if route.Provider != account || route.Family != model {
 			continue
@@ -290,7 +290,7 @@ func (plan teamManifestJourney) requireSelectedProvider(t *testing.T, journey *j
 		t.Fatal("setup lost reviewed team capabilities")
 	}
 	for _, clientID := range plan.clients {
-		selected, err := cfg.ResolveRuntime(clientID, "")
+		selected, err := cfg.ResolveRuntime(clientID, domain.ModelRef{})
 		if err != nil || selected.ProviderID != account || !cfg.Clients[clientID].Enabled {
 			t.Fatalf("one connected Account did not activate %s: %#v, %v", clientID, selected, err)
 		}
@@ -336,7 +336,7 @@ func (plan teamManifestJourney) requireHermesWireCatalog(t *testing.T, journey *
 		}
 		for _, protocol := range spec.CompatibleModelProtocols(cfg.Providers[account], route) {
 			id := "aigw-" + account + "-" + strings.ReplaceAll(string(protocol), "_", "-")
-			expected[id] = append(expected[id], route.UpstreamModelID())
+			expected[id] = append(expected[id], route.ID)
 		}
 	}
 	for id, models := range expected {

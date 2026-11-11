@@ -28,8 +28,8 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("team", "fable")] = domain.Model{Label: "Claude", Provider: "team", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "fable"), "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -93,10 +93,10 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["missing"] = domain.Provider{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
 	cfg.Providers["connected"] = domain.Provider{Label: "Connected", Endpoints: domain.Endpoints{Responses: "https://connected.test/v1"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "missing", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "connected", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.SetSelectedModel(claude.ID, "claude", "")
-	cfg.SetRecommendedModel(codex.ID, "codex")
+	cfg.Models[domain.NewModelRef("missing", "fable")] = domain.Model{Label: "Claude", Provider: "missing", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models[domain.NewModelRef("connected", "gpt")] = domain.Model{Label: "Codex", Provider: "connected", Family: "gpt", ID: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("missing", "fable"), "")
+	cfg.SetRecommendedModel(codex.ID, domain.NewModelRef("connected", "gpt"))
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

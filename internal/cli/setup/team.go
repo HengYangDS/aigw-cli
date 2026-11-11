@@ -43,7 +43,7 @@ type teamSetup struct {
 	cmd       *cobra.Command
 	runtime   invocation.Context
 	request   setupRequest
-	file      domain.Manifest
+	file      domain.Config
 	before    domain.Config
 	merged    domain.Config
 	report    domain.TeamMerge
@@ -89,18 +89,18 @@ func runTeamSetup(cmd *cobra.Command, runtime invocation.Context, request setupR
 // readTeamFile reads and parses the team file at path. A file that cannot be
 // read is named as every path failure is; one that does not parse names what
 // to correct.
-func readTeamFile(runtime invocation.Context, path string) (domain.Manifest, error) {
+func readTeamFile(runtime invocation.Context, path string) (domain.Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return domain.Manifest{}, terminal.ManifestReadFailure(path, platform.PathContext{Home: invocation.Home(runtime.Dependencies)}, err)
+		return domain.Config{}, terminal.ManifestReadFailure(path, platform.PathContext{Home: invocation.Home(runtime.Dependencies)}, err)
 	}
-	file, err := store.Parse(data, runtime.Config.Admission())
-	if version, ok := errors.AsType[*domain.UnsupportedManifestVersionError](err); ok {
-		return domain.Manifest{}, terminal.ProblemError(version.Error(), "", "Nothing changed.",
-			"Export the team file again with the AIGW release that wrote it, then run the same command again.", err)
+	file, err := store.ParseTeamFile(data, runtime.Config.Admission())
+	if version, ok := errors.AsType[*domain.UnsupportedTeamFileVersionError](err); ok {
+		return domain.Config{}, terminal.ProblemError(version.Error(), "", "Nothing changed.",
+			fmt.Sprintf("Use a team file of version %d, which `aigw config export` writes, then run the same command again.", domain.ConfigVersion), err)
 	}
 	if errors.Is(err, store.ErrTeamFileClients) {
-		return domain.Manifest{}, terminal.ProblemError(err.Error(), "", "Nothing changed.",
+		return domain.Config{}, terminal.ProblemError(err.Error(), "", "Nothing changed.",
 			"Remove the [clients] section from the team file, or write the file again with `aigw config export`, then run the same command again.", err)
 	}
 	return file, err
@@ -311,10 +311,10 @@ func recommendedProviders(cfg domain.Config) []string {
 	}
 	var providers []string
 	for _, client := range cfg.Admission().IDs() {
-		if cfg.SelectedModel(client) != "" {
+		if !cfg.SelectedModel(client).IsZero() {
 			continue
 		}
-		runtime, err := selected.ResolveRuntime(client, "")
+		runtime, err := selected.ResolveRuntime(client, domain.ModelRef{})
 		if err != nil || !runtime.RequiresProviderToken() || slices.Contains(providers, runtime.ProviderID) {
 			continue
 		}
@@ -329,7 +329,7 @@ func recommendedProviders(cfg domain.Config) []string {
 func recommendedChoiceProviders(cfg domain.Config) []string {
 	var providers []string
 	for _, client := range cfg.Admission().IDs() {
-		if cfg.SelectedModel(client) != "" {
+		if !cfg.SelectedModel(client).IsZero() {
 			continue
 		}
 		for _, choice := range cfg.Recommendations[client].Selections() {
@@ -372,7 +372,7 @@ func manifestSetupSelectedClients(cfg domain.Config, connected []string, availab
 		if !cfg.Clients[client].Enabled || !available[client] {
 			continue
 		}
-		runtime, err := cfg.ResolveRuntime(client, "")
+		runtime, err := cfg.ResolveRuntime(client, domain.ModelRef{})
 		if err != nil || runtime.ProviderID == "" {
 			continue
 		}

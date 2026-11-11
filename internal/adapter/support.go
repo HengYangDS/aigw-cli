@@ -41,7 +41,7 @@ func RawJSON(value any) json.RawMessage {
 // client's activation unchanged. With requireRunnable, an executable that is
 // not runnable is not ready, and the credential store is not read.
 func ConvergeBinding(deps Dependencies, cfg *domain.Config, discovered discovery.Result, clientID string, requireRunnable bool) (binding domain.ClientBinding, executable string, ready bool, err error) {
-	runtime, err := cfg.ResolveRuntime(clientID, "")
+	runtime, err := cfg.ResolveRuntime(clientID, domain.ModelRef{})
 	if _, unselected := errors.AsType[*domain.RuntimeBindingUnselectedError](err); unselected {
 		return domain.ClientBinding{}, "", false, nil
 	}

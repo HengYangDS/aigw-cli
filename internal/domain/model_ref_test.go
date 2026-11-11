@@ -2,7 +2,6 @@ package domain
 
 import (
 	"errors"
-	"slices"
 	"strings"
 	"testing"
 )
@@ -38,39 +37,46 @@ func TestParseModelRefSplitsAtTheFirstSlash(t *testing.T) {
 	}
 }
 
-// TestResolveModelRefFindsTheProvidersModel resolves a reference on today's
-// configuration: the one model of its provider whose provider model ID equals
-// the reference's, which differs from its key; a case-only difference, another
-// provider's model and an unknown ID resolve to nothing.
-func TestResolveModelRefFindsTheProvidersModel(t *testing.T) {
+// TestModelRefTextRoundTrips writes a reference as provider/model and reads
+// it back, the zero reference as nothing, and refuses text without a
+// provider.
+func TestModelRefTextRoundTrips(t *testing.T) {
+	ref := NewModelRef("aihubmix", "openai/gpt-oss")
+	text, err := ref.MarshalText()
+	if err != nil || string(text) != "aihubmix/openai/gpt-oss" {
+		t.Fatalf("MarshalText = %q, %v", text, err)
+	}
+	var read ModelRef
+	if err := read.UnmarshalText(text); err != nil || read != ref {
+		t.Fatalf("UnmarshalText = %v, %v; want %v", read, err, ref)
+	}
+	if zero, err := (ModelRef{}).MarshalText(); err != nil || len(zero) != 0 || (ModelRef{}).String() != "" {
+		t.Fatalf("the zero reference writes %q, %v", zero, err)
+	}
+	if err := read.UnmarshalText(nil); err != nil || !read.IsZero() {
+		t.Fatalf("nothing reads as %v, %v", read, err)
+	}
+	if err := read.UnmarshalText([]byte("gpt-6.1-sol")); !errors.Is(err, ErrModelRefWithoutProvider) {
+		t.Fatalf("text without a provider = %v", err)
+	}
+}
+
+// TestAddedModelFamily takes an existing family whose ID equals the model ID
+// ignoring case, and otherwise makes the model its own family, which needs no
+// family entry and is never derived from a prefix.
+func TestAddedModelFamily(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Providers["ucloud"] = Provider{Label: "UCloud", Endpoints: Endpoints{Responses: "https://ucloud.test/v1"}}
-	cfg.Providers["dmxapi"] = Provider{Label: "DMXAPI", Endpoints: Endpoints{Responses: "https://dmxapi.test/v1"}}
-	responses := map[EndpointProtocol][]Capability{ProtocolResponses: {}}
-	cfg.Models["ucloud-minimax"] = Model{Provider: "ucloud", Family: "minimax-m3", UpstreamModel: "MiniMax-M3", Protocols: responses}
-	cfg.Models["dmxapi-sol"] = Model{Provider: "dmxapi", Family: "gpt-6.1-sol", Protocols: responses}
-	cfg.Models["ucloud-sol"] = Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: responses}
-	for text, want := range map[string]string{"ucloud/MiniMax-M3": "ucloud-minimax", "dmxapi/gpt-6.1-sol": "dmxapi-sol", "ucloud/gpt-6.1-sol": "ucloud-sol"} {
-		ref, _ := ParseModelRef(text)
-		if keys := cfg.ResolveModelRef(ref); !slices.Equal(keys, []string{want}) {
-			t.Fatalf("ResolveModelRef(%s) = %q; want %q", text, keys, want)
-		}
-		if got := cfg.Models[want].Ref(); got != ref {
-			t.Fatalf("%s.Ref() = %s, want %s", want, got, ref)
+	cfg.Families["gpt-6.1-sol"] = Family{Label: "GPT-6.1 Sol"}
+	for id, want := range map[string]string{"GPT-6.1-Sol": "gpt-6.1-sol", "gpt-6.1-sol": "gpt-6.1-sol", "gpt-6.1-sol-cdx": "", "LongCat-2.5": ""} {
+		if got := cfg.AddedModelFamily(id); got != want {
+			t.Fatalf("AddedModelFamily(%q) = %q, want %q", id, got, want)
 		}
 	}
-	for _, text := range []string{"ucloud/minimax-m3", "dmxapi/MiniMax-M3", "ucloud/unknown", "other/gpt-6.1-sol"} {
-		ref, _ := ParseModelRef(text)
-		if keys := cfg.ResolveModelRef(ref); len(keys) != 0 {
-			t.Fatalf("ResolveModelRef(%s) = %q, want no model", text, keys)
-		}
+	if len(cfg.Families) != 1 {
+		t.Fatalf("a model of its own family added a family: %v", cfg.Families)
 	}
-	// Today's configuration can give one name a Route per protocol; the
-	// lookup returns each, in key order.
-	cfg.Providers["ucloud"] = Provider{Label: "UCloud", Endpoints: Endpoints{Responses: "https://ucloud.test/v1", Chat: "https://ucloud.test/v1"}}
-	cfg.Models["ucloud-sol-chat"] = Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: map[EndpointProtocol][]Capability{ProtocolChat: {}}}
-	ref, _ := ParseModelRef("ucloud/gpt-6.1-sol")
-	if keys := cfg.ResolveModelRef(ref); !slices.Equal(keys, []string{"ucloud-sol", "ucloud-sol-chat"}) {
-		t.Fatalf("ResolveModelRef of a name with two Routes = %q", keys)
+	own := Model{Provider: "dmxapi", ID: "LongCat-2.5"}
+	if own.FamilyID() != "LongCat-2.5" {
+		t.Fatalf("own family = %q", own.FamilyID())
 	}
 }

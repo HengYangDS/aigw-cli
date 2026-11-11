@@ -19,9 +19,9 @@ func TestHostPathsAreDerivedAsOnePlatformContract(t *testing.T) {
 		installDir  string
 		installName string
 	}{
-		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, config: "/Users/alex/Library/Application Support/aigw/config.toml", data: "/Users/alex/Library/Application Support/aigw", secrets: "/Users/alex/Library/Application Support/aigw/secrets", installDir: "/Users/alex/.local/bin", installName: "aigw"},
-		{name: "Linux", goos: "linux", env: map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg", "XDG_DATA_HOME": "/data"}, config: "/cfg/aigw/config.toml", data: "/data/aigw", secrets: "/data/aigw/secrets", installDir: "/home/alex/.local/bin", installName: "aigw"},
-		{name: "Windows", goos: "windows", env: map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`, "LOCALAPPDATA": `C:\Users\alex\AppData\Local`, "USERPROFILE": `C:\Users\alex`}, config: `C:\Users\alex\AppData\Roaming\aigw\config.toml`, data: `C:\Users\alex\AppData\Local\aigw`, secrets: `C:\Users\alex\AppData\Local\aigw\secrets`, installDir: `C:\Users\alex\AppData\Local\Programs\aigw\bin`, installName: "aigw.exe"},
+		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, config: "/Users/alex/Library/Application Support/aigw/aigw.toml", data: "/Users/alex/Library/Application Support/aigw", secrets: "/Users/alex/Library/Application Support/aigw/secrets", installDir: "/Users/alex/.local/bin", installName: "aigw"},
+		{name: "Linux", goos: "linux", env: map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg", "XDG_DATA_HOME": "/data"}, config: "/cfg/aigw/aigw.toml", data: "/data/aigw", secrets: "/data/aigw/secrets", installDir: "/home/alex/.local/bin", installName: "aigw"},
+		{name: "Windows", goos: "windows", env: map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`, "LOCALAPPDATA": `C:\Users\alex\AppData\Local`, "USERPROFILE": `C:\Users\alex`}, config: `C:\Users\alex\AppData\Roaming\aigw\aigw.toml`, data: `C:\Users\alex\AppData\Local\aigw`, secrets: `C:\Users\alex\AppData\Local\aigw\secrets`, installDir: `C:\Users\alex\AppData\Local\Programs\aigw\bin`, installName: "aigw.exe"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -61,10 +61,10 @@ func TestConfigPathUsesPlatformConvention(t *testing.T) {
 		env  map[string]string
 		want string
 	}{
-		{"darwin", map[string]string{"HOME": "/Users/alex"}, "/Users/alex/Library/Application Support/aigw/config.toml"},
-		{"linux", map[string]string{"HOME": "/home/alex"}, "/home/alex/.config/aigw/config.toml"},
-		{"linux", map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg"}, "/cfg/aigw/config.toml"},
-		{"windows", map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`}, `C:\Users\alex\AppData\Roaming\aigw\config.toml`},
+		{"darwin", map[string]string{"HOME": "/Users/alex"}, "/Users/alex/Library/Application Support/aigw/aigw.toml"},
+		{"linux", map[string]string{"HOME": "/home/alex"}, "/home/alex/.config/aigw/aigw.toml"},
+		{"linux", map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg"}, "/cfg/aigw/aigw.toml"},
+		{"windows", map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`}, `C:\Users\alex\AppData\Roaming\aigw\aigw.toml`},
 	}
 	for _, tt := range tests {
 		got, err := platform.ConfigPathFor(tt.goos, tt.env)
@@ -182,7 +182,7 @@ func TestWindowsPathsPreserveTheSelectedNamespace(t *testing.T) {
 				path  string
 				parts []string
 			}{
-				{"configuration", got.Config, []string{"aigw", "config.toml"}},
+				{"configuration", got.Config, []string{"aigw", "aigw.toml"}},
 				{"data", got.Data, []string{"aigw"}},
 				{"credentials", got.Secrets, []string{"aigw", "secrets"}},
 				{"installation", got.InstallDir, []string{"Programs", "aigw", "bin"}},

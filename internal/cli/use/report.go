@@ -112,8 +112,8 @@ func (o selectionOutcome) toolSearchItems(runtime invocation.Context) []toolSear
 	var items []toolSearchItem
 	for _, loss := range runtime.Clients.ToolSearchLost(o.before, o.after) {
 		item := toolSearchItem{Client: loss.Client, Models: make([]toolSearchModel, 0, len(loss.Models))}
-		for _, key := range loss.Models {
-			model := o.after.Models[key]
+		for _, ref := range loss.Models {
+			model := o.after.Models[ref]
 			capabilities := toolSearchCapabilities(model)
 			item.Models = append(item.Models, toolSearchModel{Model: model.Ref().String(), Fix: toolSearchFix(model, capabilities), AlsoDeclares: alsoDeclared(model, capabilities)})
 		}

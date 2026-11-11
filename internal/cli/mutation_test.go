@@ -197,11 +197,11 @@ func TestBareAigwTakesNoConfigurationLock(t *testing.T) {
 	configStore := store.NewStore(path, clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Responses: "https://example.test/v1"}}
-	cfg.Models["gpt"] = domain.Model{
-		Label: "GPT", Provider: "dmx", Family: "gpt-test",
+	cfg.Models[domain.NewModelRef("dmx", "gpt-test")] = domain.Model{
+		Label: "GPT", Provider: "dmx", Family: "gpt-test", ID: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
-	cfg.SetSelectedModel(codex.ID, "gpt", "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-test"), "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

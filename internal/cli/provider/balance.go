@@ -93,7 +93,7 @@ func balanceProviders(cfg domain.Config, args []string) ([]string, error) {
 		if len(cfg.Providers) == 0 {
 			return nil, terminal.ProblemError("no provider is configured", "", "", "aigw setup", nil)
 		}
-		return cfg.CatalogProviderIDs(), nil
+		return cfg.ProviderIDs(), nil
 	}
 	ids := make([]string, 0, len(args))
 	for _, arg := range args {

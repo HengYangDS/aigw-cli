@@ -83,8 +83,7 @@ type balanceProbe struct {
 type keptModel struct {
 	Model    string `json:"model"`
 	Client   string `json:"client"`
-	Protocol string `json:"protocol,omitempty"`
-	File     string `json:"file"`
+	Protocol string `json:"protocol"`
 }
 
 // droppedCapabilities are the file's capabilities of one model on one
@@ -142,11 +141,7 @@ func (t teamSetup) document(after domain.Config, states map[string]string, conne
 			Local: balanceProbe{Kind: kept.Local.Kind, URL: kept.Local.BaseURL}, File: balanceProbe{Kind: kept.File.Kind, URL: kept.File.BaseURL}})
 	}
 	for _, kept := range report.KeptModels {
-		item := keptModel{Model: kept.Model.String(), Client: kept.Client, File: kept.File.String()}
-		if kept.Protocol != "" {
-			item.Protocol = kept.Protocol.Name()
-		}
-		document.KeptModels = append(document.KeptModels, item)
+		document.KeptModels = append(document.KeptModels, keptModel{Model: kept.Model.String(), Client: kept.Client, Protocol: kept.Protocol.Name()})
 	}
 	for _, dropped := range report.DroppedCapabilities {
 		capabilities := make([]string, 0, len(dropped.Capabilities))
@@ -177,11 +172,11 @@ func (t teamSetup) document(after domain.Config, states map[string]string, conne
 // client's installation, because a client installed later reads it.
 func (t teamSetup) client(after domain.Config, spec domain.ClientSpec, connected []string, states map[string]string) clientItem {
 	item := clientItem{ID: spec.ID, State: clientNotSelected}
-	selected, err := after.ResolveRuntime(spec.ID, "")
+	selected, err := after.ResolveRuntime(spec.ID, domain.ModelRef{})
 	if err != nil {
 		return item
 	}
-	item.Model, item.State = after.Models[selected.ModelID].Ref().String(), clientConfigured
+	item.Model, item.State = selected.Model.String(), clientConfigured
 	switch next := clientactivation.ProjectionPrerequisites(after)[spec.ID]; {
 	case selected.RequiresProviderToken() && !slices.Contains(connected, selected.ProviderID):
 		item.State = clientWaitsForToken
@@ -299,12 +294,7 @@ func renderKept(r *terminal.Renderer, document teamDocument) {
 			Value: "Kept " + kept.Local.Kind + " at " + kept.Local.URL + "; the team file has " + kept.File.Kind + " at " + kept.File.URL})
 	}
 	for _, kept := range document.KeptModels {
-		value := "Kept, because " + kept.Client + " selects it"
-		if kept.Protocol != "" {
-			value += " on " + kept.Protocol + ", which the team file's model lacks"
-		} else {
-			value += ", and the team file names " + kept.File
-		}
+		value := "Kept, because " + kept.Client + " selects it on " + kept.Protocol + ", which the team file's model lacks"
 		rows = append(rows, terminal.Field{State: terminal.Info, Label: kept.Model, Value: value})
 	}
 	for _, dropped := range document.DroppedCapabilities {

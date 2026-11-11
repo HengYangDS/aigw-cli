@@ -4,13 +4,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/pelletier/go-toml/v2"
 )
 
 func TestClientForwardingPreservesUpstreamCredentialIdentity(t *testing.T) {
 	cfg := validConfig()
-	direct, err := cfg.ResolveRuntime(ClientCodex, "")
+	direct, err := cfg.ResolveRuntime(ClientCodex, ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,7 +16,7 @@ func TestClientForwardingPreservesUpstreamCredentialIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	binding := cfg.Clients[ClientCodex]
-	forwarded, err := cfg.ResolveRuntime(ClientCodex, "")
+	forwarded, err := cfg.ResolveRuntime(ClientCodex, ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +26,7 @@ func TestClientForwardingPreservesUpstreamCredentialIdentity(t *testing.T) {
 	if forwarded.ProviderID != direct.ProviderID || forwarded.UpstreamModel != direct.UpstreamModel || forwarded.ModelProvider != direct.ModelProvider || forwarded.CredentialProjectionFingerprint(ClientCodex) != direct.CredentialProjectionFingerprint(ClientCodex) {
 		t.Fatalf("client forwarding changed the upstream credential or model identity: %#v", forwarded)
 	}
-	claude, err := cfg.ResolveRuntime(ClientClaude, "")
+	claude, err := cfg.ResolveRuntime(ClientClaude, ModelRef{})
 	if err != nil || claude.Endpoint != cfg.Providers["dmx"].Endpoints.Anthropic {
 		t.Fatalf("unrelated client changed: %#v, %v", claude, err)
 	}
@@ -62,12 +60,12 @@ func TestClientForwardingDoesNotRedirectAnExplicitOtherProvider(t *testing.T) {
 	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Models["other"] = testModel("Other", "dmx", "other-model", ProtocolResponses)
-	qualified, err := cfg.ResolveRuntime(ClientCodex, "other")
+	cfg.Models[NewModelRef("dmx", "other-model")] = testModel("Other", "dmx", "other-model", ProtocolResponses)
+	qualified, err := cfg.ResolveRuntime(ClientCodex, NewModelRef("dmx", "other-model"))
 	if err != nil || qualified.Endpoint != cfg.Providers["dmx"].Endpoints.Responses || qualified.ProviderID != "dmx" {
 		t.Fatalf("explicit other-Account qualification inherited the selected forwarding destination: %#v, %v", qualified, err)
 	}
-	cfg.SetSelectedModel(ClientCodex, "other", "")
+	cfg.SetSelectedModel(ClientCodex, NewModelRef("dmx", "other-model"), "")
 	if cfg.Clients[ClientCodex].ForwardingEndpoint != "" {
 		t.Fatal("switching Account retained an unrelated forwarding destination")
 	}
@@ -85,74 +83,13 @@ func TestClientForwardingSurvivesEquivalentAutomaticProtocolSelection(t *testing
 	}
 }
 
-func TestCurrentSchemaRemovesLegacySelectionFields(t *testing.T) {
-	if ConfigVersion != 6 {
-		t.Fatalf("config version = %d, want 6", ConfigVersion)
+func TestCurrentSchemaKeepsClientConcernsOutOfModels(t *testing.T) {
+	if ConfigVersion != 8 {
+		t.Fatalf("config version = %d, want 8", ConfigVersion)
 	}
-	for _, field := range []string{"Profiles", "RecommendedRoutes"} {
-		if _, exists := reflect.TypeFor[Config]().FieldByName(field); exists {
-			t.Errorf("Config still exposes legacy field %s", field)
-		}
-	}
-	for _, field := range []string{"Client", "ModelProvider", "Authentication"} {
+	for _, field := range []string{"Client", "ModelProvider", "Authentication", "UpstreamModel", "Purpose", "Lifecycle"} {
 		if _, exists := reflect.TypeFor[Model]().FieldByName(field); exists {
-			t.Errorf("Route still exposes client concern %s", field)
-		}
-	}
-}
-
-func TestConfigSerializationUsesClientBindingsOnly(t *testing.T) {
-	cfg := NewConfig(testAdmission())
-	cfg.Providers["team"] = Provider{
-		Label:     "Team",
-		Endpoints: Endpoints{Anthropic: "https://team.test/anthropic"},
-	}
-	cfg.Models["reasoning"] = Model{
-		Label:    "Reasoning",
-		Provider: "team",
-		Family:   "reasoning-model",
-		Protocols: map[EndpointProtocol][]Capability{
-			ProtocolAnthropic: {CapabilityText},
-			ProtocolChat:      {CapabilityText},
-		},
-	}
-	cfg.Clients[ClientClaude] = ClientBinding{
-		Enabled:  true,
-		Model:    "reasoning",
-		Protocol: ProtocolAnthropic,
-	}
-
-	encoded, err := toml.Marshal(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var document map[string]any
-	if err := toml.Unmarshal(encoded, &document); err != nil {
-		t.Fatal(err)
-	}
-	for _, legacy := range []string{"profiles", "recommended_routes", "adapters"} {
-		if _, exists := document[legacy]; exists {
-			t.Fatalf("serialized configuration retained legacy %q state:\n%s", legacy, encoded)
-		}
-	}
-	clients, ok := document["clients"].(map[string]any)
-	if !ok {
-		t.Fatalf("serialized configuration has no clients table:\n%s", encoded)
-	}
-	if _, ok := clients[ClientClaude]; !ok {
-		t.Fatalf("serialized configuration has no Claude binding:\n%s", encoded)
-	}
-	routes, ok := document["routes"].(map[string]any)
-	if !ok {
-		t.Fatalf("serialized configuration has no routes table:\n%s", encoded)
-	}
-	route, ok := routes["reasoning"].(map[string]any)
-	if !ok {
-		t.Fatalf("serialized configuration has no reasoning route:\n%s", encoded)
-	}
-	for _, clientConcern := range []string{"client", "protocol", "model_provider", "authentication"} {
-		if _, exists := route[clientConcern]; exists {
-			t.Fatalf("serialized Route retained client concern %q:\n%s", clientConcern, encoded)
+			t.Errorf("Model still has %s", field)
 		}
 	}
 }
@@ -166,10 +103,10 @@ func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 			Chat:      "https://team.test/openai/v1",
 		},
 	}
-	cfg.Models["reasoning"] = Model{
+	cfg.Models[NewModelRef("team", "reasoning-model")] = Model{
 		Label:    "Reasoning",
 		Provider: "team",
-		Family:   "reasoning-model",
+		Family:   "reasoning-model", ID: "reasoning-model",
 		Protocols: map[EndpointProtocol][]Capability{
 			ProtocolAnthropic: {CapabilityText},
 			ProtocolChat:      {CapabilityText},
@@ -177,27 +114,27 @@ func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 	}
 	cfg.Clients[ClientClaude] = ClientBinding{
 		Enabled:  true,
-		Model:    "reasoning",
+		Model:    NewModelRef("team", "reasoning-model"),
 		Protocol: ProtocolAnthropic,
 	}
 	cfg.Clients[ClientHermes] = ClientBinding{
 		Enabled:  true,
-		Model:    "reasoning",
+		Model:    NewModelRef("team", "reasoning-model"),
 		Protocol: ProtocolAnthropic,
 	}
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	claude, err := cfg.ResolveRuntime(ClientClaude, "")
+	claude, err := cfg.ResolveRuntime(ClientClaude, ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hermes, err := cfg.ResolveRuntime(ClientHermes, "")
+	hermes, err := cfg.ResolveRuntime(ClientHermes, ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if claude.ModelID != "reasoning" || hermes.ModelID != "reasoning" {
+	if claude.Model != NewModelRef("team", "reasoning-model") || hermes.Model != NewModelRef("team", "reasoning-model") {
 		t.Fatalf("shared Route resolution = %#v, %#v", claude, hermes)
 	}
 	if claude.Client != ClientClaude || hermes.Client != ClientHermes {
@@ -211,17 +148,17 @@ func TestClientBindingOwnsNativeAuthentication(t *testing.T) {
 		Label:     "Native",
 		Endpoints: Endpoints{Responses: "https://native.test/v1"},
 	}
-	cfg.Models["model"] = testModel("Model", "native", "model-id", ProtocolResponses)
+	cfg.Models[NewModelRef("native", "model-id")] = testModel("Model", "native", "model-id", ProtocolResponses)
 	cfg.Clients[ClientCodex] = ClientBinding{
 		Enabled:        true,
-		Model:          "model",
+		Model:          NewModelRef("native", "model-id"),
 		Protocol:       ProtocolResponses,
 		ModelProvider:  "amazon-bedrock",
 		Authentication: AuthenticationClientNative,
 	}
 
-	cfg.SetSelectedModel(ClientCodex, "model", ProtocolResponses)
-	runtime, err := cfg.ResolveRuntime(ClientCodex, "")
+	cfg.SetSelectedModel(ClientCodex, NewModelRef("native", "model-id"), ProtocolResponses)
+	runtime, err := cfg.ResolveRuntime(ClientCodex, ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +173,7 @@ func TestClientBindingOwnsNativeAuthentication(t *testing.T) {
 func TestSetClientActivationPreservesSelectionAndClientOptions(t *testing.T) {
 	cfg := NewConfig(testAdmission())
 	cfg.Clients[ClientCodex] = ClientBinding{
-		Model:             "reasoning",
+		Model:             NewModelRef("team", "reasoning-model"),
 		Protocol:          ProtocolResponses,
 		ModelProvider:     "provider",
 		Authentication:    AuthenticationClientNative,
@@ -246,7 +183,7 @@ func TestSetClientActivationPreservesSelectionAndClientOptions(t *testing.T) {
 	cfg.SetClientActivation(ClientCodex, true, "/opt/codex", []string{"/one/config.toml", "/two/config.toml"})
 
 	got := cfg.Clients[ClientCodex]
-	if got.Model != "reasoning" || got.Protocol != ProtocolResponses || got.ModelProvider != "provider" || got.Authentication != AuthenticationClientNative || got.CredentialCommand != "/existing/helper" {
+	if got.Model != NewModelRef("team", "reasoning-model") || got.Protocol != ProtocolResponses || got.ModelProvider != "provider" || got.Authentication != AuthenticationClientNative || got.CredentialCommand != "/existing/helper" {
 		t.Fatalf("activation replaced client selection or options: %#v", got)
 	}
 	if !got.Enabled || got.Executable != "/opt/codex" || !reflect.DeepEqual(got.Targets, []string{"/one/config.toml", "/two/config.toml"}) {

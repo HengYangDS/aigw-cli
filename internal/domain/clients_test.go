@@ -1,16 +1,13 @@
 package domain
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/pelletier/go-toml/v2"
 )
 
 func TestModelOwnsFamilyIdentityWithoutClientState(t *testing.T) {
-	route := Model{Family: "claude-test"}
+	route := Model{Family: "claude-test", ID: "claude-test"}
 	if route.Family != "claude-test" {
 		t.Fatalf("route = %#v", route)
 	}
@@ -81,36 +78,25 @@ func TestClientSpecRejectsUnimplementedProtocol(t *testing.T) {
 	}
 }
 
-func TestExplicitCredentialCommandSurvivesHostConfigRoundTrip(t *testing.T) {
+func TestExplicitCredentialCommandSurvivesCloneAndResolution(t *testing.T) {
 	cfg := validConfig()
 	cfg.Normalize()
-	cfg.Models[ClientClaudeDesktop] = testModel("Claude Desktop", "dmx", "model", ProtocolAnthropic)
-	cfg.SetSelectedModel(ClientClaudeDesktop, ClientClaudeDesktop, "")
-	cfg.Models[ClientHermes] = testModel("Hermes", "backup", "model", ProtocolResponses)
-	cfg.SetSelectedModel(ClientHermes, ClientHermes, "")
+	desktop, hermes := NewModelRef("dmx", "desktop-model"), NewModelRef("backup", "hermes-model")
+	cfg.Models[desktop] = testModel("Claude Desktop", "dmx", "desktop-model", ProtocolAnthropic)
+	cfg.SetSelectedModel(ClientClaudeDesktop, desktop, "")
+	cfg.Models[hermes] = testModel("Hermes", "backup", "hermes-model", ProtocolResponses)
+	cfg.SetSelectedModel(ClientHermes, hermes, "")
 	for _, client := range testAdmission().IDs() {
 		command := filepath.Join(t.TempDir(), "credential adapter")
-		var adapter ClientBinding
-		if err := toml.Unmarshal([]byte(fmt.Sprintf("enabled = true\ncredential_command = %q\n", command)), &adapter); err != nil {
-			t.Fatal(err)
-		}
-		adapter.Model = cfg.SelectedModel(client)
-		cfg.Clients[client] = adapter
-		runtime, err := cfg.ResolveRuntime(client, "")
+		cfg.Clients[client] = ClientBinding{Enabled: true, CredentialCommand: command, Model: cfg.SelectedModel(client)}
+		runtime, err := cfg.ResolveRuntime(client, ModelRef{})
 		if err != nil || runtime.CredentialCommand != command {
 			t.Fatalf("explicit %s command = %q, %v", client, runtime.CredentialCommand, err)
 		}
-		encoded, err := toml.Marshal(cfg.Clone())
-		if err != nil {
-			t.Fatal(err)
-		}
-		loaded := Config{admission: testAdmission()}
-		if err := toml.Unmarshal(encoded, &loaded); err != nil {
-			t.Fatal(err)
-		}
-		resolved, err := loaded.ResolveRuntime(client, "")
+		clone := cfg.Clone()
+		resolved, err := clone.ResolveRuntime(client, ModelRef{})
 		if err != nil || resolved.CredentialCommand != command {
-			t.Fatalf("roundtrip %s = %q, %v", client, resolved.CredentialCommand, err)
+			t.Fatalf("cloned %s = %q, %v", client, resolved.CredentialCommand, err)
 		}
 	}
 }
@@ -119,15 +105,7 @@ func TestCredentialCommandRejectsAmbiguousPaths(t *testing.T) {
 	for _, command := range []string{"relative-helper", " /absolute/helper", "/absolute/helper\nargument", "/absolute/helper\x00"} {
 		cfg := validConfig()
 		cfg.Normalize()
-		var adapter ClientBinding
-		encoded, err := toml.Marshal(map[string]any{"enabled": true, "credential_command": command})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := toml.Unmarshal(encoded, &adapter); err != nil {
-			t.Fatal(err)
-		}
-		cfg.Clients[ClientCodex] = adapter
+		cfg.Clients[ClientCodex] = ClientBinding{Enabled: true, CredentialCommand: command}
 		if err := cfg.Validate(); err == nil {
 			t.Errorf("accepted ambiguous command %q", command)
 		}

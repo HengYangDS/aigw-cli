@@ -63,22 +63,22 @@ func (p nativeClientJourneyPlan) runCodexGeneralModels(t *testing.T) {
 		account = "aihubmix"
 		token   = "native-general-route-token"
 	)
-	routeIDs := make([]string, 0, len(p.manifest.Models))
+	routeIDs := make([]domain.ModelRef, 0, len(p.manifest.Models))
 	completions := map[string]*atomic.Int64{}
 	for routeID, route := range p.manifest.Models {
 		if route.Provider != account || !slices.Contains(route.AdmittedProtocols(), domain.ProtocolResponses) {
 			continue
 		}
-		if _, duplicate := completions[route.UpstreamModel]; duplicate {
-			t.Fatalf("AIHubMix Routes reuse upstream model %q", route.UpstreamModel)
+		if _, duplicate := completions[route.ID]; duplicate {
+			t.Fatalf("AIHubMix Routes reuse upstream model %q", route.ID)
 		}
 		routeIDs = append(routeIDs, routeID)
-		completions[route.UpstreamModel] = &atomic.Int64{}
+		completions[route.ID] = &atomic.Int64{}
 	}
 	if len(routeIDs) == 0 {
 		t.Fatal("team manifest has no AIHubMix OpenAI Responses Routes")
 	}
-	slices.Sort(routeIDs)
+	slices.SortFunc(routeIDs, func(left, right domain.ModelRef) int { return strings.Compare(left.String(), right.String()) })
 	server := httptest.NewServer(clientResponseHandler(domain.ProtocolResponses, completions, token, "high", nativeCodexToolShell(t)))
 	t.Cleanup(server.Close)
 	executable, err := requiredClientInput("AIGW_ACCEPTANCE_CODEX", false)
@@ -96,11 +96,10 @@ func (p nativeClientJourneyPlan) runCodexGeneralModels(t *testing.T) {
 	selected := readFile(t, journey.config)
 	for _, routeID := range routeIDs {
 		route := p.manifest.Models[routeID]
-		route.ID = routeID
-		t.Run(routeID, func(t *testing.T) {
-			before := completions[route.UpstreamModel].Load()
+		t.Run(routeID.String(), func(t *testing.T) {
+			before := completions[route.ID].Load()
 			journey.testing = t
-			checkpoint := journey.config + ".verified.json"
+			checkpoint := verifiedSnapshot(journey.config)
 			beforeCheckpoint, err := os.ReadFile(checkpoint)
 			if err != nil && !os.IsNotExist(err) {
 				t.Fatal(err)
@@ -119,7 +118,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralModels(t *testing.T) {
 					t.Fatalf("incomplete metadata changed the verification checkpoint: %v", err)
 				}
 			}
-			if got := completions[route.UpstreamModel].Load() - before; got != want {
+			if got := completions[route.ID].Load() - before; got != want {
 				t.Fatalf("Codex Route %s completed=%t requests=%d, want %d", routeID, completed, got, want)
 			}
 			if !slices.Equal(readFile(t, journey.config), selected) {
@@ -148,10 +147,10 @@ func requireNativeCodexModelOutcome(t *testing.T, executable string, route domai
 		t.Fatal(err)
 	}
 	document, err := modelcatalog.Parse(bundled)
-	if err != nil || document.Model(route.Family) != nil {
+	if err != nil || document.Model(route.FamilyID()) != nil {
 		t.Fatalf("model-metadata refusal is not supported by the native catalog: %v", err)
 	}
-	t.Logf("Route %s issued the native request; metadata qualification remains incomplete", route.ID)
+	t.Logf("model %s issued the native request; metadata qualification remains incomplete", route.Ref())
 	return false
 }
 
@@ -159,9 +158,9 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	t.Helper()
 	const (
 		account = "aihubmix"
-		routeID = "aihubmix-grok-4.7"
 		token   = "native-tool-loop-token"
 	)
+	routeID := domain.NewModelRef(account, "grok-4.7")
 	executable, err := requiredClientInput("AIGW_ACCEPTANCE_CODEX", false)
 	if err != nil {
 		t.Fatal(err)
@@ -189,7 +188,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	journey.enableNativeClient(codex.ID, executable)
 	// Public verification must not turn this client's missing metadata into a
 	// completed checkpoint. The direct tool loop below proves its narrower use.
-	checkpoint := journey.config + ".verified.json"
+	checkpoint := verifiedSnapshot(journey.config)
 	beforeCheckpoint, err := os.ReadFile(checkpoint)
 	if err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
@@ -201,7 +200,6 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	})
 	cancel()
 	route := p.manifest.Models[routeID]
-	route.ID = routeID
 	requireNativeCodexModelOutcome(t, executable, route, stdout, stderr, verifyErr, token)
 	if verifyErr == nil {
 		t.Fatal("Grok native metadata warning was accepted as complete verification")
@@ -213,7 +211,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := cfg.ResolveRuntime(codex.ID, "")
+	runtime, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -60,8 +60,8 @@ func (claudeAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg 
 	verifyCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	defer cancel()
 	reader := deps.AIGWExecutable
-	if clientAdapter.Model != "" {
-		selected, err := cfg.ResolveRuntime(ID, "")
+	if !clientAdapter.Model.IsZero() {
+		selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 		if err != nil {
 			return adapter.Verification{}, err
 		}
@@ -110,7 +110,7 @@ func isolateProjection(cfg domain.Config, runtime domain.Runtime, source string)
 	if err := CopyProjection(source, settingsPath); err != nil {
 		return "", workspace, fmt.Errorf("copy Claude verification projection: %w", err)
 	}
-	selected, err := cfg.ResolveRuntime(ID, "")
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		return "", workspace, fmt.Errorf("resolve selected Claude projection: %w", err)
 	}

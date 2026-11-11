@@ -73,7 +73,7 @@ func TestVerificationPlanRequiresExecutable(t *testing.T) {
 func verificationSettings(t *testing.T) (string, domain.Runtime) {
 	t.Helper()
 	root := t.TempDir()
-	runtime := domain.Runtime{ModelID: "claude", ProviderID: "gateway", Endpoint: "https://example.test", UpstreamModel: "claude-sonnet-4-6", CredentialCommand: filepath.Join(root, "aigw")}
+	runtime := domain.Runtime{Model: domain.NewModelRef("gateway", "claude-sonnet-4-6"), ProviderID: "gateway", Endpoint: "https://example.test", UpstreamModel: "claude-sonnet-4-6", CredentialCommand: filepath.Join(root, "aigw")}
 	settings := filepath.Join(root, "settings.json")
 	if _, err := claude.ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.UpstreamModel); err != nil {
 		t.Fatal(err)

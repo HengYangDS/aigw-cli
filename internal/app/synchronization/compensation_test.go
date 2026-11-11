@@ -77,7 +77,7 @@ func TestFailedUndosStayRecognizable(t *testing.T) {
 	store := &configStoreStub{commitErr: failure}
 	store.bindConfiguration(t, before)
 	syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: undoRefusingStore{secret.NewMemoryStore()}, Discovery: setupDiscovery(nil)}
-	_, _, _, err := selectModel(t.Context(), syncer, before, claude.ID, "claude", "new-token")
+	_, _, _, err := selectModel(t.Context(), syncer, before, claude.ID, domain.NewModelRef("team", "claude-test"), "new-token")
 	undo, recognized := errors.AsType[*platform.RestoreError](err)
 	if !errors.Is(err, failure) || !recognized || undo.Undo != "removing the Token that this command stored for provider team" {
 		t.Fatalf("selection error = %v", err)

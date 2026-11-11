@@ -31,8 +31,8 @@ func TestUseTellsHermesUsersThatExistingSessionsKeepTheirModel(t *testing.T) {
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
 	for _, id := range []string{"first", "second"} {
-		cfg.Models[id] = domain.Model{
-			Label: id, Provider: "gateway", Family: id + "-model",
+		cfg.Models[domain.NewModelRef("gateway", id+"-model")] = domain.Model{
+			Label: id, Provider: "gateway", Family: id + "-model", ID: id + "-model",
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 		}
 	}

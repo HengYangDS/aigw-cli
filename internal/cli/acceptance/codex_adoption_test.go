@@ -19,9 +19,9 @@ func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
 	writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-	cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
-	cfg.Models["terra"] = qualifiedModel("Terra", "gateway", "gpt-terra", domain.ProtocolResponses)
-	cfg.SetSelectedModel(codex.ID, "sol", "")
+	cfg.Models[domain.NewModelRef("gateway", "gpt-sol")] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("gateway", "gpt-terra")] = qualifiedModel("Terra", "gateway", "gpt-terra", domain.ProtocolResponses)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-sol"), "")
 	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -46,7 +46,7 @@ func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.Adopted[codex.ID] != "gateway/gpt-terra" {
 		t.Fatalf("adopted selections = %v, %v\n%s", result.Adopted, err, output)
 	}
-	if after, err := app.Config.Load(); err != nil || after.SelectedModel(codex.ID) != "terra" {
+	if after, err := app.Config.Load(); err != nil || after.SelectedModel(codex.ID) != domain.NewModelRef("gateway", "gpt-terra") {
 		t.Fatalf("Codex binding was not adopted: %v", err)
 	}
 	adopted := string(readFile(t, target))
@@ -87,9 +87,9 @@ func TestCodexSyncRefusesAModelChoiceWithAnotherEdit(t *testing.T) {
 	writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-	cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
-	cfg.Models["terra"] = qualifiedModel("Terra", "gateway", "gpt-terra", domain.ProtocolResponses)
-	cfg.SetSelectedModel(codex.ID, "sol", "")
+	cfg.Models[domain.NewModelRef("gateway", "gpt-sol")] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("gateway", "gpt-terra")] = qualifiedModel("Terra", "gateway", "gpt-terra", domain.ProtocolResponses)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-sol"), "")
 	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

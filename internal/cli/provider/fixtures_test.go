@@ -124,11 +124,11 @@ func newFixture(t *testing.T) *fixture {
 		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://balance.test"},
 	}
 	cfg.Providers["mixed"] = domain.Provider{Label: "Mixed", Endpoints: domain.Endpoints{Anthropic: "https://mixed.test", Chat: "https://mixed.test/v1"}}
-	cfg.Models["team"] = domain.Model{Provider: "team", Family: "team-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityToolSearch}}}
-	cfg.Models["team-codex"] = domain.Model{Provider: "team", Family: "codex-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.Models["mixed-chat"] = domain.Model{Provider: "mixed", Family: "chat-only", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
-	cfg.SetSelectedModel("claude", "team", "")
-	cfg.SetSelectedModel("codex", "team-codex", "")
+	cfg.Models[domain.NewModelRef("team", "team-model")] = domain.Model{Provider: "team", Family: "team-model", ID: "team-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityToolSearch}}}
+	cfg.Models[domain.NewModelRef("team", "codex-model")] = domain.Model{Provider: "team", Family: "codex-model", ID: "codex-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models[domain.NewModelRef("mixed", "chat-only")] = domain.Model{Provider: "mixed", Family: "chat-only", ID: "chat-only", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
+	cfg.SetSelectedModel("claude", domain.NewModelRef("team", "team-model"), "")
+	cfg.SetSelectedModel("codex", domain.NewModelRef("team", "codex-model"), "")
 	if err := cfg.SetForwardingEndpoint("codex", "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func newFixture(t *testing.T) *fixture {
 	binding := cfg.Clients["codex"]
 	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &budget}
 	cfg.Clients["codex"] = binding
-	cfg.Recommendations["hermes"] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "mixed-chat", Protocol: domain.ProtocolChat}}
+	cfg.Recommendations["hermes"] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("mixed", "chat-only"), Protocol: domain.ProtocolChat}}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

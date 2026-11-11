@@ -37,7 +37,7 @@ func TestEditReplacingAnEndpointClearsWhatWasQualifiedOrSetUpForIt(t *testing.T)
 		t.Fatalf("anthropic edit = %+v", document)
 	}
 	cfg := f.load(t)
-	if cfg.Providers["team"].Endpoints.Anthropic != "https://new.test" || len(cfg.Models["team"].Protocols[domain.ProtocolAnthropic]) != 0 ||
+	if cfg.Providers["team"].Endpoints.Anthropic != "https://new.test" || len(cfg.Models[domain.NewModelRef("team", "team-model")].Protocols[domain.ProtocolAnthropic]) != 0 ||
 		cfg.Clients["codex"].ForwardingEndpoint == "" {
 		t.Fatalf("saved anthropic edit = %+v", cfg)
 	}
@@ -278,26 +278,6 @@ func TestProviderFlagsThatTakeOneValueRefuseASecond(t *testing.T) {
 	}
 	if f.load(t).Providers["team"].Label != "Team" {
 		t.Fatal("a refused flag changed the provider")
-	}
-}
-
-// A name that several models carry on one protocol, until task 6.1 merges
-// them, is reported once with every capability that the edit cleared.
-func TestEditReportsEachNameOnce(t *testing.T) {
-	f := newFixture(t)
-	cfg := f.load(t)
-	cfg.Models["team-twin"] = domain.Model{Provider: "team", Family: "team-model", UpstreamModel: "team-model",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
-	if err := f.runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.run("", "edit", "team", "--endpoint", "anthropic=https://new.test", "--json"); err != nil {
-		t.Fatal(err)
-	}
-	var document changeDocument
-	f.decode(t, &document)
-	if len(document.ClearedCapabilities) != 1 || strings.Join(document.ClearedCapabilities[0].Capabilities, ",") != "tool_search,text" {
-		t.Fatalf("cleared capabilities = %+v", document.ClearedCapabilities)
 	}
 }
 

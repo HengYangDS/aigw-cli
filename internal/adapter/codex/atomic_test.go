@@ -20,7 +20,7 @@ func atomicTestRuntime() domain.Runtime {
 	}
 	return domain.Runtime{
 		CredentialCommand: executable,
-		ModelID:           "gpt-5.6-terra",
+		Model:             domain.NewModelRef("gateway", "gpt-5.6-terra"),
 		ModelLabel:        "GPT-5.6 Terra",
 		ProviderID:        "gateway",
 		Client:            ID,

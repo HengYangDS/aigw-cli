@@ -65,16 +65,16 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, domain.Config
 			Responses: "https://codex.example.test/v1",
 		},
 	}
-	cfg.Models["claude"] = domain.Model{
-		Label: "Claude", Provider: "one", Family: "claude-test",
+	cfg.Models[domain.NewModelRef("one", "claude-test")] = domain.Model{
+		Label: "Claude", Provider: "one", Family: "claude-test", ID: "claude-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.Models["codex"] = domain.Model{
-		Label: "Codex", Provider: "one", Family: "gpt-test",
+	cfg.Models[domain.NewModelRef("one", "gpt-test")] = domain.Model{
+		Label: "Codex", Provider: "one", Family: "gpt-test", ID: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
-	cfg.SetSelectedModel(claude.ID, "claude", "")
-	cfg.SetSelectedModel(codex.ID, "codex", "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "claude-test"), "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

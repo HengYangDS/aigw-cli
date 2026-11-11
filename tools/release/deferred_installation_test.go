@@ -57,51 +57,44 @@ func runDeferredClientInstallation(t *testing.T, artifact func(*testing.T) strin
 	for _, clientID := range deferredJourneyClientIDs() {
 		t.Run(clientID, func(t *testing.T) {
 			journey := newNativeJourney(t, artifact(t), endpoint, false)
-			manifest := fmt.Sprintf(`version = 7
+			manifest := fmt.Sprintf(`version = 8
 
-[recommendations.claude]
-[recommendations.claude.primary]
-route = 'native-system-keyring-probe-claude'
-
-[recommendations.claude-desktop]
-[recommendations.claude-desktop.primary]
-route = 'native-system-keyring-probe-claude'
-
-[recommendations.codex]
-[recommendations.codex.primary]
-route = 'native-system-keyring-probe-codex'
-
-[recommendations.hermes]
-[recommendations.hermes.primary]
-route = 'native-system-keyring-probe-claude'
-protocol = 'anthropic'
-
-[accounts.native-system-keyring-probe]
+[[providers]]
+id = 'native-system-keyring-probe'
 label = 'Native System Keyring Probe'
+endpoints = {anthropic = %[1]q, responses = %[1]q}
 
-[accounts.native-system-keyring-probe.endpoints]
-anthropic = %[1]q
-openai_responses = %[1]q
+[[providers.models]]
+id = 'claude-test'
+family = 'claude-test'
+label = 'Native System Keyring Probe Claude'
+protocols = {anthropic = []}
 
-[models.claude-test]
+[[providers.models]]
+id = 'gpt-test'
+family = 'gpt-test'
+label = 'Native System Keyring Probe Codex'
+protocols = {responses = []}
+
+[[families]]
+id = 'claude-test'
 label = 'Claude Test'
 
-[models.gpt-test]
+[[families]]
+id = 'gpt-test'
 label = 'GPT Test'
 
-[routes.native-system-keyring-probe-claude]
-label = 'Native System Keyring Probe Claude'
-account = 'native-system-keyring-probe'
-model = 'claude-test'
-upstream_model = 'claude-test'
-interfaces = { anthropic = [] }
+[recommendations.claude]
+primary = {model = 'native-system-keyring-probe/claude-test'}
 
-[routes.native-system-keyring-probe-codex]
-label = 'Native System Keyring Probe Codex'
-account = 'native-system-keyring-probe'
-model = 'gpt-test'
-upstream_model = 'gpt-test'
-interfaces = { openai_responses = [] }
+[recommendations.claude-desktop]
+primary = {model = 'native-system-keyring-probe/claude-test'}
+
+[recommendations.codex]
+primary = {model = 'native-system-keyring-probe/gpt-test'}
+
+[recommendations.hermes]
+primary = {model = 'native-system-keyring-probe/claude-test', protocol = 'anthropic'}
 `, journey.endpoint)
 			if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 				t.Fatal(err)
@@ -189,7 +182,7 @@ func (j *journeyFixture) requireUnownedClientConfiguration(path, sentinel, opera
 func (j *journeyFixture) requireDeferredWithdrawal(clientID, userPath, userSentinel string) {
 	j.testing.Helper()
 	j.uninstallWithAndRequireInstallationRemoved(j.source)
-	if _, err := os.Stat(j.config + ".verified.json"); !os.IsNotExist(err) {
+	if _, err := os.Stat(verifiedSnapshot(j.config)); !os.IsNotExist(err) {
 		j.testing.Fatalf("uninstall retained verified checkpoint: %v", err)
 	}
 	for _, candidate := range builtinclients.Admission().IDs() {

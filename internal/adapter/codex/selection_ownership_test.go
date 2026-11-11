@@ -59,7 +59,7 @@ func assertCodexSyncRejectsDrift(t *testing.T, path, drifted, want string) {
 
 func ownershipTestRuntime() domain.Runtime {
 	runtime := atomicTestRuntime()
-	runtime.ModelID = "gpt"
+	runtime.Model = domain.NewModelRef("gateway", "gpt")
 	runtime.ModelLabel = "GPT"
 	runtime.Endpoint = "https://example.test/v1"
 	runtime.UpstreamModel = "gpt-test"
@@ -98,7 +98,7 @@ func TestReconcileConfigsTransitionAttributesLegacyRootSelections(t *testing.T) 
 	}
 
 	next := previous
-	next.ModelID = "next"
+	next.Model = domain.NewModelRef("gateway", "next")
 	next.ModelLabel = "Next"
 	next.Endpoint = "https://next.test/v1"
 	next.UpstreamModel = "gpt-next"
@@ -165,7 +165,7 @@ func TestReconcileConfigsAuthorizedTransitionReplacesChangedRootSelections(t *te
 	}
 
 	next := previous
-	next.ModelID = "next"
+	next.Model = domain.NewModelRef("gateway", "next")
 	next.ModelLabel = "Next"
 	next.Endpoint = "https://next.test/v1"
 	next.UpstreamModel = "gpt-next"

@@ -36,15 +36,16 @@ func configuredClient(t *testing.T, id string) (domain.Config, adapter.Dependenc
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	spec, _ := clients.Admission().Spec(id)
-	cfg.Models[id] = domain.Model{
-		Provider: "gateway", Family: "fixture", UpstreamModel: "fixture",
+	ref := domain.NewModelRef("gateway", "fixture")
+	cfg.Models[ref] = domain.Model{
+		Provider: "gateway", Family: "fixture", ID: "fixture",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
 	}
 	target := filepath.Join(root, "config.toml")
 	if id == claudedesktop.ID {
 		target = filepath.Join(root, "Claude-3p", "configLibrary")
 	}
-	clientAdapter := domain.ClientBinding{Model: id, Enabled: true, Protocol: spec.EndpointProtocols[0], Executable: executable}
+	clientAdapter := domain.ClientBinding{Model: ref, Enabled: true, Protocol: spec.EndpointProtocols[0], Executable: executable}
 	if id != claude.ID {
 		clientAdapter.Targets = []string{target}
 	}
@@ -93,7 +94,7 @@ func TestCredentialPolicyControlsProjectionAndSurvivesDiscovery(t *testing.T) {
 			if _, _, err := registry.Apply(context.Background(), deps, before, converged, id); err != nil {
 				t.Fatal(err)
 			}
-			clientRuntime, err := converged.ResolveRuntime(id, "")
+			clientRuntime, err := converged.ResolveRuntime(id, domain.ModelRef{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -193,7 +194,7 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 			if _, _, err := registry.Apply(context.Background(), deps, domain.NewConfig(clients.Admission()), cfg, id); err != nil {
 				t.Fatal(err)
 			}
-			clientRuntime, err := cfg.ResolveRuntime(id, "")
+			clientRuntime, err := cfg.ResolveRuntime(id, domain.ModelRef{})
 			if err != nil {
 				t.Fatal(err)
 			}

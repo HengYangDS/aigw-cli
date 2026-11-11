@@ -220,9 +220,9 @@ func managedBytes(root *yaml.Node, providerIDs []string) ([]byte, error) {
 
 func nativeProtocol(wire string) (string, error) {
 	protocol, found := map[string]string{
-		"openai_responses":        "codex_responses",
-		"anthropic":               "anthropic_messages",
-		"openai_chat_completions": "chat_completions",
+		"responses": "codex_responses",
+		"anthropic": "anthropic_messages",
+		"chat":      "chat_completions",
 	}[wire]
 	if !found {
 		return "", fmt.Errorf("unsupported Hermes protocol %q", wire)

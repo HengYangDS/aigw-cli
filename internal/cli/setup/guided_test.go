@@ -129,7 +129,7 @@ func TestGuidedSetupSavesAProviderClientAndCatalogModelThenChecksTheClient(t *te
 		t.Fatalf("guided setup: %v\n%s", err, home.out)
 	}
 	cfg := home.config(t)
-	selected, err := cfg.ResolveRuntime(claude.ID, "")
+	selected, err := cfg.ResolveRuntime(claude.ID, domain.ModelRef{})
 	if err != nil || selected.ProviderID != "team" || selected.UpstreamModel != "team-model" || cfg.Providers["team"].Endpoints.Anthropic != "https://team.test" {
 		t.Fatalf("saved %+v, %v", selected, err)
 	}
@@ -188,7 +188,7 @@ func TestGuidedSetupRunsAgainWithAStoredTokenAndATypedModel(t *testing.T) {
 		t.Fatalf("guided setup again: %v\n%s", err, home.out)
 	}
 	cfg = home.config(t)
-	selected, err := cfg.ResolveRuntime(hermes.ID, "")
+	selected, err := cfg.ResolveRuntime(hermes.ID, domain.ModelRef{})
 	if err != nil || selected.UpstreamModel != "typed-model" || selected.Protocol != domain.ProtocolResponses || slices.Contains(prompt.asked, "Paste the Team Gateway Token: ") {
 		t.Fatalf("saved %+v, %v; asked %q", selected, err, prompt.asked)
 	}
@@ -204,7 +204,7 @@ func TestGuidedSetupRunsAgainWithAStoredTokenAndATypedModel(t *testing.T) {
 		t.Fatalf("guided setup a third time: %v\n%s", err, home.out)
 	}
 	cfg = home.config(t)
-	if keys := cfg.ResolveModelRef(domain.NewModelRef("team", "typed-model")); len(keys) != 1 || len(cfg.Models[keys[0]].Protocols) != 2 {
+	if model, added := cfg.Models[domain.NewModelRef("team", "typed-model")]; !added || len(model.Protocols) != 2 {
 		t.Fatalf("models %+v", cfg.Models)
 	}
 }

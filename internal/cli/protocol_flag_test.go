@@ -17,7 +17,7 @@ import (
 func TestASecondProtocolNamesItsCommandsHelp(t *testing.T) {
 	for _, path := range [][]string{
 		{"use"},
-		{"model", "list"}, {"model", "show"}, {"model", "add"}, {"model", "remove"},
+		{"model", "list"}, {"model", "add"},
 	} {
 		var out bytes.Buffer
 		configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration", "aigw.toml"), clients.Admission())

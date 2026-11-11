@@ -17,7 +17,7 @@ import (
 func namedModelRuntime(t *testing.T) runtimeFixture {
 	t.Helper()
 	ctx, cfg, out := configuredRuntime(t)
-	cfg.Models["spare"] = domain.Model{Label: "Spare", Provider: "one", Family: "spare-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models[domain.NewModelRef("one", "spare-test")] = domain.Model{Label: "Spare", Provider: "one", Family: "spare-test", ID: "spare-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	enable(t, ctx, &cfg, claude.ID)
 	return runtimeFixture{ctx: ctx, cfg: cfg, out: out}
 }
@@ -175,9 +175,10 @@ func TestCheckOfARejectedOneTimeTokenNamesTheSameCheck(t *testing.T) {
 // nests no other sentence.
 func TestCheckOfARejectedOneTimeTokenForAQuotedModelNamesTheSameCheck(t *testing.T) {
 	fixture := namedModelRuntime(t)
-	spare := fixture.cfg.Models["spare"]
-	spare.UpstreamModel = "opus[1m]"
-	fixture.cfg.Models["spare"] = spare
+	spare := fixture.cfg.Models[domain.NewModelRef("one", "spare-test")]
+	delete(fixture.cfg.Models, spare.Ref())
+	spare.ID = "opus[1m]"
+	fixture.cfg.Models[spare.Ref()] = spare
 	if err := fixture.ctx.Config.Save(fixture.cfg); err != nil {
 		t.Fatal(err)
 	}

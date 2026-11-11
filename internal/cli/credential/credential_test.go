@@ -42,14 +42,14 @@ func TestCredentialHelperPrintsOnlyTheProjectedProviderToken(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				route := cfg.Models[client]
+				route := cfg.Models[clientModel(client)]
 				switch change {
 				case "model":
 					route.Family = "another-model"
 				case "label":
 					route.Label = "Another label"
 				}
-				cfg.Models[client] = route
+				cfg.Models[clientModel(client)] = route
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
 				}
@@ -62,34 +62,6 @@ func TestCredentialHelperPrintsOnlyTheProjectedProviderToken(t *testing.T) {
 				}
 				if got := buffer.String(); got != want {
 					t.Fatalf("matching projection output = %q, want %q", got, want)
-				}
-			})
-		}
-	}
-}
-
-func TestCredentialHelperIgnoresMalformedOptionalComponents(t *testing.T) {
-	for _, client := range clients.Admission().IDs() {
-		for _, component := range []string{".catalog.toml", ".capabilities.toml"} {
-			t.Run(client+component, func(t *testing.T) {
-				runtime, buffer := helperRuntime(t, client, true)
-				args := helperArgs(t, runtime, client)
-				if err := runtime.Secrets.Set("gateway", "original-token"); err != nil {
-					t.Fatal(err)
-				}
-				path := strings.TrimSuffix(runtime.Config.Path(), filepath.Ext(runtime.Config.Path())) + component
-				if err := os.WriteFile(path, []byte("[invalid component"), 0o600); err != nil {
-					t.Fatal(err)
-				}
-				if _, err := runtime.Config.Load(); err == nil {
-					t.Fatal("invalid optional component was accepted by the full configuration reader")
-				}
-				command := NewCommand(runtime)
-				if err := command.RunE(command, args); err != nil {
-					t.Fatal(err)
-				}
-				if got := buffer.String(); got != "original-token\n" {
-					t.Fatalf("credential output = %q, want the projected Account Token", got)
 				}
 			})
 		}
@@ -125,7 +97,7 @@ func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
 			case "parse":
 				data = []byte("[invalid configuration")
 			case "validate":
-				data = regexp.MustCompile(`(?m)^openai_responses = \[\]$`).ReplaceAll(data, []byte("openai_responses = ['future_capability']"))
+				data = regexp.MustCompile(`(?m)^protocols = \{responses = \[\]\}$`).ReplaceAll(data, []byte("protocols = {responses = ['future_capability']}"))
 				if !bytes.Contains(data, []byte("future_capability")) {
 					t.Fatalf("fixture has no Responses interface to extend:\n%s", data)
 				}
@@ -173,8 +145,9 @@ func TestCredentialHelperResolvesAnUnselectedModelProjection(t *testing.T) {
 				account.Endpoints.Responses = "https://alternate.test/v1"
 			}
 			cfg.Providers["alternate"] = account
-			cfg.Models["alternate"] = domain.Model{
-				Label: "Alternate", Provider: "alternate", Family: client + "-alternate",
+			alternate := domain.NewModelRef("alternate", client+"-alternate")
+			cfg.Models[alternate] = domain.Model{
+				Label: "Alternate", Provider: "alternate", ID: client + "-alternate",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
 			}
 			if err := runtime.Config.Save(cfg); err != nil {
@@ -183,7 +156,7 @@ func TestCredentialHelperResolvesAnUnselectedModelProjection(t *testing.T) {
 			if err := runtime.Secrets.Set("alternate", "alternate-token"); err != nil {
 				t.Fatal(err)
 			}
-			projection, err := cfg.ResolveRuntime(client, "alternate")
+			projection, err := cfg.ResolveRuntime(client, alternate)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -208,19 +181,19 @@ func TestCredentialHelperResolvesEveryProjectedModelProtocol(t *testing.T) {
 	account := cfg.Providers["gateway"]
 	account.Endpoints.Chat = "https://gateway.test/chat/v1"
 	cfg.Providers["gateway"] = account
-	route := cfg.Models[hermes.ID]
+	route := cfg.Models[clientModel(hermes.ID)]
 	route.Protocols = map[domain.EndpointProtocol][]domain.Capability{
 		domain.ProtocolResponses: {},
 		domain.ProtocolChat:      {},
 	}
-	cfg.Models[hermes.ID] = route
+	cfg.Models[clientModel(hermes.ID)] = route
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := runtime.Secrets.Set("gateway", "gateway-token"); err != nil {
 		t.Fatal(err)
 	}
-	projection, err := cfg.ResolveRuntime(hermes.ID, "")
+	projection, err := cfg.ResolveRuntime(hermes.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +218,7 @@ func TestCredentialHelperRejectsStaleBindingBeforeSecretAccess(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				projection, err := cfg.ResolveRuntime(client, "")
+				projection, err := cfg.ResolveRuntime(client, domain.ModelRef{})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -255,9 +228,13 @@ func TestCredentialHelperRejectsStaleBindingBeforeSecretAccess(t *testing.T) {
 					fingerprintClient = "another-client"
 				case "account":
 					cfg.Providers["other"] = cfg.Providers[projection.ProviderID]
-					route := cfg.Models[client]
+					route := cfg.Models[clientModel(client)]
+					delete(cfg.Models, route.Ref())
 					route.Provider = "other"
-					cfg.Models[client] = route
+					cfg.Models[route.Ref()] = route
+					binding := cfg.Clients[client]
+					binding.Model = route.Ref()
+					cfg.Clients[client] = binding
 				case "endpoint":
 					account := cfg.Providers[projection.ProviderID]
 					account.Endpoints = domain.Endpoints{
@@ -299,9 +276,9 @@ func TestClaudeCredentialHelperFailsClosedWithoutWritingStdout(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				route := cfg.Models[claude.ID]
+				route := cfg.Models[clientModel(claude.ID)]
 				route.Family = "changed-after-projection"
-				cfg.Models[claude.ID] = route
+				cfg.Models[clientModel(claude.ID)] = route
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
 				}
@@ -384,6 +361,9 @@ func TestCredentialHelperRedactsBackendDiagnostics(t *testing.T) {
 	}
 }
 
+// clientModel is the model that helperRuntime gives client.
+func clientModel(client string) domain.ModelRef { return domain.NewModelRef("gateway", client+"-team") }
+
 func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Context, *bytes.Buffer) {
 	t.Helper()
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
@@ -396,11 +376,11 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 		account.Endpoints.Responses = "https://gateway.test/v1"
 	}
 	cfg.Providers["gateway"] = account
-	cfg.Models[client] = domain.Model{
-		Label: client, Provider: "gateway", Family: client + "-team",
+	cfg.Models[clientModel(client)] = domain.Model{
+		Label: client, Provider: "gateway", ID: client + "-team",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
 	}
-	cfg.Clients[client] = domain.ClientBinding{Model: client, Enabled: enabled, Protocol: spec.EndpointProtocols[0], Executable: client}
+	cfg.Clients[client] = domain.ClientBinding{Model: clientModel(client), Enabled: enabled, Protocol: spec.EndpointProtocols[0], Executable: client}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -414,7 +394,7 @@ func helperArgs(t *testing.T, runtime invocation.Context, client string) []strin
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection, err := cfg.ResolveRuntime(client, "")
+	projection, err := cfg.ResolveRuntime(client, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}

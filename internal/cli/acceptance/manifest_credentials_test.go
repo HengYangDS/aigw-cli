@@ -168,7 +168,7 @@ func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.SelectedModel(claude.ID) != "dmxapi-claude" || cfg.SelectedModel(codex.ID) != "dmxapi-gpt" {
+	if cfg.SelectedModel(claude.ID) != domain.NewModelRef("dmxapi", "claude-test") || cfg.SelectedModel(codex.ID) != domain.NewModelRef("dmxapi", "gpt-test") {
 		t.Fatalf("available Account did not become usable: %#v", cfg.Clients)
 	}
 	for _, want := range []string{"dmxapi/claude-test; Install Claude if needed, then run `aigw sync`", "dmxapi/gpt-test; Install Codex if needed, then run `aigw sync`", "Next", "aigw sync"} {
@@ -225,7 +225,7 @@ func TestSetupFromConfigurationManifestConnectsOneProviderAndKeepsItsTokenSecret
 	if len(cfg.Providers) != 2 {
 		t.Fatalf("team config = %#v", cfg)
 	}
-	if cfg.SelectedModel(claude.ID) != "dmxapi-claude" || cfg.SelectedModel(codex.ID) != "dmxapi-gpt" {
+	if cfg.SelectedModel(claude.ID) != domain.NewModelRef("dmxapi", "claude-test") || cfg.SelectedModel(codex.ID) != domain.NewModelRef("dmxapi", "gpt-test") {
 		t.Fatalf("connected Account bindings = %#v", cfg.Clients)
 	}
 	if !cfg.Clients["claude"].Enabled || !cfg.Clients["codex"].Enabled {
@@ -234,7 +234,7 @@ func TestSetupFromConfigurationManifestConnectsOneProviderAndKeepsItsTokenSecret
 	if len(runner.plans) != 0 {
 		t.Fatalf("setup invoked a client: %#v", runner.plans)
 	}
-	projection, err := cfg.ResolveRuntime(codex.ID, "")
+	projection, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,10 +251,10 @@ func TestSetupFromConfigurationManifestConnectsOneProviderAndKeepsItsTokenSecret
 	if httpClient.calls != 1 {
 		t.Fatalf("setup made %d provider requests, want the one Token validation", httpClient.calls)
 	}
-	wantRoutes := map[string]domain.Model{
-		"aihubmix-claude": qualifiedModel("AIHubMix Claude", "aihubmix", "claude-test", domain.ProtocolAnthropic),
-		"dmxapi-claude":   qualifiedModel("DMXAPI Claude", "dmxapi", "claude-test", domain.ProtocolAnthropic),
-		"dmxapi-gpt":      qualifiedModel("DMXAPI GPT", "dmxapi", "gpt-test", domain.ProtocolResponses),
+	wantRoutes := map[domain.ModelRef]domain.Model{
+		domain.NewModelRef("aihubmix", "claude-test"): qualifiedModel("AIHubMix Claude", "aihubmix", "claude-test", domain.ProtocolAnthropic),
+		domain.NewModelRef("dmxapi", "claude-test"):   qualifiedModel("DMXAPI Claude", "dmxapi", "claude-test", domain.ProtocolAnthropic),
+		domain.NewModelRef("dmxapi", "gpt-test"):      qualifiedModel("DMXAPI GPT", "dmxapi", "gpt-test", domain.ProtocolResponses),
 	}
 	if !reflect.DeepEqual(cfg.Models, wantRoutes) {
 		t.Fatalf("manifest model matrix was not preserved: %#v", cfg.Models)
@@ -309,7 +309,7 @@ func TestSetupFromConfigurationManifestReusesEnvironmentTokensWithoutPrompting(t
 		t.Fatal(err)
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || len(cfg.Models) != 3 || cfg.SelectedModel(codex.ID) != "dmxapi-gpt" {
+	if err != nil || len(cfg.Models) != 3 || cfg.SelectedModel(codex.ID) != domain.NewModelRef("dmxapi", "gpt-test") {
 		t.Fatalf("team config = %#v, %v", cfg, err)
 	}
 }
@@ -322,7 +322,7 @@ func TestSetupFromConfigurationManifestRejectsCredentialsBeforePromptOrWrite(t *
 	manifestPath := writeConfigurationManifest(t, strings.Replace(configurationManifestFixture, "label = \"AIHubMix\"", "label = \"AIHubMix\"\ntoken = \"forbidden\"", 1))
 
 	err := cli.Execute(app, []string{"setup", "--from", manifestPath})
-	if err == nil || !strings.Contains(err.Error(), "forbidden credential") {
+	if err == nil || !strings.Contains(err.Error(), `the credential field "providers.token"`) {
 		t.Fatalf("error = %v", err)
 	}
 	if len(prompt.secretCalls) != 0 || secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
@@ -373,7 +373,7 @@ func TestSetupFromConfigurationManifestPreservesClientOwnedCredentials(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.SelectedModel(codex.ID) == "" || !secretExists(t, app.Secrets, "dmxapi") {
+	if cfg.SelectedModel(codex.ID).IsZero() || !secretExists(t, app.Secrets, "dmxapi") {
 		t.Fatal("setup did not persist the selected Account and route")
 	}
 	authAfter, err := os.ReadFile(authPath)

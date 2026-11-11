@@ -43,7 +43,7 @@ func TestCodexInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := testConfig(target)
-	runtime, err := cfg.ResolveRuntime(codex.ID, "")
+	runtime, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,10 +92,10 @@ func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("team", "claude-test")] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, filepath.Join(root, "predecessor"), nil)
-	runtime, err := cfg.ResolveRuntime(claude.ID, "")
+	runtime, err := cfg.ResolveRuntime(claude.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,8 +270,8 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	account := otherActive.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	otherActive.Providers["gateway"] = account
-	otherActive.Models["claude"] = domain.Model{Provider: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	otherActive.SetSelectedModel(claude.ID, "claude", "")
+	otherActive.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{Provider: "gateway", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	otherActive.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 	otherActive.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	if action, err := syncer.CredentialEntrypointPlan(otherActive); err != nil || action != CredentialEntrypointUnchanged {
 		t.Fatalf("another default Token client plan = %q, %v; want retained helper", action, err)
@@ -293,7 +293,7 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 		t.Fatalf("explicit client using the owned path plan = %q, %v; want retained helper", action, err)
 	}
 	invalid := cfg.Clone()
-	delete(invalid.Models, "gpt")
+	delete(invalid.Models, domain.NewModelRef("gateway", "gpt-test"))
 	if _, err := syncer.CredentialEntrypointPlan(invalid); err == nil {
 		t.Fatal("invalid selected Route was accepted for credential entrypoint planning")
 	}
@@ -393,8 +393,8 @@ func TestDisablingOneTokenClientRetainsEntrypointForAnother(t *testing.T) {
 	account := before.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Providers["gateway"] = account
-	before.Models["claude"] = domain.Model{Provider: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	before.SetSelectedModel(claude.ID, "claude", "")
+	before.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{Provider: "gateway", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
@@ -429,8 +429,8 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	account := before.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Providers["gateway"] = account
-	before.Models["claude"] = domain.Model{Provider: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	before.SetSelectedModel(claude.ID, "claude", "")
+	before.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{Provider: "gateway", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	binding := before.Clients[claude.ID]
 	binding.CredentialCommand = helper

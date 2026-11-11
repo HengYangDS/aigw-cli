@@ -366,7 +366,7 @@ func reviewRuntime(mode string, binding domain.Runtime) error {
 	if mode == "" && binding == (domain.Runtime{}) {
 		return nil
 	}
-	if binding.Client == "" || binding.ModelID == "" || binding.ProviderID == "" || binding.Protocol == "" || binding.Endpoint == "" || binding.UpstreamEndpoint == "" {
+	if binding.Client == "" || binding.Model.IsZero() || binding.ProviderID == "" || binding.Protocol == "" || binding.Endpoint == "" || binding.UpstreamEndpoint == "" {
 		return errors.New("performance mode lacks its resolved native binding")
 	}
 	if (binding.Endpoint != binding.UpstreamEndpoint) != (mode == "forwarding") {

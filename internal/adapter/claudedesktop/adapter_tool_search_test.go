@@ -12,14 +12,14 @@ import (
 
 func TestClaudeDesktopToolSearchRequiresEveryExposedModel(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
-	declareToolSearch(fixture.cfg, "selected", "alternate")
+	declareToolSearch(fixture.cfg, domain.NewModelRef("gateway", "claude-fable-5-1"), domain.NewModelRef("gateway", "claude-opus-5"))
 	fixture.apply(t)
 	if _, enabled := readClaudeDesktopProfile(t, fixture.paths.Profile)["toolSearchEnabled"]; enabled {
 		t.Fatal("tool search was enabled while the exposed manual Route lacks it")
 	}
 
 	qualified := fixture.cfg.Clone()
-	declareToolSearch(qualified, "manual")
+	declareToolSearch(qualified, domain.NewModelRef("gateway", "manual-model"))
 	if !fixture.clientAdapter.ProjectionChanged(fixture.cfg, qualified) {
 		t.Fatal("qualifying the last exposed Route did not change the projection")
 	}
@@ -29,7 +29,7 @@ func TestClaudeDesktopToolSearchRequiresEveryExposedModel(t *testing.T) {
 	if readClaudeDesktopProfile(t, fixture.paths.Profile)["toolSearchEnabled"] != true {
 		t.Fatal("tool search stayed disabled although every exposed Route declares it")
 	}
-	runtime, err := qualified.ResolveRuntime(ID, "")
+	runtime, err := qualified.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := store.Parse(team, builtInAdmission())
+	manifest, err := store.ParseTeamFile(team, builtInAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,15 +54,15 @@ func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	for routeID, want := range map[string]bool{
-		"ucloud-claude-haiku-5-5":  true,
-		"ucloud-claude-opus-5-5":   true,
-		"ucloud-claude-sonnet-5-5": true,
-		"aihubmix-claude-opus-5-5": false,
-		"dmxapi-claude-opus-5-5":   false,
+	for routeID, want := range map[domain.ModelRef]bool{
+		domain.NewModelRef("ucloud", "claude-haiku-5-5"):  true,
+		domain.NewModelRef("ucloud", "claude-opus-5-5"):   true,
+		domain.NewModelRef("ucloud", "claude-sonnet-5-5"): true,
+		domain.NewModelRef("aihubmix", "claude-opus-5-5"): false,
+		domain.NewModelRef("dmxapi", "claude-opus-5-5"):   false,
 	} {
 		cfg.SetSelectedModel(ID, routeID, "")
-		runtime, err := cfg.ResolveRuntime(ID, "")
+		runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -73,7 +73,7 @@ func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.
 }
 
 // declareToolSearch qualifies tool search on the Anthropic interface of each Route.
-func declareToolSearch(cfg domain.Config, routeIDs ...string) {
+func declareToolSearch(cfg domain.Config, routeIDs ...domain.ModelRef) {
 	for _, routeID := range routeIDs {
 		route := cfg.Models[routeID]
 		route.Protocols = map[domain.EndpointProtocol][]domain.Capability{

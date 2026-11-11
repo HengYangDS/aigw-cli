@@ -26,8 +26,8 @@ func codexRegistry() adapter.Registry {
 func TestCodexProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://first.test/v1", Anthropic: "https://first.test"}}
-	before.Models["route"] = qualifiedModel("Route", "gateway", "model", domain.ProtocolResponses)
-	before.Clients[ID] = domain.ClientBinding{Model: "route", Enabled: true}
+	before.Models[domain.NewModelRef("gateway", "model")] = qualifiedModel("Route", "gateway", "model", domain.ProtocolResponses)
+	before.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "model"), Enabled: true}
 	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
@@ -53,8 +53,8 @@ func TestCodexProjectionTreatsInvalidRuntimeAndTargetChangesAsChanged(t *testing
 	t.Run("invalid enabled Codex runtime", func(t *testing.T) {
 		before := codexConfiguration("/target")
 		after := before.Clone()
-		delete(before.Models, "codex")
-		delete(after.Models, "codex")
+		delete(before.Models, domain.NewModelRef("gateway", "gpt-test"))
+		delete(after.Models, domain.NewModelRef("gateway", "gpt-test"))
 		if changed := codexRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != ID {
 			t.Fatal("invalid Codex runtime was treated as unchanged")
 		}
@@ -75,7 +75,7 @@ func TestCodexConvergenceRefusesAnUninspectableConfiguredExecutable(t *testing.T
 		return
 	}
 	cfg := codexConfiguration("/target")
-	cfg.SetSelectedModel(ID, "codex", "")
+	cfg.SetSelectedModel(ID, domain.NewModelRef("gateway", "gpt-test"), "")
 	loop := filepath.Join(t.TempDir(), "loop")
 	if err := os.Symlink(loop, loop); err != nil {
 		t.Skipf("symbolic link unavailable: %v", err)
@@ -96,8 +96,8 @@ func TestCodexConvergenceIgnoresOnlyAnUnselectedModel(t *testing.T) {
 
 	t.Run("with a broken route", func(t *testing.T) {
 		cfg := domain.NewConfig(testAdmission())
-		cfg.SetSelectedModel(ID, "missing-route", "")
-		if _, err := codexRegistry().Converge(adapter.Dependencies{}, cfg, discovery.Result{}, ID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
+		cfg.SetSelectedModel(ID, domain.NewModelRef("gateway", "missing"), "")
+		if _, err := codexRegistry().Converge(adapter.Dependencies{}, cfg, discovery.Result{}, ID); err == nil || !strings.Contains(err.Error(), `unknown model gateway/missing`) {
 			t.Fatalf("Converge(codex) broken route error = %v", err)
 		}
 	})

@@ -39,12 +39,16 @@ func TestForwardingRefusesAChangeThatMovesItsUpstream(t *testing.T) {
 			account.Endpoints.Responses = "https://moved.test/v1"
 			cfg.Providers["backup"] = account
 		},
-		"Account rename": func(cfg *domain.Config) {
+		"provider replaced": func(cfg *domain.Config) {
 			cfg.Providers["renamed"] = cfg.Providers["backup"]
 			delete(cfg.Providers, "backup")
-			route := cfg.Models["backup"]
-			route.Provider = "renamed"
-			cfg.Models["backup"] = route
+			model := cfg.Models[domain.NewModelRef("backup", "gpt-test")]
+			delete(cfg.Models, domain.NewModelRef("backup", "gpt-test"))
+			model.Provider = "renamed"
+			cfg.Models[model.Ref()] = model
+			binding := cfg.Clients[ClientCodex]
+			binding.Model = model.Ref()
+			cfg.Clients[ClientCodex] = binding
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -53,7 +57,7 @@ func TestForwardingRefusesAChangeThatMovesItsUpstream(t *testing.T) {
 			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "`aigw client edit codex --direct`") {
 				t.Fatalf("a moved forwarded upstream was accepted or not explained: %v", err)
 			}
-			if runtime, err := cfg.ResolveRuntime(ClientCodex, ""); err != nil || runtime.Endpoint == forwardingTestEndpoint {
+			if runtime, err := cfg.ResolveRuntime(ClientCodex, domain.ModelRef{}); err != nil || runtime.Endpoint == forwardingTestEndpoint {
 				t.Fatalf("forwarding followed the moved upstream: %#v, %v", runtime, err)
 			}
 		})
@@ -63,8 +67,8 @@ func TestForwardingRefusesAChangeThatMovesItsUpstream(t *testing.T) {
 func TestForwardingRefusesAProtocolChange(t *testing.T) {
 	cfg := validConfig()
 	cfg.Providers["multi"] = domain.Provider{Label: "Multi", Endpoints: domain.Endpoints{Responses: "https://multi.test/v1", Chat: "https://multi.test/v1"}}
-	cfg.Models["multi"] = testModel("Multi", "multi", "multi-model", domain.ProtocolResponses, domain.ProtocolChat)
-	cfg.SetSelectedModel(ClientHermes, "multi", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("multi", "multi-model")] = testModel("Multi", "multi", "multi-model", domain.ProtocolResponses, domain.ProtocolChat)
+	cfg.SetSelectedModel(ClientHermes, domain.NewModelRef("multi", "multi-model"), domain.ProtocolResponses)
 	if err := cfg.SetForwardingEndpoint(ClientHermes, forwardingTestEndpoint); err != nil {
 		t.Fatal(err)
 	}
@@ -96,12 +100,12 @@ func TestForwardingRefusalKeepsASelectedRetryPolicy(t *testing.T) {
 
 func TestForwardingSurvivesASelectionOfTheSameUpstream(t *testing.T) {
 	cfg := forwardedConfig(t)
-	cfg.Models["other"] = testModel("Other", "backup", "other-model", domain.ProtocolResponses)
-	cfg.SetSelectedModel(ClientCodex, "other", "")
+	cfg.Models[domain.NewModelRef("backup", "other-model")] = testModel("Other", "backup", "other-model", domain.ProtocolResponses)
+	cfg.SetSelectedModel(ClientCodex, domain.NewModelRef("backup", "other-model"), "")
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if runtime, err := cfg.ResolveRuntime(ClientCodex, ""); err != nil || runtime.Endpoint != forwardingTestEndpoint || runtime.UpstreamModel != "other-model" {
+	if runtime, err := cfg.ResolveRuntime(ClientCodex, domain.ModelRef{}); err != nil || runtime.Endpoint != forwardingTestEndpoint || runtime.UpstreamModel != "other-model" {
 		t.Fatalf("a selection of the same upstream lost forwarding: %#v, %v", runtime, err)
 	}
 }
@@ -122,8 +126,11 @@ func TestDirectSelectionDropsForwardingWithItsUpstream(t *testing.T) {
 	}
 }
 
-func TestForwardedCheckpointKeepsTheShapeARetainedReaderDecodes(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+// TestForwardedCheckpointKeepsTheConfigurationThatWasChecked records the
+// configuration that the check proved as the exact aigw.toml text, so that a
+// forwarded client comes back bound to the upstream it was checked with.
+func TestForwardedCheckpointKeepsTheConfigurationThatWasChecked(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := forwardedConfig(t)
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -131,21 +138,16 @@ func TestForwardedCheckpointKeepsTheShapeARetainedReaderDecodes(t *testing.T) {
 	if err := store.SaveVerifiedCheckpoint(context.Background(), cfg, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(store.Path() + ".verified.json")
+	data, err := os.ReadFile(store.verifiedPath())
 	if err != nil {
 		t.Fatal(err)
 	}
 	var document struct {
-		Config struct {
-			Clients map[string]map[string]json.RawMessage `json:"clients"`
-		} `json:"config"`
+		Configuration string `json:"configuration"`
 	}
-	if err := json.Unmarshal(data, &document); err != nil {
-		t.Fatal(err)
-	}
-	binding := document.Config.Clients[ClientCodex]
-	if _, recorded := binding["forwarding_endpoint"]; !recorded || bytes.Contains(data, []byte("upstream_identity")) || bytes.Contains(data, []byte("forwarding_protocol")) {
-		t.Fatalf("the checkpoint changed the binding shape that 0.4.17 decodes: %s", data)
+	saved, readErr := os.ReadFile(store.Path())
+	if err := json.Unmarshal(data, &document); err != nil || readErr != nil || !bytes.Equal([]byte(document.Configuration), saved) {
+		t.Fatalf("the checkpoint does not hold the checked configuration: %s, %v, %v", data, err, readErr)
 	}
 	checkpoint, err := store.LoadVerifiedCheckpoint()
 	if err != nil {

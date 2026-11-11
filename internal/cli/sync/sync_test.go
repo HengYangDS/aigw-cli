@@ -189,11 +189,11 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
 			cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Responses: "https://one.test/v1"}}
-			cfg.Models["one"] = domain.Model{
-				Label: "One", Provider: "one", Family: "gpt-test",
+			cfg.Models[domain.NewModelRef("one", "gpt-test")] = domain.Model{
+				Label: "One", Provider: "one", Family: "gpt-test", ID: "gpt-test",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 			}
-			cfg.SetSelectedModel(codex.ID, "one", "")
+			cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
 			cfg.SetClientActivation(codex.ID, true, "/portable/codex", []string{"/portable/config.toml"})
 			if err := configStore.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -229,11 +229,11 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 		configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 		cfg := domain.NewConfig(clients.Admission())
 		cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Responses: "https://one.test/v1"}}
-		cfg.Models["one"] = domain.Model{
-			Label: "One", Provider: "one", Family: "gpt-test",
+		cfg.Models[domain.NewModelRef("one", "gpt-test")] = domain.Model{
+			Label: "One", Provider: "one", Family: "gpt-test", ID: "gpt-test",
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 		}
-		cfg.SetSelectedModel(codex.ID, "one", "")
+		cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
 		cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{""})
 		if err := configStore.Save(cfg); err != nil {
 			t.Fatal(err)
@@ -253,15 +253,15 @@ func TestSyncRollsBackModelSelectionWhenProjectionFails(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Responses: "https://one.test/v1"}}
 	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{Responses: "https://two.test/v1"}}
-	cfg.Models["one"] = domain.Model{
-		Label: "One", Provider: "one", Family: "gpt-test",
+	cfg.Models[domain.NewModelRef("one", "gpt-test")] = domain.Model{
+		Label: "One", Provider: "one", Family: "gpt-test", ID: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
-	cfg.Models["two"] = domain.Model{
-		Label: "Two", Provider: "two", Family: "gpt-test",
+	cfg.Models[domain.NewModelRef("two", "gpt-test")] = domain.Model{
+		Label: "Two", Provider: "two", Family: "gpt-test", ID: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
-	cfg.SetSelectedModel(codex.ID, "one", "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{t.TempDir()})
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -281,7 +281,7 @@ func TestSyncRollsBackModelSelectionWhenProjectionFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := after.SelectedModel(codex.ID); got != "one" {
+	if got := after.SelectedModel(codex.ID); got != domain.NewModelRef("one", "gpt-test") {
 		t.Fatalf("failed sync left Client Binding %q, want rolled-back binding one", got)
 	}
 }
@@ -291,11 +291,11 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 	target := t.TempDir()
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Responses: "https://one.test/v1"}}
-	cfg.Models["one"] = domain.Model{
-		Label: "One", Provider: "one", Family: "gpt-test",
+	cfg.Models[domain.NewModelRef("one", "gpt-test")] = domain.Model{
+		Label: "One", Provider: "one", Family: "gpt-test", ID: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
-	cfg.SetSelectedModel(codex.ID, "one", "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)

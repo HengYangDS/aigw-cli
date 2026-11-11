@@ -100,9 +100,9 @@ stdin rejected.txt
 exitcode 1 aigw setup --from team.toml --provider team --token-stdin --json
 normalize stdout team-rejected.out
 cmp team-rejected.out team-rejected.json
-[darwin] ! exists $HOME/'Library/Application Support/aigw/config.toml'
+[darwin] ! exists $HOME/'Library/Application Support/aigw/aigw.toml'
 [darwin] ! exists $HOME/'Library/Application Support/aigw/secrets/tokens/team'
-[!darwin] ! exists $HOME/aigw/config.toml
+[!darwin] ! exists $HOME/aigw/aigw.toml
 [!darwin] ! exists $HOME/aigw/secrets/tokens/team
 stdin token.txt
 fixloop -did 'piped a Token that the provider accepts' stdout aigw setup --from team.toml --provider team --token-stdin --json
@@ -128,7 +128,7 @@ cmp again.out again.json
 exec aigw setup --from again.toml
 normalize stdout again-text.out
 cmp again-text.out again.txt
-exec aigw model show team/team-model --protocol anthropic --json
+exec aigw model show team/team-model --json
 stdout '"label": "Team Gateway Again · Team Model Again"'
 exec aigw status --json
 stdout '"claude": \{\n\s+"state": "configured"'
@@ -174,7 +174,7 @@ exitcode 1 aigw setup --from old.toml --json
 normalize stdout old-refusal.out
 cmp old-refusal.out old-refusal.json
 cp team.toml old.toml
-fixloop -did 'exported the team file again with the release that wrote it' stdout aigw setup --from old.toml --json
+fixloop -did 'used the team file of version 8 that aigw config export wrote' stdout aigw setup --from old.toml --json
 
 # A team file that cannot be read names the one classification and its fix.
 exitcode 1 aigw setup --from missing.toml --json
@@ -231,98 +231,98 @@ Options
       --prune[=true|false]         With --from, remove the local models that no client selects and no recommendation names, and unused families
       --token-stdin[=true|false]   With --from, read the one --provider's Token from standard input
 -- team.in --
-version = 7
-[recommendations.claude.primary]
-route = "team-route"
-[accounts.team]
-label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "$UPSTREAM"
-[accounts.spare]
+version = 8
+
+[[providers]]
+id = "spare"
 label = "Spare Gateway"
-[accounts.spare.endpoints]
-anthropic = "$UPSTREAM/spare"
-[models.team-model]
+endpoints = {anthropic = "$UPSTREAM/spare"}
+
+[[providers.models]]
+id = "spare-model"
+family = "team-model"
+protocols = {anthropic = []}
+
+[[providers]]
+id = "team"
+label = "Team Gateway"
+endpoints = {anthropic = "$UPSTREAM"}
+
+[[providers.models]]
+id = "team-model"
+family = "team-model"
+protocols = {anthropic = ["text"]}
+
+[[families]]
+id = "team-model"
 label = "Team Model"
-[routes.team-route]
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { anthropic = ["text"] }
-[routes.spare-route]
-account = "spare"
-model = "team-model"
-upstream_model = "spare-model"
-interfaces = { anthropic = [] }
+
+[recommendations.claude]
+primary = {model = "team/team-model"}
 -- again.in --
-version = 7
-[recommendations.claude.primary]
-route = "team-route"
-[recommendations.hermes.primary]
-route = "team-chat"
-[accounts.team]
+version = 8
+
+[[providers]]
+id = "team"
 label = "Team Gateway Again"
-[accounts.team.endpoints]
-anthropic = "$UPSTREAM/elsewhere"
-openai_responses = "$UPSTREAM/v1"
-[accounts.team.account_probe]
-kind = "dmxapi"
-base_url = "$UPSTREAM"
-[models.team-model]
+balance = {kind = "dmxapi", base_url = "$UPSTREAM"}
+endpoints = {anthropic = "$UPSTREAM/elsewhere", responses = "$UPSTREAM/v1"}
+
+[[providers.models]]
+id = "team-model"
+family = "team-model"
+protocols = {anthropic = ["text", "tool_search"], responses = [], chat = []}
+
+[[families]]
+id = "team-model"
 label = "Team Model Again"
-[routes.team-route]
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { anthropic = ["text", "tool_search"] }
-[routes.team-responses]
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { openai_responses = [] }
-[routes.team-chat]
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { openai_chat_completions = [] }
+
+[recommendations.claude]
+primary = {model = "team/team-model"}
+
+[recommendations.hermes]
+primary = {model = "team/team-model", protocol = "chat"}
 -- away.in --
-version = 7
-[accounts.team]
+version = 8
+
+[[providers]]
+id = "team"
 label = "Team Gateway Again"
-[accounts.team.endpoints]
-anthropic = "$UPSTREAM"
-openai_responses = "$UPSTREAM/v1"
-[accounts.team.account_probe]
-kind = "dmxapi"
-base_url = "$UPSTREAM/elsewhere"
-[models.team-model]
+balance = {kind = "dmxapi", base_url = "$UPSTREAM/elsewhere"}
+endpoints = {anthropic = "$UPSTREAM", responses = "$UPSTREAM/v1"}
+
+[[providers.models]]
+id = "team-model"
+family = "team-model"
+protocols = {responses = []}
+
+[[families]]
+id = "team-model"
 label = "Team Model Again"
-[routes.team-route]
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { openai_responses = [] }
 -- fresh-chat.in --
-version = 7
-[accounts.fresh]
+version = 8
+
+[[providers]]
+id = "fresh"
 label = "Fresh"
-[accounts.fresh.endpoints]
-anthropic = "$UPSTREAM/fresh"
-[routes.fresh-chat]
-account = "fresh"
-model = "fresh-chat"
-interfaces = { openai_chat_completions = [] }
+endpoints = {anthropic = "$UPSTREAM/fresh"}
+
+[[providers.models]]
+id = "fresh-chat"
+family = "fresh-chat"
+protocols = {chat = []}
 -- fresh-chat-fixed.in --
-version = 7
-[accounts.fresh]
+version = 8
+
+[[providers]]
+id = "fresh"
 label = "Fresh"
-[accounts.fresh.endpoints]
-anthropic = "$UPSTREAM/fresh"
-openai_chat_completions = "$UPSTREAM/fresh/v1"
-[routes.fresh-chat]
-account = "fresh"
-model = "fresh-chat"
-interfaces = { openai_chat_completions = [] }
+endpoints = {anthropic = "$UPSTREAM/fresh", chat = "$UPSTREAM/fresh/v1"}
+
+[[providers.models]]
+id = "fresh-chat"
+family = "fresh-chat"
+protocols = {chat = []}
 -- fresh-chat.json --
 {
   "schema_version": 3,
@@ -332,15 +332,18 @@ interfaces = { openai_chat_completions = [] }
   "next_detail": "Correct the team file, then run the same command again."
 }
 -- clients.toml --
-version = 7
-[accounts.team]
+version = 8
+
+[[providers]]
+id = "team"
 label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "https://team.invalid"
+endpoints = {anthropic = "https://team.invalid"}
+
 [clients.claude]
-route = "team-route"
+enabled = false
+model = "team/team-model"
 -- old.toml --
-version = 6
+version = 7
 [accounts.team]
 label = "Team Gateway"
 [accounts.team.endpoints]
@@ -509,10 +512,7 @@ Next
   "dry_run": true,
   "added": {
     "providers": [],
-    "models": [
-      "team/team-model",
-      "team/team-model"
-    ],
+    "models": [],
     "families": [],
     "recommendations": [
       "hermes"
@@ -522,7 +522,9 @@ Next
     "providers": [
       "team"
     ],
-    "models": [],
+    "models": [
+      "team/team-model"
+    ],
     "families": [
       "team-model"
     ]
@@ -552,13 +554,13 @@ Next
   "unusable": [
     {
       "model": "team/team-model",
-      "protocol": "chat",
-      "next_detail": "aigw provider edit team --endpoint chat=\u003curl\u003e"
+      "protocol": "responses",
+      "next_detail": "aigw provider edit team --endpoint responses=\u003curl\u003e"
     },
     {
       "model": "team/team-model",
-      "protocol": "responses",
-      "next_detail": "aigw provider edit team --endpoint responses=\u003curl\u003e"
+      "protocol": "chat",
+      "next_detail": "aigw provider edit team --endpoint chat=\u003curl\u003e"
     }
   ],
   "tokens": [
@@ -601,10 +603,7 @@ Next
   "ok": true,
   "added": {
     "providers": [],
-    "models": [
-      "team/team-model",
-      "team/team-model"
-    ],
+    "models": [],
     "families": [],
     "recommendations": [
       "hermes"
@@ -614,7 +613,9 @@ Next
     "providers": [
       "team"
     ],
-    "models": [],
+    "models": [
+      "team/team-model"
+    ],
     "families": [
       "team-model"
     ]
@@ -644,13 +645,13 @@ Next
   "unusable": [
     {
       "model": "team/team-model",
-      "protocol": "chat",
-      "next_detail": "aigw provider edit team --endpoint chat=\u003curl\u003e"
+      "protocol": "responses",
+      "next_detail": "aigw provider edit team --endpoint responses=\u003curl\u003e"
     },
     {
       "model": "team/team-model",
-      "protocol": "responses",
-      "next_detail": "aigw provider edit team --endpoint responses=\u003curl\u003e"
+      "protocol": "chat",
+      "next_detail": "aigw provider edit team --endpoint chat=\u003curl\u003e"
     }
   ],
   "tokens": [
@@ -691,8 +692,8 @@ Kept local
   · team anthropic endpoint    Kept $UPSTREAM; the team file has $UPSTREAM/elsewhere
   · team responses endpoint    Not added; the team file has $UPSTREAM/v1, and `aigw provider edit` adds an endpoint
   · team/team-model anthropic  Dropped tool_search, qualified on the team file's endpoint
-  ! team/team-model chat       Unusable until the provider has the endpoint: aigw provider edit team --endpoint chat=<url>
   ! team/team-model responses  Unusable until the provider has the endpoint: aigw provider edit team --endpoint responses=<url>
+  ! team/team-model chat       Unusable until the provider has the endpoint: aigw provider edit team --endpoint chat=<url>
 
 Tokens
   ✓ team               Stored
@@ -752,13 +753,13 @@ Next
   "unusable": [
     {
       "model": "team/team-model",
-      "protocol": "chat",
-      "next_detail": "aigw provider edit team --endpoint chat=\u003curl\u003e"
+      "protocol": "responses",
+      "next_detail": "aigw provider edit team --endpoint responses=\u003curl\u003e"
     },
     {
       "model": "team/team-model",
-      "protocol": "responses",
-      "next_detail": "aigw provider edit team --endpoint responses=\u003curl\u003e"
+      "protocol": "chat",
+      "next_detail": "aigw provider edit team --endpoint chat=\u003curl\u003e"
     }
   ],
   "tokens": [
@@ -919,8 +920,7 @@ Next
     {
       "model": "team/team-model",
       "client": "claude",
-      "protocol": "anthropic",
-      "file": "team/team-model"
+      "protocol": "anthropic"
     }
   ],
   "tokens": [
@@ -970,9 +970,9 @@ Next
 {
   "schema_version": 3,
   "ok": false,
-  "error": "unsupported configuration manifest version 6; expected 7; AIGW does not reinterpret schema versions",
+  "error": "the team file has version 7, and this AIGW reads version 8",
   "impact": "Nothing changed.",
-  "next_detail": "Export the team file again with the AIGW release that wrote it, then run the same command again."
+  "next_detail": "Use a team file of version 8, which `aigw config export` writes, then run the same command again."
 }
 -- missing.json --
 {

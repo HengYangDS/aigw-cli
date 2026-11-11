@@ -34,16 +34,16 @@ exec aigw sync
 exec aigw status
 cmp stdout disabled.txt
 
-[darwin] cp $HOME/Library/Application' 'Support/aigw/config.toml good.toml
-[!darwin] cp $HOME/aigw/config.toml good.toml
-[darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/config.toml
-[!darwin] cp broken.toml $HOME/aigw/config.toml
+[darwin] cp $HOME/Library/Application' 'Support/aigw/aigw.toml good.toml
+[!darwin] cp $HOME/aigw/aigw.toml good.toml
+[darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/aigw.toml
+[!darwin] cp broken.toml $HOME/aigw/aigw.toml
 exitcode 1 aigw status
 cmp stdout refusal.txt
 exitcode 1 aigw status --json
 cmp stdout refusal.json
-[darwin] cp good.toml $HOME/Library/Application' 'Support/aigw/config.toml
-[!darwin] cp good.toml $HOME/aigw/config.toml
+[darwin] cp good.toml $HOME/Library/Application' 'Support/aigw/aigw.toml
+[!darwin] cp good.toml $HOME/aigw/aigw.toml
 fixloop -did 'restored the configuration file from a copy' refusal.json aigw status --json
 
 # Claude Code installed after its model was selected: without claude on the
@@ -69,8 +69,8 @@ stdout 'Claude +team/team-model · Configured'
 -- token.txt --
 sk-team-token-0001
 -- broken.toml --
-version = 7
-[accounts.team
+version = 8
+[providers
 -- help.txt --
 AIGW  aigw status
 ────────────────────────────────────────
@@ -165,7 +165,7 @@ Next
       "state": "configured",
       "model": "team/team-model",
       "provider": "team",
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "endpoint_configured": true,
       "transport": "external_loopback",
       "client_files_ready": true
@@ -192,7 +192,7 @@ Next
       "detail": "The client is not installed",
       "next_detail": "Install Codex if needed, then run `aigw sync`",
       "client_files_deferred": true,
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "endpoint_configured": true,
       "transport": "external_loopback",
       "client_files_ready": false
@@ -247,7 +247,7 @@ Next
       "state": "configured",
       "model": "team/team-model",
       "provider": "team",
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "endpoint_configured": true,
       "transport": "external_loopback",
       "client_files_ready": true
@@ -272,7 +272,7 @@ Next
       "model": "team/team-model",
       "provider": "team",
       "detail": "The client is not installed or enabled",
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "endpoint_configured": true,
       "transport": "external_loopback",
       "client_files_ready": false
@@ -319,7 +319,7 @@ Problem
   Cannot parse local configuration
 
 Evidence
-  AIGW 0.1.0-dev stopped at the configuration parse stage at line 2, column 15.
+  AIGW 0.1.0-dev stopped at the configuration parse stage at line 2, column 11.
 
 Fix
   Correct the configuration file at that parse position, or restore it from a backup; `aigw config path` prints its location.
@@ -328,11 +328,11 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "Cannot parse local configuration",
-  "evidence": "AIGW 0.1.0-dev stopped at the configuration parse stage at line 2, column 15.",
+  "evidence": "AIGW 0.1.0-dev stopped at the configuration parse stage at line 2, column 11.",
   "next_detail": "Correct the configuration file at that parse position, or restore it from a backup; `aigw config path` prints its location.",
   "stage": "configuration_parse",
   "line": 2,
-  "column": 15
+  "column": 11
 }
 -- absent.txt --
 AIGW  Configuration status
@@ -378,7 +378,7 @@ Next
       "detail": "The client is installed, but AIGW has not written its files yet",
       "next_action": "aigw sync",
       "client_files_deferred": true,
-      "authentication": "account-token",
+      "authentication": "provider-token",
       "endpoint_configured": true,
       "transport": "external_loopback",
       "client_files_ready": false

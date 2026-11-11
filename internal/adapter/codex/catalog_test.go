@@ -158,8 +158,8 @@ func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 	const (
 		canonicalModel = "gpt-6.1-sol"
 		upstreamModel  = "gpt-6.1-sol-cdx"
-		routeID        = "dmxapi-gpt-6.1-sol-cdx"
 	)
+	routeID := domain.NewModelRef("dmxapi", upstreamModel)
 	bundled := []byte(`{"revision":"client-owned","models":[{"slug":"gpt-6.1-sol","display_name":"GPT-6.1 Sol","context_window":500000,"reasoning_effort":"high","future":{"enabled":true}},{"slug":"gpt-6-luna","display_name":"GPT-6 Luna"}]}`)
 	original := codexBundledCatalog
 	t.Cleanup(func() { codexBundledCatalog = original })
@@ -176,12 +176,12 @@ func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 	config.Families = map[string]domain.Family{
 		canonicalModel: {ID: canonicalModel, Label: "GPT-6.1 Sol"},
 	}
-	config.Models = map[string]domain.Model{
+	config.Models = map[domain.ModelRef]domain.Model{
 		routeID: {
-			Label:         "DMXAPI GPT-6.1 Sol CDX",
-			Provider:      "dmxapi",
-			Family:        canonicalModel,
-			UpstreamModel: upstreamModel,
+			Label:    "DMXAPI GPT-6.1 Sol CDX",
+			Provider: "dmxapi",
+			Family:   canonicalModel,
+			ID:       upstreamModel,
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{
 				domain.ProtocolResponses: {},
 			},
@@ -215,10 +215,10 @@ func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 		t.Fatal(err)
 	}
 	var exposedWire, exposedCanonical string
-	if err := json.Unmarshal(runtimeFields["model"], &exposedWire); err != nil {
+	if err := json.Unmarshal(runtimeFields["upstream_model"], &exposedWire); err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal(runtimeFields["canonical_model_id"], &exposedCanonical); err != nil {
+	if err := json.Unmarshal(runtimeFields["family"], &exposedCanonical); err != nil {
 		t.Fatal(err)
 	}
 	if exposedWire != upstreamModel || exposedCanonical != canonicalModel {

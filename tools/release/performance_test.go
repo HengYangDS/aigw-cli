@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -207,15 +206,15 @@ func nativePerformanceJourney(t *testing.T, program, credentialWorker, backend, 
 		}
 	}
 	manifest := []byte(nativeCurrentSchemaManifest(endpoint) + `
-[models.claude-second]
-label = "Claude Second"
-
-[routes.performance-second]
+[[providers.models]]
+id = "claude-second"
+family = "claude-second"
 label = "Performance Second"
-account = "native-system-keyring-probe"
-model = "claude-second"
-upstream_model = "claude-second"
-interfaces = { anthropic = ["text"] }
+protocols = {anthropic = ["text"]}
+
+[[families]]
+id = "claude-second"
+label = "Claude Second"
 `)
 	if err := os.WriteFile(j.manifest, manifest, 0o600); err != nil {
 		t.Fatal(err)
@@ -231,17 +230,25 @@ interfaces = { anthropic = ["text"] }
 	}
 	j.requireClaudeCredential(token)
 	var catalog struct {
-		Accounts map[string]any `toml:"accounts"`
-		Routes   map[string]any `toml:"routes"`
+		Providers []struct {
+			ID     string `toml:"id"`
+			Models []struct {
+				ID string `toml:"id"`
+			} `toml:"models"`
+		} `toml:"providers"`
 	}
 	if err := toml.Unmarshal(readFile(t, j.config), &catalog); err != nil {
 		t.Fatal(err)
 	}
-	if actual := slices.Sorted(maps.Keys(catalog.Accounts)); !slices.Equal(actual, []string{account}) {
-		t.Fatalf("performance Account inputs differ: %v", actual)
+	if len(catalog.Providers) != 1 || catalog.Providers[0].ID != account {
+		t.Fatalf("performance provider inputs differ: %+v", catalog.Providers)
 	}
-	if actual := slices.Sorted(maps.Keys(catalog.Routes)); !slices.Equal(actual, []string{"native-system-keyring-probe-claude", "performance-second"}) {
-		t.Fatalf("performance model-configuration inputs differ: %v", actual)
+	var models []string
+	for _, model := range catalog.Providers[0].Models {
+		models = append(models, model.ID)
+	}
+	if !slices.Equal(models, []string{"claude-test", "claude-second"}) {
+		t.Fatalf("performance model inputs differ: %v", models)
 	}
 	return j
 }
@@ -290,7 +297,7 @@ func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, 
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := config.ResolveRuntime(claude.ID, "")
+	resolved, err := config.ResolveRuntime(claude.ID, domain.ModelRef{})
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +394,7 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 			workload.Mode = "forwarding"
 		}
 		if workload.Name == "projection" && binding != (domain.Runtime{}) {
-			workload.Runtime.ModelID, workload.Runtime.ModelLabel = "performance-second", "Performance Second"
+			workload.Runtime.Model, workload.Runtime.ModelLabel = domain.NewModelRef(binding.ProviderID, "claude-second"), "Performance Second"
 			workload.Runtime.UpstreamModel, workload.Runtime.FamilyID = "claude-second", "claude-second"
 		}
 		cases = append(cases, workload)
@@ -400,7 +407,7 @@ func (j *journeyFixture) reviewPerformanceBinding(expected domain.Runtime) error
 	if err != nil {
 		return err
 	}
-	actual, err := config.ResolveRuntime(claude.ID, "")
+	actual, err := config.ResolveRuntime(claude.ID, domain.ModelRef{})
 	actual.CredentialCommand = ""
 	if err != nil || actual != expected {
 		return errors.Join(err, errors.New("measured forwarding differs from its selected native binding"))

@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"aigw-cli/internal/domain"
 	"context"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,7 @@ func TestFailedClaudeVerificationRetriesTheSameInvocation(t *testing.T) {
 		}
 		t.Run("model="+explicitRoute, func(t *testing.T) {
 			claudeConfig := verificationConfig()
-			claudeRuntime, err := claudeConfig.ResolveRuntime(ID, "")
+			claudeRuntime, err := claudeConfig.ResolveRuntime(ID, domain.ModelRef{})
 			if err != nil {
 				t.Fatal(err)
 			}

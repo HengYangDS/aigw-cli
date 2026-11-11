@@ -38,8 +38,8 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 		Label:     "DMXAPI",
 		Endpoints: domain.Endpoints{Responses: "https://dmx.test/v1"},
 	}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
-	cfg.SetSelectedModel(codex.ID, "gpt", "")
+	cfg.Models[domain.NewModelRef("dmx", "gpt-test")] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-test"), "")
 	cfg.SetClientActivation(codex.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -105,7 +105,7 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 		t.Fatal(err)
 	}
 	adapter := after.Clients[codex.ID]
-	if adapter.Model != "dmxapi-gpt" || !adapter.Enabled || adapter.Executable != "/usr/local/bin/codex" || len(adapter.Targets) != 1 {
+	if adapter.Model != domain.NewModelRef("dmxapi", "gpt-test") || !adapter.Enabled || adapter.Executable != "/usr/local/bin/codex" || len(adapter.Targets) != 1 {
 		t.Fatalf("Codex adapter after sync = %#v", adapter)
 	}
 	if adapter.Targets[0] != target {
@@ -222,8 +222,8 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	before.SetSelectedModel(claude.ID, "aihubmix-claude", "")
-	before.SetSelectedModel(codex.ID, "dmxapi-gpt", "")
+	before.SetSelectedModel(claude.ID, domain.NewModelRef("aihubmix", "claude-test"), "")
+	before.SetSelectedModel(codex.ID, domain.NewModelRef("dmxapi", "gpt-test"), "")
 	before.SetClientActivation(codex.ID, true, "", nil)
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
@@ -293,8 +293,8 @@ func TestSyncDefersNewlyInstalledClientUntilItsProviderIsConnected(t *testing.T)
 		Label:     "DMXAPI",
 		Endpoints: domain.Endpoints{Responses: "https://dmx.test/v1"},
 	}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
-	cfg.SetSelectedModel(codex.ID, "gpt", "")
+	cfg.Models[domain.NewModelRef("dmx", "gpt-test")] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-test"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

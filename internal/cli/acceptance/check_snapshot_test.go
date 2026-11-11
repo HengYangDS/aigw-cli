@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/domain"
 	"bytes"
 	"io"
 	"net/http"
@@ -68,7 +69,7 @@ func TestACheckWhoseSessionWarnsWritesNoSnapshot(t *testing.T) {
 	if report.OK || len(report.Clients) != 2 || stopped != 2 {
 		t.Fatalf("the warning sessions = %s", out)
 	}
-	if _, err := os.Stat(app.Config.Path() + ".verified.json"); !os.IsNotExist(err) {
+	if _, err := os.Stat(verifiedPath(app.Config.Path())); !os.IsNotExist(err) {
 		t.Fatalf("a verified snapshot exists: %v", err)
 	}
 }
@@ -83,9 +84,9 @@ func TestCheckRefusesTheSnapshotOfAConfigurationThatChanged(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		model := cfg.Models["gpt"]
+		model := cfg.Models[domain.NewModelRef("dmx", "gpt-test")]
 		model.Family = "newer-model"
-		cfg.Models["gpt"] = model
+		cfg.Models[domain.NewModelRef("dmx", "gpt-test")] = model
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -99,10 +100,10 @@ func TestCheckRefusesTheSnapshotOfAConfigurationThatChanged(t *testing.T) {
 	if report.OK || !strings.Contains(report.Problem, "The verified snapshot was not written: configuration changed during the check") || report.NextAction != "aigw check --depth client" {
 		t.Fatalf("refused snapshot = %+v", report)
 	}
-	if current, err := app.Config.Load(); err != nil || current.Models["gpt"].Family != "newer-model" {
+	if current, err := app.Config.Load(); err != nil || current.Models[domain.NewModelRef("dmx", "gpt-test")].Family != "newer-model" {
 		t.Fatalf("the newer configuration was lost: %v", err)
 	}
-	if _, err := os.Stat(app.Config.Path() + ".verified.json"); !os.IsNotExist(err) {
+	if _, err := os.Stat(verifiedPath(app.Config.Path())); !os.IsNotExist(err) {
 		t.Fatalf("a verified snapshot exists: %v", err)
 	}
 }

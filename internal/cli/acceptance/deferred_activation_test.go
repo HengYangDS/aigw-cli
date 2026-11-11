@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/domain"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -243,7 +244,7 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneProviderChoice(t *testin
 		t.Fatalf("suggested model selection failed: %v\n%s", err, out)
 	}
 	selected, err := app.Config.Load()
-	if err != nil || selected.SelectedModel(claude.ID) != "dmxapi-claude-opus-5-5" {
+	if err != nil || selected.SelectedModel(claude.ID) != domain.NewModelRef("dmxapi", "claude-opus-5-5") {
 		t.Fatalf("suggested Route was not selected: %#v, %v", selected.Clients, err)
 	}
 }

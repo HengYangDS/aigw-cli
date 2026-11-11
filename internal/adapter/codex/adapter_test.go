@@ -38,9 +38,9 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		}
 		cfg := domain.NewConfig(testAdmission())
 		cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-		cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
-		cfg.Clients[ID] = domain.ClientBinding{Model: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
-		runtime, err := cfg.ResolveRuntime(ID, "")
+		cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
+		cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
+		runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -165,9 +165,9 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForProviderTokenProviders(t *te
 			target := filepath.Join(t.TempDir(), "config.toml")
 			cfg := domain.NewConfig(testAdmission())
 			cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-			cfg.Models["codex"] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolResponses)
+			cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolResponses)
 			cfg.Clients[ID] = domain.ClientBinding{
-				Model: "codex", Enabled: true, ModelProvider: test.provider,
+				Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, ModelProvider: test.provider,
 				Authentication: test.authentication, Executable: "/usr/bin/codex", Targets: []string{target},
 			}
 			discovered := discovery.Result{
@@ -219,12 +219,12 @@ func TestChangedClientsFollowPersistentCodexSemantics(t *testing.T) {
 		t.Fatalf("adapter removal scope = %v, want Codex only", changed)
 	}
 
-	purpose := before.Clone()
-	route := purpose.Models["codex"]
-	route.Purpose = "display only"
-	purpose.Models["codex"] = route
-	if len(adapterRegistry.ChangedClients(before, purpose)) != 0 {
-		t.Fatal("display-only purpose must not change the projection")
+	probed := before.Clone()
+	provider := probed.Providers["gateway"]
+	provider.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://gateway.test"}
+	probed.Providers["gateway"] = provider
+	if len(adapterRegistry.ChangedClients(before, probed)) != 0 {
+		t.Fatal("a balance probe must not change the projection")
 	}
 }
 
@@ -238,7 +238,7 @@ func qualifiedModel(label, account, model string, protocols ...domain.EndpointPr
 		interfaces[protocol] = []domain.Capability{}
 	}
 	return domain.Model{
-		Label: label, Provider: account, Family: model, UpstreamModel: model, Protocols: interfaces,
+		Label: label, Provider: account, Family: model, ID: model, Protocols: interfaces,
 	}
 }
 
@@ -277,8 +277,8 @@ func (runner *captureAdapterRunner) RunCapture(ctx context.Context, plan process
 func codexConfiguration(target string) domain.Config {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-	cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
-	cfg.Clients[ID] = domain.ClientBinding{Model: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
+	cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }
 
@@ -295,7 +295,7 @@ func codexVerificationFixture(t *testing.T) (domain.Config, domain.Runtime) {
 	if err := os.WriteFile(cfg.Clients[ID].Executable, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := cfg.ResolveRuntime(ID, "")
+	runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -319,7 +319,7 @@ func TestACodexAdapterInspectsAFileInTheWay(t *testing.T) {
 	configured := cfg.Clients[ID]
 	configured.ModelProvider = modelProviderAIGW
 	cfg.Clients[ID] = configured
-	runtime, err := cfg.ResolveRuntime(ID, "")
+	runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}

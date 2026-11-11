@@ -89,8 +89,8 @@ func TestProviderRotateNamesTheFixOfItsValidationFailure(t *testing.T) {
 func TestProviderRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "new-token\n")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
-	cfg.SetSelectedModel(codex.ID, "one", "")
+	addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{t.TempDir()})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -116,8 +116,8 @@ func TestProviderRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T
 				t.Fatal(err)
 			}
 			cfg := domain.NewConfig(clients.Admission())
-			addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
-			cfg.SetSelectedModel(codex.ID, "one", "")
+			addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
+			cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
 			cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 			wantMessage := "a running client decides when that is"
 			if !hasTarget {
@@ -162,10 +162,10 @@ func TestProviderRotateClaudeOnlyProviderDoesNotTouchCodexTargets(t *testing.T) 
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["codex-account"] = domain.Provider{Label: "Codex", Endpoints: domain.Endpoints{Responses: "https://codex.test/v1"}}
 	cfg.Providers["claude-account"] = domain.Provider{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://claude.test"}}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "codex-account", "gpt-test", domain.ProtocolResponses)
-	cfg.Models["claude"] = qualifiedModel("Claude", "claude-account", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(codex.ID, "gpt", "")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("codex-account", "gpt-test")] = qualifiedModel("GPT", "codex-account", "gpt-test", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("claude-account", "claude-test")] = qualifiedModel("Claude", "claude-account", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("codex-account", "gpt-test"), "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("claude-account", "claude-test"), "")
 	cfg.SetClientActivation(codex.ID, true, "/missing/codex", []string{filepath.Join(t.TempDir(), "unavailable-codex-configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -213,8 +213,8 @@ func TestProviderBalanceKeepsDiagnosticCredentialsAtTheirOrigin(t *testing.T) {
 		Endpoints:    domain.Endpoints{Responses: origin.URL + "/v1"},
 		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: origin.URL},
 	}
-	cfg.Models["gpt"] = domain.Model{Label: "GPT", Provider: "dmx", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.SetSelectedModel(codex.ID, "gpt", "")
+	cfg.Models[domain.NewModelRef("dmx", "gpt-test")] = domain.Model{Label: "GPT", Provider: "dmx", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-test"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

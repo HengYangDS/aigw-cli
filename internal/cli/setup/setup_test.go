@@ -115,12 +115,12 @@ func (candidate setupDiscovery) Discover(...string) discovery.Result {
 func manifestSetupConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Responses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "team", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.SetSelectedModel(codex.ID, "codex", "")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
-	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "codex"}}
-	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "claude"}}
+	cfg.Models[domain.NewModelRef("team", "claude-test")] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models[domain.NewModelRef("team", "gpt-test")] = domain.Model{Label: "Codex", Provider: "team", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("team", "gpt-test"), "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "claude-test"), "")
+	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("team", "gpt-test")}}
+	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("team", "claude-test")}}
 	cfg.SetClientActivation(codex.ID, true, "", nil)
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	return cfg
@@ -147,24 +147,25 @@ func TestManifestSetupClientSelectionRequiresConnectedModelAndUsableSurface(t *t
 func TestManifestSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 7
-[recommendations.codex.primary]
-route = "gpt"
+	manifest := `version = 8
 
-[accounts.team]
+[[providers]]
+id = "team"
 label = "Team"
-[accounts.team.endpoints]
-openai_responses = "https://team.test/v1"
+endpoints = {responses = "https://team.test/v1"}
 
-[models.gpt-test]
+[[providers.models]]
+id = "gpt-test"
+family = "gpt-test"
+label = "GPT"
+protocols = {responses = ["text"]}
+
+[[families]]
+id = "gpt-test"
 label = "GPT Test"
 
-[routes.gpt]
-label = "GPT"
-account = "team"
-model = "gpt-test"
-upstream_model = "gpt-test"
-interfaces = { openai_responses = ["text"] }
+[recommendations.codex]
+primary = {model = "team/gpt-test"}
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)

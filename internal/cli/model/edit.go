@@ -64,9 +64,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, options editOptions) error {
-	// --protocol replaces the protocols, so it cannot also select among the
-	// models of one name; such a name is refused with `aigw model show`.
-	cfg, key, model, err := loadModel(runtime, args[0], modelSelector{})
+	cfg, model, err := loadModel(runtime, args[0], "")
 	if err != nil {
 		return err
 	}
@@ -81,13 +79,13 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, opti
 				return missingEndpoint(cmd, ref, provider, protocol, servedNames(provider, options.protocols)...)
 			}
 		}
-		if err := keepSelectedProtocols(cfg, key, ref, options.protocols); err != nil {
+		if err := keepSelectedProtocols(cfg, ref, options.protocols); err != nil {
 			return err
 		}
-		if pinned, err = pinRecommendations(&cfg, key, ref, options.protocols); err != nil {
+		if pinned, err = pinRecommendations(&cfg, ref, options.protocols); err != nil {
 			return err
 		}
-		pinSelections(&cfg, key)
+		pinSelections(&cfg, ref)
 		model.Protocols = replaceProtocols(model.Protocols, options.protocols)
 	}
 	if cmd.Flags().Changed("capability") {
@@ -107,8 +105,8 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, opti
 	if cmd.Flags().Changed("label") {
 		model.Label = strings.TrimSpace(options.label)
 	}
-	cfg.Models[key] = model
-	item := describe(cfg, key)
+	cfg.Models[ref] = model
+	item := describe(cfg, ref)
 	rows := modelFields(runtime, item)
 	if created != "" {
 		rows = append(rows, terminal.Field{Label: "New family", Value: created})
@@ -130,9 +128,9 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, opti
 // that the selection gains, and `aigw use` reads the provider's catalog to
 // gain it, which this edit never needs, so the fix skips that read with
 // --unlisted.
-func keepSelectedProtocols(cfg domain.Config, key string, ref domain.ModelRef, protocols []domain.EndpointProtocol) error {
-	for _, client := range cfg.SelectedClientsForModel(key) {
-		selected, err := cfg.ResolveRuntime(client, "")
+func keepSelectedProtocols(cfg domain.Config, ref domain.ModelRef, protocols []domain.EndpointProtocol) error {
+	for _, client := range cfg.SelectedClientsForModel(ref) {
+		selected, err := cfg.ResolveRuntime(client, domain.ModelRef{})
 		if err != nil || slices.Contains(protocols, selected.Protocol) {
 			continue
 		}
@@ -142,7 +140,7 @@ func keepSelectedProtocols(cfg domain.Config, key string, ref domain.ModelRef, p
 			if !slices.Contains(spec.EndpointProtocols, protocol) {
 				continue
 			}
-			if _, declares := cfg.Models[key].Protocols[protocol]; declares {
+			if _, declares := cfg.Models[ref].Protocols[protocol]; declares {
 				declared = append(declared, protocol.Name())
 			} else {
 				gained = append(gained, protocol.Name())
@@ -201,9 +199,9 @@ func replaceProtocols(current map[domain.EndpointProtocol][]domain.Capability, p
 // pinSelections records the protocol that each client selecting the model
 // resolves to, so that the model's new protocols cannot make an implicit
 // selection ambiguous.
-func pinSelections(cfg *domain.Config, key string) {
-	for _, client := range cfg.SelectedClientsForModel(key) {
-		if selected, err := cfg.ResolveRuntime(client, ""); err == nil {
+func pinSelections(cfg *domain.Config, ref domain.ModelRef) {
+	for _, client := range cfg.SelectedClientsForModel(ref) {
+		if selected, err := cfg.ResolveRuntime(client, domain.ModelRef{}); err == nil {
 			binding := cfg.Clients[client]
 			binding.Protocol = selected.Protocol
 			cfg.Clients[client] = binding

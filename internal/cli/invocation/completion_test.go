@@ -60,15 +60,13 @@ func completionRuntime(t *testing.T) Context {
 	cfg.Providers["messages"] = domain.Provider{Label: "Messages", Endpoints: domain.Endpoints{Anthropic: "https://messages.test"}}
 	cfg.Providers["responses"] = domain.Provider{Label: "Responses", Endpoints: domain.Endpoints{Responses: "https://responses.test/v1"}}
 	cfg.Families["opus"] = domain.Family{Label: "Opus"}
-	cfg.Models["messages-opus"] = domain.Model{Provider: "messages", Family: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["responses-sol"] = domain.Model{Provider: "responses", Family: "sol", UpstreamModel: "openai/gpt-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Families["sol"] = domain.Family{Label: "Sol"}
+	cfg.Models[domain.NewModelRef("messages", "opus")] = domain.Model{Provider: "messages", Family: "opus", ID: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models[domain.NewModelRef("responses", "openai/gpt-sol")] = domain.Model{Provider: "responses", Family: "sol", ID: "openai/gpt-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	// The model declares only anthropic, and its provider also serves
 	// responses, which `aigw use` gives it for Codex.
 	cfg.Providers["both"] = domain.Provider{Label: "Both", Endpoints: domain.Endpoints{Anthropic: "https://both.test", Responses: "https://both.test/v1"}}
-	cfg.Models["both-opus"] = domain.Model{Provider: "both", Family: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	// A second Route of the same name, on responses, which completion offers
-	// once.
-	cfg.Models["both-opus-responses"] = domain.Model{Provider: "both", Family: "opus", UpstreamModel: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models[domain.NewModelRef("both", "opus")] = domain.Model{Provider: "both", Family: "opus", ID: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -19,8 +19,8 @@ func TestStatusSuggestsProviderSpecificDiagnostics(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{Responses: "https://dmx.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
-	cfg.Models["gpt-5.6-sol"] = qualifiedModel("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolResponses)
-	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
+	cfg.Models[domain.NewModelRef("dmx", "gpt-5.6-sol")] = qualifiedModel("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolResponses)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-5.6-sol"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -38,8 +38,8 @@ func TestStatusWarnsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
-	cfg.Models["claude-fable-5"] = qualifiedModel("Claude Fable", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(claude.ID, "claude-fable-5", "")
+	cfg.Models[domain.NewModelRef("dmx", "claude-fable-5")] = qualifiedModel("Claude Fable", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("dmx", "claude-fable-5"), "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude-real", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -69,7 +69,7 @@ func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
 	}
 	text := out.String()
 	for _, want := range []string{
-		"unsupported configuration version: found 0, expected 6",
+		"unsupported configuration version: found 0, expected 8",
 		"AIGW does not reinterpret configuration schemas",
 		"\nFix\n",
 		"aigw config path",
@@ -103,10 +103,10 @@ func TestStatusPrioritizesSelectedActivationWhileRetainingModelGuidance(t *testi
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{Responses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Models["gpt-5.6-sol"] = qualifiedModel("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolResponses)
-	cfg.Models["claude-fable-5"] = qualifiedModel("Claude", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
-	cfg.SetRecommendedModel(claude.ID, "claude-fable-5")
+	cfg.Models[domain.NewModelRef("dmx", "gpt-5.6-sol")] = qualifiedModel("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("dmx", "claude-fable-5")] = qualifiedModel("Claude", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-5.6-sol"), "")
+	cfg.SetRecommendedModel(claude.ID, domain.NewModelRef("dmx", "claude-fable-5"))
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -153,8 +153,8 @@ func TestStatusKeepsTheFirstRunNextActionSimple(t *testing.T) {
 func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	addProviderModel(&cfg, "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("claude", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude-real", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -173,10 +173,10 @@ func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 func TestStatusShowsIndependentModelsAndJSONNeverContainsToken(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "codex", "dmx", "Codex", domain.Endpoints{Anthropic: "https://example.test", Responses: "https://example.test/v1"}, codex.ID, "gpt-test")
-	addProviderModel(&cfg, "claude", "dmx", "Claude", domain.Endpoints{Anthropic: "https://example.test", Responses: "https://example.test/v1"}, claude.ID, "claude-test")
-	cfg.SetSelectedModel(codex.ID, "codex", "")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	addProviderModel(&cfg, "dmx", "Codex", domain.Endpoints{Anthropic: "https://example.test", Responses: "https://example.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "dmx", "Claude", domain.Endpoints{Anthropic: "https://example.test", Responses: "https://example.test/v1"}, claude.ID, "claude-test")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-test"), "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("dmx", "claude-test"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +191,7 @@ func TestStatusShowsIndependentModelsAndJSONNeverContainsToken(t *testing.T) {
 	if err := cli.Execute(app, []string{"status", "--json"}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out.String(), "never-print-this-secret") || !strings.Contains(out.String(), `"authentication": "account-token"`) || strings.Contains(out.String(), `"profiles"`) {
+	if strings.Contains(out.String(), "never-print-this-secret") || !strings.Contains(out.String(), `"authentication": "provider-token"`) || strings.Contains(out.String(), `"profiles"`) {
 		t.Fatalf("unsafe JSON status = %s", out.String())
 	}
 }
@@ -213,8 +213,8 @@ func TestStatusReportsModelTransport(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			app.Config = store.NewStore(filepath.Join(t.TempDir(), "localhost-4567-configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
-			addProviderModel(&cfg, "team", "team", "Team", domain.Endpoints{Responses: tc.endpoint}, codex.ID, "model-test")
-			cfg.SetSelectedModel(codex.ID, "team", "")
+			addProviderModel(&cfg, "team", "Team", domain.Endpoints{Responses: tc.endpoint}, codex.ID, "model-test")
+			cfg.SetSelectedModel(codex.ID, domain.NewModelRef("team", "model-test"), "")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -238,7 +238,7 @@ func TestStatusReportsModelTransport(t *testing.T) {
 				"model":               json.RawMessage(`"team/model-test"`),
 				"provider":            json.RawMessage(`"team"`),
 				"detail":              json.RawMessage(`"The client is not installed or enabled"`),
-				"authentication":      json.RawMessage(`"account-token"`),
+				"authentication":      json.RawMessage(`"provider-token"`),
 				"endpoint_configured": json.RawMessage(`true`),
 				"client_files_ready":  json.RawMessage(`false`),
 			}
@@ -256,10 +256,10 @@ func TestStatusLabelsModelCountAsModelConfigurations(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Responses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "team", "gpt-test", domain.ProtocolResponses)
-	cfg.Models["claude"] = qualifiedModel("Claude", "team", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(codex.ID, "gpt", "")
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("team", "gpt-test")] = qualifiedModel("GPT", "team", "gpt-test", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("team", "claude-test")] = qualifiedModel("Claude", "team", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("team", "gpt-test"), "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "claude-test"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

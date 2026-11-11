@@ -24,11 +24,11 @@ func TestClaudeAdapterKeepsTheSeamContract(t *testing.T) {
 		}
 		before := domain.NewConfig(testAdmission())
 		before.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-		before.Models["claude"] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
-		before.SetSelectedModel(ID, "claude", "")
+		before.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
+		before.SetSelectedModel(ID, domain.NewModelRef("gateway", "claude-test"), "")
 		after := before.Clone()
 		after.SetClientActivation(ID, true, executable, nil)
-		runtime, err := after.ResolveRuntime(ID, "")
+		runtime, err := after.ResolveRuntime(ID, domain.ModelRef{})
 		if err != nil {
 			t.Fatal(err)
 		}

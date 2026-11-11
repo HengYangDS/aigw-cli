@@ -76,8 +76,8 @@ func (failingProjectionAdapter) Verify(context.Context, Dependencies, domain.Con
 	return Verification{}, nil
 }
 
-func (failingProjectionAdapter) AdoptSelection(Dependencies, *domain.Config) (string, error) {
-	return "", nil
+func (failingProjectionAdapter) AdoptSelection(Dependencies, *domain.Config) (domain.ModelRef, error) {
+	return domain.ModelRef{}, nil
 }
 
 func (failingProjectionAdapter) Withdraw(*domain.Config) {}
@@ -146,9 +146,9 @@ func (adapter *recordingAdapter) Verify(_ context.Context, _ Dependencies, _ dom
 	return Verification{Version: "verified"}, nil
 }
 
-func (adapter *recordingAdapter) AdoptSelection(Dependencies, *domain.Config) (string, error) {
+func (adapter *recordingAdapter) AdoptSelection(Dependencies, *domain.Config) (domain.ModelRef, error) {
 	adapter.calls = append(adapter.calls, "adopt")
-	return "", nil
+	return domain.ModelRef{}, nil
 }
 
 func (adapter *recordingAdapter) Withdraw(cfg *domain.Config) {

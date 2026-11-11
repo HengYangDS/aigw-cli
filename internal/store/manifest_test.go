@@ -2,177 +2,167 @@ package store
 
 import (
 	"bytes"
-	"reflect"
+	"errors"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/domain"
-
-	"github.com/pelletier/go-toml/v2"
 )
 
-func TestManifestExportOmitsDerivedModelLabelsAndPreservesWireCase(t *testing.T) {
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["dmxapi"] = domain.Provider{
-		Label: "DMXAPI", Endpoints: domain.Endpoints{Responses: "https://dmx.test/v1"},
-	}
-	cfg.Families["gpt-6-astra"] = domain.Family{Label: "GPT-6 Astra"}
-	cfg.Models["dmxapi-gpt-6-astra"] = domain.Model{
-		Label: "DMXAPI · GPT-6 Astra", Provider: "dmxapi", Family: "gpt-6-astra",
-		UpstreamModel: "GPT-6-Astra", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {domain.CapabilityText}},
-	}
-	cfg.Models["dmxapi-gpt-6-astra-cdx"] = domain.Model{
-		Label: "DMXAPI · GPT-6 Astra · CDX", Provider: "dmxapi", Family: "gpt-6-astra",
-		UpstreamModel: "GPT-6-Astra-CDX", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {domain.CapabilityText}},
-	}
-	data, err := Export(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var raw struct {
-		Routes map[string]map[string]any `toml:"routes"`
-	}
-	if err := toml.Unmarshal(data, &raw); err != nil {
-		t.Fatal(err)
-	}
-	if _, stored := raw.Routes["dmxapi-gpt-6-astra"]["label"]; stored {
-		t.Fatalf("derived label was duplicated in export: %s", data)
-	}
-	if got := raw.Routes["dmxapi-gpt-6-astra-cdx"]["label"]; got != "DMXAPI · GPT-6 Astra · CDX" {
-		t.Fatalf("channel override = %#v", got)
-	}
-	if got := raw.Routes["dmxapi-gpt-6-astra"]["upstream_model"]; got != "GPT-6-Astra" {
-		t.Fatalf("provider wire spelling = %#v", got)
-	}
-	parsed, err := Parse(data, testAdmission())
-	if err != nil || parsed.Models["dmxapi-gpt-6-astra"].Label != "" {
-		t.Fatalf("parsed derived Route label was materialized: %#v, %v", parsed.Models["dmxapi-gpt-6-astra"], err)
-	}
-}
+// teamFileText is a team file with a channel variant, a model that is its own
+// family, a deprecated model and recommendations.
+const teamFileText = `version = 8
 
-func TestManifestSeparatesFamiliesFromQualifiedProviderModels(t *testing.T) {
-	manifest, err := Parse([]byte(`version = 7
-[models.gpt-6-astra]
+[[providers]]
+id = "dmxapi"
+label = "DMXAPI"
+endpoints = {responses = "https://dmx.test/v1"}
+
+[[providers.models]]
+id = "GPT-6-Astra"
+family = "gpt-6-astra"
+protocols = {responses = ["text"]}
+
+[[providers.models]]
+id = "GPT-6-Astra-CDX"
+family = "gpt-6-astra"
+label = "DMXAPI · GPT-6 Astra · CDX"
+protocols = {responses = ["text"]}
+
+[[providers.models]]
+id = "LongCat-2.5"
+protocols = {responses = []}
+
+[[providers.models]]
+id = "legacy"
+protocols = {responses = []}
+deprecated = true
+
+[[families]]
+id = "gpt-6-astra"
 label = "GPT-6 Astra"
 
-[accounts.ucloud]
-label = "UCloud"
-[accounts.ucloud.endpoints]
-openai_responses = "https://example.test/v1"
+[recommendations.codex]
+primary = {model = "dmxapi/GPT-6-Astra-CDX", protocol = "responses"}
+alternatives = [{model = "dmxapi/GPT-6-Astra"}]
+`
 
-[routes.ucloud-gpt-6-astra]
-account = "ucloud"
-model = "gpt-6-astra"
-upstream_model = "gpt-6-astra"
-[routes.ucloud-gpt-6-astra.interfaces]
-openai_responses = ["text", "reasoning", "streaming", "tools", "continuation"]
-
-[recommendations.codex.primary]
-route = "ucloud-gpt-6-astra"
-`), testAdmission())
+func TestTeamFileParsesProvidersModelsFamiliesAndRecommendations(t *testing.T) {
+	file, err := ParseTeamFile([]byte(teamFileText), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := manifest.Families["gpt-6-astra"].Label; got != "GPT-6 Astra" {
-		t.Fatalf("canonical model label = %q", got)
+	variant := file.Models[domain.NewModelRef("dmxapi", "GPT-6-Astra-CDX")]
+	if variant.Provider != "dmxapi" || variant.ID != "GPT-6-Astra-CDX" || variant.Family != "gpt-6-astra" ||
+		!variant.Declares(domain.ProtocolResponses, domain.CapabilityText) {
+		t.Fatalf("channel variant = %#v", variant)
 	}
-	route := manifest.Models["ucloud-gpt-6-astra"]
-	if route.Provider != "ucloud" || route.Family != "gpt-6-astra" || route.UpstreamModel != "gpt-6-astra" {
-		t.Fatalf("route identity = %#v", route)
+	own := domain.NewModelRef("dmxapi", "LongCat-2.5")
+	if model := file.Models[own]; model.Family != "" || model.FamilyID() != "LongCat-2.5" {
+		t.Fatalf("a model without a family = %#v", model)
 	}
-	wantCapabilities := []domain.Capability{domain.CapabilityText, domain.CapabilityReasoning, domain.CapabilityStreaming, domain.CapabilityTools, domain.CapabilityContinuation}
-	if got := route.Protocols[domain.ProtocolResponses]; !reflect.DeepEqual(got, wantCapabilities) {
-		t.Fatalf("Responses capabilities = %#v, want %#v", got, wantCapabilities)
+	if got := file.ModelLabel(own); got != "DMXAPI · LongCat-2.5" {
+		t.Fatalf("own family label = %q", got)
 	}
-	if got := manifest.Recommendations[ClientCodex].Primary.Model; got != "ucloud-gpt-6-astra" {
-		t.Fatalf("Codex primary Route = %q", got)
+	if !file.Models[domain.NewModelRef("dmxapi", "legacy")].Deprecated {
+		t.Fatal("deprecated was not read")
+	}
+	codex := file.Recommendations[ClientCodex]
+	if codex.Primary.Model != domain.NewModelRef("dmxapi", "GPT-6-Astra-CDX") || codex.Primary.Protocol != domain.ProtocolResponses ||
+		len(codex.Alternatives) != 1 || codex.Alternatives[0].Model != domain.NewModelRef("dmxapi", "GPT-6-Astra") {
+		t.Fatalf("recommendation = %#v", codex)
+	}
+	if len(file.Clients) != 0 {
+		t.Fatalf("a team file set clients: %#v", file.Clients)
 	}
 }
 
-func TestManifestRetainsDeprecatedModelsButRejectsThemAsRecommendations(t *testing.T) {
-	raw := []byte(`version = 7
-[models.legacy]
-label = "Legacy"
-
-[accounts.team]
-label = "Team"
-[accounts.team.endpoints]
-openai_responses = "https://team.test/v1"
-
-[routes.legacy]
-account = "team"
-model = "legacy"
-lifecycle = "deprecated"
-interfaces = { openai_responses = ["text"] }
-`)
-	manifest, err := Parse(raw, testAdmission())
+func TestTeamFileExportOmitsDerivedLabelsAndRoundTrips(t *testing.T) {
+	file, err := ParseTeamFile([]byte(teamFileText), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lifecycle := manifest.Models["legacy"].LifecycleState(); lifecycle != domain.ModelDeprecated {
-		t.Fatalf("lifecycle = %q", lifecycle)
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), file, false)
+	if err != nil {
+		t.Fatal(err)
 	}
+	model := cfg.Models[domain.NewModelRef("dmxapi", "GPT-6-Astra")]
+	model.Label = "DMXAPI · GPT-6 Astra"
+	cfg.Models[domain.NewModelRef("dmxapi", "GPT-6-Astra")] = model
+	cfg.SetSelectedModel(ClientCodex, domain.NewModelRef("dmxapi", "GPT-6-Astra"), "")
+	exported, err := ExportTeamFile(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(exported)
+	if strings.Contains(text, "label = 'DMXAPI · GPT-6 Astra'\n") || !strings.Contains(text, "label = 'DMXAPI · GPT-6 Astra · CDX'") {
+		t.Fatalf("export kept a derived label or lost a channel label:\n%s", text)
+	}
+	if strings.Contains(text, "[clients") || !strings.HasPrefix(text, "version = 8\n") {
+		t.Fatalf("export is not a version 8 team file without clients:\n%s", text)
+	}
+	again, err := ParseTeamFile(exported, testAdmission())
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), again, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := ExportTeamFile(merged)
+	if err != nil || !bytes.Equal(exported, second) {
+		t.Fatalf("export is not stable through setup --from:\nfirst:\n%s\nsecond:\n%s\n%v", exported, second, err)
+	}
+}
 
-	withRecommendation := bytes.Replace(raw, []byte("[accounts.team]"), []byte("[recommendations.codex.primary]\nroute = \"legacy\"\n\n[accounts.team]"), 1)
-	if _, err := Parse(withRecommendation, testAdmission()); err == nil || !strings.Contains(err.Error(), "deprecated route") {
-		t.Fatalf("deprecated recommendation error = %v", err)
+func TestTeamFileRefusesADeprecatedRecommendation(t *testing.T) {
+	text := strings.Replace(teamFileText, `alternatives = [{model = "dmxapi/GPT-6-Astra"}]`, `alternatives = [{model = "dmxapi/legacy"}]`, 1)
+	if _, err := ParseTeamFile([]byte(text), testAdmission()); err == nil || !strings.Contains(err.Error(), "deprecated model dmxapi/legacy") {
+		t.Fatalf("a deprecated recommendation = %v", err)
 	}
 }
 
 func TestCredentialDetectionDescendsIntoArrays(t *testing.T) {
 	value := []any{map[string]any{"metadata": map[string]any{"api_token": "secret"}}}
-	if got := findCredentialKey(value, "routes"); got != "routes.metadata.api_token" {
+	if got := findCredentialKey(value, "providers"); got != "providers.metadata.api_token" {
 		t.Fatalf("credential path = %q", got)
 	}
 }
 
-func TestManifestRecommendationsFollowTheAdmission(t *testing.T) {
+func TestTeamFileRecommendationsFollowTheAdmission(t *testing.T) {
 	admission := domain.NewAdmission(append(testClientSpecs(), domain.ClientSpec{
 		ID:                "synthetic",
 		Label:             "Synthetic",
 		EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses},
 	})...)
-
-	manifest, err := Parse([]byte(`version = 7
-[recommendations.synthetic.primary]
-route = "synthetic-default"
-
-[accounts.team]
-label = "Team"
-[accounts.team.endpoints]
-openai_responses = "https://team.test/v1"
-
-[routes.synthetic-default]
-label = "Synthetic Default"
-account = "team"
-model = "synthetic-model"
-interfaces = { openai_responses = [] }
-`), admission)
+	text := strings.Replace(teamFileText, "[recommendations.codex]", "[recommendations.synthetic]", 1)
+	file, err := ParseTeamFile([]byte(text), admission)
 	if err != nil {
 		t.Fatalf("an admitted client was rejected: %v", err)
 	}
-	if manifest.Recommendations["synthetic"].Primary.Model != "synthetic-default" {
-		t.Fatalf("recommended routes = %#v", manifest.Recommendations)
+	if file.Recommendations["synthetic"].Primary.Model != domain.NewModelRef("dmxapi", "GPT-6-Astra-CDX") {
+		t.Fatalf("recommendations = %#v", file.Recommendations)
+	}
+	if _, err := ParseTeamFile([]byte(text), testAdmission()); err == nil || !strings.Contains(err.Error(), `unsupported client "synthetic"`) {
+		t.Fatalf("a recommendation for a client the admission lacks = %v", err)
 	}
 }
 
-func TestSyntheticProviderUsesOnlyManifestDataAcrossParseMergeAndModelResolution(t *testing.T) {
-	incoming, err := Parse([]byte(`version = 7
-[recommendations.codex.primary]
-route = "northstar-codex"
-model_provider = "northstar"
-authentication = "account-token"
+func TestTeamFileSyntheticProviderUsesOnlyFileData(t *testing.T) {
+	incoming, err := ParseTeamFile([]byte(`version = 8
 
-[accounts.northstar]
+[[providers]]
+id = "northstar"
 label = "Northstar"
-[accounts.northstar.endpoints]
-openai_responses = "https://northstar.example.test/v1"
+endpoints = {responses = "https://northstar.example.test/v1"}
 
-[routes.northstar-codex]
+[[providers.models]]
+id = "northstar-model"
 label = "Northstar Codex"
-account = "northstar"
-model = "northstar-model"
-interfaces = { openai_responses = [] }
+protocols = {responses = []}
+
+[recommendations.codex]
+primary = {model = "northstar/northstar-model", model_provider = "northstar", authentication = "provider-token"}
 `), testAdmission())
 	if err != nil {
 		t.Fatal(err)
@@ -185,262 +175,99 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := selected.ResolveRuntime(ClientCodex, "")
+	runtime, err := selected.ResolveRuntime(ClientCodex, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtime.ProviderID != "northstar" || runtime.Endpoint != "https://northstar.example.test/v1" || runtime.UpstreamModel != "northstar-model" || runtime.ModelProvider != "northstar" || runtime.Authentication != domain.AuthenticationProviderToken || !runtime.RequiresProviderToken() {
+	if runtime.ProviderID != "northstar" || runtime.Endpoint != "https://northstar.example.test/v1" || runtime.UpstreamModel != "northstar-model" ||
+		runtime.ModelProvider != "northstar" || runtime.Authentication != domain.AuthenticationProviderToken || !runtime.RequiresProviderToken() {
 		t.Fatalf("runtime = %#v", runtime)
 	}
 }
 
-func TestParseRejectsIncompatibleRecommendedModel(t *testing.T) {
-	raw := []byte(`version = 7
-[recommendations.claude.primary]
-route = "codex"
-[accounts.team]
-label = "Team"
-[accounts.team.endpoints]
-openai_responses = "https://team.test/v1"
-[routes.codex]
-label = "Codex"
-account = "team"
-model = "gpt-test"
-interfaces = { openai_responses = [] }
-`)
-	if _, err := Parse(raw, testAdmission()); err == nil {
-		t.Fatal("incompatible recommended route was accepted")
+// TestTeamFileRefusals refuses, before anything is applied, a file that is not
+// TOML, carries a credential field, sets clients, has another version, uses a
+// field that version 8 does not define, repeats a provider, model or family,
+// names a model without its provider, or recommends a model that its client
+// cannot use.
+func TestTeamFileRefusals(t *testing.T) {
+	for _, test := range []struct {
+		name, text, want string
+	}{
+		{"not TOML", "version = [1, 2\n", "parse the team file"},
+		{"a version that is not a number", strings.Replace(teamFileText, "version = 8", "version = \"eight\"", 1), "parse the team file"},
+		{"credential", "version = 8\napi_key = \"must-not-exist\"\n", `credential field "api_key"`},
+		{"nested credential", strings.Replace(teamFileText, `id = "legacy"`, "id = \"legacy\"\nauth_header = \"x\"", 1), `credential field "providers.models.auth_header"`},
+		{"clients", teamFileText + "\n[clients.codex]\nenabled = true\n", "[clients] section"},
+		{"version 7", strings.Replace(teamFileText, "version = 8", "version = 7", 1), "the team file has version 7, and this AIGW reads version 8"},
+		{"version 9", strings.Replace(teamFileText, "version = 8", "version = 9", 1), "the team file has version 9"},
+		{"retired order", strings.Replace(teamFileText, `label = "DMXAPI"`, "label = \"DMXAPI\"\norder = 10", 1), "does not define the field providers.order"},
+		{"retired purpose", strings.Replace(teamFileText, `id = "legacy"`, "id = \"legacy\"\npurpose = \"x\"", 1), "does not define the field providers.models.purpose"},
+		{"retired lifecycle", strings.Replace(teamFileText, "deprecated = true", "lifecycle = \"deprecated\"", 1), "does not define the field providers.models.lifecycle"},
+		{"old endpoint name", strings.Replace(teamFileText, `endpoints = {responses = "https://dmx.test/v1"}`, `endpoints = {openai_responses = "https://dmx.test/v1"}`, 1), "does not define the field"},
+		{"repeated provider", teamFileText + "\n[[providers]]\nid = \"dmxapi\"\nlabel = \"Again\"\nendpoints = {responses = \"https://dmx.test/v1\"}\n", `provider "dmxapi" is defined twice`},
+		{"repeated model", strings.Replace(teamFileText, `id = "legacy"`, `id = "LongCat-2.5"`, 1), `provider "dmxapi" defines model "LongCat-2.5" twice`},
+		{"repeated family", teamFileText + "\n[[families]]\nid = \"gpt-6-astra\"\nlabel = \"Again\"\n", `family "gpt-6-astra" is defined twice`},
+		{"model without provider", strings.Replace(teamFileText, `{model = "dmxapi/GPT-6-Astra"}`, `{model = "GPT-6-Astra"}`, 1), "has no provider"},
+		{"incompatible recommendation", strings.Replace(teamFileText, "[recommendations.codex]", "[recommendations.claude]", 1), "client recommendation"},
+		{"unknown protocol", strings.Replace(teamFileText, `protocols = {responses = []}`, `protocols = {messages = []}`, 1), `unknown protocol "messages"`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := ParseTeamFile([]byte(test.text), testAdmission())
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("ParseTeamFile = %v, want %q", err, test.want)
+			}
+		})
+	}
+	_, err := ParseTeamFile([]byte(strings.Replace(teamFileText, "version = 8", "version = 7", 1)), testAdmission())
+	if version, ok := errors.AsType[*domain.UnsupportedTeamFileVersionError](err); !ok || version.Version != 7 {
+		t.Fatalf("version refusal = %v", err)
 	}
 }
 
-func TestVersionTwoIsRejected(t *testing.T) {
-	legacy := []byte(`version = 2
-[accounts.team]
-label = "Team"
-[accounts.team.endpoints]
-anthropic = "https://team.test"
-[routes.claude]
-label = "Claude"
-account = "team"
-model = "claude-test"
-`)
-	if _, err := Parse(legacy, testAdmission()); err == nil || !strings.Contains(err.Error(), "expected 7") {
-		t.Fatalf("v2 manifest error = %v", err)
+// A team file may declare providers without models, as a configuration may
+// hold providers without models.
+func TestTeamFileWithProvidersOnly(t *testing.T) {
+	file, err := ParseTeamFile([]byte("version = 8\n\n[[providers]]\nid = \"team\"\nlabel = \"Team\"\nendpoints = {anthropic = \"https://team.test\"}\n"), testAdmission())
+	if err != nil || len(file.Providers) != 1 || len(file.Models) != 0 {
+		t.Fatalf("a team file with providers only = %+v, %v", file, err)
 	}
 }
 
-func TestExportRejectsModelThatCannotBeParsedBack(t *testing.T) {
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Responses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Models["codex"] = testModel("Codex", "team", "gpt-test", domain.ProtocolResponses)
-	cfg.SetSelectedModel(ClientCodex, "codex", "")
-	cfg.Clients[ClientClaude] = domain.ClientBinding{Model: "codex", Protocol: domain.ProtocolResponses}
-
-	if _, err := Export(cfg); err == nil {
-		t.Fatal("export accepted a client-incompatible route")
-	}
-}
-
-func TestParseRejectsCredentialShapedFields(t *testing.T) {
-	for _, key := range []string{"token", "api_key", "password", "auth_header", "client_secret"} {
-		raw := []byte("version = 7\n" + key + " = \"must-not-exist\"\n")
-		_, err := Parse(raw, testAdmission())
-		if err == nil || !strings.Contains(err.Error(), "credential") {
-			t.Errorf("key %s: error = %v", key, err)
-		}
-	}
-}
-
-func TestParseRejectsNonCanonicalSchemaVersion(t *testing.T) {
-	oldSchema := []byte(`version = 1
-[accounts.team]
-label = "Team"
-[accounts.team.endpoints]
-anthropic = "https://gateway.test"
-[routes.team]
-label = "Team"
-purpose = "Default agent"
-account = "team"
-model = "claude-team"
-interfaces = { anthropic = [] }
-`)
-	if _, err := Parse(oldSchema, testAdmission()); err == nil ||
-		!strings.Contains(err.Error(), "unsupported configuration manifest version 1") ||
-		!strings.Contains(err.Error(), "does not reinterpret schema versions") {
-		t.Fatalf("version 1 parse error = %v", err)
-	}
-	current := []byte(strings.Replace(string(oldSchema), "version = 1", "version = 7", 1))
-	parsed, err := Parse(current, testAdmission())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if parsed.Version != 7 || parsed.Models["team"].Purpose != "Default agent" {
-		t.Fatalf("parsed manifest = %#v", parsed)
-	}
-}
-
-func TestParseRejectsModelOwnedEndpointResidue(t *testing.T) {
-	raw := []byte(`version = 7
-
-[routes.team]
-label = "Team Gateway"
-account = "team"
-model = "claude-team"
-
-[routes.team.endpoints]
-openai_responses = "https://gateway.test/v1"
-`)
-	if _, err := Parse(raw, testAdmission()); err == nil {
-		t.Fatalf("legacyRoute endpoint error = %v", err)
-	}
-}
-
-func TestParseRejectsMalformedTOML(t *testing.T) {
-	if _, err := Parse([]byte("version = [1, 2\n"), testAdmission()); err == nil || !strings.Contains(err.Error(), "parse configuration manifest") {
-		t.Fatalf("malformed TOML error = %v", err)
-	}
-}
-
-// A team manifest may declare providers without Routes, as a configuration
-// may hold providers without models.
-func TestParseAcceptsAManifestWithProvidersOnly(t *testing.T) {
-	raw := []byte(`version = 7
-[accounts.team]
-label = "Team"
-[accounts.team.endpoints]
-anthropic = "https://team.test"
-`)
-	manifest, err := Parse(raw, testAdmission())
-	if err != nil || len(manifest.Providers) != 1 || len(manifest.Models) != 0 {
-		t.Fatalf("a manifest with providers only = %+v, %v", manifest, err)
-	}
-}
-
-func TestParseRejectsRemovedRecommendedDefault(t *testing.T) {
-	raw := []byte(`version = 7
-recommended_default = "missing"
-[accounts.team]
-label = "Team"
-[accounts.team.endpoints]
-anthropic = "https://team.test"
-[routes.team]
-label = "Team"
-account = "team"
-model = "claude-team"
-`)
-	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "fields in the document are missing") {
-		t.Fatalf("removed recommended_default error = %v", err)
-	}
-}
-
-func TestParseInitializesMissingProvidersAndDefaultsToFirstModel(t *testing.T) {
-	raw := []byte(`version = 7
-[routes.solo]
-label = "Solo"
-account = "missing"
-`)
-	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "invalid configuration manifest") {
-		t.Fatalf("account-less manifest error = %v", err)
-	}
-}
-
-func TestParseRejectsRecommendedModelWithUnsupportedClient(t *testing.T) {
-	raw := []byte(`version = 7
-[recommendations.gemini.primary]
-route = "team"
-[accounts.team]
-label = "Team"
-[accounts.team.endpoints]
-anthropic = "https://team.test"
-[routes.team]
-label = "Team"
-account = "team"
-model = "claude-team"
-`)
-	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "unsupported client") {
-		t.Fatalf("unsupported recommended route client error = %v", err)
-	}
-}
-
-func TestParseRejectsDeeplyNestedCredentialShapedFields(t *testing.T) {
-	raw := []byte(`version = 7
-[wrapper]
-password = "leak"
-[[entries]]
-token = "leak"
-`)
-	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "credential") {
-		t.Fatalf("nested credential field error = %v", err)
-	}
-}
-
-func TestExportRejectsInvalidConfiguration(t *testing.T) {
-	if _, err := Export(domain.Config{}); err == nil {
+func TestExportRefusesAConfigurationThatDoesNotValidate(t *testing.T) {
+	if _, err := ExportTeamFile(domain.Config{}); err == nil {
 		t.Fatal("export accepted an invalid configuration")
 	}
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Responses: "https://team.test/v1", Anthropic: "https://team.test"}}
+	cfg.Models[domain.NewModelRef("team", "gpt-test")] = testModel("Codex", "team", "gpt-test", domain.ProtocolResponses)
+	cfg.Clients[ClientClaude] = domain.ClientBinding{Model: domain.NewModelRef("team", "gpt-test"), Protocol: domain.ProtocolResponses}
+	if _, err := ExportTeamFile(cfg); err == nil {
+		t.Fatal("export accepted a client that cannot use its model")
+	}
 }
 
-func TestExportOmitsSecretsAndAdaptersAndPublishesDeclaredRecommendations(t *testing.T) {
+func TestExportOmitsClientsAndCredentials(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["team"] = testModel("Team", "team", "claude-team", domain.ProtocolAnthropic)
-	cfg.Recommendations[ClientClaude] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "team"}}
-	cfg.SetSelectedModel(ClientClaude, "team", "")
+	cfg.Models[domain.NewModelRef("team", "claude-team")] = testModel("Team", "team", "claude-team", domain.ProtocolAnthropic)
+	cfg.Recommendations[ClientClaude] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("team", "claude-team")}}
+	cfg.SetSelectedModel(ClientClaude, domain.NewModelRef("team", "claude-team"), "")
 	binding := cfg.Clients[ClientClaude]
 	binding.Enabled = true
 	binding.Executable = "/personal/claude"
 	cfg.Clients[ClientClaude] = binding
-	data, err := Export(cfg)
+	data, err := ExportTeamFile(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	text := string(data)
-	for _, forbidden := range []string{"adapters", "overrides", "/personal/claude", "token", "secret"} {
+	for _, forbidden := range []string{"clients", "/personal/claude", "token", "secret"} {
 		if strings.Contains(strings.ToLower(text), forbidden) {
 			t.Fatalf("export contains %q:\n%s", forbidden, text)
 		}
 	}
-	if strings.Contains(text, "recommended_default") {
-		t.Fatalf("export retained removed recommended_default:\n%s", text)
-	}
-	if !strings.Contains(text, "version = 7") || !strings.Contains(text, "recommendations") || !strings.Contains(text, "claude") {
-		t.Fatalf("new config export must use manifest v7 with client recommendations:\n%s", text)
-	}
-}
-
-func TestExportIsCanonicalTypedManifestProjection(t *testing.T) {
-	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["team"] = domain.Provider{
-		Label:     "Team",
-		Endpoints: domain.Endpoints{Anthropic: "https://team.example.test"},
-	}
-	cfg.Models["team"] = domain.Model{
-		Label:    "Team Claude",
-		Provider: "team",
-		Family:   "claude-team",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolAnthropic: {},
-		},
-	}
-	cfg.SetSelectedModel(ClientClaude, "team", "")
-
-	first, err := Export(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifest, err := Parse(first, testAdmission())
-	if err != nil {
-		t.Fatalf("parse exported manifest: %v", err)
-	}
-	projected := domain.NewConfig(testAdmission())
-	projected.Providers = manifest.Providers
-	projected.Models = manifest.Models
-	projected.Recommendations = manifest.Recommendations
-	second, err := Export(projected)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(first, second) {
-		t.Fatalf("manifest projection is not byte-stable:\nfirst:\n%s\nsecond:\n%s", first, second)
+	if !strings.Contains(text, "[recommendations.claude]\nprimary = {model = 'team/claude-team'}") {
+		t.Fatalf("export lost the declared recommendation:\n%s", text)
 	}
 }

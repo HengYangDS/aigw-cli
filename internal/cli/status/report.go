@@ -53,7 +53,7 @@ func clientStates(cfg domain.Config, observed map[string]app.ClientStatus) map[s
 	states := make(map[string]clientState, len(observed))
 	for id, status := range observed {
 		states[id] = clientState{
-			State: status.State, Model: modelName(cfg, status.Model), Provider: status.Provider,
+			State: status.State, Model: status.Model.String(), Provider: status.Provider,
 			Detail: status.Detail, NextAction: status.NextAction, NextDetail: status.NextDetail,
 			FilesDeferred: status.ProjectionDeferred, NativeModel: status.NativeModelOverride,
 			Authentication: status.Authentication, EndpointConfigured: status.EndpointConfigured, Transport: status.Transport,
@@ -63,25 +63,8 @@ func clientStates(cfg domain.Config, observed map[string]app.ClientStatus) map[s
 	return states
 }
 
-// modelName names the model stored under key as provider/model. A selection
-// of a model that the configuration does not hold keeps its key, which is all
-// that names it.
-func modelName(cfg domain.Config, key string) string {
-	if model, found := cfg.Models[key]; found {
-		return model.Ref().String()
-	}
-	return key
-}
-
-// modelCount counts the models added, each name once, as `aigw model list`
-// lists them.
-func modelCount(cfg domain.Config) int {
-	names := map[string]bool{}
-	for _, model := range cfg.Models {
-		names[model.Ref().String()] = true
-	}
-	return len(names)
-}
+// modelCount counts the models added, as `aigw model list` lists them.
+func modelCount(cfg domain.Config) int { return len(cfg.Models) }
 
 func orderedClientStates(runtime app.Dependencies, clients map[string]app.ClientStatus) []domainreadiness.Client {
 	ordered := make([]domainreadiness.Client, 0, len(clients))

@@ -49,7 +49,7 @@ func (claudeAdapter) Plan(deps adapter.Dependencies, before, after domain.Config
 	if err != nil {
 		return nil, err
 	}
-	previous, _ := before.ResolveRuntime(ID, "")
+	previous, _ := before.ResolveRuntime(ID, domain.ModelRef{})
 	settings, err := SettingsPath(deps.Host)
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func (claudeAdapter) Apply(_ context.Context, deps adapter.Dependencies, before,
 	if err != nil {
 		return nil, err
 	}
-	previous, _ := before.ResolveRuntime(ID, "")
+	previous, _ := before.ResolveRuntime(ID, domain.ModelRef{})
 	settings, err := SettingsPath(deps.Host)
 	if err != nil {
 		return nil, err
@@ -86,8 +86,8 @@ func (claudeAdapter) ProjectionChanged(before, after domain.Config) bool {
 	if !afterAdapter.Enabled {
 		return false
 	}
-	beforeRuntime, beforeErr := before.ResolveRuntime(ID, "")
-	afterRuntime, afterErr := after.ResolveRuntime(ID, "")
+	beforeRuntime, beforeErr := before.ResolveRuntime(ID, domain.ModelRef{})
+	afterRuntime, afterErr := after.ResolveRuntime(ID, domain.ModelRef{})
 	if beforeErr != nil || afterErr != nil {
 		return true
 	}
@@ -126,8 +126,8 @@ func (claudeAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg d
 
 // AdoptSelection adopts nothing: Claude Code has no native selection that AIGW
 // records as its Client Binding.
-func (claudeAdapter) AdoptSelection(adapter.Dependencies, *domain.Config) (string, error) {
-	return "", nil
+func (claudeAdapter) AdoptSelection(adapter.Dependencies, *domain.Config) (domain.ModelRef, error) {
+	return domain.ModelRef{}, nil
 }
 
 func (claudeAdapter) Withdraw(cfg *domain.Config) {
@@ -145,6 +145,6 @@ func projectionInput(cfg domain.Config) (bool, domain.Runtime, error) {
 	if disabled {
 		return true, domain.Runtime{}, nil
 	}
-	runtime, err := cfg.ResolveRuntime(ID, "")
+	runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	return false, runtime, err
 }

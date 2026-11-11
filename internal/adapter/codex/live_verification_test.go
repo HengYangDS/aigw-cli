@@ -190,7 +190,7 @@ func finalMessagePath(arguments []string) string {
 func configuredCodexVerification(t *testing.T, targets ...string) (domain.Config, domain.Runtime) {
 	t.Helper()
 	cfg := verificationConfig()
-	runtime, err := cfg.ResolveRuntime(ID, "")
+	runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -349,8 +349,8 @@ func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 		t.Fatalf("missing executable file error = %v", err)
 	}
 	drifted := cfg.Clone()
-	drifted.Models["codex"] = domain.Model{Label: "Codex", Provider: "one", Family: "other"}
-	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, drifted, domain.Runtime{ModelID: "codex", UpstreamModel: "other"}, ""); err == nil || !strings.Contains(err.Error(), "synchronized") {
+	drifted.Models[domain.NewModelRef("one", "other")] = domain.Model{Label: "Codex", Provider: "one", Family: "other", ID: "other"}
+	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, drifted, domain.Runtime{Model: domain.NewModelRef("test", "other"), UpstreamModel: "other"}, ""); err == nil || !strings.Contains(err.Error(), "synchronized") {
 		t.Fatalf("projection error = %v", err)
 	}
 }
@@ -415,9 +415,9 @@ func verificationConfig() domain.Config {
 		Responses: "https://one.test/v1",
 		Anthropic: "https://one.test",
 	}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "one", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "one", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedModel(ID, "codex", "")
-	cfg.SetSelectedModel(otherClient.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("one", "gpt-test")] = domain.Model{Label: "Codex", Provider: "one", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models[domain.NewModelRef("one", "claude-test")] = domain.Model{Label: "Claude", Provider: "one", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(ID, domain.NewModelRef("one", "gpt-test"), "")
+	cfg.SetSelectedModel(otherClient.ID, domain.NewModelRef("one", "claude-test"), "")
 	return cfg
 }

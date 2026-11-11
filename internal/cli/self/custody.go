@@ -16,7 +16,7 @@ import (
 // error.
 func credentialCustody(deps app.Dependencies) (program.CredentialCustody, error) {
 	custody := providerCustody{store: deps.Secrets, executable: deps.Executable}
-	cfg, err := deps.Config.LoadCredentialConfig()
+	cfg, err := deps.Config.Load()
 	if err == nil {
 		custody.providers = slices.Sorted(maps.Keys(cfg.Providers))
 	}

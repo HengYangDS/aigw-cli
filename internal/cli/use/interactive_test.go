@@ -35,15 +35,15 @@ func interactiveRuntime(t *testing.T, selector *promptStub) (invocation.Context,
 func TestUsePromptsForTheModelRecommendedFirst(t *testing.T) {
 	selector := &promptStub{answers: []string{"gateway/gpt-second"}}
 	runtime, cfg := interactiveRuntime(t, selector)
-	unlabeled := cfg.Models["codex"]
+	unlabeled := cfg.Models[domain.NewModelRef("gateway", "gpt-test")]
 	unlabeled.Label = ""
-	cfg.Models["codex"] = unlabeled
+	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = unlabeled
 	cfg.Families["gpt-test"] = domain.Family{Label: "GPT Test"}
 	cfg.Families["gpt-second"] = domain.Family{Label: "GPT Second"}
-	cfg.Models["second"] = domain.Model{Label: "Second", Provider: "gateway", Family: "gpt-second", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models[domain.NewModelRef("gateway", "gpt-second")] = domain.Model{Label: "Second", Provider: "gateway", Family: "gpt-second", ID: "gpt-second", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.Providers["messages"] = domain.Provider{Label: "Messages", Endpoints: domain.Endpoints{Anthropic: "https://messages.example.test"}}
-	cfg.Models["opus"] = domain.Model{Label: "Opus", Provider: "messages", Family: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "second", Protocol: domain.ProtocolResponses}}
+	cfg.Models[domain.NewModelRef("messages", "opus")] = domain.Model{Label: "Opus", Provider: "messages", Family: "opus", ID: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("gateway", "gpt-second"), Protocol: domain.ProtocolResponses}}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestUsePromptsForTheModelRecommendedFirst(t *testing.T) {
 	if want := "gateway/gpt-second = gateway/gpt-second · Second · recommended|gateway/gpt-test = gateway/gpt-test · Gateway · GPT Test"; strings.Join(labels, "|") != want {
 		t.Fatalf("model choices = %q, want %q", labels, want)
 	}
-	if stored, err := runtime.Config.Load(); err != nil || stored.SelectedModel(codex.ID) != "second" {
+	if stored, err := runtime.Config.Load(); err != nil || stored.SelectedModel(codex.ID) != domain.NewModelRef("gateway", "gpt-second") {
 		t.Fatalf("interactive model selection = %#v, %v", stored.Clients, err)
 	}
 }
@@ -67,8 +67,8 @@ func TestUsePromptsForTheModelRecommendedFirst(t *testing.T) {
 func TestUsePromptsForAClientAndThenAModel(t *testing.T) {
 	selector := &promptStub{answers: []string{claude.ID}}
 	runtime, cfg := interactiveRuntime(t, selector)
-	cfg.Models["shared"] = domain.Model{
-		Label: "Shared", Provider: "gateway", Family: "shared-model",
+	cfg.Models[domain.NewModelRef("gateway", "shared-model")] = domain.Model{
+		Label: "Shared", Provider: "gateway", Family: "shared-model", ID: "shared-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}, domain.ProtocolResponses: {}},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -89,7 +89,7 @@ func TestUsePromptsForAClientAndThenAModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	stored, err := runtime.Config.Load()
-	if err != nil || stored.SelectedModel(claude.ID) != "shared" || stored.SelectedModel(codex.ID) != "shared" {
+	if err != nil || stored.SelectedModel(claude.ID) != domain.NewModelRef("gateway", "shared-model") || stored.SelectedModel(codex.ID) != domain.NewModelRef("gateway", "shared-model") {
 		t.Fatalf("interactive selections = %#v, %v", stored.Clients, err)
 	}
 }
@@ -148,8 +148,8 @@ func TestUseNamesACancelledSelectionPrompt(t *testing.T) {
 		t.Run(test.title, func(t *testing.T) {
 			runtime, cfg := interactiveRuntime(t, &promptStub{err: test.err})
 			// A model on two protocols that Hermes speaks asks for the protocol.
-			cfg.Models["shared"] = domain.Model{
-				Provider: "gateway", Family: "shared-model",
+			cfg.Models[domain.NewModelRef("gateway", "shared-model")] = domain.Model{
+				Provider: "gateway", Family: "shared-model", ID: "shared-model",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}, domain.ProtocolResponses: {}},
 			}
 			if err := runtime.Config.Save(cfg); err != nil {

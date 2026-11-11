@@ -235,8 +235,8 @@ func TestRollbackRestoresTheRetainedProgram(t *testing.T) {
 	runtime, out := lifecycleRuntime(t, updater)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Models["team"] = domain.Model{Provider: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedModel(claude.ID, "team", "")
+	cfg.Models[domain.NewModelRef("team", "claude-test")] = domain.Model{Provider: "team", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "claude-test"), "")
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

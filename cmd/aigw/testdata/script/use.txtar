@@ -204,18 +204,21 @@ sk-desk-token-0001
 -- Claude --
 #!/bin/sh
 -- mixed.in --
-version = 7
-[accounts.mixed]
+version = 8
+
+[[providers]]
+id = "mixed"
 label = "Mixed"
-[accounts.mixed.endpoints]
-anthropic = "$UPSTREAM/mixed"
-[models.twin]
+endpoints = {anthropic = "$UPSTREAM/mixed"}
+
+[[providers.models]]
+id = "twin"
+family = "twin"
+protocols = {anthropic = []}
+
+[[families]]
+id = "twin"
 label = "Twin"
-[routes.mixed-twin]
-account = "mixed"
-model = "twin"
-upstream_model = "twin"
-interfaces = { anthropic = [] }
 -- help.txt --
 AIGW  aigw use
 ────────────────────────────────────────
@@ -412,7 +415,7 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "\"team-model\" names no provider; it could mean desk/team-model, other/team-model, team/team-model",
+  "error": "\"team-model\" names no provider; it could mean team/team-model, other/team-model, desk/team-model",
   "next_action": "aigw model list team-model"
 }
 -- no-client.json --

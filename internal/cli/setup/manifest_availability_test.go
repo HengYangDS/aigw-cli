@@ -69,7 +69,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := store.Export(manifestSetupConfig())
+	manifest, err := store.ExportTeamFile(manifestSetupConfig())
 	if err != nil {
 		t.Fatal(err)
 	}

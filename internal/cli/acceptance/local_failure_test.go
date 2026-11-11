@@ -114,7 +114,7 @@ func TestAFileWhereAIGWsFolderBelongsToEveryCommand(t *testing.T) {
 			// The folder that the file replaced, as a copy of it holds it.
 			copied := filepath.Join(t.TempDir(), "aigw")
 			cfg := anthropicConfig()
-			cfg.SetSelectedModel(claude.ID, "opus", "")
+			cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 			if err := store.NewStore(filepath.Join(copied, "configuration.toml"), clients.Admission()).Save(cfg); err != nil {
 				t.Fatal(err)
 			}

@@ -95,7 +95,7 @@ func (plan ProjectionPlan) ChangesState() bool {
 // projection before executing it.
 func ObservedCredentialCommand(path string, runtime domain.Runtime) (string, error) {
 	if !runtime.RequiresProviderToken() {
-		return "", fmt.Errorf("Codex Route %q does not use an Account Token", runtime.ModelID)
+		return "", fmt.Errorf("Codex Route %q does not use an Account Token", runtime.Model)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -106,7 +106,7 @@ func ObservedCredentialCommand(path string, runtime domain.Runtime) (string, err
 		return "", err
 	}
 	if projection.Auth == nil {
-		return "", fmt.Errorf("Codex Route %q has no projected credential command", runtime.ModelID)
+		return "", fmt.Errorf("Codex Route %q has no projected credential command", runtime.Model)
 	}
 	return projection.Auth.Command, nil
 }
@@ -175,11 +175,11 @@ func ValidateConfig(path string, runtime domain.Runtime) error {
 			return err
 		}
 		if !selectionHasValue(modelLine, "model", model) {
-			return fmt.Errorf("Codex config model selection does not match Route %q", runtime.ModelID)
+			return fmt.Errorf("Codex config model selection does not match Route %q", runtime.Model)
 		}
 	}
 	if platform.SHA256([]byte(actualBlock)) != platform.SHA256([]byte(expectedBlock)) {
-		return fmt.Errorf("Codex config provider block does not match Route %q", runtime.ModelID)
+		return fmt.Errorf("Codex config provider block does not match Route %q", runtime.Model)
 	}
 	if err := validateCodexScheduler(text); err != nil {
 		return err
@@ -298,14 +298,14 @@ func codexUserConfigTransition(configSnapshot, stateSnapshot platform.FileSnapsh
 
 func codexEndpoint(runtime domain.Runtime) (string, error) {
 	if runtime.Endpoint == "" {
-		return "", fmt.Errorf("Route %q has no Codex endpoint", runtime.ModelID)
+		return "", fmt.Errorf("Route %q has no Codex endpoint", runtime.Model)
 	}
 	if runtime.RequiresProviderToken() {
 		if runtime.CredentialCommand == "" {
-			return "", fmt.Errorf("Route %q account-token Codex provider requires a credential command", runtime.ModelID)
+			return "", fmt.Errorf("Route %q provider-token Codex provider requires a credential command", runtime.Model)
 		}
 		if !filepath.IsAbs(runtime.CredentialCommand) {
-			return "", fmt.Errorf("Route %q account-token Codex provider credential command must be absolute", runtime.ModelID)
+			return "", fmt.Errorf("Route %q provider-token Codex provider credential command must be absolute", runtime.Model)
 		}
 	}
 	return runtime.Endpoint, nil

@@ -55,8 +55,10 @@ func TestShellCompletionReadsNoTokenAndSendsNoRequest(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["messages"] = domain.Provider{Label: "Messages", Endpoints: domain.Endpoints{Anthropic: "https://messages.test"}}
 	cfg.Providers["responses"] = domain.Provider{Label: "Responses", Endpoints: domain.Endpoints{Responses: "https://responses.test/v1"}}
-	cfg.Models["messages-opus"] = domain.Model{Provider: "messages", Family: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["responses-sol"] = domain.Model{Provider: "responses", Family: "sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Families["opus"] = domain.Family{Label: "Opus"}
+	cfg.Families["sol"] = domain.Family{Label: "Sol"}
+	cfg.Models[domain.NewModelRef("messages", "opus")] = domain.Model{Provider: "messages", Family: "opus", ID: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models[domain.NewModelRef("responses", "sol")] = domain.Model{Provider: "responses", Family: "sol", ID: "sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

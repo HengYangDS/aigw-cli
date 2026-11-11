@@ -70,7 +70,7 @@ func TestAPreviewRefusesWhatTheWriteRefuses(t *testing.T) {
 	}
 	cfg := f.load(t)
 	after := cfg.Clone()
-	after.Models["orphan"] = domain.Model{Provider: "missing", Family: "team-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	after.Models[domain.NewModelRef("missing", "team-model")] = domain.Model{Provider: "missing", Family: "team-model", ID: "team-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	command := NewCommand(f.runtime)
 	command.SetArgs([]string{"add", "--help"})
 	add, _, _ := command.Find([]string{"add"})
@@ -98,7 +98,7 @@ func TestAChangeNamesTheClientFilesThatItWrites(t *testing.T) {
 	f.runtime.ResolveCredentialPath = func() (string, error) { return reader, nil }
 	target := filepath.Join(home, ".hermes", "config.yaml")
 	cfg := f.load(t)
-	cfg.SetSelectedModel("hermes", "mixed-chat", domain.ProtocolChat)
+	cfg.SetSelectedModel("hermes", domain.NewModelRef("mixed", "Chat-Only"), domain.ProtocolChat)
 	cfg.SetClientActivation("hermes", true, "", []string{target})
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)

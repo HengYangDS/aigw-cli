@@ -58,7 +58,7 @@ func saveAndSync(t *testing.T, app *cli.App, output *bytes.Buffer, store secret.
 func anthropicConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["opus"] = qualifiedModel("Opus", "gateway", "claude-test", domain.ProtocolAnthropic)
+	cfg.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("Opus", "gateway", "claude-test", domain.ProtocolAnthropic)
 	return cfg
 }
 
@@ -71,7 +71,7 @@ var projectedClients = map[string]func(*testing.T) projectedClient{
 		app, output, store, _, _ := testApp(t, "")
 		bindCredentialReader(t, app)
 		cfg := anthropicConfig()
-		cfg.SetSelectedModel(claude.ID, "opus", "")
+		cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 		cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 		saveAndSync(t, app, output, store, cfg)
 		settings := claudeSettingsPath(t, app.Host)
@@ -83,7 +83,7 @@ var projectedClients = map[string]func(*testing.T) projectedClient{
 		bindCredentialReader(t, app)
 		library := filepath.Join(t.TempDir(), "nested", "Claude-3p", "configLibrary")
 		cfg := anthropicConfig()
-		cfg.SetSelectedModel(claudedesktop.ID, "opus", "")
+		cfg.SetSelectedModel(claudedesktop.ID, domain.NewModelRef("gateway", "claude-test"), "")
 		cfg.SetClientActivation(claudedesktop.ID, true, executableFixture(t, "Claude"), []string{library})
 		saveAndSync(t, app, output, store, cfg)
 		paths := claudedesktop.PathsForLibrary(library)
@@ -98,8 +98,8 @@ var projectedClients = map[string]func(*testing.T) projectedClient{
 		app.Discovery = fakeDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: target, Present: true, AutoManaged: true}}}}
 		cfg := domain.NewConfig(clients.Admission())
 		cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-		cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
-		cfg.SetSelectedModel(codex.ID, "sol", "")
+		cfg.Models[domain.NewModelRef("gateway", "gpt-sol")] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
+		cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-sol"), "")
 		cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
 		saveAndSync(t, app, output, store, cfg)
 		return projectedClient{codex.ID, app, output, target, target + adapter.StateSuffix}

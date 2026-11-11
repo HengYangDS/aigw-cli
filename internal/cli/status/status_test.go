@@ -67,12 +67,12 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		t.Fatalf("enabled diagnostic status = %q", got)
 	}
 
-	cfg.Models["codex-only"] = domain.Model{
-		Label: "Codex only", Purpose: "Selection", Provider: "one", Family: "gpt-test",
+	cfg.Models[domain.NewModelRef("one", "gpt-test")] = domain.Model{
+		Label: "Codex only", Provider: "one", Family: "gpt-test", ID: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
 	delete(cfg.Clients, codex.ID)
-	cfg.SetRecommendedModel(codex.ID, "codex-only")
+	cfg.SetRecommendedModel(codex.ID, domain.NewModelRef("one", "gpt-test"))
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -361,7 +361,7 @@ func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 	runtime := invocation.Context{Clients: clients.Registry(), Out: out, Width: 120}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One"}
-	cfg.Models["available"] = domain.Model{Label: "Available", Provider: "one"}
+	cfg.Models[domain.NewModelRef("one", "available")] = domain.Model{Label: "Available", Provider: "one", ID: "available"}
 	clients := map[string]clientState{}
 	for _, client := range []string{claude.ID, codex.ID} {
 		clients[client] = clientState{State: domainreadiness.Invalid}
@@ -393,9 +393,9 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 
 func TestStatusReportsSelectedUnknownModel(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	cfg.SetSelectedModel(claude.ID, "missing", "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("one", "missing"), "")
 	state := app.InspectStatusClients(runtime.Dependencies, cfg, nil, "")[claude.ID]
-	if state.State != domainreadiness.Invalid || state.Model != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
+	if state.State != domainreadiness.Invalid || state.Model != domain.NewModelRef("one", "missing") || !strings.Contains(state.Detail, `unknown model one/missing`) {
 		t.Fatalf("Claude status = %#v", state)
 	}
 }

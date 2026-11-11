@@ -102,7 +102,7 @@ func searchedProviders(cfg domain.Config, names []string) ([]string, error) {
 			return nil, err
 		}
 	}
-	ids := cfg.CatalogProviderIDs()
+	ids := cfg.ProviderIDs()
 	if len(names) > 0 {
 		ids = slices.DeleteFunc(ids, func(id string) bool { return !slices.Contains(names, id) })
 	}
@@ -141,11 +141,8 @@ func searchResult(cmd *cobra.Command, runtime invocation.Context, cfg domain.Con
 		}
 	}
 	added := map[string]bool{}
-	for _, keys := range modelsByName(cfg) {
-		item := describe(cfg, keys...)
-		if item.Provider != id {
-			continue
-		}
+	for _, ref := range cfg.ProviderModelRefs(id) {
+		item := describe(cfg, ref)
 		_, modelID, _ := strings.Cut(item.ID, "/")
 		added[modelID] = true
 		sources, isListed := listed[modelID]

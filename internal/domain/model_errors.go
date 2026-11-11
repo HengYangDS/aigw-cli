@@ -2,14 +2,14 @@ package domain
 
 import "fmt"
 
-// RuntimeBindingUnselectedError reports that a client has no selected Route.
+// RuntimeBindingUnselectedError reports that a client has no selected model.
 type RuntimeBindingUnselectedError struct {
 	Client string
 }
 
 // Error formats a missing client selection without implying invalid configuration.
 func (e *RuntimeBindingUnselectedError) Error() string {
-	return fmt.Sprintf("no Route selected for client %q", e.Client)
+	return fmt.Sprintf("no model selected for client %q", e.Client)
 }
 
 // UnsupportedConfigVersionError reports a configuration schema newer or older than the one accepted by this build.
@@ -27,27 +27,15 @@ func (e *UnsupportedConfigVersionError) Error() string {
 	)
 }
 
-// RuntimeModelClientMismatchError reports a route selected for a different client.
-type RuntimeModelClientMismatchError struct {
-	ModelID        string
-	ExpectedClient string
-	ActualClient   string
-}
-
-// Error formats the expected and actual client identities for a mismatched route.
-func (e *RuntimeModelClientMismatchError) Error() string {
-	return fmt.Sprintf("route %q is for %s, not %s", e.ModelID, e.ExpectedClient, e.ActualClient)
-}
-
-// RuntimeModelUnknownProviderError reports a route whose referenced account is absent.
+// RuntimeModelUnknownProviderError reports a model whose provider is absent.
 type RuntimeModelUnknownProviderError struct {
-	ModelID    string
+	Model      ModelRef
 	ProviderID string
 }
 
-// Error formats the unresolved account reference for a route.
+// Error formats the unresolved provider of a model.
 func (e *RuntimeModelUnknownProviderError) Error() string {
-	return fmt.Sprintf("route %q references unknown account %q", e.ModelID, e.ProviderID)
+	return fmt.Sprintf("model %s names the unknown provider %q", e.Model, e.ProviderID)
 }
 
 // RuntimeMissingEndpointError reports that an account lacks the protocol endpoint required by its client.

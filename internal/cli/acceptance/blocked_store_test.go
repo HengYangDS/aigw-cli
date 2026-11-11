@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/domain"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -42,7 +43,7 @@ func newBlockedStoreClient(t *testing.T) blockedStoreClient {
 	}
 	app.Secrets = tokens
 	cfg := anthropicConfig()
-	cfg.SetSelectedModel(claude.ID, "opus", "")
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	saveAndSync(t, app, output, tokens, cfg)
 	return blockedStoreClient{app: app, output: output, folder: folder, secrets: secrets}
@@ -228,7 +229,7 @@ func TestALinkThatLeadsNowhereIsNoFirstRun(t *testing.T) {
 			t.Skipf("symbolic links are unavailable: %v", err)
 		}
 		team := filepath.Join(t.TempDir(), "team.toml")
-		writeFile(t, team, []byte("version = 7\n"), 0o600)
+		writeFile(t, team, []byte("version = 8\n"), 0o600)
 		want := "Make ~/dotfiles/configuration.toml, which the link ~/aigw/configuration.toml leads to, available again; otherwise remove the link and run `aigw setup`. Then run the same command again."
 		surfaces := [][]string{{"setup", "--from", team, "--json"}, {"status", "--json"}, {"check", claude.ID, "--depth", "local", "--json"}, {"sync", "--json"}, {"use", claude.ID, "gateway/claude-test", "--json"}}
 		for _, surface := range surfaces {

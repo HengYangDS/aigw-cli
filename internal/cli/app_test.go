@@ -34,11 +34,11 @@ func configuredApp(t *testing.T) *App {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Responses: "http://127.0.0.1:1234/v1", Anthropic: "https://one.test"}}
-	cfg.Models["one"] = domain.Model{
-		Label: "One", Purpose: "Primary", Provider: "one", Family: "gpt",
+	cfg.Models[domain.NewModelRef("one", "gpt")] = domain.Model{
+		Label: "One", Provider: "one", Family: "gpt", ID: "gpt",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
-	cfg.SetSelectedModel(codex.ID, "one", "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt"), "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -62,8 +62,8 @@ func TestNewDefaultBuildsAFunctioningApp(t *testing.T) {
 	if app.Config.Path() == "" {
 		t.Fatal("NewDefault(clients.Registry()) did not wire a config path")
 	}
-	if filepath.Base(app.Config.Path()) != "config.toml" {
-		t.Fatalf("NewDefault(clients.Registry()) config path = %q, want the stable config.toml contract", app.Config.Path())
+	if filepath.Base(app.Config.Path()) != "aigw.toml" {
+		t.Fatalf("NewDefault(clients.Registry()) config path = %q, want aigw.toml", app.Config.Path())
 	}
 	if app.Secrets == nil || app.Providers == nil || app.Runner == nil || app.HTTP == nil || app.Prompt == nil || app.Discovery == nil || app.Updater == nil {
 		t.Fatalf("NewDefault(clients.Registry()) left a required dependency nil: %#v", app)

@@ -16,16 +16,9 @@ import (
 	"time"
 )
 
-func TestForwardingStorePreservesStrictPublishedConfiguration(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+func TestForwardingRoundTripsInTheConfiguration(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
-	if err := store.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	original, err := os.ReadFile(store.Path())
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
 		t.Fatal(err)
 	}
@@ -33,13 +26,14 @@ func TestForwardingStorePreservesStrictPublishedConfiguration(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	canonical, err := os.ReadFile(store.Path())
-	if err != nil || !bytes.Equal(original, canonical) {
-		t.Fatalf("forwarding rewrote predecessor-readable configuration: %v", err)
+	data, err := os.ReadFile(store.Path())
+	if err != nil || !strings.Contains(string(data), `forwarding = {endpoint = 'http://127.0.0.1:8792/backup/v1', upstream = '`+binding.ForwardingUpstreamIdentity+`', protocol = 'responses'}`) {
+		t.Fatalf("forwarding is not inline in its client:\n%s\n%v", data, err)
 	}
 	loaded, err := store.Load()
-	if err != nil || loaded.Clients[ClientCodex].ForwardingEndpoint != binding.ForwardingEndpoint {
-		t.Fatalf("forwarding did not survive Store round trip: %#v, %v", loaded.Clients, err)
+	if err != nil || loaded.Clients[ClientCodex].ForwardingEndpoint != binding.ForwardingEndpoint ||
+		loaded.Clients[ClientCodex].ForwardingUpstreamIdentity != binding.ForwardingUpstreamIdentity {
+		t.Fatalf("forwarding did not survive a round trip: %#v, %v", loaded.Clients, err)
 	}
 	before, err := store.CaptureSnapshot()
 	if err != nil {
@@ -47,7 +41,7 @@ func TestForwardingStorePreservesStrictPublishedConfiguration(t *testing.T) {
 	}
 	after, err := store.Commit(before, loaded)
 	if err != nil || !reflect.DeepEqual(before, after) {
-		t.Fatalf("unchanged forwarding commit rewrote its snapshot: %v", err)
+		t.Fatalf("an unchanged commit rewrote its snapshot: %v", err)
 	}
 }
 
@@ -81,26 +75,28 @@ func TestForwardingSnapshotRestoresPresenceAndPriorBinding(t *testing.T) {
 	}
 }
 
-func TestForwardingStoreRejectsMixedProviderGenerations(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+// TestForwardingRefusesAnUpstreamThatTheSelectionNoLongerReaches loads a file
+// whose forwarding records another upstream than the client's selection
+// reaches, which would send the client's traffic somewhere it was not set up
+// for, and refuses it at the validate stage.
+func TestForwardingRefusesAnUpstreamThatTheSelectionNoLongerReaches(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
 	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Models["other"] = testModel("Other", "dmx", "other-model", domain.ProtocolResponses)
-	cfg.SetSelectedModel(ClientCodex, "other", "")
-	canonical, err := encodeConfig(cfg)
+	data, err := encodeConfig(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(store.Path(), canonical, 0o600); err != nil {
+	moved := strings.Replace(string(data), cfg.Clients[ClientCodex].ForwardingUpstreamIdentity, "another-upstream", 1)
+	if err := os.WriteFile(store.Path(), []byte(moved), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Load(); err == nil {
-		t.Fatal("mixed canonical and forwarding generations were admitted")
+	_, err = store.Load()
+	var loadErr *LoadError
+	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseValidate || !strings.Contains(err.Error(), "forwards to the upstream it was selected with") {
+		t.Fatalf("a moved forwarding upstream = %v", err)
 	}
 }
 
@@ -125,7 +121,7 @@ func TestForwardingUnchangedCanonicalRejectsStalePreimage(t *testing.T) {
 		t.Fatal("forwarding committed despite a newer canonical preimage")
 	}
 	after, err := store.CaptureSnapshot()
-	if err != nil || !bytes.Equal(after.Config.Data, newer) || !after.Backup.Equal(before.Backup) || after.Forwarding().Exists {
+	if err != nil || !bytes.Equal(after.Config.Data, newer) || !after.Backup.Equal(before.Backup) {
 		t.Fatalf("rejected stale commit changed independent state: %v", err)
 	}
 }
@@ -206,7 +202,8 @@ enabled = true
 	}
 	_, err := NewStore(path, testAdmission()).Load()
 	var loadErr *LoadError
-	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseParse {
+	var undefined *undefinedFieldError
+	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseValidate || !errors.As(err, &undefined) || undefined.Field != "accounts.gateway" {
 		t.Fatalf("legacy selection load error = %v", err)
 	}
 }
@@ -262,9 +259,9 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	want := admitted(domain.Config{
 		Version:         domain.ConfigVersion,
 		Providers:       map[string]domain.Provider{"dmx": {Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
-		Models:          map[string]domain.Model{"dmx": testModel("DMXAPI", "dmx", "claude-test", domain.ProtocolAnthropic)},
-		Recommendations: map[string]domain.ClientRecommendation{ClientClaude: {Primary: domain.ClientSelection{Model: "dmx"}}},
-		Clients:         map[string]domain.ClientBinding{ClientClaude: {Model: "dmx"}},
+		Models:          map[domain.ModelRef]domain.Model{domain.NewModelRef("dmx", "claude-test"): testModel("DMXAPI", "dmx", "claude-test", domain.ProtocolAnthropic)},
+		Recommendations: map[string]domain.ClientRecommendation{ClientClaude: {Primary: domain.ClientSelection{Model: domain.NewModelRef("dmx", "claude-test")}}},
+		Clients:         map[string]domain.ClientBinding{ClientClaude: {Model: domain.NewModelRef("dmx", "claude-test")}},
 	})
 	if err := store.Save(want); err != nil {
 		t.Fatal(err)
@@ -280,7 +277,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Providers["dmx"].Endpoints.Anthropic != "https://example.test" || got.SelectedModel(ClientClaude) != "dmx" || got.RecommendedModel(ClientClaude) != "dmx" {
+	if got.Providers["dmx"].Endpoints.Anthropic != "https://example.test" || got.SelectedModel(ClientClaude) != domain.NewModelRef("dmx", "claude-test") || got.RecommendedModel(ClientClaude) != domain.NewModelRef("dmx", "claude-test") {
 		t.Fatalf("round trip = %#v", got)
 	}
 }
@@ -293,10 +290,10 @@ func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 		Providers: map[string]domain.Provider{
 			"dmx": {Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}},
 		},
-		Models: map[string]domain.Model{
-			"claude": testModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic),
+		Models: map[domain.ModelRef]domain.Model{
+			domain.NewModelRef("dmx", "claude-test"): testModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic),
 		},
-		Clients: map[string]domain.ClientBinding{ClientClaude: {Model: "claude"}},
+		Clients: map[string]domain.ClientBinding{ClientClaude: {Model: domain.NewModelRef("dmx", "claude-test")}},
 	})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -363,8 +360,8 @@ func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
 	cfg := admitted(domain.Config{
 		Version:   domain.ConfigVersion,
 		Providers: map[string]domain.Provider{"gateway": {Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}},
-		Models:    map[string]domain.Model{"gateway": testModel("Gateway", "gateway", "claude-test", domain.ProtocolAnthropic)},
-		Clients:   map[string]domain.ClientBinding{ClientClaude: {Model: "gateway"}},
+		Models:    map[domain.ModelRef]domain.Model{domain.NewModelRef("gateway", "claude-test"): testModel("Gateway", "gateway", "claude-test", domain.ProtocolAnthropic)},
+		Clients:   map[string]domain.ClientBinding{ClientClaude: {Model: domain.NewModelRef("gateway", "claude-test")}},
 	})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -402,7 +399,7 @@ func TestCommitInvalidatesAndRestoreSnapshotRecoversVerifiedCheckpoint(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(path + ".verified.json"); !os.IsNotExist(err) {
+	if _, err := os.Stat(strings.TrimSuffix(path, ".toml") + ".verified.json"); !os.IsNotExist(err) {
 		t.Fatalf("verified checkpoint remains after configuration change: %v", err)
 	}
 	if err := store.RestoreSnapshot(before, after); err != nil {
@@ -423,16 +420,16 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	first := admitted(domain.Config{
 		Version:   domain.ConfigVersion,
 		Providers: map[string]domain.Provider{"one": {Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}},
-		Models:    map[string]domain.Model{"one": testModel("One", "one", "claude-one", domain.ProtocolAnthropic)},
-		Clients:   map[string]domain.ClientBinding{ClientClaude: {Model: "one"}},
+		Models:    map[domain.ModelRef]domain.Model{domain.NewModelRef("one", "claude-one"): testModel("One", "one", "claude-one", domain.ProtocolAnthropic)},
+		Clients:   map[string]domain.ClientBinding{ClientClaude: {Model: domain.NewModelRef("one", "claude-one")}},
 	})
 	if err := store.Save(first); err != nil {
 		t.Fatal(err)
 	}
 	second := first
 	second.Providers = map[string]domain.Provider{"two": {Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.test"}}}
-	second.Models = map[string]domain.Model{"two": testModel("Two", "two", "claude-two", domain.ProtocolAnthropic)}
-	second.Clients = map[string]domain.ClientBinding{ClientClaude: {Model: "two"}}
+	second.Models = map[domain.ModelRef]domain.Model{domain.NewModelRef("two", "claude-two"): testModel("Two", "two", "claude-two", domain.ProtocolAnthropic)}
+	second.Clients = map[string]domain.ClientBinding{ClientClaude: {Model: domain.NewModelRef("two", "claude-two")}}
 	if err := store.Save(second); err != nil {
 		t.Fatal(err)
 	}
@@ -440,7 +437,7 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(backup), `[routes.one]`) || strings.Contains(strings.ToLower(string(backup)), "token") {
+	if !strings.Contains(string(backup), `id = 'one'`) || strings.Contains(strings.ToLower(string(backup)), "token") {
 		t.Fatalf("backup = %s", backup)
 	}
 }
@@ -469,8 +466,67 @@ func TestLoadRefusesAConfigurationThroughAFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := NewStore(filepath.Join(file, "configuration.toml"), testAdmission())
-	_, err := store.LoadCredentialConfig()
+	_, err := store.Load()
 	if err == nil || !errors.Is(err, platform.ErrFileAsFolder) || !strings.Contains(err.Error(), file) {
 		t.Fatalf("a configuration through a file = %v", err)
+	}
+}
+
+// A snapshot matches only the configuration that it holds: an absent file
+// the empty configuration, and a saved file the configuration that was saved.
+func TestSnapshotMatchesOnlyItsOwnConfiguration(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
+	absent, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if matches, err := absent.MatchesConfiguration(domain.NewConfig(store.Admission())); err != nil || !matches {
+		t.Fatalf("an absent file does not match the empty configuration: %v", err)
+	}
+	cfg := validConfig()
+	if matches, err := absent.MatchesConfiguration(cfg); err != nil || matches {
+		t.Fatalf("an absent file matches a configuration: %v", err)
+	}
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if matches, err := saved.MatchesConfiguration(cfg); err != nil || !matches {
+		t.Fatalf("a saved file does not match its configuration: %v", err)
+	}
+	changed := cfg.Clone()
+	provider := changed.Providers["dmx"]
+	provider.Label = "Changed"
+	changed.Providers["dmx"] = provider
+	if matches, err := saved.MatchesConfiguration(changed); err != nil || matches {
+		t.Fatalf("a saved file matches a changed configuration: %v", err)
+	}
+	saved.Config.Data = []byte("version = 8\n[[providers]\n")
+	if _, err := saved.MatchesConfiguration(cfg); err == nil {
+		t.Fatal("a file that does not parse matched")
+	}
+}
+
+// A program rollback gives the retained program the current file, and
+// nothing without one.
+func TestRollbackConfigurationIsTheCurrentFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "aigw.toml")
+	store := NewStore(path, testAdmission())
+	if data, err := store.RollbackConfiguration(); err != nil || data != nil {
+		t.Fatalf("without a configuration = %q, %v", data, err)
+	}
+	if err := store.Save(validConfig()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := store.RollbackConfiguration()
+	if current, readErr := os.ReadFile(path); err != nil || readErr != nil || !bytes.Equal(data, current) {
+		t.Fatalf("the rollback configuration = %q, %v, %v", data, err, readErr)
+	}
+	blocked := NewStore(filepath.Join(path, "aigw.toml"), testAdmission())
+	if _, err := blocked.RollbackConfiguration(); err == nil {
+		t.Fatal("a configuration through a file was read")
 	}
 }

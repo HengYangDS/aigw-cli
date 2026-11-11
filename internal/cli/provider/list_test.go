@@ -21,7 +21,7 @@ func TestListShowsEveryProviderInConfigurationOrderWithoutReadingATokenOrSending
 	}
 	team := document.Providers[1]
 	if team.BalanceProbe != "dmxapi" || len(team.Endpoints) != 2 || team.Endpoints[0].Protocol != "anthropic" || team.Endpoints[1].Protocol != "responses" ||
-		strings.Join(team.Models, ",") != "team/team-model,team/codex-model" {
+		strings.Join(team.Models, ",") != "team/codex-model,team/team-model" {
 		t.Fatalf("team = %+v", team)
 	}
 	if err := f.run("", "list"); err != nil {
@@ -181,7 +181,7 @@ func TestShowNamesTheCredentialBackend(t *testing.T) {
 // installed AIGW and the configuration's location.
 func TestProviderCommandsRefuseAConfigurationFromANewerSchema(t *testing.T) {
 	f := newFixture(t)
-	data := strings.Replace(f.configuration(t), "version = 6", "version = 99", 1)
+	data := strings.Replace(f.configuration(t), "version = 8", "version = 99", 1)
 	if err := os.WriteFile(f.path, []byte(data), 0o600); err != nil {
 		t.Fatal(err)
 	}

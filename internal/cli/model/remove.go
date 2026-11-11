@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/domain"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -12,7 +11,6 @@ import (
 
 func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 	var dryRun, jsonMode bool
-	var protocol domain.EndpointProtocol
 	cmd := &cobra.Command{
 		Use:   "remove <provider/model>",
 		Short: "Remove a model that no client uses; its provider and Token stay",
@@ -21,22 +19,22 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 		Args:              modelArgument,
 		ValidArgsFunction: invocation.CompleteModels(runtime),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, key, model, err := loadModel(runtime, args[0], protocolSelector(cmd, protocol))
+			cfg, model, err := loadModel(runtime, args[0], "")
 			if err != nil {
 				return err
 			}
 			ref := model.Ref()
 			// A client that selects the model keeps it, enabled or not. The
 			// last model may go: a configuration without models is valid.
-			if clients := cfg.SelectedClientsForModel(key); len(clients) > 0 {
+			if clients := cfg.SelectedClientsForModel(ref); len(clients) > 0 {
 				return terminal.ProblemError(
 					fmt.Sprintf("%s %s %s, so it cannot be removed", clientLabels(runtime.Clients.Admission(), clients), uses(len(clients)), ref), "", "",
 					fmt.Sprintf("aigw use %s <provider/model>", clients[0]), nil)
 			}
 			before := cfg.Clone()
-			item := describe(cfg, key)
-			delete(cfg.Models, key)
-			recommendations := cfg.RemoveRecommendedModel(key)
+			item := describe(cfg, ref)
+			delete(cfg.Models, ref)
+			recommendations := cfg.RemoveRecommendedModel(ref)
 			rows := []terminal.Field{{Label: "Model", Value: item.ID}, {Label: "Label", Value: item.Label}}
 			if len(recommendations) > 0 {
 				rows = append(rows, terminal.Field{Label: "Recommendations", Value: "Dropped for " + clientLabels(runtime.Clients.Admission(), recommendations)})
@@ -47,7 +45,6 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			}.apply(cmd, runtime, args, dryRun, jsonMode)
 		},
 	}
-	invocation.BindProtocol(cmd, &protocol, "The model that declares this protocol, when one name names several")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the removal without writing anything")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the removed model as JSON")
 	return cmd

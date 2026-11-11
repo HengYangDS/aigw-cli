@@ -144,7 +144,7 @@ func (j *journeyFixture) requireRepairPreservesUserSettings(previousTheme, theme
 	if got := readFile(j.testing, j.settings); !bytes.Equal(got, userSettings) {
 		j.testing.Fatalf("%s changed the externally edited settings: got=%s want=%s", repair[0], got, userSettings)
 	}
-	paths := []string{j.config, j.config + ".bak", j.config + ".verified.json", j.settings, j.settings + ".aigw-state.json"}
+	paths := []string{j.config, j.config + ".bak", verifiedSnapshot(j.config), j.settings, j.settings + ".aigw-state.json"}
 	codexConfig := filepath.Join(j.root, "home", ".codex", "config.toml")
 	paths = append(paths, codexConfig, codexConfig+".aigw-state.json", codexConfig+".aigw-model-catalog.json")
 	before := make(map[string]platform.FileSnapshot, len(paths))

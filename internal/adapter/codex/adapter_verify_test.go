@@ -36,8 +36,8 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedModel(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Models["alternate"] = qualifiedModel("", "gateway", "gpt-alternate", domain.ProtocolResponses)
-	runtime, err := cfg.ResolveRuntime(ID, "alternate")
+	cfg.Models[domain.NewModelRef("gateway", "gpt-alternate")] = qualifiedModel("", "gateway", "gpt-alternate", domain.ProtocolResponses)
+	runtime, err := cfg.ResolveRuntime(ID, domain.NewModelRef("gateway", "gpt-alternate"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,8 +108,8 @@ func TestCodexVerificationRepairsCosmeticRootSelectionDriftInIsolation(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Models["alternate"] = qualifiedModel("", "gateway", "gpt-alternate", domain.ProtocolResponses)
-	runtime, err := cfg.ResolveRuntime(ID, "alternate")
+	cfg.Models[domain.NewModelRef("gateway", "gpt-alternate")] = qualifiedModel("", "gateway", "gpt-alternate", domain.ProtocolResponses)
+	runtime, err := cfg.ResolveRuntime(ID, domain.NewModelRef("gateway", "gpt-alternate"))
 	if err != nil {
 		t.Fatal(err)
 	}

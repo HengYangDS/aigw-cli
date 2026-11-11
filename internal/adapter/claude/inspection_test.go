@@ -33,7 +33,7 @@ func TestInspectSettingsPreservesSidecarProvenNativeModelPreference(t *testing.T
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			selected := domain.Runtime{ModelID: "fable", ProviderID: "ucloud", Endpoint: "https://ucloud.test", UpstreamModel: "claude-fable-5-1"}
+			selected := domain.Runtime{Model: domain.NewModelRef("ucloud", "claude-fable-5-1"), ProviderID: "ucloud", Endpoint: "https://ucloud.test", UpstreamModel: "claude-fable-5-1"}
 			if _, err := ReconcileSettings(path, false, selected, testExecutable(), selected.UpstreamModel); err != nil {
 				t.Fatal(err)
 			}
@@ -97,7 +97,7 @@ func TestInspectSettingsRejectsConnectionEditsAlongsideModelPreference(t *testin
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			selected := domain.Runtime{ModelID: "fable", ProviderID: "ucloud", Endpoint: "https://ucloud.test", UpstreamModel: "claude-fable-5-1"}
+			selected := domain.Runtime{Model: domain.NewModelRef("ucloud", "claude-fable-5-1"), ProviderID: "ucloud", Endpoint: "https://ucloud.test", UpstreamModel: "claude-fable-5-1"}
 			if _, err := ReconcileSettings(path, false, selected, testExecutable(), selected.UpstreamModel); err != nil {
 				t.Fatal(err)
 			}

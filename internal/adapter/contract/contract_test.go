@@ -91,8 +91,8 @@ func (fixtureAdapter) Converge(adapter.Dependencies, *domain.Config, discovery.R
 	return nil
 }
 
-func (fixtureAdapter) AdoptSelection(adapter.Dependencies, *domain.Config) (string, error) {
-	return "", nil
+func (fixtureAdapter) AdoptSelection(adapter.Dependencies, *domain.Config) (domain.ModelRef, error) {
+	return domain.ModelRef{}, nil
 }
 
 func (fixtureAdapter) ProjectionChanged(before, after domain.Config) bool {

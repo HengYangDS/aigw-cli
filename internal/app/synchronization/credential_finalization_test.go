@@ -70,13 +70,12 @@ func TestExplicitTokenVerificationRefusesUnresolvedReaderFromNativeBinding(t *te
 	binding.ModelProvider = "amazon-bedrock"
 	cfg.Clients[codex.ID] = binding
 	cfg.Providers["explicit"] = cfg.Providers["gateway"]
-	cfg.Models["explicit"] = cfg.Models["gpt"]
-	route := cfg.Models["explicit"]
+	route := cfg.Models[domain.NewModelRef("gateway", "gpt-test")]
 	route.Provider = "explicit"
-	cfg.Models["explicit"] = route
-	runtime, err := cfg.ResolveRuntime(codex.ID, "explicit")
+	cfg.Models[route.Ref()] = route
+	runtime, err := cfg.ResolveRuntime(codex.ID, route.Ref())
 	if err != nil || !runtime.UsesAIGWCredentialStore() {
-		t.Fatalf("explicit account-token runtime = %+v, %v", runtime, err)
+		t.Fatalf("explicit provider-token runtime = %+v, %v", runtime, err)
 	}
 	problem := errors.New("identity source unavailable")
 	syncer := Synchronizer{Registry: builtinClients, ResolveCredentialPath: func() (string, error) { return "", problem }}
@@ -102,7 +101,7 @@ func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
 				}
 				return "", problem
 			}}
-			runtime, err := cfg.ResolveRuntime(codex.ID, "")
+			runtime, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -416,7 +415,7 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 func TestPrepareCredentialEntrypointRejectsInvalidBindingBeforeReading(t *testing.T) {
 	root := t.TempDir()
 	cfg := testConfig(filepath.Join(root, "codex.toml"))
-	delete(cfg.Models, "gpt")
+	delete(cfg.Models, domain.NewModelRef("gateway", "gpt-test"))
 	syncer := Synchronizer{Registry: builtinClients,
 		ResolveCredentialPath: readerAt(filepath.Join(root, "data", "credential", "aigw")),
 		ResolveProgram: func() (secret.Program, error) {

@@ -94,12 +94,12 @@ func TestExportWritesASecretFreeRoundTripManifest(t *testing.T) {
 	if bytes.Contains(data, []byte("must-not-appear")) {
 		t.Fatal("export leaked a system secret")
 	}
-	parsed, err := store.Parse(data, clients.Admission())
+	parsed, err := store.ParseTeamFile(data, clients.Admission())
 	if err != nil {
 		t.Fatalf("parse exported manifest: %v\n%s", err, data)
 	}
-	// The local Codex binding stays local; the manifest carries Accounts and Routes.
-	if len(parsed.Recommendations) != 0 || parsed.Models["local"].Provider != "local" {
+	// The local Codex selection stays local; the team file carries providers and models.
+	if len(parsed.Recommendations) != 0 || len(parsed.Models) != 1 || len(parsed.Clients) != 0 {
 		t.Fatalf("exported manifest = %#v", parsed)
 	}
 }
@@ -134,7 +134,7 @@ func TestExportWritesAManifestForAConfigurationWithoutModels(t *testing.T) {
 	if err := executeManifestCommand(command); err != nil {
 		t.Fatal(err)
 	}
-	if manifest, err := store.Parse(out.Bytes(), clients.Admission()); err != nil || len(manifest.Models) != 0 {
+	if manifest, err := store.ParseTeamFile(out.Bytes(), clients.Admission()); err != nil || len(manifest.Models) != 0 {
 		t.Fatalf("exported manifest %q = %+v, %v", out, manifest, err)
 	}
 }
@@ -158,11 +158,11 @@ func savedRuntime(t *testing.T, cfg domain.Config) (invocation.Context, string, 
 func localConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["local"] = domain.Provider{Label: "Local", Endpoints: domain.Endpoints{Responses: "https://local.example/v1"}}
-	cfg.Models["local"] = domain.Model{
-		Label: "Local", Provider: "local", Family: "gpt-local",
+	cfg.Models[domain.NewModelRef("local", "gpt-local")] = domain.Model{
+		Label: "Local", Provider: "local", Family: "gpt-local", ID: "gpt-local",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
-	cfg.SetSelectedModel(codex.ID, "local", "")
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("local", "gpt-local"), "")
 	return cfg
 }
 

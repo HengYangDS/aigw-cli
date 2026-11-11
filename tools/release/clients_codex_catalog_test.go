@@ -36,7 +36,7 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	}
 	const token = "native-relative-catalog-token"
 	var completions atomic.Int64
-	server, _ := newNativeClientServer(t, codex.ID, protocol, route.UpstreamModel, token, &completions)
+	server, _ := newNativeClientServer(t, codex.ID, protocol, route.ID, token, &completions)
 	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
 	if err := journey.prepareNativeClient(codex.ID, executable, p.team); err != nil {
 		t.Fatal(err)
@@ -49,9 +49,9 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalog, _ := document.Project(route.UpstreamModel, route.Family)
+	catalog, _ := document.Project(route.ID, route.Family)
 	if catalog == nil {
-		t.Fatalf("the installed Codex catalog has no entry for %s", route.UpstreamModel)
+		t.Fatalf("the installed Codex catalog has no entry for %s", route.ID)
 	}
 	configPath := filepath.Join(journey.root, "home", ".codex", "config.toml")
 	catalogPath := filepath.Join(filepath.Dir(configPath), "user-catalog.json")

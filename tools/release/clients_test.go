@@ -23,8 +23,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-
-	"github.com/pelletier/go-toml/v2"
 )
 
 func TestNativeClientInputs(t *testing.T) {
@@ -61,7 +59,7 @@ func TestNativeClientInputs(t *testing.T) {
 			endpoint: "http://127.0.0.1:1/v1",
 		}
 		team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
-		manifest, err := store.Parse(team, clients.Admission())
+		manifest, err := store.ParseTeamFile(team, clients.Admission())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -83,7 +81,7 @@ func TestNativeClientInputs(t *testing.T) {
 			t.Fatal("native client temporary directory is unavailable")
 		}
 		journey.requireNativePreferences(codex.ID)
-		prepared, err := store.Parse(readFile(t, journey.manifest), clients.Admission())
+		prepared, err := store.ParseTeamFile(readFile(t, journey.manifest), clients.Admission())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -105,7 +103,7 @@ func TestNativeClientJourney(t *testing.T) {
 		t.Fatal(err)
 	}
 	team := readFile(t, filepath.Join(root, "manifests", "team.toml"))
-	manifest, err := store.Parse(team, clients.Admission())
+	manifest, err := store.ParseTeamFile(team, clients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +131,7 @@ func TestNativeClientJourney(t *testing.T) {
 type nativeClientJourneyPlan struct {
 	version                                 string
 	team                                    []byte
-	manifest                                domain.Manifest
+	manifest                                domain.Config
 	baseline, candidate, archive, checksums string
 }
 
@@ -152,7 +150,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		spec, _ := clients.Admission().Spec(client)
 		protocol = spec.EndpointProtocols[0]
 	}
-	server, hermesSession := newNativeClientServer(t, client, protocol, route.UpstreamModel, token, &completions)
+	server, hermesSession := newNativeClientServer(t, client, protocol, route.ID, token, &completions)
 	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
 	if client == hermes.ID && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
 		journey.run(journey.lifecycle(journey.binary, "update", "--archive", p.archive, "--checksums", p.checksums)...)
@@ -399,14 +397,13 @@ terminal:
 			return err
 		}
 	}
-	manifest, err := store.Parse(team, clients.Admission())
+	manifest, err := store.ParseTeamFile(team, clients.Admission())
 	if err != nil {
 		return err
 	}
 	manifest.Recommendations = map[string]domain.ClientRecommendation{client: manifest.Recommendations[client]}
-	// The retained reader predates presentation order; this journey owns connections.
+	// This journey owns the connections.
 	for name, account := range manifest.Providers {
-		account.Order = 0
 		account.Endpoints.Responses = j.endpoint
 		account.Endpoints.Anthropic = strings.TrimSuffix(j.endpoint, "/v1")
 		if account.BalanceProbe != nil {
@@ -414,11 +411,7 @@ terminal:
 		}
 		manifest.Providers[name] = account
 	}
-	for id, model := range manifest.Families {
-		model.Order = 0
-		manifest.Families[id] = model
-	}
-	data, err := toml.Marshal(manifest)
+	data, err := store.ExportTeamFile(manifest)
 	if err != nil {
 		return err
 	}

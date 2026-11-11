@@ -35,7 +35,7 @@ func TestLoadBackupSurfacesMissingFile(t *testing.T) {
 func convergenceConfig(id string) domain.Config {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers[id] = domain.Provider{Label: strings.ToUpper(id), Endpoints: domain.Endpoints{Responses: "https://" + id + ".test/v1"}}
-	cfg.Models[id] = testModel(strings.ToUpper(id), id, id+"-model", domain.ProtocolResponses)
-	cfg.SetSelectedModel(ClientCodex, id, "")
+	cfg.Models[domain.NewModelRef(id, id+"-model")] = testModel(strings.ToUpper(id), id, id+"-model", domain.ProtocolResponses)
+	cfg.SetSelectedModel(ClientCodex, domain.NewModelRef(id, id+"-model"), "")
 	return cfg
 }

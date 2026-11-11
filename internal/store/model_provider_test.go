@@ -11,16 +11,16 @@ import (
 
 func TestModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	cfg := modelProviderConfig()
-	cfg.Models["native"] = domain.Model{
+	cfg.Models[domain.NewModelRef("gateway", "openai.gpt-5.6-sol")] = domain.Model{
 		Label:    "Native",
 		Provider: "gateway",
-		Family:   "openai.gpt-5.6-sol",
+		Family:   "openai.gpt-5.6-sol", ID: "openai.gpt-5.6-sol",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolResponses: {},
 		},
 	}
 	cfg.Clients[ClientCodex] = domain.ClientBinding{
-		Model:          "native",
+		Model:          domain.NewModelRef("gateway", "openai.gpt-5.6-sol"),
 		ModelProvider:  "amazon-bedrock",
 		Authentication: domain.AuthenticationClientNative,
 	}
@@ -28,7 +28,7 @@ func TestModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := cfg.ResolveRuntime(ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(ClientCodex, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 		t.Fatalf("authentication = %q, requires Token = %t", runtime.Authentication, runtime.RequiresProviderToken())
 	}
 
-	runtime, err = cfg.ResolveRuntime(ClientCodex, "default")
+	runtime, err = cfg.ResolveRuntime(ClientCodex, domain.NewModelRef("gateway", "gpt-5.6-sol"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,10 +51,10 @@ func TestModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	}
 
 	claude := modelProviderConfig()
-	route := claude.Models["default"]
+	route := claude.Models[domain.NewModelRef("gateway", "gpt-5.6-sol")]
 	route.Family = "claude-fable-5"
-	claude.Models["default"] = route
-	runtime, err = claude.ResolveRuntime(ClientClaude, "default")
+	claude.Models[domain.NewModelRef("gateway", "gpt-5.6-sol")] = route
+	runtime, err = claude.ResolveRuntime(ClientClaude, domain.NewModelRef("gateway", "gpt-5.6-sol"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,12 +93,12 @@ func TestClientModelProviderPersistsAndParticipatesInManifestSelection(t *testin
 		t.Fatalf("loaded authentication = %q", got)
 	}
 
-	incoming := domain.Manifest{
-		Version:   domain.ManifestVersion,
+	incoming := domain.Config{
+		Version:   domain.ConfigVersion,
 		Providers: map[string]domain.Provider{"gateway": cfg.Providers["gateway"]},
-		Models:    map[string]domain.Model{"default": cfg.Models["default"]},
+		Models:    map[domain.ModelRef]domain.Model{domain.NewModelRef("gateway", "gpt-5.6-sol"): cfg.Models[domain.NewModelRef("gateway", "gpt-5.6-sol")]},
 		Recommendations: map[string]domain.ClientRecommendation{
-			ClientCodex: {Primary: domain.ClientSelection{Model: "default", ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative}},
+			ClientCodex: {Primary: domain.ClientSelection{Model: domain.NewModelRef("gateway", "gpt-5.6-sol"), ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative}},
 		},
 	}
 	merged, _, err := domain.MergeTeamFile(modelProviderConfig(), incoming, false)
@@ -126,7 +126,7 @@ func TestClientBindingModelProviderRejectsUnsafeOrNonCodexValues(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			cfg := modelProviderConfig()
 			cfg.Clients = map[string]domain.ClientBinding{
-				testCase.client: {Model: "default", ModelProvider: testCase.provider},
+				testCase.client: {Model: domain.NewModelRef("gateway", "gpt-5.6-sol"), ModelProvider: testCase.provider},
 			}
 			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), testCase.want) {
 				t.Fatalf("validation error = %v, want %q", err, testCase.want)
@@ -147,7 +147,7 @@ func TestClientBindingAuthenticationRejectsInvalidValuesAndClientNativeWithoutPr
 		t.Run(name, func(t *testing.T) {
 			cfg := modelProviderConfig()
 			cfg.Clients[ClientCodex] = domain.ClientBinding{
-				Model: "default", ModelProvider: testCase.provider, Authentication: testCase.authentication,
+				Model: domain.NewModelRef("gateway", "gpt-5.6-sol"), ModelProvider: testCase.provider, Authentication: testCase.authentication,
 			}
 			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), testCase.want) {
 				t.Fatalf("validation error = %v, want %q", err, testCase.want)
@@ -157,7 +157,7 @@ func TestClientBindingAuthenticationRejectsInvalidValuesAndClientNativeWithoutPr
 
 	claude := modelProviderConfig()
 	claude.Clients = map[string]domain.ClientBinding{
-		ClientClaude: {Model: "default", Authentication: domain.AuthenticationClientNative},
+		ClientClaude: {Model: domain.NewModelRef("gateway", "gpt-5.6-sol"), Authentication: domain.AuthenticationClientNative},
 	}
 	if err := claude.Validate(); err == nil || !strings.Contains(err.Error(), "only supported for codex") {
 		t.Fatalf("Claude client-native validation error = %v", err)
@@ -174,10 +174,10 @@ func TestSelectModelsForConnectedProvidersHonorsRecommendationAuthentication(t *
 		Label:     "Token",
 		Endpoints: domain.Endpoints{Responses: "https://token.test/v1"},
 	}
-	cfg.Models["native"] = testModel("Native", "native", "native-model", domain.ProtocolResponses)
-	cfg.Models["token"] = testModel("Token", "token", "token-model", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("native", "native-model")] = testModel("Native", "native", "native-model", domain.ProtocolResponses)
+	cfg.Models[domain.NewModelRef("token", "token-model")] = testModel("Token", "token", "token-model", domain.ProtocolResponses)
 	cfg.Recommendations[ClientCodex] = domain.ClientRecommendation{Primary: domain.ClientSelection{
-		Model:          "native",
+		Model:          domain.NewModelRef("native", "native-model"),
 		ModelProvider:  "native-provider",
 		Authentication: domain.AuthenticationClientNative,
 	}}
@@ -186,13 +186,13 @@ func TestSelectModelsForConnectedProvidersHonorsRecommendationAuthentication(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := withoutTokens.SelectedModel(ClientCodex); got != "native" {
+	if got := withoutTokens.SelectedModel(ClientCodex); got != domain.NewModelRef("native", "native-model") {
 		t.Fatalf("selection without Tokens = %q, want client-native route", got)
 	}
 
 	token := cfg.Clone()
 	token.Recommendations[ClientCodex] = domain.ClientRecommendation{Primary: domain.ClientSelection{
-		Model:          "token",
+		Model:          domain.NewModelRef("token", "token-model"),
 		ModelProvider:  "token-provider",
 		Authentication: domain.AuthenticationProviderToken,
 	}}
@@ -200,8 +200,8 @@ func TestSelectModelsForConnectedProvidersHonorsRecommendationAuthentication(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := withToken.SelectedModel(ClientCodex); got != "token" {
-		t.Fatalf("selection with connected Token = %q, want account-token route", got)
+	if got := withToken.SelectedModel(ClientCodex); got != domain.NewModelRef("token", "token-model") {
+		t.Fatalf("selection with connected Token = %q, want the provider-token model", got)
 	}
 }
 
@@ -213,18 +213,11 @@ func TestValidateKeepsUnselectedBindingsWithinTheDeclarationContract(t *testing.
 	}{
 		{"unselected client", func(c *domain.Config) { c.Clients[ClientCodex] = domain.ClientBinding{} }, ""},
 		{"relative reader without route", func(c *domain.Config) { c.Clients[ClientCodex] = domain.ClientBinding{CredentialCommand: "reader"} }, "one absolute executable path"},
-		{"empty recommendation", func(c *domain.Config) { c.Recommendations[ClientCodex] = domain.ClientRecommendation{} }, "has no primary route"},
-		{"invalid canonical model", func(c *domain.Config) { c.Families["bad model"] = domain.Family{Label: "Invalid"} }, "invalid model name"},
-		{"unknown canonical model", func(c *domain.Config) {
-			route := c.Models["default"]
-			route.Family = "unknown"
-			c.Models["default"] = route
-		}, "references unknown model"},
-		{"blank wire model", func(c *domain.Config) {
-			route := c.Models["default"]
-			route.UpstreamModel = " "
-			c.Models["default"] = route
-		}, "empty upstream model"},
+		{"empty recommendation", func(c *domain.Config) { c.Recommendations[ClientCodex] = domain.ClientRecommendation{} }, "has no primary model"},
+		{"invalid family", func(c *domain.Config) { c.Families["bad model"] = domain.Family{Label: "Invalid"} }, "invalid model name"},
+		{"blank model ID", func(c *domain.Config) {
+			c.Models[domain.NewModelRef("gateway", " ")] = domain.Model{Provider: "gateway", ID: " "}
+		}, "empty ID"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := modelProviderConfig()
@@ -251,15 +244,15 @@ func modelProviderConfig() domain.Config {
 			Anthropic: "https://gateway.test/anthropic",
 		},
 	}
-	cfg.Models["default"] = domain.Model{
+	cfg.Models[domain.NewModelRef("gateway", "gpt-5.6-sol")] = domain.Model{
 		Label:    "Default",
 		Provider: "gateway",
-		Family:   "gpt-5.6-sol",
+		Family:   "gpt-5.6-sol", ID: "gpt-5.6-sol",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolResponses: {},
 			domain.ProtocolAnthropic: {},
 		},
 	}
-	cfg.SetSelectedModel(ClientCodex, "default", "")
+	cfg.SetSelectedModel(ClientCodex, domain.NewModelRef("gateway", "gpt-5.6-sol"), "")
 	return cfg
 }

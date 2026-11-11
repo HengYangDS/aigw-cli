@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"aigw-cli/internal/domain"
 	"errors"
 	"os"
 	"path/filepath"
@@ -28,7 +29,7 @@ func TestCodexAdapterKeepsTheSeamContract(t *testing.T) {
 		after.Clients[ID] = binding
 		before := after.Clone()
 		delete(before.Clients, ID)
-		runtime, err := after.ResolveRuntime(ID, "")
+		runtime, err := after.ResolveRuntime(ID, domain.ModelRef{})
 		if err != nil {
 			t.Fatal(err)
 		}

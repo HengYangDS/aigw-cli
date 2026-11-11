@@ -43,15 +43,11 @@ type KeptProbe struct {
 }
 
 // KeptModel is a model that keeps its local definition because a client
-// selects it and the file's definition would change that selection: by
-// naming another provider's model or another model ID, or by omitting the
-// selection's protocol.
+// selects it on a protocol that the file's definition omits.
 type KeptModel struct {
 	Model    ModelRef
 	Client   string
 	Protocol EndpointProtocol
-	// File is the model that the file's definition names.
-	File ModelRef
 }
 
 // DroppedCapabilities are the capabilities that a team file declared for a
@@ -70,25 +66,27 @@ type UnusableProtocol struct {
 	Protocol EndpointProtocol
 }
 
-// MergeTeamFile applies a team file to cfg. The file's models, families and
-// recommendations replace the local ones of the same name; local-only ones
-// stay, unless prune removes the models that no client selects and no
-// recommendation names, and then the families that no model uses. A new
-// provider is added; an existing one takes the file's label, and a balance
-// probe when it has none, but keeps its endpoints, its probe and its Token. No
-// client's selection changes. The merge returns a valid configuration or an
-// error, and never changes cfg.
-func MergeTeamFile(cfg Config, incoming Manifest, prune bool) (Config, TeamMerge, error) {
-	if incoming.Version != ManifestVersion {
-		return Config{}, TeamMerge{}, &UnsupportedManifestVersionError{Version: incoming.Version}
+// MergeTeamFile applies a team file, which is a configuration without
+// clients, to cfg. The file's models, families and recommendations replace
+// the local ones of the same name; local-only ones stay, unless prune removes
+// the models that no client selects and no recommendation names, and then the
+// families that no model uses. A new provider is added; an existing one takes
+// the file's label, and a balance probe when it has none, but keeps its
+// endpoints, its probe and its Token. No client's selection changes. The
+// file's order comes first in display order, then the local-only entries in
+// theirs. The merge returns a valid configuration or an error, and never
+// changes cfg.
+func MergeTeamFile(cfg Config, incoming Config, prune bool) (Config, TeamMerge, error) {
+	if incoming.Version != ConfigVersion {
+		return Config{}, TeamMerge{}, &UnsupportedTeamFileVersionError{Version: incoming.Version}
 	}
 	before := cfg.Clone()
 	merged := cfg.Clone()
 	var report TeamMerge
 	mergeProviders(&merged, incoming, &report)
 	maps.Copy(merged.Families, incoming.Families)
-	for _, key := range slices.Sorted(maps.Keys(incoming.Models)) {
-		if err := mergeModel(&merged, &before, incoming, key, &report); err != nil {
+	for _, ref := range incoming.ModelRefs() {
+		if err := mergeModel(&merged, &before, incoming, ref, &report); err != nil {
 			return Config{}, TeamMerge{}, err
 		}
 	}
@@ -96,10 +94,15 @@ func MergeTeamFile(cfg Config, incoming Manifest, prune bool) (Config, TeamMerge
 		recommendation := incoming.Recommendations[client]
 		for _, choice := range recommendation.Selections() {
 			if _, defined := merged.Models[choice.Model]; !defined {
-				return Config{}, TeamMerge{}, fmt.Errorf("the team file's %s recommendation names %q, which neither the team file nor the configuration defines", client, choice.Model)
+				return Config{}, TeamMerge{}, fmt.Errorf("the team file's %s recommendation names %s, which neither the team file nor the configuration defines", client, choice.Model)
 			}
 		}
 		merged.Recommendations[client] = recommendation
+	}
+	merged.order = displayOrder{
+		providers: fileFirst(incoming.ProviderIDs(), before.ProviderIDs()),
+		families:  fileFirst(incoming.FamilyIDs(), before.FamilyIDs()),
+		models:    fileFirst(incoming.ModelRefs(), before.ModelRefs()),
 	}
 	if prune {
 		pruneLocalOnly(&merged, incoming)
@@ -112,11 +115,16 @@ func MergeTeamFile(cfg Config, incoming Manifest, prune bool) (Config, TeamMerge
 	return merged, report, nil
 }
 
+// fileFirst is the display order of a merge: the file's entries in its
+// order, then the local-only ones in theirs.
+func fileFirst[K comparable](file, local []K) []K {
+	return append(slices.Clone(file), slices.DeleteFunc(slices.Clone(local), func(key K) bool { return slices.Contains(file, key) })...)
+}
+
 // mergeProviders adds the file's new providers and gives each existing one
-// the file's label and display order and, when it has none, the file's
-// balance probe.
-func mergeProviders(merged *Config, incoming Manifest, report *TeamMerge) {
-	for _, id := range slices.Sorted(maps.Keys(incoming.Providers)) {
+// the file's label and, when it has none, the file's balance probe.
+func mergeProviders(merged *Config, incoming Config, report *TeamMerge) {
+	for _, id := range incoming.ProviderIDs() {
 		file := incoming.Providers[id]
 		local, exists := merged.Providers[id]
 		if !exists {
@@ -135,35 +143,28 @@ func mergeProviders(merged *Config, incoming Manifest, report *TeamMerge) {
 		case file.BalanceProbe != nil && !equivalentProbe(local.BalanceProbe, file.BalanceProbe):
 			report.KeptProbes = append(report.KeptProbes, KeptProbe{Provider: id, Local: *local.BalanceProbe, File: *file.BalanceProbe})
 		}
-		local.Label, local.Order = file.Label, file.Order
+		local.Label = file.Label
 		merged.Providers[id] = local
 	}
 }
 
-// knownProtocols are the protocols in the order in which reports name them.
-var knownProtocols = []EndpointProtocol{ProtocolAnthropic, ProtocolResponses, ProtocolChat}
-
-// mergeModel takes the file's definition of the model stored under key,
-// unless it would change a client's selection of it. A protocol whose
+// mergeModel takes the file's definition of the model that ref names, unless
+// it would take the protocol of a client's selection of it. A protocol whose
 // endpoint the provider kept local keeps the model's local capabilities,
 // because the file's were qualified on the file's endpoint, and a protocol
 // for which the kept provider has no endpoint is reported as unusable. A
 // provider that the file adds has only the file's endpoints, so a protocol
 // that it has none for is the file's error, which is refused.
-func mergeModel(merged, before *Config, incoming Manifest, key string, report *TeamMerge) error {
-	model := incoming.Models[key]
-	local, exists := before.Models[key]
-	for _, client := range before.SelectedClientsForModel(key) {
-		selected, err := before.ResolveRuntime(client, "")
+func mergeModel(merged, before *Config, incoming Config, ref ModelRef, report *TeamMerge) error {
+	model := incoming.Models[ref]
+	local, exists := before.Models[ref]
+	for _, client := range before.SelectedClientsForModel(ref) {
+		selected, err := before.ResolveRuntime(client, ModelRef{})
 		if err != nil {
 			continue
 		}
-		if _, keeps := model.Protocols[selected.Protocol]; !keeps || model.Ref() != local.Ref() {
-			kept := KeptModel{Model: local.Ref(), Client: client, File: model.Ref()}
-			if !keeps {
-				kept.Protocol = selected.Protocol
-			}
-			report.KeptModels = append(report.KeptModels, kept)
+		if _, keeps := model.Protocols[selected.Protocol]; !keeps {
+			report.KeptModels = append(report.KeptModels, KeptModel{Model: ref, Client: client, Protocol: selected.Protocol})
 			return nil
 		}
 	}
@@ -178,9 +179,9 @@ func mergeModel(merged, before *Config, incoming Manifest, key string, report *T
 		kept := provider.Endpoints.For(protocol)
 		switch {
 		case kept == "" && !existing:
-			return fmt.Errorf("the team file declares %s on %s, and provider %s, which the file adds, has no %s endpoint", model.Ref(), ProtocolLabel(protocol), model.Provider, ProtocolLabel(protocol))
+			return fmt.Errorf("the team file declares %s on %s, and provider %s, which the file adds, has no %s endpoint", ref, ProtocolLabel(protocol), model.Provider, ProtocolLabel(protocol))
 		case kept == "":
-			report.Unusable = append(report.Unusable, UnusableProtocol{Model: model.Ref(), Protocol: protocol})
+			report.Unusable = append(report.Unusable, UnusableProtocol{Model: ref, Protocol: protocol})
 		}
 		if normalizeEndpoint(filed.Endpoints.For(protocol)) != normalizeEndpoint(kept) {
 			var localCapabilities []Capability
@@ -190,38 +191,38 @@ func mergeModel(merged, before *Config, incoming Manifest, key string, report *T
 			if dropped := slices.DeleteFunc(slices.Clone(capabilities), func(capability Capability) bool {
 				return slices.Contains(localCapabilities, capability)
 			}); len(dropped) > 0 {
-				report.DroppedCapabilities = append(report.DroppedCapabilities, DroppedCapabilities{Model: model.Ref(), Protocol: protocol, Capabilities: dropped})
+				report.DroppedCapabilities = append(report.DroppedCapabilities, DroppedCapabilities{Model: ref, Protocol: protocol, Capabilities: dropped})
 			}
 			capabilities = append([]Capability{}, localCapabilities...)
 		}
 		protocols[protocol] = capabilities
 	}
 	model.Protocols = protocols
-	merged.Models[key] = model
+	merged.Models[ref] = model
 	return nil
 }
 
 // pruneLocalOnly removes the local-only models that no client selects and no
 // recommendation names, then the families that neither a remaining model nor
 // the file names. Providers stay.
-func pruneLocalOnly(merged *Config, incoming Manifest) {
-	named := map[string]bool{}
+func pruneLocalOnly(merged *Config, incoming Config) {
+	named := map[ModelRef]bool{}
 	for _, recommendation := range merged.Recommendations {
 		for _, choice := range recommendation.Selections() {
 			named[choice.Model] = true
 		}
 	}
-	for _, key := range merged.ModelIDs() {
-		if _, filed := incoming.Models[key]; filed || named[key] || len(merged.SelectedClientsForModel(key)) > 0 {
+	for _, ref := range merged.ModelRefs() {
+		if _, filed := incoming.Models[ref]; filed || named[ref] || len(merged.SelectedClientsForModel(ref)) > 0 {
 			continue
 		}
-		delete(merged.Models, key)
+		delete(merged.Models, ref)
 	}
 	used := map[string]bool{}
 	for _, model := range merged.Models {
 		used[model.Family] = true
 	}
-	for _, family := range slices.Sorted(maps.Keys(merged.Families)) {
+	for _, family := range merged.FamilyIDs() {
 		if _, filed := incoming.Families[family]; !filed && !used[family] {
 			delete(merged.Families, family)
 		}
@@ -244,11 +245,11 @@ func (report *TeamMerge) compare(before, after Config) {
 			report.ChangedFamilies = append(report.ChangedFamilies, id)
 		}
 	}
-	for _, key := range after.ModelIDs() {
-		if previous, existed := before.Models[key]; !existed {
-			report.AddedModels = append(report.AddedModels, after.Models[key].Ref())
-		} else if model := after.Models[key]; !equivalentModel(previous, model) || previous.Label != model.Label {
-			report.ChangedModels = append(report.ChangedModels, model.Ref())
+	for _, ref := range after.ModelRefs() {
+		if previous, existed := before.Models[ref]; !existed {
+			report.AddedModels = append(report.AddedModels, ref)
+		} else if model := after.Models[ref]; !equivalentModel(previous, model) || previous.Label != model.Label {
+			report.ChangedModels = append(report.ChangedModels, ref)
 		}
 	}
 	for _, client := range slices.Sorted(maps.Keys(after.Recommendations)) {
@@ -259,9 +260,9 @@ func (report *TeamMerge) compare(before, after Config) {
 			report.ChangedRecommendations = append(report.ChangedRecommendations, client)
 		}
 	}
-	for _, key := range before.ModelIDs() {
-		if _, remains := after.Models[key]; !remains {
-			report.PrunedModels = append(report.PrunedModels, before.Models[key].Ref())
+	for _, ref := range before.ModelRefs() {
+		if _, remains := after.Models[ref]; !remains {
+			report.PrunedModels = append(report.PrunedModels, ref)
 		}
 	}
 	for _, id := range slices.Sorted(maps.Keys(before.Families)) {

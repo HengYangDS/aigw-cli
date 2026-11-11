@@ -18,7 +18,7 @@ type ClientStatus struct {
 	Authentication     domain.Authentication `json:"authentication"`
 	EndpointConfigured bool                  `json:"endpoint_configured"`
 	Transport          EndpointTransportKind `json:"transport,omitempty"`
-	ProjectionReady    bool                  `json:"projection_ready"`
+	ProjectionReady    bool                  `json:"client_files_ready"`
 	QualifiedModes     []string              `json:"qualified_modes,omitempty"`
 	QualifiedPlatforms []string              `json:"qualified_platforms,omitempty"`
 	CheckPassed        *bool                 `json:"check_passed,omitempty"`
@@ -56,7 +56,7 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 			continue
 		}
 		spec, _ := runtime.Clients.Admission().Spec(clientID)
-		clientRuntime, resolveErr := cfg.ResolveRuntime(clientID, "")
+		clientRuntime, resolveErr := cfg.ResolveRuntime(clientID, domain.ModelRef{})
 		if resolveErr != nil {
 			client := unresolvedClientStatus(&cfg, clientID, resolveErr)
 			client.QualifiedModes = spec.QualifiedModes
@@ -71,7 +71,7 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 			projectionAction = projectionPrerequisite
 		}
 		facts := domainreadiness.ClientFacts{
-			Model:              clientRuntime.ModelID,
+			Model:              clientRuntime.Model,
 			Provider:           clientRuntime.ProviderID,
 			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
 			ProjectionEnabled:  cfg.Clients[clientID].Enabled,
@@ -144,13 +144,13 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 
 func unresolvedClientStatus(cfg *domain.Config, clientID string, resolveErr error) ClientStatus {
 	facts := domainreadiness.ClientFacts{}
-	if route := cfg.SelectedModel(clientID); route != "" {
-		facts.Model = route
+	if selected := cfg.SelectedModel(clientID); !selected.IsZero() {
+		facts.Model = selected
 		facts.BindingIssue = resolveErr.Error()
 		facts.BindingAction = "aigw use " + clientID + " <provider/model>"
-	} else if suggested := cfg.RecommendedModel(clientID); suggested != "" {
+	} else if suggested := cfg.RecommendedModel(clientID); !suggested.IsZero() {
 		facts.SuggestedModel = suggested
-		facts.BindingAction = "aigw use " + clientID + " " + cfg.Models[suggested].Ref().String()
+		facts.BindingAction = "aigw use " + clientID + " " + suggested.String()
 	} else if len(cfg.Models) == 0 && len(cfg.Providers) > 0 {
 		// Providers left without models leave every client with nothing
 		// selected and nothing recommended: the user chooses a model, which

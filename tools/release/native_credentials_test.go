@@ -150,7 +150,7 @@ func preprojectNativeCredentialJourney(t *testing.T, journey *journeyFixture, ca
 
 func configureNativeDiagnosticProbe(t *testing.T, journey *journeyFixture, accountID, endpoint string) {
 	t.Helper()
-	manifest, err := store.Parse(readFile(t, journey.manifest), builtinclients.Admission())
+	manifest, err := store.ParseTeamFile(readFile(t, journey.manifest), builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,10 +305,10 @@ func TestSystemCredentialJourneyUsesItsEffectiveHome(t *testing.T) {
 		},
 	}
 	wantHome := filepath.Join(root, "home")
-	wantConfig := filepath.Join(root, "config", "aigw", "config.toml")
+	wantConfig := filepath.Join(root, "config", "aigw", "aigw.toml")
 	if runtime.GOOS == "darwin" {
 		wantHome = hostHome
-		wantConfig = filepath.Join(hostHome, "Library", "Application Support", "aigw", "config.toml")
+		wantConfig = filepath.Join(hostHome, "Library", "Application Support", "aigw", "aigw.toml")
 	}
 	for range 2 {
 		t.Run("isolated native paths", func(t *testing.T) {
@@ -404,7 +404,6 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 	oldVersion := j.predecessorVersion(newVersion)
 	j.testing.Logf("credential baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(j.testing, j.source)), newVersion, sha256.Sum256(readFile(j.testing, candidate)))
 	retained := append(prior, j.retainedCredentials()...)
-	var catalog []byte
 	for _, step := range []struct {
 		version string
 		program string
@@ -419,16 +418,10 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 		if !bytes.Equal(readFile(j.testing, j.config), configurationBefore) {
 			j.testing.Fatal("credential lifecycle changed the retained client configuration")
 		}
-		if catalog == nil {
-			catalog = j.importCatalogOrder()
-		}
 		for _, credential := range retained {
 			j.requireCredential(credential, token)
 		}
 		j.run("sync")
-		if !bytes.Equal(capturePublishedSnapshot(j.testing, store.NewStore(j.config, builtinclients.Admission())).Catalog().Data, catalog) {
-			j.testing.Fatal("credential lifecycle changed catalog presentation")
-		}
 		current := j.retainedCredentials()
 		if step.version == newVersion {
 			j.requireCurrentVersionedReaders(current, step.version)

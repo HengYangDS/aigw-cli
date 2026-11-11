@@ -173,7 +173,7 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	if err := configStore.Save(cfg); err != nil {
 		j.testing.Fatal(err)
 	}
-	selected, err := cfg.ResolveRuntime(client, "")
+	selected, err := cfg.ResolveRuntime(client, domain.ModelRef{})
 	if err != nil {
 		j.testing.Fatal(err)
 	}
@@ -283,7 +283,7 @@ func runNativeEphemeralCredentials(t *testing.T, artifact string) {
 	journey := newNativeJourney(t, artifact, endpoint.URL, false)
 	journey.run("setup", "--from", journey.manifest)
 	before := readFile(t, journey.config)
-	model := journey.modelName("native-system-keyring-probe-claude")
+	model := journey.modelName(probeModel)
 	output := journey.runWithInput(journey.binary, token+"\r\n", "check", "claude", "--model", model, "--token-stdin", "--depth", "endpoint", "--json")
 	var result struct {
 		Clients []struct {

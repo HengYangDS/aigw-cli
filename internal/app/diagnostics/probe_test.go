@@ -37,7 +37,7 @@ func assertDiagnosticOmits(t *testing.T, result diagnostics.Result, forbidden ..
 }
 
 func runtime() domain.Runtime {
-	return domain.Runtime{ModelID: "dmx", ModelLabel: "DMXAPI", ProviderID: "dmx", ProviderLabel: "DMXAPI", Client: codex.ID, Protocol: domain.ProtocolResponses, Endpoint: "https://service.test/v1"}
+	return domain.Runtime{Model: domain.NewModelRef("dmx", "dmx"), ModelLabel: "DMXAPI", ProviderID: "dmx", ProviderLabel: "DMXAPI", Client: codex.ID, Protocol: domain.ProtocolResponses, Endpoint: "https://service.test/v1"}
 }
 
 func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {

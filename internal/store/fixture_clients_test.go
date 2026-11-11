@@ -54,7 +54,7 @@ func testModel(label, account, model string, protocols ...domain.EndpointProtoco
 	for _, protocol := range protocols {
 		interfaces[protocol] = []domain.Capability{}
 	}
-	return domain.Model{Label: label, Provider: account, Family: model, Protocols: interfaces}
+	return domain.Model{Label: label, Provider: account, ID: model, Family: model, Protocols: interfaces}
 }
 
 // validConfig is the two-Account configuration that the store's tests start
@@ -65,13 +65,13 @@ func validConfig() domain.Config {
 		"dmx":    {Label: "DMXAPI", Endpoints: domain.Endpoints{Responses: "https://example.test/v1", Anthropic: "https://example.test"}},
 		"backup": {Label: "Backup", Endpoints: domain.Endpoints{Responses: "https://backup.test/v1"}},
 	}
-	cfg.Models = map[string]domain.Model{
-		"dmx":    testModel("DMXAPI", "dmx", "claude-test", domain.ProtocolAnthropic),
-		"backup": testModel("Backup", "backup", "gpt-test", domain.ProtocolResponses),
+	cfg.Models = map[domain.ModelRef]domain.Model{
+		domain.NewModelRef("dmx", "claude-test"): testModel("DMXAPI", "dmx", "claude-test", domain.ProtocolAnthropic),
+		domain.NewModelRef("backup", "gpt-test"): testModel("Backup", "backup", "gpt-test", domain.ProtocolResponses),
 	}
 	cfg.Clients = map[string]domain.ClientBinding{
-		ClientClaude: {Model: "dmx"},
-		ClientCodex:  {Model: "backup"},
+		ClientClaude: {Model: domain.NewModelRef("dmx", "claude-test")},
+		ClientCodex:  {Model: domain.NewModelRef("backup", "gpt-test")},
 	}
 	return cfg
 }

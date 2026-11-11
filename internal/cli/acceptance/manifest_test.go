@@ -23,8 +23,8 @@ func TestSetupFromKeepsAnExistingProvidersEndpointAndToken(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}}
-	cfg.Models["local"] = qualifiedModel("Local", "team", "local-model", domain.ProtocolAnthropic)
-	cfg.SetSelectedModel(claude.ID, "local", "")
+	cfg.Models[domain.NewModelRef("team", "local-model")] = qualifiedModel("Local", "team", "local-model", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "local-model"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -32,21 +32,25 @@ func TestSetupFromKeepsAnExistingProvidersEndpointAndToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 7
-[recommendations.claude.primary]
-route = "team-route"
-[accounts.team]
+	manifest := `version = 8
+
+[[providers]]
+id = "team"
 label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "https://team.example.test"
-[models.team-model]
-label = "Team Model"
-[routes.team-route]
+endpoints = {anthropic = "https://team.example.test"}
+
+[[providers.models]]
+id = "team-model"
+family = "team-model"
 label = "Team Route"
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { anthropic = ["text"] }
+protocols = {anthropic = ["text"]}
+
+[[families]]
+id = "team-model"
+label = "Team Model"
+
+[recommendations.claude]
+primary = {model = "team/team-model"}
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
@@ -59,7 +63,7 @@ interfaces = { anthropic = ["text"] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Providers["team"].Endpoints.Anthropic != "https://personal.example.test" || got.Providers["team"].Label != "Team Gateway" || got.SelectedModel(claude.ID) != "local" {
+	if got.Providers["team"].Endpoints.Anthropic != "https://personal.example.test" || got.Providers["team"].Label != "Team Gateway" || got.SelectedModel(claude.ID) != domain.NewModelRef("team", "local-model") {
 		t.Fatalf("setup redirected a local provider: %#v", got)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
@@ -138,22 +142,25 @@ func TestConfigCommandIOFailures(t *testing.T) {
 func TestSetupFromAndExportAreSecretFree(t *testing.T) {
 	app, out, secrets, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 7
-[recommendations.claude.primary]
-route = "team"
-[accounts.team]
+	manifest := `version = 8
+
+[[providers]]
+id = "team"
 label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "https://team.test"
-[models.claude-model]
+endpoints = {anthropic = "https://team.test"}
+
+[[providers.models]]
+id = "claude-model"
+family = "claude-model"
+label = "Team Gateway"
+protocols = {anthropic = ["text"]}
+
+[[families]]
+id = "claude-model"
 label = "Claude Model"
-[routes.team]
-label = "Team Gateway"
-purpose = "Default agent"
-account = "team"
-model = "claude-model"
-upstream_model = "claude-model"
-interfaces = { anthropic = ["text"] }
+
+[recommendations.claude]
+primary = {model = "team/claude-model"}
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
@@ -168,38 +175,39 @@ interfaces = { anthropic = ["text"] }
 	if err := cli.Execute(app, []string{"config", "export"}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(strings.ToLower(out.String()), "token") || !strings.Contains(out.String(), "Team Gateway") || !strings.Contains(out.String(), "Default agent") {
+	if strings.Contains(strings.ToLower(out.String()), "token") || !strings.Contains(out.String(), "Team Gateway") || strings.Contains(out.String(), "[clients") {
 		t.Fatalf("unsafe export:\n%s", out.String())
 	}
 }
 
-// A team file whose model would change a client's selection keeps the local
-// model, and the result says so.
+// A team file whose model would take the protocol that a client selects it on
+// keeps the local model, and the result says so.
 func TestSetupFromKeepsAModelWhoseChangeWouldMoveASelection(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team Gateway", Endpoints: domain.Endpoints{Responses: "https://team.example.test/v1"}}
-	cfg.Models["shared"] = qualifiedModel("Personal Model", "team", "personal-model", domain.ProtocolResponses)
-	cfg.SetSelectedModel(codex.ID, "shared", "")
+	cfg.Models[domain.NewModelRef("team", "personal-model")] = qualifiedModel("Personal Model", "team", "personal-model", domain.ProtocolResponses)
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("team", "personal-model"), "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 7
-[recommendations.codex.primary]
-route = "shared"
-[accounts.team]
+	manifest := `version = 8
+
+[[providers]]
+id = "team"
 label = "Team Gateway"
-[accounts.team.endpoints]
-openai_responses = "https://team.example.test/v1"
-[models.team-model]
+endpoints = {anthropic = "https://team.example.test", responses = "https://team.example.test/v1"}
+
+[[providers.models]]
+id = "personal-model"
+family = "team-model"
 label = "Team Model"
-[routes.shared]
+protocols = {anthropic = ["text"]}
+
+[[families]]
+id = "team-model"
 label = "Team Model"
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { openai_responses = ["text"] }
 `
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
@@ -212,7 +220,10 @@ interfaces = { openai_responses = ["text"] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Models["shared"].Family != "personal-model" || !strings.Contains(out.String(), `"kept_models"`) || !strings.Contains(out.String(), `"file": "team/team-model"`) {
-		t.Fatalf("the selected model = %#v\n%s", got.Models["shared"], out)
+	kept := got.Models[domain.NewModelRef("team", "personal-model")]
+	_, responses := kept.Protocols[domain.ProtocolResponses]
+	if kept.Family != "personal-model" || !responses || !strings.Contains(out.String(), `"kept_models"`) ||
+		!strings.Contains(out.String(), `"model": "team/personal-model"`) || !strings.Contains(out.String(), `"protocol": "responses"`) {
+		t.Fatalf("the selected model = %#v\n%s", kept, out)
 	}
 }

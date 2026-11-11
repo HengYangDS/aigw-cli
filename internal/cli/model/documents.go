@@ -78,14 +78,10 @@ type modelItem struct {
 	Protocols []protocolItem `json:"protocols"`
 	// ProtocolClients are the clients that speak one of the model's
 	// protocols; protocol overlap permits selection and qualifies nothing.
-	ProtocolClients []string `json:"protocol_clients"`
-	SelectedBy      []string `json:"selected_by"`
-	Deprecated      bool     `json:"deprecated,omitempty"`
-	// Duplicate marks a name that several configured models carry, one per
-	// protocol, which the list shows as one model; task 6.1's import merges
-	// them.
-	Duplicate bool             `json:"duplicate,omitempty"`
-	Endpoints []endpointDetail `json:"endpoints,omitempty"`
+	ProtocolClients []string         `json:"protocol_clients"`
+	SelectedBy      []string         `json:"selected_by"`
+	Deprecated      bool             `json:"deprecated,omitempty"`
+	Endpoints       []endpointDetail `json:"endpoints,omitempty"`
 }
 
 // protocolItem is one protocol that a model declares, with the capabilities

@@ -43,9 +43,9 @@ func modelConfig() domain.Config {
 	responses := map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}
 	cfg.Providers["dmxapi"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{Responses: "https://dmxapi.test/v1"}}
 	cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{Responses: "https://ucloud.test/v1"}}
-	cfg.Models["dmxapi-sol"] = domain.Model{Provider: "dmxapi", Family: "gpt-6.1-sol", Protocols: responses}
-	cfg.Models["ucloud-sol"] = domain.Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: responses}
-	cfg.Models["ucloud-minimax"] = domain.Model{Provider: "ucloud", Family: "minimax-m3", UpstreamModel: "MiniMax-M3", Protocols: responses}
+	cfg.Models[domain.NewModelRef("dmxapi", "gpt-6.1-sol")] = domain.Model{Provider: "dmxapi", Family: "gpt-6.1-sol", ID: "gpt-6.1-sol", Protocols: responses}
+	cfg.Models[domain.NewModelRef("ucloud", "gpt-6.1-sol")] = domain.Model{Provider: "ucloud", Family: "gpt-6.1-sol", ID: "gpt-6.1-sol", Protocols: responses}
+	cfg.Models[domain.NewModelRef("ucloud", "MiniMax-M3")] = domain.Model{Provider: "ucloud", Family: "minimax-m3", ID: "MiniMax-M3", Protocols: responses}
 	return cfg
 }
 
@@ -58,9 +58,9 @@ func TestResolveModelNamesTheClosestMatches(t *testing.T) {
 		}
 		return ref
 	}
-	key, model, err := ResolveModel(cfg, parse("ucloud/MiniMax-M3"), "", nil)
-	if err != nil || key != "ucloud-minimax" || model.Family != "minimax-m3" {
-		t.Fatalf("a unique match = %q %#v, %v", key, model, err)
+	model, err := ResolveModel(cfg, parse("ucloud/MiniMax-M3"), "")
+	if err != nil || model.Ref() != domain.NewModelRef("ucloud", "MiniMax-M3") || model.Family != "minimax-m3" {
+		t.Fatalf("a match = %#v, %v", model, err)
 	}
 	for text, want := range map[string]struct{ problem, fix string }{
 		"ucloud/minimax-m3": {"unknown model ucloud/minimax-m3; did you mean ucloud/MiniMax-M3?", "aigw model list --provider ucloud"},
@@ -68,111 +68,25 @@ func TestResolveModelNamesTheClosestMatches(t *testing.T) {
 		"ucloud/zzz":        {"unknown model ucloud/zzz", "aigw model list --provider ucloud"},
 		"dmxap/gpt-6.1-sol": {`unknown provider "dmxap"; did you mean dmxapi?`, "aigw provider list"},
 	} {
-		_, _, err := ResolveModel(cfg, parse(text), "", nil)
+		_, err := ResolveModel(cfg, parse(text), "")
 		if problem := terminal.ProblemFor(err); problem.Title != want.problem || problem.Fix != want.fix {
 			t.Errorf("ResolveModel(%s) = %q, fix %q; want %q, fix %q", text, problem.Title, problem.Fix, want.problem, want.fix)
 		}
 	}
 }
 
-// TestResolveModelRefusesANameThatSeveralModelsCarry holds today's
-// configuration, which can give one name a Route per protocol: a protocol
-// selects one, and without one the name is refused, naming each protocol, with
-// the command rerun with --protocol, or the first Route without that command.
-func TestResolveModelRefusesANameThatSeveralModelsCarry(t *testing.T) {
+// TestResolveModelRefusesAProtocolThatTheModelDoesNotDeclare: a given
+// protocol always selects, so a model that does not declare it is refused,
+// never selected anyway.
+func TestResolveModelRefusesAProtocolThatTheModelDoesNotDeclare(t *testing.T) {
 	cfg := modelConfig()
-	cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{Responses: "https://ucloud.test/v1", Chat: "https://ucloud.test/v1"}}
-	cfg.Models["ucloud-sol-chat"] = domain.Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
-	ref, _ := domain.ParseModelRef("ucloud/gpt-6.1-sol")
-	if keys := cfg.ResolveModelRef(ref); !slices.Equal(keys, []string{"ucloud-sol", "ucloud-sol-chat"}) {
-		t.Fatalf("ResolveModelRef = %q", keys)
-	}
-	rerun := func(choice string) string { return "aigw model show ucloud/gpt-6.1-sol --protocol " + choice }
-	_, _, err := ResolveModel(cfg, ref, "", rerun)
-	if problem := terminal.ProblemFor(err); problem.Title != "ucloud/gpt-6.1-sol names 2 models; each of the protocols responses, chat selects one" ||
-		problem.Fix != "aigw model show ucloud/gpt-6.1-sol --protocol <responses|chat>" {
-		t.Fatalf("an ambiguous name = %q, fix %q", problem.Title, problem.Fix)
-	}
-	// A command without a protocol filter names show, which has one.
-	if _, _, err := ResolveModel(cfg, ref, "", nil); terminal.ProblemFor(err).Fix != "aigw model show ucloud/gpt-6.1-sol --protocol <responses|chat>" {
-		t.Fatalf("an ambiguous name without a protocol filter = %q", terminal.ProblemFor(err).Fix)
-	}
-	if _, _, err := ResolveModel(cfg, ref, "", func(string) string { return "" }); terminal.ProblemFor(err).Fix != "Run the command for one of them with --protocol <responses|chat>." {
-		t.Fatalf("an ambiguous name whose rerun needs quoting = %q", terminal.ProblemFor(err).Fix)
-	}
-	if key, _, err := ResolveModel(cfg, ref, domain.ProtocolChat, rerun); err != nil || key != "ucloud-sol-chat" {
-		t.Fatalf("a protocol that selects one = %q, %v", key, err)
-	}
-	_, _, err = ResolveModel(cfg, ref, domain.ProtocolAnthropic, rerun)
-	if problem := terminal.ProblemFor(err); problem.Title != "ucloud/gpt-6.1-sol declares no Anthropic Messages" || problem.Fix != "aigw model list --provider ucloud" {
-		t.Fatalf("a protocol that selects none of several = %q, fix %q", problem.Title, problem.Fix)
-	}
-	// A given protocol also applies to a unique name: a model that does not
-	// declare it is refused, never selected anyway.
 	minimax := must(domain.ParseModelRef("ucloud/MiniMax-M3"))
-	_, _, err = ResolveModel(cfg, minimax, domain.ProtocolAnthropic, rerun)
+	_, err := ResolveModel(cfg, minimax, domain.ProtocolAnthropic)
 	if problem := terminal.ProblemFor(err); problem.Title != "ucloud/MiniMax-M3 declares no Anthropic Messages" || problem.Fix != "aigw model show ucloud/MiniMax-M3" {
-		t.Fatalf("a unique name with another protocol = %q, fix %q", problem.Title, problem.Fix)
+		t.Fatalf("a model with another protocol = %q, fix %q", problem.Title, problem.Fix)
 	}
-	if key, _, err := ResolveModel(cfg, minimax, domain.ProtocolResponses, rerun); err != nil || key != "ucloud-minimax" {
-		t.Fatalf("a unique name with its protocol = %q, %v", key, err)
-	}
-}
-
-// TestAmbiguousModelOffersOnlyProtocolsThatSelect gives one name a Route on
-// anthropic and chat and another on chat: chat selects neither, so the
-// refusal offers anthropic only when it selects each, and otherwise names
-// the models' configuration IDs.
-func TestAmbiguousModelOffersOnlyProtocolsThatSelect(t *testing.T) {
-	cfg := modelConfig()
-	cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{
-		Anthropic: "https://ucloud.test", Responses: "https://ucloud.test/v1", Chat: "https://ucloud.test/v1",
-	}}
-	cfg.Models["ucloud-sol"] = domain.Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{
-		domain.ProtocolAnthropic: {}, domain.ProtocolChat: {},
-	}}
-	cfg.Models["ucloud-sol-chat"] = domain.Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{
-		domain.ProtocolChat: {},
-	}}
-	ref := must(domain.ParseModelRef("ucloud/gpt-6.1-sol"))
-	rerun := func(choice string) string { return "aigw model show ucloud/gpt-6.1-sol --protocol " + choice }
-	_, _, err := ResolveModel(cfg, ref, "", rerun)
-	if problem := terminal.ProblemFor(err); problem.Title != "ucloud/gpt-6.1-sol names 2 models, ucloud-sol, ucloud-sol-chat, and no protocol selects each of them" ||
-		problem.Fix != "aigw config path" {
-		t.Fatalf("overlapping models = %q, fix %q", problem.Title, problem.Fix)
-	}
-	if key, _, err := ResolveModel(cfg, ref, domain.ProtocolAnthropic, rerun); err != nil || key != "ucloud-sol" {
-		t.Fatalf("the protocol that only one declares = %q, %v", key, err)
-	}
-	// chat names both, so it selects neither.
-	if _, _, err := ResolveModel(cfg, ref, domain.ProtocolChat, rerun); !strings.Contains(terminal.ProblemFor(err).Title, "no protocol selects each") {
-		t.Fatalf("a protocol that both declare = %v", err)
-	}
-	// With a responses model added, each of anthropic and responses selects
-	// one of two models: chat, shared, is not offered.
-	delete(cfg.Models, "ucloud-sol-chat")
-	cfg.Models["ucloud-sol-responses"] = domain.Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{
-		domain.ProtocolResponses: {}, domain.ProtocolChat: {},
-	}}
-	_, _, err = ResolveModel(cfg, ref, "", rerun)
-	if problem := terminal.ProblemFor(err); problem.Title != "ucloud/gpt-6.1-sol names 2 models; each of the protocols anthropic, responses selects one" ||
-		problem.Fix != "aigw model show ucloud/gpt-6.1-sol --protocol <anthropic|responses>" {
-		t.Fatalf("models that share chat = %q, fix %q", problem.Title, problem.Fix)
-	}
-}
-
-// TestModelArgumentWithoutSlashNamesEachCandidateOnce gives one name two
-// Routes: the refusal lists the name once.
-func TestModelArgumentWithoutSlashNamesEachCandidateOnce(t *testing.T) {
-	cfg := modelConfig()
-	cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{Responses: "https://ucloud.test/v1", Chat: "https://ucloud.test/v1"}}
-	cfg.Models["ucloud-sol-chat"] = domain.Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
-	_, err := ParseModelArgument(cfg, "gpt-6.1-sol")
-	if problem := terminal.ProblemFor(err); problem.Title != `"gpt-6.1-sol" names no provider; it could mean dmxapi/gpt-6.1-sol, ucloud/gpt-6.1-sol` {
-		t.Fatalf("a bare ID with two Routes of one name = %q", problem.Title)
-	}
-	if got := Command("model", "show", "two words"); got != "" {
-		t.Fatalf("Command with a word that needs quoting = %q", got)
+	if model, err := ResolveModel(cfg, minimax, domain.ProtocolResponses); err != nil || model.Ref() != minimax {
+		t.Fatalf("a model with its protocol = %#v, %v", model, err)
 	}
 }
 
@@ -201,6 +115,9 @@ func TestModelArgumentWithoutSlashListsWhatItCouldMean(t *testing.T) {
 	_, err = ParseModelArgument(cfg, "two words")
 	if problem := terminal.ProblemFor(err); problem.Fix != "aigw model list" {
 		t.Fatalf("a fix that would need quoting = %q", problem.Fix)
+	}
+	if got := Command("model", "show", "two words"); got != "" {
+		t.Fatalf("Command with a word that needs quoting = %q", got)
 	}
 	if _, err := ParseModelArgument(cfg, "/gpt"); err == nil || terminal.StatesFix(err) {
 		t.Fatalf("a malformed reference = %v, want the parser's refusal", err)

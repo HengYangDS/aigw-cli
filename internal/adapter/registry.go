@@ -104,9 +104,9 @@ type Adapter interface {
 	Inspect(ctx context.Context, deps Dependencies, cfg domain.Config, runtime domain.Runtime) Status
 	Verify(ctx context.Context, deps Dependencies, cfg domain.Config, runtime domain.Runtime, prompt string) (Verification, error)
 	// AdoptSelection records the client's own selection inside AIGW's projected
-	// catalog as its Client Binding and returns the adopted Route, or an empty
-	// string when the client shows its bound selection or adopts nothing.
-	AdoptSelection(deps Dependencies, cfg *domain.Config) (string, error)
+	// catalog as its Client Binding and returns the adopted model, or the zero
+	// reference when the client shows its bound selection or adopts nothing.
+	AdoptSelection(deps Dependencies, cfg *domain.Config) (domain.ModelRef, error)
 	Withdraw(cfg *domain.Config)
 }
 
@@ -125,18 +125,18 @@ type HostValidator interface {
 
 // ToolSearcher is implemented by an adapter whose client enables a host tool
 // search only while every model that its configuration lists declares the
-// capability: it reports whether cfg enables it, and the keys of the listed
-// models that do not declare it.
+// capability: it reports whether cfg enables it, and the listed models that
+// do not declare it.
 type ToolSearcher interface {
-	ToolSearch(cfg domain.Config) (enabled bool, lacking []string)
+	ToolSearch(cfg domain.Config) (enabled bool, lacking []domain.ModelRef)
 }
 
 // ToolSearchLoss is a client whose host tool search a change turns off, and
-// the keys of the models that the client lists afterwards without the
-// capability, in its list's order.
+// the models that the client lists afterwards without the capability, in its
+// list's order.
 type ToolSearchLoss struct {
 	Client string
-	Models []string
+	Models []domain.ModelRef
 }
 
 // Registry is the sole ordered operational registry for admitted clients.
@@ -329,16 +329,16 @@ func (registry Registry) Withdraw(cfg *domain.Config, clientID string) error {
 }
 
 // AdoptSelections records each admitted client's own selection as its Client
-// Binding in admission order, and returns the adopted Route per client.
-func (registry Registry) AdoptSelections(deps Dependencies, cfg *domain.Config) (map[string]string, error) {
-	adopted := map[string]string{}
+// Binding in admission order, and returns the adopted model per client.
+func (registry Registry) AdoptSelections(deps Dependencies, cfg *domain.Config) (map[string]domain.ModelRef, error) {
+	adopted := map[string]domain.ModelRef{}
 	for _, id := range registry.ids {
-		routeID, err := registry.byID[id].AdoptSelection(deps, cfg)
+		ref, err := registry.byID[id].AdoptSelection(deps, cfg)
 		if err != nil {
 			return nil, namedTarget(registry.byID[id].Spec(), deps.Host.Home, err)
 		}
-		if routeID != "" {
-			adopted[id] = routeID
+		if !ref.IsZero() {
+			adopted[id] = ref
 		}
 	}
 	return adopted, nil

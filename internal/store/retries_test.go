@@ -4,35 +4,35 @@ import (
 	"aigw-cli/internal/domain"
 	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 )
 
-func TestConnectionRetryPolicyPreservesCachedCredentialConfiguration(t *testing.T) {
+// TestRetryBudgetsAreInlineInTheirClient keeps a client's retry budgets in
+// its own table of aigw.toml, where an explicit zero survives a round trip.
+func TestRetryBudgetsAreInlineInTheirClient(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
-	if err := store.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	before, err := store.CaptureSnapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	zero := uint64(0)
+	zero, three := uint64(0), uint64(3)
 	binding := cfg.Clients[ClientCodex]
-	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero, StreamMaxRetries: &zero}
+	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero, StreamMaxRetries: &three}
 	cfg.Clients[ClientCodex] = binding
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	after, err := store.CaptureSnapshot()
-	if err != nil || !bytes.Equal(before.Config.Data, after.Config.Data) {
-		t.Fatalf("retry selection changed immutable predecessor credential input: %v", err)
+	data, err := os.ReadFile(store.Path())
+	if err != nil || !bytes.Contains(data, []byte("[clients.codex]\nenabled = false\nmodel = 'backup/gpt-test'\nretries = {request = 0, stream = 3}\n")) {
+		t.Fatalf("retries are not inline in their client:\n%s\n%v", data, err)
 	}
-	credentialConfig, err := store.LoadCredentialConfig()
-	if err != nil || credentialConfig.Clients[ClientCodex].RetryPolicy != nil {
-		t.Fatalf("transport policy entered credential authority: %v", err)
+	loaded, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := loaded.Clients[ClientCodex].RetryPolicy
+	if policy == nil || *policy.RequestMaxRetries != 0 || *policy.StreamMaxRetries != 3 {
+		t.Fatalf("retries after a round trip = %#v", policy)
 	}
 }
 
@@ -46,7 +46,7 @@ func TestConnectionRetryPolicyRoundTripsAndRestores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	declared := append(append([]byte(nil), before.Config.Data...), []byte("\n[clients.codex.retry_policy]\nrequest_max_retries = 0\nstream_max_retries = 0\n")...)
+	declared := bytes.Replace(before.Config.Data, []byte("model = 'backup/gpt-test'\n"), []byte("model = 'backup/gpt-test'\nretries = {request = 0, stream = 0}\n"), 1)
 	selected, err := decodeTOMLConfig(declared, testAdmission())
 	if err != nil {
 		t.Fatalf("explicit native connection policy refused: %v", err)
@@ -59,7 +59,7 @@ func TestConnectionRetryPolicyRoundTripsAndRestores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := loaded.ResolveRuntime(ClientCodex, "")
+	runtime, err := loaded.ResolveRuntime(ClientCodex, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestConnectionRetryPolicyCloneAndRuntimeDoNotAlias(t *testing.T) {
 	cfg.Clients[ClientCodex] = binding
 	clone := cfg.Clone()
 	*clone.Clients[ClientCodex].RetryPolicy.RequestMaxRetries = 2
-	runtime, err := cfg.ResolveRuntime(ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(ClientCodex, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
 	}

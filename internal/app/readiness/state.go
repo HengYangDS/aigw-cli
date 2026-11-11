@@ -2,7 +2,10 @@
 // AIGW's setup, synchronization, inspection, and verification surfaces.
 package readiness
 
-import "aigw-cli/internal/app/diagnostics"
+import (
+	"aigw-cli/internal/app/diagnostics"
+	"aigw-cli/internal/domain"
+)
 
 // State is the stable classification of one operational capability.
 type State string
@@ -49,21 +52,21 @@ func (state State) Label() string {
 // client. Detail explains the observation; NextAction is empty only when no
 // operator action is required.
 type Client struct {
-	State      State  `json:"state"`
-	Model      string `json:"route,omitempty"`
-	Provider   string `json:"account,omitempty"`
-	Detail     string `json:"detail,omitempty"`
-	NextAction string `json:"next_action,omitempty"`
+	State      State           `json:"state"`
+	Model      domain.ModelRef `json:"model,omitzero"`
+	Provider   string          `json:"provider,omitempty"`
+	Detail     string          `json:"detail,omitempty"`
+	NextAction string          `json:"next_action,omitempty"`
 	// NextDetail is a next step that a script cannot run as it stands, which
 	// a document writes instead of NextAction.
 	NextDetail          string `json:"next_detail,omitempty"`
-	ProjectionDeferred  bool   `json:"projection_deferred,omitempty"`
+	ProjectionDeferred  bool   `json:"client_files_deferred,omitempty"`
 	NativeModelOverride bool   `json:"native_model_override,omitempty"`
 }
 
 // ClientFacts are the local observations that determine one client's state.
 type ClientFacts struct {
-	Model                      string
+	Model                      domain.ModelRef
 	Provider                   string
 	BindingIssue               string
 	BindingAction              string
@@ -79,7 +82,7 @@ type ClientFacts struct {
 	ProjectionReady             bool
 	ProjectionIssue             string
 	ProjectionAction            string
-	SuggestedModel              string
+	SuggestedModel              domain.ModelRef
 	// ClientInstalled marks a client whose files wait while discovery finds
 	// its executable, so that a sync writes them.
 	ClientInstalled bool
@@ -94,7 +97,7 @@ func ClassifyClient(facts ClientFacts) Client {
 		state.State = Invalid
 		state.Detail = facts.BindingIssue
 		state.NextAction = facts.BindingAction
-	case facts.Model == "":
+	case facts.Model.IsZero():
 		state.State = Deferred
 		state.Detail = "No model is selected"
 		state.NextAction = facts.BindingAction

@@ -14,28 +14,35 @@ import (
 	"testing"
 )
 
-func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *testing.T) {
+// TestWriteFailureCompensatesOwnedFilesAndPreservesNewerData fails each write
+// of a change, here a client's forwarding and its provider's label, and
+// requires every owned file back as it was, except newer content that another
+// writer left, which compensation keeps and reports.
+func TestWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *testing.T) {
 	const oldEndpoint = "http://127.0.0.1:8792/old/v1"
 	const nextEndpoint = "http://127.0.0.1:8792/next/v1"
 	for _, test := range []struct {
 		name, component, oldEndpoint, nextEndpoint string
 		concurrent                                 bool
 	}{
-		{name: "create", component: "forwarding", nextEndpoint: nextEndpoint},
-		{name: "replace", component: "forwarding", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
-		{name: "withdraw", component: "forwarding", oldEndpoint: oldEndpoint},
-		{name: "backup", component: "forwarding-backup", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
-		{name: "canonical", component: "config", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
+		{name: "create", component: "config", nextEndpoint: nextEndpoint},
+		{name: "replace", component: "config", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
+		{name: "withdraw", component: "config", oldEndpoint: oldEndpoint},
+		{name: "backup", component: "backup", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
 		{name: "checkpoint", component: "checkpoint", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
 		{name: "direct checkpoint", component: "checkpoint", nextEndpoint: nextEndpoint},
-		{name: "concurrent", component: "forwarding", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint, concurrent: true},
+		{name: "concurrent", component: "checkpoint", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint, concurrent: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 			cfg := convergenceConfig("current")
 			forwardTo(t, &cfg, test.oldEndpoint)
 			// An earlier generation gives every owned file a backup to restore.
-			if err := store.Save(relabeled(cfg, "Previous generation")); err != nil {
+			previous := cfg.Clone()
+			provider := previous.Providers["current"]
+			provider.Label = "Previous generation"
+			previous.Providers["current"] = provider
+			if err := store.Save(previous); err != nil {
 				t.Fatal(err)
 			}
 			if err := store.Save(cfg); err != nil {
@@ -61,8 +68,7 @@ func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *tes
 			failure := errors.New("component mutation failed")
 			newer := []byte("# concurrent operator content\n")
 			failedPath := map[string]string{
-				"forwarding": store.componentPath(forwardingComponent), "forwarding-backup": store.componentPath(forwardingComponent) + ".bak",
-				"config": store.Path(), "checkpoint": store.Path() + ".verified.json",
+				"config": store.Path(), "backup": store.backupPath(), "checkpoint": store.verifiedPath(),
 			}[test.component]
 			beforeFailure := func() {}
 			if test.concurrent {
@@ -77,6 +83,7 @@ func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *tes
 			}
 			removeConfigurationFileIfUnchanged = func(path string, expected platform.FileSnapshot) (platform.FileSnapshot, error) {
 				if path == failedPath {
+					beforeFailure()
 					return platform.FileSnapshot{}, failure
 				}
 				return originalRemove(path, expected)
@@ -96,7 +103,7 @@ func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *tes
 				after.Config = before.Config
 			}
 			if !before.equal(after) {
-				t.Fatal("failed forwarding write did not restore every owned snapshot")
+				t.Fatal("a failed write did not restore every owned snapshot")
 			}
 		})
 	}
@@ -135,7 +142,7 @@ func TestCaptureSnapshotSurfacesBackupReadErrors(t *testing.T) {
 
 func TestCaptureSnapshotSurfacesVerifiedCheckpointReadErrors(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.Mkdir(path+".verified.json", 0o700); err != nil {
+	if err := os.Mkdir(NewStore(path, testAdmission()).verifiedPath(), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := NewStore(path, testAdmission()).CaptureSnapshot(); err == nil {
@@ -452,7 +459,7 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 			}{
 				{"config", path, before.Config},
 				{"backup", path + ".bak", before.Backup},
-				{"checkpoint", path + ".verified.json", before.Verified},
+				{"checkpoint", NewStore(path, testAdmission()).verifiedPath(), before.Verified},
 			}
 			for _, index := range test.changed {
 				file := &files[index]
@@ -525,7 +532,7 @@ func TestRestoreSnapshotSurfacesVerifiedCheckpointPostimageMismatch(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path+".verified.json", []byte("newer checkpoint"), 0o600); err != nil {
+	if err := os.WriteFile(NewStore(path, testAdmission()).verifiedPath(), []byte("newer checkpoint"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.RestoreSnapshot(before, after); err == nil || !strings.Contains(err.Error(), "restore verified checkpoint snapshot") {

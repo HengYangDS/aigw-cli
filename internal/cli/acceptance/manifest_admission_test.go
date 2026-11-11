@@ -122,25 +122,30 @@ func TestSetupFromATeamFilePromptsOnlyForTheRecommendedProvider(t *testing.T) {
 	app.Interactive = true
 	prompt := &scriptedPrompt{secrets: []string{"aigw-test-used-token"}}
 	app.Prompt = prompt
-	manifestPath := writeConfigurationManifest(t, `version = 7
-[recommendations.claude.primary]
-route = "used"
-[accounts.used]
-label = "Used"
-[accounts.used.endpoints]
-anthropic = "https://used.test"
-[accounts.unused]
+	manifestPath := writeConfigurationManifest(t, `version = 8
+
+[[providers]]
+id = "unused"
 label = "Unused"
-[accounts.unused.endpoints]
-anthropic = "https://unused.test"
-[models.claude-test]
-label = "Claude Test"
-[routes.used]
+endpoints = {anthropic = "https://unused.test"}
+
+[[providers]]
+id = "used"
 label = "Used"
-account = "used"
-model = "claude-test"
-upstream_model = "claude-test"
-interfaces = { anthropic = ["text"] }
+endpoints = {anthropic = "https://used.test"}
+
+[[providers.models]]
+id = "claude-test"
+family = "claude-test"
+label = "Used"
+protocols = {anthropic = ["text"]}
+
+[[families]]
+id = "claude-test"
+label = "Claude Test"
+
+[recommendations.claude]
+primary = {model = "used/claude-test"}
 `)
 
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath}); err != nil {
@@ -150,29 +155,27 @@ interfaces = { anthropic = ["text"] }
 		t.Fatalf("prompts=%#v", prompt.secretCalls)
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || cfg.Providers["unused"].Label != "Unused" || cfg.Clients[claude.ID].Model != "used" {
+	if err != nil || cfg.Providers["unused"].Label != "Unused" || cfg.Clients[claude.ID].Model != domain.NewModelRef("used", "claude-test") {
 		t.Fatalf("configuration = %+v, %v", cfg, err)
 	}
 }
 
-func TestSetupFromConfigurationManifestRejectsModelWithoutFamily(t *testing.T) {
+func TestSetupFromConfigurationManifestRejectsModelWithoutID(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	manifestPath := writeConfigurationManifest(t, `version = 7
-[recommendations.claude.primary]
-route = "team"
-[accounts.team]
+	manifestPath := writeConfigurationManifest(t, `version = 8
+
+[[providers]]
+id = "team"
 label = "Team"
-[accounts.team.endpoints]
-openai_responses = "https://team.test/v1"
-anthropic = "https://team.test"
-[routes.team]
+endpoints = {anthropic = "https://team.test", responses = "https://team.test/v1"}
+
+[[providers.models]]
 label = "Team"
-account = "team"
-interfaces = { anthropic = ["text"] }
+protocols = {anthropic = ["text"]}
 `)
 
 	err := cli.Execute(app, []string{"setup", "--from", manifestPath})
-	if err == nil || !strings.Contains(err.Error(), `route "team" must reference a model`) {
+	if err == nil || !strings.Contains(err.Error(), `provider "team" has a model with an empty ID`) {
 		t.Fatalf("error = %v", err)
 	}
 	if secretExists(t, secretStore, "team") {
@@ -242,7 +245,7 @@ func TestManifestDecodeFailureKeepsNativeTypesOutOfPublicOutput(t *testing.T) {
 	}{{name: "human"}, {name: "JSON", json: true}} {
 		t.Run(mode.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
-			path := writeConfigurationManifest(t, "version = 7\n[recommendations.codex]\nprimary = 'invalid-shape'\n")
+			path := writeConfigurationManifest(t, "version = 8\n[recommendations.codex]\nprimary = 'invalid-shape'\n")
 			args := []string{"setup", "--from", path}
 			if mode.json {
 				args = append(args, "--json")

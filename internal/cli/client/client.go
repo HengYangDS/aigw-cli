@@ -161,7 +161,7 @@ func admitEnablement(runtime invocation.Context, cfg domain.Config, client strin
 	if err := refuseTargetsUnderFiles(targets, spec, invocation.Home(runtime.Dependencies)); err != nil {
 		return err
 	}
-	clientRuntime, err := cfg.ResolveRuntime(client, "")
+	clientRuntime, err := cfg.ResolveRuntime(client, domain.ModelRef{})
 	if err != nil {
 		return err
 	}

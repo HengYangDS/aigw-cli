@@ -49,8 +49,8 @@ func (discover setupDiscovery) Discover(...string) discovery.Result {
 func setupConfiguration() domain.Config {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Models[domain.NewModelRef("team", "claude-test")] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "claude-test"), "")
 	return cfg
 }
 
@@ -130,7 +130,7 @@ func TestSetupRejectsInvalidConfigurationBeforeCredentialMutation(t *testing.T) 
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), builtinclients.Admission())
 	credentials := setupTokenStore(t, "original")
 	after := setupConfiguration()
-	after.SetSelectedModel(claude.ID, "missing-route", "")
+	after.SetSelectedModel(claude.ID, domain.NewModelRef("team", "missing"), "")
 	_, err := (Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials}).Setup(t.Context(), domain.NewConfig(builtinclients.Admission()), after, map[string]string{"team": "replacement"})
 	if err == nil {
 		t.Fatal("setup accepted an unresolved route")
@@ -228,7 +228,7 @@ func TestSetupReconcilesTheActivatedAndTheChangedClients(t *testing.T) {
 		t.Fatalf("an activated client reconciles %q", got)
 	}
 	after, projection, err := syncer.PreviewSetup(cfg, cfg.Clone(), nil)
-	if err != nil || len(projection.Targets) != 0 || after.Clients[claude.ID].Model != "claude" {
+	if err != nil || len(projection.Targets) != 0 || after.Clients[claude.ID].Model != domain.NewModelRef("team", "claude-test") {
 		t.Fatalf("an unchanged preview = %+v, %+v, %v", after.Clients, projection, err)
 	}
 }
