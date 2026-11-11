@@ -169,28 +169,28 @@
 
 ## 6. One configuration file
 
-- [ ] 6.1 Keep configuration only in a schema 8 `aigw.toml`, with its backup
+- [x] 6.1 Keep configuration only in a schema 8 `aigw.toml`, with its backup
       and verified snapshot, and use the short protocol names internally;
       component files, `order` handling and the schema 3 and 5 migrations are
       gone, and round-trip and strict-decode tests pass.
-- [ ] 6.4 Make the credential reader decode only the frozen view and ignore
+- [x] 6.4 Make the credential reader decode only the frozen view and ignore
       every other field; a test with unknown fields and version 99 passes.
-- [ ] 6.8 Read and write configuration only in `aigw.toml`: a home that holds
+- [x] 6.8 Read and write configuration only in `aigw.toml`: a home that holds
       only `config.toml` and its component files is unconfigured and names
       `aigw setup`, and a test shows that those files and an existing versioned
       reader keep their bytes through `setup`, `use` and `sync`.
-- [ ] 6.9 Make `aigw setup` and `aigw setup --from` use a Token already stored
+- [x] 6.9 Make `aigw setup` and `aigw setup --from` use a Token already stored
       for a provider they add, without a prompt, and say so; a script covers
       both.
-- [ ] 6.10 Drop the Homebrew rollback's retry-policy refusal, and make
+- [x] 6.10 Drop the Homebrew rollback's retry-policy refusal, and make
       `aigw self rollback`'s help say that its check gives the previous program
       the current configuration; tests cover a Homebrew rollback with retry
       budgets and a portable rollback whose program cannot read that
       configuration.
-- [ ] 6.11 Derive Hermes provider IDs from the provider ID and the protocol
+- [x] 6.11 Derive Hermes provider IDs from the provider ID and the protocol
       name, without a map, once 6.1 shortens the names; a test pins
       `aigw-dmxapi-anthropic`, `aigw-dmxapi-responses` and `aigw-dmxapi-chat`.
-- [ ] 6.12 Rename the balance-credential variables to
+- [x] 6.12 Rename the balance-credential variables to
       `AIGW_BALANCE_TOKEN_<ID>` and `AIGW_BALANCE_USER_ID_<ID>`, without the
       old names; every fix, document and CI file names only the new ones, and
       a test covers the environment backend.
