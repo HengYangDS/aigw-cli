@@ -68,7 +68,7 @@ func lifecycleRuntime(t *testing.T, updater *fakeUpdater) (invocation.Context, *
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{
 		Clients: clients.Registry(), Executable: executable, InstallTarget: executable, Version: "0.1.0",
-		Config: store.NewStore(filepath.Join(root, "config", "config.toml"), clients.Admission()), Secrets: secret.NewMemoryStore(), Out: out, Width: 120,
+		Config: store.NewStore(filepath.Join(root, "config", "aigw.toml"), clients.Admission()), Secrets: secret.NewMemoryStore(), Out: out, Width: 120,
 	}
 	if updater != nil {
 		runtime.Updater = updater

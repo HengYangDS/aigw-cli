@@ -34,7 +34,7 @@ func TestWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *testing.T) {
 		{name: "concurrent", component: "checkpoint", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint, concurrent: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+			store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 			cfg := convergenceConfig("current")
 			forwardTo(t, &cfg, test.oldEndpoint)
 			// An earlier generation gives every owned file a backup to restore.
@@ -117,7 +117,7 @@ func replaceConcurrentConfig(t *testing.T, path string, data []byte) {
 }
 
 func TestPathReturnsConfiguredPath(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	if got := NewStore(path, testAdmission()).Path(); got != path {
 		t.Fatalf("Path() = %q, want %q", got, path)
 	}
@@ -131,7 +131,7 @@ func TestCaptureSnapshotSurfacesConfigReadErrors(t *testing.T) {
 }
 
 func TestCaptureSnapshotSurfacesBackupReadErrors(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	if err := os.Mkdir(path+".bak", 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestCaptureSnapshotSurfacesBackupReadErrors(t *testing.T) {
 }
 
 func TestCaptureSnapshotSurfacesVerifiedCheckpointReadErrors(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	if err := os.Mkdir(NewStore(path, testAdmission()).verifiedPath(), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestCaptureSnapshotSurfacesVerifiedCheckpointReadErrors(t *testing.T) {
 }
 
 func TestRestoreSnapshotSurfacesConfigPostimageMismatch(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	before, err := store.CaptureSnapshot()
 	if err != nil {
@@ -173,7 +173,7 @@ func TestRestoreSnapshotSurfacesConfigPostimageMismatch(t *testing.T) {
 }
 
 func TestRestoreSnapshotSurfacesBackupPostimageMismatch(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("old")); err != nil {
 		t.Fatal(err)
@@ -214,7 +214,7 @@ func TestLockSurfacesUnwritableConfigDirectory(t *testing.T) {
 }
 
 func TestLoadOfMissingConfigReturnsDefault(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	got, err := NewStore(path, testAdmission()).Load()
 	if err != nil {
 		t.Fatal(err)
@@ -234,7 +234,7 @@ func TestLoadSurfacesUnderlyingReadErrors(t *testing.T) {
 }
 
 func TestLoadSurfacesTypedParseErrors(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	if err := os.WriteFile(path, []byte("version = [\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -286,7 +286,7 @@ func TestSaveSurfacesUnderlyingCurrentReadErrors(t *testing.T) {
 }
 
 func TestCommitRestoresPreparedSnapshotWhenPostimageCaptureFails(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("old")); err != nil {
 		t.Fatal(err)
@@ -319,7 +319,7 @@ func TestCommitRestoresPreparedSnapshotWhenPostimageCaptureFails(t *testing.T) {
 }
 
 func TestCommitLeavesConfigurationUntouchedWhenBackupWriteFails(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("old")); err != nil {
 		t.Fatal(err)
@@ -351,7 +351,7 @@ func TestCommitLeavesConfigurationUntouchedWhenBackupWriteFails(t *testing.T) {
 }
 
 func TestCommitPreservesNewerBackupWhenConfigurationWriteAndCompensationConflict(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("old")); err != nil {
 		t.Fatal(err)
@@ -393,7 +393,7 @@ func TestCommitPreservesNewerBackupWhenConfigurationWriteAndCompensationConflict
 }
 
 func TestCommitReportsConfigurationRestoreFailureAfterCheckpointInvalidationFailure(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("before")); err != nil {
 		t.Fatal(err)
@@ -435,7 +435,7 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 		{"both-recovery-files", []int{1, 2}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "config.toml")
+			path := filepath.Join(t.TempDir(), "aigw.toml")
 			store := NewStore(path, testAdmission())
 			cfg := convergenceConfig("before")
 			if err := store.Save(cfg); err != nil {
@@ -491,7 +491,7 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 }
 
 func TestCommitReportsBackupRestoreFailureAfterCheckpointInvalidationFailure(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("before")); err != nil {
 		t.Fatal(err)
@@ -515,7 +515,7 @@ func TestCommitReportsBackupRestoreFailureAfterCheckpointInvalidationFailure(t *
 }
 
 func TestRestoreSnapshotSurfacesVerifiedCheckpointPostimageMismatch(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	beforeConfig := convergenceConfig("before")
 	if err := store.Save(beforeConfig); err != nil {

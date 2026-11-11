@@ -67,7 +67,7 @@ func TestUseRefusesALoneClientTypoWithoutTheConfiguration(t *testing.T) {
 		"as `aigw client list` shows; a model is named provider/model"
 	t.Run("fresh home", func(t *testing.T) {
 		home := t.TempDir()
-		runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(home, "aigw", "config.toml"), clients.Admission()), Out: &bytes.Buffer{}}
+		runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(home, "aigw", "aigw.toml"), clients.Admission()), Out: &bytes.Buffer{}}
 		if problem := terminal.ProblemFor(execute(runtime, "claud", "--json")); problem.Title != want || problem.Fix != "aigw model list claud" {
 			t.Fatalf("a client typo in a fresh home = %#v", problem)
 		}
@@ -76,7 +76,7 @@ func TestUseRefusesALoneClientTypoWithoutTheConfiguration(t *testing.T) {
 		}
 	})
 	t.Run("unparsable configuration", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "config.toml")
+		path := filepath.Join(t.TempDir(), "aigw.toml")
 		if err := os.WriteFile(path, []byte("version = [\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}

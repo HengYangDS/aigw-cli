@@ -181,7 +181,7 @@ func TestPerformanceSetupPreparation(t *testing.T) {
 	}
 	for _, mode := range []string{"owned", "missing", "foreign", "directory", "unbound"} {
 		configRoot, settingsRoot := t.TempDir(), t.TempDir()
-		config, settings := filepath.Join(configRoot, "config.toml"), filepath.Join(settingsRoot, "settings.json")
+		config, settings := filepath.Join(configRoot, "aigw.toml"), filepath.Join(settingsRoot, "settings.json")
 		paths := []string{config, settings, settings + ".aigw-state.json"}
 		for _, path := range paths {
 			mustWriteFile(t, path, []byte("owned"), 0o600)

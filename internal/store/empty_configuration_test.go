@@ -21,7 +21,7 @@ func TestConfigurationsWithoutModelsRoundTrip(t *testing.T) {
 		"nothing":                  admitted(domain.Config{Version: domain.ConfigVersion}),
 	} {
 		t.Run(name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "config.toml")
+			path := filepath.Join(t.TempDir(), "aigw.toml")
 			store := NewStore(path, testAdmission())
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)

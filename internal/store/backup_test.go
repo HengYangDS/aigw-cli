@@ -8,7 +8,7 @@ import (
 )
 
 func TestLoadBackupRoundTrips(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("old")); err != nil {
 		t.Fatal(err)
@@ -26,7 +26,7 @@ func TestLoadBackupRoundTrips(t *testing.T) {
 }
 
 func TestLoadBackupSurfacesMissingFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	if _, err := NewStore(path, testAdmission()).LoadBackup(); err == nil || !strings.Contains(err.Error(), "read previous config backup") {
 		t.Fatalf("missing backup error = %v", err)
 	}

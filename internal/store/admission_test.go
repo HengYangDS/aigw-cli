@@ -22,7 +22,7 @@ func TestStoreAndManifestFollowTheInjectedAdmission(t *testing.T) {
 	cfg.Recommendations["future"] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("gateway", "model")}}
 	cfg.SetSelectedModel("future", domain.NewModelRef("gateway", "model"), "")
 	cfg.SetClientActivation("future", true, "/opt/future", nil)
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, admission)
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)

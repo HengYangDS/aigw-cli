@@ -20,7 +20,7 @@ func TestPathFixFollowsTheConditionWhoCreatesAndTheStep(t *testing.T) {
 	in := func(parts ...string) string { return filepath.Join(append([]string{home}, parts...)...) }
 	out := func(parts ...string) string { return filepath.Join(append([]string{outside}, parts...)...) }
 	command, check := PathContext{Home: home}, PathContext{Home: home, Check: true}
-	configured := PathContext{Home: home, Configuration: in("aigw", "config.toml")}
+	configured := PathContext{Home: home, Configuration: in("aigw", "aigw.toml")}
 	// A client's file: the operator gave it, and creates it when operator says.
 	failure := func(condition PathCondition, path, culprit string) *PathConditionError {
 		return &PathConditionError{Condition: condition, Path: path, Culprit: culprit, Err: fs.ErrPermission, Given: true}
@@ -56,11 +56,11 @@ func TestPathFixFollowsTheConditionWhoCreatesAndTheStep(t *testing.T) {
 			"Clear the lock flag, such as macOS's uchg or Linux's immutable attribute, on the file that ~/work/config.toml leads to, then run the same command again."},
 		{"an EPERM that no flag causes", &PathConditionError{Condition: PathPermission, Path: in("work", "config.toml"), Err: syscall.EPERM, Given: true, Writing: true}, true, command,
 			"A lock, a sandbox or system protection forbids this operation on ~/work/config.toml; allow it, then run the same command again."},
-		{"a read of the configuration that EPERM refuses keeps its read fix", &PathConditionError{Condition: PathPermission, Path: in("aigw", "config.toml"), Err: syscall.EPERM}, false,
-			PathContext{Home: home, Configuration: in("aigw", "config.toml"), Check: true}, ConfigurationReadFix},
+		{"a read of the configuration that EPERM refuses keeps its read fix", &PathConditionError{Condition: PathPermission, Path: in("aigw", "aigw.toml"), Err: syscall.EPERM}, false,
+			PathContext{Home: home, Configuration: in("aigw", "aigw.toml"), Check: true}, ConfigurationReadFix},
 		{"a read of a client file that EPERM refuses names no flag", &PathConditionError{Condition: PathPermission, Path: in("work", "config.toml"), Err: syscall.EPERM, Given: true}, true, check,
 			"A lock, a sandbox or system protection forbids this operation on ~/work/config.toml; allow it, then run `aigw sync`."},
-		{"permission, the configuration file", failure(PathPermission, in("aigw", "config.toml"), ""), false, configured, ConfigurationReadFix},
+		{"permission, the configuration file", failure(PathPermission, in("aigw", "aigw.toml"), ""), false, configured, ConfigurationReadFix},
 		{"a file in the way, AIGW creates", failure(PathFileInTheWay, in("blocked", "aigw"), in("blocked")), false, command,
 			"Move the file ~/blocked, then run the same command again."},
 		{"a file in the way, the operator creates, check", failure(PathFileInTheWay, in("work", "config.toml"), in("work")), true, check,
@@ -69,13 +69,13 @@ func TestPathFixFollowsTheConditionWhoCreatesAndTheStep(t *testing.T) {
 			"Move the file " + out("work") + ", then create " + out("work", "config.toml") + " and the folder that holds it, then run the same command again."},
 		{"a file in the way, the operator creates, check, outside home", failure(PathFileInTheWay, out("work", "config.toml"), out("work")), true, check,
 			"Move the file in the way, outside the home directory, then create the file outside the home directory and the folder that holds it, then run `aigw sync`."},
-		{"a file at AIGW's configuration folder", failure(PathFileInTheWay, in("aigw", "config.toml"), in("aigw")), false, configured,
+		{"a file at AIGW's configuration folder", failure(PathFileInTheWay, in("aigw", "aigw.toml"), in("aigw")), false, configured,
 			"Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again."},
-		{"a file at AIGW's configuration folder, for a rollback", failure(PathFileInTheWay, in("aigw", "config.toml"), in("aigw")), false,
-			PathContext{Home: home, Configuration: in("aigw", "config.toml"), Rollback: true},
+		{"a file at AIGW's configuration folder, for a rollback", failure(PathFileInTheWay, in("aigw", "aigw.toml"), in("aigw")), false,
+			PathContext{Home: home, Configuration: in("aigw", "aigw.toml"), Rollback: true},
 			"Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy, then run the same command again; otherwise run `aigw setup`, which leaves nothing to roll back."},
-		{"a file above AIGW's configuration folder", failure(PathFileInTheWay, in("aigw", "config.toml"), home+string(filepath.Separator)+"aigw"), false,
-			PathContext{Home: home, Configuration: in("aigw", "deeper", "config.toml")},
+		{"a file above AIGW's configuration folder", failure(PathFileInTheWay, in("aigw", "aigw.toml"), home+string(filepath.Separator)+"aigw"), false,
+			PathContext{Home: home, Configuration: in("aigw", "deeper", "aigw.toml")},
 			"Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again."},
 		{"a file inside AIGW's folder is no folder of its own", failure(PathFileInTheWay, in("aigw", "secrets", "tokens"), in("aigw", "secrets")), false, configured,
 			"Move the file ~/aigw/secrets, then run the same command again."},
@@ -101,7 +101,7 @@ func TestPathFixFollowsTheConditionWhoCreatesAndTheStep(t *testing.T) {
 			"Make AIGW's folder and its files readable and writable; `aigw config path` prints where the folder is. Then run the same command again."},
 		{"a path of AIGW's own outside home, another error", &PathConditionError{Path: out("aigw", "x"), Err: syscall.EIO}, false, PathContext{Home: home},
 			"Resolve " + syscall.EIO.Error() + " on a file in AIGW's folder; `aigw config path` prints where the folder is. Then run the same command again."},
-		{"a path of AIGW's own outside home is not named", own(PathFileInTheWay, out("aigw", "config.toml"), out("aigw")), false, PathContext{Home: home, Configuration: out("aigw", "config.toml")},
+		{"a path of AIGW's own outside home is not named", own(PathFileInTheWay, out("aigw", "aigw.toml"), out("aigw")), false, PathContext{Home: home, Configuration: out("aigw", "aigw.toml")},
 			"Move the file in the way in AIGW's folder, which `aigw config path` prints. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again."},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -134,14 +134,14 @@ func TestAPathFailuresReasonReadsTheConditionOnEveryPlatform(t *testing.T) {
 // inside the home directory only, or else a new configuration in its place.
 func TestPathFixNamesTheConfigurationLinksTarget(t *testing.T) {
 	home := t.TempDir()
-	config := filepath.Join(home, "aigw", "config.toml")
+	config := filepath.Join(home, "aigw", "aigw.toml")
 	if err := os.MkdirAll(filepath.Dir(config), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	inside, outside := filepath.Join(home, "dotfiles", "config.toml"), filepath.Join(t.TempDir(), "mounted", "config.toml")
+	inside, outside := filepath.Join(home, "dotfiles", "aigw.toml"), filepath.Join(t.TempDir(), "mounted", "aigw.toml")
 	for destination, want := range map[string]string{
-		inside:  "Make ~/dotfiles/config.toml, which the link ~/aigw/config.toml leads to, available again; otherwise remove the link and run `aigw setup`. Then run the same command again.",
-		outside: "Make the target of the link ~/aigw/config.toml available again; otherwise remove the link and run `aigw setup`. Then run the same command again.",
+		inside:  "Make ~/dotfiles/aigw.toml, which the link ~/aigw/aigw.toml leads to, available again; otherwise remove the link and run `aigw setup`. Then run the same command again.",
+		outside: "Make the target of the link ~/aigw/aigw.toml available again; otherwise remove the link and run `aigw setup`. Then run the same command again.",
 	} {
 		_ = os.Remove(config)
 		if err := os.Symlink(destination, config); err != nil {

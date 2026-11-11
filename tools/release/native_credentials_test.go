@@ -292,7 +292,7 @@ func TestSystemCredentialJourneyUsesItsEffectiveHome(t *testing.T) {
 	root := t.TempDir()
 	journey := &journeyFixture{
 		testing:  t,
-		config:   filepath.Join(root, "config", "aigw", "config.toml"),
+		config:   filepath.Join(root, "config", "aigw", "aigw.toml"),
 		settings: filepath.Join(root, "home", ".claude", "settings.json"),
 		environment: []string{
 			"HOME=" + filepath.Join(root, "home"),

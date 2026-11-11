@@ -456,7 +456,7 @@ func (j *journeyFixture) measureNativeCommand(hyperfine, output string, row perf
 
 // Hyperfine shell=none uses shell_words on every OS, including Windows.
 func TestNativePerformanceCases(t *testing.T) {
-	journey := &journeyFixture{root: "owned root", binary: "installed program", config: filepath.Join("owned config directory", "config.toml"), settings: filepath.Join("owned settings directory", "settings.json"), manifest: "team manifest"}
+	journey := &journeyFixture{root: "owned root", binary: "installed program", config: filepath.Join("owned config directory", "aigw.toml"), settings: filepath.Join("owned settings directory", "settings.json"), manifest: "team manifest"}
 	reset := []string{journey.binary, "use", "claude", "native-system-keyring-probe/claude-test"}
 	cases := journey.performanceCases([]string{"projected helper"}, "test preparer", domain.Runtime{})
 	want := []performance.Workload{

@@ -424,7 +424,7 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 		config.Providers["memory"] = domain.Provider{Label: "Memory", Endpoints: domain.Endpoints{Anthropic: "https://unused.example.test"}}
 		config.Models[domain.NewModelRef("memory", "memory")] = domain.Model{Provider: "memory", Family: "memory", ID: "memory", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
 		config.SetSelectedModel(claude.ID, domain.NewModelRef("memory", "memory"), domain.ProtocolAnthropic)
-		configStore := store.NewStore(filepath.Join(output, "config.toml"), clients.Admission())
+		configStore := store.NewStore(filepath.Join(output, "aigw.toml"), clients.Admission())
 		if err := configStore.Save(config); err != nil {
 			t.Fatal(err)
 		}

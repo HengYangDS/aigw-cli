@@ -311,7 +311,7 @@ func TestDisablingLastTokenClientRetainsUnprovenCachedEntrypoint(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
 	before := testConfig(target)
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
@@ -357,7 +357,7 @@ func TestDisablingOneTokenClientRetainsEntrypointForAnother(t *testing.T) {
 	before.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{Provider: "gateway", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
-	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
@@ -396,7 +396,7 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	binding := before.Clients[claude.ID]
 	binding.CredentialCommand = helper
 	before.Clients[claude.ID] = binding
-	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
@@ -426,7 +426,7 @@ func TestWithdrawingLastClientPreservesChangedCachedEntrypoint(t *testing.T) {
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
 	before := testConfig(target)
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)

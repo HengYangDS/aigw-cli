@@ -79,7 +79,7 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 			root := filepath.Join(t.TempDir(), "configuration")
 			var output bytes.Buffer
 			app := &App{Clients: clients.Registry(),
-				Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
+				Config: store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission()),
 				Out:    &output,
 				Err:    io.Discard,
 			}
@@ -176,7 +176,7 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 func TestTeamSetupPreviewDoesNotCreateConfigurationDirectoryOrLock(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "configuration")
 	var output bytes.Buffer
-	app := &App{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()), Secrets: secret.NewMemoryStore(), Discovery: noClientDiscovery{}, Out: &output, Err: io.Discard}
+	app := &App{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission()), Secrets: secret.NewMemoryStore(), Discovery: noClientDiscovery{}, Out: &output, Err: io.Discard}
 	manifest := filepath.Join("..", "..", "manifests", "team.toml")
 	if err := Execute(app, []string{"setup", "--from", manifest, "--dry-run", "--json"}); err != nil {
 		t.Fatalf("team setup preview: %v\n%s", err, &output)

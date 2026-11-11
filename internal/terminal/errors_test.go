@@ -171,7 +171,7 @@ func TestALoadFailureThroughAFileNamesTheFileToMove(t *testing.T) {
 	if err := os.WriteFile(folder, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	config := filepath.Join(folder, "config.toml")
+	config := filepath.Join(folder, "aigw.toml")
 	windows := &fs.PathError{Op: "open", Path: config, Err: fs.ErrNotExist}
 	err := &store.LoadError{Phase: store.LoadPhaseRead, Err: platform.ClassifyPath(config, platform.FileExpected, windows)}
 	problem := ProblemFor(LocalFailure("9.8.7", platform.PathContext{Home: home, Configuration: config}, err))
@@ -188,7 +188,7 @@ func TestALoadFailureThroughAFileNamesTheFileToMove(t *testing.T) {
 // a fix that moved the configuration away.
 func TestAnUnreadableConfigurationKeepsTheReadAccessFix(t *testing.T) {
 	home := t.TempDir()
-	config := filepath.Join(home, "aigw", "config.toml")
+	config := filepath.Join(home, "aigw", "aigw.toml")
 	if err := os.MkdirAll(filepath.Dir(config), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestALocalFileFailureNamesItsPathAgainstTheRunsHome(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("USERPROFILE", t.TempDir())
 	err := fmt.Errorf("create config directory for lock: %w", &fs.PathError{Op: "mkdir", Path: folder, Err: syscall.ENOTDIR})
-	problem := ProblemFor(LocalFailure("9.8.7", platform.PathContext{Home: home, Configuration: filepath.Join(folder, "config.toml")}, err))
+	problem := ProblemFor(LocalFailure("9.8.7", platform.PathContext{Home: home, Configuration: filepath.Join(folder, "aigw.toml")}, err))
 	want := Problem{
 		Title: "Local file access failed (mkdir: not a directory)",
 		Fix:   "Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again.",

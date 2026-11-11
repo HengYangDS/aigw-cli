@@ -319,7 +319,7 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 	}
 	before := testConfig(target)
 	before.SetClientActivation(codex.ID, false, "", nil)
-	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}

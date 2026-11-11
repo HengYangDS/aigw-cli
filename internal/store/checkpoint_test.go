@@ -17,7 +17,7 @@ import (
 )
 
 func TestForwardingChangedDuringVerificationRejectsCheckpoint(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := convergenceConfig("current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -47,7 +47,7 @@ func TestForwardingChangedDuringVerificationRejectsCheckpoint(t *testing.T) {
 }
 
 func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := convergenceConfig("current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -79,7 +79,7 @@ func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) 
 }
 
 func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	cfg := admitted(domain.Config{
 		Version:   domain.ConfigVersion,
@@ -180,7 +180,7 @@ func TestVerifiedCheckpointUsesOneClientScopeContract(t *testing.T) {
 }
 
 func TestVerifiedCheckpointPreservesNewerConfigurationAndCheckpoint(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	verified := convergenceConfig("verified")
 	current := convergenceConfig("current")
 	if err := store.Save(current); err != nil {
@@ -206,7 +206,7 @@ func TestVerifiedCheckpointPreservesNewerConfigurationAndCheckpoint(t *testing.T
 }
 
 func TestVerifiedCheckpointRequiresExistingConfiguration(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	if err := store.SaveVerifiedCheckpoint(t.Context(), convergenceConfig("missing"), sessions(ClientCodex)); err == nil {
 		t.Fatal("verification created a checkpoint without configuration")
 	}
@@ -216,7 +216,7 @@ func TestVerifiedCheckpointRequiresExistingConfiguration(t *testing.T) {
 }
 
 func TestVerifiedCheckpointWaitsForMutationLockAndHonorsCancellation(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := convergenceConfig("current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -241,7 +241,7 @@ func TestVerifiedCheckpointWaitsForMutationLockAndHonorsCancellation(t *testing.
 }
 
 func TestVerifiedCheckpointAcceptsEquivalentConfigurationFormatting(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := convergenceConfig("current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -264,7 +264,7 @@ func TestVerifiedCheckpointAcceptsEquivalentConfigurationFormatting(t *testing.T
 }
 
 func TestLoadVerifiedCheckpointRejectsLegacyProfileOwnedEndpointResidue(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	checkpoint := `{
   "config": {
     "version": 1,
@@ -297,7 +297,7 @@ func TestLoadVerifiedCheckpointRejectsLegacyProfileOwnedEndpointResidue(t *testi
 }
 
 func TestSaveVerifiedCheckpointRejectsInvalidConfiguration(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	if err := NewStore(path, testAdmission()).SaveVerifiedCheckpoint(t.Context(), domain.Config{}, sessions("codex")); err == nil {
 		t.Fatal("SaveVerifiedCheckpoint accepted an invalid configuration")
 	}
@@ -318,14 +318,14 @@ func TestSaveVerifiedCheckpointSurfacesUnwritableConfigDirectory(t *testing.T) {
 }
 
 func TestLoadVerifiedCheckpointSurfacesMissingFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	if _, err := NewStore(path, testAdmission()).LoadVerifiedCheckpoint(); err == nil || !strings.Contains(err.Error(), "read verified checkpoint") {
 		t.Fatalf("missing checkpoint error = %v", err)
 	}
 }
 
 func TestLoadVerifiedCheckpointRejectsIncompleteCheckpoint(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	if err := os.WriteFile(NewStore(path, testAdmission()).verifiedPath(), []byte(`{}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -335,7 +335,7 @@ func TestLoadVerifiedCheckpointRejectsIncompleteCheckpoint(t *testing.T) {
 }
 
 func TestLoadVerifiedCheckpointRejectsNonCanonicalConfigVersion(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	checkpoint := `{
   "configuration": "version = 7\n",
   "clients": [{"client": "codex", "depth": "client"}],
@@ -350,7 +350,7 @@ func TestLoadVerifiedCheckpointRejectsNonCanonicalConfigVersion(t *testing.T) {
 }
 
 func TestSaveVerifiedCheckpointSurfacesInvalidCheckpointTarget(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	cfg := convergenceConfig("current")
 	if err := store.Save(cfg); err != nil {
@@ -367,7 +367,7 @@ func TestSaveVerifiedCheckpointSurfacesInvalidCheckpointTarget(t *testing.T) {
 func TestVerifiedCheckpointCompensatesConfigurationChangeDuringWrite(t *testing.T) {
 	for _, replaceCheckpoint := range []bool{false, true} {
 		t.Run(fmt.Sprint(replaceCheckpoint), func(t *testing.T) {
-			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+			store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 			cfg := convergenceConfig("verified")
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)

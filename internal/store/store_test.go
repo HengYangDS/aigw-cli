@@ -46,7 +46,7 @@ func TestForwardingRoundTripsInTheConfiguration(t *testing.T) {
 }
 
 func TestForwardingSnapshotRestoresPresenceAndPriorBinding(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -101,7 +101,7 @@ func TestForwardingRefusesAnUpstreamThatTheSelectionNoLongerReaches(t *testing.T
 }
 
 func TestForwardingUnchangedCanonicalRejectsStalePreimage(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -127,7 +127,7 @@ func TestForwardingUnchangedCanonicalRejectsStalePreimage(t *testing.T) {
 }
 
 func TestLoadRejectsLegacyProfileOwnedEndpointResidue(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	raw := `version = 3
 
 [accounts.gateway]
@@ -158,7 +158,7 @@ codex = "gpt"
 }
 
 func TestLoadRequiresCanonicalSchemaVersion(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	previousVersion := domain.ConfigVersion - 1
 	raw := fmt.Appendf(nil, "version = %d\n", previousVersion)
 	if err := os.WriteFile(path, raw, 0o600); err != nil {
@@ -176,7 +176,7 @@ func TestLoadRequiresCanonicalSchemaVersion(t *testing.T) {
 }
 
 func TestLoadRejectsLegacySelectionFieldsAtTheCurrentVersion(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	raw := fmt.Sprintf(`version = %d
 
 [accounts.gateway]
@@ -209,7 +209,7 @@ enabled = true
 }
 
 func TestLoadRejectsUnsupportedVersionBeforeReadingItsFields(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	raw := `version = 3
 unexpected = true
 [accounts.gateway]
@@ -235,7 +235,7 @@ claude = "claude"
 }
 
 func TestLockSerializesMutations(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	unlock, err := store.Lock(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -283,7 +283,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 }
 
 func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	cfg := admitted(domain.Config{
 		Version: domain.ConfigVersion,
@@ -334,7 +334,7 @@ func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
 		"incompatible legacy Profile": incompatible,
 	} {
 		t.Run(name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "config.toml")
+			path := filepath.Join(t.TempDir(), "aigw.toml")
 			if err := os.WriteFile(path, []byte("sentinel"), 0o600); err != nil {
 				t.Fatal(err)
 			}
@@ -351,7 +351,7 @@ func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
 }
 
 func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	before, err := store.CaptureSnapshot()
 	if err != nil {
@@ -382,7 +382,7 @@ func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
 }
 
 func TestCommitInvalidatesAndRestoreSnapshotRecoversVerifiedCheckpoint(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	beforeConfig := convergenceConfig("before")
 	if err := store.Save(beforeConfig); err != nil {
@@ -415,7 +415,7 @@ func TestCommitInvalidatesAndRestoreSnapshotRecoversVerifiedCheckpoint(t *testin
 }
 
 func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	store := NewStore(path, testAdmission())
 	first := admitted(domain.Config{
 		Version:   domain.ConfigVersion,

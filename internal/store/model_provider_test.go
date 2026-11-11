@@ -64,7 +64,7 @@ func TestModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 }
 
 func TestClientModelProviderPersistsAndParticipatesInManifestSelection(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
+	path := filepath.Join(t.TempDir(), "aigw.toml")
 	cfg := modelProviderConfig()
 	binding := cfg.Clients[ClientCodex]
 	binding.ModelProvider = "amazon-bedrock"
