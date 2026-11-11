@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"net/http/httptest"
 	"strings"
 	"sync/atomic"
@@ -112,7 +113,7 @@ func TestProbeTokenNotFound(t *testing.T) {
 	})
 	providerAccount := domain.Provider{BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 	_, err := dmxapi.Probe(context.Background(), probe.Sender{Client: client}, providerAccount, "sk-no-match", diagnostic.Credential{})
-	if err == nil || !strings.Contains(err.Error(), "not found in the DMXAPI account") {
+	if err == nil || !strings.Contains(err.Error(), "not found at DMXAPI") {
 		t.Errorf("expected 'not found' error, got %v", err)
 	}
 }
@@ -362,7 +363,7 @@ func TestProbeFailuresKeepTheirKind(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"success":false,"message":"no"}`))}, nil
 		}, func(err error) bool {
 			refused, ok := errors.AsType[*diagnostic.RefusedError](err)
-			return ok && refused.Error() == "DMXAPI account query failed: no"
+			return ok && refused.Error() == "DMXAPI balance query failed: no"
 		}},
 		{"refused token query", func(request *http.Request) (*http.Response, error) {
 			body := user
@@ -381,7 +382,7 @@ func TestProbeFailuresKeepTheirKind(t *testing.T) {
 			}
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
 		}, func(err error) bool {
-			return errors.Is(err, diagnostic.ErrTokenNotListed) && err.Error() == "current API Token was not found in the DMXAPI account"
+			return errors.Is(err, diagnostic.ErrTokenNotListed) && err.Error() == "current API Token was not found at DMXAPI"
 		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -391,5 +392,41 @@ func TestProbeFailuresKeepTheirKind(t *testing.T) {
 				t.Fatalf("error = %v (%T)", err, err)
 			}
 		})
+	}
+}
+
+// No failure of the probe names a retired word: the text reaches the user.
+func TestProbeFailuresSpeakTheProductVocabulary(t *testing.T) {
+	retired := regexp.MustCompile(`(?i)\b(accounts?|routes?|projections?|projected|bindings?)\b`)
+	user := `{"success":true,"data":{"quota":0}}`
+	for name, answer := range map[string]func(*http.Request) string{
+		"refused query": func(*http.Request) string { return `{"success":false,"message":"no"}` },
+		"unlisted Token": func(request *http.Request) string {
+			if request.URL.Path == "/api/token/search" {
+				return `{"success":true,"data":{"items":[]}}`
+			}
+			return user
+		},
+		"refused token query": func(request *http.Request) string {
+			if request.URL.Path == "/api/token/search" {
+				return `{"success":false,"message":"no"}`
+			}
+			return user
+		},
+		"incomplete search": func(request *http.Request) string {
+			if request.URL.Path == "/api/token/search" {
+				return `{"success":true,"data":{"items":[` + strings.TrimSuffix(strings.Repeat(`{"key":"other"},`, 100), ",") + `],"page_size":100}}`
+			}
+			return user
+		},
+	} {
+		client := roundTrip(func(request *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(answer(request)))}, nil
+		})
+		providerAccount := domain.Provider{BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+		_, err := dmxapi.Probe(t.Context(), probe.Sender{Client: client}, providerAccount, "sk-abcd-middle-wxyz", diagnostic.Credential{})
+		if err == nil || retired.MatchString(err.Error()) {
+			t.Errorf("%s: %v names a retired word", name, err)
+		}
 	}
 }

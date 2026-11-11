@@ -42,7 +42,7 @@ func Probe(ctx context.Context, sender diagnostic.Sender, providerAccount domain
 		return diagnostic.Report{}, err
 	}
 	if !user.Success {
-		return diagnostic.Report{}, &diagnostic.RefusedError{Text: "DMXAPI account query failed: " + domain.Redact(user.Message, auth.SystemToken, auth.UserID)}
+		return diagnostic.Report{}, &diagnostic.RefusedError{Text: "DMXAPI balance query failed: " + domain.Redact(user.Message, auth.SystemToken, auth.UserID)}
 	}
 	items, err := fetchTokens(ctx, sender, base, auth)
 	if err != nil {
@@ -67,7 +67,7 @@ func Probe(ctx context.Context, sender diagnostic.Sender, providerAccount domain
 			TokenUnlimitedCount: token.UnlimitedCount,
 		}, nil
 	}
-	return diagnostic.Report{AccountBalance: float64(user.Data.Quota) / 500000}, fmt.Errorf("%w in the DMXAPI account", diagnostic.ErrTokenNotListed)
+	return diagnostic.Report{AccountBalance: float64(user.Data.Quota) / 500000}, fmt.Errorf("%w at DMXAPI", diagnostic.ErrTokenNotListed)
 }
 
 type token struct {

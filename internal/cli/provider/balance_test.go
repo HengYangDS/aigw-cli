@@ -3,9 +3,11 @@ package provider
 import (
 	"errors"
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/balanceprobe/diagnostic"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 )
@@ -161,7 +163,7 @@ func TestBalanceRerunsOnlyWhatALaterRequestMayNotRepeat(t *testing.T) {
 	settings := "Correct the balance probe of provider team in the configuration file; `aigw config path` prints its location."
 	unlisted := `{"success":true,"data":{"page_size":100,"items":[{"name":"other","key":"xxxx**********0002","status":1}]}}`
 	fullPage := `{"success":true,"data":{"page_size":100,"items":[` + strings.TrimSuffix(strings.Repeat(`{"key":"xxxx**********0002"},`, 100), ",") + `]}}`
-	tooMany := "The provider's account lists more Tokens than the balance probe reads; delete the Tokens that you no longer use at the provider, then run `aigw provider balance team`."
+	tooMany := "The provider lists more Tokens than the balance probe reads; delete the Tokens that you no longer use at the provider, then run `aigw provider balance team`."
 	for _, test := range []struct {
 		name, user, tokens string
 		status             int
@@ -176,7 +178,7 @@ func TestBalanceRerunsOnlyWhatALaterRequestMayNotRepeat(t *testing.T) {
 		{name: "forbidden", status: http.StatusForbidden, fix: edit},
 		{name: "refused query", user: `{"success":false,"message":"no access"}`, fix: edit},
 		{name: "unlisted Token", tokens: unlisted, fix: "aigw provider rotate team",
-			environment: "Set AIGW_TOKEN_TEAM to the Token that the provider's account lists, then run `aigw provider balance team`."},
+			environment: "Set AIGW_TOKEN_TEAM to the Token that the provider lists, then run `aigw provider balance team`."},
 		{name: "wrong base URL", status: http.StatusNotFound, fix: settings, environment: settings},
 		{name: "too many Tokens", tokens: fullPage, fix: tooMany, environment: tooMany},
 	} {
@@ -249,3 +251,27 @@ func (failingOutput) Write([]byte) (int, error) { return 0, errors.New("output r
 type emptyToken struct{ secret.Store }
 
 func (emptyToken) Get(string) (string, error) { return "", secret.ErrEmpty }
+
+// retiredWords matches the nouns that provider, model and client replaced.
+var retiredWords = regexp.MustCompile(`(?i)\b(accounts?|routes?|projections?|projected|bindings?)\b`)
+
+// No fix of a failed balance probe names a retired word, whichever backend
+// holds the credentials.
+func TestEveryBalanceFixSpeaksTheProductVocabulary(t *testing.T) {
+	environment := environmentBackend(func(string) string { return "" })
+	for name, store := range map[string]secret.Store{"writable": secret.NewMemoryStore(), "environment": environment} {
+		for failure, err := range map[string]error{
+			"unreachable":    &diagnostic.UnreachableError{Err: errors.New("offline")},
+			"refused":        &diagnostic.RefusedError{Text: "no"},
+			"not listed":     diagnostic.ErrTokenNotListed,
+			"incomplete":     diagnostic.ErrSearchIncomplete,
+			"unknown":        errors.New("unexpected"),
+			"unauthorized":   &diagnostic.StatusError{Status: http.StatusUnauthorized},
+			"service failed": &diagnostic.StatusError{Status: http.StatusServiceUnavailable},
+		} {
+			if fix := probeFix(store, "team", err); retiredWords.MatchString(fix) {
+				t.Errorf("%s backend, %s: the fix names %q: %s", name, failure, retiredWords.FindString(fix), fix)
+			}
+		}
+	}
+}

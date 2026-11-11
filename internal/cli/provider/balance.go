@@ -213,11 +213,11 @@ func probeFix(store secret.Store, id string, err error) string {
 		}
 		return "aigw provider edit " + id + " --balance-token-stdin --balance-user-id <user-id>"
 	case errors.Is(err, diagnostic.ErrTokenNotListed) && readOnly:
-		return "Set " + secret.EnvironmentKey(id) + " to the Token that the provider's account lists, then run `" + rerun + "`."
+		return "Set " + secret.EnvironmentKey(id) + " to the Token that the provider lists, then run `" + rerun + "`."
 	case errors.Is(err, diagnostic.ErrTokenNotListed):
 		return "aigw provider rotate " + id
 	case errors.Is(err, diagnostic.ErrSearchIncomplete):
-		return "The provider's account lists more Tokens than the balance probe reads; delete the Tokens that you no longer use at the provider, then run `" + rerun + "`."
+		return "The provider lists more Tokens than the balance probe reads; delete the Tokens that you no longer use at the provider, then run `" + rerun + "`."
 	default:
 		return "Correct the balance probe of provider " + id + " in the configuration file; `aigw config path` prints its location."
 	}
