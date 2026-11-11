@@ -11,6 +11,21 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Added
+
+- `aigw version` shows the program's version.
+- `aigw provider show <provider>` shows a provider's endpoints, its models and
+  whether its Token is stored; `aigw provider remove <provider>` removes the
+  provider with its models, Token and balance credentials.
+- Shell completion offers clients, providers, models, families and protocols
+  from the local configuration.
+- `aigw check` lists the Tokens that no provider uses. The list leads with
+  `aigw setup`, or `aigw setup --from <file>`, which reuses the Token, and a
+  second line offers `aigw provider remove <provider>` to delete it.
+- `aigw provider add` sends one authenticated request that names no model and
+  stores the Token only when the provider accepts it; when the provider refuses
+  it, nothing is stored.
+
 ### Changed
 
 - The team file `manifests/team.toml` takes each vendor's strongest model that
@@ -33,40 +48,34 @@ signing, and GA status remain separate evidence.
   holds only those files has no configuration, and `aigw` names `aigw setup`.
   To upgrade, run `aigw setup --from <team file>` or `aigw setup`, then
   `aigw use <client> <provider/model>` for each client. A provider that you add
-  under its earlier ID finds the Token already stored for it, and setup uses it
-  without a prompt. Client sessions that started before the upgrade keep
+  under its earlier ID finds the Token already stored for it, and `aigw setup`
+  uses it without a prompt and says so. Client sessions that started before the upgrade keep
   working, because they call the credential reader they started with, which
   still reads the untouched `config.toml`. Delete `config.toml` and
   `config.*.toml` once those sessions have ended; AIGW never deletes them.
 - The shape of `aigw.toml`: each provider nests its models, which are named
   `provider/model`, and array order is display order, so `order` is refused.
-  `deprecated = true` replaces `lifecycle`, and `purpose` ends, because no
-  command displayed it. A model that declares no protocol is refused when a
-  configuration or team file is read. A provider ID that differs from another
-  only in case is refused naming both, and a capitalized ID is refused with its
-  lowercase spelling. The authentication value `account-token` is
-  `provider-token`.
+  `deprecated = true` replaces `lifecycle`, and `purpose` ends. A model that
+  declares no protocol is refused when a configuration or team file is read.
+  A capitalized provider ID was refused in 0.6.1 as well; the team-file refusal
+  now names the lowercase spelling, and a local `aigw.toml` with one stops at
+  the configuration's validate stage. The authentication value `account-token`
+  is `provider-token`.
 - A team file is the same format without `[clients]`, with `version = 8`.
   `aigw setup --from` refuses a file with a `[clients]` section or in another
   version before it writes anything. A member who still runs 0.6.1 cannot read
   a version 8 file and upgrades first.
-- `aigw setup` reuses a Token that is already stored for a provider that it adds
-  and says so. Guided `aigw setup` enables the client that it configures. It is
-  the one write without a preview: `aigw setup --from <file> --dry-run` previews
-  a team file.
-- The unused-Token list of `aigw check` leads with `aigw setup`, or
-  `aigw setup --from <file>`, which reuses the Token. A second line offers
-  `aigw provider remove <provider>` to delete it.
-- Hermes provider IDs are `aigw-<provider>-<protocol>`, such as
-  `aigw-dmxapi-responses`, which replaces `aigw-dmxapi-openai-responses`. A
-  Hermes session that started before the upgrade names an ID that no longer
-  exists.
+- Guided `aigw setup` enables the client that it configures. It has no preview;
+  `aigw setup --from <file> --dry-run` previews a team file.
+- Hermes provider IDs on the responses and chat protocols are
+  `aigw-<provider>-<protocol>`, such as `aigw-dmxapi-responses`, which replaces
+  `aigw-dmxapi-openai-responses`; `aigw-<provider>-anthropic` is unchanged. A
+  Hermes session that started before the upgrade names a responses or chat ID
+  that no longer exists.
 - The read-only environment backend reads a provider's balance credential from
   `AIGW_BALANCE_TOKEN_<ID>` and `AIGW_BALANCE_USER_ID_<ID>`. The earlier
   `AIGW_DIAGNOSTIC_SYSTEM_TOKEN_<ID>` and `AIGW_DIAGNOSTIC_USER_ID_<ID>` no
   longer work.
-- `aigw model show` and `aigw model remove` take no `--protocol`: `model show`
-  lists every protocol of the model, and `model remove` removes the model.
 - `aigw self rollback` cannot return to a release older than 0.7.0, because no
   earlier release reads `aigw.toml`: its check gives the retained program the
   current configuration and refuses one that cannot read it, changing nothing.
@@ -119,6 +128,37 @@ signing, and GA status remain separate evidence.
   `client`, `file` and `action`, which replaces `projections` of `client`,
   `surface`, `target` and `action`. The documents of `client enable` and
   `client disable` move to `schema_version` 2.
+- The `--json` documents of `status`, `sync`, `use`, `check`, `setup --from` and
+  failures move to `schema_version` 3, and a model is named `provider/model`
+  wherever a document names one. By command:
+  - `status`: `routes` is `models`. Each client drops `route` and `account` for
+    `model` and `provider`, and `projection_ready` and `projection_deferred`
+    are `client_files_ready` and `client_files_deferred`. A client may add
+    `native_model_preference`.
+  - `sync`: `projections` is `client_files`, whose items are `client`, `file`
+    and `action`. `selections` and `adopted_selections` name each model as
+    `provider/model`.
+  - `use`: `account`, `account_label`, `route`, `route_label`, `upstream_model`,
+    `upstream_endpoint`, `model_provider`, `retry_policy`, `projection_changed`,
+    `projection_deferred` and `projections` are gone. `model` is
+    `provider/model`; `provider`, `label`, `family`, `protocol`, `endpoint`,
+    `provider_endpoint`, `retries`, `client_files`, `credential_reader` and
+    `files_deferred` carry the rest, and `enabled`, `was_disabled`,
+    `stays_disabled`, `added`, `gained_protocol` and `catalog_checked` say what
+    the command did.
+  - `check`: `clients` is a list of objects with `id`, `enabled`, `model`,
+    `provider`, `protocol`, `state`, `depth`, `skipped` and `checks`, where it
+    was an object keyed by client. `check_passed`, `diagnostic_kind`,
+    `diagnostic_scope`, `attempts` and `retryable` give way to `failure` and
+    `session`. The document adds `depth`, `model`, `checks`,
+    `credential_backend`, `snapshot_written` and `unused_tokens`.
+  - `setup --from`: `accounts`, `routes`, `imported`, `connected_accounts`,
+    `selections`, `projected_clients`, `online_verification` and
+    `deferred_actions` give way to `added`, `changed`, `pruned`, `kept_*`,
+    `dropped_capabilities`, `unusable`, `tokens`, `clients`, `client_files` and
+    `credential_reader`.
+  - failures: the fields are unchanged; a usage error now writes the document
+    under `--json`.
 
 ### Removed
 
