@@ -278,11 +278,14 @@ download is `public-inputs.tar`. Select `AIGW_BASELINE_TAG` and
 `AIGW_NATIVE_CLIENTS=true` for retained-predecessor client acceptance with
 explicitly supplied native clients.
 
-The archive contains complete `candidate/` and `baseline/` matrices, native client
-distributions and reviewed official Hermes source under `suppliers/`. The
-portable release owner downloads once into private scratch, verifies the exact
+The archive holds complete `candidate/` and `baseline/` matrices, which the
+portable release owner reads, and under `suppliers/` the Windows native-client
+archive, which only the Windows job extracts. No job reads Hermes source from it.
+The release owner downloads once into private scratch, verifies the exact
 archive SHA256, and extracts only the complete positive candidate/predecessor
-matrix names. Signatures, source identity, published-predecessor admission and
+matrix names. The predecessor must be 0.7.0 or later: the owner refuses an older
+`AIGW_BASELINE_TAG` before it downloads anything, because older releases cannot
+read `aigw.toml`. Signatures, source identity, published-predecessor admission and
 lifecycle execution retain their existing release owners.
 
 Windows client supply alone uses the existing job directory and the reviewed
@@ -313,32 +316,22 @@ published predecessor executable. After tagging, omit `--candidate` and select
 
 `--baseline-artifacts` with `--baseline-tag` instead admits the complete signed
 predecessor matrix and extracts its native executable through the same owner.
+Every selector admits only a predecessor of 0.7.0 or later, the oldest release a
+journey can start from. The 0.7.0 release has no admissible predecessor, so it
+runs no predecessor journey and no performance comparison; later releases run
+both against 0.7.0 or later.
 `--input-package` with `--input-sha256`, `--candidate-source`, `--candidate`,
 `--baseline-tag`, `--peer gitlab` and `--repository` admits the complete package
 without staging a host. An absolute `--input-archive` instead consumes the same
-signed input contract offline. `--input-release native-inputs-<carrier SHA>`
-with `--peer github` downloads `public-inputs-<input-sha256>.tar` from an
-existing GitHub transport release. These three input carriers are mutually exclusive; all require the
-original checksum, signed candidate source and published predecessor identity.
+signed input contract offline. These two input carriers are mutually exclusive;
+both require the original checksum, signed candidate source and published
+predecessor identity. GitHub has no such carrier: its dispatches select
+published tags with `baseline_tag` and `candidate_tag`.
 
-The existing native owner verifies the signed annotated transport tag, its named
-carrier commit and archive checksum before extraction. The carrier is only a
-byte locator; its history neither admits nor rejects a later candidate. Complete
-matrix signatures and provenance bind the exact candidate producer and published
-predecessor, independently of the carrier or verifier. Reuse requires measured
-product-input equivalence, not ancestry. Its private
+The existing native owner verifies the archive checksum before extraction.
+Complete matrix signatures and provenance bind the exact candidate producer and
+published predecessor, independently of the package or verifier. Its private
 workspace reclaims downloads on success, failure and cancellation.
-
-Transport tags are distinct from product `v<semver>` tags. Reuse an existing
-signed transport Release as a byte locator; upload each uniquely named packet
-without replacing its original assets, tag, description or source identity.
-Do not create a tag or Release for each candidate. Dispatch verification from
-the admitted verifier branch and pass the exact candidate source explicitly.
-Product tag verification selects only its `v*` namespace; transport trust is
-checked by its native input consumer. Retire the transport Release and
-exact tag only after its native input jobs finish, their evidence is retained,
-and any independent [tool-source consumer](../governance/change-and-release-policy.md#dependency-maintenance)
-has released that carrier.
 
 For published remote inputs, `--tag`, `--baseline-tag`, `--peer` and
 `--repository` select that peer's native CLI with a bounded no-prompt download;
@@ -377,8 +370,7 @@ and credentials. Construction and CI costs remain tied to their original build
 and job receipts, not these samples.
 
 The GitHub Verify workflow accepts `performance=true` together with
-`baseline_tag` and either `candidate_tag` or the exact `input_release`,
-`input_sha256` and `candidate_source` binding. GitLab's existing native jobs accept
+`baseline_tag` and `candidate_tag`. GitLab's existing native jobs accept
 `AIGW_NATIVE_PERFORMANCE=true` in a web or API pipeline with `AIGW_BASELINE_TAG`
 and either `AIGW_CANDIDATE_TAG` or the signed `AIGW_CANDIDATE_ARTIFACTS` input.
 Both peers reuse the same release acceptance and measurement owner, not a

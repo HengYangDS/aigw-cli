@@ -60,7 +60,7 @@ AIGW_ACCEPTANCE_CLIENT_PATH=/usr/bin:/bin \
 ```
 
 This exercises public preview, selection, cached predecessor credentials,
-native budget admission, retained-reader rollback refusal, one unknown-outcome
+native budget admission, retained-reader rollback admission, one unknown-outcome
 request and native-default reset
 in private homes with synthetic environment credentials. It does not qualify
 package-manager cutover, release artifacts or Desktop behavior. The same case
@@ -84,9 +84,7 @@ active-program sync/check. The exact current candidate's per-client `verify`
 observes every lifecycle state; it owns an isolated probe, not the retained
 client or its settings. Original programs, byte checks, cached credential
 commands, and independent native tool/session requests still qualify succession.
-This does not prove the historical verifier works with a newer client:
-0.3.3's Hermes verifier loses the installation binding in an arbitrary home.
-Published 0.3.1 also cannot check the successor's projection until sync.
+This does not prove the historical verifier works with a newer client.
 Uninstall preserves unowned settings and removes only the test installation.
 No-token and actual Provider tests remain different observations.
 
@@ -106,7 +104,8 @@ remain required. GitHub uses hosted runners, not self-hosted fallback.
 
 GitLab `AIGW_CANDIDATE_TAG` selects a published matrix;
 `AIGW_CANDIDATE_ARTIFACTS` selects local pre-tag bytes. `AIGW_BASELINE_TAG`
-selects the predecessor and `AIGW_NATIVE_CLIENTS=true` adds provisioned clients.
+selects the predecessor, which must be 0.7.0 or later, and `AIGW_NATIVE_CLIENTS=true`
+adds provisioned clients.
 CUE forwards these after `ci native --`; source checks do not inherit them.
 `AIGW_CANDIDATE_SOURCE` forwards the exact signed pre-tag product commit to
 `--candidate-source` when a newer verifier consumes existing candidate bytes.
@@ -158,6 +157,6 @@ than global safe-directory changes. gh/glab probes use private config directorie
 
 Retained-state acceptance executes projected helpers through the real native
 shell and preserves configuration bytes before active-program sync. The baseline
-must read the fixture's declared schema; older-schema inputs need the reviewed
-migration journey, not disabled integration. Host, container, Provider and client
+must be 0.7.0 or later, which reads the fixture's `aigw.toml`; the 0.7.0 release has
+no admissible predecessor and runs no predecessor journey. Host, container, Provider and client
 identities each have independent acceptance claims.

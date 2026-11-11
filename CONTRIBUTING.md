@@ -309,17 +309,22 @@ diagnostic scope instead of their full suites.
 Default acceptance uses a synthetic current-schema predecessor. Test-owned
 macOS signing fixtures neither import identities nor authorize historical
 credentials. Explicit candidate bytes are never replaced by a source build.
-A real published baseline adds a distinct retained-state journey: 0.1.0 requires
-schema migration/rollback; 0.2.0 supports byte-preserving sync without migration.
-An independently verified extracted portable binary can be supplied through
-`AIGW_ACCEPTANCE_BASELINE`; Homebrew's installed executable is not that input.
+A real published baseline adds a distinct retained-state journey. The oldest
+admissible baseline is 0.7.0: it is the first release that reads `aigw.toml`, and
+the release tooling refuses an older `--baseline-tag` before it downloads or runs
+anything. The 0.7.0 release therefore has no admissible predecessor and runs no
+predecessor journey or performance comparison; later releases run both against
+0.7.0 or later. An independently verified extracted portable binary can be
+supplied through `AIGW_ACCEPTANCE_BASELINE`; Homebrew's installed executable is
+not that input. The tooling does not check the version of that executable, which
+has no release identity.
 
 Before tagging, admit the signed candidate and published predecessor matrices:
 
 ```bash
 mise exec --locked -- go run ./tools/release accept-native \
   --artifacts /absolute/path/to/candidate-dist --candidate --clients \
-  --baseline-artifacts /absolute/path/to/published-baseline --baseline-tag v0.3.1
+  --baseline-artifacts /absolute/path/to/published-baseline --baseline-tag v0.7.0
 ```
 
 Provide `AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE`,
@@ -344,11 +349,7 @@ reads; fixture metadata/cleanup neither grants access nor replaces them.
 
 Use the Secret Service's native warning policy during D-Bus activation;
 CI must preserve warnings without converting them into service termination.
-Published AIGW 0.3.1 uses
-go-keyring's `CreateItem(replace=true)` path, which emits a duplicate-registration
-warning on the qualified GNOME backend;
-[upstream retains that CreateItem path](https://github.com/GNOME/gnome-keyring/blob/50.0/daemon/dbus/gkd-secret-objects.c).
-The successor searches first and replaces through `SetSecret`. Native succession
+Native succession
 retains and reads the predecessor's original Token, verifies upgrade, rollback
 and forward, then exercises successor rotation. It does not require the immutable
 predecessor to repair its own rotation. Preserve original warning and failed
@@ -360,7 +361,7 @@ bytes to manufacture a pass.
 ```bash
 mise exec --locked -- go run ./tools/release accept-native \
   --artifacts /absolute/path/to/published/matrix \
-  --baseline-artifacts /absolute/path/to/published-baseline --baseline-tag v0.3.1
+  --baseline-artifacts /absolute/path/to/published-baseline --baseline-tag v0.7.0
 ```
 
 Select public trust and exact `CI_COMMIT_TAG`. Alternatively use `--tag` and
@@ -398,7 +399,8 @@ Windows enables Credential Manager; disposable macOS opt-in `macos_keychain=true
 exercises a retained item through predecessor, rollback and re-upgrade. Linux's
 ordinary hosted environment-backend proof is not Secret Service qualification.
 Omitted tags select source-built current-schema acceptance. Published baselines
-need complete signed matrices/source provenance; unsigned archives are rejected.
+need complete signed matrices/source provenance and a version of 0.7.0 or later;
+unsigned archives are rejected.
 Local and GitLab input matrices remain independently verifiable without GitHub.
 
 ## Release and metadata

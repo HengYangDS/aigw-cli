@@ -154,7 +154,10 @@ and re-prove the archived source. A checkbox, branch or file grants no authority
 
 Package/Provider/client support requires actual artifact journeys, not source-green
 or accepted trees alone. Keep the published predecessor's configuration and Adapter
-active during replacement. Its reader, schema and native-store identity are distinct
+active during replacement. A predecessor is 0.7.0 or later, the first release that
+reads `aigw.toml`; the 0.7.0 release has no admissible predecessor and runs no
+predecessor journey or performance comparison, and later releases run both against
+0.7.0 or later. Its reader, schema and native-store identity are distinct
 from current fixtures. macOS retained-store tests require disposable host opt-in;
 Windows Credential Manager and Linux Secret Service have separate native evidence.
 Pre-archive candidate journeys use isolated synthetic native items or explicit
@@ -556,7 +559,7 @@ statistical warnings stay in the retained raw output and do not fail it;
 complete successful samples, both order blocks and unchanged budgets decide.
 
 Use native [candidate performance](../operations/forge-operations.md#measure-native-candidate-performance)
-with one exact signed matrix and retained predecessor. Prefer low-contention
+with one exact signed matrix and a retained predecessor of 0.7.0 or later. Prefer low-contention
 conditions and retain observed host load, identities and order. Review raw blocks
 for host-contention/order sensitivity; affected comparisons are inconclusive, not
 a reason to raise thresholds. Meeting absolute budgets supports only the measured
