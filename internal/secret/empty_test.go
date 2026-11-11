@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"aigw-cli/internal/secret/native"
 )
 
 // An empty Token file holds no Token: Get reports ErrEmpty, which is not an
@@ -36,8 +38,8 @@ func TestFileStoreReportsAnEmptyToken(t *testing.T) {
 	}
 }
 
-// A backend whose metadata cannot tell, such as a system keyring, reports no
-// empty slot, and its Get reports one when a command reads it.
+// A backend whose metadata cannot tell and whose slots are never empty, such as
+// the in-memory one, reports no empty slot.
 func TestTokenSlotEmptyOfABackendThatCannotTell(t *testing.T) {
 	if TokenSlotEmpty(NewMemoryStore(), "team") {
 		t.Fatal("a backend without that metadata reported an empty slot")
@@ -77,5 +79,46 @@ func TestReplaceTakesTheSlotOfAnEmptyToken(t *testing.T) {
 	}
 	if _, err := store.Get("team"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("after undo the slot = %v, want it absent", err)
+	}
+}
+
+// Every writable native backend, macOS Keychain, Secret Service and
+// Credential Manager alike, reaches the system keyring store, whose metadata
+// query cannot tell an empty item: TokenSlotEmpty asks its reader, which
+// returns only whether the item is empty. An absent item, a stored Token and
+// a failed read are not empty.
+func TestTokenSlotEmptyOfTheSystemKeyring(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		value string
+		err   error
+		want  bool
+	}{
+		{"an empty item", "", nil, true},
+		{"a stored Token", "sk-team-0001", nil, false},
+		{"an absent item", "", native.ErrNotFound, false},
+		{"a failed read", "", errors.New("keychain locked"), false},
+	} {
+		store := scopedView{store: keyringStore{read: func(string, string) (string, error) { return test.value, test.err }}}
+		if got := TokenSlotEmpty(store, "team"); got != test.want {
+			t.Errorf("%s: TokenSlotEmpty() = %t, want %t", test.name, got, test.want)
+		}
+	}
+}
+
+// The read-only environment backend treats an empty variable as unset: its
+// slot is neither present nor empty, so no Token is reported absent twice.
+func TestTokenSlotEmptyOfTheEnvironmentBackend(t *testing.T) {
+	store := scopedView{store: environmentStore{getenv: func(key string) string {
+		if key == EnvironmentKey("team") {
+			return ""
+		}
+		return "set"
+	}}}
+	if present, err := store.Exists("team"); err != nil || present {
+		t.Fatalf("Exists() of an empty variable = %t, %v, want unset", present, err)
+	}
+	if TokenSlotEmpty(store, "team") {
+		t.Fatal("an empty variable counts as an empty slot, not as unset")
 	}
 }

@@ -130,3 +130,18 @@ func (store keyringStore) exists(kind Kind, account string) (bool, error) {
 	}
 	return present, nil
 }
+
+// holdsNoValue reports whether a present item is empty. The native metadata
+// query cannot tell an empty item, so the reader runs and only whether its
+// value is empty leaves this function; the value is never returned or kept.
+// An absent item and a failed read are not empty.
+func (store keyringStore) holdsNoValue(kind Kind, account string) (bool, error) {
+	value, err := store.read(Service, slotName(kind, account))
+	if errors.Is(err, keyring.ErrNotFound) || errors.Is(err, native.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("inspect %s/%s in system keyring: %w", Service, slotName(kind, account), err)
+	}
+	return value == "", nil
+}

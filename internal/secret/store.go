@@ -72,15 +72,16 @@ func UnusedTokens(store Store, providers []string) ([]string, error) {
 	return slices.Compact(unused), nil
 }
 
-// slotEmptiness is implemented by a backend whose metadata tells, without
-// reading the value, that a present slot holds nothing.
+// slotEmptiness is implemented by a backend that tells whether a present slot
+// holds nothing, from its metadata or from a read that keeps only emptiness.
 type slotEmptiness interface {
 	holdsNoValue(kind Kind, account string) (bool, error)
 }
 
 // TokenSlotEmpty reports that the backend's metadata shows account's Token
-// slot present and empty, which holds no Token. It reads no value. A backend
-// whose metadata cannot tell reports false, and its Get reports ErrEmpty.
+// slot present and empty, which holds no Token. It returns no value. A backend
+// whose metadata and reader cannot tell reports false, and its Get reports
+// ErrEmpty. The system keyring reads in its worker and keeps only emptiness.
 func TokenSlotEmpty(store Store, account string) bool {
 	backend := backendStore(store)
 	if automatic, ok := backend.(*automaticStore); ok {
