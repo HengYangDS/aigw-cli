@@ -2,9 +2,12 @@ package check
 
 import (
 	"errors"
+	"io/fs"
 	"net/http"
 	"path/filepath"
 	"slices"
+	"strings"
+	"syscall"
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
@@ -66,5 +69,28 @@ func TestCheckWithoutAClientNamesTheBackendItCannotObserve(t *testing.T) {
 	doc := decode(t, out)
 	if doc.State != domainreadiness.Unavailable || doc.NextAction != "" || doc.NextDetail != backendFix || len(doc.Clients) != 0 {
 		t.Fatalf("a check without a client and an unobservable backend = %+v", doc)
+	}
+}
+
+// A sandbox that denies the read of AIGW's Token folder gets the generic
+// denial fix naming the folder, not a request to unlock a credential store.
+func TestCheckNamesADeniedTokenFolder(t *testing.T) {
+	runtime, cfg, out := configuredRuntime(t)
+	cfg.SetClientActivation(codex.ID, true, "/opt/codex", nil)
+	save(t, runtime, cfg)
+	runtime.Discovery = recordingDiscovery{calls: new([][]string)}
+	tokens := filepath.Join(runtime.Host.Home, "aigw", "secrets", "tokens")
+	secrets(t, runtime).existsErr = &fs.PathError{Op: "lstat", Path: tokens, Err: syscall.EPERM}
+	if err := execute(runtime, codex.ID, "--json"); err == nil {
+		t.Fatal("a check that cannot read the Token folder passed")
+	}
+	text := out.String()
+	for _, want := range []string{"~/aigw/secrets/tokens cannot be read", "forbids this operation on ~/aigw/secrets/tokens; allow it"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("the document lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "unlock") || strings.Contains(text, runtime.Host.Home) {
+		t.Errorf("the document names an unlock or the absolute home:\n%s", text)
 	}
 }

@@ -3,8 +3,8 @@ package invocation
 import (
 	"path/filepath"
 
-	"aigw-cli/internal/app"
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/app"
 	"testing"
 
 	"github.com/spf13/cobra"

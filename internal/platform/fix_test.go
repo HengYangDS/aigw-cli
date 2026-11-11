@@ -54,6 +54,10 @@ func TestPathFixFollowsTheConditionWhoCreatesAndTheStep(t *testing.T) {
 			"Clear the lock flag, such as macOS's uchg or Linux's immutable attribute, on ~/dotfiles/config.toml (which ~/work/config.toml leads to), then run the same command again."},
 		{"a link to a locked file outside home", locked(LockedEntry{Path: in("work", "config.toml"), Through: out("dotfiles", "config.toml")}), true, command,
 			"Clear the lock flag, such as macOS's uchg or Linux's immutable attribute, on the file that ~/work/config.toml leads to, then run the same command again."},
+		{"a flag and a denial of the read together", &PathConditionError{Condition: PathPermission, Path: in("work", "config.toml"), Err: syscall.EPERM, Given: true, Writing: true, Denied: true, Locked: []LockedEntry{{Path: in("work", "config.toml")}}}, true, command,
+			"Clear the lock flag, such as macOS's uchg or Linux's immutable attribute, on ~/work/config.toml, and allow the sandbox or system protection that also denies access to ~/work/config.toml, then run the same command again."},
+		{"a denial alone", &PathConditionError{Condition: PathPermission, Path: in("work", "config.toml"), Err: syscall.EPERM, Given: true, Writing: true, Denied: true}, true, command,
+			"A sandbox or system protection denies access to ~/work/config.toml; allow it, then run the same command again."},
 		{"an EPERM that no flag causes", &PathConditionError{Condition: PathPermission, Path: in("work", "config.toml"), Err: syscall.EPERM, Given: true, Writing: true}, true, command,
 			"A lock, a sandbox or system protection forbids this operation on ~/work/config.toml; allow it, then run the same command again."},
 		{"a read of the configuration that EPERM refuses keeps its read fix", &PathConditionError{Condition: PathPermission, Path: in("aigw", "aigw.toml"), Err: syscall.EPERM}, false,
@@ -155,5 +159,21 @@ func TestPathFixNamesTheConfigurationLinksTarget(t *testing.T) {
 		if strings.Contains(PathFix(failure, at), outside) {
 			t.Fatalf("the fix names a target outside home")
 		}
+	}
+}
+
+// A denial is observed, never inferred from the error's number: only a read
+// that the operating system refuses with EPERM, which no lock flag and no file
+// mode causes, is a denial. A readable or missing file is none.
+func TestAReadDenialIsObservedNotInferred(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if readDenied(file) {
+		t.Fatal("a readable file is denied")
+	}
+	if readDenied(filepath.Join(filepath.Dir(file), "missing.toml")) {
+		t.Fatal("a missing file is denied")
 	}
 }

@@ -3,9 +3,11 @@ package secret
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"aigw-cli/internal/platform"
@@ -64,5 +66,32 @@ func TestObservationFailureOfATokenFolderOutsideHome(t *testing.T) {
 	if cause != "AIGW's Token folder cannot be used: not a directory" ||
 		fix != "Move the file in the way in AIGW's folder, which `aigw config path` prints. If it replaced AIGW's folder, put that folder back from a copy; otherwise store each provider's Token again with `aigw provider rotate <provider>`. Then run `aigw sync`." {
 		t.Fatalf("a Token folder outside home = %q, %q", cause, fix)
+	}
+}
+
+// A permission error that a sandbox or the file's mode gives at AIGW's Token
+// folder is the generic denial naming that folder, never "unlock the
+// credential store" or no fix: the store is a folder, and its path is known.
+func TestObservationFailureNamesADeniedTokenFolder(t *testing.T) {
+	home := t.TempDir()
+	tokens := filepath.Join(home, "aigw", "secrets", "tokens")
+	denied := fmt.Errorf("inspect Token directory: %w", &fs.PathError{Op: "lstat", Path: tokens, Err: syscall.EPERM})
+	if !NamesTokenFolder(denied) {
+		t.Fatal("a denied Token folder is not named")
+	}
+	cause, fix := ObservationFailure(denied, platform.PathContext{Home: home, Check: true})
+	if cause != "AIGW's Token folder ~/aigw/secrets/tokens cannot be read: operation not permitted" ||
+		fix != "A lock, a sandbox or system protection forbids this operation on ~/aigw/secrets/tokens; allow it, then run `aigw sync`." {
+		t.Fatalf("a denied Token folder = %q, %q", cause, fix)
+	}
+	for _, err := range []error{
+		nil,
+		errors.New("locked"),
+		fmt.Errorf("read: %w", &fs.PathError{Op: "open", Path: "orphan", Err: syscall.EPERM}),
+		&fs.PathError{Op: "lstat", Path: tokens, Err: syscall.EIO},
+	} {
+		if NamesTokenFolder(err) {
+			t.Errorf("%v names a Token folder", err)
+		}
 	}
 }

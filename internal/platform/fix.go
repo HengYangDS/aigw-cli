@@ -40,6 +40,9 @@ func PathFix(failure *PathConditionError, at PathContext) string {
 		// Only a write that a flag on the file or its folder refused clears a
 		// flag; any other EPERM is a sandbox, system protection or a lock that
 		// the operator allows, and a mode change would help neither.
+		if len(failure.Locked) > 0 && failure.Denied {
+			return "Clear the lock flag, such as macOS's uchg or Linux's immutable attribute, on " + at.lockedNames(failure) + ", and allow the sandbox or system protection that also denies access to " + at.name(failure, failure.Path, theFile) + ", then " + at.step() + "."
+		}
 		if len(failure.Locked) > 0 {
 			return "Clear the lock flag, such as macOS's uchg or Linux's immutable attribute, on " + at.lockedNames(failure) + ", then " + at.step() + "."
 		}
@@ -47,6 +50,9 @@ func PathFix(failure *PathConditionError, at PathContext) string {
 		// it, as `aigw config path` locates the file in every state.
 		if at.configurationFile(failure.Path) && !failure.Writing {
 			return ConfigurationReadFix
+		}
+		if failure.Denied {
+			return "A sandbox or system protection denies access to " + at.name(failure, failure.Path, theFile) + "; allow it, then " + at.step() + "."
 		}
 		if notPermitted(failure.Err) {
 			return "A lock, a sandbox or system protection forbids this operation on " + at.name(failure, failure.Path, theFile) + "; allow it, then " + at.step() + "."

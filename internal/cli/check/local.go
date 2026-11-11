@@ -194,7 +194,7 @@ func (c *checker) tokenCheck(r result) localCheck {
 	case err != nil:
 		// A file in the way of the Token folder, or a link that leads nowhere,
 		// names that path and its one fix, as every surface does.
-		if _, blocked := platform.BlockedPath(err); blocked {
+		if secret.NamesTokenFolder(err) {
 			cause, fix := secret.ObservationFailure(err, platform.PathContext{Home: invocation.Home(c.deps.Dependencies), Check: true})
 			return failedCheck(name, label, cause, fix, domainreadiness.Unavailable)
 		}

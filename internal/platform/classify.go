@@ -74,6 +74,11 @@ type PathConditionError struct {
 	// rather than read, which no flag forbids.
 	Locked  []LockedEntry
 	Writing bool
+	// Denied marks a refusal that the operating system gave even to a read of
+	// Path, as a sandbox or system protection does and no lock flag or file
+	// mode does. It is observed on the file system, never inferred from EPERM,
+	// which several causes share.
+	Denied bool
 	// toFile marks a link that leads to a regular file where a folder is
 	// needed: no broken link, but no folder either.
 	toFile bool
@@ -191,6 +196,7 @@ func ClassifyPath(path string, kind PathKind, err error) *PathConditionError {
 	switch {
 	case errors.Is(err, fs.ErrPermission):
 		failure.Condition = PathPermission
+		failure.Denied = notPermitted(err) && readDenied(path)
 		// An operation that can only write, such as a rename, is a write
 		// whatever its surface says, and only a write meets a lock flag.
 		if writingOperation(failure.Op) {
@@ -300,6 +306,31 @@ func permissionReason(err error) string {
 		return "operation not permitted"
 	}
 	return "permission denied"
+}
+
+// readDenied reports that opening path for reading, or its folder when path is
+// missing, is itself refused with EPERM: something that no lock flag and no
+// mode does is denying access to it.
+func readDenied(path string) bool {
+	path = filepath.Clean(path)
+	for {
+		file, err := os.Open(path)
+		if err == nil {
+			_ = file.Close()
+			return false
+		}
+		if notPermitted(err) {
+			return true
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return false
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return false
+		}
+		path = parent
+	}
 }
 
 // notPermitted reports EPERM, an operation that something other than the
