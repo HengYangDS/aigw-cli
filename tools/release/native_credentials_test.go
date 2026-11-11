@@ -18,8 +18,6 @@ import (
 	"aigw-cli/internal/store"
 
 	builtinclients "aigw-cli/internal/clients"
-
-	"github.com/pelletier/go-toml/v2"
 )
 
 func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersion string) {
@@ -157,7 +155,7 @@ func configureNativeDiagnosticProbe(t *testing.T, journey *journeyFixture, accou
 	account := manifest.Providers[accountID]
 	account.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: endpoint}
 	manifest.Providers[accountID] = account
-	data, err := toml.Marshal(manifest)
+	data, err := store.ExportTeamFile(manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
