@@ -19,6 +19,7 @@ import (
 
 func TestModelSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	before := setupConfiguration()
+	before.SetClientActivation(claude.ID, true, "", nil)
 	before.Models[domain.NewModelRef("team", "claude-next")] = domain.Model{Label: "Next", Provider: "team", Family: "claude-next", ID: "claude-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {

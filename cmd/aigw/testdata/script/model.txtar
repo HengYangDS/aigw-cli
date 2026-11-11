@@ -206,6 +206,10 @@ fixloop -did 'moved Claude to team/spare-model' remove-selected.json aigw model 
 exitcode 1 aigw model remove mixed/chat-only --json
 cp stdout remove-disabled.json
 exec aigw use hermes mixed/twin --protocol chat
+# The fix moves the selection of a client that is disabled; the client stays
+# disabled, as only `aigw client enable` enables it.
+exec aigw client list
+stdout 'Hermes +mixed/twin · Disabled'
 fixloop -did 'moved Hermes to mixed/twin' remove-disabled.json aigw model remove mixed/chat-only --json
 
 # A protocol that a model declares and its provider has no endpoint for is

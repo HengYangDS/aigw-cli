@@ -42,6 +42,7 @@ type document struct {
 	Model             string                        `json:"model"`
 	Enabled           bool                          `json:"enabled,omitempty"`
 	WasDisabled       bool                          `json:"was_disabled,omitempty"`
+	StaysDisabled     bool                          `json:"stays_disabled,omitempty"`
 	Added             bool                          `json:"added,omitempty"`
 	GainedProtocol    string                        `json:"gained_protocol,omitempty"`
 	CatalogChecked    *bool                         `json:"catalog_checked,omitempty"`
@@ -180,10 +181,12 @@ func (o selectionOutcome) describe(runtime invocation.Context, dryRun bool) docu
 		DryRun: dryRun, Changed: o.changed, Client: client.ID, Model: o.choice.ref.String(), Label: o.selected.ModelLabel,
 		Provider: o.selected.ProviderID, Family: o.selected.FamilyID, Protocol: o.selected.Protocol.Name(),
 		Endpoint: o.selected.Endpoint, ProviderEndpoint: o.selected.UpstreamEndpoint,
-		// A selection enables its client, which the result says, and that
-		// the client was disabled when it had a binding.
-		Enabled:           !previous.Enabled,
-		WasDisabled:       bound && !previous.Enabled,
+		// A first selection enables its client, which the result says, and
+		// that the client was disabled when it had a binding; a client that
+		// is disabled on a selection stays so until `aigw client enable`.
+		Enabled:           current.Enabled && !previous.Enabled,
+		WasDisabled:       bound && current.Enabled && !previous.Enabled,
+		StaysDisabled:     !current.Enabled,
 		ForwardingCleared: previous.ForwardingEndpoint != "" && current.ForwardingEndpoint == "",
 		RetriesCleared:    previous.RetryPolicy != nil && current.RetryPolicy == nil,
 		TokenMissing:      dryRun && o.tokenMissing, TokenStored: o.tokenStored,
@@ -317,6 +320,8 @@ func (o selectionOutcome) rows(doc document) []terminal.Field {
 		{Label: "Model", Value: doc.Model},
 	}
 	switch {
+	case doc.StaysDisabled:
+		rows = append(rows, terminal.Field{State: terminal.Info, Label: "Enabled", Value: "Stays disabled; `aigw client enable " + client.ID + "` enables it"})
 	case doc.WasDisabled && doc.DryRun:
 		rows = append(rows, terminal.Field{State: terminal.Info, Label: "Enabled", Value: "Was disabled; this selection enables it"})
 	case doc.WasDisabled:

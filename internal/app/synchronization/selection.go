@@ -58,7 +58,7 @@ func (s Synchronizer) selectModel(ctx context.Context, before, after domain.Conf
 		return false, false, domain.ClientBinding{}, err
 	}
 	binding = after.Clients[client]
-	binding.Enabled = true
+	binding.Enabled = selectionEnables(before.Clients[client], binding)
 	after.Clients[client] = binding
 	var tokens map[string]string
 	if token != "" {
@@ -105,4 +105,14 @@ func (s Synchronizer) selectionClients(before, after domain.Config, client strin
 		}
 	}
 	return clients
+}
+
+// selectionEnables reports whether a selection enables its client. An enabled
+// client stays so, and one without a selection is enabled by its first. A
+// client that is disabled on a model of its own is enabled only by selecting
+// that model and protocol again, the step that resumes it; moving its
+// selection to another model or protocol, which is what the fix of a refused
+// edit or removal runs, keeps it disabled until `aigw client enable`.
+func selectionEnables(previous, next domain.ClientBinding) bool {
+	return previous.Enabled || previous.Model.IsZero() || (previous.Model == next.Model && (previous.Protocol == "" || previous.Protocol == next.Protocol))
 }

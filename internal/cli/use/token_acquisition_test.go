@@ -39,7 +39,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			t.Fatalf("token = %q, %v", token, err)
 		}
 		out := buffer.String()
-		for _, want := range []string{"Model selected", "Token", "Validated and stored", "Install Codex if needed, then run `aigw sync`"} {
+		for _, want := range []string{"Token stored", "Validated and stored", "Install Codex if needed, then run `aigw sync`"} {
 			if !strings.Contains(out, want) {
 				t.Fatalf("credential acquisition output lacks %q: %q", want, out)
 			}

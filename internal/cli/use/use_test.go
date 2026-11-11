@@ -265,9 +265,9 @@ func TestUseSelectsOnlyItsClient(t *testing.T) {
 }
 
 // A selection enables its client, and the result says so, in a preview and
-// once applied, in JSON and for a person: that a client with a binding was
-// disabled, and that one without was not yet enabled. A client that is
-// enabled already is not reported.
+// once applied, in JSON and for a person: that a client with a binding but no
+// selection was disabled, and that one without was not yet enabled. A client
+// that is enabled already is not reported.
 func TestUseSaysThatItEnablesADisabledClient(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
 	credentials := secret.NewMemoryStore()
@@ -276,7 +276,7 @@ func TestUseSaysThatItEnablesADisabledClient(t *testing.T) {
 	}
 	runtime.Secrets = credentials
 	cfg.Models[domain.NewModelRef("gateway", "claude-next")] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-next", ID: "claude-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetClientActivation(codex.ID, false, "", nil)
+	cfg.Clients[codex.ID] = domain.ClientBinding{}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -308,17 +308,6 @@ func TestUseSaysThatItEnablesADisabledClient(t *testing.T) {
 	stored, err := runtime.Config.Load()
 	if err != nil || !stored.Clients[codex.ID].Enabled {
 		t.Fatalf("the selected client is not enabled: %#v, %v", stored.Clients[codex.ID], err)
-	}
-	stored.SetClientActivation(codex.ID, false, "", nil)
-	if err := runtime.Config.Save(stored); err != nil {
-		t.Fatal(err)
-	}
-	out.Reset()
-	if err := execute(runtime, codex.ID, "gateway/gpt-test"); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out.String(), "Was disabled; now enabled") {
-		t.Fatalf("human result does not say that the selection enabled Codex:\n%s", out)
 	}
 }
 
@@ -526,6 +515,7 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 		},
 	}
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-test"), "")
+	cfg.SetClientActivation(codex.ID, true, "", nil)
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

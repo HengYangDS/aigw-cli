@@ -77,7 +77,7 @@ func (s Synchronizer) PreviewSetup(before, after domain.Config, providers []stri
 func (s Synchronizer) PreviewSelection(before, after domain.Config, client string, presumed ...string) (domain.Config, Projection, error) {
 	after = after.Clone()
 	binding := after.Clients[client]
-	binding.Enabled = true
+	binding.Enabled = selectionEnables(before.Clients[client], binding)
 	after.Clients[client] = binding
 	selector := s
 	selector.Secrets = presumedTokens{providers: presumed, store: s.Secrets}
