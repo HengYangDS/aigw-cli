@@ -75,7 +75,7 @@ func (s Synchronizer) admitSetupTransition(after domain.Config, tokens map[strin
 	}
 	for account := range tokens {
 		if _, present := after.Providers[account]; !present {
-			return domain.Config{}, fmt.Errorf("setup Token has no configured Account %q", account)
+			return domain.Config{}, fmt.Errorf("setup Token has no configured provider %q", account)
 		}
 	}
 	for _, client := range clients {

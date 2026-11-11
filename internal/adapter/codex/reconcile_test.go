@@ -391,7 +391,7 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 	t.Run("endpoint missing", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		writeCodexFixture(t, path, "external = true\n")
-		if _, err := planCodexReconciliationTransition(nil, []TargetRef{HomeTarget(path)}, domain.Runtime{Model: domain.NewModelRef("test", "missing-endpoint")}, domain.Runtime{Model: domain.NewModelRef("test", "missing-endpoint")}, false); err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
+		if _, err := planCodexReconciliationTransition(nil, []TargetRef{HomeTarget(path)}, domain.Runtime{Model: domain.NewModelRef("test", "missing-endpoint")}, domain.Runtime{Model: domain.NewModelRef("test", "missing-endpoint")}, false); err == nil || !strings.Contains(err.Error(), "has no endpoint for model") {
 			t.Fatalf("planCodexReconciliationTransition() error = %v", err)
 		}
 	})

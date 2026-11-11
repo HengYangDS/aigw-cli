@@ -106,7 +106,7 @@ func IsReadOnly(store Store) bool {
 
 func validate(account, value string, requireValue bool) error {
 	if !domain.ValidIdentifier(account) {
-		return fmt.Errorf("invalid Account identifier %q", account)
+		return fmt.Errorf("invalid provider ID %q", account)
 	}
 	if requireValue && value == "" {
 		return errors.New("empty secret refused")

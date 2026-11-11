@@ -78,7 +78,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		clientAdapter.Targets = []string{filepath.Join(t.TempDir(), "missing.toml")}
 		cfg.Clients[ID] = clientAdapter
 		status := (codexAdapter{}).Inspect(context.Background(), adapter.Dependencies{}, cfg, runtime)
-		if status.Ready || !strings.Contains(status.Issue, "projection drift") {
+		if status.Ready || !strings.Contains(status.Issue, "configuration drift") {
 			t.Fatalf("status = %#v", status)
 		}
 		if strings.Contains(status.Issue, clientAdapter.Targets[0]) || strings.Contains(status.Checks[0].Detail, clientAdapter.Targets[0]) {

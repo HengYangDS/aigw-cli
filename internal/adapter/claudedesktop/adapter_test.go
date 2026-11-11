@@ -307,7 +307,7 @@ func TestClaudeDesktopInspectionKeepsIntactRetainedVersionedReader(t *testing.T)
 	retained, current := versionedReaders(t)
 	fixture := newClaudeDesktopFixture(t)
 	fixture.deps.AIGWExecutable = current
-	if status := fixture.clientAdapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready || !strings.Contains(status.Issue, "projection differs") {
+	if status := fixture.clientAdapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready || !strings.Contains(status.Issue, "files differ") {
 		t.Fatalf("unsynchronized Claude Desktop projection = %#v", status)
 	}
 	fixture.deps.AIGWExecutable = retained

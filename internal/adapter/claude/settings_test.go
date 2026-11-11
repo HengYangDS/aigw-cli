@@ -345,8 +345,8 @@ func TestSettingsProjectionIsIdempotentAndRejectsInvalidInput(t *testing.T) {
 		want    string
 	}{
 		{name: "missing path", runtime: runtime, want: "settings path"},
-		{name: "missing endpoint", path: path, runtime: domain.Runtime{Model: domain.NewModelRef("gateway", "team"), ProviderID: "gateway"}, want: "no Claude endpoint"},
-		{name: "missing account", path: path, runtime: domain.Runtime{Model: domain.NewModelRef("test", "team"), Endpoint: "https://gateway.test"}, want: "no account"},
+		{name: "missing endpoint", path: path, runtime: domain.Runtime{Model: domain.NewModelRef("gateway", "team"), ProviderID: "gateway"}, want: "no endpoint for model"},
+		{name: "missing account", path: path, runtime: domain.Runtime{Model: domain.NewModelRef("test", "team"), Endpoint: "https://gateway.test"}, want: "names no provider"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			_, err := ReconcileSettings(test.path, false, test.runtime, testExecutable(), test.runtime.UpstreamModel)

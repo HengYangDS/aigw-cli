@@ -58,7 +58,7 @@ func codexCatalogPath(configPath string) string { return configPath + ".aigw-mod
 func rebaseCopiedCodexCatalog(source, target string, config, attribution platform.FileSnapshot) (platform.FileSnapshot, error) {
 	if !config.Exists {
 		if attribution.Exists {
-			return config, fmt.Errorf("Codex projection state exists without its configuration")
+			return config, fmt.Errorf("Codex client state exists without its configuration")
 		}
 		return config, nil
 	}

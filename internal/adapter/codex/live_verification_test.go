@@ -337,7 +337,7 @@ func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 	}
 	missingModel := runtime
 	missingModel.UpstreamModel = ""
-	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, cfg, missingModel, ""); err == nil || !strings.Contains(err.Error(), "has no Codex model") {
+	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, cfg, missingModel, ""); err == nil || !strings.Contains(err.Error(), "has no model name") {
 		t.Fatalf("missing model error = %v", err)
 	}
 	if _, err := VerifyInvocation(context.Background(), nil, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "capture") {

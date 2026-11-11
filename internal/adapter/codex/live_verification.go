@@ -39,7 +39,7 @@ func VerifyInvocation(ctx context.Context, runner process.VerificationRunner, cf
 		return ExecutableIdentity{}, fmt.Errorf("Codex configuration target is missing; run `aigw sync`")
 	}
 	if clientRuntime.UpstreamModel == "" {
-		return ExecutableIdentity{}, fmt.Errorf("Route %q has no Codex model", clientRuntime.Model)
+		return ExecutableIdentity{}, fmt.Errorf("Codex has no model name for %q", clientRuntime.Model)
 	}
 	targets := append([]string(nil), binding.Targets...)
 	sort.Strings(targets)
@@ -61,7 +61,7 @@ func VerifyInvocation(ctx context.Context, runner process.VerificationRunner, cf
 	}()
 	isolated := filepath.Join(workspace, "home", "config.toml")
 	if err := CopyProjection(target, isolated); err != nil {
-		return ExecutableIdentity{}, fmt.Errorf("copy Codex verification projection: %w", err)
+		return ExecutableIdentity{}, fmt.Errorf("copy Codex verification files: %w", err)
 	}
 	identityCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	identity, err := IdentifyExecutable(identityCtx, runner, binding.Executable, filepath.Dir(isolated), filepath.Join(filepath.Dir(isolated), "tmp"))

@@ -184,7 +184,7 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 		{"model stored under another reference", func(c *Config) { c.Models[NewModelRef("dmx", "other")] = c.Models[NewModelRef("dmx", "claude-test")] }, "is stored as dmx/other"},
 		{"uppercase account name", func(c *Config) { c.Providers["Alpha"] = c.Providers["dmx"] }, "must be lowercase"},
 		{"unknown selected model", func(c *Config) { c.SetSelectedModel(ClientClaude, NewModelRef("dmx", "missing"), "") }, "unknown model dmx/missing"},
-		{"unknown client", func(c *Config) { c.Clients["chat"] = ClientBinding{Model: NewModelRef("dmx", "claude-test")} }, "unknown client binding"},
+		{"unknown client", func(c *Config) { c.Clients["chat"] = ClientBinding{Model: NewModelRef("dmx", "claude-test")} }, "unknown client"},
 		{"unknown recommended model", func(c *Config) {
 			c.Recommendations[ClientClaude] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("dmx", "missing")}}
 		}, "unknown model dmx/missing"},
@@ -230,7 +230,7 @@ func TestValidationReportsStableFirstProblemWithoutChangingConfiguration(t *test
 	}{
 		{"accounts", func(c *Config) {
 			c.Providers = map[string]Provider{"alpha": {}, "zeta": {}}
-		}, `account "alpha" has an empty label`},
+		}, `provider "alpha" has an empty label`},
 		{"models", func(c *Config) {
 			c.Models = map[ModelRef]Model{NewModelRef("zeta", "z"): {Provider: "zeta", ID: "z"}, NewModelRef("alpha", "a"): {Provider: "alpha", ID: "a"}}
 		}, `model alpha/a names the unknown provider "alpha"`},
@@ -242,17 +242,17 @@ func TestValidationReportsStableFirstProblemWithoutChangingConfiguration(t *test
 		}, `client recommendation "claude" choice 1: names the unknown model dmx/missing`},
 		{"client bindings", func(c *Config) {
 			c.Clients = map[string]ClientBinding{"alpha": {}, "zeta": {}}
-		}, `unknown client binding "alpha"`},
+		}, `unknown client "alpha"`},
 		{"protocol endpoints", func(c *Config) {
 			c.Providers = map[string]Provider{"alpha": {Label: "Alpha", Endpoints: Endpoints{
 				Responses: "invalid", Anthropic: "invalid",
 			}}}
-		}, `account "alpha" endpoint anthropic: URL must use http or https and include a host`},
+		}, `provider "alpha" endpoint anthropic: URL must use http or https and include a host`},
 		{"credential query parameters", func(c *Config) {
 			c.Providers = map[string]Provider{"alpha": {Label: "Alpha", Endpoints: Endpoints{
 				Anthropic: "https://example.test?token=value&api_key=value",
 			}}}
-		}, `account "alpha" endpoint anthropic: credential-like query parameter "api_key" is forbidden`},
+		}, `provider "alpha" endpoint anthropic: credential-like query parameter "api_key" is forbidden`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := validConfig()
@@ -446,7 +446,7 @@ func TestValidateRejectsEmptyLabelsAndUnnamedOrUnendpointedProviders(t *testing.
 		}, "empty label"},
 		{"invalid account name", func(c *Config) {
 			c.Providers["bad name"] = c.Providers["dmx"]
-		}, "invalid account name"},
+		}, "invalid provider ID"},
 		{"empty account label", func(c *Config) {
 			a := c.Providers["dmx"]
 			a.Label = " "
@@ -459,12 +459,12 @@ func TestValidateRejectsEmptyLabelsAndUnnamedOrUnendpointedProviders(t *testing.
 			a := c.Providers["dmx"]
 			a.BalanceProbe = &BalanceProbe{Kind: "bad kind", BaseURL: "https://diagnostics.example.test"}
 			c.Providers["dmx"] = a
-		}, "invalid account probe provider"},
+		}, "invalid balance probe kind"},
 		{"account probe invalid endpoint", func(c *Config) {
 			a := c.Providers["dmx"]
 			a.BalanceProbe = &BalanceProbe{Kind: "future", BaseURL: "not-a-url"}
 			c.Providers["dmx"] = a
-		}, "account probe"},
+		}, "balance probe"},
 		{"model of no provider", func(c *Config) {
 			p := c.Models[NewModelRef("dmx", "claude-test")]
 			p.Provider = "absent"
@@ -474,9 +474,9 @@ func TestValidateRejectsEmptyLabelsAndUnnamedOrUnendpointedProviders(t *testing.
 		{"binding names unknown model", func(c *Config) {
 			c.SetSelectedModel(ClientClaude, NewModelRef("dmx", "missing"), "")
 		}, "names the unknown model dmx/missing"},
-		{"unknown client binding", func(c *Config) {
+		{"unknown client", func(c *Config) {
 			c.Clients = map[string]ClientBinding{"gemini": {Enabled: true}}
-		}, "unknown client binding"},
+		}, "unknown client"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -143,10 +143,10 @@ func (claudeDesktopAdapter) Inspect(ctx context.Context, deps adapter.Dependenci
 		}
 	}
 	if err != nil {
-		return adapter.Status{Issue: "Claude Desktop projection cannot be inspected", RepairAction: "aigw sync"}
+		return adapter.Status{Issue: "Claude Desktop files cannot be inspected", RepairAction: "aigw sync"}
 	}
 	if plan.Action != ActionUnchanged {
-		return adapter.Status{Issue: "Claude Desktop projection differs from the selected Route", RepairAction: "aigw sync"}
+		return adapter.Status{Issue: "Claude Desktop files differ from the selected model", RepairAction: "aigw sync"}
 	}
 	return adapter.Status{Ready: true}
 }

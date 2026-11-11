@@ -124,7 +124,7 @@ func TestVerificationPlanRejectsIncompleteInputs(t *testing.T) {
 	}{
 		{name: "missing executable", configPath: "config.toml", outputPath: "output.txt", runtime: runtime, want: "not configured"},
 		{name: "missing config", executable: "codex", outputPath: "output.txt", runtime: runtime, want: "target is not configured"},
-		{name: "missing model", executable: "codex", configPath: "config.toml", outputPath: "output.txt", runtime: domain.Runtime{Model: domain.NewModelRef("test", "codex")}, want: "has no Codex model"},
+		{name: "missing model", executable: "codex", configPath: "config.toml", outputPath: "output.txt", runtime: domain.Runtime{Model: domain.NewModelRef("test", "codex")}, want: "has no model name"},
 		{name: "missing output", executable: "codex", configPath: "config.toml", runtime: runtime, want: "output path is not configured"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

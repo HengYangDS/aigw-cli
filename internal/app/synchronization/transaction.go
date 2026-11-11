@@ -111,7 +111,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 			}
 		}
 		return false, projectionError{
-			cause:    fmt.Errorf("%s credential entrypoint finalization failed; configuration and client projections were rolled back: %w", subject, err),
+			cause:    fmt.Errorf("%s credential entrypoint finalization failed; configuration and client files were rolled back: %w", subject, err),
 			restored: true,
 		}
 	}

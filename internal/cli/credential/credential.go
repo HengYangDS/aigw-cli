@@ -44,13 +44,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			token, err := runtime.Secrets.Get(providerID)
 			if err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {
-					return terminal.ProblemError("Account Token read exceeded its deadline", "", "The credential subprocess was stopped; no Token was returned.", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read.", err)
+					return terminal.ProblemError("Token read exceeded its deadline", "", "The credential subprocess was stopped; no Token was returned.", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read.", err)
 				}
 				if errors.Is(err, secret.ErrNotFound) {
 					return terminal.ProblemError(
-						fmt.Sprintf("%s Account Token is not configured", client), "",
+						fmt.Sprintf("%s Token is not configured", client), "",
 						"No Token was returned.",
-						"Set the selected Account Token in the configured backend; run `aigw check --depth local` for backend guidance.",
+						"Set the selected Token in the configured backend; run `aigw check --depth local` for backend guidance.",
 						err,
 					)
 				}
@@ -61,7 +61,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					action = "Inspect the selected native store, item authorization and credential-reader identity; repeated helper calls cannot grant access."
 				}
 				return terminal.ProblemError(
-					fmt.Sprintf("%s Account Token could not be read", client), evidence,
+					fmt.Sprintf("%s Token could not be read", client), evidence,
 					"No Token was returned.",
 					action,
 					err,
@@ -69,7 +69,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			_, err = fmt.Fprintln(runtime.Out, token)
 			if err != nil {
-				return terminal.ProblemError("Cannot write the Account Token to the client", "", "Credential delivery did not complete.", "Check the client's credential-helper connection before retrying.", err)
+				return terminal.ProblemError("Cannot write the Token to the client", "", "Credential delivery did not complete.", "Check the client's credential-helper connection before retrying.", err)
 			}
 			return err
 		},
@@ -104,10 +104,10 @@ func refusal(client string, err error) error {
 	case errors.Is(err, domain.ErrCredentialClientDisabled):
 		return terminal.ProblemError(fmt.Sprintf("%s adapter is not enabled", client), "", "Credential lookup did not start.", fmt.Sprintf("Enable the %s adapter before using its credential helper.", client), nil)
 	case errors.Is(err, domain.ErrCredentialClientOwned):
-		return terminal.ProblemError(fmt.Sprintf("%s uses client-owned authentication", client), "", "AIGW does not supply an Account Token for this route.", fmt.Sprintf("Run `aigw check %s --depth client` to verify authentication through the client.", client), nil)
+		return terminal.ProblemError(fmt.Sprintf("%s uses client-owned authentication", client), "", "AIGW does not supply a Token for this model.", fmt.Sprintf("Run `aigw check %s --depth client` to verify authentication through the client.", client), nil)
 	}
 	if unknown, ok := errors.AsType[*domain.UnknownAuthenticationError](err); ok {
 		return terminal.ProblemError(fmt.Sprintf("%s uses the authentication %q, which this credential reader does not know", client, unknown.Authentication), "", "No Token was read or returned.", "Run `aigw sync` with the installed AIGW and reload the client to use its current reader.", err)
 	}
-	return terminal.ProblemError(fmt.Sprintf("%s credential projection no longer matches an available Account and endpoint", client), "", "No Account Token was read or returned.", "Run `aigw sync` and reload the client's configuration.", err)
+	return terminal.ProblemError(fmt.Sprintf("%s credential reader no longer matches an available provider and endpoint", client), "", "No Token was read or returned.", "Run `aigw sync` and reload the client's configuration.", err)
 }

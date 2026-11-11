@@ -116,7 +116,7 @@ func TestValidateNamesTheDefaultProbeClient(t *testing.T) {
 			endpoints: domain.Endpoints{Chat: "https://chat.test/v1"},
 			admission: clients.Admission(), want: "Hermes authentication was rejected (HTTP 401)",
 		},
-		"no probing client": {endpoints: anthropic, admission: domain.NewAdmission(), want: "no admitted client probes an Account Token over Anthropic Messages"},
+		"no probing client": {endpoints: anthropic, admission: domain.NewAdmission(), want: "no admitted client probes a Token over Anthropic Messages"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

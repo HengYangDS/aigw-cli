@@ -144,8 +144,8 @@ func TestVerifyNativeReaderAccessUsesOnlyTheCopiedReader(t *testing.T) {
 		t.Fatalf("unavailable copied reader authorization error = %v", err)
 	}
 	for _, account := range []string{"", "invalid/account"} {
-		if err := VerifyNativeReaderAccess(scopedView{store: store}, path, []string{account}); !errors.Is(err, ErrNativeReaderUnverified) || !strings.Contains(err.Error(), "invalid Account identifier") {
-			t.Fatalf("invalid Account reached the copied reader: %v", err)
+		if err := VerifyNativeReaderAccess(scopedView{store: store}, path, []string{account}); !errors.Is(err, ErrNativeReaderUnverified) || !strings.Contains(err.Error(), "invalid provider ID") {
+			t.Fatalf("invalid provider reached the copied reader: %v", err)
 		}
 	}
 }

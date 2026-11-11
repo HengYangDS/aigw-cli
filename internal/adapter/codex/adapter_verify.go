@@ -41,7 +41,7 @@ func (codexAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg d
 		}
 		defer func() {
 			if err := robustio.RemoveAll(workspace); err != nil {
-				result = errors.Join(result, fmt.Errorf("remove isolated Codex verification projection %s: %w", workspace, err))
+				result = errors.Join(result, fmt.Errorf("remove isolated Codex verification files %s: %w", workspace, err))
 			}
 		}()
 		cfg = isolated
@@ -78,14 +78,14 @@ func retainedRuntime(target string, cfg domain.Config, runtime domain.Runtime, c
 func isolateProjection(cfg domain.Config, runtime domain.Runtime, binding domain.ClientBinding) (isolated domain.Config, workspace string, result error) {
 	workspace, err := os.MkdirTemp("", "aigw-codex-route-verification-")
 	if err != nil {
-		return domain.Config{}, "", fmt.Errorf("create isolated Codex verification projection: %w", err)
+		return domain.Config{}, "", fmt.Errorf("create isolated Codex verification files: %w", err)
 	}
 	defer func() {
 		if result == nil {
 			return
 		}
 		if err := robustio.RemoveAll(workspace); err != nil {
-			result = errors.Join(result, fmt.Errorf("remove failed Codex verification projection %s: %w", workspace, err))
+			result = errors.Join(result, fmt.Errorf("remove failed Codex verification files %s: %w", workspace, err))
 			return
 		}
 		workspace = ""
@@ -102,13 +102,13 @@ func isolateProjection(cfg domain.Config, runtime domain.Runtime, binding domain
 	after.CreateIfAbsent = true
 	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
-		return domain.Config{}, workspace, fmt.Errorf("resolve selected Codex projection: %w", err)
+		return domain.Config{}, workspace, fmt.Errorf("resolve selected Codex client files: %w", err)
 	}
 	if selected.RequiresProviderToken() {
 		selected.CredentialCommand = selected.CredentialExecutable(runtime.CredentialCommand)
 	}
 	if _, err := ReconcileConfigs([]TargetRef{before}, []TargetRef{after}, selected, runtime, true); err != nil {
-		return domain.Config{}, workspace, fmt.Errorf("prepare isolated Codex verification projection: %w", err)
+		return domain.Config{}, workspace, fmt.Errorf("prepare isolated Codex verification files: %w", err)
 	}
 	isolated = cfg.Clone()
 	binding.Targets = []string{target}

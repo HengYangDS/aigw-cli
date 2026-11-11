@@ -100,7 +100,7 @@ func parseDocument(data []byte) (*yaml.Node, error) {
 			continue
 		}
 		if node.Anchor != "" || node.Kind == yaml.AliasNode {
-			return nil, fmt.Errorf("Hermes %s uses a shared YAML anchor; use an independent value before enabling projection", key)
+			return nil, fmt.Errorf("Hermes %s uses a shared YAML anchor; use an independent value before enabling the client", key)
 		}
 		if key == "model" && node.Kind == yaml.ScalarNode && node.Tag == "!!str" {
 			continue

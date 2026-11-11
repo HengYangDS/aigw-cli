@@ -63,7 +63,7 @@ func (s Synchronizer) selectModel(ctx context.Context, before, after domain.Conf
 	var tokens map[string]string
 	if token != "" {
 		if !selected.RequiresProviderToken() {
-			return false, false, domain.ClientBinding{}, fmt.Errorf("route %q uses client-owned authentication; Account Token storage is not part of selection", binding.Model)
+			return false, false, domain.ClientBinding{}, fmt.Errorf("model %q uses client-owned authentication; Token storage is not part of selection", binding.Model)
 		}
 		tokens = map[string]string{selected.ProviderID: token}
 	}

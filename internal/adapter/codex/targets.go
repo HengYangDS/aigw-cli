@@ -212,7 +212,7 @@ func targetCodexStatePath(target TargetRef) string {
 // refusal keeps the text that released versions print.
 func validateDesiredCodexTarget(target TargetRef) error {
 	if !IsHome(surface.ID(target.SurfaceID)) {
-		return fmt.Errorf("Codex target %s cannot use authority aigw with projection mode %s", target.SurfaceID, ProjectionFullSelection)
+		return fmt.Errorf("Codex target %s cannot use authority aigw with file mode %s", target.SurfaceID, ProjectionFullSelection)
 	}
 	return nil
 }

@@ -48,14 +48,14 @@ func VerifyNativeReaderAccess(store Store, executable string, accounts []string)
 	}
 	for _, account := range accounts {
 		if err := validate(account, "", false); err != nil {
-			return fmt.Errorf("%w: inspect selected Account Token: %w", ErrNativeReaderUnverified, err)
+			return fmt.Errorf("%w: inspect selected Token: %w", ErrNativeReaderUnverified, err)
 		}
 		value, err := native.Read(executable, Service, account)
 		if err != nil {
-			return fmt.Errorf("%w: copied credential reader cannot read the selected Account Token: %w", ErrNativeReaderUnverified, err)
+			return fmt.Errorf("%w: copied credential reader cannot read the selected Token: %w", ErrNativeReaderUnverified, err)
 		}
 		if value == "" {
-			return fmt.Errorf("%w: copied credential reader returned an empty Account Token", ErrNativeReaderUnverified)
+			return fmt.Errorf("%w: copied credential reader returned an empty Token", ErrNativeReaderUnverified)
 		}
 	}
 	return nil

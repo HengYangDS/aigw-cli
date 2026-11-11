@@ -386,10 +386,10 @@ func problemFor(err error, at platform.PathContext) Problem {
 		return user.problem
 	case errors.Is(err, secret.ErrNativeReaderUnverified):
 		return Problem{
-			Title:    "Cannot verify native Account Token access for this AIGW version",
+			Title:    "Cannot verify native Token access for this AIGW version",
 			Evidence: "Noninteractive native-store preflight could not establish reader access.",
-			Impact:   "No new client projection was applied; no Account Token was returned.",
-			Fix:      "Run `aigw check --depth local` to inspect the selected backend; explicitly restage or authorize the Account Token for this AIGW version, then run `aigw sync`.",
+			Impact:   "No new client file change was applied; no Token was returned.",
+			Fix:      "Run `aigw check --depth local` to inspect the selected backend; explicitly restage or authorize the Token for this AIGW version, then run `aigw sync`.",
 		}
 	case atFile:
 		return clientFileProblem(failure, err)

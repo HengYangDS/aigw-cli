@@ -34,13 +34,13 @@ func (claudeAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg 
 	token := ""
 	if clientAdapter.CredentialCommand == "" {
 		if deps.Secrets == nil {
-			return adapter.Verification{}, fmt.Errorf("token for account %q is unavailable: secret store is unavailable", runtime.ProviderID)
+			return adapter.Verification{}, fmt.Errorf("Token for provider %q is unavailable: secret store is unavailable", runtime.ProviderID)
 		}
 		var err error
 		token, err = deps.Secrets.Get(runtime.ProviderID)
 		if err != nil {
 			instruction, _ := secret.TokenRecovery(deps.Secrets, runtime.ProviderID)
-			return adapter.Verification{}, fmt.Errorf("token for account %q is unavailable: %w; %s", runtime.ProviderID, err, instruction)
+			return adapter.Verification{}, fmt.Errorf("Token for provider %q is unavailable: %w; %s", runtime.ProviderID, err, instruction)
 		}
 	}
 	if !clientAdapter.Enabled || clientAdapter.Executable == "" {
@@ -79,7 +79,7 @@ func (claudeAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg 
 		}
 		defer func() {
 			if err := robustio.RemoveAll(workspace); err != nil {
-				result = errors.Join(result, fmt.Errorf("remove isolated Claude verification projection %s: %w", workspace, err))
+				result = errors.Join(result, fmt.Errorf("remove isolated Claude verification files %s: %w", workspace, err))
 			}
 		}()
 		settingsPath = isolated
@@ -94,28 +94,28 @@ func (claudeAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg 
 func isolateProjection(cfg domain.Config, runtime domain.Runtime, source string) (settingsPath, workspace string, result error) {
 	workspace, err := os.MkdirTemp("", "aigw-claude-route-verification-")
 	if err != nil {
-		return "", "", fmt.Errorf("create isolated Claude verification projection: %w", err)
+		return "", "", fmt.Errorf("create isolated Claude verification files: %w", err)
 	}
 	defer func() {
 		if result == nil {
 			return
 		}
 		if err := robustio.RemoveAll(workspace); err != nil {
-			result = errors.Join(result, fmt.Errorf("remove failed Claude verification projection %s: %w", workspace, err))
+			result = errors.Join(result, fmt.Errorf("remove failed Claude verification files %s: %w", workspace, err))
 			return
 		}
 		workspace = ""
 	}()
 	settingsPath = filepath.Join(workspace, "settings.json")
 	if err := CopyProjection(source, settingsPath); err != nil {
-		return "", workspace, fmt.Errorf("copy Claude verification projection: %w", err)
+		return "", workspace, fmt.Errorf("copy Claude verification files: %w", err)
 	}
 	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
-		return "", workspace, fmt.Errorf("resolve selected Claude projection: %w", err)
+		return "", workspace, fmt.Errorf("resolve selected Claude client files: %w", err)
 	}
 	if _, err := ReconcileSettings(settingsPath, false, runtime, runtime.CredentialCommand, selected.UpstreamModel); err != nil {
-		return "", workspace, fmt.Errorf("prepare isolated Claude verification projection: %w", err)
+		return "", workspace, fmt.Errorf("prepare isolated Claude verification files: %w", err)
 	}
 	return settingsPath, workspace, nil
 }

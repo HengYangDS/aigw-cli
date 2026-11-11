@@ -149,7 +149,7 @@ func TestEnableRejectsInvalidConfigurationAndMissingSecret(t *testing.T) {
 
 	runtime, _, _, _ = adapterRuntime(t, adapterConfig())
 	err = executeAdapter(t, runtime, "enable", claude.ID, "--executable", "/opt/claude")
-	if err == nil || !strings.Contains(err.Error(), "missing a token") {
+	if err == nil || !strings.Contains(err.Error(), "is missing a Token") {
 		t.Fatalf("missing token error = %v", err)
 	}
 }

@@ -42,7 +42,7 @@ func Diagnostic(label string, diagnostic []byte) error {
 	if strings.Contains(text, "model metadata") && strings.Contains(text, "fallback metadata") {
 		return fmt.Errorf("%s emitted a model-metadata warning; native metadata is incomplete and verification is unqualified; select a model supported by the client or update the client", label)
 	}
-	return fmt.Errorf("%s emitted a native-client warning or error; verification is incomplete; inspect the client with the selected Route", label)
+	return fmt.Errorf("%s emitted a native-client warning or error; verification is incomplete; inspect the client with the selected model", label)
 }
 
 type requestFailureError struct {

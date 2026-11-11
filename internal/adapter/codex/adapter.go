@@ -164,7 +164,7 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 // inspectTarget inspects one configured Codex file: what does not match the
 // selection, with its issue and repair, or no detail when it matches.
 func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, target string) (issue, detail, repair string) {
-	issue, repair = "Codex configuration projection drift: ", "aigw sync"
+	issue, repair = "Codex configuration drift: ", "aigw sync"
 	// A missing file, or a path that a file in the way or a link that leads
 	// nowhere blocks, which Windows reports as missing, is found before the
 	// credential reader that it names is read through it, which would only fail.
@@ -201,7 +201,7 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 	case errors.Is(err, os.ErrNotExist):
 		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, platform.ClassifyPath(target, platform.FileExpected, err))
 	default:
-		return issue, "Codex configuration target does not match selected binding", repair
+		return issue, "Codex configuration target does not match the selected model", repair
 	}
 }
 

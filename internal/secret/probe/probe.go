@@ -82,7 +82,7 @@ func defaultValidationClient(admission domain.Admission, account domain.Provider
 	if speaker != "" {
 		return speaker, nil
 	}
-	return "", fmt.Errorf("no admitted client probes an Account Token over %s", domain.ProtocolLabel(protocol))
+	return "", fmt.Errorf("no admitted client probes a Token over %s", domain.ProtocolLabel(protocol))
 }
 
 // ValidateRuntime verifies one fully resolved client endpoint without

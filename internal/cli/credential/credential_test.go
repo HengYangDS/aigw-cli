@@ -323,7 +323,7 @@ func TestCredentialHelperUsesAccountTokenLanguage(t *testing.T) {
 	err := command.RunE(command, helperArgs(t, runtime, claude.ID))
 	var stderr bytes.Buffer
 	terminal.RenderCredentialError(terminal.NewRenderer(&stderr, false), err)
-	if err == nil || stdout.Len() != 0 || !strings.Contains(stderr.String(), "claude Account Token is not configured") ||
+	if err == nil || stdout.Len() != 0 || !strings.Contains(stderr.String(), "claude Token is not configured") ||
 		!strings.Contains(stderr.String(), "aigw check --depth local") || strings.Contains(stderr.String(), "gateway") {
 		t.Fatalf("credential error = %v, output = %q", err, stderr.String())
 	}
@@ -351,7 +351,7 @@ func TestCredentialHelperRedactsBackendDiagnostics(t *testing.T) {
 	var stderr bytes.Buffer
 	renderer := terminal.NewRenderer(&stderr, false)
 	terminal.RenderCredentialError(renderer, err)
-	if stdout.Len() != 0 || !strings.Contains(stderr.String(), "Account Token could not be read") ||
+	if stdout.Len() != 0 || !strings.Contains(stderr.String(), "Token could not be read") ||
 		!strings.Contains(stderr.String(), "unlock the native store if locked") {
 		t.Fatalf("stdout=%q stderr=%q", stdout.String(), stderr.String())
 	}

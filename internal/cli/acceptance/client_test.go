@@ -150,7 +150,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", "/x"})
-		if err == nil || !strings.Contains(err.Error(), "missing a token") {
+		if err == nil || !strings.Contains(err.Error(), "is missing a Token") {
 			t.Fatalf("error = %v", err)
 		}
 	})

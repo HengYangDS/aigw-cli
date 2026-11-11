@@ -28,7 +28,7 @@ var failureAdvice = []clientverification.Advice{{
 // the provider/model that the check named, which its retry advice repeats.
 func verifyRuntime(ctx context.Context, runner process.VerificationRunner, executable, settingsPath string, clientRuntime domain.Runtime, token, explicitRoute string) error {
 	if clientRuntime.UpstreamModel == "" {
-		return fmt.Errorf("Route %q has no Claude model", clientRuntime.Model)
+		return fmt.Errorf("Claude has no model name for %q", clientRuntime.Model)
 	}
 	plan, err := VerificationPlan(executable, settingsPath, "Reply with exactly: AIGW_OK", os.Environ(), clientRuntime)
 	if err != nil {

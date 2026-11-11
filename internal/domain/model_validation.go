@@ -117,7 +117,7 @@ func (c *Config) validateClientBindings() error {
 	for _, client := range slices.Sorted(maps.Keys(c.Clients)) {
 		spec, admitted := c.admission.Spec(client)
 		if !admitted {
-			return fmt.Errorf("unknown client binding %q", client)
+			return fmt.Errorf("unknown client %q", client)
 		}
 		binding := c.clientBinding(client)
 		if binding.Model.IsZero() {
@@ -130,7 +130,7 @@ func (c *Config) validateClientBindings() error {
 			continue
 		}
 		if err := c.validateSelection(client, binding.selection()); err != nil {
-			return fmt.Errorf("client binding %q: %w", client, err)
+			return fmt.Errorf("client %q: %w", client, err)
 		}
 		if err := binding.validate(client, spec); err != nil {
 			return err
@@ -151,7 +151,7 @@ func (c *Config) validateForwarding(client string, binding ClientBinding) error 
 	}
 	runtime, err := c.ResolveRuntime(client, ModelRef{})
 	if err != nil {
-		return fmt.Errorf("client binding %q: %w", client, err)
+		return fmt.Errorf("client %q: %w", client, err)
 	}
 	if runtime.CredentialProjectionFingerprint(client) == binding.ForwardingUpstreamIdentity && runtime.Protocol == binding.ForwardingProtocol {
 		return nil
@@ -222,28 +222,28 @@ func (binding ClientBinding) validate(client string, spec ClientSpec) error {
 	}
 	if binding.ForwardingEndpoint != "" {
 		if err := ValidateEndpoint(binding.ForwardingEndpoint); err != nil {
-			return fmt.Errorf("client binding %q forwarding endpoint: %w", client, err)
+			return fmt.Errorf("client %q forwarding endpoint: %w", client, err)
 		}
 	}
 	command := binding.CredentialCommand
 	if command != "" && (!filepath.IsAbs(command) || strings.TrimSpace(command) != command || strings.ContainsFunc(command, unicode.IsControl)) {
-		return fmt.Errorf("client binding %q credential_command must be one absolute executable path", client)
+		return fmt.Errorf("client %q credential_command must be one absolute executable path", client)
 	}
 	return nil
 }
 
 func (provider Provider) validate(name string) error {
 	if !ValidIdentifier(name) {
-		return fmt.Errorf("invalid account name %q; use letters, numbers, dot, dash, or underscore", name)
+		return fmt.Errorf("invalid provider ID %q; use letters, numbers, dot, dash, or underscore", name)
 	}
 	if name != strings.ToLower(name) {
 		return fmt.Errorf("provider %q must be lowercase, because IDs that differ only in case share one Token slot on a case-insensitive store", name)
 	}
 	if strings.TrimSpace(provider.Label) == "" {
-		return fmt.Errorf("account %q has an empty label", name)
+		return fmt.Errorf("provider %q has an empty label", name)
 	}
 	if provider.Endpoints.Responses == "" && provider.Endpoints.Anthropic == "" && provider.Endpoints.Chat == "" {
-		return fmt.Errorf("account %q must define at least one endpoint", name)
+		return fmt.Errorf("provider %q must define at least one endpoint", name)
 	}
 	for _, endpoint := range []struct {
 		protocol EndpointProtocol
@@ -257,17 +257,17 @@ func (provider Provider) validate(name string) error {
 			continue
 		}
 		if err := ValidateEndpoint(endpoint.url); err != nil {
-			return fmt.Errorf("account %q endpoint %s: %w", name, endpoint.protocol, err)
+			return fmt.Errorf("provider %q endpoint %s: %w", name, endpoint.protocol, err)
 		}
 	}
 	if provider.BalanceProbe == nil {
 		return nil
 	}
 	if !ValidIdentifier(provider.BalanceProbe.Kind) {
-		return fmt.Errorf("account %q has invalid account probe provider %q", name, provider.BalanceProbe.Kind)
+		return fmt.Errorf("provider %q has invalid balance probe kind %q", name, provider.BalanceProbe.Kind)
 	}
 	if err := ValidateEndpoint(provider.BalanceProbe.BaseURL); err != nil {
-		return fmt.Errorf("account %q account probe: %w", name, err)
+		return fmt.Errorf("provider %q balance probe: %w", name, err)
 	}
 	return nil
 }

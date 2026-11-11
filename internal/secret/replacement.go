@@ -38,7 +38,7 @@ func Replace(store Store, updates map[string]string) (func() error, error) {
 	for _, account := range slices.Sorted(maps.Keys(updates)) {
 		rollback, err := replaceToken(store, account, updates[account])
 		if err != nil {
-			return nil, errors.Join(fmt.Errorf("store Token for Account %q: %w", account, err), compensate())
+			return nil, errors.Join(fmt.Errorf("store Token for provider %q: %w", account, err), compensate())
 		}
 		rollbacks = append(rollbacks, rollback)
 	}
@@ -75,10 +75,10 @@ func replaceToken(store Store, account, token string) (func() error, error) {
 		}
 		current, err := restore.Get(account)
 		if errors.Is(err, ErrNotFound) || err == nil && subtle.ConstantTimeCompare([]byte(current), []byte(token)) != 1 {
-			return fmt.Errorf("credential postimage changed for Account %q; refusing to overwrite newer state", account)
+			return fmt.Errorf("credential postimage changed for provider %q; refusing to overwrite newer state", account)
 		}
 		if err != nil {
-			return fmt.Errorf("observe Token for Account %q before rollback: %w", account, err)
+			return fmt.Errorf("observe Token for provider %q before rollback: %w", account, err)
 		}
 		if hadPrevious {
 			err = restore.Set(account, previous)
@@ -86,7 +86,7 @@ func replaceToken(store Store, account, token string) (func() error, error) {
 			err = restore.Delete(account)
 		}
 		if err != nil {
-			return fmt.Errorf("restore Token for Account %q: %w", account, err)
+			return fmt.Errorf("restore Token for provider %q: %w", account, err)
 		}
 		completed = true
 		return nil

@@ -139,19 +139,19 @@ func (s ClientSpec) resolveEndpoint(account Provider, admitted []EndpointProtoco
 				continue
 			}
 			if protocol != "" {
-				return "", "", fmt.Errorf("client %q has multiple compatible endpoints; select a route protocol", s.ID)
+				return "", "", fmt.Errorf("client %q has multiple compatible endpoints; select a protocol", s.ID)
 			}
 			protocol = candidate
 		}
 	}
 	if protocol == "" {
-		return "", "", fmt.Errorf("account %q has no compatible endpoint for client %q", account.ID, s.ID)
+		return "", "", fmt.Errorf("provider %q has no compatible endpoint for client %q", account.ID, s.ID)
 	}
 	if !slices.Contains(s.EndpointProtocols, protocol) {
 		return "", "", fmt.Errorf("client %q does not support endpoint protocol %q", s.ID, protocol)
 	}
 	if admitted != nil && !slices.Contains(admitted, protocol) {
-		return "", "", fmt.Errorf("route does not admit endpoint protocol %q for client %q", protocol, s.ID)
+		return "", "", fmt.Errorf("the model does not admit endpoint protocol %q for client %q", protocol, s.ID)
 	}
 	switch protocol {
 	case ProtocolAnthropic, ProtocolResponses, ProtocolChat:

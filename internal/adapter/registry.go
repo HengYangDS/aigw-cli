@@ -62,7 +62,7 @@ type ProjectionReceipt interface {
 
 // ErrProjectionRollbackFailed means an adapter may still consume its projected
 // credential entrypoint after a failed multi-client operation.
-var ErrProjectionRollbackFailed = errors.New("client projection rollback failed")
+var ErrProjectionRollbackFailed = errors.New("client file rollback failed")
 
 // Status is one adapter's read-only local readiness observation.
 type Status struct {
@@ -254,13 +254,13 @@ func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, a
 		restored := receipts.Restore()
 		switch rollbackErr := restored.Err(); {
 		case rollbackErr != nil:
-			resultErr = fmt.Errorf("%w: client projection failed: %w; rollback also failed: %w", ErrProjectionRollbackFailed, resultErr, rollbackErr)
+			resultErr = fmt.Errorf("%w: client files failed: %w; rollback also failed: %w", ErrProjectionRollbackFailed, resultErr, rollbackErr)
 		case errors.Is(resultErr, platform.ErrCompensationIncomplete):
 			// The failing adapter could not undo its own writes, which may still
 			// reference the projected credential reader.
 			resultErr = fmt.Errorf("%w: %w", ErrProjectionRollbackFailed, resultErr)
 		default:
-			resultErr = fmt.Errorf("client projection failed and prior adapters were rolled back: %w", resultErr)
+			resultErr = fmt.Errorf("client files failed and prior adapters were rolled back: %w", resultErr)
 		}
 		resultErr = applyFailure(failing, deps.Host.Home, failure, resultErr, restored)
 	}()

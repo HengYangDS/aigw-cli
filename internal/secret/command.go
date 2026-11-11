@@ -16,7 +16,7 @@ func Command(executable, client, scope, goos string) (string, error) {
 		return "", fmt.Errorf("credential executable must be one absolute path without control characters")
 	}
 	if !domain.ValidIdentifier(client) || !domain.ValidIdentifier(scope) {
-		return "", fmt.Errorf("credential client and projection identity must be safe identifiers")
+		return "", fmt.Errorf("credential client and scope must be safe identifiers")
 	}
 	if goos == "windows" && strings.ContainsAny(executable, "\"%!^&|<>()") {
 		return "", fmt.Errorf("credential executable contains Windows shell expansion characters")

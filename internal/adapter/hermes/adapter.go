@@ -88,7 +88,7 @@ func hermesDesired(deps adapter.Dependencies, cfg domain.Config, selected domain
 		if _, observed := connected[item.Provider]; !observed {
 			available, err := adapter.SecretAvailable(deps.Secrets, item.Provider)
 			if err != nil {
-				return Desired{}, fmt.Errorf("inspect Hermes Account %q credential: %w", item.Provider, err)
+				return Desired{}, fmt.Errorf("inspect Hermes provider %q credential: %w", item.Provider, err)
 			}
 			connected[item.Provider] = available
 		}
@@ -340,7 +340,7 @@ func (hermesAdapter) Inspect(ctx context.Context, deps adapter.Dependencies, cfg
 		return uninspectable(deps, cfg, selected, clientAdapter.Targets[0], err)
 	}
 	if plan.Action != "unchanged" {
-		return adapter.Status{Issue: "Hermes configuration projection differs from the selected Route", RepairAction: "aigw sync"}
+		return adapter.Status{Issue: "Hermes configuration differs from the selected model", RepairAction: "aigw sync"}
 	}
 	return adapter.Status{Ready: true}
 }
@@ -358,7 +358,7 @@ func uninspectable(deps adapter.Dependencies, cfg domain.Config, selected domain
 			return status
 		}
 	}
-	return adapter.Status{Issue: "Hermes configuration projection cannot be inspected", RepairAction: "aigw sync"}
+	return adapter.Status{Issue: "Hermes configuration cannot be inspected", RepairAction: "aigw sync"}
 }
 
 // adoptsSelection reports whether synchronization would adopt the model that

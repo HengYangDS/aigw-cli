@@ -181,7 +181,7 @@ func TestValidateConfigRejectsIncompleteOrMismatchedProjection(t *testing.T) {
 	path := filepath.Join(root, "configuration.toml")
 
 	err := ValidateConfig(path, domain.Runtime{Model: domain.NewModelRef("test", "p")})
-	if err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
+	if err == nil || !strings.Contains(err.Error(), "has no endpoint for model") {
 		t.Errorf("expected endpoint error, got %v", err)
 	}
 

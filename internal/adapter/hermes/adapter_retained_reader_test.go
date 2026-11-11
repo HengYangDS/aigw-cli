@@ -62,7 +62,7 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	}
 	unprojected := deps
 	unprojected.AIGWExecutable = current
-	if status := clientAdapter.Inspect(t.Context(), unprojected, cfg, selected); status.Ready || !strings.Contains(status.Issue, "projection differs") {
+	if status := clientAdapter.Inspect(t.Context(), unprojected, cfg, selected); status.Ready || !strings.Contains(status.Issue, "differs from the selected model") {
 		t.Fatalf("unsynchronized Hermes projection = %#v", status)
 	}
 	if _, err := clientAdapter.Apply(t.Context(), deps, domain.NewConfig(testAdmission()), cfg); err != nil {

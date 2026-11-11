@@ -47,7 +47,7 @@ func TestDesiredCodexTargetsAreCodexHomes(t *testing.T) {
 		}
 	}
 	err := validateDesiredCodexTarget(TargetRef{SurfaceID: "unknown"})
-	if err == nil || err.Error() != "Codex target unknown cannot use authority aigw with projection mode full-selection" {
+	if err == nil || err.Error() != "Codex target unknown cannot use authority aigw with file mode full-selection" {
 		t.Fatalf("an unknown surface = %v", err)
 	}
 }

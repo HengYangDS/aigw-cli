@@ -59,7 +59,7 @@ func TestVerifyClaude(t *testing.T) {
 	if _, err := ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
-	if err := verifyRuntime(t.Context(), nil, "claude", settings, domain.Runtime{Model: domain.NewModelRef("test", "one")}, "token", ""); err == nil || !strings.Contains(err.Error(), "no Claude model") {
+	if err := verifyRuntime(t.Context(), nil, "claude", settings, domain.Runtime{Model: domain.NewModelRef("test", "one")}, "token", ""); err == nil || !strings.Contains(err.Error(), "no model name") {
 		t.Fatalf("model error = %v", err)
 	}
 	if err := verifyRuntime(t.Context(), nil, "", settings, runtime, "token", ""); err == nil || !strings.Contains(err.Error(), "executable is not configured") {

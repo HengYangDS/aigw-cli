@@ -306,7 +306,7 @@ func TestNativeReaderPreflightReportsRecoveryWithoutPrivateCause(t *testing.T) {
 		if renderer.Err() != nil {
 			t.Fatalf("json=%t render error: %v", jsonMode, renderer.Err())
 		}
-		for _, expected := range []string{"native Account Token access", "aigw check --depth local", "aigw sync"} {
+		for _, expected := range []string{"native Token access", "aigw check --depth local", "aigw sync"} {
 			if !strings.Contains(out.String(), expected) {
 				t.Fatalf("json=%t output lacks %q: %s", jsonMode, expected, &out)
 			}
@@ -492,9 +492,9 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 		want string
 	}{
 		{name: "model of an unknown provider", err: &domain.RuntimeModelUnknownProviderError{Model: domain.NewModelRef("missing", "one"), ProviderID: "missing"}, want: `model missing/one names the unknown provider "missing"`},
-		{name: "Anthropic endpoint", err: &domain.RuntimeMissingEndpointError{ProviderID: "one", Protocol: domain.ProtocolAnthropic}, want: `account "one" has no Anthropic Messages endpoint`},
-		{name: "OpenAI Responses endpoint", err: &domain.RuntimeMissingEndpointError{ProviderID: "one", Protocol: domain.ProtocolResponses}, want: `account "one" has no OpenAI Responses endpoint`},
-		{name: "OpenAI Chat Completions endpoint", err: &domain.RuntimeMissingEndpointError{ProviderID: "one", Protocol: domain.ProtocolChat}, want: `account "one" has no OpenAI Chat Completions endpoint`},
+		{name: "Anthropic endpoint", err: &domain.RuntimeMissingEndpointError{ProviderID: "one", Protocol: domain.ProtocolAnthropic}, want: `provider "one" has no Anthropic Messages endpoint`},
+		{name: "OpenAI Responses endpoint", err: &domain.RuntimeMissingEndpointError{ProviderID: "one", Protocol: domain.ProtocolResponses}, want: `provider "one" has no OpenAI Responses endpoint`},
+		{name: "OpenAI Chat Completions endpoint", err: &domain.RuntimeMissingEndpointError{ProviderID: "one", Protocol: domain.ProtocolChat}, want: `provider "one" has no OpenAI Chat Completions endpoint`},
 		{name: "unsupported version", err: &domain.UnsupportedConfigVersionError{Version: 3, ExpectedVersion: 2}, want: "unsupported configuration version: found 3, expected 2. AIGW does not reinterpret configuration schemas"},
 	}
 	for _, test := range tests {

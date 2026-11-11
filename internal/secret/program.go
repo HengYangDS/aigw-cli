@@ -112,7 +112,7 @@ func (e Entrypoint) Confirm() error {
 		return fmt.Errorf("inspect credential entrypoint: %w", err)
 	}
 	if absent {
-		return errors.New("credential entrypoint disappeared after client projection")
+		return errors.New("credential entrypoint disappeared after the client files were written")
 	}
 	return nil
 }

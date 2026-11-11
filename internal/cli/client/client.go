@@ -168,11 +168,11 @@ func admitEnablement(runtime invocation.Context, cfg domain.Config, client strin
 	if clientRuntime.UsesAIGWCredentialStore() {
 		available, err := runtime.Secrets.Exists(clientRuntime.ProviderID)
 		if err != nil {
-			return fmt.Errorf("Cannot inspect Account %q credential: %w", clientRuntime.ProviderID, err)
+			return fmt.Errorf("Cannot inspect provider %q credential: %w", clientRuntime.ProviderID, err)
 		}
 		if !available {
 			instruction, _ := secret.TokenRecovery(runtime.Secrets, clientRuntime.ProviderID)
-			return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.ProviderID, instruction)
+			return fmt.Errorf("provider %q is missing a Token; %s", clientRuntime.ProviderID, instruction)
 		}
 	}
 	if !runtime.Clients.ValidatesTargets(client) {

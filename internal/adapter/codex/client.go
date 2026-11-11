@@ -73,7 +73,7 @@ func VerificationPlan(executable, configPath, outputPath string, runtime domain.
 		return process.Plan{}, fmt.Errorf("Codex configuration target is not configured")
 	}
 	if strings.TrimSpace(runtime.UpstreamModel) == "" {
-		return process.Plan{}, fmt.Errorf("Route %q has no Codex model", runtime.Model)
+		return process.Plan{}, fmt.Errorf("Codex has no model name for %q", runtime.Model)
 	}
 	if strings.TrimSpace(outputPath) == "" {
 		return process.Plan{}, fmt.Errorf("Codex verification output path is not configured")

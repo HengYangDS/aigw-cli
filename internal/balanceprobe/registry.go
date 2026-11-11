@@ -31,7 +31,7 @@ func Supports(kind string) bool {
 // Probe dispatches an optional account diagnostic to the provider adapter declared by the account.
 func Probe(ctx context.Context, sender diagnostic.Sender, providerAccount domain.Provider, apiToken string, auth diagnostic.Credential) (diagnostic.Report, error) {
 	if providerAccount.BalanceProbe == nil {
-		return diagnostic.Report{}, fmt.Errorf("account %q has no exact diagnostic provider", providerAccount.ID)
+		return diagnostic.Report{}, fmt.Errorf("provider %q has no exact diagnostic provider", providerAccount.ID)
 	}
 	implementation, ok := registry[providerAccount.BalanceProbe.Kind]
 	if !ok {

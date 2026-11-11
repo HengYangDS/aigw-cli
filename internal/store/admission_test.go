@@ -52,7 +52,7 @@ func TestStoreAndManifestFollowTheInjectedAdmission(t *testing.T) {
 		t.Fatalf("an admission without the client parsed its recommendation: %v", err)
 	}
 	cfg.Clients[ClientCodex] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "model")}
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), `unknown client binding "codex"`) {
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), `unknown client "codex"`) {
 		t.Fatalf("a client outside the admission was accepted: %v", err)
 	}
 }

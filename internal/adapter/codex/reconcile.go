@@ -543,7 +543,7 @@ func validateCodexStateAttribution(state codexState) error {
 		return fmt.Errorf("Codex sidecar attribution is incomplete")
 	}
 	if state.ProjectionMode != ProjectionFullSelection {
-		return fmt.Errorf("Codex sidecar has unsupported projection mode %q", state.ProjectionMode)
+		return fmt.Errorf("Codex sidecar has unsupported file mode %q", state.ProjectionMode)
 	}
 	if state.WriterID != ProjectionWriterID {
 		return fmt.Errorf("Codex sidecar is owned by foreign writer %q", state.WriterID)

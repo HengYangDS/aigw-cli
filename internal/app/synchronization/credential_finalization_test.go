@@ -25,7 +25,7 @@ func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *tes
 		name, want string
 		change     func(t *testing.T, reader string)
 	}{
-		{"missing", "disappeared after client projection", func(t *testing.T, reader string) {
+		{"missing", "disappeared after the client files were written", func(t *testing.T, reader string) {
 			if err := errors.Join(os.Remove(reader), os.Remove(reader+".sha256")); err != nil {
 				t.Fatal(err)
 			}

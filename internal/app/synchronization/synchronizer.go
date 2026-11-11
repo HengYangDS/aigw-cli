@@ -148,7 +148,7 @@ func (s Synchronizer) DesiredSyncConfiguration(before domain.Config) (domain.Con
 	for _, accountID := range slices.Sorted(maps.Keys(before.Providers)) {
 		available, err := s.Secrets.Exists(accountID)
 		if err != nil {
-			return domain.Config{}, discovery.Result{}, fmt.Errorf("inspect Account %q Token availability: %w", accountID, err)
+			return domain.Config{}, discovery.Result{}, fmt.Errorf("inspect provider %q Token availability: %w", accountID, err)
 		}
 		if available {
 			connected = append(connected, accountID)
@@ -249,7 +249,7 @@ func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...str
 		for _, account := range accounts {
 			present, err := s.Secrets.Exists(account)
 			if err != nil {
-				return nil, fmt.Errorf("inspect Account %q Token availability: %w", account, err)
+				return nil, fmt.Errorf("inspect provider %q Token availability: %w", account, err)
 			}
 			if !present {
 				ready = false
