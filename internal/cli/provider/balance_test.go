@@ -121,7 +121,7 @@ func TestBalanceNamesTheFixOfEachFailure(t *testing.T) {
 
 func TestBalanceWithTheEnvironmentNamesItsVariables(t *testing.T) {
 	f := newFixture(t)
-	f.withEnvironment(map[string]string{"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM": "system-token", "AIGW_DIAGNOSTIC_USER_ID_TEAM": "42"})
+	f.withEnvironment(map[string]string{"AIGW_BALANCE_TOKEN_TEAM": "system-token", "AIGW_BALANCE_USER_ID_TEAM": "42"})
 	_ = f.run("", "balance", "team", "--json")
 	var document balanceDocument
 	f.decode(t, &document)
@@ -131,7 +131,7 @@ func TestBalanceWithTheEnvironmentNamesItsVariables(t *testing.T) {
 	f.withEnvironment(map[string]string{"AIGW_TOKEN_TEAM": teamToken})
 	_ = f.run("", "balance", "team", "--json")
 	f.decode(t, &document)
-	if item := document.Providers[0]; item.NextDetail != "Set AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM and AIGW_DIAGNOSTIC_USER_ID_TEAM in aigw's environment." {
+	if item := document.Providers[0]; item.NextDetail != "Set AIGW_BALANCE_TOKEN_TEAM and AIGW_BALANCE_USER_ID_TEAM in aigw's environment." {
 		t.Fatalf("an environment without balance credentials = %+v", item)
 	}
 }
@@ -172,7 +172,7 @@ func TestBalanceRerunsOnlyWhatALaterRequestMayNotRepeat(t *testing.T) {
 		{name: "rate limit", status: http.StatusTooManyRequests, fix: "aigw provider balance team", environment: "aigw provider balance team"},
 		{name: "server error", status: http.StatusBadGateway, fix: "aigw provider balance team", environment: "aigw provider balance team"},
 		{name: "rejected", status: http.StatusUnauthorized, fix: edit,
-			environment: "Set AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM and AIGW_DIAGNOSTIC_USER_ID_TEAM to balance credentials that the provider accepts, then run `aigw provider balance team`."},
+			environment: "Set AIGW_BALANCE_TOKEN_TEAM and AIGW_BALANCE_USER_ID_TEAM to balance credentials that the provider accepts, then run `aigw provider balance team`."},
 		{name: "forbidden", status: http.StatusForbidden, fix: edit},
 		{name: "refused query", user: `{"success":false,"message":"no access"}`, fix: edit},
 		{name: "unlisted Token", tokens: unlisted, fix: "aigw provider rotate team",
@@ -189,7 +189,7 @@ func TestBalanceRerunsOnlyWhatALaterRequestMayNotRepeat(t *testing.T) {
 						continue
 					}
 					want = test.environment
-					f.withEnvironment(map[string]string{"AIGW_TOKEN_TEAM": teamToken, "AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM": "system-token", "AIGW_DIAGNOSTIC_USER_ID_TEAM": "42"})
+					f.withEnvironment(map[string]string{"AIGW_TOKEN_TEAM": teamToken, "AIGW_BALANCE_TOKEN_TEAM": "system-token", "AIGW_BALANCE_USER_ID_TEAM": "42"})
 				}
 				f.http.user, f.http.tokens = test.user, test.tokens
 				if test.failure != nil {
@@ -212,12 +212,12 @@ func TestBalanceRerunsOnlyWhatALaterRequestMayNotRepeat(t *testing.T) {
 
 func TestBalanceNamesAnIncompleteEnvironmentPairAndAFailedBackend(t *testing.T) {
 	f := newFixture(t)
-	f.withEnvironment(map[string]string{"AIGW_TOKEN_TEAM": teamToken, "AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM": "system-token"})
+	f.withEnvironment(map[string]string{"AIGW_TOKEN_TEAM": teamToken, "AIGW_BALANCE_TOKEN_TEAM": "system-token"})
 	_ = f.run("", "balance", "team", "--json")
 	var document balanceDocument
 	f.decode(t, &document)
-	if item := document.Providers[0]; item.Problem != "the balance credentials are incomplete: AIGW_DIAGNOSTIC_USER_ID_TEAM is not set, and the other balance variable alone supplies nothing" ||
-		item.NextDetail != "Set AIGW_DIAGNOSTIC_USER_ID_TEAM in aigw's environment." {
+	if item := document.Providers[0]; item.Problem != "the balance credentials are incomplete: AIGW_BALANCE_USER_ID_TEAM is not set, and the other balance variable alone supplies nothing" ||
+		item.NextDetail != "Set AIGW_BALANCE_USER_ID_TEAM in aigw's environment." {
 		t.Fatalf("half of the pair = %+v", item)
 	}
 	f = newFixture(t)

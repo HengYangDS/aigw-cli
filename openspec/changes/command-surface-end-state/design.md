@@ -329,7 +329,7 @@ Today's reader strictly decodes the whole configuration, so every schema change 
 
 - One row per item wherever it fits. Everything keeps today's renderer, glyphs, value column and `Next` section.
 - Every failure says what happened and gives one exact command to run: `Problem` and `Fix`. A fix never names a command that would fail the same way: a configuration that does not load names its stage and `aigw config path`. The credential reader is the exception that proves the rule: its failures keep naming `aigw sync`, because the installed program can read a configuration that an older reader cannot, and its `sync` installs a reader that can. When the user must choose a value, the fix is a command with placeholders, carried in JSON as `next_detail`; `next_action` holds only an exact command. The generic "Impact" text goes, as do unrelated fixes such as `aigw check` for a missing argument. Specific impact stays where it adds a fact. "Quiet handled failures" and "Local failures name the failed stage" stay as they are.
-- A test scans help, golden output and JSON keys for the retired words. Keychain item labels and environment-variable names are exceptions, because credential storage does not change.
+- A test scans help, golden output and JSON keys for the retired words. Keychain item labels are the one exception, because credential storage does not change. Environment-variable names are an input interface rather than stored credentials, so they follow the new words: the balance variables become `AIGW_BALANCE_TOKEN_<ID>` and `AIGW_BALANCE_USER_ID_<ID>`.
 - Every leaf command's help has one to three `Examples`, and help groups follow the tree above.
 
 ### Completion

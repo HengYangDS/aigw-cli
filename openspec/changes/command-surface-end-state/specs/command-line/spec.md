@@ -149,15 +149,14 @@ runs each client privately.
 
 Help, human output and JSON keys SHALL use the words provider, model, family,
 client, protocol and Token, and SHALL NOT use Account, Route, projection,
-binding, adapter, admitted or candidate. Keychain item labels and
-environment-variable names SHALL keep their spelling, because credential
-storage does not change.
+binding, adapter, admitted or candidate. Keychain item labels SHALL keep their
+spelling, because credential storage does not change.
 
 #### Scenario: A retired word would appear
 
 - **WHEN** any command writes its help, human output or a JSON document
 - **THEN** no help or human output SHALL contain a retired word, and no JSON key
-  SHALL be one, except in a Keychain item label or an environment-variable name.
+  SHALL be one, except in a Keychain item label.
 
 ### Requirement: Arguments are checked before any change
 

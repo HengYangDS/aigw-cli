@@ -151,9 +151,9 @@ func testDiagnosticCredentialStore(t *testing.T) DiagnosticCredentialStore {
 
 func TestEnvironmentDiagnosticCredentialUsesItsDeclaredPair(t *testing.T) {
 	values := map[string]string{
-		"AIGW_TOKEN_DMX":                   "api-token",
-		"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_DMX": "platform-system",
-		"AIGW_DIAGNOSTIC_USER_ID_DMX":      "42",
+		"AIGW_TOKEN_DMX":           "api-token",
+		"AIGW_BALANCE_TOKEN_DMX":   "platform-system",
+		"AIGW_BALANCE_USER_ID_DMX": "42",
 	}
 	backend, err := Select(Selection{Backend: "env", Getenv: func(key string) string { return values[key] }})
 	if err != nil {
@@ -172,12 +172,21 @@ func TestEnvironmentDiagnosticCredentialUsesItsDeclaredPair(t *testing.T) {
 	if err := diagnostics.Delete("dmx"); !errors.Is(err, errReadOnly) {
 		t.Fatalf("Delete() error = %v, want errReadOnly", err)
 	}
+	// The earlier names of the balance variables supply nothing.
+	earlier := map[string]string{"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_DMX": "platform-system", "AIGW_DIAGNOSTIC_USER_ID_DMX": "42"}
+	diagnostics, err = NewDiagnosticCredentialStore(NewEnvironmentStore(func(key string) string { return earlier[key] }))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exists, err := diagnostics.Exists("dmx"); err != nil || exists {
+		t.Fatalf("the earlier variable names supplied a balance credential: %t, %v", exists, err)
+	}
 }
 
 func TestEnvironmentDiagnosticRequiresCompletePair(t *testing.T) {
 	for _, values := range []map[string]string{
-		{"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_DMX": "platform-system"},
-		{"AIGW_DIAGNOSTIC_USER_ID_DMX": "42"},
+		{"AIGW_BALANCE_TOKEN_DMX": "platform-system"},
+		{"AIGW_BALANCE_USER_ID_DMX": "42"},
 	} {
 		backend := NewEnvironmentStore(func(key string) string { return values[key] })
 		diagnostics, err := NewDiagnosticCredentialStore(backend)

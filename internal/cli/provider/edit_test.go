@@ -150,11 +150,11 @@ func TestEditRefusals(t *testing.T) {
 	}
 	f.withEnvironment(map[string]string{})
 	p = problem(f.run("system\n", "edit", "team", "--balance-token-stdin", "--balance-user-id", "7"))
-	if p.Title != "the environment backend reads the team balance credentials from AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM and AIGW_DIAGNOSTIC_USER_ID_TEAM and cannot store them" ||
-		p.Fix != "Set AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM and AIGW_DIAGNOSTIC_USER_ID_TEAM in aigw's environment." {
+	if p.Title != "the environment backend reads the team balance credentials from AIGW_BALANCE_TOKEN_TEAM and AIGW_BALANCE_USER_ID_TEAM and cannot store them" ||
+		p.Fix != "Set AIGW_BALANCE_TOKEN_TEAM and AIGW_BALANCE_USER_ID_TEAM in aigw's environment." {
 		t.Fatalf("environment balance credentials = %+v", p)
 	}
-	if p := problem(f.run("", "edit", "team", "--no-balance-token")); p.Fix != "Unset AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM and AIGW_DIAGNOSTIC_USER_ID_TEAM in aigw's environment." {
+	if p := problem(f.run("", "edit", "team", "--no-balance-token")); p.Fix != "Unset AIGW_BALANCE_TOKEN_TEAM and AIGW_BALANCE_USER_ID_TEAM in aigw's environment." {
 		t.Fatalf("environment removal = %+v", p)
 	}
 }

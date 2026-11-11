@@ -162,7 +162,7 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 		{name: "unsupported probe", probe: &domain.BalanceProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "Provider diagnostics unavailable in this version"},
 		{name: "missing probe credential", probe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance not ready"},
 		{name: "available probe credential", probe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Balance credentials stored · not verified"},
-		{name: "incomplete environment pair", probe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, environment: true, want: secret.DiagnosticUserIDEnvironmentKey("one")},
+		{name: "incomplete environment pair", probe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, environment: true, want: secret.BalanceUserIDEnvironmentKey("one")},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, buffer := configuredReadinessRuntime(t)
@@ -177,7 +177,7 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 				t.Fatal(err)
 			}
 			if test.environment {
-				values := map[string]string{secret.EnvironmentKey("one"): "token", secret.DiagnosticSystemTokenEnvironmentKey("one"): "private-fixture"}
+				values := map[string]string{secret.EnvironmentKey("one"): "token", secret.BalanceTokenEnvironmentKey("one"): "private-fixture"}
 				backend := secret.NewEnvironmentStore(func(key string) string { return values[key] })
 				accounts, err := secret.NewDiagnosticCredentialStore(backend)
 				if err != nil {

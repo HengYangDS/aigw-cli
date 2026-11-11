@@ -13,9 +13,9 @@ func TestEnvironmentVariablesChecksEachVariableOnItsOwn(t *testing.T) {
 	}{
 		{"none", map[string]string{}, []string{}},
 		{"Token only", map[string]string{"AIGW_TOKEN_TEAM": "t"}, []string{"AIGW_TOKEN_TEAM"}},
-		{"half of the diagnostic pair", map[string]string{"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM": "s"}, []string{"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM"}},
-		{"every variable", map[string]string{"AIGW_TOKEN_TEAM": "t", "AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM": "s", "AIGW_DIAGNOSTIC_USER_ID_TEAM": "u"},
-			[]string{"AIGW_TOKEN_TEAM", "AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM", "AIGW_DIAGNOSTIC_USER_ID_TEAM"}},
+		{"half of the diagnostic pair", map[string]string{"AIGW_BALANCE_TOKEN_TEAM": "s"}, []string{"AIGW_BALANCE_TOKEN_TEAM"}},
+		{"every variable", map[string]string{"AIGW_TOKEN_TEAM": "t", "AIGW_BALANCE_TOKEN_TEAM": "s", "AIGW_BALANCE_USER_ID_TEAM": "u"},
+			[]string{"AIGW_TOKEN_TEAM", "AIGW_BALANCE_TOKEN_TEAM", "AIGW_BALANCE_USER_ID_TEAM"}},
 	} {
 		store := NewEnvironmentStore(func(key string) string { return test.variables[key] })
 		if got := EnvironmentVariables(store, "team"); !slices.Equal(got, test.want) {

@@ -60,7 +60,7 @@ func TestExistsRejectsInvalidProviderIdentifiers(t *testing.T) {
 
 func TestEnvironmentDiagnosticExistsRequiresBothValues(t *testing.T) {
 	values := map[string]string{
-		DiagnosticSystemTokenEnvironmentKey("team"): "system-token",
+		BalanceTokenEnvironmentKey("team"): "system-token",
 	}
 	store := NewEnvironmentStore(func(key string) string { return values[key] })
 	diagnostics, err := ForKind(store, ProviderDiagnostic)
@@ -70,7 +70,7 @@ func TestEnvironmentDiagnosticExistsRequiresBothValues(t *testing.T) {
 	if present, err := diagnostics.Exists("team"); err != nil || present {
 		t.Fatalf("partial diagnostic Exists() = %v, %v", present, err)
 	}
-	values[DiagnosticUserIDEnvironmentKey("team")] = "user-id"
+	values[BalanceUserIDEnvironmentKey("team")] = "user-id"
 	if present, err := diagnostics.Exists("team"); err != nil || !present {
 		t.Fatalf("complete diagnostic Exists() = %v, %v", present, err)
 	}
@@ -93,10 +93,10 @@ func TestMemoryExistsDistinguishesAbsenceFromFailure(t *testing.T) {
 
 func TestAvailabilityObservationPreservesPurposeAndLiveReads(t *testing.T) {
 	values := map[string]string{
-		EnvironmentKey("team"):                      "first-token",
-		EnvironmentKey("other"):                     "other-token",
-		DiagnosticSystemTokenEnvironmentKey("team"): "system-token",
-		DiagnosticUserIDEnvironmentKey("team"):      "user-id",
+		EnvironmentKey("team"):              "first-token",
+		EnvironmentKey("other"):             "other-token",
+		BalanceTokenEnvironmentKey("team"):  "system-token",
+		BalanceUserIDEnvironmentKey("team"): "user-id",
 	}
 	lookups := map[string]int{}
 	backend := NewEnvironmentStore(func(key string) string {

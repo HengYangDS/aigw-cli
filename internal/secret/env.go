@@ -32,29 +32,29 @@ func EnvironmentKey(account string) string {
 	return environmentTokenPrefix + environmentProviderID(account)
 }
 
-// DiagnosticSystemTokenEnvironmentKey returns the provider-diagnostic system-token variable name for an Account.
-func DiagnosticSystemTokenEnvironmentKey(account string) string {
-	return "AIGW_DIAGNOSTIC_SYSTEM_TOKEN_" + environmentProviderID(account)
+// BalanceTokenEnvironmentKey returns the variable name of a provider's balance token.
+func BalanceTokenEnvironmentKey(account string) string {
+	return "AIGW_BALANCE_TOKEN_" + environmentProviderID(account)
 }
 
-// DiagnosticUserIDEnvironmentKey returns the provider-diagnostic user-ID variable name for an Account.
-func DiagnosticUserIDEnvironmentKey(account string) string {
-	return "AIGW_DIAGNOSTIC_USER_ID_" + environmentProviderID(account)
+// BalanceUserIDEnvironmentKey returns the variable name of a provider's balance user ID.
+func BalanceUserIDEnvironmentKey(account string) string {
+	return "AIGW_BALANCE_USER_ID_" + environmentProviderID(account)
 }
 
-// EnvironmentVariables names the variables of an Account's credentials that
+// EnvironmentVariables names the variables of a provider's credentials that
 // the read-only environment backend sees set, each checked on its own and in
-// a fixed order: the Token's, the diagnostic system token's and the
-// diagnostic user ID's. A diagnostic credential needs both of its variables,
-// so one of them alone is listed although the credential is unavailable.
-// Every other backend has none.
+// a fixed order: the Token's, the balance token's and the balance user ID's.
+// A balance credential needs both of its variables, so one of them alone is
+// listed although the credential is unavailable. Every other backend has
+// none.
 func EnvironmentVariables(store Store, account string) []string {
 	environment, ok := backendStore(store).(environmentStore)
 	if !ok {
 		return nil
 	}
 	set := []string{}
-	for _, key := range []string{EnvironmentKey(account), DiagnosticSystemTokenEnvironmentKey(account), DiagnosticUserIDEnvironmentKey(account)} {
+	for _, key := range []string{EnvironmentKey(account), BalanceTokenEnvironmentKey(account), BalanceUserIDEnvironmentKey(account)} {
 		if environment.getenv(key) != "" {
 			set = append(set, key)
 		}
@@ -117,8 +117,8 @@ func (s environmentStore) list() ([]string, error) {
 
 func (s environmentStore) get(kind Kind, account string) (string, error) {
 	if kind == ProviderDiagnostic {
-		systemToken := s.getenv(DiagnosticSystemTokenEnvironmentKey(account))
-		userID := s.getenv(DiagnosticUserIDEnvironmentKey(account))
+		systemToken := s.getenv(BalanceTokenEnvironmentKey(account))
+		userID := s.getenv(BalanceUserIDEnvironmentKey(account))
 		if systemToken == "" && userID == "" {
 			return "", ErrNotFound
 		}
@@ -145,8 +145,8 @@ func (environmentStore) delete(Kind, string) error {
 
 func (s environmentStore) exists(kind Kind, account string) (bool, error) {
 	if kind == ProviderDiagnostic {
-		return s.getenv(DiagnosticSystemTokenEnvironmentKey(account)) != "" &&
-			s.getenv(DiagnosticUserIDEnvironmentKey(account)) != "", nil
+		return s.getenv(BalanceTokenEnvironmentKey(account)) != "" &&
+			s.getenv(BalanceUserIDEnvironmentKey(account)) != "", nil
 	}
 	return s.getenv(EnvironmentKey(account)) != "", nil
 }

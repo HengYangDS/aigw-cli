@@ -18,18 +18,19 @@ import (
 )
 
 // retiredWord matches the implementation's nouns that provider, model and
-// client replaced, which help, human output and JSON keys no longer use. An
-// environment-variable name keeps its spelling, and the word boundaries never
-// match inside one, because an underscore joins its words.
+// client replaced, which help, human output and JSON keys no longer use, nor
+// any environment-variable name that they show.
 var retiredWord = regexp.MustCompile(`(?i)\b(accounts?|routes?|projections?|bindings?|adapters?|admitted|candidates?)\b`)
 
 // keychainLabel is the label of the macOS Keychain item that holds a Token,
 // which keeps its spelling because credential storage does not change.
 var keychainLabel = regexp.MustCompile(`AIGW Account Token`)
 
-// retiredIn returns the first retired word in human text.
+// retiredIn returns the first retired word in human text. An underscore
+// separates the words of an environment-variable name, which, unlike a
+// Keychain item label, follows the product's vocabulary.
 func retiredIn(text string) string {
-	return retiredWord.FindString(keychainLabel.ReplaceAllString(text, ""))
+	return retiredWord.FindString(strings.ReplaceAll(keychainLabel.ReplaceAllString(text, ""), "_", " "))
 }
 
 // TestHelpSpeaksTheProductVocabulary renders the help of every command,
@@ -154,7 +155,10 @@ func TestOutputGoldensAreTheFilesComparedWithOutput(t *testing.T) {
 	if key := retiredKey(map[string]any{"clients": []any{map[string]any{"projection_deferred": true}}}); key != "projection_deferred" {
 		t.Fatalf("retired key = %q", key)
 	}
-	if word := retiredIn("AIGW Account Token: team\nAIGW_ACCOUNT_TOKEN"); word != "" {
+	if word := retiredIn("AIGW Account Token: team"); word != "" {
 		t.Fatalf("an exempt spelling matched %q", word)
+	}
+	if word := retiredIn("Set AIGW_ACCOUNT_TOKEN_TEAM"); word != "ACCOUNT" {
+		t.Fatalf("a retired word in an environment-variable name matched %q", word)
 	}
 }

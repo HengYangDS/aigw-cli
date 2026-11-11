@@ -191,7 +191,7 @@ func balanceVariables(store secret.Store, id string) []string {
 	if !secret.IsReadOnly(store) {
 		return nil
 	}
-	return []string{secret.DiagnosticSystemTokenEnvironmentKey(id), secret.DiagnosticUserIDEnvironmentKey(id)}
+	return []string{secret.BalanceTokenEnvironmentKey(id), secret.BalanceUserIDEnvironmentKey(id)}
 }
 
 // providerFields are the rows that identify a provider in a command's result.

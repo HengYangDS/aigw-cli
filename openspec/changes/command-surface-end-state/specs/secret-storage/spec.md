@@ -102,6 +102,14 @@ AIGW SHALL NOT read or write another backend as a compatibility fallback.
 - **AND** the mapping identifies the original lowercase provider ID without an
   ambiguous normalization rule
 
+#### Scenario: The environment names the balance credential
+
+- **WHEN** the environment backend reads a provider's balance credential
+- **THEN** AIGW SHALL read it from `AIGW_BALANCE_TOKEN_<PROVIDER>` and
+  `AIGW_BALANCE_USER_ID_<PROVIDER>`, and every fix SHALL name them
+- **AND** AIGW SHALL read no variable name that a release before 0.7.0 read
+  for it.
+
 #### Scenario: A balance credential in the environment is incomplete
 
 - **WHEN** only the balance token or only the balance user ID is present for a

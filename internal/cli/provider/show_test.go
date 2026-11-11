@@ -111,10 +111,10 @@ func TestRemovalCompensationReportsWhatItCouldNotRestore(t *testing.T) {
 		unset     string
 		row       string
 	}{
-		{map[string]string{"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED": "system", "AIGW_DIAGNOSTIC_USER_ID_MIXED": "9"},
-			"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED,AIGW_DIAGNOSTIC_USER_ID_MIXED", "Balance token Still set in the environment; unset AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED and AIGW_DIAGNOSTIC_USER_ID_MIXED"},
-		{map[string]string{"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED": "system"},
-			"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED", "Balance token Still set in the environment; unset AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED"},
+		{map[string]string{"AIGW_BALANCE_TOKEN_MIXED": "system", "AIGW_BALANCE_USER_ID_MIXED": "9"},
+			"AIGW_BALANCE_TOKEN_MIXED,AIGW_BALANCE_USER_ID_MIXED", "Balance token Still set in the environment; unset AIGW_BALANCE_TOKEN_MIXED and AIGW_BALANCE_USER_ID_MIXED"},
+		{map[string]string{"AIGW_BALANCE_TOKEN_MIXED": "system"},
+			"AIGW_BALANCE_TOKEN_MIXED", "Balance token Still set in the environment; unset AIGW_BALANCE_TOKEN_MIXED"},
 	} {
 		f = newFixture(t)
 		f.withEnvironment(test.variables)

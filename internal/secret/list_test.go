@@ -67,14 +67,14 @@ func TestFileStoreListsTokenNamesWithoutReadingThem(t *testing.T) {
 // configured provider of either case uses it.
 func TestEnvironmentStoreListsTokenVariables(t *testing.T) {
 	variables := map[string]string{
-		"AIGW_TOKEN_TEAM":         "sk-team-0001",
-		"AIGW_TOKEN_ORPHAN_2D1":   "sk-orphan-0001",
-		"AIGW_TOKEN_A_2EB":        "sk-dotted-0001",
-		"AIGW_TOKEN_UNSET":        "",
-		"AIGW_TOKEN_BAD_ZZ":       "sk-bad-0001",
-		"AIGW_TOKEN_LOWER_2d":     "sk-lower-0001",
-		"AIGW_TOKEN_":             "sk-empty-name-0001",
-		"AIGW_DIAGNOSTIC_USER_ID": "not a Token",
+		"AIGW_TOKEN_TEAM":       "sk-team-0001",
+		"AIGW_TOKEN_ORPHAN_2D1": "sk-orphan-0001",
+		"AIGW_TOKEN_A_2EB":      "sk-dotted-0001",
+		"AIGW_TOKEN_UNSET":      "",
+		"AIGW_TOKEN_BAD_ZZ":     "sk-bad-0001",
+		"AIGW_TOKEN_LOWER_2d":   "sk-lower-0001",
+		"AIGW_TOKEN_":           "sk-empty-name-0001",
+		"AIGW_BALANCE_USER_ID":  "not a Token",
 	}
 	store, err := Select(Selection{
 		Backend: "env", GOOS: runtime.GOOS, Getenv: func(key string) string {

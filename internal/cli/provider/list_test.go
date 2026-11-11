@@ -93,7 +93,7 @@ func TestShowNamesTheEnvironmentAndAFailedBackend(t *testing.T) {
 		t.Fatal(err)
 	}
 	if text := f.text(); !strings.Contains(text, "✓ Token Set in AIGW_TOKEN_TEAM") ||
-		!strings.Contains(text, "! Balance token Not set: AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM and AIGW_DIAGNOSTIC_USER_ID_TEAM") {
+		!strings.Contains(text, "! Balance token Not set: AIGW_BALANCE_TOKEN_TEAM and AIGW_BALANCE_USER_ID_TEAM") {
 		t.Fatalf("environment show = %s", text)
 	}
 	if err := f.run("", "show", "mixed"); err != nil || !strings.Contains(f.text(), "Next aigw model list --provider mixed") {

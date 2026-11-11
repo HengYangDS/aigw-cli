@@ -117,7 +117,7 @@ func renderDiagnosticStatus(runtime invocation.Context, r *terminal.Renderer, cf
 		default:
 			action := "aigw provider edit " + id + " --balance-token-stdin --balance-user-id <user-id>"
 			if secret.IsReadOnly(runtime.Secrets) {
-				action = "set `" + secret.DiagnosticSystemTokenEnvironmentKey(id) + "` and `" + secret.DiagnosticUserIDEnvironmentKey(id) + "`"
+				action = "set `" + secret.BalanceTokenEnvironmentKey(id) + "` and `" + secret.BalanceUserIDEnvironmentKey(id) + "`"
 			}
 			rows = append(rows, terminal.Field{State: terminal.Warn, Label: id, Value: "Precise balance not ready · " + action})
 		}
