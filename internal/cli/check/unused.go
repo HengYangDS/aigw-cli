@@ -24,11 +24,21 @@ type unusedReport struct {
 	Providers []unusedToken `json:"providers"`
 }
 
-// unusedToken is one stored Token that no provider uses, with the command
-// that removes it.
+// The fixes that reuse a stored Token. After an upgrade, the Tokens that no
+// provider uses belong to the providers of the earlier release, and setup
+// adds such a provider again and uses its Token without a prompt.
+const (
+	reuseEmpty      = "`aigw setup` adds the provider again and uses its stored Token without a prompt"
+	reuseConfigured = "`aigw setup --from <file>` or `aigw setup` adds the provider again and uses its stored Token without a prompt"
+)
+
+// unusedToken is one stored Token that no provider uses. Its fix reuses the
+// Token; the removal is a RemoveAction and never a next_action, because a tool
+// that follows every next_action would otherwise delete the Token.
 type unusedToken struct {
-	Provider   string `json:"provider"`
-	NextAction string `json:"next_action"`
+	Provider     string `json:"provider"`
+	NextDetail   string `json:"next_detail"`
+	RemoveAction string `json:"remove_action"`
 }
 
 // listUnused names the stored Tokens that no provider uses. It reads item
@@ -42,14 +52,18 @@ func listUnused(runtime invocation.Context, cfg domain.Config) *unusedReport {
 		report.State = unusedCannotList
 		return report
 	}
+	reuse := reuseConfigured
+	if len(cfg.Providers) == 0 {
+		reuse = reuseEmpty
+	}
 	for _, id := range ids {
-		report.Providers = append(report.Providers, unusedToken{Provider: id, NextAction: "aigw provider remove " + id})
+		report.Providers = append(report.Providers, unusedToken{Provider: id, NextDetail: reuse, RemoveAction: "aigw provider remove " + id})
 	}
 	return report
 }
 
 // evidence says, for a check that stops before it has rows of its own, which
-// stored Tokens no provider uses and how they are removed, or nothing.
+// stored Tokens no provider uses and how they are reused or removed, or nothing.
 func (report *unusedReport) evidence() string {
 	ids := make([]string, 0, len(report.Providers))
 	for _, token := range report.Providers {
@@ -59,14 +73,14 @@ func (report *unusedReport) evidence() string {
 	case 0:
 		return ""
 	case 1:
-		return " A Token is stored for " + ids[0] + ", which no provider uses; `" + report.Providers[0].NextAction + "` removes it."
+		return " A Token is stored for " + ids[0] + ", which no provider uses; " + report.Providers[0].NextDetail + ", or `" + report.Providers[0].RemoveAction + "` deletes it."
 	default:
-		return " Tokens are stored for " + joined(ids, "and") + ", which no provider uses; `aigw provider remove <id>` removes each."
+		return " Tokens are stored for " + joined(ids, "and") + ", which no provider uses; " + report.Providers[0].NextDetail + ", or `aigw provider remove <id>` deletes each."
 	}
 }
 
-// render lists the unused Tokens by provider ID with the command that removes
-// each, says when the backend cannot name them, and writes nothing when none
+// render lists the unused Tokens by provider ID with the command that reuses
+// each and the one that removes it, says when the backend cannot name them, and writes nothing when none
 // is stored.
 func (report *unusedReport) render(r *terminal.Renderer) {
 	if report == nil || report.State == unusedListed && len(report.Providers) == 0 {
@@ -79,7 +93,7 @@ func (report *unusedReport) render(r *terminal.Renderer) {
 	}
 	rows := make([]terminal.Field, 0, len(report.Providers))
 	for _, token := range report.Providers {
-		rows = append(rows, terminal.Field{State: terminal.Info, Label: token.Provider, Value: token.NextAction})
+		rows = append(rows, terminal.Field{State: terminal.Info, Label: token.Provider, Value: token.NextDetail, Details: []string{"or `" + token.RemoveAction + "` deletes it"}})
 	}
 	r.Rows(rows...)
 }

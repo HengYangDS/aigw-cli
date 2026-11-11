@@ -1,10 +1,13 @@
 package check
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/clients"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 )
@@ -27,7 +30,7 @@ func TestCheckListsStoredTokensThatNoProviderUses(t *testing.T) {
 	}
 	doc := decode(t, out)
 	if !doc.OK || doc.NextAction+doc.NextDetail != "" || doc.UnusedTokens == nil || doc.UnusedTokens.State != unusedListed ||
-		len(doc.UnusedTokens.Providers) != 1 || doc.UnusedTokens.Providers[0] != (unusedToken{Provider: "orphan", NextAction: "aigw provider remove orphan"}) {
+		len(doc.UnusedTokens.Providers) != 1 || doc.UnusedTokens.Providers[0] != (unusedToken{Provider: "orphan", NextDetail: reuseConfigured, RemoveAction: "aigw provider remove orphan"}) {
 		t.Fatalf("the document = %+v, unused %+v", doc, doc.UnusedTokens)
 	}
 	if strings.Contains(out.String(), "sk-orphan-0001") {
@@ -37,7 +40,7 @@ func TestCheckListsStoredTokensThatNoProviderUses(t *testing.T) {
 	if err := execute(runtime, "--depth", "local"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Stored Tokens that no provider uses", "orphan", "aigw provider remove orphan"} {
+	for _, want := range []string{"Stored Tokens that no provider uses", "orphan", "aigw setup --from <file>", "or `aigw provider remove orphan` deletes it"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("the human check lacks %q:\n%s", want, out)
 		}
@@ -104,12 +107,57 @@ func TestCheckWithoutAClientListsStoredTokens(t *testing.T) {
 	if doc.UnusedTokens == nil || len(doc.UnusedTokens.Providers) != 1 || doc.UnusedTokens.Providers[0].Provider != "orphan" {
 		t.Fatalf("the document = %+v", doc.UnusedTokens)
 	}
-	want := "A Token is stored for orphan, which no provider uses; `aigw provider remove orphan` removes it."
+	want := "A Token is stored for orphan, which no provider uses; `aigw setup --from <file>` or `aigw setup`"
 	if problem := terminal.ProblemFor(execute(runtime)); !strings.Contains(problem.Evidence, want) {
 		t.Fatalf("the evidence = %q, want %q", problem.Evidence, want)
 	}
-	several := unusedReport{Providers: []unusedToken{{Provider: "a"}, {Provider: "b"}}}
-	if got := several.evidence(); !strings.Contains(got, "a and b") || !strings.Contains(got, "aigw provider remove <id>") {
+	if problem := terminal.ProblemFor(execute(runtime)); !strings.Contains(problem.Evidence, "or `aigw provider remove orphan` deletes it") {
+		t.Fatalf("the evidence = %q lacks the removal", problem.Evidence)
+	}
+	several := unusedReport{Providers: []unusedToken{{Provider: "a", NextDetail: reuseEmpty}, {Provider: "b", NextDetail: reuseEmpty}}}
+	if got := several.evidence(); !strings.Contains(got, "a and b") || !strings.Contains(got, "`aigw provider remove <id>` deletes each") {
 		t.Fatalf("the evidence for several = %q", got)
+	}
+}
+
+// A configuration with no providers is what an upgrade leaves: the fix leads
+// with the command that adds the provider again and uses its Token, and the
+// row carries the removal as a remove_action, never a next_action, so that a
+// tool that follows every next_action does not delete the Token.
+func TestUnusedTokensOfAnEmptyConfigurationLeadWithSetup(t *testing.T) {
+	runtime, _, out := configuredRuntime(t)
+	cfg := domain.NewConfig(clients.Admission())
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	store := secret.NewMemoryStore()
+	if err := store.Set("orphan", "sk-orphan-0001"); err != nil {
+		t.Fatal(err)
+	}
+	runtime.Secrets = store
+	_ = execute(runtime, "--depth", "local", "--json")
+	var raw struct {
+		Unused struct {
+			Providers []map[string]any `json:"providers"`
+		} `json:"unused_tokens"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &raw); err != nil || len(raw.Unused.Providers) != 1 {
+		t.Fatalf("the document: %v\n%s", err, out)
+	}
+	row := raw.Unused.Providers[0]
+	if _, has := row["next_action"]; has || row["remove_action"] != "aigw provider remove orphan" ||
+		row["next_detail"] != reuseEmpty || !strings.HasPrefix(reuseEmpty, "`aigw setup` ") || strings.Contains(reuseEmpty, "--from") {
+		t.Fatalf("the row = %v", row)
+	}
+	evidence := terminal.ProblemFor(execute(runtime, "--depth", "local")).Evidence
+	if !strings.Contains(evidence, "`aigw setup` adds the provider again") || !strings.Contains(evidence, "or `aigw provider remove orphan` deletes it") {
+		t.Fatalf("the human evidence = %q", evidence)
+	}
+}
+
+// A configuration with providers offers the team file as well.
+func TestUnusedTokensOfAConfiguredFileOfferSetupFrom(t *testing.T) {
+	if !strings.Contains(reuseConfigured, "`aigw setup --from <file>` or `aigw setup`") || !strings.Contains(reuseConfigured, "without a prompt") {
+		t.Fatalf("reuseConfigured = %q", reuseConfigured)
 	}
 }

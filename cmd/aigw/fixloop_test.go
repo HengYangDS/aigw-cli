@@ -48,8 +48,8 @@ func TestFixLoopRefusesWhatItCannotFollow(t *testing.T) {
 }
 
 // TestFixLoopFollowsEachFailedRow shows that the fix of each row that reports
-// a problem counts, as does an unused Token's, and that a passed row's does
-// not.
+// a problem counts, as does an unused Token's reuse detail but never its
+// removal, and that a passed row's does not.
 func TestFixLoopFollowsEachFailedRow(t *testing.T) {
 	plan, err := planFix(`{
   "ok": false,
@@ -59,19 +59,19 @@ func TestFixLoopFollowsEachFailedRow(t *testing.T) {
     {"id": "hermes", "state": "failed", "next_detail": "aigw use hermes <provider/model>"}
   ],
   "providers": [{"id": "broken", "problem": "OpenAI Responses: HTTP 503", "next_action": "aigw model search --provider broken"}],
-  "unused_tokens": {"state": "listed", "providers": [{"provider": "orphan", "next_action": "aigw provider remove orphan"}]},
+  "unused_tokens": {"state": "listed", "providers": [{"provider": "orphan", "next_detail": "aigw setup adds the provider again", "remove_action": "aigw provider remove orphan"}]},
   "problem": "2 clients are not ready",
   "next_action": "aigw check codex"
 }`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantActions := []string{"aigw check codex", "aigw model search --provider broken", "aigw provider remove orphan"}
+	wantActions := []string{"aigw check codex", "aigw model search --provider broken"}
 	wantProblems := []string{"2 clients are not ready", "HTTP 503: the provider failed", "OpenAI Responses: HTTP 503"}
 	if !slices.Equal(plan.actions, wantActions) || !slices.Equal(plan.problems, wantProblems) {
 		t.Fatalf("actions %q, problems %q", plan.actions, plan.problems)
 	}
-	if !slices.Equal(plan.details, []string{"aigw use hermes <provider/model>"}) {
+	if !slices.Equal(plan.details, []string{"aigw use hermes <provider/model>", "aigw setup adds the provider again"}) {
 		t.Fatalf("details %q", plan.details)
 	}
 }

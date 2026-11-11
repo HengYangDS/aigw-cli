@@ -114,15 +114,16 @@ exec aigw check --depth local
 stdout '✓ Claude             team/team-model · local'
 
 # A stored Token that no provider uses is listed by its provider's ID, never
-# by its value, with the removal that cleans it up. A check of named clients
-# observes no other provider's credentials, so it lists none.
+# by its value, with the setup that reuses it and the removal that deletes it. A check of
+# named clients observes no other provider's credentials, so it lists none.
 env AIGW_SECRET_BACKEND=env
 env AIGW_TOKEN_TEAM=sk-team-token-0001
 env AIGW_TOKEN_ORPHAN=sk-orphan-token-0004
 exec aigw check --depth local
 cmp stdout unused.txt
 exec aigw check --depth local --json
-stdout '"unused_tokens": \{\n\s+"state": "listed",\n\s+"providers": \[\n\s+\{\n\s+"provider": "orphan",\n\s+"next_action": "aigw provider remove orphan"'
+stdout '"unused_tokens": \{\n\s+"state": "listed",\n\s+"providers": \[\n\s+\{\n\s+"provider": "orphan",\n\s+"next_detail": "`aigw setup --from \\u003cfile\\u003e` or `aigw setup` adds the provider again and uses its stored Token without a prompt",\n\s+"remove_action": "aigw provider remove orphan"\n\s+\}'
+! stdout 'next_action": "aigw provider remove'
 ! stdout sk-orphan-token
 exec aigw check claude --depth local --json
 ! stdout unused_tokens
@@ -1006,7 +1007,8 @@ Clients
   ✓ Claude             team/team-model · local
 
 Stored Tokens that no provider uses
-  · orphan             aigw provider remove orphan
+  · orphan             `aigw setup --from <file>` or `aigw setup` adds the provider again and uses its stored Token without a prompt
+                       or `aigw provider remove orphan` deletes it
 
 Result
   ✓ No checked client failed
