@@ -326,26 +326,9 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 	j.setEnvironment("CODEX_HOME", filepath.Join(home, ".codex"))
 	j.setEnvironment("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
 	if client == hermes.ID {
-		installation, err := requiredClientInput("AIGW_ACCEPTANCE_HERMES_HOME", true)
-		if err != nil {
+		if err := j.isolateHermesHome(executable); err != nil {
 			return err
 		}
-		profile, cleanup, err := hermes.CreateVerificationHome(filepath.Join(installation, "config.yaml"))
-		if err != nil {
-			return err
-		}
-		t := j.testing
-		t.Cleanup(func() {
-			j.stopHermesGateway(executable, profile)
-			if err := cleanup(); err != nil {
-				t.Errorf("remove native Hermes acceptance profile: %v", err)
-			}
-		})
-		j.setEnvironment("HERMES_HOME", profile)
-		j.setEnvironment("HERMES_GATEWAY_LOCK_DIR", hermes.GatewayLockDirectory(profile))
-		// As in AIGW's own Hermes verification, the journey uses the supplied
-		// installation's dependencies and never installs one on demand.
-		j.setEnvironment("HERMES_DISABLE_LAZY_INSTALLS", "1")
 	}
 	preferences := map[string]string{
 		// This journey owns client inference and projection, not marketplace synchronization.

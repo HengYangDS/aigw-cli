@@ -4,7 +4,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,12 +18,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"aigw-cli/internal/adapter/hermes"
-	clientverification "aigw-cli/internal/adapter/verification"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/store"
 
 	"aigw-cli/internal/clients"
@@ -374,22 +370,6 @@ func reportedHermesSession(diagnostics []byte) string {
 		}
 	}
 	return session
-}
-
-// stopHermesGateway stops the gateway that the journey's chats started in its
-// Hermes home through the native command, which refuses an active turn, and
-// waits until the gateway releases the home's lock.
-func (j *journeyFixture) stopHermesGateway(executable, home string) {
-	if hermes.AwaitGatewayAbsence(home, 0, 0) {
-		return
-	}
-	environment := environmentWith(j.environment, map[string]string{
-		"HERMES_HOME": home, "HERMES_GATEWAY_LOCK_DIR": hermes.GatewayLockDirectory(home),
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), clientverification.ProtocolTimeout)
-	defer cancel()
-	_, _, _ = (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: executable, Directory: home, Env: environment, Args: []string{"gateway", "stop"}})
-	hermes.AwaitGatewayAbsence(home, 15*time.Second, 250*time.Millisecond)
 }
 
 func testHermesSessionIdentifier(t *testing.T) {
