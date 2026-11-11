@@ -249,7 +249,7 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 				claude.ID,
 				"claude-test",
 			)
-			cfg.SetRecommendedModel(claude.ID, domain.NewModelRef("team", "claude-test"))
+			cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("team", "claude-test")}}
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}

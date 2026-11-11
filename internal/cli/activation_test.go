@@ -96,7 +96,7 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 	cfg.Models[domain.NewModelRef("missing", "fable")] = domain.Model{Label: "Claude", Provider: "missing", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.Models[domain.NewModelRef("connected", "gpt")] = domain.Model{Label: "Codex", Provider: "connected", Family: "gpt", ID: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("missing", "fable"), "")
-	cfg.SetRecommendedModel(codex.ID, domain.NewModelRef("connected", "gpt"))
+	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("connected", "gpt")}}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

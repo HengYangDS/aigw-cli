@@ -145,7 +145,7 @@ func TestConfigCloneDoesNotShareMutableState(t *testing.T) {
 	original.Providers["dmx"] = account
 	original.Clients = map[string]ClientBinding{}
 	original.SetClientActivation(ClientCodex, true, "", []string{"one"})
-	original.SetRecommendedModel(ClientClaude, NewModelRef("dmx", "claude-test"))
+	original.Recommendations[ClientClaude] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("dmx", "claude-test")}}
 
 	clone := original.Clone()
 	clone.Providers["dmx"].BalanceProbe.BaseURL = "https://changed.test"
@@ -159,7 +159,7 @@ func TestConfigCloneDoesNotShareMutableState(t *testing.T) {
 	clone.Providers["dmx"] = Provider{Label: "Changed"}
 	clone.Models[NewModelRef("dmx", "claude-test")] = Model{Label: "Changed"}
 	clone.SetSelectedModel(ClientClaude, NewModelRef("dmx", "changed"), "")
-	clone.SetRecommendedModel(ClientClaude, NewModelRef("dmx", "changed"))
+	clone.Recommendations[ClientClaude] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("dmx", "changed")}}
 	adapter := clone.Clients[ClientCodex]
 	adapter.Targets[0] = "changed"
 	clone.Clients[ClientCodex] = adapter
@@ -185,7 +185,9 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 		{"uppercase account name", func(c *Config) { c.Providers["DMX"] = c.Providers["dmx"] }, "must be lowercase"},
 		{"unknown selected model", func(c *Config) { c.SetSelectedModel(ClientClaude, NewModelRef("dmx", "missing"), "") }, "unknown model dmx/missing"},
 		{"unknown client", func(c *Config) { c.Clients["chat"] = ClientBinding{Model: NewModelRef("dmx", "claude-test")} }, "unknown client binding"},
-		{"unknown recommended model", func(c *Config) { c.SetRecommendedModel(ClientClaude, NewModelRef("dmx", "missing")) }, "unknown model dmx/missing"},
+		{"unknown recommended model", func(c *Config) {
+			c.Recommendations[ClientClaude] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("dmx", "missing")}}
+		}, "unknown model dmx/missing"},
 		{"unknown recommended client", func(c *Config) {
 			c.Recommendations["chat"] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("dmx", "claude-test")}}
 		}, "unknown client recommendation"},

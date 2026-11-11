@@ -20,7 +20,7 @@ func TestTeamSetupOffersEqualCompatibleProvidersWithoutTokens(t *testing.T) {
 		cfg.Providers[account] = domain.Provider{Label: account, Endpoints: domain.Endpoints{Anthropic: "https://" + account + ".test"}}
 		cfg.Models[domain.NewModelRef(account, "fable")] = domain.Model{Label: account, Provider: account, Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	}
-	cfg.SetRecommendedModel(claude.ID, domain.NewModelRef("ucloud", "fable"))
+	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("ucloud", "fable")}}
 	recommendation := cfg.Recommendations[claude.ID]
 	recommendation.Alternatives = []domain.ClientSelection{{Model: domain.NewModelRef("dmx", "fable")}}
 	cfg.Recommendations[claude.ID] = recommendation

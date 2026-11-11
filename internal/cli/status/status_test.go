@@ -72,7 +72,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
 	delete(cfg.Clients, codex.ID)
-	cfg.SetRecommendedModel(codex.ID, domain.NewModelRef("one", "gpt-test"))
+	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("one", "gpt-test")}}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

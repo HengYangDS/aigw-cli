@@ -77,7 +77,7 @@ func TestDesiredSyncConfigurationDoesNotSearchUnselectedWritableCredentials(t *t
 	before := domain.NewConfig(clients.Admission())
 	before.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	before.Models[domain.NewModelRef("team", "model")] = domain.Model{Provider: "team", Family: "model", ID: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	before.SetRecommendedModel(claude.ID, domain.NewModelRef("team", "model"))
+	before.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("team", "model")}}
 	want := errors.New("unselected native credential was inspected")
 	syncer := Synchronizer{Registry: builtinClients, Secrets: secretReadStub{err: want}, Discovery: staticDiscovery{}}
 
@@ -108,7 +108,7 @@ func TestDesiredSyncConfigurationPreservesExplicitDisabledSelection(t *testing.T
 		before.Providers[account] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://" + account + ".test"}}
 		before.Models[domain.NewModelRef(account, "model")] = domain.Model{Provider: account, Family: "model", ID: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	}
-	before.SetRecommendedModel(claude.ID, domain.NewModelRef("recommended", "model"))
+	before.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("recommended", "model")}}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("manual", "model"), "")
 	store := secret.NewEnvironmentStore(func(key string) string {
 		if key == secret.EnvironmentKey("recommended") {
@@ -166,7 +166,7 @@ func TestDesiredClientConfigurationDoesNotActivateUnboundClients(t *testing.T) {
 	}}
 	before.Models[domain.NewModelRef("team", "claude-test")] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.Models[domain.NewModelRef("team", "gpt-test")] = domain.Model{Label: "Codex", Provider: "team", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	before.SetRecommendedModel(claude.ID, domain.NewModelRef("team", "claude-test"))
+	before.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("team", "claude-test")}}
 	store := secret.NewMemoryStore()
 	if err := store.Set("team", "token"); err != nil {
 		t.Fatal(err)

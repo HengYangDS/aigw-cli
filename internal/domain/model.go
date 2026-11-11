@@ -290,19 +290,6 @@ func (c *Config) RecommendedModel(client string) ModelRef {
 	return c.Recommendations[client].Primary.Model
 }
 
-// SetRecommendedModel changes one client recommendation while preserving
-// its protocol and authentication choices.
-func (c *Config) SetRecommendedModel(client string, ref ModelRef) {
-	if c.Recommendations == nil {
-		c.Recommendations = map[string]ClientRecommendation{}
-	}
-	recommendation := c.Recommendations[client]
-	selection := recommendation.Primary
-	selection.Model = ref
-	recommendation.Primary = selection
-	c.Recommendations[client] = recommendation
-}
-
 // SelectedClientsForModel returns the clients that select one model, in
 // admission order.
 func (c *Config) SelectedClientsForModel(ref ModelRef) []string {

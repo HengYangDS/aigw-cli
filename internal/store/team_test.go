@@ -128,8 +128,8 @@ func TestTeamRecommendationsPermitSparseProvidersAndPreserveExplicitBindings(t *
 	cfg.Families["sol"] = domain.Family{Label: "Sol"}
 	cfg.Models[domain.NewModelRef("aihubmix", "fable")] = domain.Model{Provider: "aihubmix", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
 	cfg.Models[domain.NewModelRef("ucloud", "sol")] = domain.Model{Provider: "ucloud", Family: "sol", ID: "sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {domain.CapabilityText}}}
-	cfg.SetRecommendedModel(ClientClaude, domain.NewModelRef("aihubmix", "fable"))
-	cfg.SetRecommendedModel(ClientCodex, domain.NewModelRef("ucloud", "sol"))
+	cfg.Recommendations[ClientClaude] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("aihubmix", "fable")}}
+	cfg.Recommendations[ClientCodex] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("ucloud", "sol")}}
 
 	cloud, err := cfg.SelectModelsForConnectedProviders([]string{"ucloud"})
 	if err != nil || !cloud.SelectedModel(ClientClaude).IsZero() || cloud.SelectedModel(ClientCodex) != domain.NewModelRef("ucloud", "sol") {

@@ -47,7 +47,7 @@ func TestAssessActivationChoosesOneCompatibleEnvironmentProvider(t *testing.T) {
 	cfg.Providers["dmx"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://dmx.test"}}
 	cfg.Models[domain.NewModelRef("ucloud", "fable")] = domain.Model{Provider: "ucloud", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.Models[domain.NewModelRef("dmx", "fable")] = domain.Model{Provider: "dmx", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetRecommendedModel(claude.ID, domain.NewModelRef("ucloud", "fable"))
+	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("ucloud", "fable")}}
 	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("dmx", "fable"), "")
 	store := secret.NewEnvironmentStore(func(string) string { return "" })
 	got := AssessActivation(cfg, store)
@@ -134,8 +134,8 @@ func TestNextActionAfterProviderConnectionPreservesExplicitSelection(t *testing.
 	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Models[domain.NewModelRef("team", "fable")] = domain.Model{Provider: "team", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.Models[domain.NewModelRef("team", "fable")] = domain.Model{Provider: "team", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetRecommendedModel(claude.ID, domain.NewModelRef("team", "fable"))
-	cfg.SetRecommendedModel(hermes.ID, domain.NewModelRef("team", "fable"))
+	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("team", "fable")}}
+	cfg.Recommendations[hermes.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("team", "fable")}}
 	if got := NextActionAfterProviderConnection(cfg, "team"); got != "aigw use claude team/fable" || !cfg.SelectedModel(claude.ID).IsZero() {
 		t.Fatalf("Account connection mutated or skipped selection: action=%q bindings=%#v", got, cfg.Clients)
 	}
@@ -178,7 +178,7 @@ func TestAssessActivationListsUnselectedCompatibleEnvironmentProviders(t *testin
 	cfg.Providers["dmx"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://dmx.test"}}
 	cfg.Models[domain.NewModelRef("ucloud", "fable")] = domain.Model{Provider: "ucloud", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.Models[domain.NewModelRef("dmx", "fable")] = domain.Model{Provider: "dmx", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetRecommendedModel(claude.ID, domain.NewModelRef("ucloud", "fable"))
+	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("ucloud", "fable")}}
 	recommendation := cfg.Recommendations[claude.ID]
 	recommendation.Alternatives = []domain.ClientSelection{{Model: domain.NewModelRef("dmx", "fable")}}
 	cfg.Recommendations[claude.ID] = recommendation
@@ -194,7 +194,7 @@ func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T)
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Models[domain.NewModelRef("team", "fable")] = domain.Model{Provider: "team", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetRecommendedModel(claude.ID, domain.NewModelRef("team", "fable"))
+	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("team", "fable")}}
 	got := AssessActivation(cfg, unobservedWritableStore{})
 	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != "Choose one compatible provider: aigw provider rotate team" || got.CredentialPrerequisite == "" {
 		t.Fatalf("native backend activation = %+v", got)
@@ -253,7 +253,7 @@ func TestAssessActivationDoesNotInstallAClientWhoseSelectedTokenIsMissing(t *tes
 	cfg.Models[domain.NewModelRef("missing", "fable")] = domain.Model{Provider: "missing", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.Models[domain.NewModelRef("connected", "gpt")] = domain.Model{Provider: "connected", Family: "gpt", ID: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("missing", "fable"), "")
-	cfg.SetRecommendedModel(codex.ID, domain.NewModelRef("connected", "gpt"))
+	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("connected", "gpt")}}
 	store := secret.NewEnvironmentStore(func(key string) string {
 		if key == secret.EnvironmentKey("connected") {
 			return "available-token"

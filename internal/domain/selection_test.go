@@ -131,8 +131,8 @@ func TestSelectModelsForConnectedProvidersKeepsCapabilityAndChoosesUsableModels(
 	cfg.Models[NewModelRef("alpha", "gpt-test")] = testModel("Alpha Codex", "alpha", "gpt-test", ProtocolResponses)
 	cfg.Models[NewModelRef("beta", "claude-test")] = testModel("Beta Claude", "beta", "claude-test", ProtocolAnthropic)
 	cfg.Models[NewModelRef("beta", "gpt-test")] = testModel("Beta Codex", "beta", "gpt-test", ProtocolResponses)
-	cfg.SetRecommendedModel(ClientClaude, NewModelRef("alpha", "claude-test"))
-	cfg.SetRecommendedModel(ClientCodex, NewModelRef("alpha", "gpt-test"))
+	cfg.Recommendations[ClientClaude] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("alpha", "claude-test")}}
+	cfg.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("alpha", "gpt-test")}}
 	claudeRecommendation := cfg.Recommendations[ClientClaude]
 	claudeRecommendation.Alternatives = []ClientSelection{{Model: NewModelRef("beta", "claude-test")}}
 	cfg.Recommendations[ClientClaude] = claudeRecommendation
@@ -176,8 +176,8 @@ func TestSelectModelsForConnectedProvidersPreservesRecommendedModels(t *testing.
 	cfg.Models[NewModelRef("connected", "claude-fable-5")] = testModel("Connected Claude", "connected", "claude-fable-5", ProtocolAnthropic)
 	cfg.Models[NewModelRef("connected", "gpt-5.6-luna")] = testModel("Connected Codex Luna", "connected", "gpt-5.6-luna", ProtocolResponses)
 	cfg.Models[NewModelRef("connected", "gpt-5.6-sol")] = testModel("Connected Codex Sol", "connected", "gpt-5.6-sol", ProtocolResponses)
-	cfg.SetRecommendedModel(ClientClaude, NewModelRef("preferred", "claude-fable-5"))
-	cfg.SetRecommendedModel(ClientCodex, NewModelRef("preferred", "gpt-5.6-sol"))
+	cfg.Recommendations[ClientClaude] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("preferred", "claude-fable-5")}}
+	cfg.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("preferred", "gpt-5.6-sol")}}
 	claudeRecommendation := cfg.Recommendations[ClientClaude]
 	claudeRecommendation.Alternatives = []ClientSelection{{Model: NewModelRef("connected", "claude-fable-5")}}
 	cfg.Recommendations[ClientClaude] = claudeRecommendation
@@ -203,7 +203,7 @@ func TestSelectModelsForConnectedProvidersDoesNotSubstituteAnotherRecommendedMod
 	cfg.Providers["connected"] = Provider{Label: "Connected", Endpoints: Endpoints{Responses: "https://connected.test/v1"}}
 	cfg.Models[NewModelRef("preferred", "gpt-preferred")] = testModel("Preferred", "preferred", "gpt-preferred", ProtocolResponses)
 	cfg.Models[NewModelRef("connected", "gpt-different")] = testModel("Different", "connected", "gpt-different", ProtocolResponses)
-	cfg.SetRecommendedModel(ClientCodex, NewModelRef("preferred", "gpt-preferred"))
+	cfg.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("preferred", "gpt-preferred")}}
 
 	selected, err := cfg.SelectModelsForConnectedProviders([]string{"connected"})
 	if err != nil {
@@ -216,7 +216,7 @@ func TestSelectModelsForConnectedProvidersDoesNotSubstituteAnotherRecommendedMod
 
 func TestSelectModelsPreservesUnavailableExplicitChoice(t *testing.T) {
 	cfg := validConfig()
-	cfg.SetRecommendedModel(ClientCodex, NewModelRef("backup", "gpt-test"))
+	cfg.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("backup", "gpt-test")}}
 	chosen, err := cfg.SelectModelsForConnectedProviders(nil)
 	if err != nil || !reflect.DeepEqual(chosen.Clients, cfg.Clients) {
 		t.Fatalf("unavailable explicit choices changed: %#v, %v", chosen.Clients, err)
@@ -228,7 +228,7 @@ func TestSelectModelsPrefersUsableRecommendationOverIdentifierOrder(t *testing.T
 	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test"}}
 	cfg.Models[NewModelRef("team", "first-model")] = testModel("Alpha", "team", "first-model", ProtocolAnthropic)
 	cfg.Models[NewModelRef("team", "recommended-model")] = testModel("Zeta", "team", "recommended-model", ProtocolAnthropic)
-	cfg.SetRecommendedModel(ClientClaude, NewModelRef("team", "recommended-model"))
+	cfg.Recommendations[ClientClaude] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("team", "recommended-model")}}
 	deferred, err := cfg.SelectModelsForConnectedProviders(nil)
 	if err != nil || len(deferred.Clients) != 0 || deferred.RecommendedModel(ClientClaude) != NewModelRef("team", "recommended-model") {
 		t.Fatalf("deferred recommendation = %#v, %v", deferred, err)
@@ -261,7 +261,7 @@ func TestSelectModelsForConnectedProvidersSelectsACompatibleModelForAnUnselected
 	cfg.Models[NewModelRef("claude-only", "claude-test")] = testModel("Claude", "claude-only", "claude-test", ProtocolAnthropic)
 	cfg.Models[NewModelRef("codex", "gpt-test")] = testModel("Codex", "codex", "gpt-test", ProtocolResponses)
 	cfg.SetSelectedModel(ClientCodex, NewModelRef("codex", "gpt-test"), "")
-	cfg.SetRecommendedModel(ClientClaude, NewModelRef("claude-only", "claude-test"))
+	cfg.Recommendations[ClientClaude] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("claude-only", "claude-test")}}
 
 	got, err := cfg.SelectModelsForConnectedProviders([]string{"claude-only"}, ClientClaude)
 	if err != nil {
@@ -278,7 +278,7 @@ func TestSelectModelsForConnectedProvidersDefaultsToRecommendedClients(t *testin
 		Anthropic: "https://team.test", Responses: "https://team.test/v1",
 	}}
 	cfg.Models[NewModelRef("team", "model")] = testModel("Shared", "team", "model", ProtocolResponses)
-	cfg.SetRecommendedModel(ClientCodex, NewModelRef("team", "model"))
+	cfg.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("team", "model")}}
 
 	selected, err := cfg.SelectModelsForConnectedProviders([]string{"team"})
 	if err != nil {

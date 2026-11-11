@@ -106,7 +106,7 @@ func TestStatusPrioritizesSelectedActivationWhileRetainingModelGuidance(t *testi
 	cfg.Models[domain.NewModelRef("dmx", "gpt-5.6-sol")] = qualifiedModel("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolResponses)
 	cfg.Models[domain.NewModelRef("dmx", "claude-fable-5")] = qualifiedModel("Claude", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-5.6-sol"), "")
-	cfg.SetRecommendedModel(claude.ID, domain.NewModelRef("dmx", "claude-fable-5"))
+	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("dmx", "claude-fable-5")}}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
