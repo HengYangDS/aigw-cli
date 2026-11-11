@@ -28,3 +28,21 @@ by the operator, because the review identity cannot observe it.
 - **WHEN** the resource is readable, missing from a visible directory or not a
   regular file, or sudo reports a grant or cannot prove its absence
 - **THEN** the job SHALL fail before product execution.
+
+### Requirement: Artifact jobs prepare only their own Forge's CLI
+
+A native artifact job SHALL prepare the Forge CLI of its own peer and not the
+other peer's. Source and full-quality jobs MAY prepare both.
+
+#### Scenario: A GitHub artifact job prepares its tools
+
+- **WHEN** a GitHub artifact job prepares its tools
+- **THEN** it SHALL prepare gh and not glab
+- **AND** no GitHub workflow input SHALL select another source for glab.
+
+## REMOVED Requirements
+
+### Requirement: Artifact jobs prepare only their peer's download tool
+
+**Reason**: Its scenario selects a GitHub copy of glab through `tool_source=peer`, which task 3.2 removes.
+**Migration**: "Artifact jobs prepare only their own Forge's CLI" keeps the rule without that input.
