@@ -988,8 +988,8 @@ label = "Team Model"
 enabled = true
 model = "team/team-model"
 protocol = "anthropic"
-executable = "$BIN/claude$exe"
-credential_command = "$BIN/aigw$exe"
+executable = '$BIN/claude$exe'
+credential_command = '$BIN/aigw$exe'
 
 [clients.codex]
 enabled = true
@@ -997,8 +997,8 @@ model = "team/native-model"
 protocol = "responses"
 model_provider = "amazon-bedrock"
 authentication = "client-native"
-executable = "$BIN/claude$exe"
-targets = ["$HOME/.codex/config.toml"]
+executable = '$BIN/claude$exe'
+targets = ['$HOME/.codex/config.toml']
 -- unused.txt --
 AIGW  Check
 ────────────────────────────────────────
