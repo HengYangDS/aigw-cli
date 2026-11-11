@@ -168,7 +168,7 @@ func TestUnknownCommandSuggestsTopLevelHelp(t *testing.T) {
 	}
 	out.Reset()
 	err = cli.Execute(app, []string{"not-a-command", "--json"})
-	if err == nil || !strings.Contains(out.String(), `unknown command "not-a-command"`) || strings.Contains(out.String(), "unknown option") {
+	if err == nil || !strings.Contains(out.String(), `unknown command \"not-a-command\"`) || strings.Contains(out.String(), "unknown option") || !strings.Contains(out.String(), `"ok": false`) {
 		t.Fatalf("unknown command with a flag: err=%v output=%s", err, out.String())
 	}
 }

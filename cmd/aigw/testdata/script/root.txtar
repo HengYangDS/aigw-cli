@@ -25,8 +25,19 @@ cmp stdout bare.txt
 
 exitcode 1 aigw nothing
 cmp stdout unknown.txt
-# An unknown command reports in text even with --json, so fixloop cannot
-# follow its fix.
+# An unknown command, or a flag that a command refuses, reports as JSON with
+# --json wherever it stands, so fixloop follows its fix.
+exitcode 1 aigw nothing --json
+stdout '"error": "unknown command \\"nothing\\""'
+cp stdout unknown.json
+fixloop -input unknown.json aigw nothing --json
+exitcode 1 aigw status --bogus --json
+stdout '"ok": false'
+stdout '"next_action": "aigw status --help"'
+cp stdout bogus.json
+fixloop -input bogus.json aigw status --bogus --json
+exitcode 1 aigw --json status --bogus
+stdout '"ok": false'
 
 # The commands that the tree replaced are unknown: each names aigw --help, or
 # a removed subcommand its group's help, and changes nothing.

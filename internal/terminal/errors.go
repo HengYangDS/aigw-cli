@@ -46,6 +46,13 @@ func Usage(path string, err error) error {
 	return &usageError{command: path, cause: err}
 }
 
+// IsUsage reports whether err is a usage error: a command, flag or argument
+// that Cobra refused before any command ran.
+func IsUsage(err error) bool {
+	_, usage := errors.AsType[*usageError](err)
+	return usage
+}
+
 type configurationRecovery interface {
 	error
 	ConfigurationRestored() bool

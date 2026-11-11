@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -152,6 +153,9 @@ func Execute(app *App, args []string) error {
 		return err
 	}
 	jsonMode, _ := command.Flags().GetBool("json")
+	// Cobra stops at the flag or word that it refuses, so a --json after it,
+	// or at the root, which has no such flag, is read from the arguments.
+	jsonMode = jsonMode || terminal.IsUsage(err) && jsonRequested(args)
 	if jsonMode && output.started {
 		return err
 	}
@@ -180,6 +184,24 @@ func refusal(root, command *cobra.Command, args []string, err error) error {
 		return terminal.Usage(root.CommandPath(), err)
 	}
 	return err
+}
+
+// jsonRequested reports that the arguments, up to a "--" that ends the flags,
+// ask for --json.
+func jsonRequested(args []string) bool {
+	for _, arg := range args {
+		if arg == "--" {
+			return false
+		}
+		if value, found := strings.CutPrefix(arg, "--json="); found {
+			requested, err := strconv.ParseBool(value)
+			return err == nil && requested
+		}
+		if arg == "--json" {
+			return true
+		}
+	}
+	return false
 }
 
 func finishExecution(commandErr error, unlock func() error) error {
