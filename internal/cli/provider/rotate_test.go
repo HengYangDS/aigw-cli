@@ -18,8 +18,8 @@ func TestRotateReplacesTheTokenOnlyAfterTheProviderAcceptsIt(t *testing.T) {
 	var document rotateDocument
 	f.decode(t, &document)
 	// Claude selects the provider's model and is not enabled, so the next
-	// step is to use it.
-	if document.ID != "team" || !document.TokenValidated || !document.TokenStored || document.NextAction != "aigw use claude team/team-model" {
+	// step is to enable it.
+	if document.ID != "team" || !document.TokenValidated || !document.TokenStored || document.NextDetail != "aigw client enable claude --executable <path>" {
 		t.Fatalf("rotation = %+v", document)
 	}
 	// The Responses endpoint, which the provider has, validates the Token.
@@ -36,7 +36,7 @@ func TestRotateReplacesTheTokenOnlyAfterTheProviderAcceptsIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	if text := f.text(); f.token("team") != "sk-team-token-0003" || ask.asked[0] != "Paste the Team Token: " ||
-		!strings.Contains(text, "AIGW Token replaced") || !strings.Contains(text, "✓ Token Accepted by the provider and stored") || !strings.Contains(text, "Next aigw use claude team/team-model") {
+		!strings.Contains(text, "AIGW Token replaced") || !strings.Contains(text, "✓ Token Accepted by the provider and stored") || !strings.Contains(text, "Next aigw client enable claude") {
 		t.Fatalf("prompted rotation = %s", text)
 	}
 	ask.values = []string{"two words"}

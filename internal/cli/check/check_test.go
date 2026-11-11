@@ -223,7 +223,7 @@ func TestCheckOfANamedDisabledClient(t *testing.T) {
 	}
 	doc = decode(t, out)
 	if doc.OK || len(doc.Clients) != 0 || doc.EnabledClients != 0 || doc.State != domainreadiness.Deferred || doc.Problem != "No client is enabled" ||
-		!strings.HasPrefix(doc.NextAction, "aigw use ") || len(provider.requests) != 0 {
+		!strings.HasPrefix(doc.NextDetail, "aigw client enable ") || len(provider.requests) != 0 {
 		t.Fatalf("a check without an enabled client = %+v; requests %q", doc, provider.requests)
 	}
 }

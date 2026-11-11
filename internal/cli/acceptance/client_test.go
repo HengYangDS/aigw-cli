@@ -203,24 +203,24 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	if _, err := os.Stat(claudeExecutable); err != nil {
 		t.Fatalf("adapter disable changed the foreign Claude executable: %v", err)
 	}
-	// Synchronization skips a disabled client; selecting its model again enables it.
+	// Synchronization skips a disabled client; enabling it resumes it.
 	out := &bytes.Buffer{}
 	app.Out = out
 	if err := cli.Execute(app, []string{"status", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 	var status struct {
-		NextAction string `json:"next_action"`
+		NextDetail string `json:"next_detail"`
 	}
-	if err := json.Unmarshal(out.Bytes(), &status); err != nil || status.NextAction != "aigw use claude team/claude-model" {
-		t.Fatalf("disabled binding continuation = %q, %v\n%s", status.NextAction, err, out)
+	if err := json.Unmarshal(out.Bytes(), &status); err != nil || status.NextDetail != "aigw client enable claude --executable <path>" {
+		t.Fatalf("disabled binding continuation = %q, %v\n%s", status.NextDetail, err, out)
 	}
 	out.Reset()
 	app.In = strings.NewReader("rotated-secret\n")
 	if err := cli.Execute(app, []string{"provider", "rotate", "team", "--token-stdin"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "aigw use claude team/claude-model") || strings.Contains(out.String(), "Install Claude") {
+	if !strings.Contains(out.String(), "aigw client enable claude --executable <path>") || strings.Contains(out.String(), "Install Claude") {
 		t.Fatalf("rotation named the wrong continuation for a disabled binding:\n%s", out)
 	}
 }

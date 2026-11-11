@@ -164,3 +164,23 @@ func ensureReader(source, target string) (func() error, error) {
 	_, undo, err := program.EnsureEntrypoint(target)
 	return undo, err
 }
+
+// The fix that a disabled client with a selection names enables it when its
+// stored protocol is empty.
+func TestEnableResumesADisabledClientWithoutAStoredProtocol(t *testing.T) {
+	cfg := adapterConfig()
+	binding := cfg.Clients[claude.ID]
+	binding.Protocol = ""
+	cfg.Clients[claude.ID] = binding
+	runtime, _, secretStore, _ := adapterRuntime(t, cfg)
+	if err := secretStore.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", "/opt/claude"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := runtime.Config.Load()
+	if err != nil || !got.Clients[claude.ID].Enabled {
+		t.Fatalf("the client after the fix: %#v, %v", got.Clients[claude.ID], err)
+	}
+}

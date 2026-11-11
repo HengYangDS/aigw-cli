@@ -158,10 +158,17 @@ func projectionAction(spec domain.ClientSpec) string {
 	return "Install " + spec.Label + " if needed, then run `aigw sync`"
 }
 
-// enableAction resumes a disabled Client Binding that keeps its selected Route;
-// synchronization skips it, while selecting that Route again enables it.
-func enableAction(client string, model domain.Model) string {
-	return "aigw use " + client + " " + model.Ref().String()
+// enableAction resumes a disabled client binding that keeps its selection;
+// synchronization skips it. Enabling does not depend on the stored protocol,
+// which selecting the model again would have to equal. Enabling asks for the
+// client's executable, and for a configuration file when the client reads one,
+// so the step names them for the operator to choose.
+func enableAction(spec domain.ClientSpec) string {
+	action := "aigw client enable " + spec.ID + " --executable <path>"
+	if spec.TargetFile != "" {
+		action += " --target <" + spec.TargetFile + ">"
+	}
+	return action
 }
 
 // ProjectionPrerequisites derives pending native-client work from selected
@@ -236,7 +243,7 @@ func (assessment *inactiveClientAssessment) consider(client string, ref domain.M
 	assessment.result.ProjectionPrerequisites[client] = projectionAction(spec)
 	if selected {
 		// Every binding is disabled here; synchronization skips a disabled selection.
-		assessment.result.ProjectionPrerequisites[client] = enableAction(client, assessment.cfg.Models[ref])
+		assessment.result.ProjectionPrerequisites[client] = enableAction(spec)
 	}
 	if !candidate.UsesAIGWCredentialStore() {
 		delete(assessment.result.ClientCredentialPrerequisites, client)
@@ -346,7 +353,7 @@ func NextActionAfterProviderConnection(cfg domain.Config, accountID string) stri
 		binding := cfg.Clients[spec.ID]
 		switch {
 		case !binding.Enabled:
-			return enableAction(spec.ID, cfg.Models[runtime.Model])
+			return enableAction(spec)
 		case binding.Executable == "":
 			return projectionAction(spec)
 		}

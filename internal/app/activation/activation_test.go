@@ -62,7 +62,7 @@ func TestAssessActivationChoosesOneCompatibleEnvironmentProvider(t *testing.T) {
 		return ""
 	})
 	got = AssessActivation(cfg, store)
-	if got.NextActionFor(nil) != "aigw use claude dmx/fable" {
+	if got.NextActionFor(nil) != "aigw client enable claude --executable <path>" {
 		t.Fatalf("connected Account activation = %+v", got)
 	}
 
@@ -122,7 +122,7 @@ func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 		cfg.Clients[codex.ID] = binding
 		for _, store := range []secret.Store{nil, unobservedWritableStore{}} {
 			decision := AssessActivation(cfg, store)
-			if decision.State != domainreadiness.Deferred || decision.NextActionFor(nil) != "aigw use codex team/gpt" || len(decision.ClientCredentialPrerequisites) != 0 {
+			if decision.State != domainreadiness.Deferred || decision.NextActionFor(nil) != "aigw client enable codex --executable <path> --target <config.toml>" || len(decision.ClientCredentialPrerequisites) != 0 {
 				t.Fatalf("independent credential selection required an unused AIGW Token backend: %+v", decision)
 			}
 		}
@@ -141,7 +141,7 @@ func TestNextActionAfterProviderConnectionPreservesExplicitSelection(t *testing.
 	}
 
 	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("team", "fable"), "")
-	if got := NextActionAfterProviderConnection(cfg, "team"); got != "aigw use claude team/fable" {
+	if got := NextActionAfterProviderConnection(cfg, "team"); got != "aigw client enable claude --executable <path>" {
 		t.Fatalf("unprojected selected client action = %q", got)
 	}
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
@@ -226,7 +226,7 @@ func TestAssessActivationSelectedWritableProviderRequiresItsToken(t *testing.T) 
 		t.Fatal(err)
 	}
 	got = AssessActivation(cfg, store)
-	if got.NextActionFor(nil) != "aigw use claude team/fable" || got.CredentialPrerequisite != "" {
+	if got.NextActionFor(nil) != "aigw client enable claude --executable <path>" || got.CredentialPrerequisite != "" {
 		t.Fatalf("selected Account with Token = %+v", got)
 	}
 }
@@ -243,7 +243,7 @@ func TestAssessActivationDoesNotRecommendNoOpSyncBeforeClientActivation(t *testi
 
 	decision := AssessActivation(cfg, store)
 	got := decision.NextActionFor(nil)
-	want := "aigw use claude team/fable"
+	want := "aigw client enable claude --executable <path>"
 	if got != want {
 		t.Fatalf("next action before client activation = %q, want %q", got, want)
 	}
@@ -478,4 +478,25 @@ func environmentBackend(getenv func(string) string) secret.Store {
 		panic(err)
 	}
 	return store
+}
+
+// A disabled client that has a selection resumes through `aigw client enable`,
+// which does not depend on the stored protocol; `aigw use` would leave it
+// disabled when that protocol is empty or no longer admitted.
+func TestDisabledClientWithASelectionNamesClientEnable(t *testing.T) {
+	cfg := domain.NewConfig(builtinclients.Admission())
+	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://team.test/v1"}}
+	ref := domain.NewModelRef("team", "gpt")
+	cfg.Models[ref] = domain.Model{Provider: "team", Family: "gpt", ID: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.SetSelectedModel(codex.ID, ref, "")
+	credentials := secret.NewMemoryStore()
+	_ = credentials.Set("team", "token")
+	for _, stored := range []domain.EndpointProtocol{"", domain.ProtocolResponses} {
+		binding := cfg.Clients[codex.ID]
+		binding.Protocol = stored
+		cfg.Clients[codex.ID] = binding
+		if decision := AssessActivation(cfg, credentials); decision.NextActionFor(nil) != "aigw client enable codex --executable <path> --target <config.toml>" {
+			t.Errorf("stored protocol %q: the fix of a disabled selected client = %q", stored, decision.NextActionFor(nil))
+		}
+	}
 }

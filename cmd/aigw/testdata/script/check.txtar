@@ -107,9 +107,12 @@ exec aigw check claude --depth client --json
 cmp stdout disabled.json
 exitcode 1 aigw check --depth local
 cmp stdout none-enabled.txt
-# Its fix runs as printed and enables the client again.
+# Its fix names the client's executable for the operator to choose; the script
+# enables the client through it, then the check runs.
 exitcode 1 aigw check --depth local --json
-fixloop stdout aigw check --depth local --json
+cp stdout none-enabled.json
+exec aigw client enable claude --executable $BIN/claude$exe
+fixloop -did 'ran aigw client enable claude --executable with the Claude executable' none-enabled.json aigw check --depth local --json
 exec aigw check --depth local
 stdout '✓ Claude             team/team-model · local'
 
@@ -739,7 +742,7 @@ Impact
   No client was checked.
 
 Fix
-  aigw use claude team/team-model
+  aigw client enable claude --executable <path>
 -- empty-file --
 -- no-model-list.json --
 {
