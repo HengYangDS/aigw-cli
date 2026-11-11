@@ -14,17 +14,82 @@ signing, and GA status remain separate evidence.
 ### Changed
 
 - The team file `manifests/team.toml` takes each vendor's strongest model that
-  its Accounts serve:
+  its providers serve:
   - Tencent HY4 replaces HY4 Preview, through DMXAPI (Responses) and
     AIHubMix (Chat);
   - LongCat 2.5 replaces LongCat 2.5 Preview on DMXAPI;
-  - DMXAPI serves Doubao Seed 2.1 Pro 260915, and the other Accounts keep
+  - DMXAPI serves Doubao Seed 2.1 Pro 260915, and the other providers keep
     260628;
   - GPT-6.1 Terra adds UCloud.
 
-  Every new route passed a native Hermes tool turn and a resumed recall.
+  Every new model passed a native Hermes tool turn and a resumed recall.
   Claude stays at 5.5 and GPT at 6.1.
 
+- AIGW keeps its configuration in one file, `aigw.toml`, with `version = 8`, in
+  the configuration folder that it already used. 0.7.0 reads only that file. It
+  never reads or changes AIGW's `config.toml` or the component files
+  `config.forwarding.toml`, `config.retries.toml`, `config.catalog.toml` and
+  `config.capabilities.toml`, and it ships no importer for them. A home that
+  holds only those files has no configuration, and `aigw` names `aigw setup`.
+  To upgrade, run `aigw setup --from <team file>` or `aigw setup`, then
+  `aigw use <client> <provider/model>` for each client. A provider that you add
+  under its earlier ID finds the Token already stored for it, and setup uses it
+  without a prompt. Client sessions that started before the upgrade keep
+  working, because they call the credential reader they started with, which
+  still reads the untouched `config.toml`. Delete `config.toml` and
+  `config.*.toml` once those sessions have ended; AIGW never deletes them.
+- The shape of `aigw.toml`: each provider nests its models, which are named
+  `provider/model`, and array order is display order, so `order` is refused.
+  `deprecated = true` replaces `lifecycle`, and `purpose` ends, because no
+  command displayed it. A model that declares no protocol is refused when a
+  configuration or team file is read. A provider ID that differs from another
+  only in case is refused naming both, and a capitalized ID is refused with its
+  lowercase spelling. The authentication value `account-token` is
+  `provider-token`.
+- A team file is the same format without `[clients]`, with `version = 8`.
+  `aigw setup --from` refuses a file with a `[clients]` section or in another
+  version before it writes anything. A member who still runs 0.6.1 cannot read
+  a version 8 file and upgrades first.
+- `aigw setup` reuses a Token that is already stored for a provider that it adds
+  and says so. Guided `aigw setup` enables the client that it configures. It is
+  the one write without a preview: `aigw setup --from <file> --dry-run` previews
+  a team file.
+- The unused-Token list of `aigw check` leads with `aigw setup`, or
+  `aigw setup --from <file>`, which reuses the Token. A second line offers
+  `aigw provider remove <provider>` to delete it.
+- Hermes provider IDs are `aigw-<provider>-<protocol>`, such as
+  `aigw-dmxapi-responses`, which replaces `aigw-dmxapi-openai-responses`. A
+  Hermes session that started before the upgrade names an ID that no longer
+  exists.
+- The read-only environment backend reads a provider's balance credential from
+  `AIGW_BALANCE_TOKEN_<ID>` and `AIGW_BALANCE_USER_ID_<ID>`. The earlier
+  `AIGW_DIAGNOSTIC_SYSTEM_TOKEN_<ID>` and `AIGW_DIAGNOSTIC_USER_ID_<ID>` no
+  longer work.
+- `aigw model show` and `aigw model remove` take no `--protocol`: `model show`
+  lists every protocol of the model, and `model remove` removes the model.
+- `aigw self rollback` cannot return to a release older than 0.7.0, because no
+  earlier release reads `aigw.toml`: its check gives the retained program the
+  current configuration and refuses one that cannot read it, changing nothing.
+  An earlier release installed by other means finds its own files as they were
+  before the upgrade, without later changes. The Homebrew rollback keeps its
+  Keychain custody step and no longer refuses because retry budgets are set.
+- Codex's bundled model metadata follows the model's family. A provider model
+  whose family is in Codex's bundled table gets an alias with the family's
+  entry, and AIGW takes no metadata from a prefix or suffix of the model ID, so
+  a model whose family is not in the table gets none. Link a variant such as
+  `dmxapi/gpt-6.1-sol-cdx` to its family with `--family` or a team file.
+- The fix for a disabled client that keeps a selection is
+  `aigw client enable <client>`. Moving a disabled client's selection with
+  `aigw use` keeps it disabled and says so.
+- An empty stored Token counts as none on every credential store, including the
+  macOS Keychain, Linux Secret Service and Windows Credential Manager, so
+  `aigw status` reports the client deferred, with the command that stores a
+  Token, instead of configured.
+- `aigw model show` and `aigw model list` mark a protocol whose provider has no
+  endpoint and name `aigw provider edit <provider> --endpoint <protocol>=<url>`.
+- A usage error under `--json`, such as an unknown command or flag, prints the
+  JSON failure document wherever `--json` stands before a `--` that ends the
+  flags; `--json=false` keeps text.
 - `aigw use --for <client> <route>` is `aigw use <client> <provider/model>`.
   A model is named `provider/model`, where the part after the first `/` is the
   provider's own model ID, and `use` adds a model that the provider's catalog
