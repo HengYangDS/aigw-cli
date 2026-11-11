@@ -173,13 +173,13 @@ func TestCandidateSourceIdentityIsAdmittedBeforeExecution(t *testing.T) {
 }
 
 func TestNativePublishedBaselineBindsItsExplicitSignedSource(t *testing.T) {
-	artifacts := prepareSignedRelease(t, "0.1.0")
+	artifacts := prepareSignedRelease(t, "0.7.0")
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 	want := gzip.ErrHeader
 	if runtime.GOOS == "windows" {
 		want = zip.ErrFormat
 	}
-	err := run([]string{"accept-native", "--baseline-artifacts", artifacts, "--baseline-tag", "v0.1.0"}, io.Discard)
+	err := run([]string{"accept-native", "--baseline-artifacts", artifacts, "--baseline-tag", "v0.7.0"}, io.Discard)
 	if !errors.Is(err, want) {
 		t.Fatalf("authorized baseline did not reach exact archive decoding: %v", err)
 	}
@@ -189,10 +189,10 @@ func TestNativePublishedBaselineBindsItsExplicitSignedSource(t *testing.T) {
 			t.Fatalf("unbound baseline tag %q reached archive decoding: %v", tag, err)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(artifacts, "aigw_0.1.0.provenance.json"), []byte("unbound provenance"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(artifacts, "aigw_0.7.0.provenance.json"), []byte("unbound provenance"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := run([]string{"accept-native", "--baseline-artifacts", artifacts, "--baseline-tag", "v0.1.0"}, io.Discard); err == nil || errors.Is(err, want) {
+	if err := run([]string{"accept-native", "--baseline-artifacts", artifacts, "--baseline-tag", "v0.7.0"}, io.Discard); err == nil || errors.Is(err, want) {
 		t.Fatalf("corrupt baseline provenance reached archive decoding: %v", err)
 	}
 }
@@ -213,7 +213,7 @@ func TestNativeClientAcceptanceRejectsMissingExecutableBeforeBuild(t *testing.T)
 				t.Setenv(key, executable)
 			}
 			t.Setenv(missing, "")
-			err := run([]string{"accept-native", "--clients", "--baseline-tag", "v0.3.1", "--peer", "github", "--repository", "team/product"}, io.Discard)
+			err := run([]string{"accept-native", "--clients", "--baseline-tag", "v0.7.0", "--peer", "github", "--repository", "team/product"}, io.Discard)
 			if err == nil || !strings.Contains(err.Error(), missing) {
 				t.Fatalf("missing native client was not identified before construction: %v", err)
 			}

@@ -117,6 +117,11 @@ func AcceptNative(ctx context.Context, input NativeAcceptance) error {
 }
 
 func acceptNativeInput(ctx context.Context, input NativeAcceptance, request buildRequest, run toolRunner) (result error) {
+	if input.BaselineTag != "" {
+		if err := admitPredecessor(input.BaselineTag); err != nil {
+			return err
+		}
+	}
 	baseline := os.Getenv("AIGW_ACCEPTANCE_BASELINE")
 	if input.Artifacts == "" && input.Tag == "" && input.BaselineTag == "" {
 		return acceptNative(request, "", baseline, input, run)
@@ -408,7 +413,28 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 	return nil
 }
 
+// oldestPredecessor is the first release that reads aigw.toml, the only team file a
+// journey writes for its predecessor; 0.7.0 also dropped the importer and cannot
+// roll back to an older release.
+var oldestPredecessor = semver.MustParse("0.7.0")
+
+// admitPredecessor refuses a published predecessor that a journey cannot start from,
+// before anything is downloaded, extracted or run.
+func admitPredecessor(tag string) error {
+	version, err := semver.StrictNewVersion(strings.TrimPrefix(tag, "v"))
+	if err != nil {
+		return fmt.Errorf("published predecessor %q must be a v<semver> tag: %w", tag, err)
+	}
+	if version.LessThan(oldestPredecessor) {
+		return fmt.Errorf("published predecessor %s is older than %s; %s is the oldest release a journey can start from, because older releases cannot read aigw.toml; select a predecessor of %s or later", version, oldestPredecessor, oldestPredecessor, oldestPredecessor)
+	}
+	return nil
+}
+
 func preparePublishedBaseline(ctx context.Context, root, directory, tag, stage string) (string, error) {
+	if err := admitPredecessor(tag); err != nil {
+		return "", err
+	}
 	version := strings.TrimPrefix(tag, "v")
 	trust := provenance.SignatureTrust{AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"), Principal: os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER")}
 	if err := provenance.VerifyMatrix(ctx, directory, version, trust); err != nil {
