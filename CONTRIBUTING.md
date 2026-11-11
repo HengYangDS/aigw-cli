@@ -319,7 +319,24 @@ supplied through `AIGW_ACCEPTANCE_BASELINE`; Homebrew's installed executable is
 not that input. The tooling does not check the version of that executable, which
 has no release identity.
 
-Before tagging, admit the signed candidate and published predecessor matrices:
+The 0.7.0 release bytes are qualified without a predecessor journey, in three
+steps:
+
+1. The hosted three-platform source graph at the release commit. Its
+   source-built journeys use the current-source `0.0.0` fixture as their
+   predecessor, so they exercise upgrade and rollback.
+2. `verify-artifacts` on the signed release matrix.
+3. Operator acceptance on the owner's Mac: a Homebrew install, the real clients,
+   and a Codex session started before the upgrade that keeps its credential.
+
+A release with no admissible predecessor skips every step that needs one: the
+pre-tag `accept-native --artifacts --candidate` below, `release.yml` with
+`native_lifecycle`, GitLab's candidate-artifact jobs, and real-client runs
+against release bytes (`--clients`). From 0.7.1 on, these run against 0.7.0 or
+later.
+
+Before tagging a release that has an admissible predecessor, admit the signed
+candidate and published predecessor matrices:
 
 ```bash
 mise exec --locked -- go run ./tools/release accept-native \
