@@ -12,13 +12,13 @@ AIGW keeps credentials local, mutations bounded, and client ownership explicit.
 
 ## Credential storage
 
-- **Account Tokens** use one selected local backend. They never appear in
+- **Provider Tokens** use one selected local backend. They never appear in
   repository files or public configuration.
 - **Diagnostic credentials** use a separate typed slot in that same backend.
-  Their system Token and user ID are both required; neither substitutes for an
-  Account Token. They never appear in repository files or public configuration.
+  Their system Token and user ID are both required; neither substitutes for a
+  provider Token. They never appear in repository files or public configuration.
 - **Forge credentials** belong to the protected CI or operator process, not
-  AIGW's Account store. They are never tracked in Git.
+  AIGW's provider Token store. They are never tracked in Git.
 
 Automatic selection first honors an existing backend choice. Without one, it
 attempts native-service metadata access and selects that backend if the probe
@@ -46,7 +46,7 @@ mechanism, set `AIGW_SECRET_BACKEND` to
   invoking a native prompt. Pending prompts returned by native creation or
   deletion are dismissed, not displayed. The subprocess deadline bounds cleanup;
   it is not a substitute for refusing native authorization UI.
-- **`file`** uses an owner-only directory and regular file per Account on macOS
+- **`file`** uses an owner-only directory and regular file per provider on macOS
   and Linux. Windows encrypts each Token with current-user DPAPI before writing
   it beneath the AIGW data directory. Both use bounded paths and same-directory
   replacement; the selected backend supports credential mutation.
@@ -64,14 +64,14 @@ Supply environment credentials to the process that needs them. A Token set in
 one terminal is not automatically inherited by a separately launched GUI client.
 The projected helper runs in the client's environment. See
 [automated rollout](../guides/team-rollout.md#automated-rollout) for API-Token
-variable names, reversible Account-ID encoding, and process scope.
+variable names, reversible provider-ID encoding, and process scope.
 
 Unattended work requires an already-proven noninteractive credential boundary;
 it must not assume metadata access is sufficient.
 
 ### AIGW-owned credential entrypoint
 
-For a default Account-Token Client Binding, AIGW projects the existing
+For a client that uses a provider's Token, AIGW projects the existing
 `aigw credential` protocol through a user-private, SHA-256-addressed copy of
 the same executable under its platform data directory. A successor gets a new
 path rather than overwriting old bytes. It uses the same selected backend and
@@ -79,13 +79,13 @@ Token slots; it is not another store or helper. The paired SHA-256 receipt
 detects byte drift, not release provenance or native-store authorization.
 Creation participates in projection compensation.
 
-Ordinary sync, repair, and Client Binding withdrawal retain an existing copy:
+Ordinary sync and client withdrawal retain an existing copy:
 absence from current configuration does not prove cached or rollback callers
 have stopped using it. Explicit portable uninstall withdraws projections and
 removes the selected installation executable and its rollback copy, even when
 invoked from a different AIGW binary. It leaves versioned readers and receipts
 unchanged: a content-addressed reader may also serve another installation or
-cached caller. It does not reauthorize a withdrawn Client Binding; a cached
+cached caller. It does not reauthorize a withdrawn client; a cached
 command using the withdrawn configuration must fail closed. Exact reader
 cleanup requires proof that no configured, cached, explicit, rollback, or
 other-installation caller remains; neither uninstall nor a prefix or age match
@@ -107,7 +107,7 @@ extracted release or a development build, cannot tell whether its installation
 still runs the predecessor, so it reads such an item through `/usr/bin/security`
 and never changes an item's owner. `aigw self rollback` returns the items to
 the predecessor's reader after admitting a portable rollback, or before a
-Homebrew downgrade. The [credential decision](../decisions/dr-0011-single-portable-token-backend.md)
+Homebrew downgrade to a release of 0.7.0 or later. The [credential decision](../decisions/dr-0011-single-portable-token-backend.md)
 records the migration and its custody rules.
 
 The [credential-continuity design](../../openspec/changes/archive/2026-10-16-terminal-product-convergence/design.md#4-decide-credential-command-continuity-before-cutover)
@@ -116,11 +116,11 @@ must also pass before this path is a released guarantee.
 
 ### External credential executable
 
-Each local Adapter may set `credential_command` to one absolute executable
+Each local client may set `credential_command` to one absolute executable
 path. The selected executable must accept
 `credential <client> <fingerprint>`, validate the requested projection,
 and emit only its Token on successful stdout. The fingerprint identifies a
-Client Binding; it is not caller authorization. The operator owns the executable's
+client's selection; it is not caller authorization. The operator owns the executable's
 installation, trust, permissions and credential source. AIGW does not discover
 an alternative reader, change native access control or install the helper.
 
@@ -140,25 +140,27 @@ AIGW's native store when this policy is present. A failure hides raw client
 diagnostics because AIGW does not know the external Token to redact it;
 cancellation and the bounded verification deadline remain observable.
 
-Disabling the Adapter retains its explicit credential policy without
+Disabling the client retains its explicit credential policy without
 automatically enabling it on a later sync. Full withdrawal removes that local
 policy, but does not remove the external executable or its credential store.
 Replacing the policy requires ordinary guarded projection reconciliation.
-An older AIGW release that cannot parse this field is not a compatible
-binary-only rollback: restore a compatible configuration explicitly before
-selecting that predecessor. The updater's compatibility check remains required.
+No release older than 0.7.0 reads `aigw.toml`, so program rollback cannot
+return to one; the updater's compatibility check refuses a retained program
+that cannot read the current configuration, and changes nothing.
 
 ## Configuration boundary
 
-Manifest validation uses public metadata, not Token values. Account-Token
-Client Bindings require credential availability before client activation. Client-native
+Team file validation uses public metadata, not Token values. A client that
+uses a provider's Token requires credential availability before activation. Client-native
 Codex authentication needs no AIGW Token and remains client-owned. Public
 configuration never carries credentials.
 
-A manifest collision must be semantically identical or explicitly replaced.
-Replacing Account metadata preserves its Token slot. An explicit endpoint
-change redirects future requests and therefore requires review; the old
-projection fingerprint cannot retrieve a Token for the new endpoint.
+A team file never changes an existing provider's endpoints or Token: a
+differing endpoint stays local and is reported, because a file must not
+redirect a Token. Replacing provider metadata preserves its Token slot, and
+`aigw provider edit` changes an endpoint deliberately. An endpoint change
+redirects future requests and therefore requires review; the old projection
+fingerprint cannot retrieve a Token for the new endpoint.
 
 ## Client boundary
 
@@ -219,7 +221,7 @@ raw bodies. Explicit inspection and export commands may show configuration
 paths, endpoints or public configuration; those are not secret-free telemetry
 for public redistribution. Review such output before sharing it.
 
-Errors name the problem, bounded evidence, impact, and one recommended action.
+Errors name the problem and one exact fix, with bounded evidence where it adds a fact.
 
 ## Update boundary
 
@@ -233,6 +235,6 @@ and redirect failures are terminal.
 
 Uninstall first withdraws AIGW-owned client projections, including marked
 configuration blocks, sidecars, generated catalogs, and credential helpers.
-It then removes the selected program and its rollback copy. Accounts, Routes,
-Client Bindings, Tokens, explicit configuration backup, client conversations, and
+It then removes the selected program and its rollback copy. Providers, models,
+client selections, Tokens, explicit configuration backup, client conversations, and
 neighboring user-authored settings remain intact.

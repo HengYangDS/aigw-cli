@@ -456,7 +456,7 @@ limits are a reasoned trade-off, not a universal optimum or test-volume claim:
 | Cyclop 20 then 15      | Keep 25: atomic manifest/ACL admission and complete lifecycle assertions do not justify blanket forwarding extraction           |
 | Cognitive 40           | Keep 45: bootstrap/recovery/native acceptance combine ownership and cleanup                                                     |
 | Span 110/statements 55 | Keep 120/60: explicit input/data and complete journeys remain inspectable                                                       |
-| Arguments 6            | Keep 7: Account/Route and before/after artifacts are real distinct inputs; bags alone remove no knowledge                       |
+| Arguments 6            | Keep 7: provider/model and before/after artifacts are real distinct inputs; bags alone remove no knowledge                      |
 | Nestif below 4         | Adopt: early terminal paths and shared metadata deletion remove real nesting; positive 3/failing 4 fixtures cover product/tests |
 | Maintidx 30            | Keep 25: vocabulary/data cost remains bounded by independent size/nesting/decisions                                             |
 | Clone 80               | Keep 100 tokens: DPAPI protect/unprotect and distinct assertions are separate operations                                        |
@@ -585,5 +585,5 @@ owns cleanup targets.
 AIGW never carries traffic, owns sessions or manages external services. IDE state,
 Codex JSONL/SQLite, historical messages and per-conversation model metadata remain
 client-owned. Proxy activation
-is optional and operator-owned; explicit endpoints remain ordinary Account data.
+is optional and operator-owned; explicit endpoints remain ordinary provider data.
 Require real consumer evidence before claiming any Adapter or compatible protocol.

@@ -97,10 +97,21 @@ homebrew_casks:
       name: homebrew-tap
     skip_upload: true
     homepage: https://github.com/HengYangDS/aigw-cli
-    description: Local control plane for AI provider accounts and client configuration
+    description: Local control plane for AI providers, models and client configuration
     url:
       template: "https://github.com/HengYangDS/aigw-cli/releases/download/v{{ .Version }}/{{ .ArtifactName }}"
     caveats: |
       Run aigw setup to configure a provider and explicitly enable clients.
+
+      Upgrading from 0.6.1 or earlier: 0.7.0 reads only aigw.toml and never
+      reads or changes config.toml or its component files. After upgrading,
+      run aigw setup --from <team file> or aigw setup, then run
+      aigw use <client> <provider/model> for each client. Tokens already
+      stored are reused. Client sessions started before the upgrade keep
+      working; delete config.toml and config.*.toml once they have ended.
+      Hermes sessions started before the upgrade name provider IDs that no
+      longer exist. aigw self rollback cannot return to a release older
+      than 0.7.0.
+
       Before uninstalling, run aigw status and aigw client disable <client>
       for each enabled client. Configuration and Tokens remain available.

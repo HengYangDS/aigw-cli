@@ -35,61 +35,56 @@ ID. Adding a compatible model to an existing provider and supported client
 changes configuration, not the Adapter implementation. New client or authentication
 boundaries follow [Adapter admission](../governance/adapter-admission.md).
 
-### Manifest authoring contract
+### Team file authoring contract
 
-The team manifest is a curated catalog, not a collection of personal notes.
+The team file is a curated catalog, not a collection of personal notes. It has
+`version = 8`, the format of `aigw.toml` without `[clients]`, and nests each
+provider's models under the provider.
 
-- **Route ID:** stable lower-case selection key, independent of the provider's
-  exact-case wire spelling. An Account prefix and channel suffix may make the
-  key readable without making the wire ID its authority.
-- **`account`:** explicit reference to the credential-owning Account; Routes
-  remain reusable and do not declare a client.
-- **`model`:** canonical logical Model identity. Channel suffixes do not create
-  another Model.
-- **`upstream_model`:** exact identifier sent to the provider, preserving
-  version punctuation and any channel suffix.
-- **`interfaces`:** explicit wire protocols admitted for that exact Account
-  and upstream model. A client may select only the intersection of its native
-  protocols, the Account endpoints, and this set.
-- **`label`:** optional display override. Ordinary Routes derive
-  `Account label · Model display name` from the declared labels; channel Routes
-  retain an explicit `· CHANNEL` distinction when needed.
-- **`purpose`:** optional workflow description; omit throughout this
-  model catalog.
-- **`recommendations.<client>`:** sole team recommendation owner, with a
-  primary Route and optional reviewed alternatives; recommendations do not
+- **`[[providers]]`:** `id`, `label`, an optional `balance` probe and
+  `endpoints`, one URL per protocol (`anthropic`, `responses`, `chat`).
+- **`[[providers.models]]`:** the model's `id` is the provider's own model ID,
+  byte for byte, preserving version punctuation and any channel suffix. The
+  model is named `provider/model`, so the file never invents a name. A
+  channel suffix such as `-cc` makes a separate model of the same family.
+- **`family`:** optional canonical identity that variants and providers share.
+  The file links a variant to its family; AIGW does not derive a family from a
+  prefix.
+- **`protocols`:** the protocols on which AIGW may use the model, each with the
+  capabilities qualified on it. A client may select only the intersection of
+  its native protocols, the provider's endpoints, and this set.
+- **`label`:** optional display override. Otherwise AIGW derives
+  `Provider label · Family label`; a channel model keeps an explicit
+  `· CHANNEL` distinction when needed.
+- **`deprecated`:** `true` marks a model that keeps existing selections but is
+  not recommended.
+- **`[[families]]`:** `id` and `label`.
+- **`[recommendations.<client>]`:** sole team recommendation owner, with a
+  `primary` model and optional reviewed `alternatives`; recommendations do not
   belong in display text.
 
 Use product capitalization, dotted display versions, uppercase channel names,
 and spaces around `·`. Labels contain identity, not performance promises,
-review status, or instructions. The catalog assigns no workflow roles, so
-every Route consistently omits `purpose`; do not invent use cases to fill it.
-The lower-case key `dmxapi-claude-opus-5-5` selects the exact
-`upstream_model = 'claude-opus-5-5'`; its derived display label is
+review status, or instructions. The model `dmxapi/claude-opus-5-5` selects the
+exact provider model ID `claude-opus-5-5`; its derived display label is
 `DMXAPI · Claude Opus 5.5`. Another provider may require a differently cased
-wire ID without changing the canonical Model or stable Route ID.
-The `-cc` Route is a separate channel whose `model` remains the base logical
-Model and whose `upstream_model` carries `-cc`.
+model ID without changing the family.
 
-Use the native `aigw config export` layout: version, recommendations, Accounts,
-Models, then Routes. Export writes the declared recommendations as they are; a
-member's own `aigw use` selections stay local and never become recommendations.
-Map keys follow stable lexical order and fields follow schema order. Export
-omits a stored Route label when it equals the derived Account and Model label.
-Manifest tests check the display behavior and byte-identical native export
-without another formatter or model-name registry.
+Use the native `aigw config export` layout: version, providers with their
+models, families, then recommendations. Export writes the declared
+recommendations as they are; a member's own `aigw use` selections stay local
+and never become recommendations. Fields follow schema order. Export omits a
+model label when it equals the derived one. Tests check the display behavior
+and byte-identical native export without another formatter or model-name
+registry.
 
-Optional nonnegative Account and Model `order` values govern presentation, not
-routing. The team view groups DMXAPI, UCloud, then AIHubMix; within each Account,
-Anthropic Messages precedes OpenAI Responses and Chat Completions. Claude series
-order is Fable, Opus, Sonnet, Haiku; GPT order is Astra, Sol, Terra, Luna. Only
-qualified Claude 5.5+ and GPT 6.1+ identities appear. Missing successors are not
-invented. Local presentation lives in `config.catalog.toml`, separate from the
-canonical routing file so published credential readers remain compatible.
-For the same reason, Route capabilities those readers do not know, such as
-`tool_search`, live in `config.capabilities.toml` and apply only while the
-Route keeps its Account, endpoint, upstream model and interface; `aigw sync`
-moves an earlier declaration there from `config.toml`.
+Array order is display order: the file lists DMXAPI, UCloud, then AIHubMix, and
+within each provider the Claude series order is Fable, Opus, Sonnet, Haiku and
+the GPT order is Astra, Sol, Terra, Luna. Only qualified Claude 5.5+ and GPT
+6.1+ identities appear. Missing successors are not invented. A capability,
+such as `tool_search`, sits in the model's `protocols`. Changing a protocol's
+endpoint with `aigw provider edit --endpoint` clears the capability, because
+it was qualified on the old endpoint.
 Hermes loads the declared names and model order, but its native picker still
 ranks the current provider first and other providers by model count. AIGW does
 not modify that client behavior.
@@ -119,7 +114,7 @@ Adding a model to the team file requires a successful authenticated inference
 call carrying the exact provider, protocol, and model ID, plus compatibility
 with the selected client and its native verification where required. A
 catalog listing alone never qualifies a model. Deprecation sets
-`lifecycle = "deprecated"` in the team file, removes the model from
+`deprecated = true` in the team file, removes the model from
 recommendations, and preserves existing selections. Retirement removes the
 model explicitly, with `aigw model remove` locally, after no selection or
 recommendation depends on it. A search performs none of those transitions.
@@ -177,8 +172,8 @@ Other models remain available for explicit use, not automatic fallback by
 family or identifier. No provider Token is mandatory, and a team file
 preserves each client's existing selection.
 
-Reasoning effort remains a native client preference, outside manifest schema
-version 7. Choose a level supported by the selected model through Codex's
+Reasoning effort remains a native client preference, outside the team file's
+version 8 schema. Choose a level supported by the selected model through Codex's
 `model_reasoning_effort` or Claude Code's `effortLevel` in their active settings.
 Merge those fields; do not replace either document. Applying the team file
 does not set these preferences.
@@ -238,6 +233,28 @@ A successful short request proves only that client, model and invocation.
 It does not establish Desktop behavior, other operating systems, full-window
 capacity, tool replay, or installation and update correctness. Verify those
 journeys separately when the rollout depends on them.
+
+## Upgrade from 0.6.1 or earlier
+
+A member on 0.6.1 or earlier cannot read a version 8 team file: that release
+refuses it as an unsupported manifest version, so everyone upgrades first. Then
+each member:
+
+1. Reads that 0.7.0 uses only `aigw.toml` and never reads or changes AIGW's
+   `config.toml` or its component files, so the upgraded home starts without a
+   configuration and `aigw` names `aigw setup`.
+2. Runs `aigw setup --from team.toml`, or `aigw setup`.
+   A provider added under its earlier ID finds the Token already stored for it,
+   and setup uses that Token without a prompt.
+3. Runs `aigw use <client> <provider/model>` for each client. A team file has no
+   `[clients]` section, so a member sets forwarding and retries again with
+   `aigw client edit`.
+
+Client sessions that started before the upgrade keep working. Members delete
+`config.toml` and `config.*.toml` once those sessions have ended. Hermes
+sessions that started before the upgrade name provider IDs that no longer
+exist, because they are now `aigw-<provider>-<protocol>`. `aigw self rollback`
+cannot return to a release older than 0.7.0.
 
 ## New member
 
@@ -523,7 +540,7 @@ and restoring the executable does not restore configuration backups.
 | Pilot           | Clean install, setup, check, and rollback on each required platform |
 | Team release    | Protected Forge publication and artifact verification               |
 | Member adoption | Local setup/check results; no shared Token collection               |
-| Closeout        | Deprecated manifest/route references removed intentionally          |
+| Closeout        | Deprecated team file/model references removed intentionally         |
 
 ## Automated rollout
 
@@ -546,6 +563,6 @@ complete `aigw` command that a script can run as it stands; `next_detail` is a
 step for a person: one with a placeholder, in prose, or one that asks for a
 value such as a Token. A removed command or flag has no hidden spelling: it is
 refused as unknown, and the CHANGELOG names its replacement. A refused flag
-names the command's help, such as `aigw setup --help`, as the next action; the
-refusal is a JSON failure document only when `--json` comes before the refused
-flag.
+names the command's help, such as `aigw setup --help`, as the next action. With
+`--json`, wherever it stands before a `--` that ends the flags, the refusal is
+a JSON failure document; `--json=false` keeps text.

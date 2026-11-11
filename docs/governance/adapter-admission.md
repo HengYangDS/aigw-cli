@@ -12,7 +12,7 @@ relations:
 
 AIGW distinguishes two admissions:
 
-1. **Provider Account admission**: an upstream provider, its verified protocol
+1. **Provider admission**: an upstream provider, its verified protocol
    endpoint(s), and a separate token boundary.
 2. **Client Adapter admission**: a local client's safe configuration,
    authentication, verification, rollback, and uninstall behavior.
@@ -22,22 +22,22 @@ the operational registry may be enabled. That registry records implementation
 and acceptance; it does not restrict which clients a requested Change must
 deliver. Model names and shared directories do not establish admission.
 
-Provider Account and Client Adapter are independent extension axes. Ordinary
+Provider and Client Adapter are independent extension axes. Ordinary
 Responses Bearer authentication and Anthropic API-key authentication use the
-Account schema, not provider-specific packages. Prefer an admitted client's
-existing credential chain and signing through explicit client-native Route
+provider schema, not provider-specific packages. Prefer an admitted client's
+existing credential chain and signing through explicit client-native
 authentication. Unsupported authentication or wire behavior needs a reviewed
 extension at its own boundary, not provider-name branching or implicit client
 admission.
 
 Classify an extension through the
 [architecture's extension model](../architecture/authority-and-projection-boundary.md#extension-model)
-before applying the evidence requirements below. Existing compatible Accounts
+before applying the evidence requirements below. Existing compatible providers
 and models need configuration admission, not a new client implementation.
 
-The admitted clients live in one static registry. Status, diagnostics, Route
-compatibility, binding validation, and client discovery read from that registry. A
-new model in an account catalog does not change it.
+The admitted clients live in one static registry. Status, checks, model
+compatibility, selection validation, and client discovery read from that registry. A
+new model in a provider's catalog does not change it.
 
 ## Dependency admission
 
@@ -52,15 +52,15 @@ The table describes the source-level operational registry. Stable release
 support additionally requires the native evidence listed below; source
 registration alone is not a release support claim.
 
-| Client                      | Configuration and authentication boundary                                                                                                                              | Required account capability            |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| Claude Code                 | Official per-user settings projection; Token is read on demand through the absolute versioned AIGW reader's `credential claude` command                                | Verified Anthropic-compatible endpoint |
-| Claude Desktop              | Official per-user third-party inference library; Token is read on demand through an executable helper and argument array                                               | Verified Anthropic-compatible endpoint |
-| Codex CLI and Codex Desktop | AIGW-owned `config.toml` projection in the shared Codex Home; projection-matching command helper for Account Tokens; client-native authentication remains client-owned | Verified OpenAI Responses endpoint     |
-| Hermes Agent                | Native provider and model configuration with an Account-scoped credential command                                                                                      | Verified declared endpoint protocol    |
+| Client                      | Configuration and authentication boundary                                                                                                                               | Required provider capability           |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Claude Code                 | Official per-user settings projection; Token is read on demand through the absolute versioned AIGW reader's `credential claude` command                                 | Verified Anthropic-compatible endpoint |
+| Claude Desktop              | Official per-user third-party inference library; Token is read on demand through an executable helper and argument array                                                | Verified Anthropic-compatible endpoint |
+| Codex CLI and Codex Desktop | AIGW-owned `config.toml` projection in the shared Codex Home; projection-matching command helper for provider Tokens; client-native authentication remains client-owned | Verified OpenAI Responses endpoint     |
+| Hermes Agent                | Native provider and model configuration with a provider-scoped credential command                                                                                       | Verified declared endpoint protocol    |
 
-An Account Token, when required, stays in the selected backend. Client-native
-authentication stays with the client. Switching Routes does not copy Tokens
+A provider Token, when required, stays in the selected backend. Client-native
+authentication stays with the client. Selecting another model does not copy Tokens
 into client files.
 
 Hermes has native tool-loop evidence. The
@@ -97,16 +97,16 @@ native contracts. A plugin's external-process authentication type does not by
 itself prove a general credential-command interface.
 
 Desktop tool search is a profile-wide setting. AIGW writes
-`toolSearchEnabled: true` only when every Route the profile exposes declares
-`tool_search` on its Anthropic interface. Desktop then supplies host tool
+`toolSearchEnabled: true` only when every model the profile exposes declares
+`tool_search` on its `anthropic` protocol. Desktop then supplies host tool
 search: the tool-search beta, deferred tool loading and `tool_reference`
 results, while `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` keeps every other
 experimental beta off. Desktop's application reader reads the setting as well
-as its Code reader. Declare the capability on a Route only after a native
+as its Code reader. Declare the capability on a model only after a native
 Desktop Code session on it lists MCP tools by name and completes one deferred
 tool call through `ToolSearch`, a multi-turn tool continuation and a
 compaction, and Chat and Cowork still complete a tool call; record the app,
-bundled Claude Code and Route. AIGW writes no admin-tier settings for this.
+bundled Claude Code and model. AIGW writes no admin-tier settings for this.
 
 ## Host-surface ownership
 
@@ -134,7 +134,7 @@ Every new adapter must supply all of the following before merge:
    directory reuse.
 3. Protocol contract: authentication, model selection, streaming, tools, and
    required image or long-context behavior.
-4. Secret proof: Account Tokens come only from the selected AIGW backend's
+4. Secret proof: provider Tokens come only from the selected AIGW backend's
    API-token slot; client-native authentication remains client-owned. Tokens
    never appear in public configuration, logs, arguments, manifests, or backups.
 5. Rollback proof: byte-exact owned-state restoration; user drift fails closed.
@@ -148,7 +148,7 @@ Every new adapter must supply all of the following before merge:
    and host: streaming, tools, cancellation, continuation, compaction, and any
    required images or hosted services. Preserve provider model mappings in
    user-visible identity; an alias is not proof of the serving model. For a
-   Claude Route, also record prompt-cache continuity: over at least four
+   Claude model, also record prompt-cache continuity: over at least four
    requests less than five minutes apart, a request hits when its
    `cache_read_input_tokens` cover 90% of a previous prefix above 20,000
    tokens. Report the hit rate of each response signature (`id` prefix and
@@ -156,7 +156,7 @@ Every new adapter must supply all of the following before merge:
 
 The implementation must expose one cohesive Adapter boundary for discovery,
 planning, guarded projection, verification, rollback, and uninstall. Client
-names do not belong in provider admission, Client Binding persistence, transaction, or
+names do not belong in provider admission, client selection persistence, transaction, or
 presentation policy. A missing client is a successful no-op, not an invitation
 to create placeholder state.
 
@@ -167,7 +167,7 @@ both the required and forbidden headers and prove that neither the credential
 nor its header name appears in command output.
 
 Until a Client Adapter completes admission, it remains outside the operational
-registry and compatible Routes. Model and Account catalog discovery does not
-create Routes or select Client Bindings. Comparative product observations belong to
+registry and the models it could use. Catalog discovery does not
+add models or select a client's model. Comparative product observations belong to
 [research](../research/provider-tooling-assessment.md), not a second admission
 registry in this policy.

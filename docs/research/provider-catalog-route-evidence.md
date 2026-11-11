@@ -10,7 +10,13 @@ relations: {}
 These dated catalog reads and Route inferences belong to the
 [provider model qualification](provider-model-qualification.md) evidence; they
 neither maintain a live catalog nor override the
-[Route inventory](../../manifests/team.toml).
+[model inventory](../../manifests/team.toml).
+
+Account, Route and commands such as `aigw catalog`, `aigw verify` and
+`aigw use --for` name 0.6.1 as it was when each dated record below was made.
+They appear only inside those dated, quoted records of what was run. Current
+names are provider, `provider/model` and `aigw model search`, `aigw check` and
+`aigw use`.
 
 The October 9, 2026 review matched all 57 shipped Routes to dated authenticated
 inference: 48 unchanged October 1 matrix entries, seven October 5–6 entries

@@ -8,9 +8,15 @@ relations: {}
 # Provider Model Qualification Evidence
 
 These observations inform the October 27, 2026 team manifest; they neither
-maintain a live catalog nor override the [Route inventory](../../manifests/team.toml).
+maintain a live catalog nor override the [model inventory](../../manifests/team.toml).
 For setup/selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
 Listings, bounded inference and native-client tool loops prove distinct claims.
+
+Account, Route and commands such as `aigw catalog`, `aigw verify` and
+`aigw use --for` name 0.6.1 as it was when each dated record below was made.
+They appear only inside those dated, quoted records of what was run. Current
+names are provider, `provider/model` and `aigw model search`, `aigw check` and
+`aigw use`.
 
 ## Curated model choices
 
@@ -190,7 +196,7 @@ Codex can execute a non-OpenAI Responses Route without listing it in its
 On 2026-09-27, an isolated Codex CLI 0.157.1 session ran Grok 4.7 but its chooser
 listed only bundled GPT models. Separately, the AIGW-projected Grok Route completed
 an authenticated tool loop against a controlled endpoint. Select such Routes with
-[`aigw use --for codex`](../../README.md#use-it-every-day) and verify them through
+[`aigw use codex <provider/model>`](../../README.md#use-it-every-day) and verify them through
 Codex; AIGW does not alter an existing Desktop conversation's model.
 
 Codex 0.160 still omits Grok 4.7 from its bundled metadata. Its controlled native

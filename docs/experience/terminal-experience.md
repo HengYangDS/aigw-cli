@@ -55,12 +55,12 @@ A removed command or flag is refused as unknown and names the help to read.
 Human and JSON views render the same observed result; neither view defines a
 separate readiness model.
 
-| Surface  | Contract                                                       |
-| -------- | -------------------------------------------------------------- |
-| Human    | Task-first, aligned, width-aware, one safe next action         |
-| JSON     | Stable machine fields; no terminal styling or width dependency |
-| Error    | **Problem → Evidence → Impact → Fix**                          |
-| Pipeline | Plain text, no ANSI control sequences                          |
+| Surface  | Contract                                                              |
+| -------- | --------------------------------------------------------------------- |
+| Human    | Task-first, aligned, width-aware, one safe next action                |
+| JSON     | Stable machine fields; no terminal styling or width dependency        |
+| Error    | **Problem → Evidence → Fix**, with an impact only when it adds a fact |
+| Pipeline | Plain text, no ANSI control sequences                                 |
 
 JSON output uses one UTF-8 document, two-space indentation and a trailing
 newline. The presentation owner delegates encoding to Go's standard library;
@@ -78,8 +78,9 @@ is written produces one JSON document with its own `schema_version`:
 `ok: false`, `error`, available `evidence` and `impact`, and the next step. A
 configuration that cannot be loaded adds its `stage`, and a parse failure its
 `line` and `column`. `--json=false` keeps human output; a literal
-`--json` after `--` is an argument, not a formatting flag. Command-resolution
-failures before flag parsing use human output.
+`--json` after `--` is an argument, not a formatting flag. A usage error, such
+as an unknown command or flag, is a JSON document wherever `--json` stands in
+the arguments before a `--` that ends the flags; `--json=false` keeps text.
 
 Commands that already render their diagnostic result retain that result and a
 nonzero exit status. A partial JSON write is not completed with prose or a

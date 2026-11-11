@@ -62,6 +62,30 @@ Package-manager and portable installations have different owners; see the
 [installation lifecycle](docs/concepts/product-concepts.md#installation-lifecycle)
 before updating or removing one.
 
+## Upgrade from 0.6.1 or earlier
+
+0.7.0 reads only `aigw.toml`. It never reads or changes AIGW's `config.toml` or
+the component files `config.*.toml` that earlier releases wrote, and it ships no
+importer for them. A home that holds only those files has no configuration, and
+`aigw` names `aigw setup`.
+
+After upgrading:
+
+1. Run `aigw setup --from <team file>` or `aigw setup`. A provider that you add
+   under its earlier ID finds the Token already stored for it, and setup reuses
+   that Token without a prompt.
+2. Run `aigw use <client> <provider/model>` for each client.
+
+Client sessions that started before the upgrade keep working, because they call
+the credential reader they started with, and that reader still reads the
+untouched `config.toml`. Delete `config.toml` and `config.*.toml` once those
+sessions have ended; AIGW never deletes them. A Hermes session that started
+before the upgrade names provider IDs that no longer exist, because Hermes
+provider IDs are now `aigw-<provider>-<protocol>`, such as
+`aigw-dmxapi-responses`. `aigw self rollback` cannot return to a release older
+than 0.7.0; see [Update and rollback](#update-and-rollback). A team member who
+still runs 0.6.1 cannot read a version 8 team file, so everyone upgrades first.
+
 ## Add a provider
 
 Interactive setup adds a provider or chooses an existing one, then asks for an
@@ -75,7 +99,9 @@ aigw setup
 The guided flow asks for a protocol when a client speaks more than one that
 the provider serves. Without an installed client that can use the provider,
 it adds the provider and stops; install a client, then run `aigw setup` again
-to choose it and a model. `aigw check` checks the client files that AIGW
+to choose it and a model. Guided setup enables the client it configures, and
+it is the one write without a preview: `aigw setup --from team.toml --dry-run`
+previews a team file instead. `aigw check` checks the client files that AIGW
 wrote, not the act of installing a client.
 
 A script adds a provider and points a client at one of its models in two
@@ -209,8 +235,7 @@ The client's selection owns this policy, not the shared team file. A portable
 program rollback first gives the retained program the current configuration,
 and refuses a program that cannot read it without changing programs or
 credentials. A Homebrew rollback prepares the Keychain items for the earlier
-release whatever the policy; that release reads the configuration file that
-it supports.
+release whatever the policy and does not refuse because retry budgets are set.
 
 ### Client forwarding
 
@@ -299,8 +324,9 @@ aigw check
 Program rollback first gives the retained program an isolated copy of the
 current configuration and, when that program cannot read it, refuses and
 changes nothing. A release older than 0.7.0 cannot read `aigw.toml`, so
-`aigw self rollback` does not return to one: install that release by other
-means, and it finds its own earlier files as it left them.
+`aigw self rollback` cannot return to one. An earlier release that you install
+by other means finds its own files as they were before the upgrade, without
+later changes.
 
 On macOS, the installed AIGW program moves Keychain Tokens saved by 0.3.5 and
 earlier to its own reader the first time it uses them; nothing needs to be
@@ -308,11 +334,11 @@ entered again. The versioned credential readers that clients call never move a
 Token, so a predecessor that is still installed keeps reading it.
 `aigw self rollback` returns the Tokens to the retained program's reader after
 admitting the rollback and before activating that program. Before a Homebrew
-downgrade, run `aigw self rollback` on the Homebrew installation: it returns the
-Tokens without touching Homebrew's files, and the next Token use by a kept
-release takes them back. If it cannot read the configuration, it moves no Token
-and reports that the credentials are not ready. Without that step, the older
-program asks macOS to allow access to each Token.
+downgrade to a release of 0.7.0 or later, run `aigw self rollback` on the
+Homebrew installation: it returns the Tokens without touching Homebrew's files,
+and the next Token use by a kept release takes them back. If it cannot read the
+configuration, it moves no Token and reports that the credentials are not ready.
+Without that step, the older program asks macOS to allow access to each Token.
 
 The first Homebrew upgrade from 0.3.5 or earlier is a managed cutover, not a bare
 `brew upgrade aigw`: existing sessions may still call Homebrew's public

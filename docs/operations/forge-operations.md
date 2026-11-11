@@ -364,7 +364,7 @@ requested native-client journey. Neither selection replaces required lifecycle
 evidence for release admission.
 
 The same measurement owner records first setup and converged sync separately
-from route changes. Setup preparation removes only fixture-owned configuration
+from model changes. Setup preparation removes only fixture-owned configuration
 and projection files before each timed command; it preserves the installed program
 and credentials. Construction and CI costs remain tied to their original build
 and job receipts, not these samples.

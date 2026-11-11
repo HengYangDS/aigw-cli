@@ -2,7 +2,7 @@
 
 ## Scope
 
-AIGW controls Accounts, credentials, Models, Routes, Client Bindings and guarded native
+AIGW controls providers, Tokens, models, client selections and guarded native
 projections, not conversations, API traffic or external services. Start from the
 [architecture boundary](docs/architecture/authority-and-projection-boundary.md), its [layers](docs/architecture/authority-and-projection-boundary.md#semantic-packages), the [glossary](docs/concepts/product-concepts.md#glossary) and the current [OpenSpec](openspec/) requirement, not files or old code.
 
@@ -326,7 +326,7 @@ steps:
    source-built journeys use the current-source `0.0.0` fixture as their
    predecessor, so they exercise upgrade and rollback.
 2. `verify-artifacts` on the signed release matrix.
-3. Operator acceptance on the owner's Mac: a Homebrew install, the real clients,
+3. Operator acceptance on a maintainer's Mac: a Homebrew install, the real clients,
    and a Codex session started before the upgrade that keeps its credential.
 
 A release with no admissible predecessor skips every step that needs one: the
@@ -390,7 +390,7 @@ the product reader, executes both lifecycle scopes and reclaims scratch on failu
 or success. Source artifacts remain unchanged. `--clients` requires explicit
 client paths before construction/download starts.
 
-The same bytes exercise the actual team manifest: no Tokens/clients, each Account
+The same bytes exercise the actual team manifest: no Tokens/clients, each provider
 arriving independently, deferred sync, no-op preservation, helpers and uninstall.
 Fixture discovery is not real-client proof. Rollback admission also requires the
 retained program to export actual successor configuration in isolation. Rejection

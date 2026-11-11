@@ -1,7 +1,7 @@
 # Agent Entry Points
 
-This repository is **AIGW CLI**, a local control plane for provider Accounts,
-credentials, reusable Routes, explicit client bindings, and native client
+This repository is **AIGW CLI**, a local control plane for providers,
+Tokens, models, each client's selection, and native client
 projections.
 It does not run a proxy, listen on a port, carry API traffic, or own Codex
 conversation state.
@@ -61,8 +61,8 @@ or a local proxy deployment to make a configuration test pass.
   release support remains gated by mode-specific native evidence.
 - External Responses compatibility services, when explicitly selected by an
   operator, own their transport and lifecycle. AIGW projects their explicit
-  client-scoped forwarding destination without replacing the Account upstream
-  or provider identity. It must not install, start, stop, reload, or configure
+  client-scoped forwarding destination without replacing the provider's upstream
+  endpoint or identity. It must not install, start, stop, reload, or configure
   those services.
 
 ## Analyzer isolation

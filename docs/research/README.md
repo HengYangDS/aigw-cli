@@ -12,6 +12,6 @@ Dated observations and comparisons inform decisions; they do not establish curre
 
 - [Provider tooling assessment](provider-tooling-assessment.md) compares solution paradigms and their implications for AIGW and Proxy.
 - [Provider model qualification](provider-model-qualification.md) records model, protocol and native-client evidence with explicit limits.
-- [Provider catalog and route evidence](provider-catalog-route-evidence.md) records the dated catalog reads and Route inference behind the shipped Routes.
+- [Provider catalog and route evidence](provider-catalog-route-evidence.md) records the dated catalog reads and Route inference behind the shipped Routes, in 0.6.1's words.
 
 Return to the [documentation root](../README.md).
