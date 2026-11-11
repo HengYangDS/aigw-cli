@@ -4,7 +4,6 @@ import (
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/program/artifact"
 	"archive/tar"
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -18,7 +17,7 @@ import (
 )
 
 func (input *NativeAcceptance) hasPackage() bool {
-	return input.InputPackage != "" || input.InputRelease != "" || input.InputArchive != ""
+	return input.InputPackage != "" || input.InputArchive != ""
 }
 
 func (input *NativeAcceptance) validatePackage() error {
@@ -30,9 +29,6 @@ func (input *NativeAcceptance) validatePackage() error {
 	}
 	if input.InputPackage != "" && (input.InputArchive != "" || input.Peer != "gitlab" || input.Repository == "") {
 		return errors.New("native input package requires an explicit GitLab transport without a competing archive")
-	}
-	if input.InputRelease != "" && (input.InputPackage != "" || input.InputArchive != "" || input.Peer != "github" || input.Repository == "") {
-		return errors.New("native input release requires an explicit GitHub transport without a competing package or archive")
 	}
 	if input.InputArchive != "" && !filepath.IsAbs(input.InputArchive) {
 		return errors.New("native input archive requires an absolute caller-owned path")
@@ -51,14 +47,7 @@ func (input *NativeAcceptance) validatePackage() error {
 			return err
 		}
 	}
-	if input.InputRelease == "" {
-		return nil
-	}
-	carrier, ok := strings.CutPrefix(input.InputRelease, "native-inputs-")
-	if !ok {
-		return errors.New("native input release must name its exact lowercase carrier commit")
-	}
-	return validateInputIdentity("carrier commit", carrier, 20)
+	return nil
 }
 
 func validateInputIdentity(name, text string, size int) error {
@@ -73,9 +62,6 @@ func (input *NativeAcceptance) preparePackage(ctx context.Context, request build
 	if !input.hasPackage() {
 		return nil
 	}
-	if err := input.verifyInputCarrier(request.Root, run); err != nil {
-		return err
-	}
 	archive := input.InputArchive
 	if archive == "" {
 		archive = filepath.Join(workspace, "public-inputs.tar")
@@ -83,11 +69,6 @@ func (input *NativeAcceptance) preparePackage(ctx context.Context, request build
 			Name: "glab", Directory: request.Root, Timeout: 2 * time.Minute,
 			Args: []string{"packages", "download", "--repo", input.Repository, "--name", input.InputPackage, "--version", input.CandidateSource, "--filename", "public-inputs.tar", "--path", archive},
 			Env:  []string{"GLAB_NO_PROMPT=1", "GLAB_ENABLE_CI_AUTOLOGIN=true", "GLAB_CONFIG_DIR=" + filepath.Join(workspace, "glab")},
-		}
-		if input.InputRelease != "" {
-			call.Name = "gh"
-			call.Args = []string{"release", "download", input.InputRelease, "--repo", input.Repository, "--pattern", "public-inputs-" + input.InputSHA256 + ".tar", "--output", archive}
-			call.Env = []string{"GH_PROMPT_DISABLED=1"}
 		}
 		if err := run(call); err != nil {
 			return fmt.Errorf("download native input package: %w", err)
@@ -119,30 +100,6 @@ func (input *NativeAcceptance) preparePackage(ctx context.Context, request build
 		return err
 	}
 	input.Artifacts, input.BaselineArtifacts = filepath.Join(workspace, "candidate"), filepath.Join(workspace, "baseline")
-	return nil
-}
-
-func (input *NativeAcceptance) verifyInputCarrier(root string, run toolRunner) error {
-	if input.InputRelease == "" {
-		return nil
-	}
-	ref := "refs/tags/" + input.InputRelease
-	git := toolCall{
-		Name: "git", Directory: root, Timeout: time.Minute,
-		Args: []string{"-c", "gpg.format=ssh", "-c", "gpg.ssh.program=ssh-keygen", "-c", "gpg.ssh.allowedSignersFile=" + os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE"), "verify-tag", ref},
-	}
-	if err := run(git); err != nil {
-		return fmt.Errorf("verify native input transport tag: %w", err)
-	}
-	var source bytes.Buffer
-	git.Args, git.Stdout = []string{"rev-parse", "--verify", ref + "^{commit}"}, &source
-	if err := run(git); err != nil {
-		return fmt.Errorf("resolve native input transport source: %w", err)
-	}
-	carrier := strings.TrimPrefix(input.InputRelease, "native-inputs-")
-	if strings.TrimSpace(source.String()) != carrier {
-		return errors.New("native input transport tag does not select its named carrier commit")
-	}
 	return nil
 }
 

@@ -336,7 +336,7 @@ gitlabPipelineRules: [
 ]
 
 githubFullVerificationCondition:   "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == '\(lifecycle.acceptedBranch)' || github.ref_name == '\(lifecycle.releaseBranch)'))"
-githubSourceVerificationCondition: "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || (inputs.candidate_tag == '' && inputs.input_release == ''))"
+githubSourceVerificationCondition: "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || inputs.candidate_tag == '')"
 
 githubCommitBase: "${{ inputs.commit_base || github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || format('{0}^', github.sha) }}"
 
@@ -462,8 +462,8 @@ workflowEvidencePath:   "build/verification/workflows"
 
 #NativeGitHubJob: {
 	_platform:            #OperatingSystem
-	_sourceCondition:     "github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || (inputs.candidate_tag == '' && inputs.input_release == '')"
-	_historicalCondition: "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)"
+	_sourceCondition:     "github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || inputs.candidate_tag == ''"
+	_historicalCondition: "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)"
 	// Real clients are supplied for the retained-predecessor journey of the
 	// job's own host; every outcome retires the supply.
 	_clientSelection:   "github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''"
@@ -479,7 +479,7 @@ workflowEvidencePath:   "build/verification/workflows"
 		_environmentPrefix: "$"
 		_hermesArguments:   " --hermes-commit \(nativeClients.hermes.commit) --hermes-installer-sha256 \(nativeClients.hermes.installer)"
 	}
-	_historicalArguments: "--peer=github --repository=\"\(_environmentPrefix)GITHUB_REPOSITORY\" --baseline-tag=\"\(_environmentPrefix)AIGW_BASELINE_TAG\" --tag=\"\(_environmentPrefix)AIGW_CANDIDATE_TAG\" --clients=\(_clients) --diagnostic-client=\"\(_environmentPrefix)AIGW_NATIVE_DIAGNOSTIC_CLIENT\" --performance-attribution=${{ inputs.performance_attribution }} --input-release=\"\(_environmentPrefix)AIGW_NATIVE_INPUT_RELEASE\" --input-sha256=\"\(_environmentPrefix)AIGW_NATIVE_INPUT_SHA256\" --candidate-source=\"\(_environmentPrefix)AIGW_CANDIDATE_SOURCE\" --candidate=${{ inputs.input_release != '' }}"
+	_historicalArguments: "--peer=github --repository=\"\(_environmentPrefix)GITHUB_REPOSITORY\" --baseline-tag=\"\(_environmentPrefix)AIGW_BASELINE_TAG\" --tag=\"\(_environmentPrefix)AIGW_CANDIDATE_TAG\" --clients=\(_clients) --diagnostic-client=\"\(_environmentPrefix)AIGW_NATIVE_DIAGNOSTIC_CLIENT\" --performance-attribution=${{ inputs.performance_attribution }}"
 	_performanceCommand:  "mise run performance \(_historicalArguments) --performance \"\(_environmentPrefix)GITHUB_WORKSPACE/build/performance\""
 	_historicalEnvironment: _credentialEnvironment & {
 		if _platform == "darwin" {
@@ -490,9 +490,6 @@ workflowEvidencePath:   "build/verification/workflows"
 		AIGW_BASELINE_TAG:             "${{ inputs.baseline_tag }}"
 		AIGW_CANDIDATE_TAG:            "${{ inputs.candidate_tag }}"
 		AIGW_NATIVE_DIAGNOSTIC_CLIENT: "${{ inputs.diagnostic_client }}"
-		AIGW_NATIVE_INPUT_RELEASE:     "${{ inputs.input_release }}"
-		AIGW_NATIVE_INPUT_SHA256:      "${{ inputs.input_sha256 }}"
-		AIGW_CANDIDATE_SOURCE:         "${{ inputs.candidate_source }}"
 		AIGW_RELEASE_ARTIFACT_SIGNER:  "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}"
 	}
 	_credentialEnvironment: {
@@ -546,7 +543,7 @@ workflowEvidencePath:   "build/verification/workflows"
 		for full in [false, true] {
 			if !full {
 				name: "Run native \(nativeEvidence[_platform].name) acceptance"
-				if:   "github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '' && inputs.input_release == '')"
+				if:   "github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')"
 				run:  commands.native[_platform]
 			}
 			if full {
@@ -989,21 +986,6 @@ githubVerify: {
 			}
 			candidate_tag: {
 				description: "With baseline_tag, consume this published candidate without rebuilding"
-				required:    false
-				type:        "string"
-			}
-			input_release: {
-				description: "Existing signed native-inputs-<carrier SHA> byte locator; requires baseline_tag, input_sha256 and exact candidate_source"
-				required:    false
-				type:        "string"
-			}
-			input_sha256: {
-				description: "Exact SHA256 of public-inputs-<input_sha256>.tar; verified before extraction"
-				required:    false
-				type:        "string"
-			}
-			candidate_source: {
-				description: "Exact signed candidate source SHA for the selected native input release"
 				required:    false
 				type:        "string"
 			}

@@ -372,10 +372,10 @@ func TestEmptyTagSetAndUntrustedTagSet(t *testing.T) {
 	}
 }
 
-func TestProductTagSetDoesNotClaimIndependentTransportTags(t *testing.T) {
+func TestProductTagSetIgnoresTagsThatAreNotProductReleases(t *testing.T) {
 	fixture := newForgeFixture(t)
-	gitTest(t, fixture.repository, "tag", "-s", "-a", "native-inputs-"+strings.Repeat("a", 40), "-m", "transport input")
+	gitTest(t, fixture.repository, "tag", "-s", "-a", "notes-"+strings.Repeat("a", 40), "-m", "other tag")
 	if err := run([]string{"tags", "--repository", fixture.repository, "--allowed-signers", fixture.allowedSigners}); err != nil {
-		t.Fatalf("product tag qualification incorrectly claimed transport tags: %v", err)
+		t.Fatalf("product tag qualification claimed a tag that is not a release: %v", err)
 	}
 }

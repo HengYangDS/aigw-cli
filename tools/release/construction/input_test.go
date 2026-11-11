@@ -87,128 +87,6 @@ func TestNativePackagedInputsShareSignedMatrixAndOwnedLifecycle(t *testing.T) {
 	}
 }
 
-func TestNativeGitHubInputReleasePreservesSignedIdentityAndOwnedCleanup(t *testing.T) {
-	root, source, contents := nativePackageFixture(t)
-	carrier, err := exec.CommandContext(t.Context(), "git", "-C", root, "rev-parse", "v1.2.3^{commit}").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	args := nativePackageArguments(source, contents)
-	args[0], args[1], args[10] = "--input-release", "native-inputs-"+strings.TrimSpace(string(carrier)), "github"
-	input, err := ParseNativeAcceptance(args)
-	if err != nil || !input.UsesPrebuiltArtifacts() {
-		t.Fatalf("signed GitHub input release was refused: %v", err)
-	}
-	downloads, journeys, stopped := 0, 0, false
-	var archive string
-	run := func(call toolCall) error {
-		switch call.Name {
-		case "git":
-			switch call.Args[0] {
-			case "-c", "rev-parse", "merge-base", "show":
-				return executeTool(t.Context())(call)
-			}
-		case "gh":
-			downloads++
-			archive = call.Args[slices.Index(call.Args, "--output")+1]
-			want := []string{"release", "download", input.InputRelease, "--repo", "group/product", "--pattern", "public-inputs-" + input.InputSHA256 + ".tar", "--output", archive}
-			if !slices.Equal(call.Args, want) || call.Directory != root || call.Timeout != 2*time.Minute || !filepath.IsAbs(archive) {
-				t.Fatalf("GitHub input identity or deadline changed: %#v", call)
-			}
-			if !slices.Contains(call.Env, "GH_PROMPT_DISABLED=1") {
-				t.Fatal("GitHub input transport permits authentication prompts")
-			}
-			if writeErr := os.WriteFile(archive, contents, 0o600); writeErr != nil {
-				return writeErr
-			}
-			if stopped {
-				return context.Canceled
-			}
-		case "go":
-			journeys++
-		default:
-			t.Fatalf("unexpected GitHub input tool: %#v", call)
-		}
-		return nil
-	}
-	for _, interrupted := range []bool{false, true} {
-		temp := t.TempDir()
-		for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
-			t.Setenv(key, temp)
-		}
-		downloads, journeys, stopped = 0, 0, interrupted
-		err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, run)
-		if stopped {
-			if !errors.Is(err, context.Canceled) || journeys != 0 {
-				t.Fatalf("stopped download reached acceptance: %d, %v", journeys, err)
-			}
-		} else if err != nil || journeys != 2 {
-			t.Fatalf("GitHub matrices did not reach both native journeys: %d, %v", journeys, err)
-		}
-		if downloads != 1 {
-			t.Fatalf("GitHub input downloads = %d, want one", downloads)
-		}
-		if _, err := os.Stat(filepath.Dir(archive)); !os.IsNotExist(err) {
-			t.Fatalf("GitHub input retained owned scratch: %v", err)
-		}
-	}
-}
-
-func TestNativeGitHubInputReleaseRejectsMismatchedCarrier(t *testing.T) {
-	root, source, contents := nativePackageFixture(t)
-	carrier, err := exec.CommandContext(t.Context(), "git", "-C", root, "rev-parse", "v1.2.3^{commit}").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	args := nativePackageArguments(source, contents)
-	args[0], args[1], args[10] = "--input-release", "native-inputs-"+strings.TrimSpace(string(carrier)), "github"
-	input, err := ParseNativeAcceptance(args)
-	if err != nil {
-		t.Fatal(err)
-	}
-	temp := t.TempDir()
-	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
-		t.Setenv(key, temp)
-	}
-	err = acceptNativeInput(t.Context(), input, buildRequest{Root: root, Version: "1.2.4", Epoch: "1784246400"}, func(call toolCall) error {
-		if call.Name != "git" {
-			t.Fatalf("mismatched carrier reached acquisition or native acceptance: %#v", call)
-		}
-		if slices.Contains(call.Args, "rev-parse") {
-			_, err := io.WriteString(call.Stdout, source+"\n")
-			return err
-		}
-		return executeTool(t.Context())(call)
-	})
-	if err == nil {
-		t.Fatal("mismatched GitHub carrier reached native acceptance")
-	}
-	if matches, err := filepath.Glob(filepath.Join(temp, "aigw-native-inputs-*")); err != nil || len(matches) != 0 {
-		t.Fatalf("refused carrier retained owned scratch: %v, %v", matches, err)
-	}
-}
-
-func TestNativeGitHubInputReleaseRequiresOneExactCarrier(t *testing.T) {
-	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
-	source := strings.Repeat("a", 40)
-	args := nativePackageArguments(source, nil)
-	args[0], args[1], args[10] = "--input-release", "native-inputs-"+strings.Repeat("b", 40), "github"
-	if _, err := ParseNativeAcceptance(args); err != nil {
-		t.Fatalf("exact GitHub native input was refused: %v", err)
-	}
-	for _, conflict := range [][]string{
-		{"--peer", "gitlab"}, {"--input-release", "v1.2.4"},
-		{"--input-release", "native-inputs-" + strings.Repeat("B", 40)},
-		{"--input-release", "native-inputs-" + strings.Repeat("b", 39)},
-		{"--input-package", "native-inputs"}, {"--input-archive", filepath.Join(t.TempDir(), "foreign.tar")},
-		{"--candidate-source", strings.ToUpper(source)}, {"--candidate=false"},
-	} {
-		if _, err := ParseNativeAcceptance(append(slices.Clone(args), conflict...)); err == nil {
-			t.Errorf("GitHub input accepted competing or unbound identity: %q", conflict)
-		}
-	}
-}
-
 func TestNativePackageAdmissionRequiresOneExactSourceAndTransport(t *testing.T) {
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 	args := nativePackageArguments(strings.Repeat("a", 40), nil)
@@ -353,7 +231,7 @@ func TestNativePackageFailuresNeverExecuteAndReclaimOwnedScratch(t *testing.T) {
 			if err == nil || want != nil && !errors.Is(err, want) {
 				t.Fatalf("native package failure changed identity: %v", err)
 			}
-			if matches, err := filepath.Glob(filepath.Join(temp, "aigw-native-inputs-*")); err != nil || len(matches) != 0 {
+			if matches, err := filepath.Glob(filepath.Join(temp, "aigw-native-matrix-*")); err != nil || len(matches) != 0 {
 				t.Fatalf("failed native package retained owned scratch: %v, %v", matches, err)
 			}
 		})
@@ -384,15 +262,6 @@ func nativePackageFixture(t *testing.T) (string, string, []byte) {
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 	root, key := releaseRoot(t), signingKey(t)
 	baseline := signedNativeInputFixture(t, root, "1.2.3", key)
-	carrier, err := exec.CommandContext(t.Context(), "git", "-C", root, "rev-parse", "HEAD").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	prefix := []string{"-C", root, "-c", "core.hooksPath=" + filepath.Join(root, ".git", "hooks"), "-c", "user.name=Native Test", "-c", "user.email=native@test.invalid", "-c", "gpg.format=ssh", "-c", "gpg.ssh.program=ssh-keygen", "-c", "user.signingkey=" + key}
-	arguments := append(slices.Clone(prefix), "tag", "-s", "-a", "native-inputs-"+strings.TrimSpace(string(carrier)), "-m", "native transport input")
-	if signed, err := exec.CommandContext(t.Context(), "git", arguments...).CombinedOutput(); err != nil {
-		t.Fatalf("synthetic transport fixture failed: %v, %s", err, signed)
-	}
 	candidate := signedNativeInputFixture(t, root, "1.2.4", key)
 	if output, err := exec.CommandContext(t.Context(), "git", "-C", root, "tag", "-d", "v1.2.4").CombinedOutput(); err != nil {
 		t.Fatalf("untagged candidate fixture failed: %v, %s", err, output)

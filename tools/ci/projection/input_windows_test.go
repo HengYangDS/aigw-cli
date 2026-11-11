@@ -3,7 +3,6 @@ package projection
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"slices"
@@ -29,10 +28,6 @@ func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
 			"--baseline-tag=v1.2.3", "--tag=", "--clients=false",
 			"--diagnostic-client=" + os.Getenv("AIGW_NATIVE_DIAGNOSTIC_CLIENT"),
 			"--performance-attribution=false",
-			"--input-release=" + os.Getenv("AIGW_NATIVE_INPUT_RELEASE"),
-			"--input-sha256=" + os.Getenv("AIGW_NATIVE_INPUT_SHA256"),
-			"--candidate-source=" + os.Getenv("AIGW_CANDIDATE_SOURCE"),
-			"--candidate=" + fmt.Sprint(os.Getenv("AIGW_NATIVE_INPUT_RELEASE") != ""),
 		}
 		if !slices.Equal(selected, want) {
 			t.Fatalf("native PowerShell changed argument identity: %q", selected)
@@ -69,34 +64,25 @@ func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
 	if !found {
 		t.Fatal("Windows native command must declare the published baseline tag")
 	}
-	for _, release := range []string{"", "native-inputs-" + strings.Repeat("a", 40)} {
-		digest, source := "", ""
-		if release != "" {
-			digest, source = strings.Repeat("b", 64), strings.Repeat("a", 40)
-		}
-		arguments := "--baseline-tag=" + strings.NewReplacer(
-			"${{ inputs.native_clients && inputs.diagnostic_client == '' }}", "false",
-			"${{ inputs.performance_attribution }}", "false",
-			"${{ inputs.input_release != '' }}", fmt.Sprint(release != ""),
-		).Replace(suffix)
-		script := "& '" + strings.ReplaceAll(executable, "'", "''") + "' '-test.run=^TestNativePowerShellAcceptancePreservesDeclaredEmptyTag$' -- " + arguments
-		for _, client := range []string{"", "codex"} {
-			// The bound stops a hung witness; a loaded runner is slower than an idle one.
-			ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
-			command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script)
-			// A witness that outlives PowerShell keeps the output pipe open.
-			command.WaitDelay = 5 * time.Second
-			command.Env = append(os.Environ(),
-				"AIGW_NATIVE_ARGUMENT_WITNESS=1", "AIGW_BASELINE_TAG=v1.2.3",
-				"AIGW_CANDIDATE_TAG=", "AIGW_NATIVE_DIAGNOSTIC_CLIENT="+client,
-				"AIGW_NATIVE_INPUT_RELEASE="+release, "AIGW_NATIVE_INPUT_SHA256="+digest,
-				"AIGW_CANDIDATE_SOURCE="+source,
-			)
-			output, err := command.CombinedOutput()
-			cancel()
-			if err != nil || !bytes.Contains(output, []byte("PASS")) {
-				t.Fatalf("native PowerShell argument witness failed for release %q, client %q: %v\n%s", release, client, err, output)
-			}
+	arguments := "--baseline-tag=" + strings.NewReplacer(
+		"${{ inputs.native_clients && inputs.diagnostic_client == '' }}", "false",
+		"${{ inputs.performance_attribution }}", "false",
+	).Replace(suffix)
+	script := "& '" + strings.ReplaceAll(executable, "'", "''") + "' '-test.run=^TestNativePowerShellAcceptancePreservesDeclaredEmptyTag$' -- " + arguments
+	for _, client := range []string{"", "codex"} {
+		// The bound stops a hung witness; a loaded runner is slower than an idle one.
+		ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+		command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script)
+		// A witness that outlives PowerShell keeps the output pipe open.
+		command.WaitDelay = 5 * time.Second
+		command.Env = append(os.Environ(),
+			"AIGW_NATIVE_ARGUMENT_WITNESS=1", "AIGW_BASELINE_TAG=v1.2.3",
+			"AIGW_CANDIDATE_TAG=", "AIGW_NATIVE_DIAGNOSTIC_CLIENT="+client,
+		)
+		output, err := command.CombinedOutput()
+		cancel()
+		if err != nil || !bytes.Contains(output, []byte("PASS")) {
+			t.Fatalf("native PowerShell argument witness failed for client %q: %v\n%s", client, err, output)
 		}
 	}
 }

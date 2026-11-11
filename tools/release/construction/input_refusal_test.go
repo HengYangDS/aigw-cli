@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +25,6 @@ func TestNativeInputSelectionRequiresOneTransportAndExactIdentities(t *testing.T
 	for _, transport := range [][]string{
 		{"--input-archive", archive},
 		{"--input-package", "native-inputs", "--peer", "gitlab", "--repository", "group/product"},
-		{"--input-release", "native-inputs-" + producer, "--peer", "github", "--repository", "group/product"},
 	} {
 		input, err := ParseNativeAcceptance(append(slices.Clone(selection), transport...))
 		if err != nil || input.CandidateSource != producer || input.BaselineTag != "v1.2.3" || !input.Candidate {
@@ -36,12 +34,9 @@ func TestNativeInputSelectionRequiresOneTransportAndExactIdentities(t *testing.T
 	for _, arguments := range [][]string{
 		{"--unknown"}, {"positional"}, {"--input-sha256", strings.Repeat("b", 64)},
 		{"--input-package", "native-inputs", "--peer", "github", "--repository", "group/product"},
-		{"--input-release", "native-inputs-" + producer, "--peer", "gitlab", "--repository", "group/product"},
 		append(slices.Clone(selection), "--input-archive", "relative.tar"),
 		{"--input-archive", archive},
 		{"--candidate", "--candidate-source", producer, "--input-archive", archive, "--input-sha256", "invalid", "--baseline-tag", "v1.2.3"},
-		append(slices.Clone(selection), "--input-release", "unnamed-carrier", "--peer", "github", "--repository", "group/product"),
-		append(slices.Clone(selection), "--input-release", "native-inputs-"+strings.Repeat("A", 40), "--peer", "github", "--repository", "group/product"),
 		{"--peer", "github"}, {"--candidate-source", producer}, {"--baseline-artifacts", archive},
 		{"--tag", "v1.2.3"}, {"--artifacts", archive, "--tag", "1.2.3"},
 		{"--baseline-tag", "v1.2.3"}, {"--performance", t.TempDir()},
@@ -49,54 +44,6 @@ func TestNativeInputSelectionRequiresOneTransportAndExactIdentities(t *testing.T
 		if input, err := ParseNativeAcceptance(arguments); err == nil {
 			t.Fatalf("ambiguous or unbound native selection accepted: %q, %#v", arguments, input)
 		}
-	}
-}
-
-// Ported from the maintenance branch (c9393953): an unproved carrier stops its
-// admission before any transport, and an interruption keeps its cause. Here
-// the carrier is admitted in two Git steps: tag verification, then its commit.
-func TestNativeCarrierRefusalStopsBeforeDownload(t *testing.T) {
-	root, producer, _ := nativePackageFixture(t)
-	tags, err := exec.CommandContext(t.Context(), "git", "-C", root, "tag", "--list", "native-inputs-*").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	release := strings.TrimSpace(string(tags))
-	for _, stopped := range []int{0, 1, 2, 3} {
-		t.Run(fmt.Sprintf("admission=%d", stopped), func(t *testing.T) {
-			if stopped == 0 {
-				t.Setenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE", "")
-			}
-			input := NativeAcceptance{InputRelease: release, CandidateSource: producer}
-			step := 0
-			err := input.verifyInputCarrier(root, func(call toolCall) error {
-				step++
-				if call.Name != "git" {
-					t.Fatalf("unproved carrier started transport: %#v", call)
-				}
-				if step == stopped {
-					return context.Canceled
-				}
-				if stopped == 3 && step == 2 {
-					// The tag resolves to another commit than the one it names.
-					_, err := io.WriteString(call.Stdout, producer+"\n")
-					return err
-				}
-				return executeTool(t.Context())(call)
-			})
-			switch {
-			case err == nil || step > 2:
-				t.Fatalf("carrier refusal continued admission: %v, steps=%d", err, step)
-			case stopped == 1 || stopped == 2:
-				if !errors.Is(err, context.Canceled) || step != stopped {
-					t.Fatalf("carrier refusal lost its interruption cause: %v, steps=%d", err, step)
-				}
-			case stopped == 3:
-				if !strings.Contains(err.Error(), "does not select its named carrier commit") {
-					t.Fatalf("a mismatched carrier was not refused for its commit: %v", err)
-				}
-			}
-		})
 	}
 }
 

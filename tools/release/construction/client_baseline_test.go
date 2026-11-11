@@ -387,7 +387,7 @@ func TestNativeInputFailuresReclaimExactWorkspaceWithoutRunningArtifacts(t *test
 			if calls == 0 && failure != "baseline signature" {
 				t.Fatal("declared download was not attempted")
 			}
-			matches, err := filepath.Glob(filepath.Join(temp, "aigw-native-inputs-*"))
+			matches, err := filepath.Glob(filepath.Join(temp, "aigw-native-matrix-*"))
 			if err != nil || len(matches) != 0 {
 				t.Fatalf("failed native inputs retained owned scratch: %v, %v", matches, err)
 			}

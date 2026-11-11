@@ -48,7 +48,7 @@ type changelogParser struct {
 
 // SelectedReleaseTag resolves the current Forge release tag without treating a
 // branch name as a tag. Only a tag that starts with v selects a release; any
-// other tag, such as a native input transport tag, selects none.
+// other tag selects none.
 func SelectedReleaseTag() string {
 	tag := os.Getenv("AIGW_CHANGELOG_RELEASE_TAG")
 	if tag == "" {
