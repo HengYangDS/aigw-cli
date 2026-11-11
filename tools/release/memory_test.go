@@ -471,7 +471,7 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 		t.Fatalf("interrupted block lost its two completed native observations: %#v", row)
 	}
 	identity := []string{row.Mode, row.Runtime.Model.String(), row.Runtime.Client, string(readFile(t, filepath.Join(output, "observations")))}
-	if !slices.Equal(identity, []string{"direct", "test/memory", claude.ID, "8"}) || row.Executable == nil {
+	if !slices.Equal(identity, []string{"direct", "memory/memory", claude.ID, "8"}) || row.Executable == nil {
 		t.Fatalf("interrupted memory observations lost their Runtime or native provenance: %q", identity)
 	}
 	if err := performance.ReviewMemory([]performance.Memory{row}); err == nil {

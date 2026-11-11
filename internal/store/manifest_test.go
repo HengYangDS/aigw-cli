@@ -52,24 +52,24 @@ func TestTeamFileParsesProvidersModelsFamiliesAndRecommendations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	variant := file.Models[domain.NewModelRef("dmxapi", "GPT-6-Astra-CDX")]
+	variant := file.Models[dmxapiModel("GPT-6-Astra-CDX")]
 	if variant.Provider != "dmxapi" || variant.ID != "GPT-6-Astra-CDX" || variant.Family != "gpt-6-astra" ||
 		!variant.Declares(domain.ProtocolResponses, domain.CapabilityText) {
 		t.Fatalf("channel variant = %#v", variant)
 	}
-	own := domain.NewModelRef("dmxapi", "LongCat-2.5")
+	own := dmxapiModel("LongCat-2.5")
 	if model := file.Models[own]; model.Family != "" || model.FamilyID() != "LongCat-2.5" {
 		t.Fatalf("a model without a family = %#v", model)
 	}
 	if got := file.ModelLabel(own); got != "DMXAPI · LongCat-2.5" {
 		t.Fatalf("own family label = %q", got)
 	}
-	if !file.Models[domain.NewModelRef("dmxapi", "legacy")].Deprecated {
+	if !file.Models[dmxapiModel("legacy")].Deprecated {
 		t.Fatal("deprecated was not read")
 	}
 	codex := file.Recommendations[ClientCodex]
-	if codex.Primary.Model != domain.NewModelRef("dmxapi", "GPT-6-Astra-CDX") || codex.Primary.Protocol != domain.ProtocolResponses ||
-		len(codex.Alternatives) != 1 || codex.Alternatives[0].Model != domain.NewModelRef("dmxapi", "GPT-6-Astra") {
+	if codex.Primary.Model != dmxapiModel("GPT-6-Astra-CDX") || codex.Primary.Protocol != domain.ProtocolResponses ||
+		len(codex.Alternatives) != 1 || codex.Alternatives[0].Model != dmxapiModel("GPT-6-Astra") {
 		t.Fatalf("recommendation = %#v", codex)
 	}
 	if len(file.Clients) != 0 {
@@ -86,10 +86,10 @@ func TestTeamFileExportOmitsDerivedLabelsAndRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	model := cfg.Models[domain.NewModelRef("dmxapi", "GPT-6-Astra")]
+	model := cfg.Models[dmxapiModel("GPT-6-Astra")]
 	model.Label = "DMXAPI · GPT-6 Astra"
-	cfg.Models[domain.NewModelRef("dmxapi", "GPT-6-Astra")] = model
-	cfg.SetSelectedModel(ClientCodex, domain.NewModelRef("dmxapi", "GPT-6-Astra"), "")
+	cfg.Models[dmxapiModel("GPT-6-Astra")] = model
+	cfg.SetSelectedModel(ClientCodex, dmxapiModel("GPT-6-Astra"), "")
 	exported, err := ExportTeamFile(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -140,7 +140,7 @@ func TestTeamFileRecommendationsFollowTheAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an admitted client was rejected: %v", err)
 	}
-	if file.Recommendations["synthetic"].Primary.Model != domain.NewModelRef("dmxapi", "GPT-6-Astra-CDX") {
+	if file.Recommendations["synthetic"].Primary.Model != dmxapiModel("GPT-6-Astra-CDX") {
 		t.Fatalf("recommendations = %#v", file.Recommendations)
 	}
 	if _, err := ParseTeamFile([]byte(text), testAdmission()); err == nil || !strings.Contains(err.Error(), `unsupported client "synthetic"`) {

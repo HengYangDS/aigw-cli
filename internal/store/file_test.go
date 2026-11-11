@@ -169,10 +169,13 @@ func TestSchemaEightRoundTripsEveryField(t *testing.T) {
 	}
 	// The arrays' order is the display order, which no identifier sorts.
 	if providers, models := loaded.ProviderIDs(), loaded.ProviderModelRefs("dmxapi"); !slices.Equal(providers, []string{"dmxapi", "aihubmix"}) ||
-		!slices.Equal(models, []domain.ModelRef{domain.NewModelRef("dmxapi", "gpt-6.1-sol-cdx"), domain.NewModelRef("dmxapi", "claude-opus-5-5")}) {
+		!slices.Equal(models, []domain.ModelRef{dmxapiModel("gpt-6.1-sol-cdx"), dmxapiModel("claude-opus-5-5")}) {
 		t.Fatalf("providers %v and models %v do not follow the file", providers, models)
 	}
 }
+
+// dmxapiModel is the reference of provider dmxapi's model id.
+func dmxapiModel(id string) domain.ModelRef { return domain.NewModelRef("dmxapi", id) }
 
 func readTestFile(t *testing.T, path string) []byte {
 	t.Helper()
