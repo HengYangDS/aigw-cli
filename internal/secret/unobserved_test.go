@@ -95,3 +95,27 @@ func TestObservationFailureNamesADeniedTokenFolder(t *testing.T) {
 		}
 	}
 }
+
+// A permission error at a Token file, such as a flag or a sandbox that
+// refuses its replacement, names that Token file with its own fix, never the
+// Token folder: the folder's path is the store's, and the file's is its slot
+// inside it.
+func TestObservationFailureNamesADeniedTokenFileNotTheFolder(t *testing.T) {
+	home := t.TempDir()
+	tokens := filepath.Join(home, "aigw", "secrets", "tokens")
+	file := filepath.Join(tokens, "team")
+	denied := fmt.Errorf("write Token file: %w", tokenFileFailure(&fs.PathError{Op: "open", Path: file, Err: syscall.EPERM}))
+	if !NamesTokenFolder(denied) {
+		t.Fatal("a denied Token file gets the generic denial")
+	}
+	cause, fix := ObservationFailure(denied, platform.PathContext{Home: home, Check: true})
+	if cause != "AIGW's Token file ~/aigw/secrets/tokens/team cannot be used: operation not permitted" ||
+		fix != "A lock, a sandbox or system protection forbids this operation on ~/aigw/secrets/tokens/team; allow it, then run `aigw sync`." {
+		t.Fatalf("a denied Token file = %q, %q", cause, fix)
+	}
+	// The same path error from the folder's own operation still names the folder.
+	folderCause, _ := ObservationFailure(fmt.Errorf("inspect Token directory: %w", &fs.PathError{Op: "lstat", Path: tokens, Err: syscall.EPERM}), platform.PathContext{Home: home, Check: true})
+	if !strings.HasPrefix(folderCause, "AIGW's Token folder ~/aigw/secrets/tokens cannot be read") {
+		t.Fatalf("a denied Token folder = %q", folderCause)
+	}
+}

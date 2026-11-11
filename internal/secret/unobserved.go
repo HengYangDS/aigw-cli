@@ -23,9 +23,25 @@ type unsafeTokenDirectoryError struct{ message string }
 
 func (e unsafeTokenDirectoryError) Error() string { return e.message }
 
-// NamesTokenFolder reports a failure that ObservationFailure tells by the
-// path of AIGW's Token folder: a file in the way or a link that leads nowhere,
-// or a permission error that the operating system gave at an absolute path.
+// tokenFileError is a failure at one Token file inside AIGW's Token folder,
+// as the store reports it: its path is the file's, not the folder's.
+type tokenFileError struct{ err error }
+
+func (e tokenFileError) Error() string { return e.err.Error() }
+func (e tokenFileError) Unwrap() error { return e.err }
+
+// tokenFileFailure marks err as a failure at a Token file.
+func tokenFileFailure(err error) error {
+	if err == nil {
+		return nil
+	}
+	return tokenFileError{err: err}
+}
+
+// NamesTokenFolder reports a failure that ObservationFailure tells by a path
+// of AIGW's Token store: a file in the way of the Token folder or a link that
+// leads nowhere, or a permission error that the operating system gave at an
+// absolute path of the folder or of a Token file in it.
 func NamesTokenFolder(err error) bool {
 	if _, blocked := platform.BlockedPath(err); blocked {
 		return true
@@ -35,13 +51,18 @@ func NamesTokenFolder(err error) bool {
 }
 
 // deniedFolder classifies a permission error at an absolute path, which a
-// sandbox, system protection or the folder's mode gives.
+// sandbox, system protection or the folder's mode gives. The path is a Token
+// file's when the store marked the failure as one, and the folder's otherwise.
 func deniedFolder(err error) (*platform.PathConditionError, bool) {
 	failure, atPath := errors.AsType[*fs.PathError](err)
 	if !atPath || !filepath.IsAbs(failure.Path) {
 		return nil, false
 	}
-	classified := platform.ClassifyPath(failure.Path, platform.FolderExpected, err)
+	kind := platform.FolderExpected
+	if _, file := errors.AsType[tokenFileError](err); file {
+		kind = platform.FileExpected
+	}
+	classified := platform.ClassifyPath(failure.Path, kind, err)
 	return classified, classified.Condition == platform.PathPermission
 }
 
@@ -59,11 +80,14 @@ func ObservationFailure(err error, at platform.PathContext) (cause, fix string) 
 		return folder + " cannot be used: " + path.Reason(), platform.PathFix(path, at)
 	}
 	if denied, isDenied := deniedFolder(err); isDenied {
-		folder := "AIGW's Token folder"
-		if named, _ := platform.HomeTarget(denied.Path, at.Home); named != "" {
-			folder += " " + named
+		subject, verb := "AIGW's Token folder", " cannot be read: "
+		if denied.Kind == platform.FileExpected {
+			subject, verb = "AIGW's Token file", " cannot be used: "
 		}
-		return folder + " cannot be read: " + denied.Reason(), platform.PathFix(denied, at)
+		if named, _ := platform.HomeTarget(denied.Path, at.Home); named != "" {
+			subject += " " + named
+		}
+		return subject + verb + denied.Reason(), platform.PathFix(denied, at)
 	}
 	if file, unsafe := errors.AsType[unsafeTokenFileError](err); unsafe {
 		return file.Error(), "Make " + file.name + " in AIGW's Token directory " + tokenFileRequirement + ", then run the same command again."
