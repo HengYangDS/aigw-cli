@@ -278,7 +278,7 @@ func decodeTOMLConfig(data []byte, admission domain.Admission) (domain.Config, e
 		})
 	}
 	decoded, err := decodeDocument(data)
-	if _, undefined := errors.AsType[*undefinedFieldError](err); undefined {
+	if _, undefined := errors.AsType[*UndefinedFieldError](err); undefined {
 		return domain.Config{}, newLoadError(LoadPhaseValidate, err)
 	}
 	if err != nil {

@@ -211,7 +211,7 @@ func TestSchemaEightRefusesAnUndefinedFieldOrAnotherVersion(t *testing.T) {
 			line := slices.IndexFunc(strings.Split(text, "\n"), func(line string) bool { return strings.Contains(line, test.line) }) + 1
 			_, err := decodeTOMLConfig([]byte(text), testAdmission())
 			loadErr, isLoad := errors.AsType[*LoadError](err)
-			undefined, isUndefined := errors.AsType[*undefinedFieldError](err)
+			undefined, isUndefined := errors.AsType[*UndefinedFieldError](err)
 			if !isLoad || loadErr.Phase != LoadPhaseValidate || !isUndefined || undefined.Field != test.field ||
 				!strings.Contains(err.Error(), fmt.Sprintf("schema 8 does not define the field %s, on line %d", test.field, line)) {
 				t.Fatalf("load error = %v, want %s on line %d", err, test.field, line)

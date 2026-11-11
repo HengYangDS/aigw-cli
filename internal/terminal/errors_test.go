@@ -86,6 +86,13 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 			err:  &store.LoadError{Phase: store.LoadPhaseValidate, Err: errors.New(content)},
 			want: []string{"Cannot validate local configuration", "AIGW 9.8.7 stopped at the configuration validate stage", "newer AIGW", "fail validation", "aigw config path"},
 		},
+		// A field that the schema does not define is named with its line,
+		// which a wrapping error does not hide.
+		"undefined field": {
+			err: &store.LoadError{Phase: store.LoadPhaseValidate, Err: fmt.Errorf("%s: %w", content, &store.UndefinedFieldError{Field: "providers.order", Line: 6})},
+			want: []string{"Cannot validate local configuration",
+				"AIGW 9.8.7 stopped at the configuration validate stage: schema 8 does not define the field providers.order, on line 6.", "aigw config path"},
+		},
 		"unknown stage": {
 			err:  &store.LoadError{Phase: "replay", Err: errors.New(content)},
 			want: []string{"Cannot load local configuration", "stopped at the configuration replay stage", "aigw config path"},

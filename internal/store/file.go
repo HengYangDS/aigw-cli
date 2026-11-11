@@ -94,16 +94,16 @@ type forwardingDocument struct {
 	Protocol domain.EndpointProtocol `toml:"protocol"`
 }
 
-// undefinedFieldError is a field that schema 8 does not define, such as a
+// UndefinedFieldError is a field that schema 8 does not define, such as a
 // retired `order`, `purpose` or `lifecycle`, and the line that holds it. The
 // field's path leaves out an inline table that holds it.
-type undefinedFieldError struct {
+type UndefinedFieldError struct {
 	Field string
 	Line  int
 }
 
 // Error names the field, its line and the schema.
-func (e *undefinedFieldError) Error() string {
+func (e *UndefinedFieldError) Error() string {
 	return fmt.Sprintf("schema %d does not define the field %s, on line %d", domain.ConfigVersion, e.Field, e.Line)
 }
 
@@ -125,7 +125,7 @@ func decodeDocument(data []byte) (document, error) {
 	err := decoder.Decode(&decoded)
 	if strict, ok := errors.AsType[*toml.StrictMissingError](err); ok && len(strict.Errors) > 0 {
 		line, _ := strict.Errors[0].Position()
-		return document{}, &undefinedFieldError{Field: strings.Join(strict.Errors[0].Key(), "."), Line: line}
+		return document{}, &UndefinedFieldError{Field: strings.Join(strict.Errors[0].Key(), "."), Line: line}
 	}
 	return decoded, err
 }

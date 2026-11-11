@@ -202,7 +202,7 @@ enabled = true
 	}
 	_, err := NewStore(path, testAdmission()).Load()
 	var loadErr *LoadError
-	var undefined *undefinedFieldError
+	var undefined *UndefinedFieldError
 	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseValidate || !errors.As(err, &undefined) || undefined.Field != "accounts.gateway" {
 		t.Fatalf("legacy selection load error = %v", err)
 	}

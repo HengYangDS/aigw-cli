@@ -126,8 +126,10 @@ func configurationFix(phase store.LoadPhase, path *platform.PathConditionError, 
 }
 
 // ConfigurationLoadEvidence states the configuration stage at which subject
-// stopped, with the operation and operating-system error of a read or the
-// position of a parse failure. It never includes a path or document content.
+// stopped, with the operation and operating-system error of a read, the
+// position of a parse failure, or the name and line of a field that the
+// schema does not define. It never includes a path or a value of the
+// document.
 func ConfigurationLoadEvidence(subject string, err error) (string, bool) {
 	failure, ok := errors.AsType[*store.LoadError](err)
 	if !ok {
@@ -145,6 +147,9 @@ func ConfigurationLoadEvidence(subject string, err error) (string, bool) {
 			detail = fmt.Sprintf(" at line %d, column %d", line, column)
 		}
 	case store.LoadPhaseValidate:
+		if undefined, ok := errors.AsType[*store.UndefinedFieldError](err); ok {
+			detail = ": " + undefined.Error()
+		}
 	}
 	return fmt.Sprintf("%s stopped at the configuration %s stage%s.", subject, failure.Phase, detail), true
 }

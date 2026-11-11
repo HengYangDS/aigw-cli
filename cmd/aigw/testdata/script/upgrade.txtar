@@ -3,7 +3,8 @@
 # reader, is a home without a configuration: bare aigw names aigw setup and
 # exits 0, and a command that needs a configuration names it. setup, use and
 # sync leave each of those files as it was, and once aigw.toml exists, only
-# it loads.
+# it loads. An aigw.toml with a field that schema 8 does not define, or in
+# another version, is refused by name, and nothing is written.
 [darwin] env CONF=$HOME/Library/Application' 'Support/aigw
 [!darwin] env CONF=$HOME/aigw
 env READER=$CONF/credential/5d2c6a0f9e8b7a6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1
@@ -74,6 +75,30 @@ stdout '^  team  +Team Gateway'
 exec aigw status
 stdout 'Claude +team/team-model'
 cmp $CONF/config.toml earlier/config.toml
+
+# aigw.toml with a field that schema 8 does not define, or in another
+# version: the full program refuses, naming the field or the version, and
+# writes nothing.
+cp $CONF/aigw.toml valid.toml
+envsubst undefined.in $CONF/aigw.toml
+snapshot $HOME undefined-before.txt
+exitcode 1 aigw status
+stdout 'stopped at the configuration validate stage: schema 8 does not define the field providers.order, on line 6\.'
+exitcode 1 aigw use claude team/team-model
+stdout 'schema 8 does not define the field providers.order, on line 6'
+exitcode 1 aigw sync --json
+stdout '"evidence": "AIGW [^"]+ stopped at the configuration validate stage: schema 8 does not define the field providers.order, on line 6\."'
+snapshot $HOME undefined-after.txt
+cmp undefined-after.txt undefined-before.txt
+envsubst newer.in $CONF/aigw.toml
+snapshot $HOME newer-before.txt
+exitcode 1 aigw status
+stdout 'unsupported configuration version: found 9, expected 8'
+exitcode 1 aigw use claude team/team-model
+stdout 'found 9, expected 8'
+snapshot $HOME newer-after.txt
+cmp newer-after.txt newer-before.txt
+cp valid.toml $CONF/aigw.toml
 
 -- token.txt --
 sk-team-token-0001
@@ -154,3 +179,18 @@ Get started
 
 Next
   aigw setup
+-- undefined.in --
+version = 8
+
+[[providers]]
+id = "team"
+label = "Team Gateway"
+order = 10
+endpoints = { anthropic = "$UPSTREAM" }
+-- newer.in --
+version = 9
+
+[[providers]]
+id = "team"
+label = "Team Gateway"
+endpoints = { anthropic = "$UPSTREAM" }
