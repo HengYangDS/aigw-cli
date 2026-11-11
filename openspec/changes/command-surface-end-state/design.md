@@ -342,7 +342,7 @@ The document contract stays: one document, `schema_version`, `ok`, `next_action`
 
 ### Names in code
 
-Types and packages use the same words: `domain.Account` becomes `domain.Provider`, `domain.Route` becomes `domain.Model`, today's `domain.Model` becomes `domain.Family`, and `internal/cli` packages follow the tree. The specification capability `route-client-selection` becomes `model-selection`. A new decision record supersedes DR-0003 (account rename) and DR-0004 (Account, Route, client binding authority); older records stay as written.
+Types and packages use the same words: `domain.Account` becomes `domain.Provider`, `domain.Route` becomes `domain.Model`, today's `domain.Model` becomes `domain.Family`, and `internal/cli` packages follow the tree. The specification capability `route-client-selection` becomes `model-selection`. DR-0012 supersedes DR-0003 (account rename) and DR-0004 (Account, Route, client binding authority); older records stay as written.
 
 ### Delivery
 

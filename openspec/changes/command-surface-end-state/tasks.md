@@ -204,15 +204,16 @@
 
 ## 7. Documents
 
-- [ ] 7.1 Rewrite `manifests/team.toml` as a schema 8 team file, which
+- [x] 7.1 Rewrite `manifests/team.toml` as a schema 8 team file, which
       `aigw setup --from` applies in a test; it keeps the 2026-11-07 model
-      refresh that lands on dev first, and adds plain-DMXAPI `gpt-6.1-terra`
-      and `claude-haiku-5-5` only after a resumed tool turn qualifies them.
+      refresh that lands on dev first. Plain-DMXAPI `gpt-6.1-terra` and
+      `claude-haiku-5-5` stay out until a resumed tool turn qualifies them,
+      in a later team-file refresh (`275bcdef`).
 - [ ] 7.2 Rewrite the README, guides, concepts, terminal experience, the cask
       caveats and every other document that names a removed command or word;
       the Markdown, link and spelling checks pass.
-- [ ] 7.3 Add a decision record that supersedes DR-0003 and DR-0004, and
-      register it.
+- [x] 7.3 Add DR-0012, which supersedes DR-0003 and DR-0004, and register
+      it (`6f160c37`, `b036069a`).
 - [x] 7.5 Rename the `route-client-selection` specification to
       `model-selection`, and rewrite the Purpose sections that still name an
       Account or a Route, which a delta cannot change.
