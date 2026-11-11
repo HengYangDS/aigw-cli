@@ -66,11 +66,11 @@ func ProtocolLabel(protocol EndpointProtocol) string {
 	}
 }
 
-// EntryError is a failure at one entry of a configuration or a team file,
+// entryError is a failure at one entry of a configuration or a team file,
 // named as the operator finds it there, such as provider `a`, model `a/m` or
 // the field `providers.bogus`. It reads as the failure it wraps, so only a
 // presentation that tells the operator which entry to correct uses the entry.
-type EntryError struct {
+type entryError struct {
 	Entry string
 	Err   error
 }
@@ -84,18 +84,18 @@ func NewEntryError(entry string, err error) error {
 	if _, named := EntryOf(err); named {
 		return err
 	}
-	return &EntryError{Entry: entry, Err: err}
+	return &entryError{Entry: entry, Err: err}
 }
 
 // Error is the wrapped failure's text.
-func (e *EntryError) Error() string { return e.Err.Error() }
+func (e *entryError) Error() string { return e.Err.Error() }
 
 // Unwrap returns the wrapped failure.
-func (e *EntryError) Unwrap() error { return e.Err }
+func (e *entryError) Unwrap() error { return e.Err }
 
 // EntryOf returns the entry that err names, and whether it names one.
 func EntryOf(err error) (string, bool) {
-	entry, named := errors.AsType[*EntryError](err)
+	entry, named := errors.AsType[*entryError](err)
 	if !named {
 		return "", false
 	}
