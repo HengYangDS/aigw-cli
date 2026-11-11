@@ -432,7 +432,8 @@ stdout SHALL contain only credential output.
 
 When an AIGW command fails at a local file operation or while loading its
 configuration, its human and JSON diagnostic SHALL name the failed operation
-and the operating-system error, or the configuration stage that failed. It
+and the one reason that the product prints for its condition, or the
+configuration stage that failed. It
 SHALL name a failed client file as `~/…`, or as configured outside the home
 directory, and SHALL contain no other path than one its Fix acts on, and no
 configuration content, credential or internal error.
@@ -441,7 +442,14 @@ configuration content, credential or internal error.
 
 - **WHEN** a command fails because a file operation returns an
   operating-system error
-- **THEN** the diagnostic SHALL name the operation and the error
+- **THEN** the diagnostic SHALL name the operation and the one reason that the
+  product prints for the condition, the same on every platform:
+  `no such file or directory` for a missing path, `permission denied` for a
+  mode or an access control, `operation not permitted` for a lock, a sandbox
+  or system protection, `not a directory` for a regular file in the way, and
+  `broken symbolic link` for a link that leads nowhere
+- **AND** an error that no condition describes SHALL print the operating
+  system's own error number text
 - **AND** it SHALL name a client file as `~/…` inside the home directory, or as
   configured outside it, and SHALL contain no other path than one its Fix acts
   on.
