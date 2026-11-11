@@ -394,14 +394,6 @@ func TestProjectionPlanningRequiresDiscoveryAndValidTargets(t *testing.T) {
 	}
 }
 
-func TestReconcileClientHonorsCancellationBeforeObservation(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	if err := (Synchronizer{Registry: builtinClients}).ReconcileClient(ctx, domain.NewConfig(clients.Admission()), claude.ID); !errors.Is(err, context.Canceled) {
-		t.Fatalf("cancelled projection = %v", err)
-	}
-}
-
 func TestCommitProjectionDoesNotBindNativeAuthentication(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {

@@ -193,45 +193,6 @@ func TestFailedSynchronizationRemovesOnlyItsNewCredentialEntrypoint(t *testing.T
 	}
 }
 
-func TestFailedReconcileRemovesNewEntrypointAfterProjectionAdmission(t *testing.T) {
-	root := t.TempDir()
-	source := filepath.Join(root, "aigw")
-	helper := filepath.Join(root, "data", "credential", "aigw")
-	target := filepath.Join(root, "codex.toml")
-	if err := os.WriteFile(source, []byte("AIGW executable fixture"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	discovered := targetDiscovery(target)
-	var discoveryCalls int
-	discovered.onDiscover = func() {
-		discoveryCalls++
-		if discoveryCalls != 3 {
-			return
-		}
-		if _, err := os.Lstat(helper); err != nil {
-			t.Fatalf("reconcile failed before credential entrypoint creation: %v", err)
-		}
-		if err := os.WriteFile(target, []byte("invalid TOML {"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	syncer := Synchronizer{Registry: builtinClients, Discovery: discovered, AIGWExecutable: source, ResolveCredentialPath: readerAt(helper)}
-	if err := syncer.ReconcileClient(t.Context(), testConfig(target), codex.ID); err == nil {
-		t.Fatal("post-entrypoint projection failure was not reported")
-	}
-	if discoveryCalls < 3 {
-		t.Fatalf("reconcile did not reach post-entrypoint application: %d discovery calls", discoveryCalls)
-	}
-	for _, path := range []string{helper, helper + ".sha256"} {
-		if _, err := os.Lstat(path); !os.IsNotExist(err) {
-			t.Fatalf("failed reconcile retained unconsumed entrypoint %s: %v", path, err)
-		}
-	}
-}
-
 func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "codex.toml")
@@ -299,7 +260,7 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	}
 }
 
-func TestReconcileClientRejectsMissingCredentialSourceBeforeProjection(t *testing.T) {
+func TestProjectionRejectsMissingCredentialSourceBeforeWriting(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "codex.toml")
 	helper := filepath.Join(root, "data", "credential", "aigw")
@@ -307,8 +268,8 @@ func TestReconcileClientRejectsMissingCredentialSourceBeforeProjection(t *testin
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(root, "missing-aigw"), ResolveCredentialPath: readerAt(helper)}
-	if err := syncer.ReconcileClient(t.Context(), testConfig(target), codex.ID); !errors.Is(err, os.ErrNotExist) {
+	syncer := Synchronizer{Registry: builtinClients, Config: &configStoreStub{}, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(root, "missing-aigw"), ResolveCredentialPath: readerAt(helper)}
+	if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "sync"); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("missing source error = %v, want missing executable", err)
 	}
 	if got, err := os.ReadFile(target); err != nil || !bytes.Equal(got, original) {
@@ -319,7 +280,7 @@ func TestReconcileClientRejectsMissingCredentialSourceBeforeProjection(t *testin
 	}
 }
 
-func TestReconcileClientPreflightRejectsInvalidTargetBeforeEntrypointCreation(t *testing.T) {
+func TestProjectionPreflightRejectsInvalidTargetBeforeEntrypointCreation(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "aigw")
 	target := filepath.Join(root, "codex.toml")
@@ -330,8 +291,8 @@ func TestReconcileClientPreflightRejectsInvalidTargetBeforeEntrypointCreation(t 
 	if err := os.Mkdir(target, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Discovery: targetDiscovery(target), AIGWExecutable: source, ResolveCredentialPath: readerAt(helper)}
-	if err := syncer.ReconcileClient(t.Context(), testConfig(target), codex.ID); err == nil {
+	syncer := Synchronizer{Registry: builtinClients, Config: &configStoreStub{}, Discovery: targetDiscovery(target), AIGWExecutable: source, ResolveCredentialPath: readerAt(helper)}
+	if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "sync"); err == nil {
 		t.Fatal("invalid client target passed projection preflight")
 	}
 	if _, err := os.Lstat(helper); !os.IsNotExist(err) {

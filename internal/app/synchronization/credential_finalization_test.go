@@ -108,7 +108,6 @@ func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
 			for _, operation := range []func() error{
 				func() error { _, err := syncer.PreviewProjection(cfg, cfg); return err },
 				func() error { _, err := syncer.CredentialEntrypointPlan(cfg); return err },
-				func() error { return syncer.ReconcileClient(t.Context(), cfg, codex.ID) },
 				func() error { return syncer.CommitProjection(t.Context(), cfg, cfg, "test") },
 				func() error {
 					_, err := syncer.Verify(t.Context(), cfg, codex.ID, runtime, "")
@@ -304,57 +303,46 @@ func TestConvergedProjectionRechecksTargetsAfterConfigurationCommit(t *testing.T
 }
 
 func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
-	for _, mode := range []string{"commit", "reconcile"} {
-		t.Run(mode, func(t *testing.T) {
-			root := t.TempDir()
-			source := filepath.Join(root, "aigw")
-			target := filepath.Join(root, "codex.toml")
-			previous := []byte("model_provider = \"native\"\n")
-			if err := os.WriteFile(source, []byte("executable fixture"), 0o700); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(target, previous, 0o600); err != nil {
-				t.Fatal(err)
-			}
-			reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
-			if err != nil {
-				t.Fatal(err)
-			}
-			before := testConfig(target)
-			before.SetClientActivation(codex.ID, false, "", nil)
-			configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
-			if err := configStore.Save(before); err != nil {
-				t.Fatal(err)
-			}
-			clientAdapter := removedEntrypointAdapter{target: target, reader: reader}
-			registry, err := adapter.NewRegistry(clientAdapter)
-			if err != nil {
-				t.Fatal(err)
-			}
-			syncer := Synchronizer{Config: configStore, Registry: registry, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
-			after := testConfig(target)
-			if mode == "commit" {
-				err = syncer.CommitProjection(t.Context(), before, after, "sync")
-			} else {
-				err = syncer.ReconcileClient(t.Context(), after, codex.ID)
-			}
-			if err == nil {
-				t.Fatal("missing reader after projection was accepted")
-			}
-			if mode == "commit" {
-				stored, loadErr := configStore.Load()
-				if loadErr != nil || stored.Clients[codex.ID].Enabled {
-					t.Fatalf("failed synchronization retained enabled Codex: %v, %v", stored.Clients[codex.ID], loadErr)
-				}
-				var recovery interface{ ConfigurationRestored() bool }
-				if !errors.As(err, &recovery) || !recovery.ConfigurationRestored() {
-					t.Fatalf("finalization lost successful configuration restoration: %v", err)
-				}
-			}
-			if got, readErr := os.ReadFile(target); readErr != nil || !bytes.Equal(got, previous) {
-				t.Fatalf("failed synchronization retained client projection %q: %v", got, readErr)
-			}
-		})
+	root := t.TempDir()
+	source := filepath.Join(root, "aigw")
+	target := filepath.Join(root, "codex.toml")
+	previous := []byte("model_provider = \"native\"\n")
+	if err := os.WriteFile(source, []byte("executable fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, previous, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := testConfig(target)
+	before.SetClientActivation(codex.ID, false, "", nil)
+	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
+	if err := configStore.Save(before); err != nil {
+		t.Fatal(err)
+	}
+	clientAdapter := removedEntrypointAdapter{target: target, reader: reader}
+	registry, err := adapter.NewRegistry(clientAdapter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	syncer := Synchronizer{Config: configStore, Registry: registry, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
+	err = syncer.CommitProjection(t.Context(), before, testConfig(target), "sync")
+	if err == nil {
+		t.Fatal("missing reader after projection was accepted")
+	}
+	stored, loadErr := configStore.Load()
+	if loadErr != nil || stored.Clients[codex.ID].Enabled {
+		t.Fatalf("failed synchronization retained enabled Codex: %v, %v", stored.Clients[codex.ID], loadErr)
+	}
+	var recovery interface{ ConfigurationRestored() bool }
+	if !errors.As(err, &recovery) || !recovery.ConfigurationRestored() {
+		t.Fatalf("finalization lost successful configuration restoration: %v", err)
+	}
+	if got, readErr := os.ReadFile(target); readErr != nil || !bytes.Equal(got, previous) {
+		t.Fatalf("failed synchronization retained client projection %q: %v", got, readErr)
 	}
 }
 

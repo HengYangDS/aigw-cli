@@ -46,47 +46,6 @@ func (s Synchronizer) Verify(ctx context.Context, cfg domain.Config, clientID st
 	return s.registry().Verify(ctx, dependencies, cfg, clientID, runtime, explicitRoute)
 }
 
-// ReconcileClient projects one unchanged Route without saving configuration or
-// touching other clients. Converged settings remain a byte-exact no-op.
-func (s Synchronizer) ReconcileClient(ctx context.Context, cfg domain.Config, clientID string) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	projectable, err := s.credentialReadyClients(cfg, clientID)
-	if err != nil {
-		return err
-	}
-	if len(projectable) == 0 {
-		return nil
-	}
-	dependencies, err := s.clientDependencies([]string{clientID}, cfg)
-	if err != nil {
-		return err
-	}
-	if _, err := s.registry().Plan(dependencies, cfg, cfg, clientID); err != nil {
-		return err
-	}
-	entrypoint, undoEntrypoint, err := s.prepareCredentialEntrypoint(cfg, clientID)
-	if err != nil {
-		return err
-	}
-	receipt, _, err := s.registry().Apply(ctx, dependencies, cfg, cfg, clientID)
-	if err != nil {
-		if !errors.Is(err, adapter.ErrProjectionRollbackFailed) {
-			err = errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
-		}
-		return err
-	}
-	finalizeErr := s.finalizeCredentialEntrypoint(entrypoint)
-	if finalizeErr == nil {
-		return nil
-	}
-	if rollbackErr := receipt.Rollback(); rollbackErr != nil {
-		return fmt.Errorf("%w: credential entrypoint finalization failed: %w; client rollback also failed: %w", adapter.ErrProjectionRollbackFailed, finalizeErr, rollbackErr)
-	}
-	return errors.Join(fmt.Errorf("credential entrypoint finalization failed; client projection was rolled back: %w", finalizeErr), undoCreatedEntrypoint(undoEntrypoint))
-}
-
 func (s Synchronizer) prepareCredentialEntrypoint(cfg domain.Config, clientIDs ...string) (*secret.Entrypoint, func() error, error) {
 	accounts, err := s.credentialEntrypointProviders(cfg, clientIDs...)
 	if err != nil || len(accounts) == 0 {
