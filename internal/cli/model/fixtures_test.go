@@ -59,16 +59,16 @@ func newFixture(t *testing.T) fixture {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Providers["mixed"] = domain.Provider{Label: "Mixed", Endpoints: domain.Endpoints{
-		Anthropic: "https://mixed.test", OpenAIChatCompletions: "https://mixed.test/v1",
+		Anthropic: "https://mixed.test", Chat: "https://mixed.test/v1",
 	}}
 	cfg.Families["team-model"] = domain.Family{Label: "Team Model"}
 	cfg.Models["team"] = domain.Model{Provider: "team", Family: "team-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.Models["mixed-chat"] = domain.Model{
 		Provider: "mixed", Family: "chat-only", UpstreamModel: "Chat-Only", Label: "Chat Only",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}},
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}},
 	}
 	cfg.SetSelectedModel("claude", "team", "")
-	cfg.Recommendations["hermes"] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "mixed-chat", Protocol: domain.ProtocolOpenAIChatCompletions}}
+	cfg.Recommendations["hermes"] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "mixed-chat", Protocol: domain.ProtocolChat}}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

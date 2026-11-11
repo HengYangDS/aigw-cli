@@ -188,10 +188,10 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
-			cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+			cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Responses: "https://one.test/v1"}}
 			cfg.Models["one"] = domain.Model{
 				Label: "One", Provider: "one", Family: "gpt-test",
-				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 			}
 			cfg.SetSelectedModel(codex.ID, "one", "")
 			cfg.SetClientActivation(codex.ID, true, "/portable/codex", []string{"/portable/config.toml"})
@@ -228,10 +228,10 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 	t.Run("planning", func(t *testing.T) {
 		configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 		cfg := domain.NewConfig(clients.Admission())
-		cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+		cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Responses: "https://one.test/v1"}}
 		cfg.Models["one"] = domain.Model{
 			Label: "One", Provider: "one", Family: "gpt-test",
-			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 		}
 		cfg.SetSelectedModel(codex.ID, "one", "")
 		cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{""})
@@ -251,15 +251,15 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 func TestSyncRollsBackModelSelectionWhenProjectionFails(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
+	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Responses: "https://one.test/v1"}}
+	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{Responses: "https://two.test/v1"}}
 	cfg.Models["one"] = domain.Model{
 		Label: "One", Provider: "one", Family: "gpt-test",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
 	cfg.Models["two"] = domain.Model{
 		Label: "Two", Provider: "two", Family: "gpt-test",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
 	cfg.SetSelectedModel(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{t.TempDir()})
@@ -290,10 +290,10 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	target := t.TempDir()
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Responses: "https://one.test/v1"}}
 	cfg.Models["one"] = domain.Model{
 		Label: "One", Provider: "one", Family: "gpt-test",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
 	cfg.SetSelectedModel(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})

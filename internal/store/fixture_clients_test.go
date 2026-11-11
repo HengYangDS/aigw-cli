@@ -16,7 +16,7 @@ const (
 // testClientSpecs returns the built-in client records that this package's
 // tests admit, in admission order.
 func testClientSpecs() []domain.ClientSpec {
-	anthropic, responses := domain.ProtocolAnthropic, domain.ProtocolOpenAIResponses
+	anthropic, responses := domain.ProtocolAnthropic, domain.ProtocolResponses
 	return []domain.ClientSpec{
 		{
 			ID: ClientClaude, Label: "Claude", EndpointProtocols: []domain.EndpointProtocol{anthropic},
@@ -34,7 +34,7 @@ func testClientSpecs() []domain.ClientSpec {
 		},
 		{
 			ID: ClientHermes, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml",
-			EndpointProtocols: []domain.EndpointProtocol{responses, anthropic, domain.ProtocolOpenAIChatCompletions},
+			EndpointProtocols: []domain.EndpointProtocol{responses, anthropic, domain.ProtocolChat},
 		},
 	}
 }
@@ -62,12 +62,12 @@ func testModel(label, account, model string, protocols ...domain.EndpointProtoco
 func validConfig() domain.Config {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers = map[string]domain.Provider{
-		"dmx":    {Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}},
-		"backup": {Label: "Backup", Endpoints: domain.Endpoints{OpenAIResponses: "https://backup.test/v1"}},
+		"dmx":    {Label: "DMXAPI", Endpoints: domain.Endpoints{Responses: "https://example.test/v1", Anthropic: "https://example.test"}},
+		"backup": {Label: "Backup", Endpoints: domain.Endpoints{Responses: "https://backup.test/v1"}},
 	}
 	cfg.Models = map[string]domain.Model{
 		"dmx":    testModel("DMXAPI", "dmx", "claude-test", domain.ProtocolAnthropic),
-		"backup": testModel("Backup", "backup", "gpt-test", domain.ProtocolOpenAIResponses),
+		"backup": testModel("Backup", "backup", "gpt-test", domain.ProtocolResponses),
 	}
 	cfg.Clients = map[string]domain.ClientBinding{
 		ClientClaude: {Model: "dmx"},

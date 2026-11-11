@@ -66,7 +66,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralModels(t *testing.T) {
 	routeIDs := make([]string, 0, len(p.manifest.Models))
 	completions := map[string]*atomic.Int64{}
 	for routeID, route := range p.manifest.Models {
-		if route.Provider != account || !slices.Contains(route.AdmittedProtocols(), domain.ProtocolOpenAIResponses) {
+		if route.Provider != account || !slices.Contains(route.AdmittedProtocols(), domain.ProtocolResponses) {
 			continue
 		}
 		if _, duplicate := completions[route.UpstreamModel]; duplicate {
@@ -79,7 +79,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralModels(t *testing.T) {
 		t.Fatal("team manifest has no AIHubMix OpenAI Responses Routes")
 	}
 	slices.Sort(routeIDs)
-	server := httptest.NewServer(clientResponseHandler(domain.ProtocolOpenAIResponses, completions, token, "high", nativeCodexToolShell(t)))
+	server := httptest.NewServer(clientResponseHandler(domain.ProtocolResponses, completions, token, "high", nativeCodexToolShell(t)))
 	t.Cleanup(server.Close)
 	executable, err := requiredClientInput("AIGW_ACCEPTANCE_CODEX", false)
 	if err != nil {
@@ -291,7 +291,7 @@ type codexToolLoopProbe struct {
 
 func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToolLoopProbe, shell string) http.Handler {
 	var completions atomic.Int64
-	base := clientResponseHandler(domain.ProtocolOpenAIResponses, map[string]*atomic.Int64{"grok-4.7": &completions}, token, "high", shell)
+	base := clientResponseHandler(domain.ProtocolResponses, map[string]*atomic.Int64{"grok-4.7": &completions}, token, "high", shell)
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		probe.requests.Add(1)
 		if request.Method != http.MethodPost || request.URL.Path != "/v1/responses" {

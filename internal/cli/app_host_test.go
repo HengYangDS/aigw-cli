@@ -16,7 +16,7 @@ import (
 type hostRefusingAdapter struct{ adapter.Adapter }
 
 func (hostRefusingAdapter) Spec() domain.ClientSpec {
-	return domain.ClientSpec{ID: "host-refusing", Label: "Host refusing", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
+	return domain.ClientSpec{ID: "host-refusing", Label: "Host refusing", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses}}
 }
 
 func (hostRefusingAdapter) ValidateHost(discovery.Host) error {

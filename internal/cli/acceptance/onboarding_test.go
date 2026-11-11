@@ -36,9 +36,9 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{
 		Label:     "DMXAPI",
-		Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
+		Endpoints: domain.Endpoints{Responses: "https://dmx.test/v1"},
 	}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetClientActivation(codex.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -291,9 +291,9 @@ func TestSyncDefersNewlyInstalledClientUntilItsProviderIsConnected(t *testing.T)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{
 		Label:     "DMXAPI",
-		Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
+		Endpoints: domain.Endpoints{Responses: "https://dmx.test/v1"},
 	}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

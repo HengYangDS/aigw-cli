@@ -145,7 +145,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	}
 	journey.run(args...)
 	cfg, err := configStore.Load()
-	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint || cfg.Providers["native-system-keyring-probe"].Endpoints.OpenAIResponses != upstream.URL+"/v1" {
+	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint || cfg.Providers["native-system-keyring-probe"].Endpoints.Responses != upstream.URL+"/v1" {
 		t.Fatalf("forwarding did not preserve Account ownership: %v", err)
 	}
 	journey.run("check", codex.ID)

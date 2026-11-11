@@ -26,7 +26,7 @@ import (
 // command without requesting inference or touching a user's credential store.
 func TestHermesNativeProjection(t *testing.T) {
 	candidate, python := nativeHermesExecutables(t)
-	for _, protocol := range []domain.EndpointProtocol{domain.ProtocolAnthropic, domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions} {
+	for _, protocol := range []domain.EndpointProtocol{domain.ProtocolAnthropic, domain.ProtocolResponses, domain.ProtocolChat} {
 		t.Run(string(protocol), func(t *testing.T) {
 			home := t.TempDir()
 			env := map[string]string{"HOME": home, "USERPROFILE": home, "APPDATA": home, "LOCALAPPDATA": home, "XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home}
@@ -36,7 +36,7 @@ func TestHermesNativeProjection(t *testing.T) {
 			}
 			hermesHome := filepath.Join(home, "hermes")
 			cfg := domain.NewConfig(testAdmission())
-			cfg.Providers["fixture"] = domain.Provider{Label: "Fixture", Endpoints: domain.Endpoints{Anthropic: "https://provider.invalid", OpenAIResponses: "https://provider.invalid/v1", OpenAIChatCompletions: "https://provider.invalid/v1"}}
+			cfg.Providers["fixture"] = domain.Provider{Label: "Fixture", Endpoints: domain.Endpoints{Anthropic: "https://provider.invalid", Responses: "https://provider.invalid/v1", Chat: "https://provider.invalid/v1"}}
 			cfg.Models["hermes"] = domain.Model{
 				Label: "Hermes", Provider: "fixture", Family: "fixture-model",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
@@ -215,9 +215,9 @@ func expectedNativeHermesMode(protocol domain.EndpointProtocol) string {
 	switch protocol {
 	case domain.ProtocolAnthropic:
 		return "anthropic_messages"
-	case domain.ProtocolOpenAIResponses:
+	case domain.ProtocolResponses:
 		return "codex_responses"
-	case domain.ProtocolOpenAIChatCompletions:
+	case domain.ProtocolChat:
 		return "chat_completions"
 	default:
 		return ""

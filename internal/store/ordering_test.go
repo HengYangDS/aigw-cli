@@ -135,7 +135,7 @@ func TestCatalogModelIDsGroupsServicesBeforeFamilies(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			cfg := domain.NewConfig(testAdmission())
-			endpoints := domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1", OpenAIChatCompletions: "https://team.test/v1"}
+			endpoints := domain.Endpoints{Anthropic: "https://team.test", Responses: "https://team.test/v1", Chat: "https://team.test/v1"}
 			rank := 0
 			if ranked {
 				rank = 10
@@ -148,16 +148,16 @@ func TestCatalogModelIDsGroupsServicesBeforeFamilies(t *testing.T) {
 				id, account, model string
 				protocol           domain.EndpointProtocol
 			}{
-				{"z-chat", "zulu", "strong", domain.ProtocolOpenAIChatCompletions},
-				{"z-responses-strong", "zulu", "strong", domain.ProtocolOpenAIResponses},
-				{"z-responses-weak", "zulu", "weak", domain.ProtocolOpenAIResponses},
+				{"z-chat", "zulu", "strong", domain.ProtocolChat},
+				{"z-responses-strong", "zulu", "strong", domain.ProtocolResponses},
+				{"z-responses-weak", "zulu", "weak", domain.ProtocolResponses},
 				{"z-native-strong", "zulu", "strong", domain.ProtocolAnthropic},
 				{"z-native-weak", "zulu", "weak", domain.ProtocolAnthropic},
 				{"a-native", "alpha", "strong", domain.ProtocolAnthropic},
 			} {
 				cfg.Models[row.id] = testModel(row.id, row.account, row.model, row.protocol)
 			}
-			cfg.Models["z-multi"] = domain.Model{Provider: "zulu", Family: "strong", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}, domain.ProtocolAnthropic: {}}}
+			cfg.Models["z-multi"] = domain.Model{Provider: "zulu", Family: "strong", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}, domain.ProtocolAnthropic: {}}}
 			cfg.SetSelectedModel(ClientCodex, "z-responses-strong", "")
 			cfg.Normalize()
 			canonical := cfg.ModelIDs()

@@ -178,8 +178,8 @@ interfaces = { anthropic = ["text"] }
 func TestSetupFromKeepsAModelWhoseChangeWouldMoveASelection(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["team"] = domain.Provider{Label: "Team Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Models["shared"] = qualifiedModel("Personal Model", "team", "personal-model", domain.ProtocolOpenAIResponses)
+	cfg.Providers["team"] = domain.Provider{Label: "Team Gateway", Endpoints: domain.Endpoints{Responses: "https://team.example.test/v1"}}
+	cfg.Models["shared"] = qualifiedModel("Personal Model", "team", "personal-model", domain.ProtocolResponses)
 	cfg.SetSelectedModel(codex.ID, "shared", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

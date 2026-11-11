@@ -18,7 +18,7 @@ import (
 func newHermesSessionRecorderForTest(model, token string, completions *atomic.Int64) *hermesSessionRecorder {
 	return &hermesSessionRecorder{
 		Handler: clientResponseHandler(
-			domain.ProtocolOpenAIResponses,
+			domain.ProtocolResponses,
 			map[string]*atomic.Int64{model: completions},
 			token,
 			"",

@@ -13,7 +13,7 @@ import (
 )
 
 func TestDiagnosticProbeKeepsCredentialsAtTheirSelectedOrigin(t *testing.T) {
-	for _, protocol := range []domain.EndpointProtocol{domain.ProtocolOpenAIResponses, domain.ProtocolAnthropic} {
+	for _, protocol := range []domain.EndpointProtocol{domain.ProtocolResponses, domain.ProtocolAnthropic} {
 		t.Run(string(protocol), func(t *testing.T) {
 			var followed atomic.Int32
 			target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
@@ -44,7 +44,7 @@ func TestProbeBoundedRealHTTPDoesNotRetryUnauthorized(t *testing.T) {
 		_, _ = writer.Write([]byte(`{"message":"invalid api key"}`))
 	}))
 	defer server.Close()
-	result := diagnostics.ProbeBounded(context.Background(), server.Client(), domain.Runtime{Client: codex.ID, Protocol: domain.ProtocolOpenAIResponses, Endpoint: server.URL + "/v1"}, "secret", diagnostics.ScopeEndpoint)
+	result := diagnostics.ProbeBounded(context.Background(), server.Client(), domain.Runtime{Client: codex.ID, Protocol: domain.ProtocolResponses, Endpoint: server.URL + "/v1"}, "secret", diagnostics.ScopeEndpoint)
 	if result.Kind != diagnostics.InvalidToken || result.Attempts != 1 || calls.Load() != 1 {
 		t.Fatalf("result=%#v calls=%d, want one terminal unauthorized request", result, calls.Load())
 	}
@@ -68,7 +68,7 @@ func TestProbeUsesTheRuntimeProtocol(t *testing.T) {
 		},
 		{
 			name:              "Responses authentication",
-			protocol:          domain.ProtocolOpenAIResponses,
+			protocol:          domain.ProtocolResponses,
 			endpointSuffix:    "/v1",
 			wantAuthorization: "Bearer secret",
 		},
@@ -132,7 +132,7 @@ func TestProbeClassifiesRealHTTPResponses(t *testing.T) {
 			}))
 			defer server.Close()
 
-			result := diagnostics.Probe(context.Background(), server.Client(), domain.Runtime{Client: codex.ID, Protocol: domain.ProtocolOpenAIResponses, Endpoint: server.URL}, "secret", diagnostics.ScopeEndpoint)
+			result := diagnostics.Probe(context.Background(), server.Client(), domain.Runtime{Client: codex.ID, Protocol: domain.ProtocolResponses, Endpoint: server.URL}, "secret", diagnostics.ScopeEndpoint)
 			if result.Kind != tt.kind || result.HTTPStatus != tt.status || result.Summary == "" {
 				t.Fatalf("Probe() = %#v", result)
 			}
@@ -171,7 +171,7 @@ func TestProbeReportsTruncatedHTTPResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result := diagnostics.Probe(context.Background(), server.Client(), domain.Runtime{Client: codex.ID, Protocol: domain.ProtocolOpenAIResponses, Endpoint: server.URL}, secret, diagnostics.ScopeEndpoint)
+	result := diagnostics.Probe(context.Background(), server.Client(), domain.Runtime{Client: codex.ID, Protocol: domain.ProtocolResponses, Endpoint: server.URL}, secret, diagnostics.ScopeEndpoint)
 	if result.Kind != diagnostics.NetworkFailure || result.HTTPStatus != http.StatusOK || !result.Retryable || result.Summary != "the endpoint's answer could not be read" {
 		t.Fatalf("Probe() = %#v", result)
 	}

@@ -38,10 +38,10 @@ func TestAdoptHermesSelectionLeavesUnprojectedBindingsUnchanged(t *testing.T) {
 func TestHermesModelForAdoptsOnlyOneExactModel(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{
-		Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1",
+		Anthropic: "https://gateway.test", Responses: "https://gateway.test/v1",
 	}}
 	cfg.Models["opus"] = qualifiedModel("Opus", "gateway", "claude-opus-5-5", domain.ProtocolAnthropic)
-	cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-6.1-sol", domain.ProtocolOpenAIResponses)
+	cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-6.1-sol", domain.ProtocolResponses)
 	cfg.Normalize()
 
 	routeID, protocol, err := hermesModelFor(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "claude-opus-5-5"})

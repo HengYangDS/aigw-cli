@@ -39,7 +39,7 @@ func ModelInferenceRequest(ctx context.Context, endpoint string, protocol Endpoi
 			MaxTokens int               `json:"max_tokens"`
 			Messages  []inferencePrompt `json:"messages"`
 		}{Model: model, MaxTokens: inferenceProbeMaxTokens, Messages: []inferencePrompt{{Role: "user", Content: inferenceProbePrompt}}}
-	case ProtocolOpenAIResponses:
+	case ProtocolResponses:
 		path = "/responses"
 		body = struct {
 			Model           string `json:"model"`
@@ -47,7 +47,7 @@ func ModelInferenceRequest(ctx context.Context, endpoint string, protocol Endpoi
 			MaxOutputTokens int    `json:"max_output_tokens"`
 			Store           bool   `json:"store"`
 		}{Model: model, Input: inferenceProbePrompt, MaxOutputTokens: inferenceProbeMaxTokens, Store: false}
-	case ProtocolOpenAIChatCompletions:
+	case ProtocolChat:
 		path = "/chat/completions"
 		body = struct {
 			Model     string            `json:"model"`

@@ -19,7 +19,7 @@ func TestAdmissionKeepsOrderAndReturnsCopies(t *testing.T) {
 		t.Fatalf("IDs() = %v", got)
 	}
 	mutate := func(spec ClientSpec) {
-		spec.EndpointProtocols[0], spec.QualifiedModes[0], spec.QualifiedPlatforms[0] = ProtocolOpenAIResponses, "Code", "Linux"
+		spec.EndpointProtocols[0], spec.QualifiedModes[0], spec.QualifiedPlatforms[0] = ProtocolResponses, "Code", "Linux"
 	}
 	unshared := func(source string) {
 		t.Helper()
@@ -84,7 +84,7 @@ func TestConfigCarriesItsAdmissionThroughClone(t *testing.T) {
 // each client-specific rule and each error that names the capable clients is
 // shown to come from the specifications, not from a built-in client name.
 func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
-	responses := []EndpointProtocol{ProtocolOpenAIResponses}
+	responses := []EndpointProtocol{ProtocolResponses}
 	plain := ClientSpec{ID: "plain", Label: "Plain", EndpointProtocols: responses}
 	provider := ClientSpec{ID: "provider", Label: "Provider", EndpointProtocols: responses, DefaultModelProvider: "provider-default"}
 	native := ClientSpec{
@@ -95,8 +95,8 @@ func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
 	other.ID, other.Label = "other", "Other"
 	admission := NewAdmission(plain, provider, native, other)
 	base := NewConfig(admission)
-	base.Providers["gateway"] = Provider{Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	base.Models["route"] = testModel("Route", "gateway", "model", ProtocolOpenAIResponses)
+	base.Providers["gateway"] = Provider{Label: "Gateway", Endpoints: Endpoints{Responses: "https://gateway.test/v1"}}
+	base.Models["route"] = testModel("Route", "gateway", "model", ProtocolResponses)
 
 	for name, test := range map[string]struct {
 		client  string

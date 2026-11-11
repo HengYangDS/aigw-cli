@@ -245,7 +245,7 @@ func (provider Provider) validate(name string) error {
 	if provider.Order < 0 {
 		return fmt.Errorf("account %q order must not be negative", name)
 	}
-	if provider.Endpoints.OpenAIResponses == "" && provider.Endpoints.Anthropic == "" && provider.Endpoints.OpenAIChatCompletions == "" {
+	if provider.Endpoints.Responses == "" && provider.Endpoints.Anthropic == "" && provider.Endpoints.Chat == "" {
 		return fmt.Errorf("account %q must define at least one endpoint", name)
 	}
 	for _, endpoint := range []struct {
@@ -253,8 +253,8 @@ func (provider Provider) validate(name string) error {
 		url      string
 	}{
 		{ProtocolAnthropic, provider.Endpoints.Anthropic},
-		{ProtocolOpenAIResponses, provider.Endpoints.OpenAIResponses},
-		{ProtocolOpenAIChatCompletions, provider.Endpoints.OpenAIChatCompletions},
+		{ProtocolResponses, provider.Endpoints.Responses},
+		{ProtocolChat, provider.Endpoints.Chat},
 	} {
 		if endpoint.url == "" {
 			continue
@@ -323,7 +323,7 @@ func (model Model) validate(name string, providers map[string]Provider, families
 	seen := make(map[EndpointProtocol]bool, len(protocols))
 	for _, protocol := range protocols {
 		switch protocol {
-		case ProtocolAnthropic, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions:
+		case ProtocolAnthropic, ProtocolResponses, ProtocolChat:
 		default:
 			return fmt.Errorf("route %q has unknown protocol %q", name, protocol)
 		}

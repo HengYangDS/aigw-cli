@@ -259,7 +259,7 @@ func hasInferenceOutput(protocol domain.EndpointProtocol, body []byte) bool {
 				return true
 			}
 		}
-	case domain.ProtocolOpenAIResponses:
+	case domain.ProtocolResponses:
 		if payload.Status != "completed" {
 			return false
 		}
@@ -273,7 +273,7 @@ func hasInferenceOutput(protocol domain.EndpointProtocol, body []byte) bool {
 				}
 			}
 		}
-	case domain.ProtocolOpenAIChatCompletions:
+	case domain.ProtocolChat:
 		for _, choice := range payload.Choices {
 			if choice.Message.Role == "assistant" && strings.TrimSpace(choice.Message.Content) != "" {
 				return true

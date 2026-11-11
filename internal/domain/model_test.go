@@ -91,12 +91,12 @@ func validConfig() Config {
 	return Config{
 		Version: ConfigVersion,
 		Providers: map[string]Provider{
-			"dmx":    {Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}},
-			"backup": {Label: "Backup", Endpoints: Endpoints{OpenAIResponses: "https://backup.test/v1"}},
+			"dmx":    {Label: "DMXAPI", Endpoints: Endpoints{Responses: "https://example.test/v1", Anthropic: "https://example.test"}},
+			"backup": {Label: "Backup", Endpoints: Endpoints{Responses: "https://backup.test/v1"}},
 		},
 		Models: map[string]Model{
 			"dmx":    testModel("DMXAPI", "dmx", "claude-test", ProtocolAnthropic),
-			"backup": testModel("Backup", "backup", "gpt-test", ProtocolOpenAIResponses),
+			"backup": testModel("Backup", "backup", "gpt-test", ProtocolResponses),
 		},
 		Recommendations: map[string]ClientRecommendation{},
 		Clients: map[string]ClientBinding{
@@ -242,7 +242,7 @@ func TestValidationReportsStableFirstProblemWithoutChangingConfiguration(t *test
 		}, `unknown client binding "alpha"`},
 		{"protocol endpoints", func(c *Config) {
 			c.Providers = map[string]Provider{"alpha": {Label: "Alpha", Endpoints: Endpoints{
-				OpenAIResponses: "invalid", Anthropic: "invalid",
+				Responses: "invalid", Anthropic: "invalid",
 			}}}
 		}, `account "alpha" endpoint anthropic: URL must use http or https and include a host`},
 		{"credential query parameters", func(c *Config) {
@@ -281,8 +281,8 @@ func TestValidateAllowsProviderNeutralExplicitDiagnostics(t *testing.T) {
 
 func TestValidateRejectsRuntimeModelReferencingUnknownProviderOrInvalidClientOptions(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Providers["dmx"] = Provider{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Models["codex"] = testModel("Codex", "missing", "gpt-5.6", ProtocolOpenAIResponses)
+	cfg.Providers["dmx"] = Provider{Label: "DMXAPI", Endpoints: Endpoints{Responses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
+	cfg.Models["codex"] = testModel("Codex", "missing", "gpt-5.6", ProtocolResponses)
 	cfg.SetSelectedModel(ClientCodex, "codex", "")
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "unknown account") {
 		t.Fatalf("error = %v", err)
@@ -312,10 +312,10 @@ func TestValidateRequiresEachSelectedBindingsClientProtocol(t *testing.T) {
 			switch client.EndpointProtocols[0] {
 			case ProtocolAnthropic:
 				account.Endpoints.Anthropic = ""
-			case ProtocolOpenAIResponses:
-				account.Endpoints.OpenAIResponses = ""
-			case ProtocolOpenAIChatCompletions:
-				account.Endpoints.OpenAIChatCompletions = ""
+			case ProtocolResponses:
+				account.Endpoints.Responses = ""
+			case ProtocolChat:
+				account.Endpoints.Chat = ""
 			}
 			cfg.Providers["dmx"] = account
 			before := cfg.Clone()
@@ -362,7 +362,7 @@ func TestValidateTreatsModelIDAsTransparentConfiguration(t *testing.T) {
 	cfg.Families["upstream-model"] = Family{Label: "Upstream Model"}
 	route := cfg.Models["dmx"]
 	route.Family = "upstream-model"
-	route.Protocols = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}
+	route.Protocols = map[EndpointProtocol][]Capability{ProtocolResponses: {}}
 	delete(cfg.Models, "dmx")
 	cfg.Models[routeID] = route
 	delete(cfg.Clients, ClientClaude)
@@ -378,7 +378,7 @@ func TestValidateTreatsUpstreamModelIDAsTransparentConfiguration(t *testing.T) {
 	cfg := validConfig()
 	route := cfg.Models["dmx"]
 	route.UpstreamModel = modelID
-	route.Protocols = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}
+	route.Protocols = map[EndpointProtocol][]Capability{ProtocolResponses: {}}
 	cfg.Models["dmx"] = route
 	delete(cfg.Clients, ClientClaude)
 	cfg.SetSelectedModel(ClientCodex, "dmx", "")

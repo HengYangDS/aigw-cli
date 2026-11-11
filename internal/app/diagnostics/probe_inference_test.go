@@ -13,7 +13,7 @@ import (
 
 func inferenceRuntime() domain.Runtime {
 	selected := runtime()
-	selected.Protocol = domain.ProtocolOpenAIResponses
+	selected.Protocol = domain.ProtocolResponses
 	selected.UpstreamModel = "gpt-6-sol"
 	return selected
 }
@@ -133,11 +133,11 @@ func TestInferenceScopeRejectsSuccessfulHTTPWithoutCompletedOutput(t *testing.T)
 		protocol domain.EndpointProtocol
 		body     string
 	}{
-		{"responses incomplete", domain.ProtocolOpenAIResponses, `{"status":"incomplete","output":[],"incomplete_details":{"reason":"max_output_tokens"}}`},
-		{"responses empty", domain.ProtocolOpenAIResponses, `{"status":"completed","output":[]}`},
-		{"responses error", domain.ProtocolOpenAIResponses, `{"error":{"message":"provider failed"}}`},
+		{"responses incomplete", domain.ProtocolResponses, `{"status":"incomplete","output":[],"incomplete_details":{"reason":"max_output_tokens"}}`},
+		{"responses empty", domain.ProtocolResponses, `{"status":"completed","output":[]}`},
+		{"responses error", domain.ProtocolResponses, `{"error":{"message":"provider failed"}}`},
 		{"anthropic empty", domain.ProtocolAnthropic, `{"type":"message","role":"assistant","content":[]}`},
-		{"chat empty", domain.ProtocolOpenAIChatCompletions, `{"choices":[]}`},
+		{"chat empty", domain.ProtocolChat, `{"choices":[]}`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -163,9 +163,9 @@ func TestInferenceScopeAcceptsTextOutputForEachProtocol(t *testing.T) {
 		protocol domain.EndpointProtocol
 		body     string
 	}{
-		{"responses", domain.ProtocolOpenAIResponses, `{"status":"completed","output":[{"type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"pong"}]}]}`},
+		{"responses", domain.ProtocolResponses, `{"status":"completed","output":[{"type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"pong"}]}]}`},
 		{"anthropic", domain.ProtocolAnthropic, `{"type":"message","role":"assistant","content":[{"type":"text","text":"pong"}],"stop_reason":"end_turn"}`},
-		{"chat", domain.ProtocolOpenAIChatCompletions, `{"choices":[{"message":{"role":"assistant","content":"pong"},"finish_reason":"stop"}]}`},
+		{"chat", domain.ProtocolChat, `{"choices":[{"message":{"role":"assistant","content":"pong"},"finish_reason":"stop"}]}`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

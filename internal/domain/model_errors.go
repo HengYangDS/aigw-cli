@@ -66,9 +66,9 @@ func ProtocolLabel(protocol EndpointProtocol) string {
 	switch protocol {
 	case ProtocolAnthropic:
 		return "Anthropic Messages"
-	case ProtocolOpenAIResponses:
+	case ProtocolResponses:
 		return "OpenAI Responses"
-	case ProtocolOpenAIChatCompletions:
+	case ProtocolChat:
 		return "OpenAI Chat Completions"
 	default:
 		return string(protocol)

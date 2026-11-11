@@ -14,11 +14,11 @@ import (
 // configuration carry: a client that only it admits round-trips, and the same
 // bytes refuse that client under an admission without it.
 func TestStoreAndManifestFollowTheInjectedAdmission(t *testing.T) {
-	future := domain.ClientSpec{ID: "future", Label: "Future", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
+	future := domain.ClientSpec{ID: "future", Label: "Future", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses}}
 	admission := domain.NewAdmission(future)
 	cfg := domain.NewConfig(admission)
-	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Models["route"] = testModel("Route", "gateway", "model", domain.ProtocolOpenAIResponses)
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+	cfg.Models["route"] = testModel("Route", "gateway", "model", domain.ProtocolResponses)
 	cfg.Recommendations["future"] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "route"}}
 	cfg.SetSelectedModel("future", "route", "")
 	cfg.SetClientActivation("future", true, "/opt/future", nil)

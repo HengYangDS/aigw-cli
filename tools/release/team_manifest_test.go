@@ -74,11 +74,11 @@ func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testi
 		if len(route.Protocols) != 1 {
 			t.Fatalf("%s 6.1 Sol protocols = %#v", account, route.Protocols)
 		}
-		if _, ok := route.Protocols[domain.ProtocolOpenAIResponses]; !ok {
+		if _, ok := route.Protocols[domain.ProtocolResponses]; !ok {
 			t.Fatalf("%s 6.1 Sol lacks Responses: %#v", account, route.Protocols)
 		}
 	}
-	if got := manifest.Providers["dmxapi"].Endpoints.OpenAIResponses; got != "https://www.dmxapi.cn/v1" {
+	if got := manifest.Providers["dmxapi"].Endpoints.Responses; got != "https://www.dmxapi.cn/v1" {
 		t.Fatalf("team DMXAPI endpoint = %q, want direct provider", got)
 	}
 	for client, want := range map[string][]string{

@@ -32,7 +32,7 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryProviderChoices(t 
 				t.Fatal(err)
 			}
 			cfg := domain.NewConfig(clients.Admission())
-			addProviderModel(&cfg, "codex", "provider", "Provider", domain.Endpoints{OpenAIResponses: test.endpoint}, codex.ID, "gpt-test")
+			addProviderModel(&cfg, "codex", "provider", "Provider", domain.Endpoints{Responses: test.endpoint}, codex.ID, "gpt-test")
 			cfg.SetSelectedModel(codex.ID, "codex", "")
 			cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 			if err := app.Config.Save(cfg); err != nil {
@@ -146,7 +146,7 @@ func TestEndpointOnlyCheckUsesSelectedTLSOrLoopbackProvider(t *testing.T) {
 				t.Fatal(err)
 			}
 			cfg := domain.NewConfig(clients.Admission())
-			addProviderModel(&cfg, "codex", "selected", "Selected", domain.Endpoints{OpenAIResponses: server.URL + "/v1"}, codex.ID, "gpt-test")
+			addProviderModel(&cfg, "codex", "selected", "Selected", domain.Endpoints{Responses: server.URL + "/v1"}, codex.ID, "gpt-test")
 			cfg.SetSelectedModel(codex.ID, "codex", "")
 			cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 			if err := app.Config.Save(cfg); err != nil {
@@ -189,7 +189,7 @@ func TestSelectedProviderWorksWithoutInstalledClient(t *testing.T) {
 	app.Discovery = fakeDiscovery{}
 	app.HTTP = server.Client()
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "codex", "provider", "Provider", domain.Endpoints{OpenAIResponses: server.URL + "/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "codex", "provider", "Provider", domain.Endpoints{Responses: server.URL + "/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

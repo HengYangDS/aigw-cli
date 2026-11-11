@@ -39,7 +39,7 @@ func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
 		{
 			name:       "openai responses",
 			endpoint:   "https://responses.example/v1",
-			protocol:   ProtocolOpenAIResponses,
+			protocol:   ProtocolResponses,
 			model:      "gpt-6-sol",
 			wantURL:    "https://responses.example/v1/responses",
 			wantHeader: "Authorization",
@@ -54,7 +54,7 @@ func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
 		{
 			name:       "openai chat completions",
 			endpoint:   "https://chat.example/v1/",
-			protocol:   ProtocolOpenAIChatCompletions,
+			protocol:   ProtocolChat,
 			model:      "chat-model",
 			wantURL:    "https://chat.example/v1/chat/completions",
 			wantHeader: "Authorization",
@@ -100,7 +100,7 @@ func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
 func TestModelInferenceRequestRejectsMissingModelAndUnknownProtocol(t *testing.T) {
 	t.Parallel()
 
-	_, err := ModelInferenceRequest(context.Background(), "https://example.test/v1", ProtocolOpenAIResponses, "fixture-token", "  ")
+	_, err := ModelInferenceRequest(context.Background(), "https://example.test/v1", ProtocolResponses, "fixture-token", "  ")
 	if err == nil || !strings.Contains(err.Error(), "model") {
 		t.Fatalf("empty model error = %v", err)
 	}

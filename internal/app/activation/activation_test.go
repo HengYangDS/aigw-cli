@@ -101,8 +101,8 @@ func TestAssessActivationSeparatesCapabilityAndSelectionPrerequisites(t *testing
 
 func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
-	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
-	cfg.Models["codex"] = domain.Model{Provider: "team", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://team.test/v1"}}
+	cfg.Models["codex"] = domain.Model{Provider: "team", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	selection := AssessActivation(cfg, nil)
 	if selection.State != domainreadiness.Deferred || selection.NextActionFor(nil) != "aigw use <client> <provider/model>" {
 		t.Fatalf("missing Token backend blocked selection before any Account was chosen: %+v", selection)
@@ -158,13 +158,13 @@ func TestNextActionAfterProviderConnectionPreservesExplicitSelection(t *testing.
 func TestNextActionAfterProviderConnectionKeepsRequiredProtocolExplicit(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{
-		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
+		Anthropic: "https://team.test", Responses: "https://team.test/v1",
 	}}
 	cfg.Models["multi"] = domain.Model{Provider: "team", Family: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{
-		domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
+		domain.ProtocolAnthropic: {}, domain.ProtocolResponses: {},
 	}}
 	cfg.Recommendations[hermes.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{
-		Model: "multi", Protocol: domain.ProtocolOpenAIResponses,
+		Model: "multi", Protocol: domain.ProtocolResponses,
 	}}
 	want := "aigw use hermes team/model --protocol responses"
 	if got := NextActionAfterProviderConnection(cfg, "team"); got != want {
@@ -249,9 +249,9 @@ func TestAssessActivationDoesNotRecommendNoOpSyncBeforeClientActivation(t *testi
 func TestAssessActivationDoesNotInstallAClientWhoseSelectedTokenIsMissing(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Providers["missing"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
-	cfg.Providers["connected"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://connected.test/v1"}}
+	cfg.Providers["connected"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://connected.test/v1"}}
 	cfg.Models["claude"] = domain.Model{Provider: "missing", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["codex"] = domain.Model{Provider: "connected", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["codex"] = domain.Model{Provider: "connected", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetRecommendedModel(codex.ID, "codex")
 	store := secret.NewEnvironmentStore(func(key string) string {

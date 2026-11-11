@@ -170,7 +170,7 @@ func TestCredentialHelperResolvesAnUnselectedModelProjection(t *testing.T) {
 			if spec.EndpointProtocols[0] == domain.ProtocolAnthropic {
 				account.Endpoints.Anthropic = "https://alternate.test"
 			} else {
-				account.Endpoints.OpenAIResponses = "https://alternate.test/v1"
+				account.Endpoints.Responses = "https://alternate.test/v1"
 			}
 			cfg.Providers["alternate"] = account
 			cfg.Models["alternate"] = domain.Model{
@@ -206,12 +206,12 @@ func TestCredentialHelperResolvesEveryProjectedModelProtocol(t *testing.T) {
 		t.Fatal(err)
 	}
 	account := cfg.Providers["gateway"]
-	account.Endpoints.OpenAIChatCompletions = "https://gateway.test/chat/v1"
+	account.Endpoints.Chat = "https://gateway.test/chat/v1"
 	cfg.Providers["gateway"] = account
 	route := cfg.Models[hermes.ID]
 	route.Protocols = map[domain.EndpointProtocol][]domain.Capability{
-		domain.ProtocolOpenAIResponses:       {},
-		domain.ProtocolOpenAIChatCompletions: {},
+		domain.ProtocolResponses: {},
+		domain.ProtocolChat:      {},
 	}
 	cfg.Models[hermes.ID] = route
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -224,8 +224,8 @@ func TestCredentialHelperResolvesEveryProjectedModelProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection.Protocol = domain.ProtocolOpenAIChatCompletions
-	projection.Endpoint = account.Endpoints.OpenAIChatCompletions
+	projection.Protocol = domain.ProtocolChat
+	projection.Endpoint = account.Endpoints.Chat
 
 	command := NewCommand(runtime)
 	if err := command.RunE(command, []string{hermes.ID, projection.CredentialProjectionFingerprint(hermes.ID)}); err != nil {
@@ -261,8 +261,8 @@ func TestCredentialHelperRejectsStaleBindingBeforeSecretAccess(t *testing.T) {
 				case "endpoint":
 					account := cfg.Providers[projection.ProviderID]
 					account.Endpoints = domain.Endpoints{
-						Anthropic:       "https://other.test",
-						OpenAIResponses: "https://other.test/v1",
+						Anthropic: "https://other.test",
+						Responses: "https://other.test/v1",
 					}
 					cfg.Providers[projection.ProviderID] = account
 				}
@@ -393,7 +393,7 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 	if spec.EndpointProtocols[0] == domain.ProtocolAnthropic {
 		account.Endpoints.Anthropic = "https://gateway.test"
 	} else {
-		account.Endpoints.OpenAIResponses = "https://gateway.test/v1"
+		account.Endpoints.Responses = "https://gateway.test/v1"
 	}
 	cfg.Providers["gateway"] = account
 	cfg.Models[client] = domain.Model{

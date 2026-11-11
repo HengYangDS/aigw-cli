@@ -62,9 +62,9 @@ func TestClientForwardingDoesNotRedirectAnExplicitOtherProvider(t *testing.T) {
 	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Models["other"] = testModel("Other", "dmx", "other-model", ProtocolOpenAIResponses)
+	cfg.Models["other"] = testModel("Other", "dmx", "other-model", ProtocolResponses)
 	qualified, err := cfg.ResolveRuntime(ClientCodex, "other")
-	if err != nil || qualified.Endpoint != cfg.Providers["dmx"].Endpoints.OpenAIResponses || qualified.ProviderID != "dmx" {
+	if err != nil || qualified.Endpoint != cfg.Providers["dmx"].Endpoints.Responses || qualified.ProviderID != "dmx" {
 		t.Fatalf("explicit other-Account qualification inherited the selected forwarding destination: %#v, %v", qualified, err)
 	}
 	cfg.SetSelectedModel(ClientCodex, "other", "")
@@ -112,8 +112,8 @@ func TestConfigSerializationUsesClientBindingsOnly(t *testing.T) {
 		Provider: "team",
 		Family:   "reasoning-model",
 		Protocols: map[EndpointProtocol][]Capability{
-			ProtocolAnthropic:             {CapabilityText},
-			ProtocolOpenAIChatCompletions: {CapabilityText},
+			ProtocolAnthropic: {CapabilityText},
+			ProtocolChat:      {CapabilityText},
 		},
 	}
 	cfg.Clients[ClientClaude] = ClientBinding{
@@ -162,8 +162,8 @@ func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 	cfg.Providers["team"] = Provider{
 		Label: "Team",
 		Endpoints: Endpoints{
-			Anthropic:             "https://team.test/anthropic",
-			OpenAIChatCompletions: "https://team.test/openai/v1",
+			Anthropic: "https://team.test/anthropic",
+			Chat:      "https://team.test/openai/v1",
 		},
 	}
 	cfg.Models["reasoning"] = Model{
@@ -171,8 +171,8 @@ func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 		Provider: "team",
 		Family:   "reasoning-model",
 		Protocols: map[EndpointProtocol][]Capability{
-			ProtocolAnthropic:             {CapabilityText},
-			ProtocolOpenAIChatCompletions: {CapabilityText},
+			ProtocolAnthropic: {CapabilityText},
+			ProtocolChat:      {CapabilityText},
 		},
 	}
 	cfg.Clients[ClientClaude] = ClientBinding{
@@ -209,18 +209,18 @@ func TestClientBindingOwnsNativeAuthentication(t *testing.T) {
 	cfg := NewConfig(testAdmission())
 	cfg.Providers["native"] = Provider{
 		Label:     "Native",
-		Endpoints: Endpoints{OpenAIResponses: "https://native.test/v1"},
+		Endpoints: Endpoints{Responses: "https://native.test/v1"},
 	}
-	cfg.Models["model"] = testModel("Model", "native", "model-id", ProtocolOpenAIResponses)
+	cfg.Models["model"] = testModel("Model", "native", "model-id", ProtocolResponses)
 	cfg.Clients[ClientCodex] = ClientBinding{
 		Enabled:        true,
 		Model:          "model",
-		Protocol:       ProtocolOpenAIResponses,
+		Protocol:       ProtocolResponses,
 		ModelProvider:  "amazon-bedrock",
 		Authentication: AuthenticationClientNative,
 	}
 
-	cfg.SetSelectedModel(ClientCodex, "model", ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(ClientCodex, "model", ProtocolResponses)
 	runtime, err := cfg.ResolveRuntime(ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
@@ -237,7 +237,7 @@ func TestSetClientActivationPreservesSelectionAndClientOptions(t *testing.T) {
 	cfg := NewConfig(testAdmission())
 	cfg.Clients[ClientCodex] = ClientBinding{
 		Model:             "reasoning",
-		Protocol:          ProtocolOpenAIResponses,
+		Protocol:          ProtocolResponses,
 		ModelProvider:     "provider",
 		Authentication:    AuthenticationClientNative,
 		CredentialCommand: "/existing/helper",
@@ -246,7 +246,7 @@ func TestSetClientActivationPreservesSelectionAndClientOptions(t *testing.T) {
 	cfg.SetClientActivation(ClientCodex, true, "/opt/codex", []string{"/one/config.toml", "/two/config.toml"})
 
 	got := cfg.Clients[ClientCodex]
-	if got.Model != "reasoning" || got.Protocol != ProtocolOpenAIResponses || got.ModelProvider != "provider" || got.Authentication != AuthenticationClientNative || got.CredentialCommand != "/existing/helper" {
+	if got.Model != "reasoning" || got.Protocol != ProtocolResponses || got.ModelProvider != "provider" || got.Authentication != AuthenticationClientNative || got.CredentialCommand != "/existing/helper" {
 		t.Fatalf("activation replaced client selection or options: %#v", got)
 	}
 	if !got.Enabled || got.Executable != "/opt/codex" || !reflect.DeepEqual(got.Targets, []string{"/one/config.toml", "/two/config.toml"}) {

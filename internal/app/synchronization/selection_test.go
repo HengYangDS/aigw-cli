@@ -53,19 +53,19 @@ func TestModelSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 		name, route, wantEndpoint string
 		protocol                  domain.EndpointProtocol
 	}{
-		{name: "same upstream", route: "dual", protocol: domain.ProtocolOpenAIChatCompletions, wantEndpoint: "http://127.0.0.1:8792/selected/v1"},
-		{name: "new protocol", route: "dual", protocol: domain.ProtocolOpenAIResponses, wantEndpoint: "https://team.test/responses/v1"},
-		{name: "new Account", route: "other", protocol: domain.ProtocolOpenAIChatCompletions, wantEndpoint: "https://other.test/v1"},
+		{name: "same upstream", route: "dual", protocol: domain.ProtocolChat, wantEndpoint: "http://127.0.0.1:8792/selected/v1"},
+		{name: "new protocol", route: "dual", protocol: domain.ProtocolResponses, wantEndpoint: "https://team.test/responses/v1"},
+		{name: "new Account", route: "other", protocol: domain.ProtocolChat, wantEndpoint: "https://other.test/v1"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := setupConfiguration()
 			cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{
-				Anthropic: "https://team.test", OpenAIChatCompletions: "https://team.test/v1", OpenAIResponses: "https://team.test/responses/v1",
+				Anthropic: "https://team.test", Chat: "https://team.test/v1", Responses: "https://team.test/responses/v1",
 			}}
-			cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{OpenAIChatCompletions: "https://other.test/v1"}}
-			cfg.Models["chat"] = domain.Model{Label: "Chat", Provider: "team", Family: "shared", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}}
-			cfg.Models["dual"] = domain.Model{Label: "Dual", Provider: "team", Family: "shared", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}, domain.ProtocolOpenAIResponses: {}}}
-			cfg.Models["other"] = domain.Model{Label: "Other", Provider: "other", Family: "shared", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}}
+			cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Chat: "https://other.test/v1"}}
+			cfg.Models["chat"] = domain.Model{Label: "Chat", Provider: "team", Family: "shared", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
+			cfg.Models["dual"] = domain.Model{Label: "Dual", Provider: "team", Family: "shared", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}, domain.ProtocolResponses: {}}}
+			cfg.Models["other"] = domain.Model{Label: "Other", Provider: "other", Family: "shared", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
 			cfg.Clients[hermes.ID] = domain.ClientBinding{Model: "chat", Enabled: true}
 			if err := cfg.SetForwardingEndpoint(hermes.ID, "http://127.0.0.1:8792/selected/v1"); err != nil {
 				t.Fatal(err)
@@ -126,7 +126,7 @@ func TestModelSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 	for _, route := range []string{"unknown", "native"} {
 		t.Run(route, func(t *testing.T) {
 			cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
-			cfg.Models["native"] = domain.Model{Label: "Native", Provider: "gateway", Family: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+			cfg.Models["native"] = domain.Model{Label: "Native", Provider: "gateway", Family: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 			binding := cfg.Clients[codex.ID]
 			binding.ModelProvider = "provider"
 			binding.Authentication = domain.AuthenticationClientNative

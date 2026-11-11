@@ -27,8 +27,8 @@ func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
 	model.Family, model.UpstreamModel = "other-model", "other-model"
 	cfg.Models["model-only"] = model
 	cfg.Families["other-model"] = domain.Family{Label: "Other model"}
-	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
-	cfg.Models["other"] = domain.Model{Label: "Other", Provider: "other", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Responses: "https://other.test/v1"}}
+	cfg.Models["other"] = domain.Model{Label: "Other", Provider: "other", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.Normalize()
 	for _, test := range []struct {
 		name, route string
@@ -60,10 +60,10 @@ func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
 func retryTransitionFixture(t *testing.T) domain.Config {
 	t.Helper()
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Responses: "https://one.test/v1"}}
 	cfg.Families["gpt"] = domain.Family{Label: "GPT"}
-	cfg.Models["one"] = domain.Model{Label: "One", Provider: "one", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedModel(codex.ID, "one", domain.ProtocolOpenAIResponses)
+	cfg.Models["one"] = domain.Model{Label: "One", Provider: "one", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.SetSelectedModel(codex.ID, "one", domain.ProtocolResponses)
 	zero := uint64(0)
 	binding := cfg.Clients[codex.ID]
 	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero}
@@ -92,7 +92,7 @@ func TestRetryConnectionTransitionGenericProviderCommit(t *testing.T) {
 			if change == "label" {
 				account.Label = "Renamed"
 			} else {
-				account.Endpoints.OpenAIResponses = "https://replacement.test/v1"
+				account.Endpoints.Responses = "https://replacement.test/v1"
 			}
 			after.Providers["one"] = account
 			if err := (Synchronizer{Registry: builtinClients, Config: configStore}).Commit(t.Context(), before, after, "provider edit"); err != nil {

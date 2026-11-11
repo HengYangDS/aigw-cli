@@ -30,7 +30,7 @@ func TestUnpublishedModelCapabilityStaysOutOfCanonicalConfiguration(t *testing.T
 	if got := canonical.Models["claude"].Protocols[domain.ProtocolAnthropic]; !slices.Equal(got, publishedSchemaSixCapabilities) {
 		t.Fatalf("canonical Anthropic capabilities = %v, want the published schema-six vocabulary", got)
 	}
-	if got := canonical.Models["gpt"].Protocols[domain.ProtocolOpenAIResponses]; !slices.Equal(got, []domain.Capability{domain.CapabilityText, domain.CapabilityReasoning}) {
+	if got := canonical.Models["gpt"].Protocols[domain.ProtocolResponses]; !slices.Equal(got, []domain.Capability{domain.CapabilityText, domain.CapabilityReasoning}) {
 		t.Fatalf("canonical Responses capabilities = %v", got)
 	}
 	loaded, err := store.Load()
@@ -106,7 +106,7 @@ func TestStoredCapabilityAppliesOnlyToItsRecordedModel(t *testing.T) {
 				cfg.Providers["other"] = cfg.Providers["ucloud"]
 				route.Provider = "other"
 			case "interface":
-				route.Protocols = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}}
+				route.Protocols = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {domain.CapabilityText}}
 			}
 			cfg.Models["claude"] = route
 			if change == "route" {
@@ -133,7 +133,7 @@ func TestStoredCapabilityAppliesOnlyToItsRecordedModel(t *testing.T) {
 
 func TestDamagedCapabilityComponentFailsOnlyFullReads(t *testing.T) {
 	fixture := toolSearchConfig()
-	responses := capabilityIdentity(fixture, fixture.Models["gpt"], domain.ProtocolOpenAIResponses)
+	responses := capabilityIdentity(fixture, fixture.Models["gpt"], domain.ProtocolResponses)
 	for name, component := range map[string]string{
 		"syntax":          "[routes",
 		"empty":           "",
@@ -227,7 +227,7 @@ func TestStoredCapabilitySurvivesRecovery(t *testing.T) {
 func toolSearchConfig() domain.Config {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{
-		Anthropic: "https://ucloud.test", OpenAIResponses: "https://ucloud.test/v1",
+		Anthropic: "https://ucloud.test", Responses: "https://ucloud.test/v1",
 	}}
 	cfg.Models["claude"] = domain.Model{
 		Label: "Claude", Provider: "ucloud", Family: "claude", UpstreamModel: "claude-wire",
@@ -237,7 +237,7 @@ func toolSearchConfig() domain.Config {
 	}
 	cfg.Models["gpt"] = domain.Model{
 		Label: "GPT", Provider: "ucloud", Family: "gpt",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText, domain.CapabilityReasoning}},
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {domain.CapabilityText, domain.CapabilityReasoning}},
 	}
 	return cfg
 }

@@ -8,7 +8,7 @@ import (
 func TestValidateAllowsExplicitLoopbackDevelopmentProvider(t *testing.T) {
 	cfg := validConfig()
 	a := cfg.Providers["dmx"]
-	a.Endpoints.OpenAIResponses = "http://127.0.0.1:18765/v1"
+	a.Endpoints.Responses = "http://127.0.0.1:18765/v1"
 	cfg.Providers["dmx"] = a
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)

@@ -100,8 +100,8 @@ func (s *configStoreStub) RestoreSnapshot(store.Snapshot, store.Snapshot) error 
 
 func testConfig(target string) domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Models["gpt"] = domain.Model{Label: "GPT", Provider: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+	cfg.Models["gpt"] = domain.Model{Label: "GPT", Provider: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	return cfg
@@ -227,8 +227,8 @@ func TestCommitPersistenceFailureBoundaries(t *testing.T) {
 	// The committed configuration must itself be savable, so the injected
 	// persistence failures are the ones that stop the commit.
 	after := domain.NewConfig(clients.Admission())
-	after.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	after.Models["gpt"] = domain.Model{Label: "GPT", Provider: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	after.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+	after.Models["gpt"] = domain.Model{Label: "GPT", Provider: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	want := errors.New("failure")
 	tests := []struct {
 		name  string

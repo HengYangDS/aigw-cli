@@ -42,8 +42,8 @@ func qualifiedModel(label, account, model string, protocols ...domain.EndpointPr
 
 func codexConfiguration(target string) domain.Config {
 	cfg := domain.NewConfig(Admission())
-	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+	cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
 	cfg.Clients[codex.ID] = domain.ClientBinding{Model: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }
@@ -51,7 +51,7 @@ func codexConfiguration(target string) domain.Config {
 // TestBuiltInAdmissionIsTheProductClientContract pins each built-in client's
 // admission record and the admission order that help, errors and output use.
 func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
-	anthropic, responses := domain.ProtocolAnthropic, domain.ProtocolOpenAIResponses
+	anthropic, responses := domain.ProtocolAnthropic, domain.ProtocolResponses
 	want := []domain.ClientSpec{
 		{
 			ID: claude.ID, Label: "Claude", EndpointProtocols: []domain.EndpointProtocol{anthropic},
@@ -69,7 +69,7 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 		},
 		{
 			ID: hermes.ID, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml",
-			EndpointProtocols: []domain.EndpointProtocol{responses, anthropic, domain.ProtocolOpenAIChatCompletions},
+			EndpointProtocols: []domain.EndpointProtocol{responses, anthropic, domain.ProtocolChat},
 		},
 	}
 	if got := Admission().Specs(); !reflect.DeepEqual(got, want) {
@@ -89,7 +89,7 @@ func TestChangedClientsRetainsAdmissionOrderAndIndependentResults(t *testing.T) 
 	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	after := before.Clone()
-	account.Endpoints = domain.Endpoints{OpenAIResponses: "https://replacement.test/v1", Anthropic: "https://replacement.test"}
+	account.Endpoints = domain.Endpoints{Responses: "https://replacement.test/v1", Anthropic: "https://replacement.test"}
 	after.Providers["gateway"] = account
 	registry := Registry()
 	changed := registry.ChangedClients(before, after)
@@ -123,11 +123,11 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 
 	before := domain.NewConfig(Admission())
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{
-		Anthropic:       "https://gateway.test",
-		OpenAIResponses: "https://gateway.test/v1",
+		Anthropic: "https://gateway.test",
+		Responses: "https://gateway.test/v1",
 	}}
 	before.Models["claude"] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
-	before.Models["codex"] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	before.Models["codex"] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolResponses)
 	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetSelectedModel(codex.ID, "codex", "")
 	after := before.Clone()
@@ -164,7 +164,7 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 type futureAdapter struct{ adapter.Adapter }
 
 func (futureAdapter) Spec() domain.ClientSpec {
-	return domain.ClientSpec{ID: "future", Label: "Future", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
+	return domain.ClientSpec{ID: "future", Label: "Future", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses}}
 }
 
 func (clientAdapter futureAdapter) Converge(_ adapter.Dependencies, cfg *domain.Config, _ discovery.Result) error {
@@ -183,19 +183,19 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 	before.Providers["direct"] = domain.Provider{
 		Label: "Direct",
 		Endpoints: domain.Endpoints{
-			Anthropic:       "https://direct.example.test",
-			OpenAIResponses: "https://direct.example.test/v1",
+			Anthropic: "https://direct.example.test",
+			Responses: "https://direct.example.test/v1",
 		},
 	}
 	before.Providers["gateway"] = domain.Provider{
 		Label: "External gateway",
 		Endpoints: domain.Endpoints{
-			Anthropic:       "http://127.0.0.1:9876",
-			OpenAIResponses: "http://127.0.0.1:9876/v1",
+			Anthropic: "http://127.0.0.1:9876",
+			Responses: "http://127.0.0.1:9876/v1",
 		},
 	}
 	before.Models["claude"] = qualifiedModel("", "direct", "claude-test", domain.ProtocolAnthropic)
-	before.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	before.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
 	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetSelectedModel(codex.ID, "codex", "")
 	before.SetClientActivation(claude.ID, true, "/clients/claude", nil)

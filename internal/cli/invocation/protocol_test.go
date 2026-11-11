@@ -24,7 +24,7 @@ func TestProtocolFlagAcceptsOnlyProtocolNames(t *testing.T) {
 		return command
 	}
 	for name, want := range map[string]domain.EndpointProtocol{
-		"anthropic": domain.ProtocolAnthropic, "responses": domain.ProtocolOpenAIResponses, "chat": domain.ProtocolOpenAIChatCompletions,
+		"anthropic": domain.ProtocolAnthropic, "responses": domain.ProtocolResponses, "chat": domain.ProtocolChat,
 	} {
 		var protocol domain.EndpointProtocol
 		command := newCommand(&protocol)
@@ -82,7 +82,7 @@ func TestProtocolsFlagKeepsEachNamedProtocolOnce(t *testing.T) {
 	if err := command.ParseFlags([]string{"--protocol", "chat", "--protocol", "anthropic", "--protocol", "chat"}); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(protocols, []domain.EndpointProtocol{domain.ProtocolOpenAIChatCompletions, domain.ProtocolAnthropic}) || flag.Value.String() != "chat,anthropic" {
+	if !slices.Equal(protocols, []domain.EndpointProtocol{domain.ProtocolChat, domain.ProtocolAnthropic}) || flag.Value.String() != "chat,anthropic" {
 		t.Fatalf("parsed protocols = %q, value %q", protocols, flag.Value.String())
 	}
 	if line, _ := commandLine(command, nil); line != "demo --protocol chat --protocol anthropic" {
@@ -92,7 +92,7 @@ func TestProtocolsFlagKeepsEachNamedProtocolOnce(t *testing.T) {
 	if !ok {
 		t.Fatal("the protocols flag is not a slice value")
 	}
-	if err := slice.Replace([]string{"responses"}); err != nil || !slices.Equal(protocols, []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}) {
+	if err := slice.Replace([]string{"responses"}); err != nil || !slices.Equal(protocols, []domain.EndpointProtocol{domain.ProtocolResponses}) {
 		t.Fatalf("replaced protocols = %q, %v", protocols, err)
 	}
 	if err := slice.Replace([]string{"openai_responses"}); !errors.Is(err, errProtocolName) {

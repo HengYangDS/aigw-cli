@@ -65,12 +65,12 @@ func adapterConfig() domain.Config {
 	cfg.Providers["gateway"] = domain.Provider{
 		Label: "Gateway",
 		Endpoints: domain.Endpoints{
-			Anthropic:       "https://gateway.test",
-			OpenAIResponses: "https://gateway.test/v1",
+			Anthropic: "https://gateway.test",
+			Responses: "https://gateway.test/v1",
 		},
 	}
 	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "gateway", Family: "codex-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "gateway", Family: "codex-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	return cfg

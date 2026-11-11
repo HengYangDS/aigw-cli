@@ -25,7 +25,7 @@ func TestEditReplacesEachSetItIsGiven(t *testing.T) {
 	}
 	model := f.load(t).Models["mixed-chat"]
 	if got := model.Protocols; len(got) != 2 || !slices.Equal(got[domain.ProtocolAnthropic], []domain.Capability{domain.CapabilityText, domain.CapabilityToolSearch}) ||
-		!slices.Equal(got[domain.ProtocolOpenAIChatCompletions], []domain.Capability{domain.CapabilityText}) {
+		!slices.Equal(got[domain.ProtocolChat], []domain.Capability{domain.CapabilityText}) {
 		t.Fatalf("edited protocols = %v", got)
 	}
 	if model.Label != "Chat Only" || model.Family != "chat-only" {
@@ -46,14 +46,14 @@ func TestEditReplacesEachSetItIsGiven(t *testing.T) {
 	if err := f.run("edit", "mixed/Chat-Only", "--protocol", "anthropic", "--protocol", "chat"); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.load(t).Models["mixed-chat"].Protocols; len(got[domain.ProtocolOpenAIChatCompletions]) != 0 || len(got[domain.ProtocolAnthropic]) != 2 {
+	if got := f.load(t).Models["mixed-chat"].Protocols; len(got[domain.ProtocolChat]) != 0 || len(got[domain.ProtocolAnthropic]) != 2 {
 		t.Fatalf("a regained protocol declared capabilities: %v", got)
 	}
 	// An edit of another field changes no capability.
 	if err := f.run("edit", "mixed/Chat-Only", "--label", "Renamed"); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.load(t).Models["mixed-chat"].Protocols; len(got[domain.ProtocolOpenAIChatCompletions]) != 0 || len(got[domain.ProtocolAnthropic]) != 2 {
+	if got := f.load(t).Models["mixed-chat"].Protocols; len(got[domain.ProtocolChat]) != 0 || len(got[domain.ProtocolAnthropic]) != 2 {
 		t.Fatalf("a label edit moved capabilities: %v", got)
 	}
 	// --capability "" clears them, and --label "" clears the label.
@@ -75,7 +75,7 @@ func TestEditReplacesEachSetItIsGiven(t *testing.T) {
 func TestEditPinsTheProtocolOfAnImplicitSelection(t *testing.T) {
 	f := newFixture(t)
 	cfg := f.load(t)
-	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", Responses: "https://team.test/v1"}}
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestEditRefusesWhatWouldBreakItsModel(t *testing.T) {
 	// A provider without an Anthropic endpoint cannot declare tool search, so
 	// the fix is the help.
 	cfg := f.load(t)
-	cfg.Providers["mixed"] = domain.Provider{Label: "Mixed", Endpoints: domain.Endpoints{OpenAIChatCompletions: "https://mixed.test/v1"}}
+	cfg.Providers["mixed"] = domain.Provider{Label: "Mixed", Endpoints: domain.Endpoints{Chat: "https://mixed.test/v1"}}
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -151,9 +151,9 @@ func TestEditKeepsTheProtocolThatAClientUses(t *testing.T) {
 	// Hermes uses the mixed model on chat; it also speaks anthropic.
 	cfg.Models["mixed-chat"] = domain.Model{
 		Provider: "mixed", Family: "chat-only", UpstreamModel: "Chat-Only",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}, domain.ProtocolAnthropic: {}},
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}, domain.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedModel("hermes", "mixed-chat", domain.ProtocolOpenAIChatCompletions)
+	cfg.SetSelectedModel("hermes", "mixed-chat", domain.ProtocolChat)
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -163,8 +163,8 @@ func TestEditKeepsTheProtocolThatAClientUses(t *testing.T) {
 	}
 	// Claude speaks only anthropic, so none of the remaining protocols serves it.
 	cfg = f.load(t)
-	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
-	cfg.Models["team"] = domain.Model{Provider: "team", Family: "team-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {}}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", Responses: "https://team.test/v1"}}
+	cfg.Models["team"] = domain.Model{Provider: "team", Family: "team-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}, domain.ProtocolResponses: {}}}
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestEditKeepsTheProtocolThatAClientUses(t *testing.T) {
 	// before responses, which it does not.
 	cfg = f.load(t)
 	cfg.Providers["mixed"] = domain.Provider{Label: "Mixed", Endpoints: domain.Endpoints{
-		Anthropic: "https://mixed.test", OpenAIChatCompletions: "https://mixed.test/v1", OpenAIResponses: "https://mixed.test/v1",
+		Anthropic: "https://mixed.test", Chat: "https://mixed.test/v1", Responses: "https://mixed.test/v1",
 	}}
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -187,7 +187,7 @@ func TestEditKeepsTheProtocolThatAClientUses(t *testing.T) {
 	// selection gains without the catalog read that this edit never needs.
 	cfg = f.load(t)
 	model := cfg.Models["mixed-chat"]
-	model.Protocols = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}
+	model.Protocols = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}
 	cfg.Models["mixed-chat"] = model
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)

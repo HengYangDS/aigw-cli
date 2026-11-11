@@ -95,10 +95,10 @@ func newSearchFixture(t *testing.T) searchFixture {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["full"] = domain.Provider{Label: "Full", Endpoints: domain.Endpoints{
-		Anthropic: "https://full.test", OpenAIResponses: "https://full.test/v1", OpenAIChatCompletions: "https://full.test/v1",
+		Anthropic: "https://full.test", Responses: "https://full.test/v1", Chat: "https://full.test/v1",
 	}}
-	cfg.Providers["partial"] = domain.Provider{Label: "Partial", Endpoints: domain.Endpoints{Anthropic: "https://partial.test", OpenAIChatCompletions: "https://partial.test/v1"}}
-	cfg.Providers["unreadable"] = domain.Provider{Label: "Unreadable", Endpoints: domain.Endpoints{OpenAIResponses: "https://unreadable.test/v1"}}
+	cfg.Providers["partial"] = domain.Provider{Label: "Partial", Endpoints: domain.Endpoints{Anthropic: "https://partial.test", Chat: "https://partial.test/v1"}}
+	cfg.Providers["unreadable"] = domain.Provider{Label: "Unreadable", Endpoints: domain.Endpoints{Responses: "https://unreadable.test/v1"}}
 	cfg.Providers["notoken"] = domain.Provider{Label: "No Token", Endpoints: domain.Endpoints{Anthropic: "https://notoken.test"}}
 	anthropic := map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}
 	for key, model := range map[string]domain.Model{

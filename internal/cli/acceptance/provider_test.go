@@ -89,7 +89,7 @@ func TestProviderRotateNamesTheFixOfItsValidationFailure(t *testing.T) {
 func TestProviderRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "new-token\n")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{t.TempDir()})
 	if err := app.Config.Save(cfg); err != nil {
@@ -116,7 +116,7 @@ func TestProviderRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T
 				t.Fatal(err)
 			}
 			cfg := domain.NewConfig(clients.Admission())
-			addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+			addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
 			cfg.SetSelectedModel(codex.ID, "one", "")
 			cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 			wantMessage := "a running client decides when that is"
@@ -160,9 +160,9 @@ func TestProviderRotateValidationUsesCommandContext(t *testing.T) {
 func TestProviderRotateClaudeOnlyProviderDoesNotTouchCodexTargets(t *testing.T) {
 	app, _, secretStore, runner, httpClient := testApp(t, "new-claude-token\n")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["codex-account"] = domain.Provider{Label: "Codex", Endpoints: domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}}
+	cfg.Providers["codex-account"] = domain.Provider{Label: "Codex", Endpoints: domain.Endpoints{Responses: "https://codex.test/v1"}}
 	cfg.Providers["claude-account"] = domain.Provider{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://claude.test"}}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "codex-account", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["gpt"] = qualifiedModel("GPT", "codex-account", "gpt-test", domain.ProtocolResponses)
 	cfg.Models["claude"] = qualifiedModel("Claude", "claude-account", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
@@ -210,10 +210,10 @@ func TestProviderBalanceKeepsDiagnosticCredentialsAtTheirOrigin(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{
 		Label:        "DMXAPI",
-		Endpoints:    domain.Endpoints{OpenAIResponses: origin.URL + "/v1"},
+		Endpoints:    domain.Endpoints{Responses: origin.URL + "/v1"},
 		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: origin.URL},
 	}
-	cfg.Models["gpt"] = domain.Model{Label: "GPT", Provider: "dmx", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["gpt"] = domain.Model{Label: "GPT", Provider: "dmx", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

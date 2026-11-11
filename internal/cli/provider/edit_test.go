@@ -59,7 +59,7 @@ func TestEditReplacingAnEndpointClearsWhatWasQualifiedOrSetUpForIt(t *testing.T)
 	}
 	document = changeDocument{}
 	f.decode(t, &document)
-	if len(document.ClearedCapabilities) != 0 || len(document.ClearedForwarding) != 0 || f.load(t).Providers["team"].Endpoints.OpenAIChatCompletions != "https://new.test/v1" {
+	if len(document.ClearedCapabilities) != 0 || len(document.ClearedForwarding) != 0 || f.load(t).Providers["team"].Endpoints.Chat != "https://new.test/v1" {
 		t.Fatalf("an added endpoint = %+v", document)
 	}
 }

@@ -18,8 +18,8 @@ func TestModelOwnsFamilyIdentityWithoutClientState(t *testing.T) {
 
 func TestClientSpecResolvesItsDeclaredEndpoint(t *testing.T) {
 	account := Provider{ID: "team", Endpoints: Endpoints{
-		Anthropic:       "https://anthropic.example/v1/",
-		OpenAIResponses: "https://responses.example/v1/",
+		Anthropic: "https://anthropic.example/v1/",
+		Responses: "https://responses.example/v1/",
 	}}
 	tests := []struct {
 		client string
@@ -86,7 +86,7 @@ func TestExplicitCredentialCommandSurvivesHostConfigRoundTrip(t *testing.T) {
 	cfg.Normalize()
 	cfg.Models[ClientClaudeDesktop] = testModel("Claude Desktop", "dmx", "model", ProtocolAnthropic)
 	cfg.SetSelectedModel(ClientClaudeDesktop, ClientClaudeDesktop, "")
-	cfg.Models[ClientHermes] = testModel("Hermes", "backup", "model", ProtocolOpenAIResponses)
+	cfg.Models[ClientHermes] = testModel("Hermes", "backup", "model", ProtocolResponses)
 	cfg.SetSelectedModel(ClientHermes, ClientHermes, "")
 	for _, client := range testAdmission().IDs() {
 		command := filepath.Join(t.TempDir(), "credential adapter")

@@ -244,10 +244,10 @@ func TestTeamSetupRendersEveryRow(t *testing.T) {
 		t.Errorf("the environment's Token fix = %q", got)
 	}
 	var endpoints domain.Endpoints
-	for _, protocol := range []domain.EndpointProtocol{domain.ProtocolAnthropic, domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions} {
+	for _, protocol := range []domain.EndpointProtocol{domain.ProtocolAnthropic, domain.ProtocolResponses, domain.ProtocolChat} {
 		setEndpoint(&endpoints, protocol, "https://"+string(protocol)+".test")
 	}
-	if endpoints.Anthropic == "" || endpoints.OpenAIResponses == "" || endpoints.OpenAIChatCompletions == "" {
+	if endpoints.Anthropic == "" || endpoints.Responses == "" || endpoints.Chat == "" {
 		t.Errorf("endpoints %+v", endpoints)
 	}
 }

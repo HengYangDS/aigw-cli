@@ -69,6 +69,6 @@ func compareOrder(left, right int) int {
 
 // CompareProtocols groups native display protocols independently of routing preference.
 func CompareProtocols(left, right EndpointProtocol) int {
-	order := []EndpointProtocol{ProtocolAnthropic, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions}
+	order := []EndpointProtocol{ProtocolAnthropic, ProtocolResponses, ProtocolChat}
 	return cmp.Compare(slices.Index(order, left), slices.Index(order, right))
 }

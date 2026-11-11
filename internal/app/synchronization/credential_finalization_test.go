@@ -148,7 +148,7 @@ type removedEntrypointAdapter struct {
 }
 
 func (clientAdapter removedEntrypointAdapter) Spec() domain.ClientSpec {
-	return domain.ClientSpec{ID: codex.ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
+	return domain.ClientSpec{ID: codex.ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses}}
 }
 
 func (clientAdapter removedEntrypointAdapter) Plan(adapter.Dependencies, domain.Config, domain.Config) ([]adapter.ProjectionPlan, error) {

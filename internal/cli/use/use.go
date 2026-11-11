@@ -68,7 +68,7 @@ func examples(admission domain.Admission) string {
 		line string
 	}{
 		{func(spec domain.ClientSpec) bool {
-			return slices.Equal(spec.EndpointProtocols, []domain.EndpointProtocol{domain.ProtocolOpenAIResponses})
+			return slices.Equal(spec.EndpointProtocols, []domain.EndpointProtocol{domain.ProtocolResponses})
 		}, " dmxapi/gpt-6.1-sol"},
 		{func(spec domain.ClientSpec) bool { return len(spec.EndpointProtocols) > 1 }, " ucloud/gpt-6.1-sol --protocol responses"},
 		{func(spec domain.ClientSpec) bool {

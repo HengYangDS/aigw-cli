@@ -44,9 +44,9 @@ func TestParseModelRefSplitsAtTheFirstSlash(t *testing.T) {
 // provider's model and an unknown ID resolve to nothing.
 func TestResolveModelRefFindsTheProvidersModel(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Providers["ucloud"] = Provider{Label: "UCloud", Endpoints: Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
-	cfg.Providers["dmxapi"] = Provider{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmxapi.test/v1"}}
-	responses := map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}
+	cfg.Providers["ucloud"] = Provider{Label: "UCloud", Endpoints: Endpoints{Responses: "https://ucloud.test/v1"}}
+	cfg.Providers["dmxapi"] = Provider{Label: "DMXAPI", Endpoints: Endpoints{Responses: "https://dmxapi.test/v1"}}
+	responses := map[EndpointProtocol][]Capability{ProtocolResponses: {}}
 	cfg.Models["ucloud-minimax"] = Model{Provider: "ucloud", Family: "minimax-m3", UpstreamModel: "MiniMax-M3", Protocols: responses}
 	cfg.Models["dmxapi-sol"] = Model{Provider: "dmxapi", Family: "gpt-6.1-sol", Protocols: responses}
 	cfg.Models["ucloud-sol"] = Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: responses}
@@ -67,8 +67,8 @@ func TestResolveModelRefFindsTheProvidersModel(t *testing.T) {
 	}
 	// Today's configuration can give one name a Route per protocol; the
 	// lookup returns each, in key order.
-	cfg.Providers["ucloud"] = Provider{Label: "UCloud", Endpoints: Endpoints{OpenAIResponses: "https://ucloud.test/v1", OpenAIChatCompletions: "https://ucloud.test/v1"}}
-	cfg.Models["ucloud-sol-chat"] = Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}}}
+	cfg.Providers["ucloud"] = Provider{Label: "UCloud", Endpoints: Endpoints{Responses: "https://ucloud.test/v1", Chat: "https://ucloud.test/v1"}}
+	cfg.Models["ucloud-sol-chat"] = Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: map[EndpointProtocol][]Capability{ProtocolChat: {}}}
 	ref, _ := ParseModelRef("ucloud/gpt-6.1-sol")
 	if keys := cfg.ResolveModelRef(ref); !slices.Equal(keys, []string{"ucloud-sol", "ucloud-sol-chat"}) {
 		t.Fatalf("ResolveModelRef of a name with two Routes = %q", keys)

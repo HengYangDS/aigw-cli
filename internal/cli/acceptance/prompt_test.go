@@ -260,7 +260,7 @@ func TestSetupAtATerminalRunsTheWizard(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	app.Interactive = true
 	prompt := &scriptedPrompt{
-		selections: []string{string(domain.ProtocolOpenAIResponses)},
+		selections: []string{string(domain.ProtocolResponses)},
 		secrets:    []string{"one-paste-token"},
 		texts:      []string{"team-gateway", "Team Gateway", "https://gateway.test/v1", "gpt-5.6-terra"},
 	}
@@ -314,8 +314,8 @@ func TestGuidedSetupStopsBeforeAModelWithoutAnInstalledClient(t *testing.T) {
 		endpoint string
 	}{
 		{domain.ProtocolAnthropic, "https://messages.test"},
-		{domain.ProtocolOpenAIResponses, "https://responses.test/v1"},
-		{domain.ProtocolOpenAIChatCompletions, "https://chat.test/v1"},
+		{domain.ProtocolResponses, "https://responses.test/v1"},
+		{domain.ProtocolChat, "https://chat.test/v1"},
 	} {
 		t.Run(string(test.protocol), func(t *testing.T) {
 			app, out, secretStore, runner, _ := testApp(t, "")
@@ -340,7 +340,7 @@ func TestFirstRunCreatesExplicitGenericProviderWithoutBundledProviderDefault(t *
 	app, _, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{
-		selections: []string{string(domain.ProtocolOpenAIResponses)},
+		selections: []string{string(domain.ProtocolResponses)},
 		secrets:    []string{"one-paste-token"},
 		texts:      []string{"team-gateway", "Team Gateway", "https://gateway.test/v1"},
 	}
@@ -426,7 +426,7 @@ func TestWizardFailureLeavesNoModelSecretOrClientProjection(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{
-		selections: []string{string(domain.ProtocolOpenAIResponses)},
+		selections: []string{string(domain.ProtocolResponses)},
 		secrets:    []string{"bad-sync-token"},
 		texts:      []string{"team-gateway", "Team Gateway", "https://gateway.test/v1", "gpt-5.6-terra"},
 	}

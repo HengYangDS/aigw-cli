@@ -254,7 +254,7 @@ func TestSetupFromConfigurationManifestConnectsOneProviderAndKeepsItsTokenSecret
 	wantRoutes := map[string]domain.Model{
 		"aihubmix-claude": qualifiedModel("AIHubMix Claude", "aihubmix", "claude-test", domain.ProtocolAnthropic),
 		"dmxapi-claude":   qualifiedModel("DMXAPI Claude", "dmxapi", "claude-test", domain.ProtocolAnthropic),
-		"dmxapi-gpt":      qualifiedModel("DMXAPI GPT", "dmxapi", "gpt-test", domain.ProtocolOpenAIResponses),
+		"dmxapi-gpt":      qualifiedModel("DMXAPI GPT", "dmxapi", "gpt-test", domain.ProtocolResponses),
 	}
 	if !reflect.DeepEqual(cfg.Models, wantRoutes) {
 		t.Fatalf("manifest model matrix was not preserved: %#v", cfg.Models)

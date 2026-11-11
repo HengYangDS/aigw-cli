@@ -90,7 +90,7 @@ func TestForwardingStoreRejectsMixedProviderGenerations(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Models["other"] = testModel("Other", "dmx", "other-model", domain.ProtocolOpenAIResponses)
+	cfg.Models["other"] = testModel("Other", "dmx", "other-model", domain.ProtocolResponses)
 	cfg.SetSelectedModel(ClientCodex, "other", "")
 	canonical, err := encodeConfig(cfg)
 	if err != nil {

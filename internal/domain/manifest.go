@@ -101,8 +101,8 @@ func ExportManifest(cfg Config) (Manifest, error) {
 
 func equivalentProvider(left, right Provider) bool {
 	return left.Label == right.Label && left.Order == right.Order &&
-		normalizeEndpoint(left.Endpoints.OpenAIResponses) == normalizeEndpoint(right.Endpoints.OpenAIResponses) &&
-		normalizeEndpoint(left.Endpoints.OpenAIChatCompletions) == normalizeEndpoint(right.Endpoints.OpenAIChatCompletions) &&
+		normalizeEndpoint(left.Endpoints.Responses) == normalizeEndpoint(right.Endpoints.Responses) &&
+		normalizeEndpoint(left.Endpoints.Chat) == normalizeEndpoint(right.Endpoints.Chat) &&
 		normalizeEndpoint(left.Endpoints.Anthropic) == normalizeEndpoint(right.Endpoints.Anthropic) &&
 		equivalentProbe(left.BalanceProbe, right.BalanceProbe)
 }

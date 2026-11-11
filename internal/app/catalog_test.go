@@ -19,9 +19,9 @@ import (
 
 func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Models["other"] = domain.Model{Provider: "other", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Models["matching"] = domain.Model{Provider: "one", Family: "canonical", UpstreamModel: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	models, missing := catalogDifference(cfg, "one", domain.ProtocolOpenAIResponses, []string{"gpt"})
+	cfg.Models["other"] = domain.Model{Provider: "other", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models["matching"] = domain.Model{Provider: "one", Family: "canonical", UpstreamModel: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	models, missing := catalogDifference(cfg, "one", domain.ProtocolResponses, []string{"gpt"})
 	if len(models) != 1 || models[0].State != CatalogAdmitted || len(models[0].Models) != 1 || models[0].Models[0].ID != "matching" || len(missing) != 0 {
 		t.Fatalf("difference models=%#v missing=%#v", models, missing)
 	}
@@ -65,14 +65,14 @@ func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
 
 func TestFetchModelIDsRequestErrorsAndEndpointForms(t *testing.T) {
 	endpoint := "://bad"
-	if _, _, err := fetchIDs(context.Background(), catalogHTTPClient(nil), endpoint, domain.ProtocolOpenAIResponses, "token"); err == nil {
+	if _, _, err := fetchIDs(context.Background(), catalogHTTPClient(nil), endpoint, domain.ProtocolResponses, "token"); err == nil {
 		t.Fatal("expected URL error")
 	}
 
 	want := errors.New("network failed")
 	endpoint = "https://one.test/v1"
 	client := catalogHTTPClient(func(*http.Request) (*http.Response, error) { return nil, want })
-	if _, _, err := fetchIDs(context.Background(), client, endpoint, domain.ProtocolOpenAIResponses, "token"); !errors.Is(err, want) {
+	if _, _, err := fetchIDs(context.Background(), client, endpoint, domain.ProtocolResponses, "token"); !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}
 
@@ -84,7 +84,7 @@ func TestFetchModelIDsRequestErrorsAndEndpointForms(t *testing.T) {
 				}
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt"]}`)), Request: request}, nil
 			})
-			ids, source, err := fetchIDs(context.Background(), client, endpoint, domain.ProtocolOpenAIResponses, "token")
+			ids, source, err := fetchIDs(context.Background(), client, endpoint, domain.ProtocolResponses, "token")
 			if err != nil || len(ids) != 1 || ids[0] != "gpt" {
 				t.Fatalf("ids=%#v error=%v", ids, err)
 			}
@@ -98,7 +98,7 @@ func TestFetchModelIDsRequestErrorsAndEndpointForms(t *testing.T) {
 	client = catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusBadGateway, Body: io.NopCloser(strings.NewReader("bad")), Request: request}, nil
 	})
-	if _, _, err := fetchIDs(context.Background(), client, endpoint, domain.ProtocolOpenAIResponses, "token"); err == nil || !strings.Contains(err.Error(), "HTTP 502") {
+	if _, _, err := fetchIDs(context.Background(), client, endpoint, domain.ProtocolResponses, "token"); err == nil || !strings.Contains(err.Error(), "HTTP 502") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -116,7 +116,7 @@ func TestCatalogMembershipRequiresACompleteResponse(t *testing.T) {
 			client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(test.body), Request: request}, nil
 			})
-			if ids, _, err := fetchIDs(context.Background(), client, "https://catalog.test/v1", domain.ProtocolOpenAIResponses, "token"); err == nil || len(ids) != 0 {
+			if ids, _, err := fetchIDs(context.Background(), client, "https://catalog.test/v1", domain.ProtocolResponses, "token"); err == nil || len(ids) != 0 {
 				t.Fatalf("incomplete catalog established membership: ids=%v error=%v", ids, err)
 			}
 		})
@@ -136,7 +136,7 @@ func (client *recordingClient) Do(request *http.Request) (*http.Response, error)
 
 func TestFetchIDsOwnsCatalogProtocol(t *testing.T) {
 	client := &recordingClient{}
-	ids, _, err := fetchIDs(context.Background(), client, "https://gateway.test/v1", domain.ProtocolOpenAIResponses, "token")
+	ids, _, err := fetchIDs(context.Background(), client, "https://gateway.test/v1", domain.ProtocolResponses, "token")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,8 +165,8 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 	cfg.Providers["gateway"] = domain.Provider{
 		Label: "Gateway",
 		Endpoints: domain.Endpoints{
-			OpenAIChatCompletions: "https://chat.test/v1",
-			OpenAIResponses:       "https://responses.test/v1",
+			Chat:      "https://chat.test/v1",
+			Responses: "https://responses.test/v1",
 		},
 	}
 	cfg.Families["shared"] = domain.Family{Label: "Shared"}
@@ -178,7 +178,7 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 		UpstreamModel: "provider-shared",
 		Lifecycle:     domain.ModelDeprecated,
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolOpenAIChatCompletions: {domain.CapabilityText},
+			domain.ProtocolChat: {domain.CapabilityText},
 		},
 	}
 	cfg.Models["responses"] = domain.Model{
@@ -187,7 +187,7 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 		Family:        "shared",
 		UpstreamModel: "provider-shared",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolOpenAIResponses: {
+			domain.ProtocolResponses: {
 				domain.CapabilityText,
 				domain.CapabilityReasoning,
 			},
@@ -199,7 +199,7 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 		Family:        "missing",
 		UpstreamModel: "provider-missing",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolOpenAIResponses: {domain.CapabilityText},
+			domain.ProtocolResponses: {domain.CapabilityText},
 		},
 	}
 
@@ -228,12 +228,12 @@ func assertObservationIdentityAndSources(t *testing.T, result CatalogReport) {
 		t.Fatalf("observations = %#v", result.Observations)
 	}
 
-	chat := observationForProtocol(t, result, domain.ProtocolOpenAIChatCompletions)
-	responses := observationForProtocol(t, result, domain.ProtocolOpenAIResponses)
+	chat := observationForProtocol(t, result, domain.ProtocolChat)
+	responses := observationForProtocol(t, result, domain.ProtocolResponses)
 	if chat.ObservationID == "" || responses.ObservationID == "" || chat.ObservationID == responses.ObservationID {
 		t.Fatalf("observation identities do not bind protocol: chat=%q responses=%q", chat.ObservationID, responses.ObservationID)
 	}
-	if got := catalogObservationID("gateway", domain.ProtocolOpenAIResponses, responses.Source.Endpoint, []string{"provider-new", "provider-shared"}); got != responses.ObservationID {
+	if got := catalogObservationID("gateway", domain.ProtocolResponses, responses.Source.Endpoint, []string{"provider-new", "provider-shared"}); got != responses.ObservationID {
 		t.Fatalf("observation identity depends on provider order: got %q want %q", got, responses.ObservationID)
 	}
 	if chat.Source.Endpoint != "https://chat.test/v1/models" || responses.Source.Endpoint != "https://responses.test/v1/models" {
@@ -243,8 +243,8 @@ func assertObservationIdentityAndSources(t *testing.T, result CatalogReport) {
 
 func assertModelCapabilityIsolation(t *testing.T, result CatalogReport) {
 	t.Helper()
-	chat := observationForProtocol(t, result, domain.ProtocolOpenAIChatCompletions)
-	responses := observationForProtocol(t, result, domain.ProtocolOpenAIResponses)
+	chat := observationForProtocol(t, result, domain.ProtocolChat)
+	responses := observationForProtocol(t, result, domain.ProtocolResponses)
 	chatShared := observedModel(t, chat, "provider-shared")
 	if chatShared.State != CatalogDeprecated || len(chatShared.Models) != 1 || chatShared.Models[0].ID != "chat" ||
 		chatShared.Models[0].Lifecycle != domain.ModelDeprecated || chatShared.Models[0].Evidence != CatalogObserved ||
@@ -267,8 +267,8 @@ func assertModelCapabilityIsolation(t *testing.T, result CatalogReport) {
 
 func assertCatalogCandidateAndMissingModel(t *testing.T, result CatalogReport) {
 	t.Helper()
-	chat := observationForProtocol(t, result, domain.ProtocolOpenAIChatCompletions)
-	responses := observationForProtocol(t, result, domain.ProtocolOpenAIResponses)
+	chat := observationForProtocol(t, result, domain.ProtocolChat)
+	responses := observationForProtocol(t, result, domain.ProtocolResponses)
 	candidate := observedModel(t, responses, "provider-new")
 	if candidate.State != CatalogCandidate || len(candidate.Models) != 0 {
 		t.Fatalf("candidate = %#v", candidate)
@@ -393,9 +393,9 @@ func (catalogs *concurrentCatalogs) Do(request *http.Request) (*http.Response, e
 func TestDiscoverCatalogReadsEachDistinctSourceOnceAndConcurrently(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{
-		Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1", OpenAIChatCompletions: "https://one.test/v1",
+		Anthropic: "https://one.test", Responses: "https://one.test/v1", Chat: "https://one.test/v1",
 	}}
-	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
+	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{Responses: "https://two.test/v1"}}
 	catalogs := &concurrentCatalogs{expected: 3, arrived: make(chan struct{})}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -418,8 +418,8 @@ func TestDiscoverCatalogReadsEachDistinctSourceOnceAndConcurrently(t *testing.T)
 // can classify.
 func TestCatalogFailuresKeepTheirCause(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["status"] = domain.Provider{Label: "Status", Endpoints: domain.Endpoints{OpenAIResponses: "https://status.test/v1"}}
-	cfg.Providers["format"] = domain.Provider{Label: "Format", Endpoints: domain.Endpoints{OpenAIResponses: "https://format.test/v1"}}
+	cfg.Providers["status"] = domain.Provider{Label: "Status", Endpoints: domain.Endpoints{Responses: "https://status.test/v1"}}
+	cfg.Providers["format"] = domain.Provider{Label: "Format", Endpoints: domain.Endpoints{Responses: "https://format.test/v1"}}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		if request.URL.Host == "status.test" {
 			return &http.Response{StatusCode: http.StatusTeapot, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil

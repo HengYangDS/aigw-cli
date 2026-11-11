@@ -24,7 +24,7 @@ func (found foundExecutables) Discover(...string) discovery.Result {
 func TestStatusNamesEachModelProviderModel(t *testing.T) {
 	runtime, cfg, out := configuredReadinessRuntime(t)
 	twin := cfg.Models["claude"]
-	twin.Protocols = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}
+	twin.Protocols = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}
 	cfg.Models["claude-responses"] = twin
 	cfg.SetClientActivation(claude.ID, false, "", nil)
 	if err := runtime.Config.Save(cfg); err != nil {

@@ -15,12 +15,12 @@ func localTeamConfig(t *testing.T) Config {
 	cfg.Providers["team"] = Provider{
 		Label:        "Team",
 		Order:        3,
-		Endpoints:    Endpoints{Anthropic: "http://127.0.0.1:8792/team", OpenAIResponses: "https://team.example/v1"},
+		Endpoints:    Endpoints{Anthropic: "http://127.0.0.1:8792/team", Responses: "https://team.example/v1"},
 		BalanceProbe: &BalanceProbe{Kind: "dmxapi", BaseURL: "https://team.example"},
 	}
 	cfg.Providers["solo"] = Provider{Label: "Solo", Endpoints: Endpoints{Anthropic: "https://solo.example"}}
 	cfg.Models["sonnet"] = Model{Provider: "team", Family: "sonnet", Protocols: map[EndpointProtocol][]Capability{ProtocolAnthropic: {CapabilityText}}}
-	cfg.Models["gpt"] = testModel("", "team", "gpt", ProtocolOpenAIResponses)
+	cfg.Models["gpt"] = testModel("", "team", "gpt", ProtocolResponses)
 	cfg.Models["spare"] = testModel("", "team", "spare", ProtocolAnthropic)
 	cfg.Models["solo"] = testModel("", "solo", "solo", ProtocolAnthropic)
 	cfg.Families["unused"] = Family{Label: "Unused"}
@@ -42,15 +42,15 @@ func teamFile(t *testing.T) Manifest {
 		Providers: map[string]Provider{
 			"team": {
 				Label:        "Team Gateway",
-				Endpoints:    Endpoints{Anthropic: "https://team.example", OpenAIResponses: "https://team.example/v1"},
+				Endpoints:    Endpoints{Anthropic: "https://team.example", Responses: "https://team.example/v1"},
 				BalanceProbe: &BalanceProbe{Kind: "dmxapi", BaseURL: "https://team.example"},
 			},
-			"fresh": {Label: "Fresh", Endpoints: Endpoints{OpenAIResponses: "https://fresh.example/v1"}},
+			"fresh": {Label: "Fresh", Endpoints: Endpoints{Responses: "https://fresh.example/v1"}},
 		},
 		Families: map[string]Family{"gpt": {Label: "GPT"}, "fresh": {Label: "Fresh"}},
 		Models: map[string]Model{
-			"gpt":   testModel("Team GPT", "team", "gpt", ProtocolOpenAIResponses),
-			"fresh": testModel("", "fresh", "fresh", ProtocolOpenAIResponses),
+			"gpt":   testModel("Team GPT", "team", "gpt", ProtocolResponses),
+			"fresh": testModel("", "fresh", "fresh", ProtocolResponses),
 		},
 		Recommendations: map[string]ClientRecommendation{ClientCodex: {Primary: ClientSelection{Model: "fresh"}}},
 	}
@@ -142,7 +142,7 @@ func TestMergeTeamFileKeepsAnExistingProvidersEndpointsAndProbe(t *testing.T) {
 	cfg := localTeamConfig(t)
 	file := teamFile(t)
 	team := file.Providers["team"]
-	team.Endpoints.OpenAIChatCompletions = "https://team.example/v1"
+	team.Endpoints.Chat = "https://team.example/v1"
 	team.BalanceProbe = &BalanceProbe{Kind: "newapi", BaseURL: "https://team.example"}
 	file.Providers["team"] = team
 	solo := Provider{Label: "Solo", Endpoints: Endpoints{Anthropic: "https://solo.example"}, BalanceProbe: &BalanceProbe{Kind: "newapi", BaseURL: "https://solo.example"}}
@@ -153,7 +153,7 @@ func TestMergeTeamFileKeepsAnExistingProvidersEndpointsAndProbe(t *testing.T) {
 	}
 	wantEndpoints := []KeptEndpoint{
 		{Provider: "team", Protocol: ProtocolAnthropic, Local: "http://127.0.0.1:8792/team", File: "https://team.example"},
-		{Provider: "team", Protocol: ProtocolOpenAIChatCompletions, File: "https://team.example/v1"},
+		{Provider: "team", Protocol: ProtocolChat, File: "https://team.example/v1"},
 	}
 	if !slices.Equal(report.KeptEndpoints, wantEndpoints) {
 		t.Errorf("kept endpoints %+v", report.KeptEndpoints)
@@ -177,7 +177,7 @@ func TestMergeTeamFileDropsCapabilitiesQualifiedOnAnotherEndpoint(t *testing.T) 
 		Protocols: map[EndpointProtocol][]Capability{ProtocolAnthropic: {CapabilityText, CapabilityToolSearch}}}
 	// The Responses endpoint is the same in both, so its capabilities stay.
 	gpt := file.Models["gpt"]
-	gpt.Protocols = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {CapabilityReasoning}}
+	gpt.Protocols = map[EndpointProtocol][]Capability{ProtocolResponses: {CapabilityReasoning}}
 	file.Models["gpt"] = gpt
 	merged, report := mergeTeam(t, cfg, file, false)
 	if got := merged.Models["sonnet"].Protocols[ProtocolAnthropic]; !slices.Equal(got, []Capability{CapabilityText}) {
@@ -187,7 +187,7 @@ func TestMergeTeamFileDropsCapabilitiesQualifiedOnAnotherEndpoint(t *testing.T) 
 	if !reflect.DeepEqual(report.DroppedCapabilities, want) {
 		t.Errorf("dropped %+v", report.DroppedCapabilities)
 	}
-	if got := merged.Models["gpt"].Protocols[ProtocolOpenAIResponses]; !slices.Equal(got, []Capability{CapabilityReasoning}) {
+	if got := merged.Models["gpt"].Protocols[ProtocolResponses]; !slices.Equal(got, []Capability{CapabilityReasoning}) {
 		t.Errorf("gpt's Responses capabilities = %v", got)
 	}
 }
@@ -222,18 +222,18 @@ func TestMergeTeamFileKeepsAModelWhoseChangeWouldMoveASelection(t *testing.T) {
 func TestMergeTeamFileAddsAModelOnAProtocolWithoutAnEndpoint(t *testing.T) {
 	cfg := localTeamConfig(t)
 	file := teamFile(t)
-	file.Providers["solo"] = Provider{Label: "Solo", Endpoints: Endpoints{Anthropic: "https://solo.example", OpenAIResponses: "https://solo.example/v1"}}
+	file.Providers["solo"] = Provider{Label: "Solo", Endpoints: Endpoints{Anthropic: "https://solo.example", Responses: "https://solo.example/v1"}}
 	file.Families["solo-gpt"] = Family{Label: "Solo GPT"}
-	file.Models["solo-gpt"] = Model{Provider: "solo", Family: "solo-gpt", UpstreamModel: "solo-gpt", Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}}
-	file.Recommendations[ClientHermes] = ClientRecommendation{Primary: ClientSelection{Model: "solo-gpt", Protocol: ProtocolOpenAIResponses}}
+	file.Models["solo-gpt"] = Model{Provider: "solo", Family: "solo-gpt", UpstreamModel: "solo-gpt", Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}}}
+	file.Recommendations[ClientHermes] = ClientRecommendation{Primary: ClientSelection{Model: "solo-gpt", Protocol: ProtocolResponses}}
 	merged, report := mergeTeam(t, cfg, file, false)
 	if _, added := merged.Models["solo-gpt"]; !added {
 		t.Fatal("the model was not added")
 	}
-	if want := []UnusableProtocol{{Model: NewModelRef("solo", "solo-gpt"), Protocol: ProtocolOpenAIResponses}}; !slices.Equal(report.Unusable, want) {
+	if want := []UnusableProtocol{{Model: NewModelRef("solo", "solo-gpt"), Protocol: ProtocolResponses}}; !slices.Equal(report.Unusable, want) {
 		t.Errorf("unusable %+v", report.Unusable)
 	}
-	if _, err := merged.ResolveModelProtocol(ClientHermes, "solo-gpt", ProtocolOpenAIResponses); err == nil {
+	if _, err := merged.ResolveModelProtocol(ClientHermes, "solo-gpt", ProtocolResponses); err == nil {
 		t.Error("a client resolves the model on a protocol without an endpoint")
 	}
 	selected, err := merged.SelectModelsForConnectedProviders([]string{"solo"})
@@ -281,8 +281,8 @@ func TestTeamFileMayRecommendAModelThatOnlyTheConfigurationDefines(t *testing.T)
 func TestMergeTeamFileRefusesANewProvidersProtocolWithoutAnEndpoint(t *testing.T) {
 	file := teamFile(t)
 	file.Providers["fresh"] = Provider{Label: "Fresh", Endpoints: Endpoints{Anthropic: "https://fresh.example"}}
-	file.Models["fresh"] = testModel("", "fresh", "fresh", ProtocolOpenAIChatCompletions)
-	file.Models["fresh"] = Model{Provider: "fresh", Family: "fresh", UpstreamModel: "fresh", Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}}}
+	file.Models["fresh"] = testModel("", "fresh", "fresh", ProtocolChat)
+	file.Models["fresh"] = Model{Provider: "fresh", Family: "fresh", UpstreamModel: "fresh", Protocols: map[EndpointProtocol][]Capability{ProtocolChat: {}}}
 	delete(file.Recommendations, ClientCodex)
 	_, _, err := MergeTeamFile(NewConfig(testAdmission()), file, false)
 	if err == nil || !strings.Contains(err.Error(), "fresh/fresh") || !strings.Contains(err.Error(), "provider fresh") || !strings.Contains(err.Error(), "OpenAI Chat Completions") {
@@ -296,9 +296,9 @@ func TestMergeTeamFileRefusesANewProvidersProtocolWithoutAnEndpoint(t *testing.T
 func TestARecommendationWithoutAProtocolWaitsForAnEndpoint(t *testing.T) {
 	cfg := localTeamConfig(t)
 	file := teamFile(t)
-	file.Providers["solo"] = Provider{Label: "Solo", Endpoints: Endpoints{Anthropic: "https://solo.example", OpenAIChatCompletions: "https://solo.example/v1"}}
+	file.Providers["solo"] = Provider{Label: "Solo", Endpoints: Endpoints{Anthropic: "https://solo.example", Chat: "https://solo.example/v1"}}
 	file.Families["solo-chat"] = Family{Label: "Solo Chat"}
-	file.Models["solo-chat"] = Model{Provider: "solo", Family: "solo-chat", UpstreamModel: "solo-chat", Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}}}
+	file.Models["solo-chat"] = Model{Provider: "solo", Family: "solo-chat", UpstreamModel: "solo-chat", Protocols: map[EndpointProtocol][]Capability{ProtocolChat: {}}}
 	file.Recommendations[ClientHermes] = ClientRecommendation{Primary: ClientSelection{Model: "solo-chat"}}
 	merged, report := mergeTeam(t, cfg, file, false)
 	if merged.Recommendations[ClientHermes].Primary.Model != "solo-chat" || len(report.Unusable) != 1 {

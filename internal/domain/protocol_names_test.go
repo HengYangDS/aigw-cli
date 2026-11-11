@@ -17,8 +17,8 @@ func TestProtocolNamesMapToTheProtocols(t *testing.T) {
 	}
 	for name, want := range map[string]EndpointProtocol{
 		"anthropic": ProtocolAnthropic,
-		"responses": ProtocolOpenAIResponses,
-		"chat":      ProtocolOpenAIChatCompletions,
+		"responses": ProtocolResponses,
+		"chat":      ProtocolChat,
 	} {
 		got, named := ProtocolNamed(name)
 		if !named || got != want {

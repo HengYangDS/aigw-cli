@@ -87,7 +87,7 @@ func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
 func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Responses: "https://example.test/v1", Anthropic: "https://example.test"}}
 	cfg.Models["claude-fable-5"] = qualifiedModel("Claude Fable", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "claude-fable-5", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude-real", nil)
@@ -262,7 +262,7 @@ func TestCheckRejectsAnEnabledClientModelWithoutItsProviderToken(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "claude", "claude-account", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
-	addProviderModel(&cfg, "codex", "codex-account", "Codex", domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "codex", "codex-account", "Codex", domain.Endpoints{Responses: "https://codex.test/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
@@ -306,14 +306,14 @@ func TestCheckProbesEveryEnabledClientModelAndIgnoresUnselectedModel(t *testing.
 	writeFile(t, codexTarget, []byte("model_provider = \"native\"\n"), 0o600)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers = map[string]domain.Provider{
-		"stale-account":  {Label: "Stale", Endpoints: domain.Endpoints{OpenAIResponses: "https://stale.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
+		"stale-account":  {Label: "Stale", Endpoints: domain.Endpoints{Responses: "https://stale.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
 		"claude-account": {Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://claude.test"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
-		"codex-account":  {Label: "Codex", Endpoints: domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
+		"codex-account":  {Label: "Codex", Endpoints: domain.Endpoints{Responses: "https://codex.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
 	}
 	cfg.Models = map[string]domain.Model{
-		"stale":  qualifiedModel("Stale", "stale-account", "stale-model", domain.ProtocolOpenAIResponses),
+		"stale":  qualifiedModel("Stale", "stale-account", "stale-model", domain.ProtocolResponses),
 		"claude": qualifiedModel("Claude", "claude-account", "claude-test", domain.ProtocolAnthropic),
-		"codex":  qualifiedModel("Codex", "codex-account", "gpt-test", domain.ProtocolOpenAIResponses),
+		"codex":  qualifiedModel("Codex", "codex-account", "gpt-test", domain.ProtocolResponses),
 	}
 	cfg.Clients = map[string]domain.ClientBinding{
 		claude.ID: {Model: "claude", Enabled: true, Executable: executableFixture(t, "claude")},

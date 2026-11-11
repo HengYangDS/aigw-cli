@@ -12,10 +12,10 @@ type EndpointProtocol string
 const (
 	// ProtocolAnthropic identifies the native Anthropic Messages-compatible endpoint.
 	ProtocolAnthropic EndpointProtocol = "anthropic"
-	// ProtocolOpenAIResponses identifies the OpenAI Responses-compatible endpoint.
-	ProtocolOpenAIResponses EndpointProtocol = "openai_responses"
-	// ProtocolOpenAIChatCompletions identifies OpenAI Chat Completions-compatible endpoints.
-	ProtocolOpenAIChatCompletions EndpointProtocol = "openai_chat_completions"
+	// ProtocolResponses identifies the OpenAI Responses-compatible endpoint.
+	ProtocolResponses EndpointProtocol = "openai_responses"
+	// ProtocolChat identifies OpenAI Chat Completions-compatible endpoints.
+	ProtocolChat EndpointProtocol = "openai_chat_completions"
 )
 
 // protocolNames are the names that the command line and its output give the
@@ -26,8 +26,8 @@ var protocolNames = []struct {
 	protocol EndpointProtocol
 }{
 	{"anthropic", ProtocolAnthropic},
-	{"responses", ProtocolOpenAIResponses},
-	{"chat", ProtocolOpenAIChatCompletions},
+	{"responses", ProtocolResponses},
+	{"chat", ProtocolChat},
 }
 
 // ProtocolNames returns the command-line protocol names in display order.
@@ -171,7 +171,7 @@ func (s ClientSpec) resolveEndpoint(account Provider, admitted []EndpointProtoco
 		return "", "", fmt.Errorf("route does not admit endpoint protocol %q for client %q", protocol, s.ID)
 	}
 	switch protocol {
-	case ProtocolAnthropic, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions:
+	case ProtocolAnthropic, ProtocolResponses, ProtocolChat:
 	default:
 		return "", "", fmt.Errorf("client %q has unsupported endpoint protocol %q", s.ID, protocol)
 	}
@@ -213,10 +213,10 @@ func (endpoints Endpoints) For(protocol EndpointProtocol) string {
 	switch protocol {
 	case ProtocolAnthropic:
 		return endpoints.Anthropic
-	case ProtocolOpenAIResponses:
-		return endpoints.OpenAIResponses
-	case ProtocolOpenAIChatCompletions:
-		return endpoints.OpenAIChatCompletions
+	case ProtocolResponses:
+		return endpoints.Responses
+	case ProtocolChat:
+		return endpoints.Chat
 	default:
 		return ""
 	}

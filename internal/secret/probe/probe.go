@@ -65,10 +65,10 @@ func Validate(ctx context.Context, httpClient HTTPDoer, admission domain.Admissi
 func defaultValidationClient(admission domain.Admission, account domain.Provider) (string, error) {
 	protocol := domain.ProtocolAnthropic
 	switch {
-	case account.Endpoints.OpenAIResponses != "":
-		protocol = domain.ProtocolOpenAIResponses
-	case account.Endpoints.Anthropic == "" && account.Endpoints.OpenAIChatCompletions != "":
-		protocol = domain.ProtocolOpenAIChatCompletions
+	case account.Endpoints.Responses != "":
+		protocol = domain.ProtocolResponses
+	case account.Endpoints.Anthropic == "" && account.Endpoints.Chat != "":
+		protocol = domain.ProtocolChat
 	}
 	speaker := ""
 	for _, spec := range admission.Specs() {

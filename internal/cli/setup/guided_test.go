@@ -173,7 +173,7 @@ func TestGuidedSetupRunsAgainWithAStoredTokenAndATypedModel(t *testing.T) {
 		t.Fatal("two installed clients took no client answer")
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["team"] = domain.Provider{Label: "Team Gateway", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team Gateway", Endpoints: domain.Endpoints{Anthropic: "https://team.test", Responses: "https://team.test/v1"}}
 	if err := home.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -183,13 +183,13 @@ func TestGuidedSetupRunsAgainWithAStoredTokenAndATypedModel(t *testing.T) {
 	// The catalog lists no model, so the model ID is typed; Hermes speaks
 	// both of team's protocols, so it asks which.
 	home.models = `{"data":[]}`
-	prompt := &guidedPrompt{selections: []string{"team", hermes.ID, string(domain.ProtocolOpenAIResponses)}, texts: []string{"typed-model"}}
+	prompt := &guidedPrompt{selections: []string{"team", hermes.ID, string(domain.ProtocolResponses)}, texts: []string{"typed-model"}}
 	if err := home.run(t, prompt); err != nil {
 		t.Fatalf("guided setup again: %v\n%s", err, home.out)
 	}
 	cfg = home.config(t)
 	selected, err := cfg.ResolveRuntime(hermes.ID, "")
-	if err != nil || selected.UpstreamModel != "typed-model" || selected.Protocol != domain.ProtocolOpenAIResponses || slices.Contains(prompt.asked, "Paste the Team Gateway Token: ") {
+	if err != nil || selected.UpstreamModel != "typed-model" || selected.Protocol != domain.ProtocolResponses || slices.Contains(prompt.asked, "Paste the Team Gateway Token: ") {
 		t.Fatalf("saved %+v, %v; asked %q", selected, err, prompt.asked)
 	}
 	if token, _ := home.secrets.Get("team"); token != "sk-stored" || !strings.Contains(home.out.String(), "Stored before") {
@@ -270,7 +270,7 @@ func TestGuidedSetupNamesTheCancelledPrompt(t *testing.T) {
 		prompt := newTeamAnswers()
 		if test.configured {
 			cfg := domain.NewConfig(clients.Admission())
-			cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
+			cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", Responses: "https://team.test/v1"}}
 			if err := home.runtime.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}

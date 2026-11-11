@@ -136,9 +136,9 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 
 func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
-	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	before.Models["selected"] = qualifiedModel("Selected", "gateway", "gpt-6-sol", domain.ProtocolOpenAIResponses)
-	before.Models["extra"] = qualifiedModel("Extra", "gateway", "grok-4.6", domain.ProtocolOpenAIResponses)
+	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+	before.Models["selected"] = qualifiedModel("Selected", "gateway", "gpt-6-sol", domain.ProtocolResponses)
+	before.Models["extra"] = qualifiedModel("Extra", "gateway", "grok-4.6", domain.ProtocolResponses)
 	before.SetSelectedModel(ID, "selected", "")
 	before.SetClientActivation(ID, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
 	before.Normalize()
@@ -156,11 +156,11 @@ func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 
 func TestHermesCatalogUsesProviderWireModelIDs(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
 	for routeID, wireID := range map[string]string{"ordinary": "gpt-6-astra", "variant": "gpt-6-astra-ssvip"} {
 		cfg.Models[routeID] = domain.Model{
 			Provider: "gateway", Family: "gpt-6-astra", UpstreamModel: wireID,
-			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 		}
 	}
 	cfg.SetSelectedModel(ID, "variant", "")
@@ -185,12 +185,12 @@ func TestHermesCatalogFollowsDeclaredProviderAndFamilyOrder(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	for id, order := range map[string]int{"alpha": 20, "zulu": 10} {
 		cfg.Providers[id] = domain.Provider{Label: id, Order: order, Endpoints: domain.Endpoints{
-			Anthropic: "https://messages.test", OpenAIResponses: "https://responses.test/v1",
+			Anthropic: "https://messages.test", Responses: "https://responses.test/v1",
 		}}
 		for model, rank := range map[string]int{"first": 10, "second": 20} {
 			cfg.Families[model] = domain.Family{Label: model, Order: rank}
 			cfg.Models[id+"-"+model] = domain.Model{Provider: id, Family: model, UpstreamModel: map[string]string{"first": "wire-z", "second": "wire-a"}[model], Protocols: map[domain.EndpointProtocol][]domain.Capability{
-				domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
+				domain.ProtocolAnthropic: {}, domain.ProtocolResponses: {},
 			}}
 		}
 	}
@@ -246,9 +246,9 @@ func TestHermesCatalogCoversShippedModelWireIDs(t *testing.T) {
 
 func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
-	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	before.Models["selected"] = qualifiedModel("Selected", "gateway", "gpt-6-sol", domain.ProtocolOpenAIResponses)
-	before.Models["extra"] = qualifiedModel("Extra", "gateway", "grok-4.6", domain.ProtocolOpenAIResponses)
+	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+	before.Models["selected"] = qualifiedModel("Selected", "gateway", "gpt-6-sol", domain.ProtocolResponses)
+	before.Models["extra"] = qualifiedModel("Extra", "gateway", "grok-4.6", domain.ProtocolResponses)
 	before.SetSelectedModel(ID, "selected", "")
 	before.SetClientActivation(ID, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
 	before.Normalize()
@@ -267,21 +267,21 @@ func TestHermesProjectionGroupsEveryConnectedProvidersCuratedModelsByProtocol(t 
 	target := filepath.Join(home, ".hermes", "config.yaml")
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{
-		Anthropic:             "https://messages.test",
-		OpenAIResponses:       "https://responses.test/v1",
-		OpenAIChatCompletions: "https://chat.test/v1",
+		Anthropic: "https://messages.test",
+		Responses: "https://responses.test/v1",
+		Chat:      "https://chat.test/v1",
 	}}
 	cfg.Providers["connected"] = domain.Provider{Label: "Connected", Endpoints: domain.Endpoints{
-		OpenAIResponses: "https://connected.test/v1",
+		Responses: "https://connected.test/v1",
 	}}
 	cfg.Providers["offline"] = domain.Provider{Label: "Offline", Endpoints: domain.Endpoints{
-		OpenAIResponses: "https://offline.test/v1",
+		Responses: "https://offline.test/v1",
 	}}
 	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-fable-5-1", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["grok"] = domain.Model{Label: "Grok", Provider: "team", Family: "grok-4.6", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Models["gemini"] = domain.Model{Label: "Gemini", Provider: "team", Family: "gemini-3.8-flash", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}}
-	cfg.Models["qwen"] = domain.Model{Label: "Qwen", Provider: "connected", Family: "qwen-max", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Models["deepseek"] = domain.Model{Label: "DeepSeek", Provider: "offline", Family: "deepseek-v3", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["grok"] = domain.Model{Label: "Grok", Provider: "team", Family: "grok-4.6", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models["gemini"] = domain.Model{Label: "Gemini", Provider: "team", Family: "gemini-3.8-flash", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
+	cfg.Models["qwen"] = domain.Model{Label: "Qwen", Provider: "connected", Family: "qwen-max", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models["deepseek"] = domain.Model{Label: "DeepSeek", Provider: "offline", Family: "deepseek-v3", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.Clients[ID] = domain.ClientBinding{Model: "claude", Enabled: true, Protocol: domain.ProtocolAnthropic, Targets: []string{target}}
 	store := secret.NewMemoryStore()
 	for _, accountID := range []string{"team", "connected"} {

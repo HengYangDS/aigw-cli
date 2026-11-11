@@ -207,8 +207,8 @@ func (read *catalogRead) record(cfg domain.Config, entry *CatalogObservation) {
 func catalogSources(account domain.Provider) []CatalogSource {
 	protocols := []domain.EndpointProtocol{
 		domain.ProtocolAnthropic,
-		domain.ProtocolOpenAIChatCompletions,
-		domain.ProtocolOpenAIResponses,
+		domain.ProtocolChat,
+		domain.ProtocolResponses,
 	}
 	slices.SortFunc(protocols, domain.CompareProtocols)
 	sources := make([]CatalogSource, 0, len(protocols))

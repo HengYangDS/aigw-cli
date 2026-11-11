@@ -414,8 +414,8 @@ func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
 	cfg.Providers["one"] = domain.Provider{
 		Label: "One",
 		Endpoints: domain.Endpoints{
-			Anthropic:       "https://claude.example.test",
-			OpenAIResponses: "https://codex.example.test/v1",
+			Anthropic: "https://claude.example.test",
+			Responses: "https://codex.example.test/v1",
 		},
 	}
 	cfg.Models["claude"] = domain.Model{
@@ -424,7 +424,7 @@ func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
 	}
 	cfg.Models["codex"] = domain.Model{
 		Label: "Codex", Provider: "one", Family: "gpt-test",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetSelectedModel(codex.ID, "codex", "")

@@ -200,8 +200,8 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIChatCompletions: "https://gateway.test/v1"}}
-	cfg.Models["selected"] = qualifiedModel("", "gateway", "mistral-large-3", domain.ProtocolOpenAIChatCompletions)
+	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Chat: "https://gateway.test/v1"}}
+	cfg.Models["selected"] = qualifiedModel("", "gateway", "mistral-large-3", domain.ProtocolChat)
 	cfg.SetSelectedModel(ID, "selected", "")
 	selected, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {

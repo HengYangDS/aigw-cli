@@ -198,9 +198,9 @@ type BalanceProbe struct {
 
 // Endpoints declares the protocol-specific upstream URLs offered by an account.
 type Endpoints struct {
-	OpenAIChatCompletions string `json:"openai_chat_completions,omitempty" toml:"openai_chat_completions,omitempty"`
-	OpenAIResponses       string `json:"openai_responses,omitempty" toml:"openai_responses,omitempty"`
-	Anthropic             string `json:"anthropic,omitempty"        toml:"anthropic,omitempty"`
+	Chat      string `json:"openai_chat_completions,omitempty" toml:"openai_chat_completions,omitempty"`
+	Responses string `json:"openai_responses,omitempty" toml:"openai_responses,omitempty"`
+	Anthropic string `json:"anthropic,omitempty"        toml:"anthropic,omitempty"`
 }
 
 // NewConfig returns an empty configuration that admits the given clients, with

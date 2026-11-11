@@ -328,8 +328,8 @@ func saveCommandModel(t *testing.T, app *cli.App, endpoints domain.Endpoints, cl
 
 func twoModelConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One Gateway", domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, codex.ID, "model-one")
-	addProviderModel(&cfg, "two", "two", "Two Gateway", domain.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, codex.ID, "model-two")
+	addProviderModel(&cfg, "one", "one", "One Gateway", domain.Endpoints{Anthropic: "https://one.test", Responses: "https://one.test/v1"}, codex.ID, "model-one")
+	addProviderModel(&cfg, "two", "two", "Two Gateway", domain.Endpoints{Anthropic: "https://two.test", Responses: "https://two.test/v1"}, codex.ID, "model-two")
 	for _, routeID := range []string{"one", "two"} {
 		route := cfg.Models[routeID]
 		route.Protocols[domain.ProtocolAnthropic] = []domain.Capability{}
@@ -419,8 +419,8 @@ func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
 	t.Helper()
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Responses: "https://example.test/v1", Anthropic: "https://example.test"}}
+	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
 	cfg.Models["claude"] = qualifiedModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetSelectedModel(claude.ID, "claude", "")

@@ -36,7 +36,7 @@ func TestForwardingRefusesAChangeThatMovesItsUpstream(t *testing.T) {
 	for name, move := range map[string]func(*domain.Config){
 		"Account endpoint": func(cfg *domain.Config) {
 			account := cfg.Providers["backup"]
-			account.Endpoints.OpenAIResponses = "https://moved.test/v1"
+			account.Endpoints.Responses = "https://moved.test/v1"
 			cfg.Providers["backup"] = account
 		},
 		"Account rename": func(cfg *domain.Config) {
@@ -62,9 +62,9 @@ func TestForwardingRefusesAChangeThatMovesItsUpstream(t *testing.T) {
 
 func TestForwardingRefusesAProtocolChange(t *testing.T) {
 	cfg := validConfig()
-	cfg.Providers["multi"] = domain.Provider{Label: "Multi", Endpoints: domain.Endpoints{OpenAIResponses: "https://multi.test/v1", OpenAIChatCompletions: "https://multi.test/v1"}}
-	cfg.Models["multi"] = testModel("Multi", "multi", "multi-model", domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions)
-	cfg.SetSelectedModel(ClientHermes, "multi", domain.ProtocolOpenAIResponses)
+	cfg.Providers["multi"] = domain.Provider{Label: "Multi", Endpoints: domain.Endpoints{Responses: "https://multi.test/v1", Chat: "https://multi.test/v1"}}
+	cfg.Models["multi"] = testModel("Multi", "multi", "multi-model", domain.ProtocolResponses, domain.ProtocolChat)
+	cfg.SetSelectedModel(ClientHermes, "multi", domain.ProtocolResponses)
 	if err := cfg.SetForwardingEndpoint(ClientHermes, forwardingTestEndpoint); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestForwardingRefusesAProtocolChange(t *testing.T) {
 	}
 	// The same Account URL serves both protocols, so only the protocol moves.
 	binding := cfg.Clients[ClientHermes]
-	binding.Protocol = domain.ProtocolOpenAIChatCompletions
+	binding.Protocol = domain.ProtocolChat
 	cfg.Clients[ClientHermes] = binding
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "`aigw client edit hermes --direct`") {
 		t.Fatalf("a forwarded protocol change was accepted or not explained: %v", err)
@@ -87,7 +87,7 @@ func TestForwardingRefusalKeepsASelectedRetryPolicy(t *testing.T) {
 	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &retries}
 	cfg.Clients[ClientCodex] = binding
 	account := cfg.Providers["backup"]
-	account.Endpoints.OpenAIResponses = "https://moved.test/v1"
+	account.Endpoints.Responses = "https://moved.test/v1"
 	cfg.Providers["backup"] = account
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "`aigw client edit codex --direct`") {
 		t.Fatalf("the advised direct connection is not named, or names the retry budgets that it keeps: %v", err)
@@ -96,7 +96,7 @@ func TestForwardingRefusalKeepsASelectedRetryPolicy(t *testing.T) {
 
 func TestForwardingSurvivesASelectionOfTheSameUpstream(t *testing.T) {
 	cfg := forwardedConfig(t)
-	cfg.Models["other"] = testModel("Other", "backup", "other-model", domain.ProtocolOpenAIResponses)
+	cfg.Models["other"] = testModel("Other", "backup", "other-model", domain.ProtocolResponses)
 	cfg.SetSelectedModel(ClientCodex, "other", "")
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
@@ -115,7 +115,7 @@ func TestDirectSelectionDropsForwardingWithItsUpstream(t *testing.T) {
 		t.Fatalf("the direct selection kept part of the forwarding: %#v", binding)
 	}
 	account := cfg.Providers["backup"]
-	account.Endpoints.OpenAIResponses = "https://moved.test/v1"
+	account.Endpoints.Responses = "https://moved.test/v1"
 	cfg.Providers["backup"] = account
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("an Account edit after the direct selection was refused: %v", err)

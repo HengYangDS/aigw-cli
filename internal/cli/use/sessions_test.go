@@ -33,7 +33,7 @@ func TestUseTellsHermesUsersThatExistingSessionsKeepTheirModel(t *testing.T) {
 	for _, id := range []string{"first", "second"} {
 		cfg.Models[id] = domain.Model{
 			Label: id, Provider: "gateway", Family: id + "-model",
-			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 		}
 	}
 	if err := runtime.Config.Save(cfg); err != nil {

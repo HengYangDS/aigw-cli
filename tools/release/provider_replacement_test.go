@@ -21,7 +21,7 @@ func (j *journeyFixture) replaceProvider(old, replacement, input string) {
 		j.testing.Fatal(err)
 	}
 	add := []string{"provider", "add", replacement}
-	for _, protocol := range []domain.EndpointProtocol{domain.ProtocolAnthropic, domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions} {
+	for _, protocol := range []domain.EndpointProtocol{domain.ProtocolAnthropic, domain.ProtocolResponses, domain.ProtocolChat} {
 		if endpoint := cfg.Providers[old].Endpoints.For(protocol); endpoint != "" {
 			add = append(add, "--endpoint", protocol.Name()+"="+endpoint)
 		}

@@ -42,8 +42,8 @@ func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 	account := domain.Provider{
 		ID: "team",
 		Endpoints: domain.Endpoints{
-			Anthropic:       "https://anthropic.example/api",
-			OpenAIResponses: "https://responses.example/v1/",
+			Anthropic: "https://anthropic.example/api",
+			Responses: "https://responses.example/v1/",
 		},
 	}
 	requests := make([]*http.Request, 0, 2)
@@ -83,7 +83,7 @@ func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 	}
 
 	requests = requests[:0]
-	account.Endpoints.OpenAIResponses = ""
+	account.Endpoints.Responses = ""
 	if err := probe.Validate(context.Background(), doer, clients.Admission(), account, "secret"); err != nil {
 		t.Fatal(err)
 	}
@@ -107,13 +107,13 @@ func TestValidateNamesTheDefaultProbeClient(t *testing.T) {
 	}{
 		"Anthropic Messages": {endpoints: anthropic, admission: clients.Admission(), want: "Claude authentication was rejected (HTTP 401)"},
 		"OpenAI Responses": {
-			endpoints: domain.Endpoints{Anthropic: anthropic.Anthropic, OpenAIResponses: "https://responses.test/v1"},
+			endpoints: domain.Endpoints{Anthropic: anthropic.Anthropic, Responses: "https://responses.test/v1"},
 			admission: clients.Admission(), want: "Codex authentication was rejected (HTTP 401)",
 		},
 		// No admitted client speaks only Chat Completions; Hermes speaks it
 		// among others and reaches the provider's only endpoint.
 		"OpenAI Chat Completions": {
-			endpoints: domain.Endpoints{OpenAIChatCompletions: "https://chat.test/v1"},
+			endpoints: domain.Endpoints{Chat: "https://chat.test/v1"},
 			admission: clients.Admission(), want: "Hermes authentication was rejected (HTTP 401)",
 		},
 		"no probing client": {endpoints: anthropic, admission: domain.NewAdmission(), want: "no admitted client probes an Account Token over Anthropic Messages"},
@@ -135,7 +135,7 @@ func TestValidateRuntimeUsesTheSelectedEndpointProtocol(t *testing.T) {
 	selected := domain.Runtime{
 		Client:   hermes.ID,
 		Endpoint: "https://chat.example/v1/",
-		Protocol: domain.ProtocolOpenAIChatCompletions,
+		Protocol: domain.ProtocolChat,
 	}
 	called := false
 	doer := doerFunc(func(request *http.Request) (*http.Response, error) {
@@ -157,7 +157,7 @@ func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 	account := domain.Provider{
 		ID: "team",
 		Endpoints: domain.Endpoints{
-			OpenAIResponses: "https://responses.example/v1",
+			Responses: "https://responses.example/v1",
 		},
 	}
 	tests := []struct {
@@ -169,7 +169,7 @@ func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 	}{
 		{name: "unknown client", account: account, client: "unknown", want: `unsupported credential validation client "unknown"`},
 		{name: "missing endpoint", account: account, client: claude.ID, want: "no Anthropic Messages endpoint"},
-		{name: "invalid URL", account: domain.Provider{ID: "team", Endpoints: domain.Endpoints{OpenAIResponses: "://bad"}}, client: codex.ID, want: "missing protocol scheme"},
+		{name: "invalid URL", account: domain.Provider{ID: "team", Endpoints: domain.Endpoints{Responses: "://bad"}}, client: codex.ID, want: "missing protocol scheme"},
 		{name: "unreachable", account: account, client: codex.ID, doer: doerFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") }), want: "Codex endpoint is unreachable: offline"},
 		{name: "read body", account: account, client: codex.ID, doer: staticResponse(http.StatusOK, responseBody{Reader: failingReader{err: errors.New("broken body")}}), want: "read Codex endpoint response: broken body"},
 		{name: "close body", account: account, client: codex.ID, doer: staticResponse(http.StatusOK, responseBody{Reader: strings.NewReader("ok"), closeErr: errors.New("broken close")}), want: "close Codex endpoint response: broken close"},
@@ -194,7 +194,7 @@ func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 // no response.
 func TestValidateTypesTheFailuresThatCallersActOn(t *testing.T) {
 	t.Parallel()
-	account := domain.Provider{ID: "team", Endpoints: domain.Endpoints{OpenAIResponses: "https://responses.example/v1"}}
+	account := domain.Provider{ID: "team", Endpoints: domain.Endpoints{Responses: "https://responses.example/v1"}}
 	validate := func(doer probe.HTTPDoer) error {
 		return probe.Validate(context.Background(), doer, clients.Admission(), account, "secret")
 	}
@@ -202,7 +202,7 @@ func TestValidateTypesTheFailuresThatCallersActOn(t *testing.T) {
 		t.Fatalf("forbidden = %#v, %t", rejected, ok)
 	}
 	if status, ok := errors.AsType[*probe.EndpointStatusError](validate(staticResponse(http.StatusNotFound, http.NoBody))); !ok ||
-		status.Status != http.StatusNotFound || status.Protocol != domain.ProtocolOpenAIResponses {
+		status.Status != http.StatusNotFound || status.Protocol != domain.ProtocolResponses {
 		t.Fatalf("not found = %#v, %t", status, ok)
 	}
 	offline := errors.New("offline")
@@ -225,7 +225,7 @@ func TestValidateHTTPClientDoesNotFollowRedirects(t *testing.T) {
 		writer.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(server.Close)
-	account := domain.Provider{ID: "team", Endpoints: domain.Endpoints{OpenAIResponses: server.URL + "/v1"}}
+	account := domain.Provider{ID: "team", Endpoints: domain.Endpoints{Responses: server.URL + "/v1"}}
 
 	httpClient := server.Client()
 	err := probe.Validate(context.Background(), httpClient, clients.Admission(), account, "secret", codex.ID)

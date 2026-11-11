@@ -67,7 +67,7 @@ func TestEditKeepsRecommendationsOnTheirProtocols(t *testing.T) {
 	got := f.load(t).Recommendations["hermes"]
 	want := domain.ClientRecommendation{
 		Primary:      domain.ClientSelection{Model: "team"},
-		Alternatives: []domain.ClientSelection{{Model: "mixed-chat", Protocol: domain.ProtocolOpenAIChatCompletions}},
+		Alternatives: []domain.ClientSelection{{Model: "mixed-chat", Protocol: domain.ProtocolChat}},
 	}
 	if got.Primary != want.Primary || !slices.Equal(got.Alternatives, want.Alternatives) {
 		t.Fatalf("recommendation = %#v, want %#v", got, want)

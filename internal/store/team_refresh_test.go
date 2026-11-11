@@ -15,18 +15,18 @@ func TestTeamManifestKeepsOnlyQualifiedRefreshModels(t *testing.T) {
 		model, wire string
 		protocol    domain.EndpointProtocol
 	}{
-		"aihubmix-kimi-k3.1-pro":      {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolOpenAIChatCompletions},
-		"dmxapi-kimi-k3.1-pro":        {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolOpenAIResponses},
-		"ucloud-kimi-k3.1-pro":        {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolOpenAIResponses},
-		"aihubmix-minimax-m3.1-flash": {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolOpenAIResponses},
-		"dmxapi-minimax-m3.1-flash":   {"minimax-m3.1-flash", "MiniMax-M3.1-Flash", domain.ProtocolOpenAIResponses},
-		"ucloud-minimax-m3.1-flash":   {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolOpenAIResponses},
-		"aihubmix-muse-wonder":        {"muse-wonder", "muse-wonder", domain.ProtocolOpenAIResponses},
-		"dmxapi-muse-wonder":          {"muse-wonder", "muse-wonder", domain.ProtocolOpenAIResponses},
-		"ucloud-muse-wonder":          {"muse-wonder", "muse-wonder-1.0", domain.ProtocolOpenAIResponses},
-		"aihubmix-qwen3.8-max-0902":   {"qwen3.8-max-0902", "qwen3.8-max-2026-09-02", domain.ProtocolOpenAIResponses},
-		"dmxapi-qwen3.8-max-0902":     {"qwen3.8-max-0902", "qwen3.8-max-0902", domain.ProtocolOpenAIResponses},
-		"aihubmix-solar-pro4":         {"solar-pro4", "solar-pro4", domain.ProtocolOpenAIChatCompletions},
+		"aihubmix-kimi-k3.1-pro":      {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolChat},
+		"dmxapi-kimi-k3.1-pro":        {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolResponses},
+		"ucloud-kimi-k3.1-pro":        {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolResponses},
+		"aihubmix-minimax-m3.1-flash": {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolResponses},
+		"dmxapi-minimax-m3.1-flash":   {"minimax-m3.1-flash", "MiniMax-M3.1-Flash", domain.ProtocolResponses},
+		"ucloud-minimax-m3.1-flash":   {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolResponses},
+		"aihubmix-muse-wonder":        {"muse-wonder", "muse-wonder", domain.ProtocolResponses},
+		"dmxapi-muse-wonder":          {"muse-wonder", "muse-wonder", domain.ProtocolResponses},
+		"ucloud-muse-wonder":          {"muse-wonder", "muse-wonder-1.0", domain.ProtocolResponses},
+		"aihubmix-qwen3.8-max-0902":   {"qwen3.8-max-0902", "qwen3.8-max-2026-09-02", domain.ProtocolResponses},
+		"dmxapi-qwen3.8-max-0902":     {"qwen3.8-max-0902", "qwen3.8-max-0902", domain.ProtocolResponses},
+		"aihubmix-solar-pro4":         {"solar-pro4", "solar-pro4", domain.ProtocolChat},
 	} {
 		route, ok := manifest.Models[id]
 		if !ok || route.Family != expected.model || route.UpstreamModelID() != expected.wire ||

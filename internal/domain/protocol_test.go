@@ -10,7 +10,7 @@ import (
 
 func TestModelSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://responses.test/v1", Anthropic: "https://messages.test", OpenAIChatCompletions: "https://chat.test/v1"}}
+	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{Responses: "https://responses.test/v1", Anthropic: "https://messages.test", Chat: "https://chat.test/v1"}}
 	cfg.Models["hermes"] = Model{Label: "Hermes", Provider: "team", Family: "model-test", Protocols: map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}}
 	cfg.Clients[ClientHermes] = ClientBinding{Model: "hermes", Protocol: ProtocolAnthropic}
 	if err := cfg.Validate(); err != nil {
@@ -58,16 +58,16 @@ func TestExplicitProtocolMustBeSupportedByClient(t *testing.T) {
 func TestModelProtocolsConstrainClientCompatibilityAndRuntimeSelection(t *testing.T) {
 	cfg := NewConfig(testAdmission())
 	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{
-		OpenAIResponses:       "https://responses.test/v1",
-		OpenAIChatCompletions: "https://chat.test/v1",
+		Responses: "https://responses.test/v1",
+		Chat:      "https://chat.test/v1",
 	}}
 	cfg.Models["chat-only"] = Model{
 		Label:     "Chat only",
 		Provider:  "team",
 		Family:    "model-test",
-		Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}},
+		Protocols: map[EndpointProtocol][]Capability{ProtocolChat: {}},
 	}
-	cfg.Clients[ClientHermes] = ClientBinding{Model: "chat-only", Protocol: ProtocolOpenAIChatCompletions}
+	cfg.Clients[ClientHermes] = ClientBinding{Model: "chat-only", Protocol: ProtocolChat}
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
@@ -76,23 +76,23 @@ func TestModelProtocolsConstrainClientCompatibilityAndRuntimeSelection(t *testin
 		t.Fatalf("compatible clients = %v, %v", compatible, err)
 	}
 	runtime, err := cfg.ResolveRuntime(ClientHermes, "")
-	if err != nil || runtime.Protocol != ProtocolOpenAIChatCompletions {
+	if err != nil || runtime.Protocol != ProtocolChat {
 		t.Fatalf("chat-only runtime = %#v, %v", runtime, err)
 	}
 	cfg.Models["responses-only"] = Model{
 		Label:     "Responses only",
 		Provider:  "team",
 		Family:    "another-model",
-		Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}},
+		Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}},
 	}
 	runtime, err = cfg.ResolveRuntime(ClientHermes, "responses-only")
-	if err != nil || runtime.Protocol != ProtocolOpenAIResponses {
+	if err != nil || runtime.Protocol != ProtocolResponses {
 		t.Fatalf("explicit Route did not replace the previous incompatible protocol: %#v, %v", runtime, err)
 	}
 
 	invalid := cfg.Clone()
 	binding := invalid.Clients[ClientHermes]
-	binding.Protocol = ProtocolOpenAIResponses
+	binding.Protocol = ProtocolResponses
 	invalid.Clients[ClientHermes] = binding
 	if err := invalid.Validate(); err == nil || !strings.Contains(err.Error(), "does not admit") {
 		t.Fatalf("unsupported Route protocol error = %v", err)
@@ -131,7 +131,7 @@ func TestModelProtocolsKeepProtocolAndCapabilitySeparate(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			cfg := validConfig()
 			route := cfg.Models["backup"]
-			route.Protocols = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: testCase.capabilities}
+			route.Protocols = map[EndpointProtocol][]Capability{ProtocolResponses: testCase.capabilities}
 			cfg.Models["backup"] = route
 			err := cfg.Validate()
 			if testCase.wantError == "" && err != nil {
@@ -145,11 +145,11 @@ func TestModelProtocolsKeepProtocolAndCapabilitySeparate(t *testing.T) {
 }
 
 func TestModelToolSearchBelongsToTheAnthropicInterface(t *testing.T) {
-	for _, protocol := range []EndpointProtocol{ProtocolAnthropic, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions} {
+	for _, protocol := range []EndpointProtocol{ProtocolAnthropic, ProtocolResponses, ProtocolChat} {
 		t.Run(string(protocol), func(t *testing.T) {
 			cfg := validConfig()
 			account := cfg.Providers["dmx"]
-			account.Endpoints.OpenAIChatCompletions = "https://example.test/chat/v1"
+			account.Endpoints.Chat = "https://example.test/chat/v1"
 			cfg.Providers["dmx"] = account
 			route := cfg.Models["dmx"]
 			route.Protocols = map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}
@@ -174,8 +174,8 @@ func TestModelCapabilitiesRemainScopedToTheExactWireInterface(t *testing.T) {
 		Provider: "team",
 		Family:   "model",
 		Protocols: map[EndpointProtocol][]Capability{
-			ProtocolOpenAIResponses:       {CapabilityText, CapabilityReasoning},
-			ProtocolOpenAIChatCompletions: {CapabilityText},
+			ProtocolResponses: {CapabilityText, CapabilityReasoning},
+			ProtocolChat:      {CapabilityText},
 		},
 	}
 	data, err := toml.Marshal(route)
@@ -186,22 +186,22 @@ func TestModelCapabilitiesRemainScopedToTheExactWireInterface(t *testing.T) {
 	if err := toml.Unmarshal(data, &restored); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Contains(restored.Protocols[ProtocolOpenAIResponses], CapabilityReasoning) {
+	if !slices.Contains(restored.Protocols[ProtocolResponses], CapabilityReasoning) {
 		t.Fatal("Responses reasoning qualification was lost")
 	}
-	if slices.Contains(restored.Protocols[ProtocolOpenAIChatCompletions], CapabilityReasoning) {
+	if slices.Contains(restored.Protocols[ProtocolChat], CapabilityReasoning) {
 		t.Fatal("Responses reasoning qualification leaked into Chat Completions")
 	}
 }
 
 func TestManifestEquivalenceIncludesEveryEndpointAndProtocol(t *testing.T) {
-	left := Provider{Label: "Team", Endpoints: Endpoints{OpenAIChatCompletions: "https://first.test/v1"}}
+	left := Provider{Label: "Team", Endpoints: Endpoints{Chat: "https://first.test/v1"}}
 	right := left
-	right.Endpoints.OpenAIChatCompletions = "https://second.test/v1"
+	right.Endpoints.Chat = "https://second.test/v1"
 	if equivalentProvider(left, right) {
 		t.Fatal("a team-file merge treated different Chat Completions endpoints as equivalent")
 	}
-	route := Model{Provider: "team", Family: "model", Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}}
+	route := Model{Provider: "team", Family: "model", Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}}}
 	if !equivalentModel(route, route) {
 		t.Fatal("a team-file merge treated equal provider model identities as different")
 	}

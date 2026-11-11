@@ -245,7 +245,7 @@ func syncedCheckApp(t *testing.T, endpoints domain.Endpoints) (*cli.App, *bytes.
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: endpoints}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolResponses)
 	cfg.Models["claude"] = qualifiedModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
@@ -283,7 +283,7 @@ func TestCheckKeepsTheTokenAtTheSelectedOrigin(t *testing.T) {
 				http.Redirect(writer, request, target.URL, http.StatusFound)
 			}))
 			t.Cleanup(origin.Close)
-			app, out := syncedCheckApp(t, domain.Endpoints{Anthropic: origin.URL, OpenAIResponses: origin.URL + "/v1"})
+			app, out := syncedCheckApp(t, domain.Endpoints{Anthropic: origin.URL, Responses: origin.URL + "/v1"})
 			app.HTTP = origin.Client()
 			err := cli.Execute(app, []string{"check", client, "--depth", "endpoint", "--json"})
 			if followed.Load() != 0 || err == nil || !strings.Contains(out.String(), "302") {
@@ -296,7 +296,7 @@ func TestCheckKeepsTheTokenAtTheSelectedOrigin(t *testing.T) {
 // An endpoint check authenticates with the Token and prints neither the
 // Token nor its header.
 func TestCheckAuthenticatesWithoutPrintingTheToken(t *testing.T) {
-	app, out := syncedCheckApp(t, domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"})
+	app, out := syncedCheckApp(t, domain.Endpoints{Responses: "https://example.test/v1", Anthropic: "https://example.test"})
 	httpClient := &fakeHTTP{status: http.StatusOK}
 	app.HTTP = httpClient
 	if err := cli.Execute(app, []string{"check", "codex", "--depth", "endpoint"}); err != nil {

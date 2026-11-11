@@ -120,13 +120,13 @@ func newFixture(t *testing.T) *fixture {
 	configStore := store.NewStore(path, clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{
-		Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"},
+		Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", Responses: "https://team.test/v1"},
 		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://balance.test"},
 	}
-	cfg.Providers["mixed"] = domain.Provider{Label: "Mixed", Endpoints: domain.Endpoints{Anthropic: "https://mixed.test", OpenAIChatCompletions: "https://mixed.test/v1"}}
+	cfg.Providers["mixed"] = domain.Provider{Label: "Mixed", Endpoints: domain.Endpoints{Anthropic: "https://mixed.test", Chat: "https://mixed.test/v1"}}
 	cfg.Models["team"] = domain.Model{Provider: "team", Family: "team-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityToolSearch}}}
-	cfg.Models["team-codex"] = domain.Model{Provider: "team", Family: "codex-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Models["mixed-chat"] = domain.Model{Provider: "mixed", Family: "chat-only", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}}
+	cfg.Models["team-codex"] = domain.Model{Provider: "team", Family: "codex-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Models["mixed-chat"] = domain.Model{Provider: "mixed", Family: "chat-only", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
 	cfg.SetSelectedModel("claude", "team", "")
 	cfg.SetSelectedModel("codex", "team-codex", "")
 	if err := cfg.SetForwardingEndpoint("codex", "http://127.0.0.1:8792/v1"); err != nil {
@@ -136,7 +136,7 @@ func newFixture(t *testing.T) *fixture {
 	binding := cfg.Clients["codex"]
 	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &budget}
 	cfg.Clients["codex"] = binding
-	cfg.Recommendations["hermes"] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "mixed-chat", Protocol: domain.ProtocolOpenAIChatCompletions}}
+	cfg.Recommendations["hermes"] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "mixed-chat", Protocol: domain.ProtocolChat}}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

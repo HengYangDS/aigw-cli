@@ -187,9 +187,9 @@ func setEndpoint(endpoints *domain.Endpoints, protocol domain.EndpointProtocol, 
 	switch protocol {
 	case domain.ProtocolAnthropic:
 		endpoints.Anthropic = url
-	case domain.ProtocolOpenAIResponses:
-		endpoints.OpenAIResponses = url
-	case domain.ProtocolOpenAIChatCompletions:
-		endpoints.OpenAIChatCompletions = url
+	case domain.ProtocolResponses:
+		endpoints.Responses = url
+	case domain.ProtocolChat:
+		endpoints.Chat = url
 	}
 }

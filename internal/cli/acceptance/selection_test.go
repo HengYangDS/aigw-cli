@@ -45,14 +45,14 @@ func TestUseSelectsClientNativeModelWithoutAccessingProviderTokens(t *testing.T)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["aws"] = domain.Provider{
 		Label:     "AWS Bedrock",
-		Endpoints: domain.Endpoints{OpenAIResponses: "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"},
+		Endpoints: domain.Endpoints{Responses: "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"},
 	}
 	cfg.Models["bedrock"] = domain.Model{
 		Label:    "AWS Bedrock",
 		Provider: "aws",
 		Family:   "openai.gpt-5.6-sol",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolOpenAIResponses: {},
+			domain.ProtocolResponses: {},
 		},
 	}
 	cfg.Clients[codex.ID] = domain.ClientBinding{
@@ -96,8 +96,8 @@ func TestUseForClaudeLeavesUnselectedCodexDriftUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
+	cfg.Models["gpt"] = qualifiedModel("GPT", "gateway", "gpt-test", domain.ProtocolResponses)
 	cfg.Models["claude-fable"] = qualifiedModel("Claude Fable", "gateway", "claude-fable", domain.ProtocolAnthropic)
 	cfg.Models["claude-sonnet"] = qualifiedModel("Claude Sonnet", "gateway", "claude-sonnet", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
@@ -213,7 +213,7 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 	}}
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "claude", "claude-gateway", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
-	addProviderModel(&cfg, "codex", "codex-gateway", "Codex", domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "codex", "codex-gateway", "Codex", domain.Endpoints{Responses: "https://codex.test/v1"}, codex.ID, "gpt-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -413,8 +413,8 @@ func TestUseRollsBackModelWhenAdapterSyncFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-one")
-	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{OpenAIResponses: "https://two.test/v1"}, codex.ID, "gpt-two")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-one")
+	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{Responses: "https://two.test/v1"}, codex.ID, "gpt-two")
 	cfg.SetSelectedModel(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/missing/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
@@ -442,9 +442,9 @@ func TestUseCodexModelOnSameProviderDoesNotRebindCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Models["sol"] = qualifiedModel("Sol", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
-	cfg.Models["terra"] = qualifiedModel("Terra", "dmx", "gpt-5.6-terra", domain.ProtocolOpenAIResponses)
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Responses: "https://example.test/v1"}}
+	cfg.Models["sol"] = qualifiedModel("Sol", "dmx", "gpt-5.6-sol", domain.ProtocolResponses)
+	cfg.Models["terra"] = qualifiedModel("Terra", "dmx", "gpt-5.6-terra", domain.ProtocolResponses)
 	cfg.SetSelectedModel(codex.ID, "sol", "")
 	cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {

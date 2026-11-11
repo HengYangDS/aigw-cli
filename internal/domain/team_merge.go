@@ -141,7 +141,7 @@ func mergeProviders(merged *Config, incoming Manifest, report *TeamMerge) {
 }
 
 // knownProtocols are the protocols in the order in which reports name them.
-var knownProtocols = []EndpointProtocol{ProtocolAnthropic, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions}
+var knownProtocols = []EndpointProtocol{ProtocolAnthropic, ProtocolResponses, ProtocolChat}
 
 // mergeModel takes the file's definition of the model stored under key,
 // unless it would change a client's selection of it. A protocol whose

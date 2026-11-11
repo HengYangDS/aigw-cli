@@ -157,10 +157,10 @@ func savedRuntime(t *testing.T, cfg domain.Config) (invocation.Context, string, 
 
 func localConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["local"] = domain.Provider{Label: "Local", Endpoints: domain.Endpoints{OpenAIResponses: "https://local.example/v1"}}
+	cfg.Providers["local"] = domain.Provider{Label: "Local", Endpoints: domain.Endpoints{Responses: "https://local.example/v1"}}
 	cfg.Models["local"] = domain.Model{
 		Label: "Local", Provider: "local", Family: "gpt-local",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
 	cfg.SetSelectedModel(codex.ID, "local", "")
 	return cfg

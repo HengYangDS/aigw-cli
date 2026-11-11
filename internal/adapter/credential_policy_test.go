@@ -34,7 +34,7 @@ func configuredClient(t *testing.T, id string) (domain.Config, adapter.Dependenc
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
+	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	spec, _ := clients.Admission().Spec(id)
 	cfg.Models[id] = domain.Model{
 		Provider: "gateway", Family: "fixture", UpstreamModel: "fixture",

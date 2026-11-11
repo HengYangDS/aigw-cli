@@ -41,11 +41,11 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing")
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{
-		Anthropic:       "https://gateway.test",
-		OpenAIResponses: "https://gateway.test/v1",
+		Anthropic: "https://gateway.test",
+		Responses: "https://gateway.test/v1",
 	}}
 	cfg.Models["claude"] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
-	cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
 	cfg.SetSelectedModel(ID, "claude", "")
 	cfg.SetSelectedModel(otherClient.ID, "codex", "")
 	cfg.SetClientActivation(ID, true, missing, nil)

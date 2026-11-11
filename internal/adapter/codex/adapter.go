@@ -31,7 +31,7 @@ func New() adapter.Adapter { return codexAdapter{} }
 
 func (codexAdapter) Spec() domain.ClientSpec {
 	return domain.ClientSpec{
-		ID: ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses},
+		ID: ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses},
 		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
 		DefaultModelProvider: modelProviderAIGW, ClientNativeAuthentication: true,
 	}

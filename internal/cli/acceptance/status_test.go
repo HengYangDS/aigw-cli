@@ -18,8 +18,8 @@ import (
 func TestStatusSuggestsProviderSpecificDiagnostics(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
-	cfg.Models["gpt-5.6-sol"] = qualifiedModel("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{Responses: "https://dmx.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	cfg.Models["gpt-5.6-sol"] = qualifiedModel("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -102,8 +102,8 @@ func TestStatusDirectsAPredecessorSchemaToTheMatchingRelease(t *testing.T) {
 func TestStatusPrioritizesSelectedActivationWhileRetainingModelGuidance(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Models["gpt-5.6-sol"] = qualifiedModel("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{Responses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
+	cfg.Models["gpt-5.6-sol"] = qualifiedModel("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolResponses)
 	cfg.Models["claude-fable-5"] = qualifiedModel("Claude", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	cfg.SetRecommendedModel(claude.ID, "claude-fable-5")
@@ -173,8 +173,8 @@ func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 func TestStatusShowsIndependentModelsAndJSONNeverContainsToken(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "codex", "dmx", "Codex", domain.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
-	addProviderModel(&cfg, "claude", "dmx", "Claude", domain.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "codex", "dmx", "Codex", domain.Endpoints{Anthropic: "https://example.test", Responses: "https://example.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "claude", "dmx", "Claude", domain.Endpoints{Anthropic: "https://example.test", Responses: "https://example.test/v1"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -213,7 +213,7 @@ func TestStatusReportsModelTransport(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			app.Config = store.NewStore(filepath.Join(t.TempDir(), "localhost-4567-configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
-			addProviderModel(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: tc.endpoint}, codex.ID, "model-test")
+			addProviderModel(&cfg, "team", "team", "Team", domain.Endpoints{Responses: tc.endpoint}, codex.ID, "model-test")
 			cfg.SetSelectedModel(codex.ID, "team", "")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -255,8 +255,8 @@ func TestStatusReportsModelTransport(t *testing.T) {
 func TestStatusLabelsModelCountAsModelConfigurations(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Models["gpt"] = qualifiedModel("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Responses: "https://team.test/v1", Anthropic: "https://team.test"}}
+	cfg.Models["gpt"] = qualifiedModel("GPT", "team", "gpt-test", domain.ProtocolResponses)
 	cfg.Models["claude"] = qualifiedModel("Claude", "team", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetSelectedModel(claude.ID, "claude", "")

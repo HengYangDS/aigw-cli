@@ -407,7 +407,7 @@ terminal:
 	// The retained reader predates presentation order; this journey owns connections.
 	for name, account := range manifest.Providers {
 		account.Order = 0
-		account.Endpoints.OpenAIResponses = j.endpoint
+		account.Endpoints.Responses = j.endpoint
 		account.Endpoints.Anthropic = strings.TrimSuffix(j.endpoint, "/v1")
 		if account.BalanceProbe != nil {
 			account.BalanceProbe.BaseURL = j.endpoint

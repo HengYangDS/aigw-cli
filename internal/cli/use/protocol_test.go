@@ -23,7 +23,7 @@ func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 	cfg.Models["shared"] = domain.Model{
 		Provider: "gateway", Family: "shared-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
+			domain.ProtocolAnthropic: {}, domain.ProtocolResponses: {},
 		},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -63,7 +63,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	cfg.Models["shared"] = domain.Model{
 		Provider: "gateway", Family: "shared-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
+			domain.ProtocolAnthropic: {}, domain.ProtocolResponses: {},
 		},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -123,7 +123,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	runtime.Interactive = true
 	runtime.Prompt = &promptStub{selected: "responses"}
 	interactive, err := chooseProtocol(runtime, cfg, hermesSpec, domain.NewModelRef("gateway", "shared-model"), "")
-	if err != nil || interactive.protocol != domain.ProtocolOpenAIResponses || !interactive.chosen {
+	if err != nil || interactive.protocol != domain.ProtocolResponses || !interactive.chosen {
 		t.Fatalf("interactive Hermes protocol = %#v, %v", interactive, err)
 	}
 	runtime.Prompt = &promptStub{err: errors.New("the current protocol was asked for")}
@@ -138,7 +138,7 @@ func TestUseValidatesSelectedProtocolWhenAcquiringToken(t *testing.T) {
 	cfg.Models["shared"] = domain.Model{
 		Provider: "gateway", Family: "shared-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
+			domain.ProtocolAnthropic: {}, domain.ProtocolResponses: {},
 		},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {

@@ -25,13 +25,13 @@ func testClientSpecs() []ClientSpec {
 			OptionalTarget: "configLibrary", InAppAcceptance: true,
 		},
 		{
-			ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses},
+			ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolResponses},
 			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
 			DefaultModelProvider: "aigw", ClientNativeAuthentication: true,
 		},
 		{
 			ID: ClientHermes, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml",
-			EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions},
+			EndpointProtocols: []EndpointProtocol{ProtocolResponses, ProtocolAnthropic, ProtocolChat},
 		},
 	}
 }

@@ -22,7 +22,7 @@ func TestSettingsSurfaceIdentityIsStable(t *testing.T) {
 
 func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
-	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
+	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://first.test/v1", Anthropic: "https://first.test"}}
 	before.Models["route"] = qualifiedModel("Route", "gateway", "model", domain.ProtocolAnthropic)
 	before.Clients[ID] = domain.ClientBinding{Model: "route", Enabled: true}
 	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
@@ -30,7 +30,7 @@ func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.
 	}
 	after := before.Clone()
 	account := after.Providers["gateway"]
-	account.Endpoints = domain.Endpoints{OpenAIResponses: "https://second.test/v1", Anthropic: "https://second.test"}
+	account.Endpoints = domain.Endpoints{Responses: "https://second.test/v1", Anthropic: "https://second.test"}
 	after.Providers["gateway"] = account
 	if !(claudeAdapter{}).ProjectionChanged(before, after) {
 		t.Fatal("unchanged forwarding hid a changed credential projection identity")

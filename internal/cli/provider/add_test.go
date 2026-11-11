@@ -26,7 +26,7 @@ func TestAddValidatesTheTokenWithOneRequestThenStoresAndSaves(t *testing.T) {
 	if f.token("fresh") != "sk-fresh-0001" || strings.Contains(f.out.String(), "sk-fresh-0001") {
 		t.Fatalf("stored Token %q, in output %t", f.token("fresh"), strings.Contains(f.out.String(), "sk-fresh-0001"))
 	}
-	if provider := f.load(t).Providers["fresh"]; provider.Label != "Fresh" || provider.Endpoints.OpenAIChatCompletions != "https://fresh.test/v1" {
+	if provider := f.load(t).Providers["fresh"]; provider.Label != "Fresh" || provider.Endpoints.Chat != "https://fresh.test/v1" {
 		t.Fatalf("saved provider = %+v", provider)
 	}
 	// A prompt at a terminal reads the Token without echoing it, and the

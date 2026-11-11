@@ -25,7 +25,7 @@ const rehearsalID = "rehearsal"
 type rehearsalAdapter struct{ home string }
 
 func (rehearsalAdapter) Spec() domain.ClientSpec {
-	return domain.ClientSpec{ID: rehearsalID, Label: "Rehearsal", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
+	return domain.ClientSpec{ID: rehearsalID, Label: "Rehearsal", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses}}
 }
 
 func (clientAdapter rehearsalAdapter) target() string {
@@ -143,8 +143,8 @@ func (rehearsalAdapter) Withdraw(cfg *domain.Config) {
 // governs, before and after the rehearsal client selects its Route.
 func rehearsalConfiguration(admission domain.Admission) (domain.Config, domain.Config) {
 	before := domain.NewConfig(admission)
-	before.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	before.Models["rehearsal"] = qualifiedModel("", "gateway", "rehearsal-model", domain.ProtocolOpenAIResponses)
+	before.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+	before.Models["rehearsal"] = qualifiedModel("", "gateway", "rehearsal-model", domain.ProtocolResponses)
 	after := before.Clone()
 	after.Clients[rehearsalID] = domain.ClientBinding{Model: "rehearsal", Enabled: true}
 	return before, after

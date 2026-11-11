@@ -97,8 +97,8 @@ var projectedClients = map[string]func(*testing.T) projectedClient{
 		writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)
 		app.Discovery = fakeDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: target, Present: true, AutoManaged: true}}}}
 		cfg := domain.NewConfig(clients.Admission())
-		cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-		cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolOpenAIResponses)
+		cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+		cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
 		cfg.SetSelectedModel(codex.ID, "sol", "")
 		cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
 		saveAndSync(t, app, output, store, cfg)

@@ -16,7 +16,7 @@ func TestModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 		Provider: "gateway",
 		Family:   "openai.gpt-5.6-sol",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolOpenAIResponses: {},
+			domain.ProtocolResponses: {},
 		},
 	}
 	cfg.Clients[ClientCodex] = domain.ClientBinding{
@@ -168,14 +168,14 @@ func TestSelectModelsForConnectedProvidersHonorsRecommendationAuthentication(t *
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["native"] = domain.Provider{
 		Label:     "Native",
-		Endpoints: domain.Endpoints{OpenAIResponses: "https://native.test/v1"},
+		Endpoints: domain.Endpoints{Responses: "https://native.test/v1"},
 	}
 	cfg.Providers["token"] = domain.Provider{
 		Label:     "Token",
-		Endpoints: domain.Endpoints{OpenAIResponses: "https://token.test/v1"},
+		Endpoints: domain.Endpoints{Responses: "https://token.test/v1"},
 	}
-	cfg.Models["native"] = testModel("Native", "native", "native-model", domain.ProtocolOpenAIResponses)
-	cfg.Models["token"] = testModel("Token", "token", "token-model", domain.ProtocolOpenAIResponses)
+	cfg.Models["native"] = testModel("Native", "native", "native-model", domain.ProtocolResponses)
+	cfg.Models["token"] = testModel("Token", "token", "token-model", domain.ProtocolResponses)
 	cfg.Recommendations[ClientCodex] = domain.ClientRecommendation{Primary: domain.ClientSelection{
 		Model:          "native",
 		ModelProvider:  "native-provider",
@@ -247,8 +247,8 @@ func modelProviderConfig() domain.Config {
 	cfg.Providers["gateway"] = domain.Provider{
 		Label: "Gateway",
 		Endpoints: domain.Endpoints{
-			OpenAIResponses: "https://gateway.test/openai/v1",
-			Anthropic:       "https://gateway.test/anthropic",
+			Responses: "https://gateway.test/openai/v1",
+			Anthropic: "https://gateway.test/anthropic",
 		},
 	}
 	cfg.Models["default"] = domain.Model{
@@ -256,8 +256,8 @@ func modelProviderConfig() domain.Config {
 		Provider: "gateway",
 		Family:   "gpt-5.6-sol",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolOpenAIResponses: {},
-			domain.ProtocolAnthropic:       {},
+			domain.ProtocolResponses: {},
+			domain.ProtocolAnthropic: {},
 		},
 	}
 	cfg.SetSelectedModel(ClientCodex, "default", "")

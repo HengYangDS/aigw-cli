@@ -139,7 +139,7 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	target := t.TempDir()
 	verified := domain.NewConfig(clients.Admission())
-	addProviderModel(&verified, "stable", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-stable")
+	addProviderModel(&verified, "stable", "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-stable")
 	verified.SetSelectedModel(codex.ID, "stable", "")
 	verified.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(verified); err != nil {
@@ -149,7 +149,7 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	current := verified.Clone()
-	current.Models["stable"] = qualifiedModel("Stable", "one", "gpt-current", domain.ProtocolOpenAIResponses)
+	current.Models["stable"] = qualifiedModel("Stable", "one", "gpt-current", domain.ProtocolResponses)
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
 	}
@@ -178,8 +178,8 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	verified := domain.NewConfig(clients.Admission())
-	verified.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	verified.Models["stable"] = qualifiedModel("Stable", "dmx", "gpt-stable", domain.ProtocolOpenAIResponses)
+	verified.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Responses: "https://example.test/v1"}}
+	verified.Models["stable"] = qualifiedModel("Stable", "dmx", "gpt-stable", domain.ProtocolResponses)
 	verified.SetSelectedModel(codex.ID, "stable", "")
 	if err := app.Config.Save(verified); err != nil {
 		t.Fatal(err)
@@ -191,7 +191,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	account := current.Providers["dmx"]
 	account.Order = 10
 	current.Providers["dmx"] = account
-	current.Models = map[string]domain.Model{"experimental": qualifiedModel("Experimental", "dmx", "gpt-experimental", domain.ProtocolOpenAIResponses)}
+	current.Models = map[string]domain.Model{"experimental": qualifiedModel("Experimental", "dmx", "gpt-experimental", domain.ProtocolResponses)}
 	current.SetSelectedModel(codex.ID, "experimental", "")
 	// External edits leave the historical checkpoint available for recovery.
 	canonical := current.Clone()

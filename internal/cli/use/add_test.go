@@ -123,7 +123,7 @@ func TestUseAddsAModelThatTheCatalogLists(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := saved.SelectedModel(codex.ID)
-	if model := saved.Models[key]; model.Ref().String() != "gateway/gpt-fresh" || len(model.Protocols) != 1 || len(model.Protocols[domain.ProtocolOpenAIResponses]) != 0 {
+	if model := saved.Models[key]; model.Ref().String() != "gateway/gpt-fresh" || len(model.Protocols) != 1 || len(model.Protocols[domain.ProtocolResponses]) != 0 {
 		t.Fatalf("the added model = %#v", model)
 	}
 }
@@ -305,7 +305,7 @@ func TestUseReportsOtherClientsAndALostToolSearch(t *testing.T) {
 func TestUseNamesAToolSearchFixThatKeepsTheModelsCapabilities(t *testing.T) {
 	runtime, cfg := desktopRuntime(t)
 	cfg.Models["minimax"] = domain.Model{Provider: "gateway", Family: "minimax-m3", UpstreamModel: "MiniMax-M3",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText, domain.CapabilityTools}}}
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {domain.CapabilityText, domain.CapabilityTools}}}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

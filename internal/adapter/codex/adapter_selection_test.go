@@ -16,7 +16,7 @@ func TestAdoptCodexSelectionRecordsTheOneMatchingModel(t *testing.T) {
 	if err != nil || routeID != "terra" {
 		t.Fatalf("adopted Route = %q, %v", routeID, err)
 	}
-	if runtime, err := cfg.ResolveRuntime(ID, ""); err != nil || runtime.ModelID != "terra" || runtime.Protocol != domain.ProtocolOpenAIResponses {
+	if runtime, err := cfg.ResolveRuntime(ID, ""); err != nil || runtime.ModelID != "terra" || runtime.Protocol != domain.ProtocolResponses {
 		t.Fatalf("Codex binding = %#v, %v", cfg.Clients[ID], err)
 	}
 	if after, err := os.ReadFile(targets[0]); err != nil || string(after) != native {
@@ -36,7 +36,7 @@ func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg, targets := codexAdoptionFixture(t, 1)
 			if test.copy {
-				cfg.Models["terra-copy"] = qualifiedModel("Terra copy", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
+				cfg.Models["terra-copy"] = qualifiedModel("Terra copy", "gateway", "gpt-terra", domain.ProtocolResponses)
 				cfg.Normalize()
 			}
 			chooseCodexModel(t, targets[0], test.model)
@@ -99,11 +99,11 @@ func TestAdoptCodexSelectionLeavesUnchangedBindings(t *testing.T) {
 func codexAdoptionFixture(t *testing.T, count int) (domain.Config, []string) {
 	t.Helper()
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
-	cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolOpenAIResponses)
-	cfg.Models["terra"] = qualifiedModel("Terra", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
-	cfg.Models["other-terra"] = qualifiedModel("Other terra", "other", "gpt-terra", domain.ProtocolOpenAIResponses)
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Responses: "https://other.test/v1"}}
+	cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
+	cfg.Models["terra"] = qualifiedModel("Terra", "gateway", "gpt-terra", domain.ProtocolResponses)
+	cfg.Models["other-terra"] = qualifiedModel("Other terra", "other", "gpt-terra", domain.ProtocolResponses)
 	targets := make([]string, 0, count)
 	for range count {
 		target := filepath.Join(t.TempDir(), "config.toml")

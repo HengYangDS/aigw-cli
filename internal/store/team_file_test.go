@@ -41,11 +41,11 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(report.Unusable) != 1 || report.Unusable[0].Protocol != domain.ProtocolOpenAIResponses {
+	if len(report.Unusable) != 1 || report.Unusable[0].Protocol != domain.ProtocolResponses {
 		t.Errorf("unusable protocols %+v", report.Unusable)
 	}
 	var missing *domain.RuntimeMissingEndpointError
-	if _, err := cfg.ResolveModelProtocol(ClientCodex, "codex", domain.ProtocolOpenAIResponses); !errors.As(err, &missing) || missing.ProviderID != "gateway" {
+	if _, err := cfg.ResolveModelProtocol(ClientCodex, "codex", domain.ProtocolResponses); !errors.As(err, &missing) || missing.ProviderID != "gateway" {
 		t.Fatalf("a selection on the unusable protocol = %v", err)
 	}
 }

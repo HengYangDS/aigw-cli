@@ -36,7 +36,7 @@ func (hermesAdapter) Spec() domain.ClientSpec {
 		ID:    ID,
 		Label: "Hermes",
 		EndpointProtocols: []domain.EndpointProtocol{
-			domain.ProtocolOpenAIResponses, domain.ProtocolAnthropic, domain.ProtocolOpenAIChatCompletions,
+			domain.ProtocolResponses, domain.ProtocolAnthropic, domain.ProtocolChat,
 		},
 		SessionsKeepModel: true,
 		OptionalTarget:    "config.yaml",

@@ -98,7 +98,7 @@ func TestAChangeNamesTheClientFilesThatItWrites(t *testing.T) {
 	f.runtime.ResolveCredentialPath = func() (string, error) { return reader, nil }
 	target := filepath.Join(home, ".hermes", "config.yaml")
 	cfg := f.load(t)
-	cfg.SetSelectedModel("hermes", "mixed-chat", domain.ProtocolOpenAIChatCompletions)
+	cfg.SetSelectedModel("hermes", "mixed-chat", domain.ProtocolChat)
 	cfg.SetClientActivation("hermes", true, "", []string{target})
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)

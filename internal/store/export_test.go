@@ -12,11 +12,11 @@ import (
 func TestExportKeepsClientBindingsLocal(t *testing.T) {
 	declared := func() domain.Config {
 		cfg := domain.NewConfig(testAdmission())
-		cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
+		cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", Responses: "https://team.test/v1"}}
 		cfg.Models["team-claude"] = testModel("Team Claude", "team", "claude-test", domain.ProtocolAnthropic)
 		cfg.Models["team-claude-alternative"] = testModel("Team Claude Alternative", "team", "claude-alternative", domain.ProtocolAnthropic)
-		cfg.Models["team-codex"] = testModel("Team Codex", "team", "gpt-test", domain.ProtocolOpenAIResponses)
-		cfg.Models["manual-codex"] = testModel("Manual Codex", "team", "gpt-manual", domain.ProtocolOpenAIResponses)
+		cfg.Models["team-codex"] = testModel("Team Codex", "team", "gpt-test", domain.ProtocolResponses)
+		cfg.Models["manual-codex"] = testModel("Manual Codex", "team", "gpt-manual", domain.ProtocolResponses)
 		cfg.Recommendations[ClientClaude] = domain.ClientRecommendation{
 			Primary:      domain.ClientSelection{Model: "team-claude"},
 			Alternatives: []domain.ClientSelection{{Model: "team-claude-alternative"}},

@@ -14,16 +14,16 @@ import (
 func TestManifestExportOmitsDerivedModelLabelsAndPreservesWireCase(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["dmxapi"] = domain.Provider{
-		Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
+		Label: "DMXAPI", Endpoints: domain.Endpoints{Responses: "https://dmx.test/v1"},
 	}
 	cfg.Families["gpt-6-astra"] = domain.Family{Label: "GPT-6 Astra"}
 	cfg.Models["dmxapi-gpt-6-astra"] = domain.Model{
 		Label: "DMXAPI · GPT-6 Astra", Provider: "dmxapi", Family: "gpt-6-astra",
-		UpstreamModel: "GPT-6-Astra", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
+		UpstreamModel: "GPT-6-Astra", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {domain.CapabilityText}},
 	}
 	cfg.Models["dmxapi-gpt-6-astra-cdx"] = domain.Model{
 		Label: "DMXAPI · GPT-6 Astra · CDX", Provider: "dmxapi", Family: "gpt-6-astra",
-		UpstreamModel: "GPT-6-Astra-CDX", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
+		UpstreamModel: "GPT-6-Astra-CDX", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {domain.CapabilityText}},
 	}
 	data, err := Export(cfg)
 	if err != nil {
@@ -81,7 +81,7 @@ route = "ucloud-gpt-6-astra"
 		t.Fatalf("route identity = %#v", route)
 	}
 	wantCapabilities := []domain.Capability{domain.CapabilityText, domain.CapabilityReasoning, domain.CapabilityStreaming, domain.CapabilityTools, domain.CapabilityContinuation}
-	if got := route.Protocols[domain.ProtocolOpenAIResponses]; !reflect.DeepEqual(got, wantCapabilities) {
+	if got := route.Protocols[domain.ProtocolResponses]; !reflect.DeepEqual(got, wantCapabilities) {
 		t.Fatalf("Responses capabilities = %#v, want %#v", got, wantCapabilities)
 	}
 	if got := manifest.Recommendations[ClientCodex].Primary.Model; got != "ucloud-gpt-6-astra" {
@@ -130,7 +130,7 @@ func TestManifestRecommendationsFollowTheAdmission(t *testing.T) {
 	admission := domain.NewAdmission(append(testClientSpecs(), domain.ClientSpec{
 		ID:                "synthetic",
 		Label:             "Synthetic",
-		EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses},
+		EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses},
 	})...)
 
 	manifest, err := Parse([]byte(`version = 7
@@ -231,10 +231,10 @@ model = "claude-test"
 
 func TestExportRejectsModelThatCannotBeParsedBack(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Models["codex"] = testModel("Codex", "team", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Responses: "https://team.test/v1", Anthropic: "https://team.test"}}
+	cfg.Models["codex"] = testModel("Codex", "team", "gpt-test", domain.ProtocolResponses)
 	cfg.SetSelectedModel(ClientCodex, "codex", "")
-	cfg.Clients[ClientClaude] = domain.ClientBinding{Model: "codex", Protocol: domain.ProtocolOpenAIResponses}
+	cfg.Clients[ClientClaude] = domain.ClientBinding{Model: "codex", Protocol: domain.ProtocolResponses}
 
 	if _, err := Export(cfg); err == nil {
 		t.Fatal("export accepted a client-incompatible route")

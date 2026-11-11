@@ -17,7 +17,7 @@ import (
 )
 
 func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
-	account := domain.Provider{ID: "one", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}}
+	account := domain.Provider{ID: "one", Endpoints: domain.Endpoints{Responses: "https://one.test/v1", Anthropic: "https://one.test"}}
 
 	t.Run("unknown client", func(t *testing.T) {
 		err := probe.Validate(context.Background(), nil, clients.Admission(), account, "token", "other")
@@ -35,7 +35,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 
 	t.Run("invalid URL", func(t *testing.T) {
 		bad := account
-		bad.Endpoints.OpenAIResponses = "://bad"
+		bad.Endpoints.Responses = "://bad"
 		if err := probe.Validate(context.Background(), nil, clients.Admission(), bad, "token", codex.ID); err == nil {
 			t.Fatal("expected request construction failure")
 		}

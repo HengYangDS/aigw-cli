@@ -69,7 +69,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 
 	cfg.Models["codex-only"] = domain.Model{
 		Label: "Codex only", Purpose: "Selection", Provider: "one", Family: "gpt-test",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
 	delete(cfg.Clients, codex.ID)
 	cfg.SetRecommendedModel(codex.ID, "codex-only")
@@ -167,7 +167,7 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, buffer := configuredReadinessRuntime(t)
 			providerAccount := cfg.Providers["one"]
-			providerAccount.Endpoints.OpenAIResponses = "http://127.0.0.1:1234/v1"
+			providerAccount.Endpoints.Responses = "http://127.0.0.1:1234/v1"
 			providerAccount.BalanceProbe = test.probe
 			cfg.Providers["one"] = providerAccount
 			if err := runtime.Config.Save(cfg); err != nil {
@@ -207,7 +207,7 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 func TestStatusDescribesEachLoopbackModelWithoutInferringServiceIdentity(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
 	account := cfg.Providers["one"]
-	account.Endpoints = domain.Endpoints{Anthropic: "http://127.0.0.2:4567", OpenAIResponses: "http://[::ffff:127.0.0.2]:4568/v1"}
+	account.Endpoints = domain.Endpoints{Anthropic: "http://127.0.0.2:4567", Responses: "http://[::ffff:127.0.0.2]:4568/v1"}
 	cfg.Providers["one"] = account
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)

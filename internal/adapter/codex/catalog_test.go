@@ -170,7 +170,7 @@ func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 	config.Providers = map[string]domain.Provider{
 		"dmxapi": {
 			Label:     "DMXAPI",
-			Endpoints: domain.Endpoints{OpenAIResponses: "https://api.example.test/v1"},
+			Endpoints: domain.Endpoints{Responses: "https://api.example.test/v1"},
 		},
 	}
 	config.Families = map[string]domain.Family{
@@ -183,7 +183,7 @@ func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 			Family:        canonicalModel,
 			UpstreamModel: upstreamModel,
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{
-				domain.ProtocolOpenAIResponses: {},
+				domain.ProtocolResponses: {},
 			},
 		},
 	}
@@ -191,7 +191,7 @@ func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 		ID: {
 			Model:             routeID,
 			Enabled:           true,
-			Protocol:          domain.ProtocolOpenAIResponses,
+			Protocol:          domain.ProtocolResponses,
 			ModelProvider:     modelProviderAIGW,
 			CredentialCommand: filepath.Join(t.TempDir(), "credential-reader"),
 		},

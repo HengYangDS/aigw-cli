@@ -58,17 +58,17 @@ func completionRuntime(t *testing.T) Context {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["messages"] = domain.Provider{Label: "Messages", Endpoints: domain.Endpoints{Anthropic: "https://messages.test"}}
-	cfg.Providers["responses"] = domain.Provider{Label: "Responses", Endpoints: domain.Endpoints{OpenAIResponses: "https://responses.test/v1"}}
+	cfg.Providers["responses"] = domain.Provider{Label: "Responses", Endpoints: domain.Endpoints{Responses: "https://responses.test/v1"}}
 	cfg.Families["opus"] = domain.Family{Label: "Opus"}
 	cfg.Models["messages-opus"] = domain.Model{Provider: "messages", Family: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["responses-sol"] = domain.Model{Provider: "responses", Family: "sol", UpstreamModel: "openai/gpt-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["responses-sol"] = domain.Model{Provider: "responses", Family: "sol", UpstreamModel: "openai/gpt-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	// The model declares only anthropic, and its provider also serves
 	// responses, which `aigw use` gives it for Codex.
-	cfg.Providers["both"] = domain.Provider{Label: "Both", Endpoints: domain.Endpoints{Anthropic: "https://both.test", OpenAIResponses: "https://both.test/v1"}}
+	cfg.Providers["both"] = domain.Provider{Label: "Both", Endpoints: domain.Endpoints{Anthropic: "https://both.test", Responses: "https://both.test/v1"}}
 	cfg.Models["both-opus"] = domain.Model{Provider: "both", Family: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	// A second Route of the same name, on responses, which completion offers
 	// once.
-	cfg.Models["both-opus-responses"] = domain.Model{Provider: "both", Family: "opus", UpstreamModel: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["both-opus-responses"] = domain.Model{Provider: "both", Family: "opus", UpstreamModel: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -54,7 +54,7 @@ func TestUsePreviewIsCredentialFreeAndWritesNothing(t *testing.T) {
 	}
 	var result document
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil || !result.DryRun || result.Model != "gateway/gpt-test" ||
-		result.Provider != "gateway" || result.Protocol != "responses" || result.Endpoint != cfg.Providers["gateway"].Endpoints.OpenAIResponses ||
+		result.Provider != "gateway" || result.Protocol != "responses" || result.Endpoint != cfg.Providers["gateway"].Endpoints.Responses ||
 		!result.TokenMissing || result.NextAction != "" || result.NextDetail != "Run `aigw use codex gateway/gpt-test` in a terminal, which asks for the provider's Token." {
 		t.Fatalf("selection preview = %s, %v", out.Bytes(), err)
 	}
@@ -187,9 +187,9 @@ func TestUseClearsForwardingAndRetriesOnlyForAnotherProvider(t *testing.T) {
 	if err := cfg.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Models["next"] = domain.Model{Label: "Next", Provider: "gateway", Family: "gpt-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.example.test/v1"}}
-	cfg.Models["other"] = domain.Model{Label: "Other", Provider: "other", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["next"] = domain.Model{Label: "Next", Provider: "gateway", Family: "gpt-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Responses: "https://other.example.test/v1"}}
+	cfg.Models["other"] = domain.Model{Label: "Other", Provider: "other", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -509,8 +509,8 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 	cfg.Providers["gateway"] = domain.Provider{
 		Label: "Gateway",
 		Endpoints: domain.Endpoints{
-			Anthropic:       "https://gateway.example.test",
-			OpenAIResponses: "https://gateway.example.test/v1",
+			Anthropic: "https://gateway.example.test",
+			Responses: "https://gateway.example.test/v1",
 		},
 	}
 	cfg.Models["codex"] = domain.Model{
@@ -518,7 +518,7 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 		Provider: "gateway",
 		Family:   "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolOpenAIResponses: {},
+			domain.ProtocolResponses: {},
 		},
 	}
 	cfg.SetSelectedModel(codex.ID, "codex", "")

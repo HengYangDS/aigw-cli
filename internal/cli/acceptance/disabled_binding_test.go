@@ -39,7 +39,7 @@ func enabledCodexWithDisabledClaude(t *testing.T) (*cli.App, *bytes.Buffer, *pro
 	t.Helper()
 	app, out, memory, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "gpt", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "gpt", "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
 	addProviderModel(&cfg, "claude", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claudeclient.ID, "claude-test")
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetSelectedModel(claudeclient.ID, "claude", "")

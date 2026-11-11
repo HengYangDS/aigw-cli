@@ -36,8 +36,8 @@ func ProbeRequest(ctx context.Context, admission Admission, client, endpoint, to
 func ModelCatalogRequest(ctx context.Context, endpoint string, protocol EndpointProtocol, token string) (*http.Request, error) {
 	switch protocol {
 	case ProtocolAnthropic,
-		ProtocolOpenAIResponses,
-		ProtocolOpenAIChatCompletions:
+		ProtocolResponses,
+		ProtocolChat:
 	default:
 		return nil, fmt.Errorf("unsupported model catalog protocol %q", protocol)
 	}
@@ -55,7 +55,7 @@ func authenticate(request *http.Request, protocol EndpointProtocol, token string
 	case ProtocolAnthropic:
 		request.Header.Set("X-Api-Key", token)
 		request.Header.Set("Anthropic-Version", "2023-06-01")
-	case ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions:
+	case ProtocolResponses, ProtocolChat:
 		request.Header.Set("Authorization", "Bearer "+token)
 	}
 }

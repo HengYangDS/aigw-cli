@@ -18,12 +18,12 @@ func duplicateFixture(t *testing.T) fixture {
 	f := newFixture(t)
 	cfg := f.load(t)
 	cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{
-		OpenAIResponses: "https://ucloud.test/v1", OpenAIChatCompletions: "https://ucloud.test/chat/v1",
+		Responses: "https://ucloud.test/v1", Chat: "https://ucloud.test/chat/v1",
 	}}
 	cfg.Models["ucloud-sol-chat"] = domain.Model{Provider: "ucloud", Family: "sol", UpstreamModel: "sol", Label: "Sol",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {domain.CapabilityText}}}
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {domain.CapabilityText}}}
 	cfg.Models["ucloud-sol-responses"] = domain.Model{Provider: "ucloud", Family: "sol", UpstreamModel: "sol",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

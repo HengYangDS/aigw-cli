@@ -28,7 +28,7 @@ type failingProjectionAdapter struct {
 }
 
 func (adapter failingProjectionAdapter) Spec() domain.ClientSpec {
-	return domain.ClientSpec{ID: adapter.id, Label: adapter.id, EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
+	return domain.ClientSpec{ID: adapter.id, Label: adapter.id, EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses}}
 }
 
 func (adapter failingProjectionAdapter) Discover(DiscoverySource) discovery.Result {
@@ -104,7 +104,7 @@ type recordingAdapter struct {
 }
 
 func (adapter *recordingAdapter) Spec() domain.ClientSpec {
-	return domain.ClientSpec{ID: "future", Label: "Future", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
+	return domain.ClientSpec{ID: "future", Label: "Future", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses}}
 }
 
 func (adapter *recordingAdapter) Discover(DiscoverySource) discovery.Result {

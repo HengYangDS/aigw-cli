@@ -159,17 +159,17 @@ func (g guidedSetup) newProvider(ctx context.Context) (guidedProvider, error) {
 }
 
 // knownProtocols are the protocols in the order in which setup offers them.
-var knownProtocols = []domain.EndpointProtocol{domain.ProtocolAnthropic, domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions}
+var knownProtocols = []domain.EndpointProtocol{domain.ProtocolAnthropic, domain.ProtocolResponses, domain.ProtocolChat}
 
 // setEndpoint gives endpoints the URL of protocol.
 func setEndpoint(endpoints *domain.Endpoints, protocol domain.EndpointProtocol, url string) {
 	switch protocol {
 	case domain.ProtocolAnthropic:
 		endpoints.Anthropic = url
-	case domain.ProtocolOpenAIResponses:
-		endpoints.OpenAIResponses = url
-	case domain.ProtocolOpenAIChatCompletions:
-		endpoints.OpenAIChatCompletions = url
+	case domain.ProtocolResponses:
+		endpoints.Responses = url
+	case domain.ProtocolChat:
+		endpoints.Chat = url
 	}
 }
 

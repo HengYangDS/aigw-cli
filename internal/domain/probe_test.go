@@ -17,8 +17,8 @@ func TestProbeRequestRejectsUnknownOrAmbiguousProtocol(t *testing.T) {
 	}{
 		{name: "unknown client", client: "unknown", want: `unsupported credential validation client "unknown"`},
 		{name: "ambiguous Hermes protocol", client: ClientHermes, want: `requires an admitted endpoint protocol`},
-		{name: "unadmitted Claude protocol", client: ClientClaude, protocols: []EndpointProtocol{ProtocolOpenAIResponses}, want: `requires an admitted endpoint protocol`},
-		{name: "multiple protocols", client: ClientCodex, protocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic}, want: `requires one protocol`},
+		{name: "unadmitted Claude protocol", client: ClientClaude, protocols: []EndpointProtocol{ProtocolResponses}, want: `requires an admitted endpoint protocol`},
+		{name: "multiple protocols", client: ClientCodex, protocols: []EndpointProtocol{ProtocolResponses, ProtocolAnthropic}, want: `requires one protocol`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -43,14 +43,14 @@ func TestModelCatalogRequestKeepsProtocolAuthenticationDistinct(t *testing.T) {
 		{
 			name:       "OpenAI Chat Completions",
 			endpoint:   "https://chat.test/v1",
-			protocol:   ProtocolOpenAIChatCompletions,
+			protocol:   ProtocolChat,
 			wantURL:    "https://chat.test/v1/models",
 			wantBearer: "Bearer token",
 		},
 		{
 			name:       "OpenAI Responses",
 			endpoint:   "https://responses.test/v1",
-			protocol:   ProtocolOpenAIResponses,
+			protocol:   ProtocolResponses,
 			wantURL:    "https://responses.test/v1/models",
 			wantBearer: "Bearer token",
 		},
@@ -80,7 +80,7 @@ func TestModelCatalogRequestKeepsProtocolAuthenticationDistinct(t *testing.T) {
 func TestModelsEndpointKeepsAnExplicitModelsPath(t *testing.T) {
 	t.Parallel()
 
-	if got := modelsEndpoint("https://example.test/models", ProtocolOpenAIResponses); got != "https://example.test/models" {
+	if got := modelsEndpoint("https://example.test/models", ProtocolResponses); got != "https://example.test/models" {
 		t.Fatalf("models endpoint = %q", got)
 	}
 }
@@ -91,13 +91,13 @@ func TestModelsEndpointKeepsAnExplicitModelsPath(t *testing.T) {
 func TestCatalogRequestKeyNamesOneRequest(t *testing.T) {
 	t.Parallel()
 
-	responses := CatalogRequestKey("https://gateway.test/v1/", ProtocolOpenAIResponses)
-	if chat := CatalogRequestKey("https://gateway.test/v1", ProtocolOpenAIChatCompletions); chat != responses {
+	responses := CatalogRequestKey("https://gateway.test/v1/", ProtocolResponses)
+	if chat := CatalogRequestKey("https://gateway.test/v1", ProtocolChat); chat != responses {
 		t.Fatalf("one URL gives two keys: %q, %q", responses, chat)
 	}
 	for _, other := range []string{
 		CatalogRequestKey("https://gateway.test/v1", ProtocolAnthropic),
-		CatalogRequestKey("https://other.test/v1", ProtocolOpenAIResponses),
+		CatalogRequestKey("https://other.test/v1", ProtocolResponses),
 	} {
 		if other == responses {
 			t.Fatalf("%q names the Responses request", other)

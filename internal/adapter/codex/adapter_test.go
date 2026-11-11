@@ -37,8 +37,8 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 			t.Fatal(err)
 		}
 		cfg := domain.NewConfig(testAdmission())
-		cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-		cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+		cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+		cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
 		cfg.Clients[ID] = domain.ClientBinding{Model: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
 		runtime, err := cfg.ResolveRuntime(ID, "")
 		if err != nil {
@@ -164,8 +164,8 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForProviderTokenProviders(t *te
 		t.Run(test.name, func(t *testing.T) {
 			target := filepath.Join(t.TempDir(), "config.toml")
 			cfg := domain.NewConfig(testAdmission())
-			cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-			cfg.Models["codex"] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+			cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+			cfg.Models["codex"] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolResponses)
 			cfg.Clients[ID] = domain.ClientBinding{
 				Model: "codex", Enabled: true, ModelProvider: test.provider,
 				Authentication: test.authentication, Executable: "/usr/bin/codex", Targets: []string{target},
@@ -276,8 +276,8 @@ func (runner *captureAdapterRunner) RunCapture(ctx context.Context, plan process
 
 func codexConfiguration(target string) domain.Config {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+	cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
 	cfg.Clients[ID] = domain.ClientBinding{Model: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }

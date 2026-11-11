@@ -54,9 +54,9 @@ func TestShellCompletionReadsNoTokenAndSendsNoRequest(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["messages"] = domain.Provider{Label: "Messages", Endpoints: domain.Endpoints{Anthropic: "https://messages.test"}}
-	cfg.Providers["responses"] = domain.Provider{Label: "Responses", Endpoints: domain.Endpoints{OpenAIResponses: "https://responses.test/v1"}}
+	cfg.Providers["responses"] = domain.Provider{Label: "Responses", Endpoints: domain.Endpoints{Responses: "https://responses.test/v1"}}
 	cfg.Models["messages-opus"] = domain.Model{Provider: "messages", Family: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["responses-sol"] = domain.Model{Provider: "responses", Family: "sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["responses-sol"] = domain.Model{Provider: "responses", Family: "sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
