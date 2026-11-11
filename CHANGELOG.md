@@ -121,6 +121,11 @@ signing, and GA status remain separate evidence.
   `aigw sync --dry-run` printed a plan for a home without a configuration,
   which `aigw sync` refuses.
 
+### Security
+
+- AIGW is built with Go 1.27.4, which fixes GO-2026-6859 (CVE-2026-97054), a
+  crash in `net/http` that the Go 1.27.3 build reached through its HTTP client.
+
 ## [0.6.1] - 2026-11-05
 
 ### Security
