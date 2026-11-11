@@ -84,20 +84,15 @@ state/installs to private job state. Read/copy/remove shim admission and exact
 cleanup must succeed under both review and protected identities. Update the shared
 binary only in a verified zero-job window.
 
-Tool acquisition defaults to locked official upstreams. Explicit
-`tool_source=peer` in either GitHub workflow or `AIGW_TOOL_SOURCE=peer` on GitLab
-selects only that peer's checksum-verified copies; it is not an automatic fallback.
+Tool acquisition defaults to locked official upstreams. On GitLab only,
+`AIGW_TOOL_SOURCE=peer` selects that registry's checksum-verified copies; it is
+not an automatic fallback. GitHub jobs always download from the official
+upstream that the lock declares.
 
 GitLab's registry mirrors GitHub assets and release metadata using job-local
-CI_JOB_TOKEN netrc, removed with its owned scope. GitHub's
-carrier is selected by `miseMirror.githubRelease` in CUE and serves original
-versioned glab filenames, never Latest. Its signed native-input archive qualifies
-only its original producer; the current lock independently qualifies added tool
-bytes. Do not rebind its tag or matrix to current supplier acceptance. Publish
-only absent, checksum-verified assets without replacement. Retain the carrier
-until both native-input and tool-source consumers release it. CUE projects both
-selectors and browser/API rewriting; the lock remains version/checksum SSOT.
-Missing or altered selected copies fail.
+CI_JOB_TOKEN netrc, removed with its owned scope. CUE projects the selector and
+its browser/API rewriting; the lock remains version/checksum SSOT. Missing or
+altered selected copies fail.
 
 Native upstream bootstrap and peer-isolated cold acquisition are separate
 claims; local inventory cannot establish either hosted result.

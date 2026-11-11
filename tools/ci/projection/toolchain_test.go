@@ -171,8 +171,8 @@ func TestToolchainCachesPreserveLockAndExecutionBoundaries(t *testing.T) {
 				transport := ""
 				if strings.HasPrefix(step.Uses, "jdx/mise-action@") {
 					transport = "http2client=0"
-					if step.With.Cache != "${{ inputs.tool_source != 'peer' }}" || !step.With.Install || step.With.InstallArgs != "--locked" || step.With.CacheKeyPrefix != "mise-${{ github.job }}" {
-						t.Fatalf("%s/%s must cache upstream installs but bypass cache for peer qualification: %#v", projection.Path, name, step.With)
+					if step.With.Cache != "true" || !step.With.Install || step.With.InstallArgs != "--locked" || step.With.CacheKeyPrefix != "mise-${{ github.job }}" {
+						t.Fatalf("%s/%s must cache the locked upstream installs: %#v", projection.Path, name, step.With)
 					}
 				}
 				if step.Env["GODEBUG"] != transport {

@@ -2,12 +2,9 @@ package projection
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -124,141 +121,11 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 			t.Errorf("GitLab %s cleanup must attest exact absence after removal", name)
 		}
 	}
-	if strings.Contains(projections[1].Content, "packages/generic/mise-github/") {
-		t.Fatal("GitHub projection unexpectedly depends on the GitLab tool mirror")
-	}
-}
-
-func TestGitHubToolSourceSelectsItsReciprocalMirrorExplicitly(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	projections, err := renderProjections(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	command := projectionCommand(root, "miseMirror.githubEnvironment")
-	output, err := command.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var declared map[string]string
-	if err := yaml.Unmarshal(output, &declared); err != nil {
-		t.Fatal(err)
-	}
-	for _, item := range projections[1:] {
-		t.Run(item.Path, func(t *testing.T) {
-			var workflow struct {
-				On struct {
-					Dispatch struct {
-						Inputs struct {
-							ToolSource struct {
-								Default string   `yaml:"default"`
-								Options []string `yaml:"options"`
-							} `yaml:"tool_source"`
-						} `yaml:"inputs"`
-					} `yaml:"workflow_dispatch"`
-				} `yaml:"on"`
-				Jobs map[string]struct {
-					Steps []struct {
-						Name string            `yaml:"name"`
-						Env  map[string]string `yaml:"env"`
-					} `yaml:"steps"`
-				} `yaml:"jobs"`
+	for _, projection := range projections[1:] {
+		for _, forbidden := range []string{"packages/generic/mise-github/", "MISE_URL_REPLACEMENTS"} {
+			if strings.Contains(projection.Content, forbidden) {
+				t.Fatalf("GitHub projection %s depends on a peer tool copy: %s", projection.Path, forbidden)
 			}
-			if err := yaml.Unmarshal([]byte(item.Content), &workflow); err != nil {
-				t.Fatal(err)
-			}
-			if choice := workflow.On.Dispatch.Inputs.ToolSource; choice.Default != "upstream" || !slices.Equal(choice.Options, []string{"upstream", "peer"}) {
-				t.Fatal("tool source must default to locked upstream with an explicit peer choice")
-			}
-			found := false
-			for name, job := range workflow.Jobs {
-				for _, step := range job.Steps {
-					if step.Name != "Install the locked toolchain" {
-						continue
-					}
-					found = true
-					selected := step.Env["MISE_URL_REPLACEMENTS"]
-					if selected == declared["MISE_URL_REPLACEMENTS"] || strings.Count(selected, "${{") != 1 ||
-						!strings.Contains(selected, "format(") || !strings.Contains(selected, "inputs.tool_source == 'peer'") ||
-						!strings.Contains(selected, "github.server_url") || !strings.Contains(selected, "github.repository") ||
-						!strings.Contains(selected, "|| ''") {
-						t.Errorf("%s must resolve peer URLs inside one outer GitHub expression", name)
-					}
-					for _, forbidden := range []string{"MISE_GITLAB_TOKEN", "MISE_NETRC_FILE", "MISE_NETRC"} {
-						if step.Env[forbidden] != "" {
-							t.Errorf("%s reciprocal public mirror inherits %s", name, forbidden)
-						}
-					}
-				}
-			}
-			if !found {
-				t.Fatal("workflow lost its locked toolchain consumer")
-			}
-		})
-	}
-}
-
-func TestGitHubMirrorRewritesEveryLockedGlabEndpoint(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	output, err := projectionCommand(root, "miseMirror.githubEnvironment").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var environment map[string]string
-	if err := yaml.Unmarshal(output, &environment); err != nil {
-		t.Fatal(err)
-	}
-	carrierOutput, err := projectionCommand(root, "miseMirror.githubRelease").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var carrier string
-	if err := yaml.Unmarshal(carrierOutput, &carrier); err != nil {
-		t.Fatal(err)
-	}
-	serverURL, repository := "https://github.example", "owner/project"
-	assetPrefix := serverURL + "/" + repository + "/releases/download/" + carrier + "/"
-	template := strings.NewReplacer("{{", "{", "}}", "}", "{0}", serverURL, "{1}", repository).
-		Replace(environment["MISE_URL_REPLACEMENTS"])
-	var replacements map[string]string
-	if err := json.Unmarshal([]byte(template), &replacements); err != nil {
-		t.Fatal(err)
-	}
-	content, err := os.ReadFile(filepath.Join(root, ".config", "mise", "mise.lock"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var lock miseLock
-	if err := toml.Unmarshal(content, &lock); err != nil {
-		t.Fatal(err)
-	}
-	if len(lock.Tools["glab"]) != 1 || len(replacements) != 2 {
-		t.Fatal("one locked glab must have exactly browser and API mirror contracts")
-	}
-	entry := lock.Tools["glab"][0]
-	for _, platform := range []misePlatformLock{entry.LinuxARM64, entry.LinuxX64, entry.MacOSARM64, entry.MacOSX64, entry.WindowsARM64, entry.WindowsX64} {
-		for _, source := range []string{platform.URL, platform.URLAPI} {
-			t.Run(source, func(t *testing.T) {
-				matched := 0
-				for pattern, target := range replacements {
-					expression, err := regexp.Compile(strings.TrimPrefix(pattern, "regex:"))
-					if err != nil {
-						t.Fatal(err)
-					}
-					if !expression.MatchString(source) {
-						continue
-					}
-					matched++
-					resolved, err := url.PathUnescape(expression.ReplaceAllString(source, target))
-					filename, filenameErr := url.PathUnescape(path.Base(source))
-					if err != nil || filenameErr != nil || resolved != assetPrefix+filename {
-						t.Errorf("locked asset rewritten outside the selected peer or renamed: %q, %v, %v", resolved, err, filenameErr)
-					}
-				}
-				if matched != 1 {
-					t.Errorf("locked endpoint has %d mirror owners, want one: %s", matched, source)
-				}
-			})
 		}
 	}
 }

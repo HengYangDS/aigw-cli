@@ -8,7 +8,6 @@ import (
 // pipeline.cue owns CI topology. Forge files are generated projections.
 
 #OperatingSystem: "darwin" | "linux" | "windows"
-#ToolSource:      "upstream" | "peer"
 #JobID:           "accepted-ref-parity" | "quality" | "native-darwin" | "native-linux" | "native-windows" | "linux-secret-service" | "release-version" | "release-assets"
 #Claim:           "accepted-ref-parity" | "source-quality" | "go-source-compatibility" | "native-product-journey" | "lifecycle-acceptance" | "linux-secret-service" | "release-metadata" | "artifact-verification"
 
@@ -42,14 +41,6 @@ gitEnvironment: {
 	GIT_CONFIG_VALUE_0: "main"
 	GIT_CONFIG_KEY_1:   "core.longpaths"
 	GIT_CONFIG_VALUE_1: "true"
-}
-
-toolSourceInput: {
-	description: "Locked upstream distribution or the selected peer's verified immutable tool copies"
-	required:    false
-	type:        "choice"
-	default:     #ToolSource & "upstream"
-	options: ["upstream", "peer"]
 }
 
 // Peer-local copies transport only the upstream bytes selected by .config/mise/mise.lock.
@@ -101,8 +92,6 @@ miseMirror: {
 		  printf '%s\n' 'Mise job-owned supply state retired.'
 		fi
 		"""#
-	githubRelease:    "native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6"
-	githubEnvironment: MISE_URL_REPLACEMENTS: "{{\"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$\":\"{0}/{1}/releases/download/\(githubRelease)/$2\",\"regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$\":\"{0}/{1}/releases/download/\(githubRelease)/$2\"}}"
 }
 
 linuxApt: {
@@ -440,14 +429,12 @@ workflowEvidencePath:   "build/verification/workflows"
 #Toolchain: {
 	name: "Install the locked toolchain"
 	uses: actions.mise
-	env: installationEnvironment & {
-		MISE_URL_REPLACEMENTS: "${{ inputs.tool_source == 'peer' && format('\(miseMirror.githubEnvironment.MISE_URL_REPLACEMENTS)', github.server_url, github.repository) || '' }}"
-	}
+	env:  installationEnvironment
 	with: {
 		version:          miseVersion
 		install:          true
 		install_args:     "--locked"
-		cache:            "${{ inputs.tool_source != 'peer' }}"
+		cache:            true
 		cache_key_prefix: "mise-${{ github.job }}"
 	}
 }
@@ -924,7 +911,6 @@ githubVerify: {
 		push: {branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch], tags: ["v*"]}
 		"pull_request": branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch]
 		"workflow_dispatch": inputs: {
-			tool_source: toolSourceInput
 			native_platform: {
 				description: "Native platform to qualify; partial runs do not establish full release readiness"
 				required:    false
@@ -1088,7 +1074,6 @@ githubRelease: {
 	env: gitEnvironment & (#MiseConfigurationEnvironment & {_root: "${{ github.workspace }}"})
 	"on": {
 		"workflow_dispatch": inputs: {
-			tool_source: toolSourceInput
 			tag: {
 				description: "Existing published v* release to verify"
 				required:    true
