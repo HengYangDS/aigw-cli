@@ -219,9 +219,11 @@
 - [ ] 8.2 Simulate the archive on a copy: strict validation passes, and no
       merged specification exceeds 500 non-blank lines.
 - [ ] 8.3 Confirm the hosted three-platform graph on the proposal.
-- [ ] 8.5 Retire the `public-inputs` carrier route of the hosted journeys in
-      `verify.yml` and `docs/operations/forge-operations.md`; no carrier
-      bundles a pre-0.7.0 archive.
+- [ ] 8.5 Refuse a published predecessor older than 0.7.0 before any release
+      journey downloads or runs it, and retire the GitHub transport-release
+      carrier of the hosted journeys; `git grep` finds no `input_release` or
+      `native-inputs-` outside archived Changes and released CHANGELOG
+      sections.
 - [ ] 8.6 Rehearse the owner's upgrade in an isolated home with a file Token
       store: from a read-only record of the owner's non-secret configuration,
       recreate it with the lane head's `setup --from`, `provider edit`,
