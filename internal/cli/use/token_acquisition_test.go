@@ -105,7 +105,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 
 func TestUseNamesMissingEnvironmentTokenWithoutPrompting(t *testing.T) {
 	runtime, _, _ := configuredRuntime(t)
-	runtime.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
+	runtime.Secrets = environmentBackend(func(string) string { return "" })
 	runtime.Interactive = true
 	runtime.Prompt = &promptStub{err: errors.New("prompt must not run")}
 
@@ -123,7 +123,7 @@ func TestUseNamesMissingEnvironmentTokenWithoutPrompting(t *testing.T) {
 // supplies the missing Token, in JSON and for a person, and never a prompt.
 func TestUsePreviewNamesTheVariableOfAMissingEnvironmentToken(t *testing.T) {
 	runtime, _, _ := configuredRuntime(t)
-	runtime.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
+	runtime.Secrets = environmentBackend(func(string) string { return "" })
 	key := secret.EnvironmentKey("gateway")
 	preview := useDocument(t, runtime, codex.ID, "gateway/gpt-test", "--dry-run")
 	if !preview.TokenMissing || preview.NextAction != "" || preview.NextDetail != "Set "+key+", then run `aigw use codex gateway/gpt-test`." {

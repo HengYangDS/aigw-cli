@@ -128,7 +128,7 @@ func TestTeamSetupReadsTheTokensThatItNeeds(t *testing.T) {
 	// provider whose variable is not set.
 	home = newGuidedHome(t)
 	home.runtime.Interactive = false
-	home.runtime.Secrets = secret.NewEnvironmentStore(func(key string) string {
+	home.runtime.Secrets = environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("team") {
 			return "sk-env"
 		}
@@ -200,7 +200,7 @@ func TestSetupRefusesFlagsThatCannotRun(t *testing.T) {
 		home := newGuidedHome(t)
 		home.runtime.Interactive = test.interactive
 		if test.environment {
-			home.runtime.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
+			home.runtime.Secrets = environmentBackend(func(string) string { return "" })
 		}
 		if err := home.run(t, &guidedPrompt{}, test.args...); err == nil || !strings.Contains(err.Error(), test.want) {
 			t.Errorf("%q: %v, want %q", test.args, err, test.want)
@@ -239,7 +239,7 @@ func TestTeamSetupRendersEveryRow(t *testing.T) {
 			t.Errorf("the report lacks %q:\n%s", want, home.out)
 		}
 	}
-	if got := tokenFix(secret.NewEnvironmentStore(func(string) string { return "" }), "team"); got != "Set "+secret.EnvironmentKey("team")+" to the provider's Token, then run `aigw sync`." {
+	if got := tokenFix(environmentBackend(func(string) string { return "" }), "team"); got != "Set "+secret.EnvironmentKey("team")+" to the provider's Token, then run `aigw sync`." {
 		t.Errorf("the environment's Token fix = %q", got)
 	}
 	var endpoints domain.Endpoints

@@ -182,7 +182,7 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
-			app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+			app.Secrets = environmentBackend(func(key string) string {
 				if key == secret.EnvironmentKey("dmxapi") {
 					return "aigw-test-dmxapi-token"
 				}
@@ -279,7 +279,7 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 			const token = "aigw-test-dmxapi-token"
 			args := []string{"setup", "--from", writeConfigurationManifest(t, configurationManifestFixture), "--provider", "dmxapi"}
 			if backend == "environment" {
-				app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+				app.Secrets = environmentBackend(func(key string) string {
 					if key == secret.EnvironmentKey("dmxapi") {
 						return token
 					}

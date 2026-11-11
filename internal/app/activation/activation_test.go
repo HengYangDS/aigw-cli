@@ -49,13 +49,13 @@ func TestAssessActivationChoosesOneCompatibleEnvironmentProvider(t *testing.T) {
 	cfg.Models[domain.NewModelRef("dmx", "fable")] = domain.Model{Provider: "dmx", Family: "fable", ID: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("ucloud", "fable")}}
 	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("dmx", "fable"), "")
-	store := secret.NewEnvironmentStore(func(string) string { return "" })
+	store := environmentBackend(func(string) string { return "" })
 	got := AssessActivation(cfg, store)
 	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != "set environment variable "+secret.EnvironmentKey("dmx") {
 		t.Fatalf("selected Account activation = %+v", got)
 	}
 
-	store = secret.NewEnvironmentStore(func(key string) string {
+	store = environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("dmx") {
 			return "available-token"
 		}
@@ -66,7 +66,7 @@ func TestAssessActivationChoosesOneCompatibleEnvironmentProvider(t *testing.T) {
 		t.Fatalf("connected Account activation = %+v", got)
 	}
 
-	store = secret.NewEnvironmentStore(func(key string) string {
+	store = environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("ucloud") {
 			return "available-token"
 		}
@@ -183,7 +183,7 @@ func TestAssessActivationListsUnselectedCompatibleEnvironmentProviders(t *testin
 	recommendation.Alternatives = []domain.ClientSelection{{Model: domain.NewModelRef("dmx", "fable")}}
 	cfg.Recommendations[claude.ID] = recommendation
 
-	got := AssessActivation(cfg, secret.NewEnvironmentStore(func(string) string { return "" }))
+	got := AssessActivation(cfg, environmentBackend(func(string) string { return "" }))
 	want := "Set one compatible provider's variable: " + secret.EnvironmentKey("dmx") + " or " + secret.EnvironmentKey("ucloud") + ", then run `aigw sync`"
 	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != want {
 		t.Fatalf("unselected alternatives = %+v, want %q", got, want)
@@ -254,7 +254,7 @@ func TestAssessActivationDoesNotInstallAClientWhoseSelectedTokenIsMissing(t *tes
 	cfg.Models[domain.NewModelRef("connected", "gpt")] = domain.Model{Provider: "connected", Family: "gpt", ID: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("missing", "fable"), "")
 	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("connected", "gpt")}}
-	store := secret.NewEnvironmentStore(func(key string) string {
+	store := environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("connected") {
 			return "available-token"
 		}
@@ -339,7 +339,7 @@ func TestAssessActivationSeparatesMissingTokenFromDeferredProjection(t *testing.
 	cfg.SetSelectedModel(hermes.ID, domain.NewModelRef("team", "model"), "")
 	cfg.SetClientActivation(hermes.ID, true, "", nil)
 
-	missing := secret.NewEnvironmentStore(func(string) string { return "" })
+	missing := environmentBackend(func(string) string { return "" })
 	got := AssessActivation(cfg, missing)
 	wantCredential := "set environment variable " + secret.EnvironmentKey("team")
 	wantProjection := "Install Hermes if needed, then run `aigw sync`"
@@ -347,7 +347,7 @@ func TestAssessActivationSeparatesMissingTokenFromDeferredProjection(t *testing.
 		t.Fatalf("missing Token and client = %+v", got)
 	}
 
-	connected := secret.NewEnvironmentStore(func(key string) string {
+	connected := environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("team") {
 			return "available-token"
 		}
@@ -465,4 +465,14 @@ func TestAnUnobservableStoreNamesTheFixThatAClientRendered(t *testing.T) {
 	if got := activation.NextActionFor(unclassified); got != domainreadiness.CredentialBackendRecovery {
 		t.Fatalf("an unclassified failure = %q", got)
 	}
+}
+
+// environmentBackend is the read-only environment backend that getenv
+// supplies, as an invocation selects it.
+func environmentBackend(getenv func(string) string) secret.Store {
+	store, err := secret.Select(secret.Selection{Backend: "env", Getenv: getenv})
+	if err != nil {
+		panic(err)
+	}
+	return store
 }

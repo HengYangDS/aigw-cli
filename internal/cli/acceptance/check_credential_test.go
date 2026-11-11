@@ -74,7 +74,7 @@ func TestCheckNamesTheEnvironmentTokenForARejectedToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	variable := secret.EnvironmentKey("dmx")
-	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+	app.Secrets = environmentBackend(func(key string) string {
 		if key == variable {
 			return "rejected-fixture-token"
 		}
@@ -330,4 +330,14 @@ func TestCheckNamesNeitherAnEnvironmentTokenNorTheConfigurationPath(t *testing.T
 	if err := cli.Execute(bad, []string{"check", "--depth", "local", "--json"}); err == nil || strings.Contains(broken.String(), unreadable.Path()) {
 		t.Fatalf("an unreadable configuration: %v\n%s", err, broken)
 	}
+}
+
+// environmentBackend is the read-only environment backend that getenv
+// supplies, as an invocation selects it.
+func environmentBackend(getenv func(string) string) secret.Store {
+	store, err := secret.Select(secret.Selection{Backend: "env", Getenv: getenv})
+	if err != nil {
+		panic(err)
+	}
+	return store
 }

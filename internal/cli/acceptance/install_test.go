@@ -176,7 +176,7 @@ func TestUninstallPreservesDriftedSharedReader(t *testing.T) {
 	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
 	app.DataDir = filepath.Join(root, "data")
 	writeFile(t, app.Executable, []byte("portable program"), 0o755)
-	reader, err := secret.VersionedEntrypointPath(app.DataDir, app.Executable, executableName("aigw"))
+	reader, err := versionedReaderPath(app.DataDir, app.Executable, executableName("aigw"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestPortableUninstallPreservesExternalCredentialCommand(t *testing.T) {
 	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
 	app.DataDir = filepath.Join(root, "data")
 	writeFile(t, app.Executable, []byte("portable program"), 0o755)
-	reader, err := secret.VersionedEntrypointPath(app.DataDir, app.Executable, executableName("aigw"))
+	reader, err := versionedReaderPath(app.DataDir, app.Executable, executableName("aigw"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,4 +412,14 @@ func withdrawInstallationClients(t *testing.T, app *cli.App, manager, previousEx
 			t.Fatalf("package-owned file changed: %q, %v", data, err)
 		}
 	}
+}
+
+// versionedReaderPath is the versioned credential reader below dataDir for
+// the program at source, as the program names its own.
+func versionedReaderPath(dataDir, source, installName string) (string, error) {
+	program, err := secret.ReadProgram(nil, source)
+	if err != nil {
+		return "", err
+	}
+	return program.EntrypointPath(dataDir, installName)
 }

@@ -25,16 +25,6 @@ const executableReadSize = 64 << 10
 // Reuse read buffers, never executable identities; each call still hashes every byte.
 var executableReadBuffers = sync.Pool{New: func() any { return new([executableReadSize]byte) }}
 
-// VersionedEntrypointPath binds a private executable path to the exact source
-// bytes without creating files or relying on an installer-owned public link.
-func VersionedEntrypointPath(dataDir, source, installName string) (path string, err error) {
-	program, err := ReadProgram(nil, source)
-	if err != nil {
-		return "", err
-	}
-	return program.EntrypointPath(dataDir, installName)
-}
-
 // executables reads AIGW executables through one injected file capability.
 type executables struct {
 	files Files
@@ -241,25 +231,6 @@ func inspectEntrypoint(path string) (os.FileInfo, bool, error) {
 		return nil, false, err
 	}
 	return binary, false, nil
-}
-
-// EnsureEntrypoint retains one executable outside a package manager's CLI
-// link. It never replaces an existing entrypoint during an ordinary sync.
-// The returned compensation removes only bytes created by this operation.
-func EnsureEntrypoint(source, target string) (func() error, error) {
-	return ensureEntrypoint(source, target, platform.WriteFileAtomicExactModeIfUnchanged)
-}
-
-func ensureEntrypoint(
-	source, target string,
-	write func(string, platform.FileSnapshot, []byte, os.FileMode) (platform.FileSnapshot, error),
-) (func() error, error) {
-	program, err := ReadProgram(nil, source)
-	if err != nil {
-		return nil, err
-	}
-	_, undo, err := program.ensure(target, write)
-	return undo, err
 }
 
 // install writes exactly the given source bytes, whose digest the caller

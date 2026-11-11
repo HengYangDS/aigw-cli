@@ -5,7 +5,6 @@ import (
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
-	"aigw-cli/internal/secret"
 	"context"
 	"errors"
 	"os"
@@ -100,7 +99,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		if err := os.WriteFile(source, []byte("AIGW fixture"), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		reader, err := secret.VersionedEntrypointPath(filepath.Join(t.TempDir(), "data"), source, "aigw")
+		reader, err := versionedReaderPath(filepath.Join(t.TempDir(), "data"), source, "aigw")
 		if err != nil {
 			t.Fatal(err)
 		}

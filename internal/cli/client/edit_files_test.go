@@ -35,7 +35,7 @@ func TestEditKeepsTheConfigurationFilesWhileTheTokenIsMissing(t *testing.T) {
 		fix   string
 	}{
 		{secret.NewMemoryStore(), "aigw provider rotate gateway"},
-		{secret.NewEnvironmentStore(func(string) string { return "" }), "Set " + secret.EnvironmentKey("gateway") + ", then run the same command again."},
+		{environmentBackend(func(string) string { return "" }), "Set " + secret.EnvironmentKey("gateway") + ", then run the same command again."},
 		{unavailableAdapterSecretStore{}, "aigw provider show gateway"},
 	} {
 		runtime.Secrets = test.store
@@ -195,4 +195,14 @@ func TestOnlyAnAppliedEditObservesTheStepThatWritesTheFiles(t *testing.T) {
 	if document := edited(t, runtime, out, codex.ID, "--request-retries", "1"); counter.asked == 0 || document.NextDetail == "" {
 		t.Fatalf("an applied edit = %#v, asked %d times", document, counter.asked)
 	}
+}
+
+// environmentBackend is the read-only environment backend that getenv
+// supplies, as an invocation selects it.
+func environmentBackend(getenv func(string) string) secret.Store {
+	store, err := secret.Select(secret.Selection{Backend: "env", Getenv: getenv})
+	if err != nil {
+		panic(err)
+	}
+	return store
 }

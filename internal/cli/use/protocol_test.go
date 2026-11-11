@@ -90,7 +90,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		t.Fatalf("ambiguous selection changed Hermes binding: %#v, %v", unchanged.Clients, err)
 	}
 
-	runtime.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
+	runtime.Secrets = environmentBackend(func(string) string { return "" })
 	command = NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
@@ -237,4 +237,14 @@ func (store *countingStore) Get(provider string) (string, error) {
 func (store *countingStore) Set(provider, value string) error {
 	store.accesses++
 	return store.Store.Set(provider, value)
+}
+
+// environmentBackend is the read-only environment backend that getenv
+// supplies, as an invocation selects it.
+func environmentBackend(getenv func(string) string) secret.Store {
+	store, err := secret.Select(secret.Selection{Backend: "env", Getenv: getenv})
+	if err != nil {
+		panic(err)
+	}
+	return store
 }

@@ -99,7 +99,7 @@ func assertDeferredHumanCommand(t *testing.T, app *cli.App, out *bytes.Buffer, c
 
 func TestShippedTeamManifestWithoutProviderOrClientIsDeferred(t *testing.T) {
 	app, out, _, runner, httpClient := testApp(t, "")
-	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
+	app.Secrets = environmentBackend(func(string) string { return "" })
 	app.Discovery = fakeDiscovery{}
 
 	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
@@ -140,7 +140,7 @@ func TestShippedTeamManifestWithoutProviderOrClientIsDeferred(t *testing.T) {
 
 func TestShippedTeamManifestImportsWithAnOfflineProvider(t *testing.T) {
 	app, out, _, runner, httpClient := testApp(t, "")
-	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+	app.Secrets = environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("dmxapi") {
 			return "synthetic-offline-token"
 		}

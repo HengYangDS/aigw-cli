@@ -37,7 +37,7 @@ func TestFailedSelfCompensationPreservesTheReaderItProjected(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+	reader, err := versionedReaderPath(filepath.Join(root, "data"), source, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,4 +90,14 @@ func TestFailedUndosStayRecognizable(t *testing.T) {
 	if err := undoCreatedEntrypoint(func() error { return nil }); err != nil {
 		t.Fatalf("a reader removal that succeeded = %v", err)
 	}
+}
+
+// versionedReaderPath is the versioned credential reader below dataDir for
+// the program at source, as the program names its own.
+func versionedReaderPath(dataDir, source, installName string) (string, error) {
+	program, err := secret.ReadProgram(nil, source)
+	if err != nil {
+		return "", err
+	}
+	return program.EntrypointPath(dataDir, installName)
 }

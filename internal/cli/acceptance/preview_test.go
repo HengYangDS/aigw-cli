@@ -59,7 +59,7 @@ func TestSetupPreviewsUseNoCredential(t *testing.T) {
 			}
 			writeFile(t, app.Executable, []byte("program"), 0o700)
 			app.DataDir = filepath.Join(t.TempDir(), "data")
-			reader, err := secret.VersionedEntrypointPath(app.DataDir, app.Executable, executableName("aigw"))
+			reader, err := versionedReaderPath(app.DataDir, app.Executable, executableName("aigw"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -191,7 +191,7 @@ func TestSetupManifestPreviewInText(t *testing.T) {
 	if len(unobservable.getCalls)+len(unobservable.setCalls) != 0 || input.Len() != len("sk-never-read\n") {
 		t.Fatalf("a refused setup read %q, wrote %q and left %d input bytes", unobservable.getCalls, unobservable.setCalls, input.Len())
 	}
-	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
+	app.Secrets = environmentBackend(func(string) string { return "" })
 	for _, test := range []struct {
 		args []string
 		want string
@@ -212,7 +212,7 @@ func TestSetupManifestPreviewInText(t *testing.T) {
 // environment backend has no Token for the new provider.
 func TestProviderAddPreviewRefusesAnEnvironmentWithoutTheToken(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
+	app.Secrets = environmentBackend(func(string) string { return "" })
 	err := cli.Execute(app, []string{"provider", "add", "team", "--endpoint", "anthropic=https://team.test", "--dry-run"})
 	if err == nil || !strings.Contains(err.Error(), "the environment backend has no team Token") {
 		t.Fatalf("an environment preview without the Token = %v", err)

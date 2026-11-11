@@ -213,7 +213,7 @@ func (j *journeyFixture) credentialEntrypoint() string {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	path, err := secret.VersionedEntrypointPath(paths.Data, j.binary, paths.InstallName)
+	path, err := versionedReaderPath(paths.Data, j.binary, paths.InstallName)
 	if err != nil {
 		j.testing.Fatal(err)
 	}

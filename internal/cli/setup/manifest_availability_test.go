@@ -65,7 +65,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, filepath.Base(source))
+	reader, err := versionedReaderPath(filepath.Join(root, "data"), source, filepath.Base(source))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,4 +127,14 @@ func TestManifestSetupAvailabilityFollowsTheAdmittedClientRegistry(t *testing.T)
 			t.Fatalf("admitted installed client %q is unavailable: %#v", clientID, available)
 		}
 	}
+}
+
+// versionedReaderPath is the versioned credential reader below dataDir for
+// the program at source, as the program names its own.
+func versionedReaderPath(dataDir, source, installName string) (string, error) {
+	program, err := secret.ReadProgram(nil, source)
+	if err != nil {
+		return "", err
+	}
+	return program.EntrypointPath(dataDir, installName)
 }

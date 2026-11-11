@@ -123,7 +123,7 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 func TestSyncActivatesSelectedEnvironmentProviderAfterManifestSetup(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	tokens := map[string]string{}
-	app.Secrets = secret.NewEnvironmentStore(func(key string) string { return tokens[key] })
+	app.Secrets = environmentBackend(func(key string) string { return tokens[key] })
 	app.Discovery = fakeDiscovery{}
 	tokens[secret.EnvironmentKey("aihubmix")] = "test-token"
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)

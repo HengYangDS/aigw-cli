@@ -293,13 +293,13 @@ func TestSearchNamesTheFixOfAMissingToken(t *testing.T) {
 	if len(document.Providers) != 4 || document.provider(t, "full").rows() == "" || document.NextDetail != "aigw provider rotate notoken" {
 		t.Fatalf("search = %+v", document)
 	}
-	f.runtime.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
+	f.runtime.Secrets = environmentBackend(func(string) string { return "" })
 	document, _ = f.search(t, "--provider", "notoken")
 	if notoken := document.provider(t, "notoken"); notoken.Problem != "Anthropic Messages: no Token: AIGW_TOKEN_NOTOKEN is not set" ||
 		notoken.NextDetail != "Set AIGW_TOKEN_NOTOKEN in aigw's environment." {
 		t.Fatalf("an environment without the Token = %+v", notoken)
 	}
-	f.runtime.Secrets = secret.NewEnvironmentStore(func(string) string { return "unreadable-token" })
+	f.runtime.Secrets = environmentBackend(func(string) string { return "unreadable-token" })
 	f.catalogs.status["bearer https://unreadable.test/v1/models"] = http.StatusForbidden
 	document, _ = f.search(t, "--provider", "unreadable")
 	if unreadable := document.provider(t, "unreadable"); unreadable.NextDetail != "Set AIGW_TOKEN_UNREADABLE to a Token that the provider accepts, then run `aigw model search --provider unreadable`." {
@@ -448,3 +448,13 @@ func TestSearchNamesAProviderWithoutAnEndpoint(t *testing.T) {
 type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }
+
+// environmentBackend is the read-only environment backend that getenv
+// supplies, as an invocation selects it.
+func environmentBackend(getenv func(string) string) secret.Store {
+	store, err := secret.Select(secret.Selection{Backend: "env", Getenv: getenv})
+	if err != nil {
+		panic(err)
+	}
+	return store
+}

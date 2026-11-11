@@ -135,26 +135,26 @@ func TestUninstallPreservesEveryVersionedReader(t *testing.T) {
 	if err := os.WriteFile(target, []byte("previous target version"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	predecessorReader, err := secret.VersionedEntrypointPath(dataDir, target, "aigw")
+	predecessorReader, err := versionedReaderPath(dataDir, target, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := secret.EnsureEntrypoint(target, predecessorReader); err != nil {
+	if _, err := ensureReader(target, predecessorReader); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(target, []byte("installed"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	invokerReader, err := secret.VersionedEntrypointPath(dataDir, invoker, "aigw")
+	invokerReader, err := versionedReaderPath(dataDir, invoker, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
-	targetReader, err := secret.VersionedEntrypointPath(dataDir, target, "aigw")
+	targetReader, err := versionedReaderPath(dataDir, target, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for source, reader := range map[string]string{invoker: invokerReader, target: targetReader} {
-		if _, err := secret.EnsureEntrypoint(source, reader); err != nil {
+		if _, err := ensureReader(source, reader); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -194,15 +194,15 @@ func TestUninstallPreservesReaderSharedByIdenticalInstallations(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	invokerReader, err := secret.VersionedEntrypointPath(dataDir, invoker, "aigw")
+	invokerReader, err := versionedReaderPath(dataDir, invoker, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
-	targetReader, err := secret.VersionedEntrypointPath(dataDir, target, "aigw")
+	targetReader, err := versionedReaderPath(dataDir, target, "aigw")
 	if err != nil || targetReader != invokerReader {
 		t.Fatalf("identical installations did not share one reader: %v", err)
 	}
-	if _, err := secret.EnsureEntrypoint(invoker, invokerReader); err != nil {
+	if _, err := ensureReader(invoker, invokerReader); err != nil {
 		t.Fatal(err)
 	}
 	command := newUninstallCommand(invocation.Context{Clients: clients.Registry(),
@@ -221,4 +221,26 @@ func TestUninstallPreservesReaderSharedByIdenticalInstallations(t *testing.T) {
 			t.Fatalf("uninstall removed a reader still shared by another installation: %v", err)
 		}
 	}
+}
+
+// ensureReader installs the program at source as the credential reader at
+// target, or verifies the one there, as a synchronization does, and returns
+// the compensation that removes only what it created.
+func ensureReader(source, target string) (func() error, error) {
+	program, err := secret.ReadProgram(nil, source)
+	if err != nil {
+		return nil, err
+	}
+	_, undo, err := program.EnsureEntrypoint(target)
+	return undo, err
+}
+
+// versionedReaderPath is the versioned credential reader below dataDir for
+// the program at source, as the program names its own.
+func versionedReaderPath(dataDir, source, installName string) (string, error) {
+	program, err := secret.ReadProgram(nil, source)
+	if err != nil {
+		return "", err
+	}
+	return program.EntrypointPath(dataDir, installName)
 }

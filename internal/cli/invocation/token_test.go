@@ -28,7 +28,7 @@ func TestTokenValidationProblemNamesAFixThatRuns(t *testing.T) {
 		}
 		return cmd
 	}
-	environment := secret.NewEnvironmentStore(func(key string) string {
+	environment := environmentBackend(func(key string) string {
 		if key == "AIGW_TOKEN_TEAM" {
 			return "rejected"
 		}
@@ -65,4 +65,14 @@ func TestTokenValidationProblemNamesAFixThatRuns(t *testing.T) {
 			t.Errorf("%s: fix %q, impact %q", test.name, p.Fix, p.Impact)
 		}
 	}
+}
+
+// environmentBackend is the read-only environment backend that getenv
+// supplies, as an invocation selects it.
+func environmentBackend(getenv func(string) string) secret.Store {
+	store, err := secret.Select(secret.Selection{Backend: "env", Getenv: getenv})
+	if err != nil {
+		panic(err)
+	}
+	return store
 }

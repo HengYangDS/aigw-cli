@@ -100,7 +100,7 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	secretStore := secret.NewEnvironmentStore(func(key string) string {
+	secretStore := environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("connected") {
 			return "available-token"
 		}
@@ -131,4 +131,14 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 			}
 		})
 	}
+}
+
+// environmentBackend is the read-only environment backend that getenv
+// supplies, as an invocation selects it.
+func environmentBackend(getenv func(string) string) secret.Store {
+	store, err := secret.Select(secret.Selection{Backend: "env", Getenv: getenv})
+	if err != nil {
+		panic(err)
+	}
+	return store
 }

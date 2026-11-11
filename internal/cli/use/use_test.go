@@ -325,7 +325,7 @@ func TestUseSaysThatItEnablesADisabledClient(t *testing.T) {
 func TestUseRenderingDoesNotReinspectCredentialMetadata(t *testing.T) {
 	run, _, out := configuredRuntime(t)
 	reads, renderingReads := 0, 0
-	run.Secrets = secret.NewEnvironmentStore(func(string) string {
+	run.Secrets = environmentBackend(func(string) string {
 		reads++
 		if out.Len() > 0 {
 			renderingReads++

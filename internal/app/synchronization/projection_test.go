@@ -110,7 +110,7 @@ func TestDesiredSyncConfigurationPreservesExplicitDisabledSelection(t *testing.T
 	}
 	before.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("recommended", "model")}}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("manual", "model"), "")
-	store := secret.NewEnvironmentStore(func(key string) string {
+	store := environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("recommended") {
 			return "token"
 		}
@@ -503,4 +503,14 @@ func TestClientNativeModelProviderChangesProjectionWithoutAIGWCredentialHelper(t
 			t.Fatalf("native projection contains AIGW command authentication %q:\n%s", forbidden, text)
 		}
 	}
+}
+
+// environmentBackend is the read-only environment backend that getenv
+// supplies, as an invocation selects it.
+func environmentBackend(getenv func(string) string) secret.Store {
+	store, err := secret.Select(secret.Selection{Backend: "env", Getenv: getenv})
+	if err != nil {
+		panic(err)
+	}
+	return store
 }

@@ -242,7 +242,7 @@ func TestGuidedSetupRefusesWhatItCannotSave(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "provider team already exists") {
 		t.Errorf("an existing ID: %v", err)
 	}
-	home.runtime.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
+	home.runtime.Secrets = environmentBackend(func(string) string { return "" })
 	err = home.run(t, &guidedPrompt{selections: []string{"team"}})
 	if err == nil || !strings.Contains(err.Error(), secret.EnvironmentKey("team")) {
 		t.Errorf("an environment without the Token: %v", err)
@@ -366,7 +366,7 @@ func TestGuidedSetupStoresAnAskedTokenOfAnExistingProvider(t *testing.T) {
 	if err := home.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	home.runtime.Secrets = secret.NewEnvironmentStore(func(key string) string {
+	home.runtime.Secrets = environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("team") {
 			return "sk-env"
 		}
@@ -378,4 +378,14 @@ func TestGuidedSetupStoresAnAskedTokenOfAnExistingProvider(t *testing.T) {
 	if !strings.Contains(home.out.String(), "Supplied by "+secret.EnvironmentKey("team")) {
 		t.Fatalf("output:\n%s", home.out)
 	}
+}
+
+// environmentBackend is the read-only environment backend that getenv
+// supplies, as an invocation selects it.
+func environmentBackend(getenv func(string) string) secret.Store {
+	store, err := secret.Select(secret.Selection{Backend: "env", Getenv: getenv})
+	if err != nil {
+		panic(err)
+	}
+	return store
 }

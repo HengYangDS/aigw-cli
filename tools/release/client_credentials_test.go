@@ -139,7 +139,7 @@ func TestWindowsCredentialCommandSupportsDeepEntrypointNamespace(t *testing.T) {
 			if err := os.MkdirAll(data, 0o700); err != nil {
 				t.Fatal(err)
 			}
-			reader, err := secret.VersionedEntrypointPath(data, program, "aigw.exe")
+			reader, err := versionedReaderPath(data, program, "aigw.exe")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -150,7 +150,7 @@ func TestWindowsCredentialCommandSupportsDeepEntrypointNamespace(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := secret.EnsureEntrypoint(program, reader); err != nil {
+			if _, err := ensureReader(program, reader); err != nil {
 				t.Fatal(err)
 			}
 			prepared, err := secret.Command(reader, claude.ID, "deep-fixture", runtime.GOOS)
@@ -171,7 +171,7 @@ func TestWindowsCredentialCommandSupportsDeepEntrypointNamespace(t *testing.T) {
 			}
 			successor := filepath.Join(root, "successor.exe")
 			mustWriteFile(t, successor, []byte("successor identity"), 0o700)
-			current, err := secret.VersionedEntrypointPath(data, successor, "aigw.exe")
+			current, err := versionedReaderPath(data, successor, "aigw.exe")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -323,4 +323,26 @@ func TestClientDisablePreservesRetainedEntrypointAcrossReenable(t *testing.T) {
 	journey.run("client", "enable", claude.ID, "--executable", executable)
 	journey.requireCredential(retained, "native-journey-token")
 	journey.requireCredential(journey.retainedCredential(claude.ID), "native-journey-token")
+}
+
+// ensureReader installs the program at source as the credential reader at
+// target, or verifies the one there, as a synchronization does, and returns
+// the compensation that removes only what it created.
+func ensureReader(source, target string) (func() error, error) {
+	program, err := secret.ReadProgram(nil, source)
+	if err != nil {
+		return nil, err
+	}
+	_, undo, err := program.EnsureEntrypoint(target)
+	return undo, err
+}
+
+// versionedReaderPath is the versioned credential reader below dataDir for
+// the program at source, as the program names its own.
+func versionedReaderPath(dataDir, source, installName string) (string, error) {
+	program, err := secret.ReadProgram(nil, source)
+	if err != nil {
+		return "", err
+	}
+	return program.EntrypointPath(dataDir, installName)
 }

@@ -20,7 +20,7 @@ import (
 
 func TestSetupFromConfigurationManifestNamesEnvironmentTokensInsteadOfRotate(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
+	app.Secrets = environmentBackend(func(string) string { return "" })
 	app.Discovery = fakeDiscovery{}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
@@ -50,7 +50,7 @@ func TestSetupFromConfigurationManifestNamesEnvironmentTokensInsteadOfRotate(t *
 
 func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
+	app.Secrets = environmentBackend(func(string) string { return "" })
 	app.Discovery = fakeDiscovery{}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
@@ -87,7 +87,7 @@ func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice
 func TestSetupFromTeamManifestConnectsExplicitManualProviderFromEnvironment(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	const token = "aigw-test-aihubmix-token"
-	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+	app.Secrets = environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("aihubmix") {
 			return token
 		}
@@ -153,7 +153,7 @@ func TestSetupFromConfigurationManifestLeavesNoConfigWhenTokenStorageFails(t *te
 
 func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+	app.Secrets = environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("dmxapi") {
 			return "aigw-test-dmxapi-env-token"
 		}
@@ -293,7 +293,7 @@ func assertManifestSetupDoesNotLeakTokens(t *testing.T, app *cli.App, out *bytes
 
 func TestSetupFromConfigurationManifestReusesEnvironmentTokensWithoutPrompting(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+	app.Secrets = environmentBackend(func(key string) string {
 		switch key {
 		case secret.EnvironmentKey("aihubmix"):
 			return "aigw-test-aihubmix-env-token"

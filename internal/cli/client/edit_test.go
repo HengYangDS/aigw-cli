@@ -488,7 +488,7 @@ func TestEditSetsTheTargetOfClaudeDesktopAndHermes(t *testing.T) {
 // an edit writes Codex's file and reads no Token value.
 func TestEditWithTheEnvironmentBackend(t *testing.T) {
 	runtime, out, target, _ := enabledCodex(t)
-	runtime.Secrets = secret.NewEnvironmentStore(func(key string) string {
+	runtime.Secrets = environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("gateway") {
 			return "token"
 		}

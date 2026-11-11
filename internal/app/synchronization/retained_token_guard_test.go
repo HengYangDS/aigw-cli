@@ -26,11 +26,11 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataDir := filepath.Join(root, "data")
-	retained, err := secret.VersionedEntrypointPath(dataDir, oldSource, installName)
+	retained, err := versionedReaderPath(dataDir, oldSource, installName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := secret.EnsureEntrypoint(oldSource, retained); err != nil {
+	if _, err := ensureReader(oldSource, retained); err != nil {
 		t.Fatal(err)
 	}
 
@@ -84,7 +84,7 @@ func main() {
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build candidate reader: %v: %s", err, output)
 	}
-	current, err := secret.VersionedEntrypointPath(dataDir, candidate, installName)
+	current, err := versionedReaderPath(dataDir, candidate, installName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	if err := os.WriteFile(candidate, []byte("candidate"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), candidate, "aigw")
+	reader, err := versionedReaderPath(filepath.Join(root, "data"), candidate, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}

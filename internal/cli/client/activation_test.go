@@ -135,7 +135,7 @@ func TestEnableWithExternalCredentialPreservesUnusedCachedEntrypoint(t *testing.
 	}
 	reader := filepath.Join(root, "data", "credential", "aigw")
 	runtime.ResolveCredentialPath = func() (string, error) { return reader, nil }
-	if _, err := secret.EnsureEntrypoint(runtime.Executable, reader); err != nil {
+	if _, err := ensureReader(runtime.Executable, reader); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(reader+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
@@ -151,4 +151,16 @@ func TestEnableWithExternalCredentialPreservesUnusedCachedEntrypoint(t *testing.
 	if _, err := os.Lstat(reader); err != nil {
 		t.Fatalf("enablement removed a possible cached command: %v", err)
 	}
+}
+
+// ensureReader installs the program at source as the credential reader at
+// target, or verifies the one there, as a synchronization does, and returns
+// the compensation that removes only what it created.
+func ensureReader(source, target string) (func() error, error) {
+	program, err := secret.ReadProgram(nil, source)
+	if err != nil {
+		return nil, err
+	}
+	_, undo, err := program.EnsureEntrypoint(target)
+	return undo, err
 }

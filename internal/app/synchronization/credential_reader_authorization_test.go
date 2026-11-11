@@ -63,7 +63,7 @@ func main() {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, sourceName)
+	reader, err := versionedReaderPath(filepath.Join(root, "data"), source, sourceName)
 	if err != nil {
 		t.Fatal(err)
 	}

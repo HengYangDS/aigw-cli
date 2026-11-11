@@ -178,7 +178,7 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 			}
 			if test.environment {
 				values := map[string]string{secret.EnvironmentKey("one"): "token", secret.BalanceTokenEnvironmentKey("one"): "private-fixture"}
-				backend := secret.NewEnvironmentStore(func(key string) string { return values[key] })
+				backend := environmentBackend(func(key string) string { return values[key] })
 				accounts, err := secret.NewDiagnosticCredentialStore(backend)
 				if err != nil {
 					t.Fatal(err)
@@ -507,4 +507,14 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 	if !observed.ProjectionReady || observed.Authentication != string(domain.AuthenticationProviderToken) {
 		t.Fatalf("local projection observation = %#v", observed)
 	}
+}
+
+// environmentBackend is the read-only environment backend that getenv
+// supplies, as an invocation selects it.
+func environmentBackend(getenv func(string) string) secret.Store {
+	store, err := secret.Select(secret.Selection{Backend: "env", Getenv: getenv})
+	if err != nil {
+		panic(err)
+	}
+	return store
 }

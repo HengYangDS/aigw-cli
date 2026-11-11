@@ -22,11 +22,6 @@ type environmentStore struct {
 	environ func() []string
 }
 
-// NewEnvironmentStore constructs a read-only environment credential backend.
-func NewEnvironmentStore(getenv func(string) string) Store {
-	return scopedView{store: environmentStore{getenv: getenv}}
-}
-
 // EnvironmentKey returns the API-token variable name for an Account.
 func EnvironmentKey(account string) string {
 	return environmentTokenPrefix + environmentProviderID(account)

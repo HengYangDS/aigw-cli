@@ -46,7 +46,7 @@ func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *tes
 			if err := os.WriteFile(source, []byte("executable fixture"), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+			reader, err := versionedReaderPath(filepath.Join(root, "data"), source, "aigw")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -207,11 +207,11 @@ func TestConvergedProjectionValidatesReaderWithoutApplying(t *testing.T) {
 			if err := os.WriteFile(source, []byte("executable fixture"), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+			reader, err := versionedReaderPath(filepath.Join(root, "data"), source, "aigw")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := secret.EnsureEntrypoint(source, reader); err != nil {
+			if _, err := ensureReader(source, reader); err != nil {
 				t.Fatal(err)
 			}
 			if path := map[string]string{"source": source, "reader": reader}[tc.changedTarget]; path != "" {
@@ -255,7 +255,7 @@ func TestConvergedProjectionRechecksTargetsAfterConfigurationCommit(t *testing.T
 			if err := os.WriteFile(source, []byte("executable fixture"), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+			reader, err := versionedReaderPath(filepath.Join(root, "data"), source, "aigw")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -313,7 +313,7 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 	if err := os.WriteFile(target, previous, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+	reader, err := versionedReaderPath(filepath.Join(root, "data"), source, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -371,7 +371,7 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 					t.Fatal(err)
 				}
 			}
-			reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+			reader, err := versionedReaderPath(filepath.Join(root, "data"), source, "aigw")
 			if err != nil {
 				t.Fatal(err)
 			}

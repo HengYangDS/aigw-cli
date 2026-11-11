@@ -31,15 +31,15 @@ func TestCodexInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 		}
 		sources = append(sources, source)
 	}
-	retained, err := secret.VersionedEntrypointPath(data, sources[0], "aigw")
+	retained, err := versionedReaderPath(data, sources[0], "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
-	current, err := secret.VersionedEntrypointPath(data, sources[1], "aigw")
+	current, err := versionedReaderPath(data, sources[1], "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := secret.EnsureEntrypoint(sources[0], retained); err != nil {
+	if _, err := ensureReader(sources[0], retained); err != nil {
 		t.Fatal(err)
 	}
 	cfg := testConfig(target)
@@ -80,14 +80,14 @@ func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		path, err := secret.VersionedEntrypointPath(data, source, "aigw")
+		path, err := versionedReaderPath(data, source, "aigw")
 		if err != nil {
 			t.Fatal(err)
 		}
 		paths = append(paths, path)
 	}
 	retained, current := paths[0], paths[1]
-	if _, err := secret.EnsureEntrypoint(filepath.Join(root, "predecessor"), retained); err != nil {
+	if _, err := ensureReader(filepath.Join(root, "predecessor"), retained); err != nil {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
@@ -125,7 +125,7 @@ func TestCancelledProjectionAfterVersionedReaderPreparationRestoresOwnedState(t 
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+	reader, err := versionedReaderPath(filepath.Join(root, "data"), source, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	if err := os.WriteFile(source, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := secret.EnsureEntrypoint(source, helper); err != nil {
+	if _, err := ensureReader(source, helper); err != nil {
 		t.Fatal(err)
 	}
 	if action, err := syncer.CredentialEntrypointPlan(disabled); err != nil || action != CredentialEntrypointUnchanged {
@@ -453,4 +453,16 @@ func TestWithdrawingLastClientPreservesChangedCachedEntrypoint(t *testing.T) {
 	if _, statErr := os.Lstat(helper); statErr != nil {
 		t.Fatalf("changed cached entrypoint was removed: %v", statErr)
 	}
+}
+
+// ensureReader installs the program at source as the credential reader at
+// target, or verifies the one there, as a synchronization does, and returns
+// the compensation that removes only what it created.
+func ensureReader(source, target string) (func() error, error) {
+	program, err := secret.ReadProgram(nil, source)
+	if err != nil {
+		return nil, err
+	}
+	_, undo, err := program.EnsureEntrypoint(target)
+	return undo, err
 }

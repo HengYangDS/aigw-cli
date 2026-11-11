@@ -167,7 +167,7 @@ func emptyStore(t *testing.T) store.Store {
 
 // withEnvironment selects the read-only environment backend with variables.
 func (f *fixture) withEnvironment(variables map[string]string) {
-	backend := secret.NewEnvironmentStore(func(key string) string { return variables[key] })
+	backend := environmentBackend(func(key string) string { return variables[key] })
 	diagnostics, _ := secret.NewDiagnosticCredentialStore(backend)
 	f.runtime.Secrets, f.runtime.Providers = backend, diagnostics
 }
@@ -226,4 +226,14 @@ func problem(err error) terminal.Problem {
 func (f *fixture) token(id string) string {
 	value, _ := f.runtime.Secrets.Get(id)
 	return value
+}
+
+// environmentBackend is the read-only environment backend that getenv
+// supplies, as an invocation selects it.
+func environmentBackend(getenv func(string) string) secret.Store {
+	store, err := secret.Select(secret.Selection{Backend: "env", Getenv: getenv})
+	if err != nil {
+		panic(err)
+	}
+	return store
 }

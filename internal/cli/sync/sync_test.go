@@ -34,7 +34,7 @@ func TestDryRunPreservesUnusedChangedCredentialEntrypointWithoutWriting(t *testi
 	if err := os.WriteFile(source, []byte("AIGW fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := secret.EnsureEntrypoint(source, helper); err != nil {
+	if _, err := ensureReader(source, helper); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(helper+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
@@ -115,7 +115,7 @@ func TestSyncMetadataObservationScopeExpiresWithCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	lookups := 0
-	tokens := secret.NewEnvironmentStore(func(key string) string {
+	tokens := environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("one") {
 			lookups++
 			return "synthetic-fixture"
@@ -306,4 +306,26 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 	if err := command.Execute(); err == nil {
 		t.Fatal("existing projection repair failure was accepted")
 	}
+}
+
+// ensureReader installs the program at source as the credential reader at
+// target, or verifies the one there, as a synchronization does, and returns
+// the compensation that removes only what it created.
+func ensureReader(source, target string) (func() error, error) {
+	program, err := secret.ReadProgram(nil, source)
+	if err != nil {
+		return nil, err
+	}
+	_, undo, err := program.EnsureEntrypoint(target)
+	return undo, err
+}
+
+// environmentBackend is the read-only environment backend that getenv
+// supplies, as an invocation selects it.
+func environmentBackend(getenv func(string) string) secret.Store {
+	store, err := secret.Select(secret.Selection{Backend: "env", Getenv: getenv})
+	if err != nil {
+		panic(err)
+	}
+	return store
 }

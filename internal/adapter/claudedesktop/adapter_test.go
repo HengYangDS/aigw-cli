@@ -367,14 +367,36 @@ func versionedReaders(t *testing.T) (string, string) {
 		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+		reader, err := versionedReaderPath(filepath.Join(root, "data"), source, "aigw")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := secret.EnsureEntrypoint(source, reader); err != nil {
+		if _, err := ensureReader(source, reader); err != nil {
 			t.Fatal(err)
 		}
 		paths = append(paths, reader)
 	}
 	return paths[0], paths[1]
+}
+
+// ensureReader installs the program at source as the credential reader at
+// target, or verifies the one there, as a synchronization does, and returns
+// the compensation that removes only what it created.
+func ensureReader(source, target string) (func() error, error) {
+	program, err := secret.ReadProgram(nil, source)
+	if err != nil {
+		return nil, err
+	}
+	_, undo, err := program.EnsureEntrypoint(target)
+	return undo, err
+}
+
+// versionedReaderPath is the versioned credential reader below dataDir for
+// the program at source, as the program names its own.
+func versionedReaderPath(dataDir, source, installName string) (string, error) {
+	program, err := secret.ReadProgram(nil, source)
+	if err != nil {
+		return "", err
+	}
+	return program.EntrypointPath(dataDir, installName)
 }
