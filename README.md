@@ -296,10 +296,11 @@ aigw sync
 aigw check
 ```
 
-Program rollback does not silently downgrade configuration. If the predecessor
-cannot read an isolated copy of current configuration, AIGW leaves both program
-and configuration unchanged. Restore a configuration that it can read with
-`aigw config rollback`, then run `aigw self rollback` again.
+Program rollback first gives the retained program an isolated copy of the
+current configuration and, when that program cannot read it, refuses and
+changes nothing. A release older than 0.7.0 cannot read `aigw.toml`, so
+`aigw self rollback` does not return to one: install that release by other
+means, and it finds its own earlier files as it left them.
 
 On macOS, the installed AIGW program moves Keychain Tokens saved by 0.3.5 and
 earlier to its own reader the first time it uses them; nothing needs to be
