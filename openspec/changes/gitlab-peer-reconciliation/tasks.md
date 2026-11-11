@@ -82,7 +82,7 @@
       yet opened `forge-admission-and-assurance`; repairing the rc tags'
       history on both peers needs the user's authorization. Next: qualify once
       that Change ships in an aigw runtime; review 2026-11-08.
-- [ ] 3.2 Remove the GitHub `tool_source=peer` glab carrier
+- [x] 3.2 Remove the GitHub `tool_source=peer` glab carrier
       (`miseMirror.githubRelease` and the workflow `MISE_URL_REPLACEMENTS`),
       or point it at a `mise-glab-v<locked>` Release that a test keeps equal
       to the lock; a GitHub dispatch with `tool_source=peer` passes or the
