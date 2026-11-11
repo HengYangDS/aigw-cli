@@ -145,7 +145,10 @@ func TestRollbackConfigurationVerdictsPreservePrograms(t *testing.T) {
 		failure    error
 		compatible bool
 	}{
-		{name: "compatible", output: "version = 5\n[profiles.team]\nmodel = 'test'\n", compatible: true},
+		{name: "compatible", output: "version = 8\n\n[[providers]]\nid = 'team'\n", compatible: true},
+		// A program of an earlier release reads no aigw.toml and exports its
+		// own empty configuration in its own schema.
+		{name: "an earlier schema", output: "version = 7\n"},
 		{name: "failed export", failure: errors.New("export execution failed")},
 		{name: "export deadline", failure: context.DeadlineExceeded},
 		{name: "export permission", failure: &os.PathError{Op: "fork/exec", Path: "private-predecessor", Err: os.ErrPermission}},
@@ -166,7 +169,7 @@ func TestRollbackConfigurationVerdictsPreservePrograms(t *testing.T) {
 				}
 				return []byte(test.output), test.failure
 			}}
-			_, err := (Updater{Executable: current, Runner: runner}).Rollback(t.Context(), []byte("version = 3\n"), nil)
+			_, err := (Updater{Executable: current, Runner: runner}).Rollback(t.Context(), []byte("version = 8\n"), nil)
 			if test.compatible && err != nil || !test.compatible && err == nil {
 				t.Fatalf("rollback admission: %v", err)
 			}
@@ -197,7 +200,7 @@ func TestRollbackConfigurationVerdictsPreservePrograms(t *testing.T) {
 
 func TestRollbackVerificationReadsExactBytesWithoutHostCredentials(t *testing.T) {
 	root := t.TempDir()
-	config := []byte("version = 3\n# exact snapshot\n[recommended_routes]\nclaude = 'team'\n")
+	config := []byte("version = 8\n# exact snapshot\n\n[[providers]]\nid = 'team'\n")
 	t.Setenv("AIGW_TOKEN_TEAM", "ambient-secret")
 	runner := &recordingRunner{inspect: func(plan process.Plan) ([]byte, error) {
 		environment := map[string]string{}
@@ -233,7 +236,7 @@ func TestRollbackVerificationReadsExactBytesWithoutHostCredentials(t *testing.T)
 		if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, config) {
 			t.Fatalf("predecessor read different configuration: %q, %v", data, err)
 		}
-		return []byte("version = 5\n[profiles.team]\nmodel = 'test'\n"), nil
+		return []byte("version = 8\n\n[[providers]]\nid = 'team'\n"), nil
 	}}
 	if _, err := (Updater{Executable: filepath.Join(root, "aigw"), Runner: runner}).verifyProgram(t.Context(), []byte("previous"), "", config); err != nil {
 		t.Fatal(err)

@@ -63,7 +63,7 @@ func TestRollbackMovesCredentialCustodyOnlyAfterAdmission(t *testing.T) {
 			}
 			export := test.export
 			if export == "" {
-				export = "version = 5\n"
+				export = "version = 8\n"
 			}
 			var events []string
 			runner := &recordingRunner{inspect: func(plan process.Plan) ([]byte, error) {
@@ -79,7 +79,7 @@ func TestRollbackMovesCredentialCustodyOnlyAfterAdmission(t *testing.T) {
 			if test.cancel {
 				custody.onRelease = cancel
 			}
-			_, err := (Updater{Executable: current, Runner: runner}).Rollback(ctx, []byte("version = 3\n"), custody)
+			_, err := (Updater{Executable: current, Runner: runner}).Rollback(ctx, []byte("version = 8\n"), custody)
 			if test.activated != (err == nil) {
 				t.Fatalf("rollback result = %v", err)
 			}

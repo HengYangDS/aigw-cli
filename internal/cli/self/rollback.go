@@ -21,8 +21,8 @@ const versionVariable = "aigw-cli/internal/cli.Version="
 
 // rollbackPreview is `aigw self rollback --dry-run`'s JSON document: the
 // retained program that a rollback would activate, its version when its
-// build information names one, and the configuration file that the
-// rollback's check stages for that program to read.
+// build information names one, and the current configuration, which the
+// rollback's check gives that program to read.
 type rollbackPreview struct {
 	DryRun        bool   `json:"dry_run"`
 	Program       string `json:"program"`
@@ -42,10 +42,10 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 		Use:   "rollback",
 		Short: "Restore the retained previous program, not the configuration",
 		Long: "Activate the program that the last update or installation retained.\n" +
-			"Its check stages the configuration file that the previous program reads,\n" +
-			"and a configuration that it cannot read blocks the rollback without\n" +
-			"changing files. Before Homebrew installs an earlier release, this returns\n" +
-			"macOS Keychain items to that release's reader.",
+			"Its check gives the previous program the current configuration, and a\n" +
+			"configuration that it cannot read blocks the rollback without changing\n" +
+			"files. Before Homebrew installs an earlier release, this returns macOS\n" +
+			"Keychain items to that release's reader.",
 		Example: "aigw self rollback --dry-run\naigw self rollback\naigw self rollback --json",
 		Args:    cobra.NoArgs,
 		RunE: func(ctx *cobra.Command, _ []string) error {
@@ -96,8 +96,8 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 
 // previewRollback reports the retained program that a rollback would
 // activate, its version, read from the program's build information without
-// running it, because a preview runs no other program, and the configuration
-// file that the rollback's check stages for it.
+// running it, because a preview runs no other program, and the current
+// configuration, which the rollback's check gives it.
 func previewRollback(runtime invocation.Context, jsonMode bool) error {
 	retained := program.RollbackPath(runtime.Executable)
 	if _, err := os.Lstat(retained); err != nil {
@@ -160,22 +160,6 @@ func retainedVersion(program string) (version, unread string) {
 // items back. Without a readable configuration it cannot name those items, so
 // it stops before any native request.
 func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
-	cfg, err := runtime.Config.Load()
-	if err != nil {
-		return homebrewConfigurationProblem(runtime, "Configuration is not ready for a Homebrew rollback",
-			"AIGW could not read the configuration, including each client's retry policy.",
-			"No credential, policy or program changed.", err)
-	}
-	for _, binding := range cfg.Clients {
-		if binding.RetryPolicy != nil {
-			return terminal.ProblemError(
-				"Homebrew rollback cannot prove the retry policy",
-				"No retained Homebrew program was supplied to the native configuration check.",
-				"No credential, policy or program changed.",
-				"Keep this compatible AIGW release, or use `aigw config rollback` to restore the accepted configuration before choosing a predecessor.",
-				fmt.Errorf("Homebrew rollback cannot prove the selected retry policy"))
-		}
-	}
 	custody, err := credentialCustody(runtime.Dependencies)
 	if err != nil {
 		return homebrewConfigurationProblem(runtime, "Credentials are not ready for a Homebrew rollback",

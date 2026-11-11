@@ -1,8 +1,6 @@
 package self
 
 import (
-	"errors"
-	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,7 +14,10 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestHomebrewRollbackDoesNotReleaseCredentialsBeforeRetryCapability(t *testing.T) {
+// A Homebrew rollback prepares the credentials of a configuration whose
+// client declares retry budgets as of any other: no retry policy stops it,
+// and the configuration stays as it was.
+func TestHomebrewRollbackPreparesCredentialsWithRetryBudgets(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["test"] = domain.Provider{Label: "Test", Endpoints: domain.Endpoints{Responses: "https://endpoint.test/v1"}}
 	cfg.Models[domain.NewModelRef("test", "gpt-6.1-sol")] = domain.Model{Label: "Test", Provider: "test", Family: "gpt-6.1-sol", ID: "gpt-6.1-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
@@ -30,17 +31,13 @@ func TestHomebrewRollbackDoesNotReleaseCredentialsBeforeRetryCapability(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	reads := 0
-	runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: io.Discard, ResolveProgram: func() (secret.Program, error) {
-		reads++
-		return secret.Program{}, errors.New("credential reader must not be resolved")
-	}}
-	err = prepareHomebrewRollback(runtime, false)
-	if err == nil || !strings.Contains(err.Error(), "retry") || reads != 0 {
-		t.Fatalf("unproved rollback reached credential custody or lost its retry boundary: %v (reads=%d)", err, reads)
+	var out strings.Builder
+	runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: &out}
+	if err := prepareHomebrewRollback(runtime, false); err != nil || !strings.Contains(out.String(), "Credentials are ready for an earlier AIGW release.") {
+		t.Fatalf("a Homebrew rollback with retry budgets = %v\n%s", err, out.String())
 	}
 	after, err := configStore.CaptureSnapshot()
 	if err != nil || !before.Config.Equal(after.Config) {
-		t.Fatalf("refused rollback changed policy: %v", err)
+		t.Fatalf("the rollback changed the configuration: %v", err)
 	}
 }

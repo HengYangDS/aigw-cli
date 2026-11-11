@@ -134,10 +134,10 @@ Options
 AIGW  aigw self rollback
 ────────────────────────────────────────
   Activate the program that the last update or installation retained.
-  Its check stages the configuration file that the previous program reads,
-  and a configuration that it cannot read blocks the rollback without
-  changing files. Before Homebrew installs an earlier release, this returns
-  macOS Keychain items to that release's reader.
+  Its check gives the previous program the current configuration, and a
+  configuration that it cannot read blocks the rollback without changing
+  files. Before Homebrew installs an earlier release, this returns macOS
+  Keychain items to that release's reader.
 
 Usage
   aigw self rollback [flags]

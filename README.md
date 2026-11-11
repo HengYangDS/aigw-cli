@@ -205,13 +205,12 @@ changing the model or protocol within that provider keeps them, and
 currently exposes admitted native budgets. AIGW writes the declaration; it
 neither retries requests nor guarantees exactly-once inference.
 
-The client's selection owns this policy, not the shared team file. Program
-rollback tests the retained reader against the complete declaration and
-refuses incompatible readers without changing programs or credentials.
-Homebrew rollback preparation cannot prove an unspecified predecessor's
-capability while a policy is selected; use a compatible program or restore
-accepted configuration with `aigw config rollback`, not manual policy-field
-deletion.
+The client's selection owns this policy, not the shared team file. A portable
+program rollback first gives the retained program the current configuration,
+and refuses a program that cannot read it without changing programs or
+credentials. A Homebrew rollback prepares the Keychain items for the earlier
+release whatever the policy; that release reads the configuration file that
+it supports.
 
 ### Client forwarding
 

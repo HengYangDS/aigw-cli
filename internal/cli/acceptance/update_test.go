@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/program"
@@ -243,11 +244,14 @@ func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
 	for _, test := range []struct {
 		name string
 		code string
+		// budgets gives Codex retry budgets, which no rollback refuses.
+		budgets bool
 		// damage replaces the configuration that names the credentials.
 		damage func(t *testing.T, path string)
 		want   string
 	}{
 		{name: "prepared", code: "0", want: "__aigw-native-credential-restore team\n__aigw-native-credential-restore diagnostic@team\n"},
+		{name: "retry budgets", code: "0", budgets: true, want: "__aigw-native-credential-restore team\n__aigw-native-credential-restore diagnostic@team\n"},
 		{name: "refused", code: "3", want: "__aigw-native-credential-restore team\n__aigw-native-credential-reclaim team\n"},
 		{name: "malformed authority", code: "0", damage: func(t *testing.T, path string) {
 			if err := os.WriteFile(path, []byte("version = 6\n[accounts\n"), 0o600); err != nil {
@@ -270,6 +274,9 @@ func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
 			homebrewProgram(t, app)
 			record := keychainRecorder(t, app, test.code)
+			if test.budgets {
+				withCodexRetryBudgets(t, app)
+			}
 			if test.damage != nil {
 				test.damage(t, app.Config.Path())
 			}
@@ -294,6 +301,29 @@ func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
 			}
 			requireCustodyRequests(t, record, test.want)
 		})
+	}
+}
+
+// withCodexRetryBudgets gives the configuration a Codex selection on the team
+// provider with retry budgets.
+func withCodexRetryBudgets(t *testing.T, app *cli.App) {
+	t.Helper()
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := cfg.Providers["team"]
+	provider.Endpoints.Responses = "https://team.test/v1"
+	cfg.Providers["team"] = provider
+	model := qualifiedModel("GPT", "team", "gpt-test", domain.ProtocolResponses)
+	cfg.Models[model.Ref()] = model
+	cfg.SetSelectedModel(codex.ID, model.Ref(), "")
+	budget := uint64(0)
+	binding := cfg.Clients[codex.ID]
+	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &budget}
+	cfg.Clients[codex.ID] = binding
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -340,7 +370,7 @@ func TestSelfUpdateAndRollbackHelpDescribeTheProgramTransition(t *testing.T) {
 		},
 		"rollback": {
 			"Activate the program that the last update or installation retained",
-			"stages the configuration file that the previous program reads",
+			"gives the previous program the current configuration",
 			"a configuration that it cannot read blocks the rollback without changing files",
 			"Before Homebrew installs an earlier release, this returns macOS Keychain items to that release's reader",
 		},
