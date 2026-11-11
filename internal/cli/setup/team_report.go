@@ -245,10 +245,7 @@ func (t teamSetup) write(document teamDocument) error {
 	}
 	r.Rows(clients...)
 	invocation.RenderClientFiles(r, t.runtime, document.ClientFiles)
-	if reader := document.CredentialReader; reader != nil {
-		r.Section("Credential reader")
-		r.Text("Install " + reader.Path)
-	}
+	invocation.RenderCredentialReader(r, t.runtime, document.CredentialReader)
 	if document.DryRun {
 		r.Success("Nothing was written: configuration, credentials and client files are unchanged")
 	} else {

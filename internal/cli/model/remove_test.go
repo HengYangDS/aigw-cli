@@ -127,7 +127,8 @@ func TestAChangeNamesTheClientFilesThatItWrites(t *testing.T) {
 	if err := f.run("add", "mixed/spare", "--protocol", "chat", "--unlisted", "--dry-run"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(f.text(), "Credential reader Install "+reader) {
+	// A reader inside home is named ~/…, never by the absolute home path.
+	if !strings.Contains(f.text(), "Credential reader Install ~/data/credential/aigw") || strings.Contains(f.text(), reader) {
 		t.Fatalf("human output does not name the credential reader:\n%s", f.out)
 	}
 	if _, err := os.Stat(target); !os.IsNotExist(err) {

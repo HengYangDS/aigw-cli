@@ -113,6 +113,14 @@ cmp stdout edit-native-preview.txt
 exec aigw client edit codex --native-retries --json
 cmp stdout edit-native.json
 
+# A preview names the files inside home as ~/…, and a file outside home as
+# given.
+exec aigw client edit codex --target $HOME/.codex/config.toml --executable $WORK/codex --dry-run
+normalize stdout home-edit.out
+grep '^  Configuration file +~/\.codex/config\.toml$' home-edit.out
+grep '^  Executable +\$WORK' home-edit.out
+! grep '^  (Configuration file|Executable) +\$HOME' home-edit.out
+
 # Naming Codex's configuration file writes AIGW's settings there.
 exec aigw client edit codex --target $HOME/.codex/config.toml --executable $WORK/codex --json
 stdout '"changed": true'

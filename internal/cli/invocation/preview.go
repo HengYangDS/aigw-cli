@@ -48,6 +48,26 @@ func Home(deps app.Dependencies) string {
 	return terminal.HomeDirectory(deps.Env)
 }
 
+// GivenPath spells a path that a success line names: inside home as ~/… with
+// "/" on every platform, as a shell prompt does; any other path, including
+// home itself, as configured.
+func GivenPath(runtime Context, path string) string {
+	if named, _ := platform.HomeTarget(path, Home(runtime.Dependencies)); named != "" {
+		return named
+	}
+	return path
+}
+
+// RenderCredentialReader names the credential reader that a preview or a
+// change installs, under its own section; it writes nothing without one.
+func RenderCredentialReader(r *terminal.Renderer, runtime Context, reader *app.CredentialEntrypointPlan) {
+	if reader == nil {
+		return
+	}
+	r.Section("Credential reader")
+	r.Text("Install " + GivenPath(runtime, reader.Path))
+}
+
 // ClientFile is one client file that a change writes or would write, as a
 // command's change document names it: the client, the file relative to the
 // home directory, absent outside it, and the snake_case action.

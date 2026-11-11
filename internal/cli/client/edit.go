@@ -433,19 +433,16 @@ func writeEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.Clien
 	}
 	r := invocation.Renderer(runtime)
 	r.ProductTitle(title)
-	r.Rows(editRows(spec, document)...)
+	r.Rows(editRows(runtime, spec, document)...)
 	invocation.RenderClientFiles(r, runtime, document.ClientFiles)
-	if reader := document.CredentialReader; reader != nil {
-		r.Section("Credential reader")
-		r.Text("Install " + reader.Path)
-	}
+	invocation.RenderCredentialReader(r, runtime, document.CredentialReader)
 	r.Success(success)
 	r.Next(next)
 	return r.Err()
 }
 
 // editRows are the rows of a client's settings after an edit.
-func editRows(spec domain.ClientSpec, document editDocument) []terminal.Field {
+func editRows(runtime invocation.Context, spec domain.ClientSpec, document editDocument) []terminal.Field {
 	model, state := document.Model, "Disabled"
 	if model == "" {
 		model = "None selected"
@@ -455,10 +452,10 @@ func editRows(spec domain.ClientSpec, document editDocument) []terminal.Field {
 	}
 	rows := []terminal.Field{{Label: "Client", Value: spec.Label}, {Label: "Model", Value: model}, {Label: "State", Value: state}}
 	if document.Executable != "" {
-		rows = append(rows, terminal.Field{Label: "Executable", Value: document.Executable})
+		rows = append(rows, terminal.Field{Label: "Executable", Value: invocation.GivenPath(runtime, document.Executable)})
 	}
 	for _, target := range document.Targets {
-		rows = append(rows, terminal.Field{Label: "Configuration file", Value: target})
+		rows = append(rows, terminal.Field{Label: "Configuration file", Value: invocation.GivenPath(runtime, target)})
 	}
 	if document.Model == "" {
 		return rows

@@ -64,7 +64,7 @@ func newInstallCommand(runtime invocation.Context) *cobra.Command {
 			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Portable installation")
-			render.Success("Installed " + target)
+			render.Success("Installed " + invocation.GivenPath(runtime, target))
 			render.Text("PATH is unchanged. Use the installed path directly, or add its directory to PATH before running the command below.")
 			render.Next("aigw setup")
 			return nil
@@ -125,17 +125,17 @@ func previewInstall(cmd *cobra.Command, runtime invocation.Context, target strin
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("Portable installation preview")
 	rows := []terminal.Field{
-		{Label: "Program file", Value: target},
+		{Label: "Program file", Value: invocation.GivenPath(runtime, target)},
 		{Label: "Version", Value: runtime.Version},
 	}
 	switch {
 	case plan.Unchanged:
 		rows = append(rows, terminal.Field{State: terminal.OK, Label: "Installed", Value: "Already this program; installing again only makes it executable"})
 	case rollback != "":
-		rows = append(rows, terminal.Field{Label: "Rollback copy", Value: rollback})
+		rows = append(rows, terminal.Field{Label: "Rollback copy", Value: invocation.GivenPath(runtime, rollback)})
 	}
 	if creates != "" {
-		rows = append(rows, terminal.Field{Label: "Creates folder", Value: creates})
+		rows = append(rows, terminal.Field{Label: "Creates folder", Value: invocation.GivenPath(runtime, creates)})
 	}
 	r.Rows(rows...)
 	r.Success("Preview did not write the program, a rollback copy or a directory")

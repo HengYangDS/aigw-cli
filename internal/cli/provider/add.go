@@ -246,10 +246,7 @@ func (c result) write(runtime invocation.Context, dryRun, jsonMode bool) error {
 	r.ProductTitle(title)
 	r.Rows(c.rows...)
 	invocation.RenderClientFiles(r, runtime, c.document.ClientFiles)
-	if reader := c.document.CredentialReader; reader != nil {
-		r.Section("Credential reader")
-		r.Text("Install " + reader.Path)
-	}
+	invocation.RenderCredentialReader(r, runtime, c.document.CredentialReader)
 	if dryRun {
 		r.Success("Nothing was written: configuration, credentials and client files are unchanged")
 	} else {

@@ -282,10 +282,7 @@ func (o selectionOutcome) report(runtime invocation.Context, options options) er
 	r.ProductTitle(o.title(doc))
 	r.Rows(o.rows(doc)...)
 	invocation.RenderClientFiles(r, runtime, doc.ClientFiles)
-	if reader := doc.CredentialReader; reader != nil {
-		r.Section("Credential reader")
-		r.Text("Install " + reader.Path)
-	}
+	invocation.RenderCredentialReader(r, runtime, doc.CredentialReader)
 	if doc.DryRun {
 		r.Success("Nothing was written: configuration, credentials and client files are unchanged")
 	} else if doc.Changed || doc.TokenStored {

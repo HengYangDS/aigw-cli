@@ -33,6 +33,19 @@ stdout '"schema_version": 2'
 exists $WORK/bin/aigw$exe
 exec aigw self install --path $WORK/text/aigw$exe
 stdout 'Installed '
+# A program installed inside home is named ~/…, never by the absolute home
+# path; one outside home keeps the path as given.
+exec aigw self install --path $HOME${/}bin${/}aigw$exe
+normalize stdout installed.out
+grep '^  ✓ Installed ~/bin/aigw'$exe'$' installed.out
+! grep '\$HOME' installed.out
+exec aigw self install --path $HOME${/}bin${/}aigw$exe --dry-run
+normalize stdout home-preview.out
+grep '^  Program file +~/bin/aigw'$exe'$' home-preview.out
+! grep '\$HOME' home-preview.out
+exec aigw self install --path $WORK${/}outside${/}aigw$exe --dry-run
+normalize stdout outside-preview.out
+grep '^  Program file +\$WORK' outside-preview.out
 # A folder as the target names the program file inside it, in prose, because
 # `aigw` on PATH may be another program; installed there, the folder stays
 # refused.
