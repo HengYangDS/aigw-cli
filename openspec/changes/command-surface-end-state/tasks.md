@@ -91,37 +91,44 @@
 - [x] 4.6 Take Codex's bundled model metadata from the model's family and retire
       the Codex model catalog's suffix-derived namespace mirror; tests cover a
       variant linked by family and a model that is its own family.
-- [ ] 4.8 Show a path inside home as `~/…` in the success lines of
+- [x] 4.8 Show a path inside home as `~/…` in the success lines of
       `client edit` and `self install`, which print the absolute home path;
       scripts cover both.
-- [ ] 4.9 Name every cause that blocks a write in the first fix: a file that
+- [x] 4.9 Name every cause that blocks a write in the first fix: a file that
       is both lock-flagged and sandbox-denied names the flag and the denial
       together; a test covers it.
-- [ ] 4.10 Give a Token store read that a sandbox denies the generic denial
+- [x] 4.10 Give a Token store read that a sandbox denies the generic denial
       fix naming its `~/…` folder, in `check` and `status`; a test covers both.
-- [ ] 4.11 State in the command-line delta the reason that each path
+- [x] 4.11 State in the command-line delta the reason that each path
       condition prints on every platform, where the scenario now asks for the
       operating-system text; strict validation passes.
-- [ ] 4.12 Keep a disabled client disabled when the fix of its refused
+- [x] 4.12 Keep a disabled client disabled when the fix of its refused
       selection runs; a script covers it.
-- [ ] 4.13 Make `model show` and `model list` mark a protocol whose provider
+- [x] 4.13 Make `model show` and `model list` mark a protocol whose provider
       has no endpoint and name `aigw provider edit <provider> --endpoint`,
       instead of an empty URL; scripts cover both.
-- [ ] 4.14 After a deferred Token is stored, make `status` name
+- [x] 4.14 After a deferred Token is stored, make `status` name
       `aigw setup --from <file>` again rather than `aigw provider rotate`; a
       script covers it.
-- [ ] 4.15 Report a client whose provider holds an empty Token as deferred,
+- [x] 4.15 Report a client whose provider holds an empty Token as deferred,
       with the fix that stores one, in `status`; a test covers it.
-- [ ] 4.16 Name the entry of the team file to change in each refusal of an
+- [x] 4.16 Name the entry of the team file to change in each refusal of an
       invalid team file, instead of `aigw check`; scripts cover each refusal.
-- [ ] 4.17 Report each model once in `setup --from`; a test covers a model
+- [x] 4.17 Report each model once in `setup --from`; a test covers a model
       that the file and the local configuration both name.
-- [ ] 4.18 State how a team file's provider order merges, in the
+- [x] 4.18 State how a team file's provider order merges, in the
       progressive-team-onboarding delta, and make setup follow it; strict
       validation passes and a test covers it.
-- [ ] 4.19 Name the one compatible provider's command in an activation fix
+- [x] 4.19 Name the one compatible provider's command in an activation fix
       that has one choice, instead of "Choose one compatible provider"; a
       test covers it.
+- [x] 4.20 Refuse in strict decoding a model without a protocol, naming the
+      model, and a provider ID that has an uppercase letter or differs from
+      another only in case; tests cover each (`2d03e14c`, `1095c180`).
+- [x] 4.21 Make guided `aigw setup` enable the client it configures and say
+      so, and give a disabled client that has a selection the fix
+      `aigw client enable <client>`; the progressive-team-onboarding delta
+      has the scenario, and tests cover both (`16bfb30c`, `e09db347`).
 
 ## 5. Maintenance commands and the command tree
 
@@ -157,9 +164,9 @@
 - [x] 5.8 Add a testscript command that reruns a failure's `next_action` and
       fails when the same problem recurs, and use it in each script that
       covers a failure.
-- [ ] 5.9 Print the JSON failure document of a usage error in a command run
+- [x] 5.9 Print the JSON failure document of a usage error in a command run
       with `--json`, wherever `--json` stands; fixloop's root exemption goes.
-- [ ] 5.10 Name a model and a provider in every configuration failure text,
+- [x] 5.10 Name a model and a provider in every configuration failure text,
       without "route" or "account", and use no retired word in any other
       user-facing failure text; phase 1's final review found about 150
       strings to change, such as `internal/domain/model_errors.go:12` and
@@ -219,12 +226,12 @@
 - [ ] 8.2 Simulate the archive on a copy: strict validation passes, and no
       merged specification exceeds 500 non-blank lines.
 - [ ] 8.3 Confirm the hosted three-platform graph on the proposal.
-- [ ] 8.5 Refuse a published predecessor older than 0.7.0 before any release
+- [x] 8.5 Refuse a published predecessor older than 0.7.0 before any release
       journey downloads or runs it, and retire the GitHub transport-release
       carrier of the hosted journeys; `git grep` finds no `input_release` or
       `native-inputs-` outside archived Changes and released CHANGELOG
       sections.
-- [ ] 8.6 Rehearse the owner's upgrade in an isolated home with a file Token
+- [x] 8.6 Rehearse the owner's upgrade in an isolated home with a file Token
       store: from a read-only record of the owner's non-secret configuration,
       recreate it with the lane head's `setup --from`, `provider edit`,
       `model add`, `client edit` and `use`, and compare the result field by
