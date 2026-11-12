@@ -248,8 +248,12 @@
       0.7.0 asset, nested archives included, finds no form of the private
       peer's identity (tag `c08b5ec3`, notarization `244fe3fc`, tap
       `7ea1d84`; 0 hits in 12 assets).
-- [ ] 9.2 Install 0.7.0 through Homebrew on this Mac and accept it: with each
+- [x] 9.2 Install 0.7.0 through Homebrew on this Mac and accept it: with each
       client file and sidecar recorded first, the rehearsed commands recreate
       the owner's state and it matches the record, `aigw check --depth client`
       passes with the real clients, a Codex session started before the
-      upgrade keeps its credential, and `aigw --help` matches design.md.
+      upgrade keeps its credential, and `aigw --help` matches design.md
+      (2026-11-12: 176 of 176 fields match; every client check passes from a
+      clean environment, with a locally patched Hermes v0.23.1; the 0.6.1
+      reader's credential commands return their Tokens; the defects found go
+      to Change `upgrade-acceptance-fixes`).
