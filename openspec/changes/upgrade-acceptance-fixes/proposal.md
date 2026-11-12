@@ -6,7 +6,7 @@ see, because they need the owner's real client files, a second team-file apply o
 - The first `aigw setup` after an upgrade refused Claude Code's settings, because the user had removed the `model` that
   0.6.1 projected. 0.7.0 has no earlier selection with which to recognize that as the user's model preference, and the
   fix it printed, `aigw sync`, cannot run without `aigw.toml`.
-- A second `aigw setup --from` reset five model labels, while its preview listed only the recommendations as changed.
+- A second `aigw setup --from` reset five model labels; its preview listed those models as changed without saying that their labels would change.
 - `aigw check --depth client` failed Claude as an authentication rejection when run from a Claude Code session, because
   the client inherited that session's environment.
 - Root help still describes AIGW as configuration "routing".
