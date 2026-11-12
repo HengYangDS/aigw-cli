@@ -61,15 +61,18 @@ func withoutParentSession(env []string) []string {
 	})
 }
 
+// removeEnvironment removes keys from env in any case, as withoutParentSession
+// compares names: on Windows a variable's name ignores case, so the client
+// would read anthropic_auth_token as ANTHROPIC_AUTH_TOKEN.
 func removeEnvironment(env []string, keys ...string) []string {
 	remove := map[string]bool{}
 	for _, key := range keys {
-		remove[key] = true
+		remove[strings.ToUpper(key)] = true
 	}
 	out := make([]string, 0, len(env))
 	for _, entry := range env {
 		key, _, _ := strings.Cut(entry, "=")
-		if remove[key] {
+		if remove[strings.ToUpper(key)] {
 			continue
 		}
 		out = append(out, entry)

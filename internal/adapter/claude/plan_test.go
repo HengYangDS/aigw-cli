@@ -64,6 +64,22 @@ func TestVerificationPlanDropsAParentSessionsVariables(t *testing.T) {
 	}
 }
 
+// A managed key that the environment spells in another case is removed too,
+// as Windows, where a variable's name ignores case, would hand it to the
+// client; the parent session's variables compare the same way.
+func TestVerificationPlanRemovesAManagedKeyInAnyCase(t *testing.T) {
+	settings, runtime := verificationSettings(t)
+	retained := []string{"PATH=/usr/bin", "HOME=/home/user"}
+	managed := []string{"anthropic_auth_token=stale", "Anthropic_Base_Url=stale", "anthropic_api_key=stale", "anthropic_model=stale"}
+	plan, err := claude.VerificationPlan("claude", settings, "AIGW_OK", slices.Concat(managed, retained), runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(plan.Env, retained) {
+		t.Fatalf("environment = %q, want %q", plan.Env, retained)
+	}
+}
+
 func TestVerificationPlanRequiresConvergedSettings(t *testing.T) {
 	for _, state := range []string{"missing", "malformed", "stale"} {
 		t.Run(state, func(t *testing.T) {

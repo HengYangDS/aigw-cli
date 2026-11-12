@@ -3,6 +3,7 @@ package check
 import (
 	"context"
 	"maps"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -57,6 +58,19 @@ func failedCheck(name, label, problem, fix string, state domainreadiness.State) 
 // it.
 var conflictingVariables = []string{"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY"}
 
+// namesIgnoreCase says whether a variable's name ignores case, as on Windows,
+// where a client reads anthropic_api_key as ANTHROPIC_API_KEY. Elsewhere
+// another spelling hands a client nothing. A test sets it for either platform.
+var namesIgnoreCase = runtime.GOOS == "windows"
+
+// conflicting reports whether name is one of conflictingVariables as a client
+// reads it.
+func conflicting(name string) bool {
+	return slices.ContainsFunc(conflictingVariables, func(variable string) bool {
+		return name == variable || namesIgnoreCase && strings.EqualFold(name, variable)
+	})
+}
+
 // backendFix makes a credential store that AIGW cannot observe available
 // before the same command runs again.
 const backendFix = secret.BackendUnavailableFix
@@ -78,12 +92,13 @@ func sharedChecks(deps app.Dependencies) ([]localCheck, secret.BackendSelection)
 }
 
 // environmentCheck observes the variables that compete with AIGW's Token,
-// naming them and never their values. One that holds a value fails every
-// client's local depth; an empty one holds no credential.
+// naming them as the environment spells them and never their values. One
+// that holds a value fails every client's local depth; an empty one holds no
+// credential.
 func environmentCheck(environment []string) localCheck {
 	set := map[string]bool{}
 	for _, entry := range environment {
-		if name, value, found := strings.Cut(entry, "="); found && value != "" && slices.Contains(conflictingVariables, name) {
+		if name, value, found := strings.Cut(entry, "="); found && value != "" && conflicting(name) {
 			set[name] = true
 		}
 	}

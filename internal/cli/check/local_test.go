@@ -25,6 +25,27 @@ func (d recordingDiscovery) Discover(clients ...string) discovery.Result {
 	return discovery.Result{}
 }
 
+// A variable that competes with AIGW's Token fails the local depth by the
+// name that the environment spells it, in any case where names ignore case,
+// as on Windows; where they do not, another spelling hands a client nothing.
+func TestEnvironmentCheckNamesACompetingVariableAsTheClientReadsIt(t *testing.T) {
+	environment := []string{"PATH=/usr/bin", "anthropic_api_key=sk-other", "Openai_Api_Key=sk-other", "ANTHROPIC_AUTH_TOKEN="}
+	defer func(previous bool) { namesIgnoreCase = previous }(namesIgnoreCase)
+	namesIgnoreCase = true
+	got := environmentCheck(environment)
+	if got.State != checkFailed || got.Detail != "Openai_Api_Key and anthropic_api_key are set in the environment, which a client may send instead of the Token that AIGW gives it" ||
+		got.fix != "Remove Openai_Api_Key and anthropic_api_key from the environment that starts your clients." {
+		t.Fatalf("where names ignore case: %+v", got)
+	}
+	namesIgnoreCase = false
+	if got := environmentCheck(environment); got.State != checkPassed {
+		t.Fatalf("where names keep their case: %+v", got)
+	}
+	if got := environmentCheck([]string{"ANTHROPIC_API_KEY=sk-other"}); got.State != checkFailed || !strings.HasPrefix(got.Detail, "ANTHROPIC_API_KEY is set") {
+		t.Fatalf("the exact name: %+v", got)
+	}
+}
+
 // A check of Codex discovers Codex alone, whether its files wait for it to be
 // installed or one of its configuration files is missing: it looks for no
 // other client's executable or files, although Claude Code is enabled too,
