@@ -29,7 +29,7 @@
 
 ## 5. Supply
 
-- [ ] 5.1 Take OpenSpec 2.0.0, pinned exactly, before 2026-11-12T22:41Z under
+- [x] 5.1 Take OpenSpec 2.0.0, pinned exactly, before 2026-11-12T22:41Z under
       the owner's release-age exception for that package; strict validation
       passes under it, `openspec update --dry-run` reports no change, and the
       full check passes.
