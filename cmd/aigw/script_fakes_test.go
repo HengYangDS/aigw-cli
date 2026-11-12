@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -86,11 +87,18 @@ func scriptedClaude() {
 		return
 	}
 	// A parent session's variables make a real client reject the credential
-	// that AIGW's settings name, so a check must not pass them on.
+	// that AIGW's settings name, so a check must not pass them on. The user's
+	// own temporary folder reaches the client, which keeps a file there, as
+	// Claude Code keeps its temporary files.
 	for _, entry := range os.Environ() {
 		key, value, _ := strings.Cut(entry, "=")
-		if value != "" && (key == "CLAUDECODE" || strings.HasPrefix(key, "CLAUDE_CODE_") || strings.HasPrefix(key, "ANTHROPIC_DEFAULT_")) {
+		if value != "" && key != "CLAUDE_CODE_TMPDIR" && (key == "CLAUDECODE" || key == "CLAUDE_EFFORT" || strings.HasPrefix(key, "CLAUDE_CODE_") || strings.HasPrefix(key, "ANTHROPIC_DEFAULT_")) {
 			scriptedFailure("client or endpoint rejected authentication: the parent session's " + key + " reached the client")
+		}
+	}
+	if folder := os.Getenv("CLAUDE_CODE_TMPDIR"); folder != "" {
+		if err := os.WriteFile(filepath.Join(folder, "scripted-claude"), nil, 0o600); err != nil {
+			scriptedFailure(err.Error())
 		}
 	}
 	index := slices.Index(args, "--settings")

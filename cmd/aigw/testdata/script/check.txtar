@@ -33,11 +33,15 @@ cmp stdout model.txt
 exec aigw check --depth client
 cmp stdout client.txt
 # Run from inside a Claude Code session, whose variables configure that
-# session's own client, the check starts the client without them.
-env CLAUDECODE=1 CLAUDE_CODE_ENTRYPOINT=cli ANTHROPIC_DEFAULT_OPUS_MODEL=parent-opus
+# session's own client, the check starts the client without them, among them
+# any CLAUDE_CODE_* name that a later release adds, and with the user's own
+# Claude Code settings, such as its temporary folder.
+mkdir $WORK/claude-tmp
+env CLAUDECODE=1 CLAUDE_CODE_ENTRYPOINT=cli CLAUDE_CODE_FUTURE_HOST_FLAG=1 CLAUDE_EFFORT=high ANTHROPIC_DEFAULT_OPUS_MODEL=parent-opus CLAUDE_CODE_TMPDIR=$WORK/claude-tmp
 exec aigw check --depth client
 cmp stdout client.txt
-env CLAUDECODE= CLAUDE_CODE_ENTRYPOINT= ANTHROPIC_DEFAULT_OPUS_MODEL=
+exists $WORK/claude-tmp/scripted-claude
+env CLAUDECODE= CLAUDE_CODE_ENTRYPOINT= CLAUDE_CODE_FUTURE_HOST_FLAG= CLAUDE_EFFORT= ANTHROPIC_DEFAULT_OPUS_MODEL= CLAUDE_CODE_TMPDIR=
 exec aigw check --depth local --verbose
 cmp stdout verbose.txt
 

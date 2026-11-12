@@ -40,8 +40,20 @@ and its JSON list each local model whose definition the file replaces, with the 
 
 Each adapter already removes the variables that it manages from a native client's environment. Beside that list it
 declares the variables through which a parent agent session configures its own client, taken from each client's
-official documentation, and removes them too. The user's own variables, such as `PATH`, `HOME`, proxies and locale,
-stay.
+official documentation, and removes them too: the parent's marker, its host and session variables and its model
+mapping. The user's own variables, such as `PATH`, `HOME`, proxies and locale, and the user's own connection, runtime
+and provider-choice settings for the client stay.
+
+Claude Code names both kinds `CLAUDE_CODE_*`, and a later release can add a host variable. The Claude adapter removes
+every `CLAUDE_CODE_*` name except its keep list of the user's settings, each of which the installed client reads: the
+certificate, key and passphrase of mutual TLS (`CLAUDE_CODE_CLIENT_CERT`, `CLAUDE_CODE_CLIENT_KEY`,
+`CLAUDE_CODE_CLIENT_KEY_PASSPHRASE`); `CLAUDE_CODE_PROXY_RESOLVES_HOSTS`, `CLAUDE_CODE_GIT_BASH_PATH`,
+`CLAUDE_CODE_SHELL`, `CLAUDE_CODE_SHELL_PREFIX`, `CLAUDE_CODE_TMPDIR` and `CLAUDE_CODE_API_KEY_HELPER_TTL_MS`; and the
+provider choices `CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX` and `CLAUDE_CODE_USE_FOUNDRY` with
+`CLAUDE_CODE_SKIP_BEDROCK_AUTH`, `CLAUDE_CODE_SKIP_VERTEX_AUTH` and `CLAUDE_CODE_SKIP_FOUNDRY_AUTH`. A user who selects
+another provider in the shell sees the check fail as real use would; a Claude Desktop parent sets these empty. The
+adapter also removes `CLAUDECODE`, `CLAUDE_EFFORT`, `CLAUDE_PID`, `CLAUDE_AGENT_SDK_*`, `ANTHROPIC_DEFAULT_*` and
+`ANTHROPIC_SMALL_FAST_MODEL`.
 
 ### OpenSpec 2.0.0
 
@@ -52,6 +64,7 @@ for that package alone. 2.0 changes no OpenSpec workflow. The repository install
 ## Risks / Trade-offs
 
 - [The removed variable list drifts as clients add variables] → the list lives with each adapter and is tested with
-  the variables set.
+  the variables set. Claude's keep list errs the other way: a user setting that a later release adds is removed until
+  the list names it.
 - [A recognized preference hides a deliberate edit of `model`] → only a model-only edit is accepted; the user's model
   stays as the user left it, as the existing preference scenarios require.

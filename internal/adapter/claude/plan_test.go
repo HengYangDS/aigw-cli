@@ -37,12 +37,23 @@ func TestVerificationPlanConsumesTheSynchronizedSettings(t *testing.T) {
 }
 
 // A check run from inside a Claude Code session starts the client without
-// the variables through which that session configures its own client, and
-// keeps the ones that the user's own setup needs.
+// the variables through which that session configures its own client: its
+// marker, its host and session variables, any other CLAUDE_CODE_* name, such
+// as one that a later release adds, and its model mapping. The user's own
+// connection, runtime and provider-choice settings stay, set or empty, as a
+// Claude Desktop parent leaves the provider choices, and so does the rest of
+// the user's environment.
 func TestVerificationPlanDropsAParentSessionsVariables(t *testing.T) {
 	settings, runtime := verificationSettings(t)
-	retained := []string{"PATH=/usr/bin", "HOME=/home/user", "HTTPS_PROXY=http://proxy.test", "LANG=C", "ANTHROPIC_CUSTOM_HEADERS=x: y", "CLAUDE_CONFIG_DIR=/home/user/.claude"}
-	parent := []string{"CLAUDECODE=1", "CLAUDE_CODE_ENTRYPOINT=cli", "CLAUDE_CODE_USE_GATEWAY=1", "claude_code_session_id=lower", "CLAUDE_AGENT_SDK_VERSION=1",
+	retained := []string{"PATH=/usr/bin", "HOME=/home/user", "HTTPS_PROXY=http://proxy.test", "LANG=C", "ANTHROPIC_CUSTOM_HEADERS=x: y", "CLAUDE_CONFIG_DIR=/home/user/.claude",
+		"CLAUDE_CODE_CLIENT_CERT=/home/user/client.pem", "CLAUDE_CODE_CLIENT_KEY=/home/user/client-key.pem", "CLAUDE_CODE_CLIENT_KEY_PASSPHRASE=x",
+		"CLAUDE_CODE_PROXY_RESOLVES_HOSTS=1", "CLAUDE_CODE_GIT_BASH_PATH=/git/bin/bash", "CLAUDE_CODE_SHELL=/bin/zsh", "CLAUDE_CODE_SHELL_PREFIX=/usr/bin/time",
+		"CLAUDE_CODE_TMPDIR=/home/user/tmp", "CLAUDE_CODE_API_KEY_HELPER_TTL_MS=60000",
+		"CLAUDE_CODE_USE_BEDROCK=", "CLAUDE_CODE_USE_VERTEX=", "CLAUDE_CODE_USE_FOUNDRY=1",
+		"CLAUDE_CODE_SKIP_BEDROCK_AUTH=", "CLAUDE_CODE_SKIP_VERTEX_AUTH=", "CLAUDE_CODE_SKIP_FOUNDRY_AUTH=1"}
+	parent := []string{"CLAUDECODE=1", "CLAUDE_CODE_ENTRYPOINT=cli", "CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST=1", "CLAUDE_CODE_HOST_AUTH_ENV_VAR=HOST_TOKEN",
+		"CLAUDE_CODE_CHILD_SESSION=1", "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1", "CLAUDE_CODE_FUTURE_HOST_FLAG=1", "CLAUDE_CODE_USE_GATEWAY=1",
+		"claude_code_session_id=lower", "CLAUDE_AGENT_SDK_VERSION=1", "CLAUDE_EFFORT=high", "CLAUDE_PID=4242",
 		"ANTHROPIC_DEFAULT_OPUS_MODEL=opus", "ANTHROPIC_DEFAULT_SONNET_MODEL=sonnet", "ANTHROPIC_SMALL_FAST_MODEL=haiku"}
 	plan, err := claude.VerificationPlan("claude", settings, "AIGW_OK", slices.Concat(parent, retained), runtime)
 	if err != nil {
