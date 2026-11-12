@@ -20,7 +20,7 @@ import (
 // retiredWord matches the implementation's nouns that provider, model and
 // client replaced, which help, human output and JSON keys no longer use, nor
 // any environment-variable name that they show.
-var retiredWord = regexp.MustCompile(`(?i)\b(accounts?|routes?|projections?|bindings?|adapters?|admitted|candidates?)\b`)
+var retiredWord = regexp.MustCompile(`(?i)\b(accounts?|routes?|projections?|bindings?|adapters?|admitted|candidates?|routing)\b`)
 
 // keychainLabel is the label of the macOS Keychain item that holds a Token,
 // which keeps its spelling because credential storage does not change.

@@ -105,7 +105,7 @@ cmp removed-after.txt removed-before.txt
 -- help.txt --
 AIGW  Command help
 ────────────────────────────────────────
-  Local AI provider configuration, routing, and diagnostics
+  Local AI provider, model and client configuration, and diagnostics
 
 Start with one path
   aigw setup                          Set up a provider, a client and a model

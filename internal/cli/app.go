@@ -351,7 +351,7 @@ var Version = "0.1.0-dev"
 func NewRoot(app *App) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "aigw",
-		Short:         "Local AI provider configuration, routing, and diagnostics",
+		Short:         "Local AI provider, model and client configuration, and diagnostics",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		// Bare aigw is aigw status, which names `aigw setup` without a
