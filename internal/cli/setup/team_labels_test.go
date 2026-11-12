@@ -10,9 +10,9 @@ import (
 )
 
 // A team file replaces the label that a local `model edit --label` set, so
-// the preview names each such model with both labels, in human output and in
-// JSON, the run reports the same, and a second apply of the file changes
-// nothing.
+// the preview names each such model with both labels, beside the provider
+// label that the file replaces too, in human output and in JSON, the run
+// reports the same, and a second apply of the file changes nothing.
 func TestTeamPreviewNamesTheLabelsThatTheFileReplaces(t *testing.T) {
 	home := newGuidedHome(t)
 	home.runtime.Interactive = false
@@ -48,7 +48,7 @@ func TestTeamPreviewNamesTheLabelsThatTheFileReplaces(t *testing.T) {
 			t.Fatalf("%v\n%s", err, home.out)
 		}
 	}
-	want := []changedLabel{{Model: "team/team-model", Local: "Edited Team Model"}}
+	want := []changedLabel{{Provider: "team", Local: "Team", File: "Team Gateway Again"}, {Model: "team/team-model", Local: "Edited Team Model"}}
 	if !reflect.DeepEqual(documents[0].ChangedLabels, want) || !reflect.DeepEqual(documents[1].ChangedLabels, want) {
 		t.Fatalf("changed labels: preview %+v, run %+v, want %+v", documents[0].ChangedLabels, documents[1].ChangedLabels, want)
 	}

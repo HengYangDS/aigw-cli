@@ -273,8 +273,29 @@ exec aigw setup --from team.toml --json
 stdout '"changed_labels"'
 exec aigw setup --from team.toml --dry-run --json
 ! stdout 'changed_labels'
+# So is a provider's label that provider edit set, and a family's label that
+# a families-only team file set: the preview and the run name each with both
+# values, and the second preview has nothing to change.
+exec aigw provider edit team --label 'Local Provider Label'
+exec aigw setup --from families.toml
+exec aigw setup --from team.toml --dry-run --json
+stdout '"changed_labels": \[\n\s+\{\n\s+"provider": "team",\n\s+"local": "Local Provider Label",\n\s+"file": "Team Gateway"\n\s+\},\n\s+\{\n\s+"family": "team-model",\n\s+"local": "Families Label",\n\s+"file": "Team Model"\n\s+\}\n\s+\]'
+exec aigw setup --from team.toml --dry-run
+stdout '(?m)^Provider labels\n  team +Local Provider Label becomes Team Gateway$'
+stdout '(?m)^Family labels\n  team-model +Families Label becomes Team Model$'
+exec aigw setup --from team.toml --json
+stdout '"provider": "team",\n\s+"local": "Local Provider Label"'
+stdout '"family": "team-model",\n\s+"local": "Families Label"'
+exec aigw setup --from team.toml --dry-run --json
+! stdout 'changed_labels'
 
 
+-- families.toml --
+version = 8
+
+[[families]]
+id = "team-model"
+label = "Families Label"
 -- rejected.txt --
 sk-rejected-token
 -- token.txt --
@@ -602,6 +623,18 @@ Next
       "team-model"
     ]
   },
+  "changed_labels": [
+    {
+      "provider": "team",
+      "local": "Team Gateway",
+      "file": "Team Gateway Again"
+    },
+    {
+      "family": "team-model",
+      "local": "Team Model",
+      "file": "Team Model Again"
+    }
+  ],
   "kept_endpoints": [
     {
       "provider": "team",
@@ -693,6 +726,18 @@ Next
       "team-model"
     ]
   },
+  "changed_labels": [
+    {
+      "provider": "team",
+      "local": "Team Gateway",
+      "file": "Team Gateway Again"
+    },
+    {
+      "family": "team-model",
+      "local": "Team Model",
+      "file": "Team Model Again"
+    }
+  ],
   "kept_endpoints": [
     {
       "provider": "team",

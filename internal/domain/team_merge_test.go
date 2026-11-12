@@ -121,6 +121,26 @@ func TestMergeTeamFileTakesTheFilesDefinitionsAndKeepsLocalOnes(t *testing.T) {
 	}
 }
 
+// The report names every label that the file replaces, a provider's, a
+// model's and a family's, with the local and the file's value, and a second
+// merge of the same file replaces none.
+func TestMergeTeamFileReportsEveryLabelThatItReplaces(t *testing.T) {
+	cfg := localTeamConfig(t)
+	cfg.Families["gpt"] = Family{ID: "gpt", Label: "Local GPT"}
+	merged, report := mergeTeam(t, cfg, teamFile(t), false)
+	want := []ChangedLabel{
+		{Provider: "team", Local: "Team", File: "Team Gateway"},
+		{Model: NewModelRef("team", "gpt"), File: "Team GPT"},
+		{Family: "gpt", Local: "Local GPT", File: "GPT"},
+	}
+	if !reflect.DeepEqual(report.ChangedLabels, want) {
+		t.Fatalf("changed labels = %+v, want %+v", report.ChangedLabels, want)
+	}
+	if _, again := mergeTeam(t, merged, teamFile(t), false); len(again.ChangedLabels) != 0 {
+		t.Fatalf("a second merge replaces labels: %+v", again.ChangedLabels)
+	}
+}
+
 func TestMergeTeamFilePrunesOnlyUnusedLocalEntries(t *testing.T) {
 	cfg := localTeamConfig(t)
 	// The local recommendation names spare, so pruning keeps it.

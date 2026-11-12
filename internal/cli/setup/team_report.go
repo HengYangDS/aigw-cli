@@ -57,12 +57,15 @@ type teamEntries struct {
 	Recommendations []string `json:"recommendations,omitempty"`
 }
 
-// changedLabel is a model whose label the team file replaces. Local and File
-// are absent for a model without a label, which shows its ID.
+// changedLabel is a provider, model or family whose label the team file
+// replaces, named by the one of Provider, Model and Family that it has. Local
+// and File are absent for no label, which shows the entry's ID.
 type changedLabel struct {
-	Model string `json:"model"`
-	Local string `json:"local,omitempty"`
-	File  string `json:"file,omitempty"`
+	Provider string `json:"provider,omitempty"`
+	Model    string `json:"model,omitempty"`
+	Family   string `json:"family,omitempty"`
+	Local    string `json:"local,omitempty"`
+	File     string `json:"file,omitempty"`
 }
 
 // keptEndpoint is an existing provider's endpoint that stays local; Local is
@@ -140,7 +143,11 @@ func (t teamSetup) document(after domain.Config, states map[string]string, conne
 		Clients: []clientItem{},
 	}
 	for _, label := range report.ChangedLabels {
-		document.ChangedLabels = append(document.ChangedLabels, changedLabel{Model: label.Model.String(), Local: label.Local, File: label.File})
+		changed := changedLabel{Provider: label.Provider, Family: label.Family, Local: label.Local, File: label.File}
+		if !label.Model.IsZero() {
+			changed.Model = label.Model.String()
+		}
+		document.ChangedLabels = append(document.ChangedLabels, changed)
 	}
 	if t.request.Prune {
 		document.Pruned = &teamEntries{Providers: []string{}, Models: refs(report.PrunedModels), Families: nonNil(report.PrunedFamilies)}
@@ -289,24 +296,35 @@ func renderEntries(r *terminal.Renderer, title string, entries teamEntries) bool
 	return true
 }
 
-// renderLabels names the label that the team file replaces on each model, in
-// a section of its own: the Changed section names the model alone.
+// renderLabels names the label that the team file replaces on each provider,
+// model and family, in a section of its own for each kind: the Changed section
+// names the entry alone.
 func renderLabels(r *terminal.Renderer, labels []changedLabel) {
-	if len(labels) == 0 {
-		return
-	}
 	shown := func(label string) string {
 		if label == "" {
 			return "none"
 		}
 		return label
 	}
-	rows := make([]terminal.Field, 0, len(labels))
-	for _, label := range labels {
-		rows = append(rows, terminal.Field{Label: label.Model, Value: shown(label.Local) + " becomes " + shown(label.File)})
+	for _, kind := range []struct {
+		title string
+		name  func(changedLabel) string
+	}{
+		{"Provider labels", func(label changedLabel) string { return label.Provider }},
+		{"Model labels", func(label changedLabel) string { return label.Model }},
+		{"Family labels", func(label changedLabel) string { return label.Family }},
+	} {
+		var rows []terminal.Field
+		for _, label := range labels {
+			if name := kind.name(label); name != "" {
+				rows = append(rows, terminal.Field{Label: name, Value: shown(label.Local) + " becomes " + shown(label.File)})
+			}
+		}
+		if len(rows) > 0 {
+			r.Section(kind.title)
+			r.Rows(rows...)
+		}
 	}
-	r.Section("Model labels")
-	r.Rows(rows...)
 }
 
 // renderKept names what stayed local, what was dropped and what is unusable.

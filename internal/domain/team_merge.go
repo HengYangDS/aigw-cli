@@ -27,10 +27,13 @@ type TeamMerge struct {
 	PrunedFamilies                    []string
 }
 
-// ChangedLabel is an existing model whose label the team file replaces. An
-// empty label is none, which shows the model by its ID.
+// ChangedLabel is the label that the team file replaces on an existing
+// provider, model or family, which exactly one of Provider, Model and Family
+// names. An empty label is none, which shows the entry by its ID.
 type ChangedLabel struct {
+	Provider    string
 	Model       ModelRef
+	Family      string
 	Local, File string
 }
 
@@ -237,20 +240,17 @@ func pruneLocalOnly(merged *Config, incoming Config) {
 	}
 }
 
-// compare records what the merge added, changed and pruned.
+// compare records what the merge added, changed and pruned, and every label
+// that it replaced: providers', then models', then families'.
 func (report *TeamMerge) compare(before, after Config) {
 	for _, id := range slices.Sorted(maps.Keys(after.Providers)) {
 		if previous, existed := before.Providers[id]; !existed {
 			report.AddedProviders = append(report.AddedProviders, id)
-		} else if !equivalentProvider(previous, after.Providers[id]) {
+		} else if provider := after.Providers[id]; !equivalentProvider(previous, provider) {
 			report.ChangedProviders = append(report.ChangedProviders, id)
-		}
-	}
-	for _, id := range slices.Sorted(maps.Keys(after.Families)) {
-		if previous, existed := before.Families[id]; !existed {
-			report.AddedFamilies = append(report.AddedFamilies, id)
-		} else if previous != after.Families[id] {
-			report.ChangedFamilies = append(report.ChangedFamilies, id)
+			if previous.Label != provider.Label {
+				report.ChangedLabels = append(report.ChangedLabels, ChangedLabel{Provider: id, Local: previous.Label, File: provider.Label})
+			}
 		}
 	}
 	for _, ref := range after.ModelRefs() {
@@ -260,6 +260,16 @@ func (report *TeamMerge) compare(before, after Config) {
 			report.ChangedModels = append(report.ChangedModels, ref)
 			if previous.Label != model.Label {
 				report.ChangedLabels = append(report.ChangedLabels, ChangedLabel{Model: ref, Local: previous.Label, File: model.Label})
+			}
+		}
+	}
+	for _, id := range slices.Sorted(maps.Keys(after.Families)) {
+		if previous, existed := before.Families[id]; !existed {
+			report.AddedFamilies = append(report.AddedFamilies, id)
+		} else if family := after.Families[id]; previous != family {
+			report.ChangedFamilies = append(report.ChangedFamilies, id)
+			if previous.Label != family.Label {
+				report.ChangedLabels = append(report.ChangedLabels, ChangedLabel{Family: id, Local: previous.Label, File: family.Label})
 			}
 		}
 	}
