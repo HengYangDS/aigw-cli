@@ -31,8 +31,10 @@ var (
 // verificationEnvironment is env as Hermes' verification runs with it: the
 // disposable home and its gateway lock, and none of the variables through
 // which a parent Hermes session selects its own provider, model, profile and
-// session, since the check verifies the configuration that AIGW wrote. PATH,
-// HOME, proxies, locale and Hermes' other settings stay.
+// session, nor the ones that its launch flags --safe-mode,
+// --ignore-user-config, --ignore-rules, --yolo and --accept-hooks export to
+// its children, since the check verifies the configuration that AIGW wrote.
+// PATH, HOME, proxies, locale and Hermes' other settings stay.
 func verificationEnvironment(env []string, home, lockDirectory string) []string {
 	environment := []string{}
 	for _, entry := range env {
@@ -48,6 +50,7 @@ func parentSessionVariable(key string) bool {
 	return strings.HasPrefix(key, "HERMES_SESSION_") || slices.Contains([]string{
 		"HERMES_HOME", "HERMES_DISABLE_LAZY_INSTALLS", "HERMES_GATEWAY_LOCK_DIR", "HERMES_GATEWAY_SESSION", "HERMES_INTERACTIVE", "HERMES_EXEC_ASK",
 		"HERMES_CRON_SESSION", "HERMES_INFERENCE_PROVIDER", "HERMES_INFERENCE_MODEL", "HERMES_MODEL", "HERMES_PROFILE",
+		"HERMES_SAFE_MODE", "HERMES_IGNORE_USER_CONFIG", "HERMES_IGNORE_RULES", "HERMES_YOLO_MODE", "HERMES_ACCEPT_HOOKS",
 	}, key)
 }
 
