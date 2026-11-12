@@ -531,7 +531,21 @@ or successful execution on the build host.
 - **AND** warmup and rebuild SHALL retain one original bounded deadline and no operator signing or Forge credentials
 - **AND** the independent full-matrix journey SHALL retain both architecture archives and deterministic signatures.
 
-### Requirement: Native artifact acceptance has its own execution closure
+### Requirement: The Hermes release journey resumes its session natively
+
+The native release journey SHALL create its Hermes session once with its
+creation options, resume it by the stored session identifier without options
+that Hermes freezes at creation, and stop the journey's gateway before
+deleting the journey home.
+
+#### Scenario: Continue the Hermes session across program lifecycle steps
+
+- **WHEN** the journey continues its Hermes session after an update, rollback
+  or re-upgrade
+- **THEN** it SHALL pass `--resume` with the stored session identifier
+- **AND** Hermes SHALL retain the earlier tool result in the continued input.
+
+### Requirement: Native artifact acceptance keeps its own execution closure
 
 Selected prebuilt or tagged products SHALL use only the artifact journey's
 required native tools unless full source quality or lock refresh is selected.
@@ -550,18 +564,6 @@ qualification.
 - **AND** mutable refs, unsigned objects and mismatched provenance SHALL fail
   before product execution.
 
-#### Scenario: An existing transport release supplies a later candidate
-
-- **WHEN** an existing signed transport Release holds an exact-source packet
-- **THEN** native acquisition SHALL select `public-inputs-<input-sha256>.tar`
-  without replacing the carrier's original assets or creating a new Release
-- **AND** the outer checksum, complete matrix signatures, exact candidate
-  provenance and published predecessor SHALL determine product admission
-- **AND** the signed carrier's named target SHALL remain verified, but its
-  history SHALL NOT substitute for or restrict candidate provenance
-- **AND** one bounded acquisition SHALL reclaim its private workspace on success,
-  failure and cancellation.
-
 #### Scenario: Source qualification remains required
 
 - **WHEN** full quality, lock refresh or a source-only native journey is selected
@@ -578,17 +580,3 @@ qualification.
 - **AND** release admission SHALL retain the exact tag push and canonical job set
 - **AND** GitLab SHALL retain its complete merge-request jobs and native
   merge-request pipeline admission, independently of manual native results.
-
-### Requirement: The Hermes release journey resumes its session natively
-
-The native release journey SHALL create its Hermes session once with its
-creation options, resume it by the stored session identifier without options
-that Hermes freezes at creation, and stop the journey's gateway before
-deleting the journey home.
-
-#### Scenario: Continue the Hermes session across program lifecycle steps
-
-- **WHEN** the journey continues its Hermes session after an update, rollback
-  or re-upgrade
-- **THEN** it SHALL pass `--resume` with the stored session identifier
-- **AND** Hermes SHALL retain the earlier tool result in the continued input.

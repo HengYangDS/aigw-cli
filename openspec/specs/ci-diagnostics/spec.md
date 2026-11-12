@@ -275,9 +275,9 @@ absolute HTTP(S), contain no user information and preserve HTTPS.
 
 When a peer's read-only release verification runs the native lifecycle against
 an existing release's published bytes, it SHALL consume an explicitly selected
-published predecessor from the same peer, verify that predecessor's signed
-matrix and source, and run the upgrade and rollback journeys from it. It SHALL
-NOT rebuild, retag, sign or publish either release.
+published predecessor of 0.7.0 or later from the same peer, verify that
+predecessor's signed matrix and source, and run the upgrade and rollback
+journeys from it. It SHALL NOT rebuild, retag, sign or publish either release.
 
 #### Scenario: A maintainer selects a published predecessor
 
@@ -294,6 +294,13 @@ NOT rebuild, retag, sign or publish either release.
   predecessor
 - **THEN** the lifecycle journeys SHALL fail before product execution
 - **AND** the run SHALL NOT pass as lifecycle evidence.
+
+#### Scenario: A predecessor older than 0.7.0 is selected
+
+- **WHEN** native acceptance selects a published predecessor older than 0.7.0,
+  by tag, by artifacts or in an input archive
+- **THEN** it SHALL refuse that predecessor before product execution and name
+  0.7.0 as the oldest one, because an older release cannot read `aigw.toml`.
 
 ### Requirement: CI steps run one native command
 

@@ -8,298 +8,21 @@ that are present on the current host.
 
 ## Requirements
 
-### Requirement: Team setup imports capability before activation
-
-`aigw setup --from` SHALL import a credential-free Account and Route
-catalog independently from Account connection, Route activation, client
-installation, and external endpoint availability. No particular Account,
-client, or external Responses service SHALL be mandatory for import. Setup
-SHALL connect only the explicitly selected Account or Accounts whose Tokens are
-already available through the selected credential backend.
-
-#### Scenario: No Token or client is present
-
-- **WHEN** a user imports a valid team manifest on a host with no admitted
-  client and no Account Token
-- **THEN** setup SHALL save the catalog without prompting for every Account
-- **AND** SHALL report that zero Accounts are connected
-- **AND** SHALL show the smallest account-scoped connection command
-
-#### Scenario: One Account is connected
-
-- **WHEN** exactly one manifest Account is explicitly selected or has a locally
-  available Token
-- **THEN** setup SHALL select that Account's Routes that the manifest declares
-  as client recommendations, in declared order
-- **AND** a Route of that Account that no recommendation declares SHALL remain
-  manual-only
-- **AND** other manifest Accounts SHALL remain available but unconnected
-- **AND** their missing Tokens SHALL NOT block setup
-
-#### Scenario: Admitted clients are absent
-
-- **WHEN** setup connects an Account before Claude Code or Codex is installed
-- **THEN** setup SHALL preserve the connected Account and selected Routes
-- **AND** SHALL identify `aigw sync` as the activation action after a client is
-  installed
-
-### Requirement: Activation follows present capabilities
-
-Manifest setup SHALL import the reviewed catalog and project only discovered
-clients whose selected Routes have locally available declared authentication,
-without contacting a provider or running a native client. A connected Token
-and a native projection are not claims of accepted authentication, reachable
-endpoints, or working inference; `aigw check` owns those observations. A later
-synchronization SHALL adopt a newly installed admitted client without manifest
-re-import.
-
-#### Scenario: Only Claude Code is installed
-
-- **WHEN** a connected Account has both Anthropic and Responses routes but
-  only Claude Code is discovered
-- **THEN** setup SHALL configure only the Claude route
-- **AND** an unavailable Responses endpoint SHALL NOT block the import.
-
-#### Scenario: Provider is offline during manifest import
-
-- **WHEN** one compatible Account Token is available and its provider cannot
-  be reached
-- **THEN** manifest setup SHALL retain the catalog, selection, and local
-  projection without an online request
-- **AND** SHALL NOT report endpoint or inference verification as passed
-- **AND** an explicit `aigw check` SHALL report the provider failure without
-  exposing the Token.
-
-#### Scenario: Low-level configuration import preserves explicit selection
-
-- **WHEN** `aigw config import` merges reviewed public metadata while a client
-  already selects another Route
-- **THEN** the selected Route SHALL remain unchanged
-- **AND** import SHALL NOT inspect unrelated Account credentials to infer a
-  continuation or claim projection readiness
-- **AND** it SHALL direct the operator to `aigw status`, which owns the current
-  readiness observation and next action.
-
-#### Scenario: Preview a team import against a local endpoint override
-
-- **WHEN** an imported Account shares an ID with a different local Account
-  whose endpoint the operator intends to retain
-- **THEN** import SHALL reject the conflict unless the operator explicitly
-  selects either local retention or incoming replacement for that Account
-- **AND** local retention SHALL preserve the complete local Account metadata
-  and Token while admitting compatible incoming Models and Routes
-- **AND** `--dry-run --json` SHALL apply the same merge validation and report
-  explicit Account retention, Route retirement, and semantic client projection
-  candidates without reading Tokens or writing configuration or client files
-- **AND** a client projection candidate SHALL NOT be described as an executed
-  projection or proof that the client or its credential is available.
-
-#### Scenario: Client is installed later
-
-- **WHEN** a manifest was imported before an admitted client was installed
-- **AND** the user later runs synchronization after installing that client
-- **THEN** AIGW SHALL discover and converge its owned projection
-- **AND** SHALL preserve unrelated client and conversation state.
-
-### Requirement: Onboarding state is explicit and actionable
-
-Setup results SHALL distinguish imported capability, connected Accounts,
-selected Routes, configured clients, and deferred work, and expose the smallest
-safe next action. With environment credentials, setup SHALL list every
-compatible variable as an equal choice. With a writable backend, rotation
-SHALL preserve Route and Client Binding selection and name the explicit
-`aigw use --for` continuation. Manifest setup MUST support `--json`, share one
-semantic result, and never expose credentials.
-
-#### Scenario: Guided setup completes before client installation
-
-- **WHEN** guided setup connects an Account for a selected admitted client that
-  is not yet installed
-- **THEN** the wizard SHALL offer the admitted clients and require an explicit
-  protocol choice when the selected client admits more than one
-- **AND** setup SHALL preserve the Account, Token, Route, and client selection
-  without claiming that native projection or inference is ready
-- **AND** SHALL name client installation followed by `aigw sync`, not
-  `aigw check`, as the activation continuation.
-
-#### Scenario: Selected Responses endpoint is unavailable
-
-- **WHEN** an installed Codex route selects a Responses endpoint that is not
-  reachable
-- **THEN** diagnostics SHALL identify the configured endpoint as unavailable
-- **AND** SHALL state that AIGW owns configuration rather than endpoint
-  lifecycle
-- **AND** SHALL offer checking that endpoint or selecting another Responses
-  route without inferring the endpoint implementation.
-
-#### Scenario: No Token is available through a writable backend
-
-- **WHEN** a valid team manifest is imported and no Account is connected
-- **THEN** setup SHALL recommend `aigw rotate <account>`
-- **AND** SHALL NOT imply that every catalog Account Token is required.
-
-#### Scenario: A writable Account Token arrives after import
-
-- **GIVEN** a team catalog with no selected Client Binding
-- **WHEN** the operator rotates one compatible Account Token
-- **THEN** rotation SHALL leave Route and Client Binding selection unchanged
-- **AND** SHALL name an executable `aigw use --for` action for one reviewed
-  compatible Route of that Account, rather than immediate `aigw check` or
-  no-op synchronization.
-
-#### Scenario: No Token is available through the environment backend
-
-- **WHEN** a valid team manifest is imported with the read-only environment
-  backend and no Account Token is available
-- **THEN** setup SHALL enumerate the environment variable for every compatible
-  Account as an alternative activation choice
-- **AND** SHALL direct the operator to run `aigw sync` after setting one
-- **AND** SHALL state that any one compatible Account is sufficient.
-
-#### Scenario: Environment Account becomes available later
-
-- **WHEN** a team catalog was imported without a connected Account
-- **AND** exactly one compatible Account Token later becomes available through
-  the environment backend
-- **THEN** `aigw sync` SHALL activate Routes compatible with that Account
-- **AND** SHALL NOT require the previously recommended Account or any unrelated
-  Account Token.
-
-#### Scenario: Connected Account precedes client installation
-
-- **WHEN** setup or Route selection connects an Account and enables a selected
-  Client Binding without recording a native executable for its projection
-- **THEN** the Account, Token, Route, and enabled intent SHALL remain distinct
-  from the deferred native projection and unverified inference
-- **AND** setup, selection, sync preview, status, check, and doctor SHALL name
-  installation if needed followed by `aigw sync`, not immediate `aigw check`,
-  as the activation continuation
-- **AND** check SHALL NOT probe the endpoint before projection is available;
-  doctor MAY pass local diagnostics without claiming client readiness.
-
-#### Scenario: Selected Account Token disappears before client installation
-
-- **WHEN** an enabled Client Binding has no native projection and its selected
-  Account Token becomes unavailable
-- **THEN** observational commands SHALL report the missing Token and deferred
-  projection as distinct facts without reading the Token value
-- **AND** the next action SHALL restore that selected Account's Token before
-  suggesting synchronization or endpoint verification
-- **AND** restoring the Token SHALL reveal installation if needed followed by
-  `aigw sync` as the remaining activation step.
-
-#### Scenario: Enabled clients have different local readiness
-
-- **WHEN** an Account Token is available, its Codex projection is configured,
-  and an enabled Claude binding still lacks a native executable
-- **THEN** sync preview, status, check, and doctor SHALL retain both selections
-  and give the same installation-then-sync continuation in human and JSON output
-- **AND** check MAY probe the configured Codex Route, but SHALL NOT probe the
-  unprojected Claude Route or claim all enabled clients passed.
-
-#### Scenario: Manifest setup is consumed by automation
-
-- **WHEN** an operator runs manifest-based setup with `--json`
-- **THEN** setup SHALL return the imported Account and Route counts,
-  connected Accounts, client states, alternative activation choices, and next
-  safe action as machine-readable data
-- **AND** SHALL NOT include an Account Token or credential value.
-
-#### Scenario: Setup imports without activation
-
-- **WHEN** no Token or supported client is available
-- **THEN** setup reports the catalog as imported
-- **AND** does not claim any endpoint, credential, or client is ready.
-
-#### Scenario: Import-only setup has no actionable synchronization
-
-- **WHEN** a valid team catalog is imported with no compatible Token and no
-  admitted client available
-- **THEN** setup SHALL identify the choice of any one compatible Account Token
-  as a prerequisite, not present immediate synchronization as useful work
-- **AND** setup, status, check, and sync dry-run SHALL agree on that prerequisite
-- **AND** sync dry-run SHALL select no Route or provider by recommendation alone.
-
-### Requirement: Deferred client activation remains explicit
-
-AIGW SHALL allow team configuration import before clients or Tokens exist and
-SHALL guide later client installation through projection, explicit native
-authentication, and verification without making every provider mandatory.
-
-#### Scenario: Codex is installed after setup
-
-- **WHEN** an operator installs Codex after importing team configuration
-- **THEN** aigw sync creates only the AIGW-owned projection
-- **AND** status identifies explicit authentication as the next step when needed
-- **AND** no unrelated provider Token is required
-
-### Requirement: Deferred activation has one resumable path
-
-Importing a reviewed team manifest SHALL establish available capability without
-requiring every Token or client. `aigw sync` SHALL later converge newly
-available declared authentication and clients without repeated setup or hidden
-bulk selection. Recommendations SHALL remain distinct from selected Routes:
-setup and sync SHALL fill only unselected Client Bindings from the declared
-primary Route and ordered alternatives, and an undeclared Route SHALL stay
-manual-only.
-
-#### Scenario: Any one Account is available
-
-- **WHEN** a team manifest declares several Accounts and exactly one Account
-  Token used by a compatible recommendation is available
-- **THEN** setup completes with that Account's recommended capability
-- **AND** missing Tokens remain explicit deferred actions rather than errors for
-  unrelated active Routes.
-
-#### Scenario: A Token becomes available later
-
-- **WHEN** an environment Account Token becomes available after manifest import
-- **THEN** synchronization activates its declared compatible recommendation for
-  an unselected client without requiring the primary Account
-- **AND** existing independent Client Bindings are preserved.
-
-#### Scenario: Recommendation survives deferred setup
-
-- **WHEN** setup imports a recommendation while no required Token is available
-- **THEN** the recommendation is persisted without becoming a selected Route
-- **AND** later activation follows declared preference order, not lexical Route
-  order.
-
-#### Scenario: Explicit selection is temporarily unavailable
-
-- **WHEN** a client has a selected Route whose Token is absent and another
-  compatible Account becomes connected
-- **THEN** setup and synchronization preserve that selected Route
-- **AND** they do not replace its selection with the recommendation or another
-  available Account.
-
-#### Scenario: Recommended Route is renamed or removed
-
-- **WHEN** a Route is renamed or an unselected Route is removed
-- **THEN** its recommendation reference is renamed or removed in the same
-  configuration transaction
-- **AND** other recommendations and selected Routes remain unchanged.
-
-#### Scenario: A client is installed later
-
-- **WHEN** a supported client is installed after setup
-- **THEN** synchronization discovers and projects that client from its existing
-  Route
-- **AND** setup does not need to be repeated.
-
 ### Requirement: Setup has one explicit commit boundary
 
 Setup SHALL own configuration, credential slots, backend selection, client
-projections, checkpoints, locks, and temporary files as one transaction until
-persistence and every participating projection succeed. A configuration write
-SHALL NOT establish completion. Failure SHALL compensate only unchanged
-postimages, preserve concurrent user changes, and report the original cause plus
-unresolved resources. Presentation SHALL remain outside the transaction.
+configuration files, verified snapshots, locks, and temporary files as one
+transaction until persistence and every participating client configuration file
+succeed. A configuration write SHALL NOT establish completion. Failure SHALL
+compensate only unchanged postimages, preserve concurrent user changes, and
+report the original cause plus unresolved resources. Presentation SHALL remain
+outside the transaction.
 
 #### Scenario: Setup fails before commit
 
-- **WHEN** guided or manifest setup fails before configuration and all selected
-  client projections complete, including after the configuration file is written
+- **WHEN** guided or team-file setup fails before the configuration and every
+  selected client's configuration file are written, including after the
+  configuration file is written
 - **THEN** compensation restores unchanged owned preimages and removes that
   attempt's new resources wherever recovery succeeds
 - **AND** any failed recovery or concurrent postimage conflict remains explicit
@@ -308,195 +31,562 @@ unresolved resources. Presentation SHALL remain outside the transaction.
 #### Scenario: Setup output fails after commit
 
 - **WHEN** setup commits configuration, credentials, backend selection, and
-  client projections but result rendering fails
+  client configuration files but result rendering fails
 - **THEN** the committed product state remains available
 - **AND** the command reports only the output failure rather than claiming that
   setup was rolled back.
 
-### Requirement: Reviewed team configuration is directly consumable
+### Requirement: The shipped team file keeps one general family per other vendor
 
-The repository SHALL publish one token-free reviewed manifest directly
-consumable by `aigw setup --from` without credentials or installed clients.
-Setup and sync SHALL preserve existing Client Bindings and fill only unselected
-bindings from declared primary Routes and ordered alternatives with usable
-authentication; any other Route SHALL require explicit selection. They SHALL
-project only AIGW-owned state and never expose or rebind Tokens.
-
-#### Scenario: The shipped manifest stays reviewed
-
-- **WHEN** the repository ships its team manifest
-- **THEN** fictitious providers, workstation paths, and parallel example
-  manifests SHALL NOT remain
-- **AND** a Route outside the recommendations SHALL require explicit selection
-  even if its Account is connected or its Model matches.
-
-#### Scenario: Team member imports reviewed settings
-
-- **WHEN** a team member downloads the tracked manifest and runs `aigw setup --from`
-- **THEN** AIGW SHALL import the Accounts and Routes from the reviewed
-  `manifests/team.toml` without a second provider or model-name policy
-- **AND** required Account Tokens SHALL remain outside the manifest
-- **AND** recommended selections SHALL come from that manifest rather than
-  duplicated model-version literals in this specification.
-
-#### Scenario: No Account is connected during import
-
-- **WHEN** a user imports the team manifest without supplying a Token
-- **THEN** every reviewed Account and Route SHALL be retained
-- **AND** no client installation or credential SHALL be required
-- **AND** the next action SHALL enumerate the compatible Account connection
-  choices without making one Account mandatory.
-
-#### Scenario: One Provider Account is connected
-
-- **WHEN** a user imports the team manifest with exactly one available Account Token
-- **THEN** setup SHALL succeed without Tokens for other Accounts
-- **AND** each unselected client SHALL select the first usable declared
-  recommendation compatible with that client and connected Account
-- **AND** an undeclared Route SHALL remain unselected rather than becoming a
-  Model or lexical fallback.
-
-#### Scenario: A compatible Account becomes available after import
-
-- **WHEN** setup retained the reviewed catalog without a connected Account
-- **AND** a Token for a declared compatible recommendation later becomes
-  available through the read-only environment backend
-- **THEN** `aigw sync` SHALL select that recommendation for an unselected client
-- **AND** SHALL preserve the declared protocol and existing Client Bindings
-- **AND** SHALL NOT require Tokens for other Accounts.
-
-#### Scenario: A supported client is installed later
-
-- **WHEN** setup completed before an admitted client was installed
-- **AND** its selected Route has usable declared authentication
-- **THEN** `aigw sync` SHALL discover and project that client
-- **AND** SHALL NOT require, replace, or expose any unrelated Token
-- **AND** SHALL leave absent clients untouched.
-
-### Requirement: Account connection is an atomic client-scoped transition
-
-Account connection SHALL admit a new Account and its first canonical Model and
-Route before requesting its Token. It SHALL select that Route and reconcile
-only its client's projection through the shared synchronization transaction. An
-existing Account, Model, or Route identity SHALL NOT be implicitly replaced.
-
-#### Scenario: Add and select another Account
-
-- **WHEN** Account connection succeeds for an installed admitted client
-- **THEN** the stored Client Binding and that client's configuration SHALL select the new
-  Account Route without requiring a second selection or synchronization command
-- **AND** unrelated client configuration and ownership state SHALL be unchanged,
-  including unrelated external edits.
-
-#### Scenario: Creation admission fails
-
-- **WHEN** the Account, Model, or Route already exists, desired configuration is
-  invalid, or the request is cancelled before acquisition
-- **THEN** creation SHALL reject the request before requesting a Token or
-  changing configuration, credentials or client projections.
-
-#### Scenario: Account connection cannot complete synchronization
-
-- **WHEN** Account connection stores its Token but configuration persistence or
-  selected-client projection fails
-- **THEN** it SHALL compensate through the shared Token replacement owner
-- **AND** configuration and projection recovery SHALL use their existing owners
-- **AND** it SHALL preserve the original failure and any compensation error
-- **AND** failed compensation SHALL NOT be reported as restored storage.
-
-### Requirement: Shipped team catalog is a curated capability contract
-
-Team manifests SHALL declare Accounts, canonical Models, provider Routes, and
-per-client Recommendations separately. Model and Route IDs SHALL be stable
-lower-case; provider wire IDs and channels SHALL remain exact. Route admission
-requires authenticated inference and compatible client/protocol evidence.
-Setup SHALL need only one compatible Account, preserve explicit Client
-Bindings, and exclude inferred Route matrices and proxy endpoints.
-
-#### Scenario: One Account offers a subset of Models
-
-- **WHEN** one connected Account has a compatible recommended Route but lacks
-  Routes for other canonical Models or clients
-- **THEN** setup SHALL activate only its usable unselected Client Bindings
-- **AND** preserve explicit selections and defer unavailable capabilities.
-
-#### Scenario: A provider uses a channel-specific wire ID
-
-- **WHEN** DMXAPI exposes a CC, SSVIP, or CDX channel variant of one Model
-- **THEN** that Route SHALL reference the same canonical Model as its base
-  Route and carry its exact provider wire ID
-- **AND** its lower-case Route ID SHALL not be derived from wire spelling.
-
-#### Scenario: Ordinary Route display needs no duplicate label
-
-- **WHEN** a Route omits `label`
-- **THEN** human, JSON, and native-client presentation SHALL derive
-  `Account · Model` from the declared labels
-- **AND** an explicit channel or user label SHALL override that derivation
-- **AND** native manifest export SHALL omit a stored label equal to the
-  derived form while preserving an explicit distinct label.
-
-#### Scenario: Account lists follow the declared presentation order
-
-- **WHEN** Accounts declare presentation `order` values
-- **THEN** `aigw account list`, human and JSON, SHALL list Accounts by that
-  order and then by identity, as Route lists already do
-- **AND** serialized configuration and manifest export SHALL keep their
-  lexical identity order.
-
-### Requirement: The shipped catalog keeps one general Model per other vendor
-
-The shipped team catalog SHALL hold exactly one general Model for each vendor
-other than Anthropic and OpenAI, whose Models are curated per client. That Model
-SHALL be the vendor's most capable generally available general model whose
-Routes qualify. A qualified successor SHALL replace that Model and its Routes
-rather than add a second general Model, and import SHALL keep explicit Client
-Bindings to the replaced Routes.
+The shipped team file SHALL hold exactly one general family for each vendor
+other than Anthropic and OpenAI, whose families are curated per client. That
+family SHALL be the vendor's most capable generally available general model
+whose provider models qualify. A qualified successor SHALL replace that family
+and its models rather than add a second general family, and applying the file
+SHALL keep explicit client selections of the replaced models.
 
 #### Scenario: A vendor's more capable general model becomes available
 
-- **GIVEN** the catalog holds one general Model for a vendor
+- **GIVEN** the team file holds one general family for a vendor
 - **WHEN** that vendor makes a more capable general model generally available
-  and its Routes qualify
-- **THEN** the catalog SHALL replace that vendor's Model and Routes with the
+  and its models qualify
+- **THEN** the team file SHALL replace that vendor's family and models with the
   successor
-- **AND** SHALL NOT keep both as general Models
-- **AND** importing the catalog SHALL keep explicit Client Bindings to the
-  replaced Routes.
+- **AND** SHALL NOT keep both as general families
+- **AND** applying the team file SHALL keep explicit client selections of the
+  replaced models.
 
 #### Scenario: A newer model is not generally available or not qualified
 
-- **WHEN** a vendor's newer model is limited to selected testers or its Routes
+- **WHEN** a vendor's newer model is limited to selected testers or its models
   fail qualification
-- **THEN** the catalog SHALL keep that vendor's current Model.
+- **THEN** the team file SHALL keep that vendor's current family.
 
-### Requirement: Explicit Route retirement shares the manifest import transaction
+### Requirement: Guided setup reaches a working state and can run again
 
-Import SHALL retain local-only Routes unless each is named with `--retire-route`.
-Retired Routes SHALL exist locally, be absent from the incoming manifest,
-and have no Client Binding or retained recommendation. Only their Models
-with no remaining Route or incoming declaration SHALL be removed. Account
-metadata and Tokens SHALL remain unchanged. Import, retirement, and affected
-native projections SHALL share one guarded commit with compensation.
+`aigw setup` without `--from` SHALL guide a person through adding or choosing a
+provider, choosing an installed client and choosing a model from that provider's
+live catalog, or typing a model ID when it lists none, and SHALL then check that
+client as `aigw check <client>` does. It SHALL run again on an existing
+configuration and change only what the person chooses. Without a terminal, or
+with `--json` or `--dry-run`, it SHALL refuse and name
+`aigw setup --from <file>`.
 
-#### Scenario: Reviewed catalog replaces obsolete recommendations
+#### Scenario: Guided setup runs on a new machine
 
-- **WHEN** one import names multiple unselected local Routes for retirement
-- **AND** the incoming manifest replaces recommendations that referenced them
-- **THEN** the Routes and only their unreferenced, undeclared Models SHALL be
-  removed in the same commit as the new public catalog
-- **AND** explicit Client Bindings and shared or newly declared Models SHALL
-  remain unchanged.
+- **WHEN** `aigw setup` runs in a terminal without configuration
+- **THEN** it SHALL ask for a provider's ID, endpoints and Token and validate
+  the Token as `secret-storage` defines
+- **AND** it SHALL then ask for an installed client and a model from that
+  provider's catalog, save them in one transaction and check that client.
 
-#### Scenario: Retirement is not authorized by identity or selection
+#### Scenario: The catalog lists no model
 
-- **WHEN** a retirement selector names a missing, incoming-declared, or
-  client-selected Route
-- **THEN** import SHALL fail before changing configuration, projection, or
-  credential entrypoint state.
+- **WHEN** the provider's catalog cannot be read or lists no model
+- **THEN** guided setup SHALL accept a typed model ID instead of a choice from
+  the catalog.
 
-#### Scenario: Retained recommendation would dangle
+#### Scenario: Guided setup runs again
 
-- **WHEN** a local recommendation references a Route proposed for retirement
-- **AND** the incoming manifest does not replace that recommendation
-- **THEN** import SHALL reject the resulting configuration before committing.
+- **WHEN** `aigw setup` runs in a terminal on a configuration that already has
+  providers and client selections
+- **THEN** it SHALL start instead of refusing and offer the existing providers
+  beside adding a new one
+- **AND** the providers, Tokens and client selections that the person does not
+  change SHALL stay unchanged.
+
+#### Scenario: Guided setup cannot run
+
+- **WHEN** `aigw setup` runs without `--from`, and without a terminal or with
+  `--json` or `--dry-run`
+- **THEN** it SHALL refuse without prompting, reading a Token or writing a file
+- **AND** SHALL name `aigw setup --from <file>`.
+
+#### Scenario: Guided setup offers installed clients
+
+- **WHEN** guided setup asks for a client
+- **THEN** it SHALL offer only the supported clients that are installed
+- **AND** it SHALL require a protocol choice when the client and the model share
+  more than one.
+
+#### Scenario: No client is installed
+
+- **WHEN** guided setup finds no installed supported client
+- **THEN** it SHALL add the provider and stop before asking for a model
+- **AND** it SHALL name `aigw client list`.
+
+#### Scenario: A Token already exists for the new provider
+
+- **GIVEN** the credential store already holds a Token for a provider ID that
+  the configuration does not name
+- **WHEN** guided setup adds that provider
+- **THEN** the stored Token SHALL NOT by itself count as a configured provider
+- **AND** setup, with or without `--from`, SHALL use it without a prompt and
+  say so, unless the operator replaces it explicitly with guarded
+  compensation.
+
+#### Scenario: Guided setup enables the client it configures
+
+- **GIVEN** a client that is disabled on a model of its own
+- **WHEN** guided setup selects that client and another model for it
+- **THEN** the client SHALL be enabled
+- **AND** the saved rows SHALL say that it was disabled and is now enabled.
+
+### Requirement: A team file merges without redirecting providers or clients
+
+`aigw setup --from <file>` SHALL apply a team file in one transaction. The
+models, families and recommendations that it names SHALL replace the local ones,
+and local-only entries SHALL stay unless `--prune` removes the unused ones. It
+SHALL add new providers, take the file's provider labels and fill in a missing
+balance probe, but SHALL NOT change an existing provider's endpoints or Token or
+replace a client's selection; a differing endpoint or balance probe SHALL stay
+local and be reported.
+
+#### Scenario: The file and the configuration define the same model
+
+- **WHEN** the team file and `aigw.toml` both define `dmxapi/gpt-6.1-sol` with
+  different labels, families, protocols or capabilities
+- **THEN** the model SHALL take the team file's definition
+- **AND** models, families and recommendations that only `aigw.toml` names
+  SHALL stay.
+
+#### Scenario: The file names an existing provider with another label
+
+- **WHEN** the team file gives `dmxapi` a label that differs from the local one
+- **THEN** the provider SHALL take the file's label.
+
+#### Scenario: The file names another endpoint or balance probe
+
+- **WHEN** the team file gives `dmxapi` a `responses` endpoint or a balance
+  probe that differs from the local one
+- **THEN** the local value and the provider's Token SHALL stay
+- **AND** setup SHALL report both values.
+
+#### Scenario: The file gives a balance probe to a provider without one
+
+- **WHEN** the team file gives `ucloud` a balance probe and the local `ucloud`
+  has none
+- **THEN** the provider SHALL take the file's balance probe.
+
+#### Scenario: A client already has a selection
+
+- **WHEN** the team file recommends another model for a client that already
+  selects one
+- **THEN** the client's selection SHALL stay
+- **AND** the file's recommendation SHALL be stored for that client.
+
+#### Scenario: The file would take a protocol from a client's selection
+
+- **WHEN** the team file's definition of a model omits the protocol of a
+  client's selection of that model
+- **THEN** the model SHALL keep its local definition
+- **AND** setup SHALL report that it kept it.
+
+#### Scenario: A kept provider has no endpoint for a model's protocol
+
+- **WHEN** the team file defines a model of an existing provider on a protocol
+  for which the kept provider has no endpoint
+- **THEN** setup SHALL add the model and report it as unusable on that protocol
+  until `aigw provider edit --endpoint` supplies the endpoint
+- **AND** no client SHALL be given the model on that protocol until then.
+
+#### Scenario: The file's capabilities were qualified on another endpoint
+
+- **WHEN** the team file declares capabilities on a protocol whose endpoint in
+  the file differs from what the kept provider has
+- **THEN** setup SHALL drop those capabilities and report them
+- **AND** the model SHALL keep the capabilities that it has locally on that
+  protocol.
+
+#### Scenario: A recommendation names a model
+
+- **WHEN** a recommendation names `dmxapi/gpt-6.1-sol-cdx`
+- **THEN** setup SHALL store it under that `provider/model`
+- **AND** a name that neither the team file nor `aigw.toml` defines SHALL be
+  refused before any write, naming that recommendation.
+
+#### Scenario: Prune unused local entries
+
+- **WHEN** `aigw setup --from <file> --prune` runs
+- **THEN** the local-only models that no client selects and no remaining
+  recommendation names SHALL be removed in the same transaction as the merge
+- **AND** so SHALL families that neither a remaining model nor the file names
+- **AND** providers, their endpoints and Tokens, and every client's selection
+  SHALL stay unchanged.
+
+#### Scenario: The file lists providers or models in another order
+
+- **WHEN** a team file lists providers, or one provider's models, in another
+  order than the configuration
+- **THEN** what the file names SHALL come first, in the file's order, and the
+  entries that only the configuration holds SHALL follow in their local order,
+  for providers and for each provider's models alike
+- **AND** the merge SHALL change only that display order, never an endpoint, a
+  Token or a client's selection.
+
+#### Scenario: Preview a team file
+
+- **WHEN** `aigw setup --from <file> --dry-run --json` runs
+- **THEN** it SHALL apply the same merge validation as the write and report
+  each difference that stays local, each model that it would keep or report as
+  unusable, each capability that it would drop, and the client selections that
+  it would fill
+- **AND** it SHALL NOT describe a client configuration file as written or as
+  proof that the client or its Token works.
+
+### Requirement: Setup refuses a team file in another form
+
+`aigw setup --from` SHALL refuse, before any write, a team file that has a
+`[clients]` section or a `version` other than 8. The refusal for version 7 SHALL
+name that file's conversion path.
+
+#### Scenario: A team file has a clients section
+
+- **WHEN** a team file contains a `[clients]` section
+- **THEN** setup SHALL refuse before any write.
+
+#### Scenario: A team file has another version
+
+- **WHEN** a team file's `version` is not 8
+- **THEN** setup SHALL refuse before any write and name that version.
+
+### Requirement: Team setup connects Tokens without requiring them
+
+`aigw setup --from` SHALL require no particular provider's Token, client or
+external service. It SHALL prompt for a missing Token only in a terminal, take
+one provider's Token from standard input when `--token-stdin` comes with
+`--provider <id>`, and otherwise defer that provider and name its fix. A
+deferred Token SHALL NOT fail setup. A Token that it stores SHALL first pass the
+validation that `secret-storage` defines.
+
+#### Scenario: No Token or client is present
+
+- **WHEN** a team file is applied without a terminal on a host with no
+  supported client and no provider Token
+- **THEN** setup SHALL save the file's providers, models, families and
+  recommendations without prompting
+- **AND** SHALL report that no provider has a Token
+- **AND** SHALL show the smallest provider-scoped command that supplies one.
+
+#### Scenario: A script supplies one provider's Token
+
+- **WHEN** `aigw setup --from team.toml --provider dmxapi --token-stdin` runs
+- **THEN** only the `dmxapi` Token SHALL be read from standard input, validated
+  and stored
+- **AND** each other provider without a Token SHALL be deferred with its fix.
+
+#### Scenario: The provider does not accept a supplied Token
+
+- **WHEN** a prompted or piped Token fails that validation
+- **THEN** setup SHALL refuse, and neither that Token nor the team file's
+  changes SHALL be stored.
+
+#### Scenario: Token input names more than one provider
+
+- **WHEN** `--token-stdin` comes with more than one `--provider`
+- **THEN** setup SHALL refuse before reading the file or standard input.
+
+#### Scenario: A named provider's Token is requested in a terminal
+
+- **WHEN** `aigw setup --from <file> --provider dmxapi` runs in a terminal
+- **THEN** setup SHALL prompt only for the `dmxapi` Token, without echoing it.
+
+#### Scenario: A provider is named without a terminal or Token input
+
+- **WHEN** `aigw setup --from <file> --provider dmxapi` runs without a terminal
+  or with `--json`, and without `--token-stdin`
+- **THEN** setup SHALL refuse before any write and name `--token-stdin`.
+
+#### Scenario: A terminal asks for a needed Token
+
+- **WHEN** `aigw setup --from <file>` runs in a terminal without `--provider`,
+  and a provider whose recommended model setup would select has no Token
+- **THEN** setup SHALL prompt for that Token, and for no other provider's,
+  without echoing it
+- **AND** a `--json` or non-terminal run SHALL defer that provider, because
+  `command-line` lets neither prompt.
+
+#### Scenario: Tokens come from the environment
+
+- **WHEN** `--token-stdin` is given while the read-only environment backend
+  supplies Tokens
+- **THEN** setup SHALL refuse before any write and name the provider's
+  environment variable.
+
+#### Scenario: One provider's Token is available
+
+- **WHEN** exactly one provider in the team file has a Token
+- **THEN** setup SHALL fill each client without a selection from that
+  provider's recommended models, in declared order
+- **AND** a model that no recommendation names SHALL stay manual-only
+- **AND** the other providers' missing Tokens SHALL NOT block setup.
+
+### Requirement: Team setup configures only present clients
+
+`aigw setup --from` SHALL write client configuration files only for installed
+clients whose selected model's provider has its Token, without running a client,
+and without contacting a provider except to validate a Token that it stores. A
+stored Token and a written client configuration file SHALL NOT be presented as
+accepted authentication, a reachable endpoint or working inference; `aigw check`
+owns those observations.
+
+#### Scenario: Only Claude Code is installed
+
+- **WHEN** a provider with a Token has models recommended for Claude Code and
+  for Codex, and only Claude Code is installed
+- **THEN** setup SHALL write only Claude Code's configuration file
+- **AND** an unavailable `responses` endpoint SHALL NOT block setup.
+
+#### Scenario: Provider is offline during team setup
+
+- **WHEN** one provider already has a stored Token and cannot be reached
+- **THEN** setup SHALL keep the merged configuration, the selections and the
+  client configuration files without an online request
+- **AND** SHALL NOT report endpoint or inference checks as passed
+- **AND** a later `aigw check` SHALL report the provider failure without
+  exposing the Token.
+
+#### Scenario: A client is installed later
+
+- **WHEN** a team file was applied before a supported client was installed
+- **AND** `aigw sync` runs after that client is installed
+- **THEN** AIGW SHALL discover the client and write its configuration file
+- **AND** SHALL preserve unrelated client and conversation state.
+
+### Requirement: Onboarding results name deferred work
+
+Setup results SHALL distinguish what the team file changed, which providers
+have Tokens, which clients are selected and configured, and deferred work, and
+SHALL name the smallest safe next action. With environment Tokens, setup SHALL
+list every compatible variable as an equal choice. Setup SHALL offer `--json`
+with the same result and SHALL never expose a credential.
+
+#### Scenario: A writable store has no Token
+
+- **WHEN** a team file is applied and no provider has a Token in a writable
+  credential store
+- **THEN** setup SHALL name `aigw provider rotate <provider>`
+- **AND** SHALL NOT imply that every provider's Token is required.
+
+#### Scenario: A Token arrives after setup
+
+- **GIVEN** a team file was applied and no client has a selection
+- **WHEN** the operator rotates one compatible provider's Token
+- **THEN** rotation SHALL leave every client's selection unchanged
+- **AND** SHALL name `aigw use <client> <provider/model>` for one recommended
+  compatible model of that provider, rather than `aigw check` or a sync that
+  changes nothing.
+
+#### Scenario: The environment backend has no Token
+
+- **WHEN** a team file is applied with the read-only environment backend and
+  no provider Token is available
+- **THEN** setup SHALL list the environment variable of every compatible
+  provider as an alternative
+- **AND** SHALL direct the operator to run `aigw sync` after setting one
+- **AND** SHALL state that any one compatible provider is sufficient.
+
+#### Scenario: Nothing can be activated yet
+
+- **WHEN** a team file is applied with no compatible Token and no supported
+  client
+- **THEN** setup SHALL report the file as applied without claiming that any
+  endpoint, credential or client is ready
+- **AND** setup, `status`, `check` and `sync --dry-run` SHALL name the same
+  prerequisite: any one compatible provider Token
+- **AND** `sync --dry-run` SHALL select no model by recommendation alone.
+
+#### Scenario: A client is not installed yet
+
+- **WHEN** a provider has its Token and an enabled client's selection has no
+  client configuration file because the client is not installed
+- **THEN** the provider, Token, selection and enabled intent SHALL stay
+  distinct from the missing client and the unchecked inference
+- **AND** setup, `use`, `sync --dry-run`, `status` and `check` SHALL name
+  installing the client followed by `aigw sync`, not `aigw check`
+- **AND** `check` SHALL NOT probe that client's endpoint before its
+  configuration file exists.
+
+#### Scenario: A selected Token disappears before client installation
+
+- **WHEN** an enabled client has no configuration file yet and the Token of
+  its selected provider becomes unavailable
+- **THEN** read-only commands SHALL report the missing Token and the missing
+  client as distinct facts without reading the Token value
+- **AND** the next action SHALL restore that provider's Token before
+  suggesting `aigw sync` or a check.
+
+#### Scenario: Enabled clients have different local readiness
+
+- **WHEN** a provider has its Token, Codex's configuration file is written,
+  and enabled Claude Code is not installed yet
+- **THEN** `sync --dry-run`, `status` and `check` SHALL keep both selections
+  and give the same installation-then-sync next step in human and JSON output
+- **AND** `check` MAY probe Codex's selected model but SHALL NOT probe Claude
+  Code's or claim that every enabled client passed.
+
+#### Scenario: Automation reads the setup result
+
+- **WHEN** `aigw setup --from <file> --json` runs
+- **THEN** its document SHALL carry the providers, models and families that
+  the file added, the providers with Tokens, each client's state, the
+  alternative Token choices and the next action
+- **AND** SHALL NOT include a Token or another credential value.
+
+#### Scenario: A selected responses endpoint is unavailable
+
+- **WHEN** an installed Codex selects a model whose `responses` endpoint is not
+  reachable
+- **THEN** `aigw check` SHALL identify that configured endpoint as unavailable
+- **AND** SHALL state that AIGW owns configuration rather than the endpoint's
+  lifecycle
+- **AND** SHALL offer checking that endpoint or selecting another `responses`
+  model, without inferring the endpoint's implementation.
+
+### Requirement: Deferred activation resumes through sync
+
+`aigw sync` SHALL later configure newly installed clients and newly available
+environment Tokens without repeating setup or selecting in bulk. Setup and sync
+SHALL fill only clients without a selection, from the declared primary and
+then the alternatives in order, and only with a usable Token. A model that no
+recommendation names SHALL stay manual-only, and an explicit selection SHALL
+never be replaced.
+
+#### Scenario: An environment Token becomes available later
+
+- **WHEN** an environment Token for a provider becomes available after a team
+  file was applied
+- **THEN** `aigw sync` SHALL select that provider's first compatible
+  recommended model, with its declared protocol, for each client without a
+  selection
+- **AND** SHALL NOT require the primary provider or any unrelated Token
+- **AND** existing client selections SHALL stay.
+
+#### Scenario: A recommendation survives deferred setup
+
+- **WHEN** setup stores a recommendation while no required Token is available
+- **THEN** the recommendation SHALL persist without becoming a selection
+- **AND** later activation SHALL follow the declared order, not alphabetical
+  order.
+
+#### Scenario: An explicit selection is temporarily unavailable
+
+- **WHEN** a client selects a model whose provider has no Token and another
+  compatible provider gains one
+- **THEN** setup and `aigw sync` SHALL keep that selection
+- **AND** SHALL NOT replace it with a recommendation or another provider.
+
+#### Scenario: A recommended model is removed
+
+- **WHEN** an unselected recommended model is removed
+- **THEN** its recommendation SHALL change in the same configuration
+  transaction
+- **AND** other recommendations and every client's selection SHALL stay.
+
+#### Scenario: Codex is installed after setup
+
+- **WHEN** Codex is installed after a team file was applied
+- **THEN** `aigw sync` SHALL write only AIGW's values into Codex's
+  configuration
+- **AND** `aigw status` SHALL name explicit authentication as the next step
+  when Codex needs it
+- **AND** no unrelated provider Token SHALL be required.
+
+### Requirement: The shipped team file is reviewed and directly usable
+
+The repository SHALL publish one token-free, reviewed `manifests/team.toml` in
+schema 8 that `aigw setup --from` applies without credentials or installed
+clients. It SHALL declare providers, models, families and recommendations, with
+stable lower-case family IDs and each model ID exactly as its provider serves
+it. A model SHALL enter it only with authenticated inference and client and
+protocol evidence, and it SHALL hold no inferred model matrix or proxy endpoint.
+
+#### Scenario: The shipped team file stays reviewed
+
+- **WHEN** the repository ships its team file
+- **THEN** fictitious providers, workstation paths and parallel example files
+  SHALL NOT remain
+- **AND** a model outside the recommendations SHALL require explicit selection
+  even if its provider has a Token or its family matches.
+
+#### Scenario: A team member applies the reviewed file
+
+- **WHEN** a team member downloads `manifests/team.toml` and applies it with
+  `aigw setup --from`
+- **THEN** AIGW SHALL apply its providers, models, families and
+  recommendations without a second provider or model-name policy
+- **AND** Tokens SHALL stay outside the file
+- **AND** recommended selections SHALL come from the file rather than from
+  model-version literals in this specification.
+
+#### Scenario: One provider offers a subset of families
+
+- **WHEN** one provider with a Token has a compatible recommended model but no
+  models for other families or clients
+- **THEN** setup SHALL fill only the clients without a selection that it can
+  serve
+- **AND** SHALL keep explicit selections and defer the other capabilities.
+
+#### Scenario: A provider uses a channel-specific model ID
+
+- **WHEN** DMXAPI serves a CC, SSVIP or CDX channel variant of one vendor model
+- **THEN** that model SHALL name the same family as its base model and keep the
+  provider's exact model ID.
+
+#### Scenario: A model needs no duplicate label
+
+- **WHEN** a model omits `label`
+- **THEN** human, JSON and client presentation SHALL derive its label from the
+  provider's and the family's labels, as `Provider · Family`, or as
+  `Provider · model-id` when the model is its own family
+- **AND** an explicit channel or user label SHALL override that derivation
+- **AND** `aigw config export` SHALL omit a stored label equal to the derived
+  one while keeping a distinct explicit label.
+
+### Requirement: Configuration export writes a team file
+
+`aigw config export` SHALL write the configuration as a schema 8 team file: its
+providers without Tokens or balance credentials, models, families and
+recommendations, in configuration order, without a `[clients]` section, and
+`aigw setup --from` SHALL accept the result.
+
+#### Scenario: Export a configuration
+
+- **WHEN** `aigw config export` runs on a configuration with providers, models,
+  families, recommendations and client selections
+- **THEN** its output SHALL hold the providers, models, families and
+  recommendations in configuration order
+- **AND** SHALL hold no `[clients]` section, Token or balance credential.
+
+#### Scenario: Apply an exported team file
+
+- **WHEN** another machine runs `aigw setup --from` with the exported file
+- **THEN** setup SHALL accept it and apply its providers, models, families and
+  recommendations.
+
+### Requirement: Adding a provider is one guarded transaction
+
+`aigw provider add <provider>` SHALL create a provider with its label and
+endpoints in the same guarded transaction that stores its Token, validated as
+`secret-storage` defines, and SHALL select no model for any client. An existing
+provider ID SHALL be refused before a Token is requested, and a failed save
+SHALL compensate the stored Token through the shared replacement owner.
+
+#### Scenario: A script adds a provider
+
+- **WHEN** a script runs `aigw provider add` with `--endpoint` and
+  `--token-stdin`, and the provider accepts the Token
+- **THEN** the provider and its Token SHALL be stored
+- **AND** no client's selection or configuration file SHALL change.
+
+#### Scenario: The provider already exists
+
+- **WHEN** `aigw provider add` names an existing provider ID
+- **THEN** it SHALL refuse before requesting a Token or changing anything.
+
+#### Scenario: Saving fails after the Token is stored
+
+- **WHEN** the Token is stored but saving the configuration fails
+- **THEN** the shared Token replacement owner SHALL compensate the Token
+- **AND** the original failure and any compensation error SHALL be preserved
+- **AND** failed compensation SHALL NOT be reported as restored storage.

@@ -492,7 +492,7 @@ service lifecycle. CI SHALL provide trust material only from protected context.
 
 - **WHEN** the repository is cloned under a different user, directory, host, or
   Forge
-- **THEN** build, verification, setup, repair, and uninstall SHALL not require
+- **THEN** build, verification, setup, sync, and uninstall SHALL not require
   the original contributor's machine, account, key, IDE, or workstation state
 
 #### Scenario: An operator uses the installed command
@@ -506,7 +506,7 @@ service lifecycle. CI SHALL provide trust material only from protected context.
 #### Scenario: An operator selects environment credentials
 
 - **WHEN** `AIGW_SECRET_BACKEND=env` is selected
-- **THEN** the documented Account variable mapping SHALL supply credentials
+- **THEN** the documented provider variable mapping SHALL supply credentials
   without persistence
 - **AND** the user guide SHALL explain process inheritance and direct installed
   command invocation without exposing real credentials.
