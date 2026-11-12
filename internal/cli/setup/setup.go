@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -61,9 +62,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			// A JSON caller reads one document, so setup never prompts for it.
 			operation.Interactive = operation.Interactive && !request.JSON
 			if cmd.Flags().Changed("from") {
-				return invocation.CancelledPrompt(cmd, nil, runTeamSetup(cmd, operation, request))
+				return invocation.CancelledPrompt(cmd, nil, beforeConfiguration(operation, runTeamSetup(cmd, operation, request)))
 			}
-			return invocation.CancelledPrompt(cmd, nil, runGuided(cmd, operation))
+			return invocation.CancelledPrompt(cmd, nil, beforeConfiguration(operation, runGuided(cmd, operation)))
 		},
 	}
 	cmd.Flags().StringVar(&request.From, "from", "", "Apply a team file: its providers, models, families and recommendations")
@@ -74,6 +75,19 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().BoolVar(&request.DryRun, "dry-run", false, "Show what setup would change without reading a Token or writing anything")
 	invocation.CompleteFlag(cmd, "provider", cobra.NoFileCompletions)
 	return cmd
+}
+
+// beforeConfiguration gives a refusal of an outside edit to a client file the
+// fix that holds while no aigw.toml exists: run this setup again. A setup that
+// failed has written no configuration, and `aigw sync` refuses without one.
+func beforeConfiguration(runtime invocation.Context, err error) error {
+	if err == nil {
+		return nil
+	}
+	if snapshot, captured := runtime.Config.CaptureSnapshot(); captured != nil || snapshot.Config.Exists {
+		return err
+	}
+	return adapter.BeforeConfiguration(err)
 }
 
 // admitGuided refuses guided setup where it cannot ask: it is the one write

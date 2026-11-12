@@ -196,12 +196,12 @@ func recordOwnership(state ownershipState, projected projectedFiles, before snap
 func changedOutsideAIGW(settings []string) error {
 	if len(settings) == 0 {
 		return adapter.NewConflictError(
-			"managed Claude Desktop configuration changed outside AIGW; refusing to overwrite user edits; restore the AIGW profile in Claude Desktop, then run `aigw sync`",
+			"managed Claude Desktop configuration changed outside AIGW; refusing to overwrite user edits",
 			"Restore the AIGW profile in Claude Desktop, then run `aigw sync`", nil)
 	}
 	names := strings.Join(settings, ", ")
 	return adapter.NewConflictError(
-		fmt.Sprintf("managed Claude Desktop configuration changed outside AIGW (%s); refusing to overwrite user edits; restore those settings in Claude Desktop, then run `aigw sync`", names),
+		fmt.Sprintf("managed Claude Desktop configuration changed outside AIGW (%s); refusing to overwrite user edits", names),
 		"Restore AIGW's value of "+names+" in Claude Desktop, then run `aigw sync`", nil)
 }
 

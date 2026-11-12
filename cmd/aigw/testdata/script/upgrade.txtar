@@ -100,6 +100,27 @@ snapshot $HOME newer-after.txt
 cmp newer-after.txt newer-before.txt
 cp valid.toml $CONF/aigw.toml
 
+# The first setup after an upgrade has no earlier selection. It keeps the
+# model that the user chose in Claude Code's settings, and an edit of any
+# other managed value is refused, naming the same setup as the step that runs
+# once the edit is undone: sync refuses without a configuration.
+rm $CONF/aigw.toml
+jsonset $HOME/.claude/settings.json model '"opus[1m]"'
+stdin token.txt
+exec aigw setup --from team.toml --provider team --token-stdin
+grep '"model": "opus\[1m\]"' $HOME/.claude/settings.json
+rm $CONF/aigw.toml
+cp $HOME/.claude/settings.json owned-settings.json
+jsonset $HOME/.claude/settings.json apiKeyHelper '"foreign-helper"'
+stdin token.txt
+exitcode 1 aigw setup --from team.toml --provider team --token-stdin --json
+stdout '"next_detail": "Undo the outside edit to the AIGW-managed Claude Code settings, then run the same command again."'
+! stdout 'aigw sync'
+! exists $CONF/aigw.toml
+cp owned-settings.json $HOME/.claude/settings.json
+stdin token.txt
+fixloop -did 'undid the outside edit' stdout aigw setup --from team.toml --provider team --token-stdin --json
+
 -- token.txt --
 sk-team-token-0001
 -- legacy-token.txt --

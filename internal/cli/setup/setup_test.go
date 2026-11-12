@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
@@ -211,5 +212,32 @@ primary = {model = "team/gpt-test"}
 	}
 	if secretExists(t, secretStore, "team") {
 		t.Fatal("rollback recreated a credential removed before compensation")
+	}
+}
+
+// A refused outside edit names the setup itself while no aigw.toml exists, and
+// `aigw sync` once one does, and a failure of the observation leaves the fix.
+func TestBeforeConfigurationNamesSyncOnlyWithAConfiguration(t *testing.T) {
+	refusal := adapter.NewConflictError("changed", adapter.UndoOutsideEdit("Example"), nil)
+	next := func(err error) string {
+		return err.(interface{ NextAction() string }).NextAction()
+	}
+	home := t.TempDir()
+	runtime := invocation.Context{Config: store.NewStore(filepath.Join(home, "aigw.toml"), clients.Admission())}
+	if beforeConfiguration(runtime, nil) != nil {
+		t.Fatal("no failure changed")
+	}
+	if got := next(beforeConfiguration(runtime, refusal)); !strings.HasSuffix(got, "run the same command again.") {
+		t.Fatalf("without a configuration: %q", got)
+	}
+	if err := os.WriteFile(filepath.Join(home, "aigw.toml"), []byte("version = 8\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := next(beforeConfiguration(runtime, refusal)); !strings.HasSuffix(got, "run `aigw sync`") {
+		t.Fatalf("with a configuration: %q", got)
+	}
+	blocked := invocation.Context{Config: store.NewStore(filepath.Join(home, "aigw.toml", "aigw.toml"), clients.Admission())}
+	if got := next(beforeConfiguration(blocked, refusal)); !strings.HasSuffix(got, "run `aigw sync`") {
+		t.Fatalf("with an unobservable configuration: %q", got)
 	}
 }

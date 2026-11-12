@@ -208,6 +208,17 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 	}
 
 	state, err := prepareSettingsState(path, document, settingsBefore, stateBefore, previousModel)
+	if _, refused := errors.AsType[*adapter.ConflictError](err); refused && previousModel == "" {
+		// A first setup has no earlier selection. An earlier release recorded
+		// the model that it projected, which is the new selection's model
+		// whenever the user kept the connection, so only that substitution,
+		// and only when it reproduces the record, recognizes the user's model
+		// preference.
+		var recognized error
+		if state, recognized = prepareSettingsState(path, document, settingsBefore, stateBefore, runtime.UpstreamModel); recognized == nil {
+			previousModel, err = runtime.UpstreamModel, nil
+		}
+	}
 	if err != nil {
 		return settingsChange{}, err
 	}

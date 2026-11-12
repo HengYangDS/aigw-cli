@@ -266,10 +266,13 @@ func TestChangedManagedSettingsAreRefusedByName(t *testing.T) {
 			if err == nil {
 				t.Fatal("a changed managed setting was accepted")
 			}
-			for _, name := range append([]string{"changed outside AIGW", "aigw sync"}, test.names...) {
+			for _, name := range append([]string{"changed outside AIGW"}, test.names...) {
 				if !strings.Contains(err.Error(), name) {
 					t.Fatalf("refusal %q does not name %q", err, name)
 				}
+			}
+			if _, fixed := adapter.ConflictStatus(err); !fixed || strings.Contains(err.Error(), "aigw sync") {
+				t.Fatalf("refusal %q states a fix in its message or names none", err)
 			}
 			if got := readFileBytes(t, paths.Profile); string(got) != string(before) {
 				t.Fatal("a refused plan changed the profile")
@@ -318,8 +321,10 @@ func TestUnattributableChangesAreRefused(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			paths, desired := test.setup(t)
-			if _, err := Prepare(paths, &desired); err == nil || !strings.Contains(err.Error(), "restore the AIGW profile in Claude Desktop, then run `aigw sync`") {
-				t.Fatalf("Prepare() error = %v", err)
+			_, err := Prepare(paths, &desired)
+			status, refused := adapter.ConflictStatus(err)
+			if !refused || status.RepairAction != "Restore the AIGW profile in Claude Desktop, then run `aigw sync`" {
+				t.Fatalf("Prepare() error = %v, fix %q", err, status.RepairAction)
 			}
 		})
 	}

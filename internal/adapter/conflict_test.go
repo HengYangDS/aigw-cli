@@ -73,3 +73,30 @@ func TestUnreadableStatusNamesTheFile(t *testing.T) {
 		t.Fatal("a missing file was taken for an unreadable one")
 	}
 }
+
+// Before a configuration exists, a refusal ends with the command that was
+// refused, which runs again once the edit is undone, never with `aigw sync`.
+func TestBeforeConfigurationEndsTheFixWithTheRefusedCommand(t *testing.T) {
+	refusal := NewConflictError("settings changed", UndoOutsideEdit("Example"), nil)
+	wrapped := fmt.Errorf("setup failed: %w", refusal)
+	got := BeforeConfiguration(wrapped)
+	next, ok := got.(interface{ NextAction() string })
+	if !ok || next.NextAction() != "Undo the outside edit to the AIGW-managed Example settings, then run the same command again." {
+		t.Fatalf("next action = %#v", got)
+	}
+	if conflict, refused := errors.AsType[*ConflictError](got); !refused || conflict != refusal {
+		t.Fatalf("the conflict is no longer reachable: %v", got)
+	}
+	if got.Error() != wrapped.Error() {
+		t.Fatalf("message = %q", got)
+	}
+	// A fix that does not end with sync, and any other failure, stay as they are.
+	other := NewConflictError("syntax", "Correct the JSON, then run the same command again.", nil)
+	if BeforeConfiguration(other) != error(other) || BeforeConfiguration(wrapped) == wrapped {
+		t.Fatal("only a fix that ends with sync changes")
+	}
+	plain := errors.New("plain")
+	if BeforeConfiguration(plain) != plain {
+		t.Fatal("another failure changed")
+	}
+}

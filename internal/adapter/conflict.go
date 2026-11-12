@@ -31,6 +31,40 @@ func UndoOutsideEdit(product string) string {
 	return "Undo the outside edit to the AIGW-managed " + product + " settings, then run `aigw sync`"
 }
 
+// syncStep is the step that completes a conflict's fix when a configuration
+// exists.
+const syncStep = "run `aigw sync`"
+
+// rerunStep is the step that completes it before a configuration exists.
+const rerunStep = "run the same command again."
+
+// rerunConflict is a refusal whose fix ends with the command that was refused
+// rather than with `aigw sync`.
+type rerunConflict struct {
+	err  error
+	next string
+}
+
+func (e rerunConflict) Error() string { return e.err.Error() }
+
+func (e rerunConflict) Unwrap() error { return e.err }
+
+// NextAction returns the fix that ends with the refused command.
+func (e rerunConflict) NextAction() string { return e.next }
+
+// BeforeConfiguration returns err with the fix that holds in a home without
+// aigw.toml: a command that refused a client file there, such as `aigw setup`,
+// runs again once the outside edit is undone, whereas `aigw sync` refuses
+// without a configuration. An error that is no conflict, or whose fix does not
+// end with `aigw sync`, is returned as it is.
+func BeforeConfiguration(err error) error {
+	conflict, refused := errors.AsType[*ConflictError](err)
+	if !refused || !strings.HasSuffix(conflict.next, syncStep) {
+		return err
+	}
+	return rerunConflict{err: err, next: strings.TrimSuffix(conflict.next, syncStep) + rerunStep}
+}
+
 // MissingWithRecord refuses a client file that does not exist while AIGW's
 // record of it remains in its folder. The record can restore what AIGW changed
 // there, so the operator decides: restoring the file lets AIGW undo its
