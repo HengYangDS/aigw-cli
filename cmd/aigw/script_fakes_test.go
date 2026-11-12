@@ -85,6 +85,14 @@ func scriptedClaude() {
 		fmt.Println("2.1.312 (Claude Code)")
 		return
 	}
+	// A parent session's variables make a real client reject the credential
+	// that AIGW's settings name, so a check must not pass them on.
+	for _, entry := range os.Environ() {
+		key, value, _ := strings.Cut(entry, "=")
+		if value != "" && (key == "CLAUDECODE" || strings.HasPrefix(key, "CLAUDE_CODE_") || strings.HasPrefix(key, "ANTHROPIC_DEFAULT_")) {
+			scriptedFailure("client or endpoint rejected authentication: the parent session's " + key + " reached the client")
+		}
+	}
 	index := slices.Index(args, "--settings")
 	if index < 0 || index+1 >= len(args) || !slices.Contains(args, "stream-json") {
 		scriptedFailure("scripted Claude Code answers only stream-json prints with --settings")

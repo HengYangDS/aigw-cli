@@ -118,11 +118,22 @@ func runCodexReadOnly(ctx context.Context, runner process.VerificationRunner, ex
 	return output, nil
 }
 
+// parentSessionVariables are the variables through which a parent Codex
+// session configures its own client: its thread, tool call and sandbox, its
+// execution server and originator, the credentials that it passes, and its
+// state folder. A check verifies the configuration file that AIGW wrote, so
+// Codex must not take any of them from the process that runs the check. The
+// home, proxies, locale and CODEX_CA_CERTIFICATE stay.
+var parentSessionVariables = []string{
+	"CODEX_THREAD_ID", "CODEX_TOOL_CALL_ID", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED",
+	"CODEX_EXEC_SERVER_URL", "CODEX_INTERNAL_ORIGINATOR_OVERRIDE", "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "CODEX_SQLITE_HOME",
+}
+
 func codexEnvironment(home, temporary string) []string {
 	environment := slices.DeleteFunc(os.Environ(), func(entry string) bool {
 		key, _, _ := strings.Cut(entry, "=")
 		key = strings.ToUpper(key)
-		return key == "CODEX_HOME" || temporary != "" && slices.Contains([]string{"TMPDIR", "TMP", "TEMP"}, key)
+		return key == "CODEX_HOME" || slices.Contains(parentSessionVariables, key) || temporary != "" && slices.Contains([]string{"TMPDIR", "TMP", "TEMP"}, key)
 	})
 	if home != "" {
 		environment = append(environment, "CODEX_HOME="+home)

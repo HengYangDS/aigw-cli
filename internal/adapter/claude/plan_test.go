@@ -20,7 +20,7 @@ func TestVerificationPlanConsumesTheSynchronizedSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	retained := []string{"PATH=/usr/bin", "AIGW_SECRET_BACKEND=env", "AIGW_TOKEN_GATEWAY=fixture-token", "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1"}
+	retained := []string{"PATH=/usr/bin", "AIGW_SECRET_BACKEND=env", "AIGW_TOKEN_GATEWAY=fixture-token", "HOME=/home/user", "HTTPS_PROXY=http://proxy.test", "LANG=C"}
 	environment := append(slices.Clone(retained), "ANTHROPIC_API_KEY=stale", "ANTHROPIC_AUTH_TOKEN=stale", "ANTHROPIC_BASE_URL=stale", "ANTHROPIC_MODEL=stale")
 	plan, err := claude.VerificationPlan("claude", settings, "AIGW_OK", environment, runtime)
 	if err != nil {
@@ -33,6 +33,23 @@ func TestVerificationPlanConsumesTheSynchronizedSettings(t *testing.T) {
 	after, err := os.ReadFile(settings)
 	if err != nil || !bytes.Equal(before, after) {
 		t.Fatalf("verification changed settings: %v", err)
+	}
+}
+
+// A check run from inside a Claude Code session starts the client without
+// the variables through which that session configures its own client, and
+// keeps the ones that the user's own setup needs.
+func TestVerificationPlanDropsAParentSessionsVariables(t *testing.T) {
+	settings, runtime := verificationSettings(t)
+	retained := []string{"PATH=/usr/bin", "HOME=/home/user", "HTTPS_PROXY=http://proxy.test", "LANG=C", "ANTHROPIC_CUSTOM_HEADERS=x: y", "CLAUDE_CONFIG_DIR=/home/user/.claude"}
+	parent := []string{"CLAUDECODE=1", "CLAUDE_CODE_ENTRYPOINT=cli", "CLAUDE_CODE_USE_GATEWAY=1", "claude_code_session_id=lower", "CLAUDE_AGENT_SDK_VERSION=1",
+		"ANTHROPIC_DEFAULT_OPUS_MODEL=opus", "ANTHROPIC_DEFAULT_SONNET_MODEL=sonnet", "ANTHROPIC_SMALL_FAST_MODEL=haiku"}
+	plan, err := claude.VerificationPlan("claude", settings, "AIGW_OK", slices.Concat(parent, retained), runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(plan.Env, retained) {
+		t.Fatalf("environment = %q, want %q", plan.Env, retained)
 	}
 }
 

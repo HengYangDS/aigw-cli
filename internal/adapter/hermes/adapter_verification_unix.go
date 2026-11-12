@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -27,6 +28,29 @@ var (
 	hermesGatewayPoll     = 250 * time.Millisecond
 )
 
+// verificationEnvironment is env as Hermes' verification runs with it: the
+// disposable home and its gateway lock, and none of the variables through
+// which a parent Hermes session selects its own provider, model, profile and
+// session, since the check verifies the configuration that AIGW wrote. PATH,
+// HOME, proxies, locale and Hermes' other settings stay.
+func verificationEnvironment(env []string, home, lockDirectory string) []string {
+	environment := []string{}
+	for _, entry := range env {
+		key, _, _ := strings.Cut(entry, "=")
+		if !parentSessionVariable(key) {
+			environment = append(environment, entry)
+		}
+	}
+	return append(environment, "HERMES_HOME="+home, "HERMES_DISABLE_LAZY_INSTALLS=1", "HERMES_GATEWAY_LOCK_DIR="+lockDirectory)
+}
+
+func parentSessionVariable(key string) bool {
+	return strings.HasPrefix(key, "HERMES_SESSION_") || slices.Contains([]string{
+		"HERMES_HOME", "HERMES_DISABLE_LAZY_INSTALLS", "HERMES_GATEWAY_LOCK_DIR", "HERMES_GATEWAY_SESSION", "HERMES_INTERACTIVE", "HERMES_EXEC_ASK",
+		"HERMES_CRON_SESSION", "HERMES_INFERENCE_PROVIDER", "HERMES_INFERENCE_MODEL", "HERMES_MODEL", "HERMES_PROFILE",
+	}, key)
+}
+
 // verifyIsolated runs the bounded probes from a disposable home that borrows the
 // configured installation's committed dependencies.
 func verifyIsolated(ctx context.Context, deps adapter.Dependencies, configured domain.ClientBinding, data []byte) (_ adapter.Verification, result error) {
@@ -34,13 +58,7 @@ func verifyIsolated(ctx context.Context, deps adapter.Dependencies, configured d
 	if err != nil {
 		return adapter.Verification{}, err
 	}
-	environment := []string{}
-	for _, entry := range os.Environ() {
-		if !strings.HasPrefix(entry, "HERMES_HOME=") && !strings.HasPrefix(entry, "HERMES_DISABLE_LAZY_INSTALLS=") && !strings.HasPrefix(entry, "HERMES_GATEWAY_LOCK_DIR=") {
-			environment = append(environment, entry)
-		}
-	}
-	environment = append(environment, "HERMES_HOME="+home, "HERMES_DISABLE_LAZY_INSTALLS=1", "HERMES_GATEWAY_LOCK_DIR="+GatewayLockDirectory(home))
+	environment := verificationEnvironment(os.Environ(), home, GatewayLockDirectory(home))
 	defer func() {
 		releaseVerificationGateway(ctx, deps.Runner, process.Plan{Executable: configured.Executable, Directory: home, Env: environment, Args: []string{"gateway", "stop"}})
 		result = errors.Join(result, cleanup())
