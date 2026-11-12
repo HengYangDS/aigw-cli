@@ -148,6 +148,18 @@ compensation SHALL preserve observed bytes.
 - **WHEN** substituting only the previous model cannot reproduce the managed hash
 - **THEN** synchronization rejects the conflict without adopting the changed fields.
 
+#### Scenario: The first setup after an upgrade meets a model preference
+
+- **WHEN** AIGW holds no earlier model for Claude Code and substituting the
+  model of the new selection for the user's current top-level model, including
+  its absence, reproduces the managed hash that an earlier release recorded
+- **THEN** setup SHALL accept the edit as the user's model preference and
+  project the connection
+- **AND** it SHALL keep that preference only when the new selection keeps the
+  provider and endpoint for which the earlier release projected the credential
+  helper, and otherwise SHALL project the selected model
+- **AND** any other change to the managed values SHALL stay a conflict.
+
 ### Requirement: Projection conflicts are rejected before configuration writes
 
 The synchronization transaction SHALL preflight every participating client
@@ -329,9 +341,10 @@ Claude Desktop and SHALL survive AIGW projections.
 When AIGW refuses because AIGW-managed settings of any client were changed
 outside AIGW, every surface that reports the refusal, including errors, `check`
 and `status`,
-SHALL give the same next action: undo the outside edit, then run `aigw sync`.
-AIGW SHALL NOT advise a command that refuses on the same state, overwrite the
-edit, or relax the guard.
+SHALL give the same next action: undo the outside edit, then run `aigw sync`,
+or, before a configuration exists, the refused `aigw setup` again. AIGW SHALL
+NOT advise a command that refuses on the same state, overwrite the edit, or
+relax the guard.
 
 #### Scenario: Retry budgets were edited outside AIGW
 
@@ -345,6 +358,12 @@ edit, or relax the guard.
 
 - **WHEN** the operator restores AIGW's values and runs `aigw sync`
 - **THEN** synchronization SHALL succeed and `check` SHALL report no drift.
+
+#### Scenario: No configuration exists yet
+
+- **WHEN** `aigw setup` refuses an outside edit in a home without `aigw.toml`
+- **THEN** its next action SHALL be to undo the edit and run that `aigw setup`
+  again, never `aigw sync`, which refuses without a configuration.
 
 ### Requirement: Credential commands match a provider endpoint
 

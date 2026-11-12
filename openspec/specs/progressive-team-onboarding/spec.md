@@ -235,9 +235,13 @@ local and be reported.
 
 - **WHEN** `aigw setup --from <file> --dry-run --json` runs
 - **THEN** it SHALL apply the same merge validation as the write and report
-  each difference that stays local, each model that it would keep or report as
-  unusable, each capability that it would drop, and the client selections that
-  it would fill
+  each difference that stays local, each local model whose definition the file
+  replaces, every label that the file replaces on a provider, a model or a
+  family, with its local and its new value, each model that it would keep or
+  report as unusable, each capability that it would drop, and the client
+  selections that it would fill
+- **AND** the write SHALL report the same labels, and a preview after it SHALL
+  report none
 - **AND** it SHALL NOT describe a client configuration file as written or as
   proof that the client or its Token works.
 
