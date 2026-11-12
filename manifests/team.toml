@@ -168,11 +168,6 @@ label = 'UCloud'
 endpoints = { anthropic = 'https://api.modelverse.cn', responses = 'https://api.modelverse.cn/v1', chat = 'https://api.modelverse.cn/v1' }
 
 [[providers.models]]
-id = 'claude-fable-5-2'
-family = 'claude-fable-5-2'
-protocols = { anthropic = [] }
-
-[[providers.models]]
 id = 'claude-opus-5-5'
 family = 'claude-opus-5-5'
 protocols = { anthropic = ['tool_search'] }

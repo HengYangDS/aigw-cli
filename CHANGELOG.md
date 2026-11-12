@@ -38,8 +38,7 @@ signing, and GA status remain separate evidence.
 - The team file `manifests/team.toml` follows the owner's curation: Claude
   Fable 5.2, Opus 5.5, Sonnet 5.5 and Haiku 5.5; GPT-6.1 Sol and Terra; every
   Gemini 4 model; and each other vendor's strongest generally available model.
-  - Claude Fable 5.2 joins through DMXAPI (also its CC channel), UCloud and
-    AIHubMix.
+  - Claude Fable 5.2 joins through DMXAPI (also its CC channel) and AIHubMix.
   - DMXAPI adds Claude Opus 5.5 CC and SSVIP, Claude Sonnet 5.5, Claude Haiku
     5.5 and GPT-6.1 Terra, and the SSVIP channels of GPT-6.1 Sol, GPT-6.1 Terra
     and Gemini 4 Argon.

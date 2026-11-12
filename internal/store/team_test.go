@@ -48,7 +48,7 @@ func teamModel(t *testing.T, file domain.Config, name string) (domain.Model, boo
 
 func TestTeamFileIsReviewedVersionEight(t *testing.T) {
 	_, parsedManifest := loadTeamManifest(t)
-	if parsedManifest.Version != 8 || len(parsedManifest.Providers) != 3 || len(parsedManifest.Families) == 0 || len(parsedManifest.Models) != 57 {
+	if parsedManifest.Version != 8 || len(parsedManifest.Providers) != 3 || len(parsedManifest.Families) == 0 || len(parsedManifest.Models) != 69 {
 		t.Fatalf("team file = version %d, %d providers, %d families, %d models", parsedManifest.Version, len(parsedManifest.Providers), len(parsedManifest.Families), len(parsedManifest.Models))
 	}
 	if got := parsedManifest.ProviderIDs(); !slices.Equal(got, []string{"dmxapi", "ucloud", "aihubmix"}) {
@@ -149,9 +149,9 @@ func TestTeamRecommendationsPermitSparseProvidersAndPreserveExplicitBindings(t *
 func TestTeamManifestUsesRequestedFamilies(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	want := []string{
-		"claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5",
+		"claude-fable-5-2", "claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5",
 		"cohere-command-a",
-		"deepseek-v4.1-flash-1017", "doubao-seed-2-1-pro-260628", "doubao-seed-2-1-pro-260915", "ernie-5.1", "gemini-4-argon", "glm-5.3",
+		"deepseek-v4.1-flash-1017", "doubao-seed-2-1-pro-260915", "ernie-5.1", "gemini-4-argon", "gemini-4-carbon", "glm-5.3",
 		"gpt-6.1-sol", "gpt-6.1-terra", "grok-4.7",
 		"hy4", "kimi-k3.1-pro", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.5", "mercury-2.5", "mimo-v2.6-pro",
 		"minimax-m3.1-flash", "mistral-large-3", "muse-wonder", "nemotron-3-ultra-550b-a55b",
@@ -161,7 +161,7 @@ func TestTeamManifestUsesRequestedFamilies(t *testing.T) {
 		t.Fatalf("team logical Models = %v, want %v", got, want)
 	}
 	order := manifest.FamilyIDs()
-	if !slices.Equal(order[:5], []string{"claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "gpt-6.1-sol", "gpt-6.1-terra"}) {
+	if !slices.Equal(order[:6], []string{"claude-fable-5-2", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "gpt-6.1-sol", "gpt-6.1-terra"}) {
 		t.Errorf("team families in file order = %v", order)
 	}
 	if manifest.Families["claude-opus-5-5"].Label != "Claude Opus 5.5" {
@@ -169,21 +169,21 @@ func TestTeamManifestUsesRequestedFamilies(t *testing.T) {
 	}
 	for _, account := range []string{"aihubmix", "dmxapi", "ucloud"} {
 		for _, model := range []string{"claude-opus-5-5", "claude-sonnet-5-5"} {
-			if account == "dmxapi" && model == "claude-sonnet-5-5" {
-				continue
-			}
 			id := account + "/" + model
 			route, ok := teamModel(t, manifest, id)
 			if !ok || route.Provider != account || route.Family != model || route.ID != model {
 				t.Errorf("verified Route %q = %+v, want exact Account, Model, and wire identity", id, route)
 			}
 		}
-		// DMXAPI serves the Seed 2.1 Pro 260915 refresh; the other Accounts list only 260628.
-		doubao := "doubao-seed-2-1-pro-260628"
+		// Doubao keeps one family, Volcengine's recommended 260915 build, which only DMXAPI serves.
+		models := []string{"deepseek-v4.1-flash-1017"}
 		if account == "dmxapi" {
-			doubao = "doubao-seed-2-1-pro-260915"
+			models = append(models, "doubao-seed-2-1-pro-260915")
 		}
-		for _, model := range []string{"deepseek-v4.1-flash-1017", doubao} {
+		if _, retained := teamModel(t, manifest, account+"/doubao-seed-2-1-pro-260628"); retained {
+			t.Errorf("the second Doubao family remains on %s", account)
+		}
+		for _, model := range models {
 			id := account + "/" + model
 			route, ok := teamModel(t, manifest, id)
 			if !ok || route.Provider != account || route.Family != model || route.ID != model {
@@ -197,9 +197,9 @@ func TestTeamManifestGPTProviderModelsFollowInferenceEvidence(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	want := map[string][]string{
 		"gpt-6.1-sol": {"aihubmix", "dmxapi", "ucloud"},
-		// DMXAPI's plain Terra waits for a resumed tool-turn qualification; its CDX
-		// channel is a separate wire identity.
-		"gpt-6.1-terra": {"aihubmix", "ucloud"},
+		// DMXAPI's plain Terra passed the resumed tool turn on 2026-11-12; its CDX
+		// and SSVIP channels are separate wire identities.
+		"gpt-6.1-terra": {"aihubmix", "dmxapi", "ucloud"},
 	}
 	for model, accounts := range want {
 		for _, account := range accounts {
@@ -362,12 +362,21 @@ func TestTeamManifestModelsUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 	}
 	wireIdentities := map[string]struct{ model, wire string }{
 		"aihubmix/claude-haiku-5-5":      {"claude-haiku-5-5", "claude-haiku-5-5"},
+		"dmxapi/claude-haiku-5-5":        {"claude-haiku-5-5", "claude-haiku-5-5"},
 		"dmxapi/claude-haiku-5-5-cc":     {"claude-haiku-5-5", "claude-haiku-5-5-cc"},
 		"ucloud/claude-haiku-5-5":        {"claude-haiku-5-5", "claude-haiku-5-5"},
+		"dmxapi/claude-fable-5-2-cc":     {"claude-fable-5-2", "claude-fable-5-2-cc"},
+		"dmxapi/claude-opus-5-5-cc":      {"claude-opus-5-5", "claude-opus-5-5-cc"},
+		"dmxapi/claude-opus-5-5-ssvip":   {"claude-opus-5-5", "claude-opus-5-5-ssvip"},
+		"dmxapi/claude-sonnet-5-5":       {"claude-sonnet-5-5", "claude-sonnet-5-5"},
 		"dmxapi/claude-sonnet-5-5-cc":    {"claude-sonnet-5-5", "claude-sonnet-5-5-cc"},
 		"dmxapi/claude-sonnet-5-5-ssvip": {"claude-sonnet-5-5", "claude-sonnet-5-5-ssvip"},
 		"dmxapi/gpt-6.1-sol-cdx":         {"gpt-6.1-sol", "gpt-6.1-sol-cdx"},
+		"dmxapi/gpt-6.1-sol-ssvip":       {"gpt-6.1-sol", "gpt-6.1-sol-ssvip"},
+		"dmxapi/gpt-6.1-terra":           {"gpt-6.1-terra", "gpt-6.1-terra"},
 		"dmxapi/gpt-6.1-terra-cdx":       {"gpt-6.1-terra", "gpt-6.1-terra-cdx"},
+		"dmxapi/gpt-6.1-terra-ssvip":     {"gpt-6.1-terra", "gpt-6.1-terra-ssvip"},
+		"dmxapi/gemini-4-argon-ssvip":    {"gemini-4-argon", "gemini-4-argon-ssvip"},
 	}
 	for routeID, want := range wireIdentities {
 		route, ok := teamModel(t, manifest, routeID)
@@ -377,9 +386,6 @@ func TestTeamManifestModelsUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 	}
 	if _, admitted := teamModel(t, manifest, "dmxapi/claude-fable-5-1-cc"); admitted {
 		t.Error("the unqualified DMXAPI Fable 5.1 CC channel remains in the shipped manifest")
-	}
-	if _, admitted := teamModel(t, manifest, "dmxapi/claude-sonnet-5-5"); admitted {
-		t.Error("the unqualified plain DMXAPI Sonnet 5.5 continuation route remains in the shipped manifest")
 	}
 	for _, obsolete := range []string{
 		"aihubmix/claude-sonnet-5", "dmxapi/claude-sonnet-5", "dmxapi/claude-sonnet-5-cc",

@@ -63,7 +63,7 @@ results are in the canonical checkout's `build/evidence/team-model-refresh-20261
 
 | Model                      | Admitted provider / protocol                      | Vendor basis                                  |
 | -------------------------- | ------------------------------------------------- | --------------------------------------------- |
-| Claude Fable 5.2           | DMXAPI, DMXAPI CC, UCloud, AIHubMix / Anthropic   | Anthropic's November 9 release, active latest |
+| Claude Fable 5.2           | DMXAPI, DMXAPI CC, AIHubMix / Anthropic           | Anthropic's November 9 release, active latest |
 | Claude Opus 5.5            | DMXAPI CC and SSVIP / Anthropic                   | channels of a curated family                  |
 | Claude Sonnet, Haiku 5.5   | plain DMXAPI / Anthropic                          | the resumed tool turn passed                  |
 | GPT-6.1 Sol, Terra         | DMXAPI SSVIP; Terra also plain DMXAPI / Responses | channels; the resumed tool turn passed        |
@@ -74,11 +74,14 @@ results are in the canonical checkout's `build/evidence/team-model-refresh-20261
 
 DMXAPI's `gemini-4-carbon` took 166 s for one turn and then missed the 240 s bound twice, and its SSVIP channel
 returned HTTP 403, a terms-of-use rejection that was not retried. AIHubMix still returns HTTP 400 for Mistral Large 4
-and Command A+, so Large 3 and Command A stay. Volcengine lists 260628 and 260915 as builds of one model,
+and Command A+, so Large 3 and Command A stay. Plain DMXAPI Sonnet 5.5, retired on October 2 as unqualified, now
+qualifies. Volcengine lists 260628 and 260915 as builds of one model,
 `doubao-seed-2-1-pro`, so 260628 leaves UCloud and AIHubMix and Doubao keeps one family. No other vendor made a
 stronger general model generally available after November 7: Qwen 4 Max, ERNIE 5.5 Flash and Microsoft's MAI
-Thinking 1 are previews, and Perplexity's decider models only score options. UCloud's Fable 5.2 declares no
-`tool_search`, which needs Claude Desktop evidence.
+Thinking 1 are previews, and Perplexity's decider models only score options. UCloud's Fable 5.2 passed the three
+turns but stays out: Claude Desktop enables host tool search for a provider only when every Claude model it lists
+declares `tool_search`, and Fable 5.2 has no Desktop evidence yet, so adding it would turn tool search off for
+UCloud's Opus, Sonnet and Haiku.
 
 ## November 7 model refresh
 
