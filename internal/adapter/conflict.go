@@ -38,19 +38,19 @@ const syncStep = "run `aigw sync`"
 // rerunStep is the step that completes it before a configuration exists.
 const rerunStep = "run the same command again."
 
-// rerunConflict is a refusal whose fix ends with the command that was refused
+// rerunConflictError is a refusal whose fix ends with the command that was refused
 // rather than with `aigw sync`.
-type rerunConflict struct {
+type rerunConflictError struct {
 	err  error
 	next string
 }
 
-func (e rerunConflict) Error() string { return e.err.Error() }
+func (e rerunConflictError) Error() string { return e.err.Error() }
 
-func (e rerunConflict) Unwrap() error { return e.err }
+func (e rerunConflictError) Unwrap() error { return e.err }
 
 // NextAction returns the fix that ends with the refused command.
-func (e rerunConflict) NextAction() string { return e.next }
+func (e rerunConflictError) NextAction() string { return e.next }
 
 // BeforeConfiguration returns err with the fix that holds in a home without
 // aigw.toml: a command that refused a client file there, such as `aigw setup`,
@@ -62,7 +62,7 @@ func BeforeConfiguration(err error) error {
 	if !refused || !strings.HasSuffix(conflict.next, syncStep) {
 		return err
 	}
-	return rerunConflict{err: err, next: strings.TrimSuffix(conflict.next, syncStep) + rerunStep}
+	return rerunConflictError{err: err, next: strings.TrimSuffix(conflict.next, syncStep) + rerunStep}
 }
 
 // MissingWithRecord refuses a client file that does not exist while AIGW's

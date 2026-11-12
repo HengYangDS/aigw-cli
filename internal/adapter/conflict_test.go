@@ -92,11 +92,11 @@ func TestBeforeConfigurationEndsTheFixWithTheRefusedCommand(t *testing.T) {
 	}
 	// A fix that does not end with sync, and any other failure, stay as they are.
 	other := NewConflictError("syntax", "Correct the JSON, then run the same command again.", nil)
-	if BeforeConfiguration(other) != error(other) || BeforeConfiguration(wrapped) == wrapped {
-		t.Fatal("only a fix that ends with sync changes")
+	if got, ok := errors.AsType[*ConflictError](BeforeConfiguration(other)); !ok || got.NextAction() != other.NextAction() {
+		t.Fatal("a fix that does not end with sync changed")
 	}
 	plain := errors.New("plain")
-	if BeforeConfiguration(plain) != plain {
+	if got := BeforeConfiguration(plain); !errors.Is(got, plain) || got.Error() != "plain" {
 		t.Fatal("another failure changed")
 	}
 }

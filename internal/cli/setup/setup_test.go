@@ -7,6 +7,7 @@ import (
 	"aigw-cli/internal/clients"
 
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -220,7 +221,14 @@ primary = {model = "team/gpt-test"}
 func TestBeforeConfigurationNamesSyncOnlyWithAConfiguration(t *testing.T) {
 	refusal := adapter.NewConflictError("changed", adapter.UndoOutsideEdit("Example"), nil)
 	next := func(err error) string {
-		return err.(interface{ NextAction() string }).NextAction()
+		refusal, ok := errors.AsType[interface {
+			error
+			NextAction() string
+		}](err)
+		if !ok {
+			t.Fatalf("%v states no next action", err)
+		}
+		return refusal.NextAction()
 	}
 	home := t.TempDir()
 	runtime := invocation.Context{Config: store.NewStore(filepath.Join(home, "aigw.toml"), clients.Admission())}
