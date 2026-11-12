@@ -62,11 +62,14 @@ compensation SHALL preserve observed bytes.
 
 #### Scenario: The first setup after an upgrade meets a model preference
 
-- **WHEN** no earlier selection exists in `aigw.toml` and substituting the model
-  of the new selection for the user's current top-level model, including its
-  absence, reproduces the managed hash that an earlier release recorded
-- **THEN** setup SHALL accept the edit as the user's model preference, keep it,
-  and project the connection
+- **WHEN** AIGW holds no earlier model for Claude Code and substituting the
+  model of the new selection for the user's current top-level model, including
+  its absence, reproduces the managed hash that an earlier release recorded
+- **THEN** setup SHALL accept the edit as the user's model preference and
+  project the connection
+- **AND** it SHALL keep that preference only when the new selection keeps the
+  provider and endpoint for which the earlier release projected the credential
+  helper, and otherwise SHALL project the selected model
 - **AND** any other change to the managed values SHALL stay a conflict.
 
 ### Requirement: An outside edit to managed client settings has one recovery action

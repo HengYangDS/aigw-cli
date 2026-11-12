@@ -56,3 +56,39 @@ func TestFirstSetupAcceptsAModelPreferenceOfAnEarlierRelease(t *testing.T) {
 		})
 	}
 }
+
+// The first setup keeps the user's model preference only while the new
+// selection keeps the provider and endpoint that the earlier release
+// projected the credential helper for; with another provider or endpoint it
+// projects the selected model.
+func TestFirstSetupProjectsTheModelForAnotherProviderOrEndpoint(t *testing.T) {
+	earlier := domain.Runtime{Model: domain.NewModelRef("gateway", "claude-team"), ProviderID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "claude-team"}
+	for name, selected := range map[string]domain.Runtime{
+		"the same provider and endpoint": earlier,
+		"another provider":               {Model: domain.NewModelRef("second", "claude-team"), ProviderID: "second", Endpoint: "https://gateway.test", UpstreamModel: "claude-team"},
+		"another endpoint":               {Model: domain.NewModelRef("gateway", "claude-team"), ProviderID: "gateway", Endpoint: "https://elsewhere.test", UpstreamModel: "claude-team"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "settings.json")
+			if _, err := ReconcileSettings(path, false, earlier, testExecutable(), earlier.UpstreamModel); err != nil {
+				t.Fatal(err)
+			}
+			document := readSettingsFile(t, path)
+			delete(document, "model")
+			data, err := json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ReconcileSettings(path, false, selected, testExecutable(), ""); err != nil {
+				t.Fatalf("the first setup refused: %v", err)
+			}
+			got, present := readSettingsFile(t, path)["model"]
+			if kept := selected == earlier; kept == present || (present && string(got) != `"claude-team"`) {
+				t.Fatalf("model = %s (present %t), want the preference kept %t", got, present, kept)
+			}
+		})
+	}
+}
