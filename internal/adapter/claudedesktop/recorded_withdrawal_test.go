@@ -2,9 +2,11 @@ package claudedesktop
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/terminal"
 )
 
@@ -33,7 +35,8 @@ func userDesktop(t *testing.T) (Paths, Desired) {
 // With the profile file gone and the record intact, a withdrawal restores the
 // user's deployment mode and selected profile from the record, keeps the
 // user's own entries and removes the record. A projection refuses, naming
-// withdrawal as the step that keeps the user's settings.
+// withdrawal as the step that keeps the user's settings, and before aigw.toml
+// exists, where no command withdraws, the profile restored from a copy.
 func TestAWithdrawalRestoresTheRecordedSettingsWithoutTheProfile(t *testing.T) {
 	paths, desired := userDesktop(t)
 	if err := os.Remove(paths.Profile); err != nil {
@@ -42,6 +45,10 @@ func TestAWithdrawalRestoresTheRecordedSettingsWithoutTheProfile(t *testing.T) {
 	_, err := Prepare(paths, &desired)
 	if problem := terminal.ProblemFor(err); !strings.Contains(problem.Fix, "aigw client disable claude-desktop") {
 		t.Fatalf("a projection without the profile = %+v", problem)
+	}
+	want := "Restore " + filepath.Base(paths.Profile) + " in its folder from a copy of it, then run the same command again."
+	if problem := terminal.ProblemFor(adapter.BeforeConfiguration(err)); problem.Fix != want {
+		t.Fatalf("a projection without the profile or aigw.toml = %+v", problem)
 	}
 	withdrawal, err := Prepare(paths, nil)
 	if err != nil || withdrawal.Action != ActionRestore {

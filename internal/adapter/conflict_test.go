@@ -74,26 +74,49 @@ func TestUnreadableStatusNamesTheFile(t *testing.T) {
 	}
 }
 
-// Before a configuration exists, a refusal ends with the command that was
-// refused, which runs again once the edit is undone, never with `aigw sync`.
-func TestBeforeConfigurationEndsTheFixWithTheRefusedCommand(t *testing.T) {
-	refusal := NewConflictError("settings changed", UndoOutsideEdit("Example"), nil)
-	wrapped := fmt.Errorf("setup failed: %w", refusal)
-	got := BeforeConfiguration(wrapped)
-	next, ok := got.(interface{ NextAction() string })
-	if !ok || next.NextAction() != "Undo the outside edit to the AIGW-managed Example settings, then run the same command again." {
-		t.Fatalf("next action = %#v", got)
+// Before a configuration exists, a refusal names the fix that it carries for
+// that state, however the fix is worded, and never `aigw sync`; with one, it
+// names its configured fix. A fix that is the same in both states, and any
+// other failure, stay as they are.
+func TestBeforeConfigurationNamesTheFixThatTheRefusalCarries(t *testing.T) {
+	record := filepath.Join("private", "home", "config.yaml"+StateSuffix)
+	for _, tc := range []struct {
+		refusal *ConflictError
+		want    string
+	}{
+		{NewConflictError("settings changed", UndoOutsideEdit("Example"), nil), "Undo the outside edit to the AIGW-managed Example settings, then run the same command again."},
+		{MissingWithRecord("Example", filepath.Join("private", "home", "config.yaml"), record, ""), "Restore config.yaml, or delete config.yaml.aigw-state.json in its folder if config.yaml is gone for good, then run the same command again."},
+		{UnreadableRecord(record, errors.New("invalid")), "Restore config.yaml.aigw-state.json in its folder from a copy of it, then run the same command again."},
+		// A fix worded otherwise, whose configured step no command can take
+		// without a configuration.
+		{NewConflictError("profile deleted", Fix{
+			Configured:   "Restore profile.json, or run `aigw client disable example` if it is gone for good",
+			Unconfigured: "Restore profile.json in its folder from a copy of it, then run the same command again.",
+		}, nil), "Restore profile.json in its folder from a copy of it, then run the same command again."},
+	} {
+		wrapped := fmt.Errorf("setup failed: %w", tc.refusal)
+		got := BeforeConfiguration(wrapped)
+		next, ok := got.(interface{ NextAction() string })
+		if !ok || next.NextAction() != tc.want || strings.Contains(next.NextAction(), "aigw sync") {
+			t.Fatalf("next action of %q = %#v", tc.refusal, got)
+		}
+		if !strings.HasSuffix(tc.refusal.NextAction(), "run `aigw sync`") && !strings.Contains(tc.refusal.NextAction(), "aigw client disable") {
+			t.Fatalf("configured next action = %q", tc.refusal.NextAction())
+		}
+		if conflict, refused := errors.AsType[*ConflictError](got); !refused || conflict != tc.refusal {
+			t.Fatalf("the conflict is no longer reachable: %v", got)
+		}
+		if got.Error() != wrapped.Error() {
+			t.Fatalf("message = %q", got)
+		}
 	}
-	if conflict, refused := errors.AsType[*ConflictError](got); !refused || conflict != refusal {
-		t.Fatalf("the conflict is no longer reachable: %v", got)
-	}
-	if got.Error() != wrapped.Error() {
-		t.Fatalf("message = %q", got)
-	}
-	// A fix that does not end with sync, and any other failure, stay as they are.
-	other := NewConflictError("syntax", "Correct the JSON, then run the same command again.", nil)
-	if got, ok := errors.AsType[*ConflictError](BeforeConfiguration(other)); !ok || got.NextAction() != other.NextAction() {
-		t.Fatal("a fix that does not end with sync changed")
+	same := NewConflictError("syntax", Rerun("Correct the JSON, then run the same command again."), nil)
+	got, stated := errors.AsType[interface {
+		error
+		NextAction() string
+	}](BeforeConfiguration(same))
+	if !stated || !errors.Is(got, same) || got.NextAction() != "Correct the JSON, then run the same command again." || same.NextAction() != got.NextAction() {
+		t.Fatalf("a fix that is the same in both states changed: %v", got)
 	}
 	plain := errors.New("plain")
 	if got := BeforeConfiguration(plain); !errors.Is(got, plain) || got.Error() != "plain" {

@@ -68,7 +68,7 @@ func setString(node *yaml.Node, key, value string) {
 func parse(data []byte) (*yaml.Node, error) {
 	root, err := parseDocument(data)
 	if err != nil {
-		return nil, adapter.NewConflictError(err.Error(), "Correct the YAML in Hermes' configuration file, then run the same command again.", err)
+		return nil, adapter.NewConflictError(err.Error(), adapter.Rerun("Correct the YAML in Hermes' configuration file, then run the same command again."), err)
 	}
 	return root, nil
 }

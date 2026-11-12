@@ -35,7 +35,7 @@ func TestClaudeInspectionRequiresTheSynchronizedProjection(t *testing.T) {
 		{name: "native model preference", sync: true, model: "claude-model", nativeModel: "opus[1m]", ready: true, override: true},
 		{name: "selected model changed", sync: true, model: "another-model"},
 		{name: "malformed", sync: true, model: "claude-model", settings: "{", issue: "parse Claude settings", repair: "Correct the JSON in Claude Code's settings file, then run the same command again."},
-		{name: "externally changed", sync: true, model: "claude-model", settings: `{"model":"external-model"}`, issue: "changed outside AIGW", repair: adapter.UndoOutsideEdit("Claude Code")},
+		{name: "externally changed", sync: true, model: "claude-model", settings: `{"model":"external-model"}`, issue: "changed outside AIGW", repair: adapter.UndoOutsideEdit("Claude Code").Configured},
 		{name: "foreign credential before AIGW owns the file", model: "claude-model", settings: `{"apiKeyHelper":"foreign-helper"}`, issue: "credential ownership conflict", repair: "Remove the plaintext credential or foreign apiKeyHelper from Claude Code's settings, then run the same command again."},
 	}
 	for _, test := range tests {

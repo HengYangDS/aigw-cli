@@ -47,7 +47,7 @@ func refuseUnrecordedWithdrawal(path string, document settingsDocument) error {
 	record := filepath.Base(path + adapter.StateSuffix)
 	return adapter.NewConflictError(
 		"AIGW's record "+record+" is missing, so AIGW cannot tell its settings in "+filepath.Base(path)+" from yours; its apiKeyHelper stays, with ANTHROPIC_BASE_URL and model",
-		"Restore "+record+" in its folder from a copy of it, then run the same command again; or remove apiKeyHelper, and ANTHROPIC_BASE_URL and model if AIGW set them, from "+filepath.Base(path)+" yourself",
+		adapter.Rerun("Restore "+record+" in its folder from a copy of it, then run the same command again; or remove apiKeyHelper, and ANTHROPIC_BASE_URL and model if AIGW set them, from "+filepath.Base(path)+" yourself"),
 		nil,
 	)
 }
@@ -57,7 +57,7 @@ func refuseUnrecordedWithdrawal(path string, document settingsDocument) error {
 func foreignCredential() error {
 	return adapter.NewConflictError(
 		"Claude credential ownership conflict: remove the plaintext credential or foreign apiKeyHelper before enabling AIGW",
-		"Remove the plaintext credential or foreign apiKeyHelper from Claude Code's settings, then run the same command again.",
+		adapter.Rerun("Remove the plaintext credential or foreign apiKeyHelper from Claude Code's settings, then run the same command again."),
 		nil,
 	)
 }
@@ -65,5 +65,5 @@ func foreignCredential() error {
 // unreadableSettings refuses a settings file that does not parse, because AIGW
 // could not preserve what the file holds.
 func unreadableSettings(err error) error {
-	return adapter.NewConflictError(err.Error(), "Correct the JSON in Claude Code's settings file, then run the same command again.", err)
+	return adapter.NewConflictError(err.Error(), adapter.Rerun("Correct the JSON in Claude Code's settings file, then run the same command again."), err)
 }

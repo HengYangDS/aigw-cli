@@ -121,6 +121,43 @@ cp owned-settings.json $HOME/.claude/settings.json
 stdin token.txt
 fixloop -did 'undid the outside edit' stdout aigw setup --from team.toml --provider team --token-stdin --json
 
+# An earlier release wrote Claude Desktop's profile, and the user deleted it
+# while AIGW's record of it remains. The first setup refuses to write the
+# profile again. Without aigw.toml no command can put back the settings that
+# the record holds, and `aigw client disable` finds Claude Desktop disabled,
+# so the fix restores the profile, which run as printed lets setup succeed.
+# Linux has no Claude Desktop application that setup could find.
+[linux] stop 'Claude Desktop has no Linux application'
+mkdir $WORK/desktop
+env HOME=$WORK/desktop USERPROFILE=$WORK/desktop XDG_CONFIG_HOME=$WORK/desktop XDG_DATA_HOME=$WORK/desktop APPDATA=$WORK/desktop LOCALAPPDATA=$WORK/desktop
+[darwin] env CONF=$HOME/Library/Application' 'Support/aigw LIBRARY=$HOME/Library/Application' 'Support/Claude-3p/configLibrary
+[windows] env CONF=$HOME/aigw LIBRARY=$LOCALAPPDATA/Claude-3p/configLibrary
+[darwin] mkdir $HOME/Applications/Claude.app/Contents/MacOS
+[darwin] cp desktop-app $HOME/Applications/Claude.app/Contents/MacOS/Claude
+[darwin] chmod 0755 $HOME/Applications/Claude.app/Contents/MacOS/Claude
+[windows] mkdir $LOCALAPPDATA/AnthropicClaude
+[windows] cp desktop-app $LOCALAPPDATA/AnthropicClaude/claude.exe
+envsubst desktop-team.in desktop-team.toml
+stdin token.txt
+exec aigw setup --from desktop-team.toml --provider team --token-stdin
+exists $LIBRARY/6500fbf3-029c-5c0d-842a-48ee47e228c5.json.aigw-state.json
+rm $CONF/aigw.toml
+cp $LIBRARY/6500fbf3-029c-5c0d-842a-48ee47e228c5.json desktop-profile.json
+rm $LIBRARY/6500fbf3-029c-5c0d-842a-48ee47e228c5.json
+stdin token.txt
+exitcode 1 aigw setup --from desktop-team.toml --provider team --token-stdin --json
+stdout '"next_detail": "Restore 6500fbf3-029c-5c0d-842a-48ee47e228c5.json in its folder from a copy of it, then run the same command again."'
+! stdout 'client disable'
+! exists $CONF/aigw.toml
+cp stdout desktop-refused.json
+exec aigw client disable claude-desktop
+stdout 'Already disabled'
+cp desktop-profile.json $LIBRARY/6500fbf3-029c-5c0d-842a-48ee47e228c5.json
+stdin token.txt
+fixloop -did 'restored the profile from its copy' desktop-refused.json aigw setup --from desktop-team.toml --provider team --token-stdin --json
+stdout '"ok": true'
+exists $CONF/aigw.toml
+
 -- token.txt --
 sk-team-token-0001
 -- legacy-token.txt --
@@ -144,6 +181,27 @@ label = "Team Model"
 
 [recommendations.claude]
 primary = {model = "team/team-model"}
+-- desktop-team.in --
+version = 8
+
+[[providers]]
+id = "team"
+label = "Team Gateway"
+endpoints = {anthropic = "$UPSTREAM"}
+
+[[providers.models]]
+id = "team-model"
+family = "team-model"
+protocols = {anthropic = ["text"]}
+
+[[families]]
+id = "team-model"
+label = "Team Model"
+
+[recommendations.claude-desktop]
+primary = {model = "team/team-model"}
+-- desktop-app --
+Stands in for the Claude Desktop application, which setup finds by its path.
 -- earlier/aigw --
 An earlier release's credential reader, which a running session may call.
 -- earlier/config.toml --

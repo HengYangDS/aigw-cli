@@ -11,58 +11,73 @@ import (
 // ConflictError reports that a client file holds something that AIGW refuses
 // to overwrite, such as settings that it manages and that were changed
 // outside it. Every surface that reports the refusal gives NextAction, the one
-// action that can succeed on the refused state.
+// action that can succeed on the refused state, and a command that refuses
+// before aigw.toml exists gives the fix that the refusal carries for that
+// state, through BeforeConfiguration.
 type ConflictError struct {
 	message string
-	next    string
+	fix     Fix
 	cause   error
 }
 
-// NewConflictError returns the refusal message, which the action next
-// resolves, and the failure behind it, if there is one.
-func NewConflictError(message, next string, cause error) *ConflictError {
-	return &ConflictError{message: message, next: next, cause: cause}
+// Fix is the action that resolves a refusal in each state of a home.
+// Configured holds while aigw.toml exists, where `aigw sync` runs.
+// Unconfigured holds before it exists, where `aigw sync` refuses and a command
+// that needs no configuration, such as the refused `aigw setup`, runs again.
+// Each refusal states both, so neither depends on how the other is worded.
+type Fix struct {
+	Configured, Unconfigured string
+}
+
+// ThenRun is the fix whose steps end with `aigw sync` while aigw.toml exists,
+// and with the refused command again before it does.
+func ThenRun(steps string) Fix {
+	return Fix{Configured: steps + ", then run `aigw sync`", Unconfigured: steps + ", then run the same command again."}
+}
+
+// Rerun is a fix that ends with the refused command, which holds in either
+// state.
+func Rerun(fix string) Fix {
+	return Fix{Configured: fix, Unconfigured: fix}
+}
+
+// NewConflictError returns the refusal message, which fix resolves, and the
+// failure behind it, if there is one.
+func NewConflictError(message string, fix Fix, cause error) *ConflictError {
+	return &ConflictError{message: message, fix: fix, cause: cause}
 }
 
 // UndoOutsideEdit is the recovery from an outside edit to the settings that
-// AIGW manages for product: synchronization succeeds only after the edit is
-// undone.
-func UndoOutsideEdit(product string) string {
-	return "Undo the outside edit to the AIGW-managed " + product + " settings, then run `aigw sync`"
+// AIGW manages for product: synchronization, or the refused command before a
+// configuration exists, succeeds only after the edit is undone.
+func UndoOutsideEdit(product string) Fix {
+	return ThenRun("Undo the outside edit to the AIGW-managed " + product + " settings")
 }
 
-// syncStep is the step that completes a conflict's fix when a configuration
-// exists.
-const syncStep = "run `aigw sync`"
-
-// rerunStep is the step that completes it before a configuration exists.
-const rerunStep = "run the same command again."
-
-// rerunConflictError is a refusal whose fix ends with the command that was refused
-// rather than with `aigw sync`.
-type rerunConflictError struct {
+// unconfiguredConflictError is a refusal that names the fix that it carries
+// for a home without aigw.toml.
+type unconfiguredConflictError struct {
 	err  error
 	next string
 }
 
-func (e rerunConflictError) Error() string { return e.err.Error() }
+func (e unconfiguredConflictError) Error() string { return e.err.Error() }
 
-func (e rerunConflictError) Unwrap() error { return e.err }
+func (e unconfiguredConflictError) Unwrap() error { return e.err }
 
-// NextAction returns the fix that ends with the refused command.
-func (e rerunConflictError) NextAction() string { return e.next }
+// NextAction returns the fix that holds without aigw.toml.
+func (e unconfiguredConflictError) NextAction() string { return e.next }
 
-// BeforeConfiguration returns err with the fix that holds in a home without
-// aigw.toml: a command that refused a client file there, such as `aigw setup`,
-// runs again once the outside edit is undone, whereas `aigw sync` refuses
-// without a configuration. An error that is no conflict, or whose fix does not
-// end with `aigw sync`, is returned as it is.
+// BeforeConfiguration returns err with the fix that its refusal carries for a
+// home without aigw.toml, where `aigw sync` refuses: a command that refused a
+// client file there, such as `aigw setup`, names that fix. An error that is
+// no conflict, or whose fix is the same in both states, is returned as it is.
 func BeforeConfiguration(err error) error {
 	conflict, refused := errors.AsType[*ConflictError](err)
-	if !refused || !strings.HasSuffix(conflict.next, syncStep) {
+	if !refused || conflict.fix.Unconfigured == conflict.fix.Configured {
 		return err
 	}
-	return rerunConflictError{err: err, next: strings.TrimSuffix(conflict.next, syncStep) + rerunStep}
+	return unconfiguredConflictError{err: err, next: conflict.fix.Unconfigured}
 }
 
 // MissingWithRecord refuses a client file that does not exist while AIGW's
@@ -75,7 +90,7 @@ func MissingWithRecord(product, file, record, also string) *ConflictError {
 	fileName, recordName := filepath.Base(file), filepath.Base(record)
 	return NewConflictError(
 		product+" file "+fileName+" does not exist, but AIGW's record of it, "+recordName+", remains in its folder",
-		"Restore "+fileName+", or delete "+recordName+" in its folder"+also+" if "+fileName+" is gone for good, then run `aigw sync`",
+		ThenRun("Restore "+fileName+", or delete "+recordName+" in its folder"+also+" if "+fileName+" is gone for good"),
 		nil,
 	)
 }
@@ -89,7 +104,7 @@ func UnreadableRecord(record string, cause error) *ConflictError {
 	name := filepath.Base(record)
 	return NewConflictError(
 		"AIGW's record "+name+" cannot be read: "+strings.ReplaceAll(cause.Error(), "\n", ": "),
-		"Restore "+name+" in its folder from a copy of it, then run `aigw sync`",
+		ThenRun("Restore "+name+" in its folder from a copy of it"),
 		cause,
 	)
 }
@@ -106,8 +121,9 @@ func (e *ConflictError) Unwrap() error { return e.cause }
 // content rather than a syntax error of AIGW's own documents.
 func (e *ConflictError) ProjectionConflict() bool { return true }
 
-// NextAction returns the action that resolves the conflict.
-func (e *ConflictError) NextAction() string { return e.next }
+// NextAction returns the action that resolves the conflict while aigw.toml
+// exists.
+func (e *ConflictError) NextAction() string { return e.fix.Configured }
 
 // UnreadableStatus returns the status of a client file at path that the user
 // cannot read, and whether err is that failure. Synchronization cannot read it

@@ -319,7 +319,7 @@ func decodeObject(path string, snapshot platform.FileSnapshot) (document, error)
 		// files share a base name, so the folder tells them apart.
 		name := filepath.Join(filepath.Base(filepath.Dir(path)), filepath.Base(path))
 		return nil, adapter.NewConflictError("decode "+name+" as a JSON object",
-			"Correct the JSON in Claude Desktop's "+name+", then run the same command again.", err)
+			adapter.Rerun("Correct the JSON in Claude Desktop's "+name+", then run the same command again."), err)
 	}
 	return value, nil
 }

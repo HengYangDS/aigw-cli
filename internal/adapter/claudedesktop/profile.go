@@ -197,12 +197,12 @@ func changedOutsideAIGW(settings []string) error {
 	if len(settings) == 0 {
 		return adapter.NewConflictError(
 			"managed Claude Desktop configuration changed outside AIGW; refusing to overwrite user edits",
-			"Restore the AIGW profile in Claude Desktop, then run `aigw sync`", nil)
+			adapter.ThenRun("Restore the AIGW profile in Claude Desktop"), nil)
 	}
 	names := strings.Join(settings, ", ")
 	return adapter.NewConflictError(
 		fmt.Sprintf("managed Claude Desktop configuration changed outside AIGW (%s); refusing to overwrite user edits", names),
-		"Restore AIGW's value of "+names+" in Claude Desktop, then run `aigw sync`", nil)
+		adapter.ThenRun("Restore AIGW's value of "+names+" in Claude Desktop"), nil)
 }
 
 func sameJSON(left, right json.RawMessage) bool {

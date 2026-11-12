@@ -28,7 +28,7 @@ func refuseUnrecordedProvider(config, state platform.FileSnapshot, provider, con
 	record := filepath.Base(statePath)
 	return adapter.NewConflictError(
 		fmt.Sprintf("Codex config already has a [model_providers.%s] table, but AIGW's record of it, %s, is missing; refusing to adopt it or write a second one", provider, record),
-		fmt.Sprintf("Restore %s in its folder from a copy of it, or take the [model_providers.%s] table and the lines marked \"# managed by AIGW\" out of %s, then run `aigw sync`", record, provider, filepath.Base(configPath)),
+		adapter.ThenRun(fmt.Sprintf("Restore %s in its folder from a copy of it, or take the [model_providers.%s] table and the lines marked \"# managed by AIGW\" out of %s", record, provider, filepath.Base(configPath))),
 		nil,
 	)
 }
@@ -60,7 +60,7 @@ func refuseRepeatedProvider(text string, ranges [][2]int, provider string) error
 	}
 	return adapter.NewConflictError(
 		fmt.Sprintf("Codex config declares [model_providers.%s] %d times, so Codex cannot read it", provider, headers),
-		fmt.Sprintf("Keep one [model_providers.%s] table in config.toml, the one between AIGW's markers, and remove the others, then run `aigw sync`", provider),
+		adapter.ThenRun(fmt.Sprintf("Keep one [model_providers.%s] table in config.toml, the one between AIGW's markers, and remove the others", provider)),
 		nil,
 	)
 }

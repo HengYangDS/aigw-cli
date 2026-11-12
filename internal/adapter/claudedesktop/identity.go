@@ -25,7 +25,7 @@ func prepareState(paths Paths, before snapshots, standard, thirdParty, metadata 
 	if before.profile.Exists || hasProfileEntry(metadata, profileID) {
 		return ownershipState{}, adapter.NewConflictError(
 			"Claude Desktop AIGW profile already exists without AIGW ownership",
-			"Restore "+filepath.Base(paths.State)+" in "+filepath.Base(paths.Profile)+"'s folder from a copy of it, or delete "+filepath.Base(paths.Profile)+" there and remove AIGW's entry and appliedId from _meta.json, then run `aigw sync`",
+			adapter.ThenRun("Restore "+filepath.Base(paths.State)+" in "+filepath.Base(paths.Profile)+"'s folder from a copy of it, or delete "+filepath.Base(paths.Profile)+" there and remove AIGW's entry and appliedId from _meta.json"),
 			nil)
 	}
 	return ownershipState{
@@ -48,7 +48,10 @@ func prepareState(paths Paths, before snapshots, standard, thirdParty, metadata 
 // user's, provided the shared settings still hold AIGW's values; the
 // file list keeps the user's entries, and AIGW removes only its own. A
 // projection refuses, because it would write AIGW's profile again over the
-// user's choice to delete it.
+// user's choice to delete it. While aigw.toml exists, disabling Claude Desktop
+// withdraws; before it does, `aigw client disable` finds Claude Desktop
+// disabled and changes nothing, so the profile restored is the one fix that
+// keeps the settings that the record holds.
 func recordedWithoutProfile(paths Paths, data []byte, standard, thirdParty, metadata document, withdrawing bool) (ownershipState, error) {
 	state, err := decodeOwnedState(paths.State, data)
 	if err != nil {
@@ -60,9 +63,13 @@ func recordedWithoutProfile(paths Paths, data []byte, standard, thirdParty, meta
 		}
 		return state, nil
 	}
+	profile, record := filepath.Base(paths.Profile), filepath.Base(paths.State)
 	return ownershipState{}, adapter.NewConflictError(
 		adapter.MissingWithRecord("Claude Desktop", paths.Profile, paths.State, "").Error(),
-		"Restore "+filepath.Base(paths.Profile)+", or run `aigw client disable claude-desktop`, which restores the settings that AIGW changed from "+filepath.Base(paths.State)+", if "+filepath.Base(paths.Profile)+" is gone for good",
+		adapter.Fix{
+			Configured:   "Restore " + profile + ", or run `aigw client disable claude-desktop`, which restores the settings that AIGW changed from " + record + ", if " + profile + " is gone for good",
+			Unconfigured: "Restore " + profile + " in its folder from a copy of it, then run the same command again.",
+		},
 		nil)
 }
 

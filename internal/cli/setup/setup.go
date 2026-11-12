@@ -77,9 +77,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
-// beforeConfiguration gives a refusal of an outside edit to a client file the
-// fix that holds while no aigw.toml exists: run this setup again. A setup that
-// failed has written no configuration, and `aigw sync` refuses without one.
+// beforeConfiguration gives a refusal of a client file the fix that it
+// carries for a home without aigw.toml, such as this setup run again once an
+// outside edit is undone. A setup that failed has written no configuration,
+// and `aigw sync` refuses without one.
 func beforeConfiguration(runtime invocation.Context, err error) error {
 	if err == nil {
 		return nil
