@@ -11,6 +11,46 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-12
+
+### Fixed
+
+- The first `aigw setup` after an upgrade from 0.6.1 accepts Claude Code
+  settings in which you removed or changed the `model` that 0.6.1 wrote. It
+  keeps your choice while the provider and endpoint stay the same. Any other
+  edit is still refused, and a refusal before `aigw.toml` exists names a fix
+  that runs there instead of `aigw sync`.
+- `aigw setup --from <team file>` lists every label that the file replaces, for
+  providers, families and models, with the old and the new value, in its
+  preview, its result and `--json`.
+- `aigw check --depth client` starts each client without the variables of a
+  parent agent session, so a check run inside Claude Code, Claude Desktop or
+  Hermes verifies the files that AIGW wrote instead of failing as an
+  authentication rejection. Your own connection settings stay, such as Claude
+  Code's client certificate, proxy and shell variables.
+- Root help describes AIGW without the word "routing".
+- On Windows, `aigw check` compares environment variable names without regard
+  to letter case, as Windows does, so a lower-case `anthropic_auth_token` no
+  longer reaches a checked client or escapes the local check.
+
+### Changed
+
+- The team file `manifests/team.toml` follows the owner's curation: Claude
+  Fable 5.2, Opus 5.5, Sonnet 5.5 and Haiku 5.5; GPT-6.1 Sol and Terra; every
+  Gemini 4 model; and each other vendor's strongest generally available model.
+  - Claude Fable 5.2 joins through DMXAPI (also its CC channel), UCloud and
+    AIHubMix.
+  - DMXAPI adds Claude Opus 5.5 CC and SSVIP, Claude Sonnet 5.5, Claude Haiku
+    5.5 and GPT-6.1 Terra, and the SSVIP channels of GPT-6.1 Sol, GPT-6.1 Terra
+    and Gemini 4 Argon.
+  - Gemini 4 Carbon joins through AIHubMix (Responses) and UCloud (Chat).
+  - HY4 adds UCloud (Responses).
+  - Doubao keeps one family, Seed 2.1 Pro 260915 on DMXAPI; 260628 leaves
+    UCloud and AIHubMix.
+
+  Every new model passed a native Hermes tool turn, a resumed recall and a
+  resumed tool turn.
+
 ## [0.7.0] - 2026-11-12
 
 ### Added
