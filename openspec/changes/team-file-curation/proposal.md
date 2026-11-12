@@ -19,6 +19,10 @@ one-family rule forbids.
 
 ## Capabilities
 
+### New Capabilities
+
+- None.
+
 ### Modified Capabilities
 
 - `progressive-team-onboarding`: the owner curates Anthropic, OpenAI and Google.
