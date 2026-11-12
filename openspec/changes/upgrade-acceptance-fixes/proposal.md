@@ -24,6 +24,10 @@ see, because they need the owner's real client files, a second team-file apply o
 
 ## Capabilities
 
+### New Capabilities
+
+- None.
+
 ### Modified Capabilities
 
 - `projection-format`: the first setup after an upgrade recognizes a model preference.
