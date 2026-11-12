@@ -223,10 +223,13 @@
 
 ## 8. Verification
 
-- [ ] 8.1 Run the local quality graph at the lane head.
-- [ ] 8.2 Simulate the archive on a copy: strict validation passes, and no
-      merged specification exceeds 500 non-blank lines.
-- [ ] 8.3 Confirm the hosted three-platform graph on the proposal.
+- [x] 8.1 Run the local quality graph at the lane head (check r-1 at
+      `9bf7612c`, coverage 95.54%).
+- [x] 8.2 Simulate the archive on a copy: strict validation passes, and no
+      merged specification exceeds 500 non-blank lines (15 of 15 valid;
+      largest 498 after `19bc1218`).
+- [x] 8.3 Confirm the hosted three-platform graph on the proposal (GitHub
+      run 43103038473 and GitLab pipeline 15075 at `9bf7612c`).
 - [x] 8.5 Refuse a published predecessor older than 0.7.0 before any release
       journey downloads or runs it, and retire the GitHub transport-release
       carrier of the hosted journeys; `git grep` finds no `input_release` or
@@ -240,10 +243,11 @@
 
 ## 9. Publication and acceptance
 
-- [ ] 9.1 Tag v0.7.0, notarize its macOS archives, and publish its Releases on
+- [x] 9.1 Tag v0.7.0, notarize its macOS archives, and publish its Releases on
       both peers and its Homebrew Cask, after task 5.7; a deep scan of every
       0.7.0 asset, nested archives included, finds no form of the private
-      peer's identity.
+      peer's identity (tag `c08b5ec3`, notarization `244fe3fc`, tap
+      `7ea1d84`; 0 hits in 12 assets).
 - [ ] 9.2 Install 0.7.0 through Homebrew on this Mac and accept it: with each
       client file and sidecar recorded first, the rehearsed commands recreate
       the owner's state and it matches the record, `aigw check --depth client`
