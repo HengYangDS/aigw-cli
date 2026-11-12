@@ -13,7 +13,11 @@
 
 ## 2. Verification
 
-- [ ] 2.1 Run the local quality graph at the lane head.
-- [ ] 2.2 Confirm the hosted three-platform graph on the proposal.
-- [ ] 2.3 Confirm that the tracked tree of the lane head contains none of the
-      GitLab peer's identity forms.
+- [x] 2.1 Run the local quality graph at the lane head (check r-1 at
+      `9bf7612c`, which carries the scrub).
+- [x] 2.2 Confirm the hosted three-platform graph on the proposal (GitHub
+      run 43103038473 and GitLab pipeline 15075 at `9bf7612c`).
+- [x] 2.3 Confirm that the tracked tree of the lane head contains none of the
+      GitLab peer's identity forms (ETHOS beta.8's keyless redaction preview
+      counts 0 at `9bf7612c`; the release-asset scanner's patterns find none
+      in the 2,026 tracked files at `ab4d0963`).
