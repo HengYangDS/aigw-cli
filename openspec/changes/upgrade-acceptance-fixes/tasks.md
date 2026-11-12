@@ -36,10 +36,13 @@
 
 ## 6. Release
 
-- [ ] 6.1 Admit the signed 0.7.1 candidate before tagging: its native
+- [x] 6.1 Admit the signed 0.7.1 candidate before tagging: its native
       lifecycle with the CI-pinned clients and its performance comparison
       against the published 0.7.0 pass.
-- [ ] 6.2 Tag v0.7.1 at the accepted head and publish the same bytes to both
+- [x] 6.2 Tag v0.7.1 at the accepted head and publish the same bytes to both
       Releases and the tap, with Apple's notarization accepted.
-- [ ] 6.3 Install 0.7.1 through Homebrew on the owner's Mac and repeat the
-      situations of 1.1, 2.1 and 3.1 with the installed binary.
+- [x] 6.3 Install 0.7.1 through Homebrew on the owner's Mac, confirm that the
+      installed program is the accepted candidate's bytes, and pass the client
+      check from inside an agent session (the situation of 3.1); 1.1 and 2.1
+      run in the candidate's journeys, because the owner's configuration is
+      past its first setup.
