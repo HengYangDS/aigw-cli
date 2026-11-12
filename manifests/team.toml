@@ -7,8 +7,36 @@ balance = { kind = 'dmxapi', base_url = 'https://www.dmxapi.cn' }
 endpoints = { anthropic = 'https://www.dmxapi.cn', responses = 'https://www.dmxapi.cn/v1' }
 
 [[providers.models]]
+id = 'claude-fable-5-2'
+family = 'claude-fable-5-2'
+protocols = { anthropic = [] }
+
+[[providers.models]]
+id = 'claude-fable-5-2-cc'
+family = 'claude-fable-5-2'
+label = 'DMXAPI · Claude Fable 5.2 · CC'
+protocols = { anthropic = [] }
+
+[[providers.models]]
 id = 'claude-opus-5-5'
 family = 'claude-opus-5-5'
+protocols = { anthropic = [] }
+
+[[providers.models]]
+id = 'claude-opus-5-5-cc'
+family = 'claude-opus-5-5'
+label = 'DMXAPI · Claude Opus 5.5 · CC'
+protocols = { anthropic = [] }
+
+[[providers.models]]
+id = 'claude-opus-5-5-ssvip'
+family = 'claude-opus-5-5'
+label = 'DMXAPI · Claude Opus 5.5 · SSVIP'
+protocols = { anthropic = [] }
+
+[[providers.models]]
+id = 'claude-sonnet-5-5'
+family = 'claude-sonnet-5-5'
 protocols = { anthropic = [] }
 
 [[providers.models]]
@@ -24,8 +52,14 @@ label = 'DMXAPI · Claude Sonnet 5.5 · SSVIP'
 protocols = { anthropic = [] }
 
 [[providers.models]]
+id = 'claude-haiku-5-5'
+family = 'claude-haiku-5-5'
+protocols = { anthropic = [] }
+
+[[providers.models]]
 id = 'claude-haiku-5-5-cc'
 family = 'claude-haiku-5-5'
+label = 'DMXAPI · Claude Haiku 5.5 · CC'
 protocols = { anthropic = [] }
 
 [[providers.models]]
@@ -40,9 +74,26 @@ label = 'DMXAPI · GPT-6.1 Sol · CDX'
 protocols = { responses = [] }
 
 [[providers.models]]
+id = 'gpt-6.1-sol-ssvip'
+family = 'gpt-6.1-sol'
+label = 'DMXAPI · GPT-6.1 Sol · SSVIP'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gpt-6.1-terra'
+family = 'gpt-6.1-terra'
+protocols = { responses = [] }
+
+[[providers.models]]
 id = 'gpt-6.1-terra-cdx'
 family = 'gpt-6.1-terra'
 label = 'DMXAPI · GPT-6.1 Terra · CDX'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gpt-6.1-terra-ssvip'
+family = 'gpt-6.1-terra'
+label = 'DMXAPI · GPT-6.1 Terra · SSVIP'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -58,6 +109,12 @@ protocols = { responses = [] }
 [[providers.models]]
 id = 'gemini-4-argon'
 family = 'gemini-4-argon'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gemini-4-argon-ssvip'
+family = 'gemini-4-argon'
+label = 'DMXAPI · Gemini 4 Argon · SSVIP'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -111,6 +168,11 @@ label = 'UCloud'
 endpoints = { anthropic = 'https://api.modelverse.cn', responses = 'https://api.modelverse.cn/v1', chat = 'https://api.modelverse.cn/v1' }
 
 [[providers.models]]
+id = 'claude-fable-5-2'
+family = 'claude-fable-5-2'
+protocols = { anthropic = [] }
+
+[[providers.models]]
 id = 'claude-opus-5-5'
 family = 'claude-opus-5-5'
 protocols = { anthropic = ['tool_search'] }
@@ -141,13 +203,13 @@ family = 'deepseek-v4.1-flash-1017'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'doubao-seed-2-1-pro-260628'
-family = 'doubao-seed-2-1-pro-260628'
+id = 'grok-4.7'
+family = 'grok-4.7'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'grok-4.7'
-family = 'grok-4.7'
+id = 'hy4'
+family = 'hy4'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -176,6 +238,11 @@ family = 'gemini-4-argon'
 protocols = { chat = [] }
 
 [[providers.models]]
+id = 'gemini-4-carbon'
+family = 'gemini-4-carbon'
+protocols = { chat = [] }
+
+[[providers.models]]
 id = 'glm-5.3'
 family = 'glm-5.3'
 protocols = { chat = [] }
@@ -184,6 +251,11 @@ protocols = { chat = [] }
 id = 'aihubmix'
 label = 'AIHubMix'
 endpoints = { anthropic = 'https://api.inferera.com', responses = 'https://api.inferera.com/v1', chat = 'https://api.inferera.com/v1' }
+
+[[providers.models]]
+id = 'claude-fable-5-2'
+family = 'claude-fable-5-2'
+protocols = { anthropic = [] }
 
 [[providers.models]]
 id = 'claude-opus-5-5'
@@ -216,11 +288,6 @@ family = 'deepseek-v4.1-flash-1017'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'doubao-seed-2-1-pro-260628'
-family = 'doubao-seed-2-1-pro-260628'
-protocols = { responses = [] }
-
-[[providers.models]]
 id = 'ernie-5.1'
 family = 'ernie-5.1'
 protocols = { responses = [] }
@@ -228,6 +295,11 @@ protocols = { responses = [] }
 [[providers.models]]
 id = 'gemini-4-argon'
 family = 'gemini-4-argon'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gemini-4-carbon'
+family = 'gemini-4-carbon'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -307,6 +379,10 @@ family = 'step-5-preview'
 protocols = { chat = [] }
 
 [[families]]
+id = 'claude-fable-5-2'
+label = 'Claude Fable 5.2'
+
+[[families]]
 id = 'claude-opus-5-5'
 label = 'Claude Opus 5.5'
 
@@ -339,16 +415,16 @@ id = 'doubao-seed-2-1-pro-260915'
 label = 'Doubao Seed 2.1 Pro 260915'
 
 [[families]]
-id = 'doubao-seed-2-1-pro-260628'
-label = 'Doubao Seed 2.1 Pro 260628'
-
-[[families]]
 id = 'ernie-5.1'
 label = 'ERNIE 5.1'
 
 [[families]]
 id = 'gemini-4-argon'
 label = 'Gemini 4 Argon'
+
+[[families]]
+id = 'gemini-4-carbon'
+label = 'Gemini 4 Carbon'
 
 [[families]]
 id = 'glm-5.3'

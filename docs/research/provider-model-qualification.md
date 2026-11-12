@@ -7,7 +7,7 @@ relations: {}
 
 # Provider Model Qualification Evidence
 
-These observations inform the October 27, 2026 team manifest; they neither
+These observations inform the November 12, 2026 team manifest; they neither
 maintain a live catalog nor override the [model inventory](../../manifests/team.toml).
 For setup/selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
 Listings, bounded inference and native-client tool loops prove distinct claims.
@@ -21,8 +21,8 @@ names are provider, `provider/model` and `aigw model search`, `aigw check` and
 
 ## Curated model choices
 
-Select one general model per vendor from exact provider and protocol pairs qualified
-by inference and native-client evidence; positioning, suffixes, listings and vendor
+The owner names the Anthropic, OpenAI and Google families. Select one general model for each other vendor, and
+admit only exact provider and protocol pairs qualified by inference and native-client evidence; positioning, suffixes, listings and vendor
 benchmarks inform selection but do not prove independent quality rankings.
 
 The October 1, 2026 primary-source review closes four missing rationales:
@@ -51,6 +51,34 @@ GPT/Claude, while DMXAPI required authentication. Neither omission nor anonymous
 Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default models; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
+
+## November 12 model refresh
+
+The owner's curation: Claude Fable 5.2, Opus 5.5, Sonnet 5.5 and Haiku 5.5; GPT-6.1 Sol and Terra; every Gemini 4
+model; and each other vendor's strongest generally available model, judged by the vendor's own notes. Each curated
+family brings every provider model that qualifies, DMXAPI's CC, SSVIP and CDX channels included. Each cell passed three
+turns on the stock Hermes v0.23.0 (`2bd378ed1b8d`) that CI pins: an isolated `read_file` turn, a tool-free resumed
+recall, and a resumed `read_file` of a second file, the resumed tool turn that the November 7 record required. Raw
+results are in the canonical checkout's `build/evidence/team-model-refresh-20261112/`.
+
+| Model                      | Admitted provider / protocol                      | Vendor basis                                  |
+| -------------------------- | ------------------------------------------------- | --------------------------------------------- |
+| Claude Fable 5.2           | DMXAPI, DMXAPI CC, UCloud, AIHubMix / Anthropic   | Anthropic's November 9 release, active latest |
+| Claude Opus 5.5            | DMXAPI CC and SSVIP / Anthropic                   | channels of a curated family                  |
+| Claude Sonnet, Haiku 5.5   | plain DMXAPI / Anthropic                          | the resumed tool turn passed                  |
+| GPT-6.1 Sol, Terra         | DMXAPI SSVIP; Terra also plain DMXAPI / Responses | channels; the resumed tool turn passed        |
+| Gemini 4 Carbon            | AIHubMix / Responses; UCloud / Chat               | Google: GA on November 10, its most capable   |
+| Gemini 4 Argon             | DMXAPI SSVIP / Responses                          | a channel of a curated family                 |
+| HY4                        | UCloud / Responses                                | passed after the November 7 gateway failures  |
+| Doubao Seed 2.1 Pro 260915 | DMXAPI / Responses (only family kept)             | Volcengine's recommended build                |
+
+DMXAPI's `gemini-4-carbon` took 166 s for one turn and then missed the 240 s bound twice, and its SSVIP channel
+returned HTTP 403, a terms-of-use rejection that was not retried. AIHubMix still returns HTTP 400 for Mistral Large 4
+and Command A+, so Large 3 and Command A stay. Volcengine lists 260628 and 260915 as builds of one model,
+`doubao-seed-2-1-pro`, so 260628 leaves UCloud and AIHubMix and Doubao keeps one family. No other vendor made a
+stronger general model generally available after November 7: Qwen 4 Max, ERNIE 5.5 Flash and Microsoft's MAI
+Thinking 1 are previews, and Perplexity's decider models only score options. UCloud's Fable 5.2 declares no
+`tool_search`, which needs Claude Desktop evidence.
 
 ## November 7 model refresh
 

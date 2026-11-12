@@ -22,8 +22,9 @@ its most capable generally available model.
 
 ### Qualification
 
-A model enters only after a native Hermes tool turn and a resumed recall pass on each of its provider and protocol
-pairs. Each run uses a disposable Hermes home with the provider's own credential command, so no Token is copied. A
+A model enters only after three turns pass on each of its provider and protocol pairs: a native Hermes tool turn, a
+resumed recall without tools, and a resumed tool turn, which the November 7 record required for plain-DMXAPI Terra and
+Haiku. Each run uses a disposable Hermes home with the provider's own credential command, so no Token is copied. A
 model that fails stays out and is recorded.
 
 ### The most capable model
@@ -34,5 +35,5 @@ Doubao keeps one family, the most capable one that a provider serves and that qu
 
 ## Risks / Trade-offs
 
-- [Qualification spends provider quota] → two short turns per model and protocol.
+- [Qualification spends provider quota] → three short turns per model and protocol.
 - [A provider withdraws a model later] → `aigw model search` reports it as missing, and the next refresh removes it.
