@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -96,7 +97,11 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	// independent transition before measuring policy-only canonical preservation.
 	name := journey.modelName(selection.Model)
 	journey.runWith(p.candidate, "use", codex.ID, name)
-	canonical := readFile(t, journey.config)
+	credentials := store.NewStore(journey.config, clients.Admission())
+	before, err := credentials.LoadCredentialView()
+	if err != nil {
+		t.Fatal(err)
+	}
 	args := []string{"client", "edit", codex.ID, "--request-retries", "0", "--stream-retries", "0"}
 	preview := journey.runWith(p.candidate, append(args, "--dry-run", "--json")...)
 	var edited struct {
@@ -110,15 +115,15 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 		t.Fatalf("retry preview omitted the budgets or model %q: %v", edited.Model, err)
 	}
 	journey.runWith(p.candidate, args...)
-	if !bytes.Equal(canonical, readFile(t, journey.config)) {
-		var before, after domain.Config
-		if err := toml.Unmarshal(canonical, &before); err != nil {
-			t.Fatal(err)
-		}
-		if err := toml.Unmarshal(readFile(t, journey.config), &after); err != nil {
-			t.Fatal(err)
-		}
-		t.Fatalf("retry selection changed cached predecessor credential input: binding before=%+v after=%+v", before.Clients[codex.ID], after.Clients[codex.ID])
+	// A retry budget is policy, which aigw.toml now holds beside the rest of the
+	// configuration, so the edit rewrites that file. What a retained credential
+	// reader decodes from it must not change.
+	after, err := credentials.LoadCredentialView()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(before, after) {
+		t.Fatalf("retry selection changed the credential reader's view: before=%+v after=%+v", before, after)
 	}
 	journey.requireCredential(retained, token)
 	journey.requireRetryRollbackAdmission(p.baseline)
