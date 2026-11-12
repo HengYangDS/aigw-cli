@@ -21,5 +21,5 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `aigw setup --from manifests/team.toml` applies the refreshed file in
+- [x] 3.1 `aigw setup --from manifests/team.toml` applies the refreshed file in
       its test, and the full check passes.
