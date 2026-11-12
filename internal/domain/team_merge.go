@@ -16,6 +16,7 @@ type TeamMerge struct {
 	AddedRecommendations              []string
 	ChangedProviders, ChangedFamilies []string
 	ChangedModels                     []ModelRef
+	ChangedLabels                     []ChangedLabel
 	ChangedRecommendations            []string
 	KeptEndpoints                     []KeptEndpoint
 	KeptProbes                        []KeptProbe
@@ -24,6 +25,13 @@ type TeamMerge struct {
 	Unusable                          []UnusableProtocol
 	PrunedModels                      []ModelRef
 	PrunedFamilies                    []string
+}
+
+// ChangedLabel is an existing model whose label the team file replaces. An
+// empty label is none, which shows the model by its ID.
+type ChangedLabel struct {
+	Model       ModelRef
+	Local, File string
 }
 
 // KeptEndpoint is an existing provider's endpoint that stays local, because
@@ -250,6 +258,9 @@ func (report *TeamMerge) compare(before, after Config) {
 			report.AddedModels = append(report.AddedModels, ref)
 		} else if model := after.Models[ref]; !equivalentModel(previous, model) || previous.Label != model.Label {
 			report.ChangedModels = append(report.ChangedModels, ref)
+			if previous.Label != model.Label {
+				report.ChangedLabels = append(report.ChangedLabels, ChangedLabel{Model: ref, Local: previous.Label, File: model.Label})
+			}
 		}
 	}
 	for _, client := range slices.Sorted(maps.Keys(after.Recommendations)) {

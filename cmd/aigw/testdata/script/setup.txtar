@@ -261,6 +261,19 @@ fixloop -did 'named a team file that exists' stdout aigw setup --from dangling.t
 [!windows] [!root] chmod 600 unreadable.toml
 [!windows] [!root] fixloop -did 'made the team file readable' stdout aigw setup --from unreadable.toml --json
 
+# A label that model edit set locally is replaced by the team file, so the
+# preview and the run name it, and the second preview has nothing to change.
+exec aigw model edit team/team-model --label 'Local Label'
+exec aigw setup --from team.toml --dry-run --json
+stdout '"changed_labels": \[\n\s+\{\n\s+"model": "team/team-model",\n\s+"local": "Local Label"\n\s+\}'
+exec aigw setup --from team.toml --dry-run
+stdout '(?m)^Model labels$'
+stdout 'team/team-model +Local Label becomes none'
+exec aigw setup --from team.toml --json
+stdout '"changed_labels"'
+exec aigw setup --from team.toml --dry-run --json
+! stdout 'changed_labels'
+
 
 -- rejected.txt --
 sk-rejected-token

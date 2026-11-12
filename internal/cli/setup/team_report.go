@@ -33,6 +33,7 @@ type teamDocument struct {
 	DryRun              bool                          `json:"dry_run,omitempty"`
 	Added               teamEntries                   `json:"added"`
 	Changed             teamEntries                   `json:"changed"`
+	ChangedLabels       []changedLabel                `json:"changed_labels,omitempty"`
 	Pruned              *teamEntries                  `json:"pruned,omitempty"`
 	KeptEndpoints       []keptEndpoint                `json:"kept_endpoints,omitempty"`
 	KeptBalanceProbes   []keptProbe                   `json:"kept_balance_probes,omitempty"`
@@ -54,6 +55,14 @@ type teamEntries struct {
 	Models          []string `json:"models"`
 	Families        []string `json:"families"`
 	Recommendations []string `json:"recommendations,omitempty"`
+}
+
+// changedLabel is a model whose label the team file replaces. Local and File
+// are absent for a model without a label, which shows its ID.
+type changedLabel struct {
+	Model string `json:"model"`
+	Local string `json:"local,omitempty"`
+	File  string `json:"file,omitempty"`
 }
 
 // keptEndpoint is an existing provider's endpoint that stays local; Local is
@@ -129,6 +138,9 @@ func (t teamSetup) document(after domain.Config, states map[string]string, conne
 		Changed: teamEntries{Providers: nonNil(report.ChangedProviders), Models: refs(report.ChangedModels), Families: nonNil(report.ChangedFamilies), Recommendations: report.ChangedRecommendations},
 		Tokens:  []tokenItem{},
 		Clients: []clientItem{},
+	}
+	for _, label := range report.ChangedLabels {
+		document.ChangedLabels = append(document.ChangedLabels, changedLabel{Model: label.Model.String(), Local: label.Local, File: label.File})
 	}
 	if t.request.Prune {
 		document.Pruned = &teamEntries{Providers: []string{}, Models: refs(report.PrunedModels), Families: nonNil(report.PrunedFamilies)}
@@ -224,6 +236,7 @@ func (t teamSetup) write(document teamDocument) error {
 	}
 	changed := renderEntries(r, "Added", document.Added)
 	changed = renderEntries(r, "Changed", document.Changed) || changed
+	renderLabels(r, document.ChangedLabels)
 	if document.Pruned != nil {
 		changed = renderEntries(r, "Pruned", *document.Pruned) || changed
 	}
@@ -274,6 +287,26 @@ func renderEntries(r *terminal.Renderer, title string, entries teamEntries) bool
 	r.Section(title)
 	r.Rows(rows...)
 	return true
+}
+
+// renderLabels names the label that the team file replaces on each model, in
+// a section of its own: the Changed section names the model alone.
+func renderLabels(r *terminal.Renderer, labels []changedLabel) {
+	if len(labels) == 0 {
+		return
+	}
+	shown := func(label string) string {
+		if label == "" {
+			return "none"
+		}
+		return label
+	}
+	rows := make([]terminal.Field, 0, len(labels))
+	for _, label := range labels {
+		rows = append(rows, terminal.Field{Label: label.Model, Value: shown(label.Local) + " becomes " + shown(label.File)})
+	}
+	r.Section("Model labels")
+	r.Rows(rows...)
 }
 
 // renderKept names what stayed local, what was dropped and what is unusable.
