@@ -415,6 +415,15 @@ authorization.
 - **AND** a subprocess that cannot be contained SHALL be stopped, with the
   cause reported.
 
+#### Scenario: A test drives the platform credential tool
+
+- **WHEN** a test creates, observes or deletes a private Keychain item through
+  `/usr/bin/security`, or waits for a child that runs a native operation
+- **THEN** its own bound SHALL stop only a hang, with room for a shared CI host
+  that is much slower than a quiet one
+- **AND** the five-second deadline SHALL remain the bound of AIGW's own
+  native credential operations.
+
 ### Requirement: Native credential transport preserves secret boundaries
 
 Tokens SHALL enter the native credential subprocess only through bounded
