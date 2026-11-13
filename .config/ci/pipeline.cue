@@ -355,7 +355,7 @@ nativeClients: {
 	// The Hermes release commit with its tag, and the SHA-256 of that
 	// release's scripts/install.sh.
 	hermes: {
-		commit:    "2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19" // v0.23.0
+		commit:    "3b421578588243f920886e6fe79a6faa87ea026e" // v0.23.1
 		installer: "abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209"
 	}
 }
@@ -390,7 +390,7 @@ nativeArtifactScope: {
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
-	mise:     "jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b"         // v5.2.7
+	mise:     "jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785"         // v5.2.8
 	upload:   "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" // v7.0.2
 }
 

@@ -38,19 +38,9 @@ for (const input of inputs) {
 	}
 }
 
-func TestRenovateReadsEveryNativeClientPin(t *testing.T) {
-	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
-	defer cancel()
-	root := repositoryRoot(t)
-	export := exec.CommandContext(ctx, "cue", "export", ".config/ci/pipeline.cue", "--expression", "nativeClients", "--out", "json")
-	export.Dir = root
-	pins, err := export.Output()
-	if err != nil {
-		t.Fatalf("native client pins: %v", err)
-	}
-	// The candidate calculation applies the policy's regex rules to the CUE
-	// authority; apply them the same way and require one read of each pin.
-	code := `
+// renovatePolicy is a Node module prelude that binds the parsed Renovate policy
+// to policy as plain values.
+const renovatePolicy = `
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { parsers } from "prettier/plugins/babel";
@@ -71,6 +61,21 @@ const value = (node) => {
 const policy = value((await parsers.json5.parse(
   await readFile(".config/checks/renovate/renovate.json5", "utf8"), {},
 )).node);
+`
+
+func TestRenovateReadsEveryNativeClientPin(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	root := repositoryRoot(t)
+	export := exec.CommandContext(ctx, "cue", "export", ".config/ci/pipeline.cue", "--expression", "nativeClients", "--out", "json")
+	export.Dir = root
+	pins, err := export.Output()
+	if err != nil {
+		t.Fatalf("native client pins: %v", err)
+	}
+	// The candidate calculation applies the policy's regex rules to the CUE
+	// authority; apply them the same way and require one read of each pin.
+	code := renovatePolicy + `
 const authority = ".config/ci/pipeline.cue";
 const text = await readFile(authority, "utf8");
 const pins = JSON.parse(process.argv[1]);
@@ -109,6 +114,34 @@ assert.match(hermes.currentValue, /^v\d+\.\d+\.\d+$/, "the Hermes commit must na
 	call.Dir = root
 	if output, err := call.CombinedOutput(); err != nil {
 		t.Fatalf("Renovate native client pins: %v\n%s", err, output)
+	}
+}
+
+func TestRenovateReadsOnlyReleaseTagsOfHermes(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	// Hermes tags canary builds as vX.Y.Z+canary.<time>. Semver coercion drops
+	// that build metadata, so on 2026-11-13 the candidate calculation offered a
+	// canary tag as the release v0.23.1. The rule must parse release tags only.
+	code := renovatePolicy + `
+const rule = policy.customManagers.find(
+  ({ depNameTemplate }) => depNameTemplate === "NousResearch/hermes-agent",
+);
+assert.ok(rule, "the policy must read the Hermes release tag");
+const versioning = rule.versioningTemplate ?? "";
+assert.ok(versioning.startsWith("regex:"), "Hermes tags must parse as release tags only, not with " + versioning);
+const release = new RegExp(versioning.slice("regex:".length));
+for (const tag of ["v0.23.0", "v0.23.1", "v1.0.0"]) {
+  assert.match(tag, release, tag);
+}
+for (const tag of ["v0.23.1+canary.20261110T064422Z", "v0.24.0-rc.1", "0.23.1", "v0.23"]) {
+  assert.doesNotMatch(tag, release, tag);
+}
+`
+	call := exec.CommandContext(ctx, "node", "--input-type=module", "-e", code)
+	call.Dir = repositoryRoot(t)
+	if output, err := call.CombinedOutput(); err != nil {
+		t.Fatalf("Renovate Hermes release tags: %v\n%s", err, output)
 	}
 }
 

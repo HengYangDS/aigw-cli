@@ -11,6 +11,12 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- Dependency scans of the program no longer report GO-2026-5932. AIGW is
+  built with `golang.org/x/crypto` 0.59.0, which removes the unmaintained
+  `openpgp` package that the advisory names; AIGW never imported it.
+
 ## [0.7.1] - 2026-11-12
 
 ### Fixed

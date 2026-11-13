@@ -25,7 +25,7 @@ NPM_CONFIG_GLOBALCONFIG = "{% if os() == 'windows' %}NUL{% else %}/dev/null{% en
 NPM_CONFIG_CACHE = "{{ config_root }}/build/runtime/tool-cache/npm{% if env.CI_JOB_ID | default(value='') != '' %}/{{ env.CI_JOB_ID }}{% endif %}"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.215.0@sha256:10b921ce64cac11667849e7c1c4f0c4996d641f88b949652e69a324622538f7a"
+renovate_image = "ghcr.io/renovatebot/renovate:44.236.5@sha256:935fc7f1de18fdde6cc40c9dd57cc06a4300251b4997e3841ffd9b1e84972767"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.
@@ -37,18 +37,18 @@ go = "1.27.4"
 node = "26.13.1"
 npm = "12.2.2"
 # Native client acceptance only; not an AIGW runtime dependency.
-uv = "0.13.7"
+uv = "0.13.8"
 
 # Specification and CI modeling
 cue = "0.17.1"
 
 # Release transport conformance
-gh = "2.103.3"
-glab = "1.128.0"
+gh = "2.104.0"
+glab = "1.130.0"
 
 # Build and supply-chain evidence
-"github:goreleaser/goreleaser" = "2.20.0"
-"github:anchore/syft" = "1.57.0"
+"github:goreleaser/goreleaser" = "2.20.2"
+"github:anchore/syft" = "1.57.1"
 # Cross-host ad-hoc macOS artifact signing.
 "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]" = "0.29.0"
 
@@ -63,7 +63,7 @@ taplo = "0.10.0"
 shellcheck = "0.11.0"
 "github:rhysd/actionlint" = "1.7.12"
 "github:sharkdp/hyperfine" = "2.0.0"
-typos = "1.52.0"
+typos = "1.52.2"
 
 [tools."github:lycheeverse/lychee"]
 version = "lychee-v0.24.2"
@@ -72,7 +72,7 @@ platforms.windows-arm64.asset_pattern = "lychee-x86_64-pc-windows-msvc.zip"
 
 # OSV Scanner's release bundle is signed by the reusable SLSA generator.
 [tools."github:google/osv-scanner"]
-version = "2.7.0"
+version = "2.7.1"
 slsa_signer_identity = "https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@refs/tags/v2.1.0"
 slsa_signer_issuer = "https://token.actions.githubusercontent.com"
 

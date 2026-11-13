@@ -17,7 +17,7 @@
   ],
   baseBranchPatterns: ["dev"],
   branchPrefix: "proposal/dependencies/",
-  dependencyDashboard: false,
+  dependencyDashboard: { enabled: false },
   prConcurrentLimit: 1,
   branchConcurrentLimit: 1,
   semanticCommits: "enabled",
@@ -114,7 +114,9 @@
       ],
       depNameTemplate: "NousResearch/hermes-agent",
       datasourceTemplate: "github-tags",
-      versioningTemplate: "semver-coerced",
+      // Release tags only: semver coercion would accept canary tags such as
+      // v0.23.1+canary.20261110T064422Z as releases.
+      versioningTemplate: "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
     },
     {
       customType: "regex",
