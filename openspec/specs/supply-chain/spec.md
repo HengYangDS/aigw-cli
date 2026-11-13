@@ -395,3 +395,11 @@ supply chain SHALL NOT be described as current while a pin is unread.
 - **WHEN** a release locked only as a transitive dependency publishes a newer
   stable release past the minimum release age
 - **THEN** the candidate calculation SHALL report the lock refresh that takes it.
+
+#### Scenario: A pinned client tags a build that is not a release
+
+- **WHEN** the publisher of a pinned client tags a build that is not a stable
+  release, such as the Hermes canary tag `v0.23.1+canary.20261110T064422Z`
+- **THEN** the candidate calculation SHALL NOT report that tag as an update
+- **AND** the repository's dependency checks SHALL fail while the rule that
+  reads the client's release tag admits such a tag.
