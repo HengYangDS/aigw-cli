@@ -24,7 +24,8 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `mise run check` and `mise run dependencies:check` pass on the lane
-      head.
-- [ ] 3.2 The hosted graph passes at the proposal head, with every GitLab macOS
-      and Windows job reporting Mise 2026.11.7.
+- [x] 3.1 `mise run check` and `mise run dependencies:check` pass on the lane
+      head (`76f00a5e`, statement coverage 95.55%).
+- [x] 3.2 The hosted graph passes at the proposal head, with every GitLab macOS
+      and Windows job reporting Mise 2026.11.7 (`76f00a5e`: GitLab MR !192
+      pipeline 15289, GitHub PR 258 run 43369589265).
