@@ -337,14 +337,32 @@ _graphOrder: {
 	}
 }
 
-miseImage:                        "docker.io/jdxcode/mise:2026.10.25-debian@sha256:00a8a9d05a300e5a15a89d6d3a87ea88ec4e78c4702b78d49aa1d3250af61427"
+miseImage:                        "docker.io/jdxcode/mise:2026.11.7-debian@sha256:0e4c7634244a6e09b99bf2b5aa2934d29837c400a6af53dd6fb3690b92b1d31f"
 miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
-miseWindowsArm64ExecutableSHA256: "5f44336c1a2ef7a36d759c59158299733e75ba2f9b15234106e92d28810768e7"
-miseWindowsArm64ShimSHA256:       "46ce75fdf524036c8237ff7178925c131a90fcd39b30475cd4948e1a774c8296"
+miseWindowsArm64ExecutableSHA256: "e4f2b6740c4d249826a5bf22b362da7532c0a57c55319d18e4f23225bd6c0197"
+miseWindowsArm64ShimSHA256:       "b5a1c01a39ca3e625df7b994f1e5200942e11e0bf1268dc9de4e11b8c2c8a6d7"
 // AIGW's runner-owned Mise directory under Program Files on GitLab's Windows
 // ARM64 host; the other projects keep the shared mise directory.
 miseWindowsArm64Directory: "mise-aigw-cli"
 windowsMiseJobDirectory:   "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
+// AIGW's runner-owned Mise on GitLab's macOS ARM64 host; the other projects
+// keep the host's shared Homebrew Mise.
+miseMacosArm64ExecutableSHA256: "0f7cb85b5c17208cb67088105bd1754c38314cb824cc97d109631b6df638f6fc"
+miseMacosArm64Directory:        "/opt/mise-aigw-cli/bin"
+// GitLab's macOS jobs verify that Mise before any locked tool runs and put it
+// first on PATH for the rest of the job.
+macosRunnerMise: #"""
+	set -eu
+	mise='\#(miseMacosArm64Directory)/mise'
+	if [ ! -x "$mise" ]; then printf '%s\n' 'Runner-owned Mise is missing.' >&2; exit 1; fi
+	digest="$(shasum -a 256 "$mise")"
+	if [ "${digest%% *}" != '\#(miseMacosArm64ExecutableSHA256)' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
+	case "$("$mise" --version)" in
+	  '\#(miseVersion) '*) ;;
+	  *) printf '%s\n' 'Runner-owned Mise version differs from the admitted release.' >&2; exit 1 ;;
+	esac
+	export PATH="\#(miseMacosArm64Directory):$PATH"
+	"""#
 
 // Official native clients for real-client acceptance, pinned once. Each GitHub
 // native job installs the clients its host declares; a GitLab public input
@@ -731,7 +749,7 @@ workflowEvidencePath:   "build/verification/workflows"
 		script: [commands.nativeJob[_platform], _cleanup]
 	}
 	if _platform == "darwin" {
-		script: [miseMirror.unixPrepare, _install, commands.nativeJob[_platform], _cleanup]
+		script: [macosRunnerMise, miseMirror.unixPrepare, _install, commands.nativeJob[_platform], _cleanup]
 	}
 	if _platform == "windows" {
 		script: [_prepareMise, _install, commands.nativeJob[_platform], _cleanup]
@@ -751,8 +769,8 @@ _gitlabControlJob: {
 		extends: [".linux-toolchain"]
 		script: list.Concat([_commands, [miseMirror.unixCleanup]])
 	}
-	if gitlabControlPlatform != "linux" {
-		script: list.Concat([[miseMirror.unixPrepare, commands.install], _commands, [miseMirror.unixCleanup]])
+	if gitlabControlPlatform == "darwin" {
+		script: list.Concat([[macosRunnerMise, miseMirror.unixPrepare, commands.install], _commands, [miseMirror.unixCleanup]])
 		"after_script": [miseMirror.unixCleanup]
 	}
 }

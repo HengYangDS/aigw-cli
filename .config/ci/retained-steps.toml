@@ -122,12 +122,27 @@ evidence = "GitLab pipelines 11691, 11692, 11696 and 11699 (release-assets) at b
 [[step]]
 file = ".gitlab-ci.yml"
 jobs = ["native-windows", "native-windows-review"]
-sha256 = "330be2bff46bb6baf1c045342acf64222b04687036f4a720d96f346f60947ece"
+sha256 = "058b52eab5163d6dcf5df432c59f315b6374448687cd441f8e980394316d9dc1"
 class = "operating-system-glue"
 owner = "CI pipeline model (.config/ci/pipeline.cue #NativeGitLabJob windows _prepareMise)"
 reason = "Before Mise runs, PowerShell creates the ACL-restricted job directory and Mise state, verifies the runner-owned Mise executable and shim digests and version in AIGW's own Program Files directory, and sets the peer tool supply."
 platforms = ["windows"]
-evidence = "GitLab pipelines 11691 and 11692 at b327be43 ran this preparation on native-windows; the Mise 2026.10.25 identities replace only the pinned version and digests, and the AIGW-only directory mise-aigw-cli, installed with the same pinned executable and shim on 2026-11-03, replaces only the executable path"
+evidence = "GitLab pipelines 11691 and 11692 at b327be43 ran this preparation on native-windows; later texts replace only the pinned version and digests (now Mise 2026.11.7) and, since 2026-11-03, the AIGW-only directory mise-aigw-cli in the executable path"
+
+[[step]]
+file = ".gitlab-ci.yml"
+jobs = [
+  "native-darwin",
+  "native-darwin-review",
+  "accepted-ref-parity",
+  "release-version",
+]
+sha256 = "61b2b2ecd4d107a8f33533d6cf7676e161ba8769e1b6ce3c0cbd2b0a12e90b46"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue macosRunnerMise)"
+reason = "Before any locked tool runs, the job shell verifies the digest and version of AIGW's runner-owned Mise beside the macOS host's shared Homebrew Mise and puts it first on PATH; Mise cannot verify the executable that runs it."
+platforms = ["darwin"]
+evidence = "The GitLab review pipeline of the lane that adds it runs this text first in native-darwin-review; native-darwin, accepted-ref-parity and release-version share the same CUE value"
 
 [[step]]
 file = ".gitlab-ci.yml"

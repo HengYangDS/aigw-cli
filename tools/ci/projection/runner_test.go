@@ -311,6 +311,85 @@ func requireWindowsMiseJobStorage(t *testing.T, name string, script, cleanup []s
 	}
 }
 
+// macosRunnerMise is the runner-owned Mise that the CUE authority pins for
+// GitLab's macOS ARM64 host.
+type macosRunnerMise struct {
+	Version    string `yaml:"version"`
+	Executable string `yaml:"executable"`
+	Directory  string `yaml:"directory"`
+}
+
+func pinnedMacOSRunnerMise(t *testing.T, root string) macosRunnerMise {
+	t.Helper()
+	output, err := projectionCommand(root, "{version: miseVersion, executable: miseMacosArm64ExecutableSHA256, directory: miseMacosArm64Directory}").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var identity macosRunnerMise
+	if err := yaml.Unmarshal(output, &identity); err != nil {
+		t.Fatal(err)
+	}
+	if identity.Version == "" || len(identity.Executable) != 64 {
+		t.Fatal("CUE must declare an exact macOS Mise version and executable digest")
+	}
+	// Homebrew's Mise belongs to every project on the host, so AIGW's pinned
+	// release must live in a directory of its own.
+	if !strings.HasPrefix(identity.Directory, "/opt/mise-aigw-cli/") {
+		t.Fatalf("CUE must name an AIGW-only runner Mise directory, not %q", identity.Directory)
+	}
+	return identity
+}
+
+func TestGitLabMacOSVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity := pinnedMacOSRunnerMise(t, root)
+	var gitlab map[string]yaml.Node
+	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
+		t.Fatal(err)
+	}
+	var macos []string
+	for name, node := range gitlab {
+		var job struct {
+			Tags   []string `yaml:"tags"`
+			Script []string `yaml:"script"`
+		}
+		if node.Kind != yaml.MappingNode {
+			continue
+		}
+		if err := node.Decode(&job); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !slices.ContainsFunc(job.Tags, func(tag string) bool { return strings.HasPrefix(tag, "ci-macos-") }) {
+			continue
+		}
+		macos = append(macos, name)
+		install := slices.IndexFunc(job.Script, func(command string) bool { return strings.Contains(command, "mise install --locked") })
+		if install < 1 {
+			t.Errorf("%s: no Mise preflight precedes the locked toolchain: %v", name, job.Script)
+			continue
+		}
+		for _, required := range []string{
+			"mise='" + identity.Directory + "/mise'",
+			`shasum -a 256 "$mise"`,
+			"'" + identity.Executable + "'",
+			"'" + identity.Version + " '*)",
+			`export PATH="` + identity.Directory + `:$PATH"`,
+		} {
+			if !strings.Contains(job.Script[0], required) {
+				t.Errorf("%s: macOS Mise preflight omits %q", name, required)
+			}
+		}
+	}
+	slices.Sort(macos)
+	if want := []string{"accepted-ref-parity", "native-darwin", "native-darwin-review", "release-version"}; !slices.Equal(macos, want) {
+		t.Fatalf("macOS GitLab jobs = %v, want %v", macos, want)
+	}
+}
+
 func TestGitLabWindowsLockedToolsUseJobScopedMirror(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
