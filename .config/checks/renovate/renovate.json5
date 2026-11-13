@@ -119,8 +119,9 @@
       depNameTemplate: "NousResearch/hermes-agent",
       datasourceTemplate: "github-tags",
       // Release tags only: semver coercion would accept canary tags such as
-      // v0.23.1+canary.20261110T064422Z as releases.
-      versioningTemplate: "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      // v0.23.1+canary.20261110T064422Z as releases. At most three major digits
+      // keep the publisher's calendar tags, such as v2026.9.24, out as well.
+      versioningTemplate: "regex:^v(?<major>\\d{1,3})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
     },
     {
       customType: "regex",

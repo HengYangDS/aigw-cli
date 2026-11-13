@@ -351,11 +351,16 @@ func TestGitLabMacOSVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
+	if _, found := gitlab["default"]; found {
+		t.Fatal("a default section could run commands before the macOS Mise preflight")
+	}
 	var macos []string
+	steps := map[string]bool{}
 	for name, node := range gitlab {
 		var job struct {
-			Tags   []string `yaml:"tags"`
-			Script []string `yaml:"script"`
+			Tags         []string `yaml:"tags"`
+			BeforeScript []string `yaml:"before_script"`
+			Script       []string `yaml:"script"`
 		}
 		if node.Kind != yaml.MappingNode {
 			continue
@@ -368,16 +373,22 @@ func TestGitLabMacOSVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T) {
 		}
 		macos = append(macos, name)
 		install := slices.IndexFunc(job.Script, func(command string) bool { return strings.Contains(command, "mise install --locked") })
-		if install < 1 {
-			t.Errorf("%s: no Mise preflight precedes the locked toolchain: %v", name, job.Script)
+		if install < 1 || len(job.BeforeScript) != 0 {
+			t.Errorf("%s: no Mise preflight precedes every command: %v %v", name, job.BeforeScript, job.Script)
 			continue
 		}
+		// One text serves every macOS job, so the test that runs native-darwin's
+		// step covers them all.
+		steps[job.Script[0]] = true
 		for _, required := range []string{
 			"mise='" + identity.Directory + "/mise'",
 			`shasum -a 256 "$mise"`,
 			"'" + identity.Executable + "'",
 			"'" + identity.Version + " '*)",
 			`export PATH="` + identity.Directory + `:$PATH"`,
+			"unset -f mise",
+			`"$(command -v mise)" != "$mise"`,
+			"Runner-owned Mise verified: ",
 		} {
 			if !strings.Contains(job.Script[0], required) {
 				t.Errorf("%s: macOS Mise preflight omits %q", name, required)
@@ -387,6 +398,9 @@ func TestGitLabMacOSVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T) {
 	slices.Sort(macos)
 	if want := []string{"accepted-ref-parity", "native-darwin", "native-darwin-review", "release-version"}; !slices.Equal(macos, want) {
 		t.Fatalf("macOS GitLab jobs = %v, want %v", macos, want)
+	}
+	if len(steps) != 1 {
+		t.Fatalf("macOS GitLab jobs carry %d different Mise preflights, want one", len(steps))
 	}
 }
 

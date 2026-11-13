@@ -349,19 +349,26 @@ windowsMiseJobDirectory:   "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \
 // keep the host's shared Homebrew Mise.
 miseMacosArm64ExecutableSHA256: "0f7cb85b5c17208cb67088105bd1754c38314cb824cc97d109631b6df638f6fc"
 miseMacosArm64Directory:        "/opt/mise-aigw-cli/bin"
-// GitLab's macOS jobs verify that Mise before any locked tool runs and put it
-// first on PATH for the rest of the job.
+// GitLab's macOS jobs verify that Mise before any locked tool runs and make
+// the word `mise` run it for the rest of the job: first on PATH, and without
+// the shell function that a login profile's `mise activate` defines, which
+// would call the host's shared Mise by its absolute path.
 macosRunnerMise: #"""
 	set -eu
 	mise='\#(miseMacosArm64Directory)/mise'
 	if [ ! -x "$mise" ]; then printf '%s\n' 'Runner-owned Mise is missing.' >&2; exit 1; fi
 	digest="$(shasum -a 256 "$mise")"
 	if [ "${digest%% *}" != '\#(miseMacosArm64ExecutableSHA256)' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
-	case "$("$mise" --version)" in
+	mise_version="$("$mise" --version)"
+	case "$mise_version" in
 	  '\#(miseVersion) '*) ;;
 	  *) printf '%s\n' 'Runner-owned Mise version differs from the admitted release.' >&2; exit 1 ;;
 	esac
 	export PATH="\#(miseMacosArm64Directory):$PATH"
+	unset -f mise 2>/dev/null || :
+	hash -r 2>/dev/null || :
+	if [ "$(command -v mise)" != "$mise" ]; then printf '%s\n' 'The word mise does not run the runner-owned Mise.' >&2; exit 1; fi
+	printf '%s\n' "Runner-owned Mise verified: $mise_version"
 	"""#
 
 // Official native clients for real-client acceptance, pinned once. Each GitHub

@@ -80,8 +80,9 @@ registry.
 
 Array order is display order: the file lists DMXAPI, UCloud, then AIHubMix, and
 within each provider the Claude series order is Fable, Opus, Sonnet, Haiku and
-the GPT order is Astra, Sol, Terra, Luna. Only qualified Claude 5.5+ and GPT
-6.1+ identities appear. Missing successors are not invented. A capability,
+the GPT order is Astra, Sol, Terra, Luna. Only identities that passed
+qualification appear, the newest of each line. Missing successors are not
+invented. A capability,
 such as `tool_search`, sits in the model's `protocols`. Changing a protocol's
 endpoint with `aigw provider edit --endpoint` clears the capability, because
 it was qualified on the old endpoint.

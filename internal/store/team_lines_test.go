@@ -13,11 +13,17 @@ func TestTeamManifestKeepsOneFamilyPerCuratedLine(t *testing.T) {
 	// The owner's rule of 2026-11-13: each Anthropic, OpenAI and Google product
 	// line keeps only its newest model, so a successor such as GPT-6.2 Astra
 	// replaces GPT-6 Astra instead of joining it.
-	line := regexp.MustCompile(`^(?:(claude)-([a-z]+)-\d|(gpt)-[\d.]+-([a-z]+)$|(gemini)-[\d.]+-([a-z]+)$)`)
+	// A family of those vendors that names no line fails too: skipping it would
+	// let gpt-7, or a dated gpt-6.2-astra-1120, stand beside the line it replaces.
+	line := regexp.MustCompile(`^(?:(claude)-([a-z]+)-\d|(gpt)-\d[\d.]*-([a-z]+)(?:-|$)|(gemini)-\d[\d.]*-([a-z]+)(?:-|$))`)
+	curated := regexp.MustCompile(`^(?:claude|gpt|gemini)-`)
 	lines := map[string]string{}
 	for family := range manifest.Families {
 		match := line.FindStringSubmatch(family)
 		if match == nil {
+			if curated.MatchString(family) {
+				t.Errorf("family %s of a curated vendor names no product line", family)
+			}
 			continue
 		}
 		key := match[1] + match[3] + match[5] + "/" + match[2] + match[4] + match[6]

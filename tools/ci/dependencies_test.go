@@ -122,7 +122,8 @@ func TestRenovateReadsOnlyReleaseTagsOfHermes(t *testing.T) {
 	defer cancel()
 	// Hermes tags canary builds as vX.Y.Z+canary.<time>. Semver coercion drops
 	// that build metadata, so on 2026-11-13 the candidate calculation offered a
-	// canary tag as the release v0.23.1. The rule must parse release tags only.
+	// canary tag as the release v0.23.1. The rule must parse release tags only,
+	// which also excludes the publisher's calendar tags.
 	code := renovatePolicy + `
 const rule = policy.customManagers.find(
   ({ depNameTemplate }) => depNameTemplate === "NousResearch/hermes-agent",
@@ -134,7 +135,7 @@ const release = new RegExp(versioning.slice("regex:".length));
 for (const tag of ["v0.23.0", "v0.23.1", "v1.0.0"]) {
   assert.match(tag, release, tag);
 }
-for (const tag of ["v0.23.1+canary.20261110T064422Z", "v0.24.0-rc.1", "0.23.1", "v0.23"]) {
+for (const tag of ["v0.23.1+canary.20261110T064422Z", "v0.24.0-rc.1", "0.23.1", "v0.23", "v2026.9.24"]) {
   assert.doesNotMatch(tag, release, tag);
 }
 `

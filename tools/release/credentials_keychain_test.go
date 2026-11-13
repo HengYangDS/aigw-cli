@@ -24,9 +24,14 @@ func requireUnoccupiedLegacyKeychainSlot(t *testing.T, account, keychain string)
 	})
 }
 
+// keychainFixtureTimeout bounds this file's own /usr/bin/security calls. It
+// stops only a hang: a shared CI host can take longer than five seconds to
+// create a keychain, as GitLab job 69467 did on 2026-11-13.
+const keychainFixtureTimeout = 30 * time.Second
+
 func legacyKeychainSlot(t *testing.T, operation, account, keychain string) bool {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), keychainFixtureTimeout)
 	defer cancel()
 	args := []string{operation, "-s", secret.Service, "-a", account}
 	if keychain != "" {
@@ -68,7 +73,7 @@ func TestLegacyKeychainSlotCleanupAfterEarlyExit(t *testing.T) {
 
 func runPrivateKeychainCommand(t *testing.T, args ...string) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), keychainFixtureTimeout)
 	defer cancel()
 	if output, err := exec.CommandContext(ctx, "/usr/bin/security", args...).CombinedOutput(); err != nil {
 		t.Fatalf("private Keychain fixture command %q failed: %v; %s", args[0], err, output)

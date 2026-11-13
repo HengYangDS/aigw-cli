@@ -137,12 +137,12 @@ jobs = [
   "accepted-ref-parity",
   "release-version",
 ]
-sha256 = "61b2b2ecd4d107a8f33533d6cf7676e161ba8769e1b6ce3c0cbd2b0a12e90b46"
+sha256 = "b25f3fced0c9231dde347f7a085df38849a0ad5cd6aa7fa6bdd9bec3df11db4c"
 class = "operating-system-glue"
 owner = "CI pipeline model (.config/ci/pipeline.cue macosRunnerMise)"
-reason = "Before any locked tool runs, the job shell verifies the digest and version of AIGW's runner-owned Mise beside the macOS host's shared Homebrew Mise and puts it first on PATH; Mise cannot verify the executable that runs it."
+reason = "Before any locked tool runs, the job shell verifies the digest and version of AIGW's runner-owned Mise beside the macOS host's shared Homebrew Mise, puts it first on PATH, removes a profile's `mise` shell function and prints the verified release; Mise cannot verify the executable that runs it."
 platforms = ["darwin"]
-evidence = "The GitLab review pipeline of the lane that adds it runs this text first in native-darwin-review; native-darwin, accepted-ref-parity and release-version share the same CUE value"
+evidence = "A macOS test runs this text against a stand-in executable, and the GitLab review pipeline of the lane that changes it runs it first in native-darwin-review; native-darwin, accepted-ref-parity and release-version share the same CUE value"
 
 [[step]]
 file = ".gitlab-ci.yml"
