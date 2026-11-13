@@ -375,8 +375,8 @@ macosRunnerMise: #"""
 // native job installs the clients its host declares; a GitLab public input
 // carries the reviewed Windows supplier archive built from the same releases.
 nativeClients: {
-	codex:  "0.167.0"
-	claude: "2.1.319"
+	codex:  "0.169.0"
+	claude: "2.1.325"
 	// The Hermes release commit with its tag, and the SHA-256 of that
 	// release's scripts/install.sh.
 	hermes: {

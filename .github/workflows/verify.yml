@@ -296,7 +296,7 @@ jobs:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
-        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.167.0 --claude 2.1.319 --hermes-commit 3b421578588243f920886e6fe79a6faa87ea026e --hermes-installer-sha256 abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209
+        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.169.0 --claude 2.1.325 --hermes-commit 3b421578588243f920886e6fe79a6faa87ea026e --hermes-installer-sha256 abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209
         timeout-minutes: 20
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
@@ -436,7 +436,7 @@ jobs:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
-        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.167.0 --claude 2.1.319 --hermes-commit 3b421578588243f920886e6fe79a6faa87ea026e --hermes-installer-sha256 abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209
+        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.169.0 --claude 2.1.325 --hermes-commit 3b421578588243f920886e6fe79a6faa87ea026e --hermes-installer-sha256 abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209
         timeout-minutes: 20
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
@@ -566,7 +566,7 @@ jobs:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
-        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$env:RUNNER_TEMP" --github-env "$env:GITHUB_ENV" --codex 0.167.0 --claude 2.1.319
+        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$env:RUNNER_TEMP" --github-env "$env:GITHUB_ENV" --codex 0.169.0 --claude 2.1.325
         timeout-minutes: 12
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)

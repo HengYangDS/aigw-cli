@@ -6,12 +6,12 @@
     "@mermaid-lint/core": "0.53.1",
     "js-yaml": "5.5.0",
     "markdownlint": "0.42.1",
-    "prettier": "3.9.10"
+    "prettier": "3.10.1"
   },
   "overrides": {
     "@mermaid-lint/core": {
       "jsdom": {
-        ".": "31.0.0"
+        ".": "31.0.1"
       }
     },
     "katex": "0.19.1"
