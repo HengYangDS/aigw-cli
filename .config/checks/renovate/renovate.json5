@@ -24,8 +24,9 @@
   semanticCommitType: "build",
   semanticCommitScope: "deps",
 
-  // Three days covers npm's initial unpublish window. Security fixes bypass
-  // the age delay, not signatures, current-commit tests, or Change admission.
+  // Three days covers npm's initial unpublish window; every other source
+  // waits one day in the rules below. Security fixes bypass the age delay,
+  // not signatures, current-commit tests, or Change admission.
   ignoreUnstable: true,
   minimumReleaseAge: "3 days",
   minimumReleaseAgeBehaviour: "timestamp-required",
@@ -53,15 +54,18 @@
   platformAutomerge: false,
   packageRules: [
     {
-      // Other ecosystems have immutable checksums or digest-pinned artifacts;
-      // their current stable release still needs its own admission evidence.
+      // Other ecosystems have immutable checksums or digest-pinned artifacts.
+      // That proves which release it is, not that it is sound, so each still
+      // waits one day and needs its own admission evidence.
       matchManagers: ["gomod", "mise"],
-      minimumReleaseAge: "0 days",
+      minimumReleaseAge: "1 day",
     },
     {
+      // A registry that publishes no release time leaves its release held; a
+      // refresh dates it by the publisher's release record.
       matchManagers: ["custom.regex"],
       matchDatasources: ["github-tags", "docker"],
-      minimumReleaseAge: "0 days",
+      minimumReleaseAge: "1 day",
     },
     {
       matchManagers: ["gomod", "mise"],

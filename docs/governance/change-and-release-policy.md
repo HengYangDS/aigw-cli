@@ -54,6 +54,10 @@ Its [native mise manager](https://docs.renovatebot.com/modules/manager/mise/) an
 excludes disposable snapshots. Declarative extractors read authored Actions,
 images and exact npm client pins in CUE, not generated peer workflows. Native
 client proposals retain npm's three-day release age and deliberate admission.
+Every other release, such as a Go module, a Mise tool, an Action or an image,
+waits one day; only a security fix skips the age. A registry that publishes no
+release time leaves its release held until the publisher's release record
+dates it.
 `min_version` is a reader floor, not the executed
 Mise pin; the CUE image owns the latter. Dependabot cannot cover this mise graph
 and would introduce competing proposals.

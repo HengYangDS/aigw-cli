@@ -210,6 +210,48 @@ assert.equal(field(maintenance, "minimumReleaseAge"), undefined, "lock maintenan
 	}
 }
 
+func TestRenovateHoldsEveryReleaseForADay(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	// The owner's floor of 2026-11-13: no release is taken before it is one day
+	// old, npm keeps three days, and only a security fix skips the age. Every
+	// age in the policy is read, so a new rule below one day fails here.
+	code := `
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { parsers } from "prettier/plugins/babel";
+const { node } = await parsers.json5.parse(
+  await readFile(".config/checks/renovate/renovate.json5", "utf8"), {},
+);
+const ages = [];
+const walk = (value, path) => {
+  if (value?.type === "ObjectExpression") {
+    for (const { key, value: inner } of value.properties) {
+      const name = key.name ?? key.value;
+      if (name === "minimumReleaseAge") ages.push(path + "=" + inner.value);
+      else if (name === "minimumReleaseAgeBehaviour") ages.push(path + "!" + inner.value);
+      else walk(inner, path + "/" + name);
+    }
+  } else if (value?.type === "ArrayExpression") {
+    for (const inner of value.elements) walk(inner, path + "[]");
+  }
+};
+walk(node, "");
+assert.deepEqual(ages.sort(), [
+  "!timestamp-required",
+  "/packageRules[]=1 day",
+  "/packageRules[]=1 day",
+  "/vulnerabilityAlerts=0 days",
+  "=3 days",
+]);
+`
+	call := exec.CommandContext(ctx, "node", "--input-type=module", "-e", code)
+	call.Dir = repositoryRoot(t)
+	if output, err := call.CombinedOutput(); err != nil {
+		t.Fatalf("Renovate release ages: %v\n%s", err, output)
+	}
+}
+
 func TestNPMDependencyGraphHasNoDeprecatedPackages(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), "package-lock.json"))
 	if err != nil {
