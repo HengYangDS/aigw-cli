@@ -23,8 +23,10 @@ Releases, and the history rebuild retires them.
 
 The fold appends each candidate's items, newest candidate first, to the 0.1.0 section's category of the same name,
 after 0.1.0's own items. Keep a Changelog keeps a version's changes together, and the 0.1.0 release shipped every
-candidate's change. One sentence under the heading names the candidates. Rejected: a separate prose block per
-candidate, which keeps 51 headings in another form; and dropping the candidate items, which loses history.
+candidate's change. The section carries no note naming the candidates, because ETHOS's changelog grammar refuses
+prose outside a category (`release_changelog_content_uncategorized`); this Change and its commit name them.
+Rejected: a separate prose block per candidate, which keeps 51 headings in another form; and dropping the candidate
+items, which loses history.
 
 ### Restate parity in the direction the gate enforces
 

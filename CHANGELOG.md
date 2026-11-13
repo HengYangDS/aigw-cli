@@ -1028,8 +1028,6 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
 
 ## [0.1.0] - 2026-09-19
 
-This section also records the changes of the 0.1.0 release candidates, rc.58 to rc.118, newest first.
-
 ### Added
 
 - Prepare macOS distribution with Developer ID signing, resumable native
