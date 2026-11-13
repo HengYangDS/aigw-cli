@@ -10,10 +10,12 @@ official clients, and the evidence that binds each to its lock.
 ### Requirement: Latest stable repository-owned supply chain
 
 AIGW SHALL lock current stable Go, tool, Action, and release dependencies
-through one repository-owned authority for each ecosystem. The declared Go
-toolchain and resolver SHALL own transitive closure; local verification and both
-Forge projections SHALL consume those declarations rather than duplicate version
-literals or compatibility fallbacks.
+through one repository-owned authority for each ecosystem. The dependency
+policy SHALL declare one minimum release age, in hours, for every source; only a
+security fix skips it. The declared Go toolchain and resolver SHALL own
+transitive closure; local verification and both Forge projections SHALL consume
+those declarations rather than duplicate version literals or compatibility
+fallbacks.
 
 #### Scenario: A stable transitive update is available
 
@@ -114,10 +116,28 @@ literals or compatibility fallbacks.
   cannot replace a published artifact under the same identity, such as a Go
   module in the checksum database, a Mise tool locked by checksum, a container
   image pinned by digest or an Action pinned by commit
-- **THEN** the refresh SHALL take it without the minimum release age, which
-  covers registries that can still unpublish or replace a release, such as npm
+- **THEN** the refresh SHALL hold it for the declared minimum release age, as
+  it holds a release from a registry that can still unpublish one, such as npm
 - **AND** the lock SHALL bind the checksum, digest or commit that its publisher
   serves.
+
+#### Scenario: The minimum release age changes
+
+- **WHEN** the minimum release age is raised or lowered
+- **THEN** one value of the dependency policy SHALL change, written as a whole
+  number of hours, and every source SHALL follow it
+- **AND** the repository's dependency checks SHALL fail while another rule
+  declares an age of its own, or while a security fix does not skip the age.
+
+#### Scenario: A registry publishes no release time
+
+- **WHEN** the minimum release age is above zero and the registry of a pinned
+  image publishes no time for a newer release, such as a container registry
+  outside Docker Hub
+- **THEN** the candidate calculation SHALL hold that release rather than report
+  it as an update
+- **AND** the refresh SHALL take it only after its publisher's own release
+  record shows that it is past the age.
 
 #### Scenario: A stable release breaks a declared resolution mode
 
