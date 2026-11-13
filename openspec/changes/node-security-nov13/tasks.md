@@ -11,8 +11,10 @@
 - [x] 1.3 Advance `charm.land/lipgloss/v2` to 2.1.0, `golang.org/x/crypto` to
       0.59.0 and `golang.org/x/term` to 0.48.0; `go mod tidy` leaves no
       difference.
-- [ ] 1.4 Advance markdownlint to 0.42.1 and the jsdom override to 31.0.0;
-      `npm ci` succeeds, and the Markdown and Mermaid gates pass.
+- [x] 1.4 Advance markdownlint to 0.42.1 and the jsdom override to 31.0.0;
+      `npm ci` succeeds, and the Markdown and Mermaid gates pass. Done in
+      `4cc29c6b`: the check runs both gates, and each Forge's quality job
+      installs the lock with `npm ci`.
 - [x] 1.5 Advance mise-action to 5.2.8 and Hermes to v0.23.1 in the CUE
       authority; `go run ./tools/ci project --check` reports no drift.
 - [x] 1.6 Advance the Renovate image to 44.236.5, pinned to its index digest,
@@ -26,6 +28,7 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` and `mise run dependencies:check` pass on the lane
-      head.
-- [ ] 2.2 The hosted graph passes at the proposal head.
+- [x] 2.1 `mise run check` and `mise run dependencies:check` pass on the lane
+      head (`4cc29c6b`, statement coverage 95.55%).
+- [x] 2.2 The hosted graph passes at the proposal head (`4cc29c6b`: GitLab
+      MR !191 pipeline 15247, GitHub PR 257 run 43352688345).
