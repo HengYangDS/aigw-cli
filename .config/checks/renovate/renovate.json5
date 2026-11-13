@@ -24,18 +24,22 @@
   semanticCommitType: "build",
   semanticCommitScope: "deps",
 
-  // Three days covers npm's initial unpublish window; every other source
-  // waits one day in the rules below. Security fixes bypass the age delay,
-  // not signatures, current-commit tests, or Change admission.
   ignoreUnstable: true,
-  minimumReleaseAge: "3 days",
+  // The repository's release age, declared once and in hours: how old a
+  // stable release must be before a proposal takes it, whatever its source.
+  // Zero takes it at publication. To hold releases longer, change this one
+  // value; no rule below declares an age of its own. With an age above zero,
+  // a release whose registry publishes no time stays held.
+  minimumReleaseAge: "0 hours",
   minimumReleaseAgeBehaviour: "timestamp-required",
   internalChecksFilter: "strict",
   prCreation: "immediate",
   rangeStrategy: "pin",
   osvVulnerabilityAlerts: true,
+  // Security fixes skip the release age, not signatures, current-commit
+  // tests, or Change admission.
   vulnerabilityAlerts: {
-    minimumReleaseAge: "0 days",
+    minimumReleaseAge: "0 hours",
     groupName: null,
     automerge: false,
     vulnerabilityFixStrategy: "highest",
@@ -53,20 +57,6 @@
   automergeStrategy: "fast-forward",
   platformAutomerge: false,
   packageRules: [
-    {
-      // Other ecosystems have immutable checksums or digest-pinned artifacts.
-      // That proves which release it is, not that it is sound, so each still
-      // waits one day and needs its own admission evidence.
-      matchManagers: ["gomod", "mise"],
-      minimumReleaseAge: "1 day",
-    },
-    {
-      // A registry that publishes no release time leaves its release held; a
-      // refresh dates it by the publisher's release record.
-      matchManagers: ["custom.regex"],
-      matchDatasources: ["github-tags", "docker"],
-      minimumReleaseAge: "1 day",
-    },
     {
       matchManagers: ["gomod", "mise"],
       matchDepNames: ["go"],

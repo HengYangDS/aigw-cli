@@ -211,12 +211,13 @@ assert.equal(field(maintenance, "minimumReleaseAge"), undefined, "lock maintenan
 	}
 }
 
-func TestRenovateHoldsEveryReleaseForADay(t *testing.T) {
+func TestRenovateDeclaresTheReleaseAgeOnce(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
-	// The owner's floor of 2026-11-13: no release is taken before it is one day
-	// old, npm keeps three days, and only a security fix skips the age. Every
-	// age in the policy is read, so a new rule below one day fails here.
+	// The owner's setting of 2026-11-13: the release age is one value in hours
+	// that a later change edits in one place. This reads where the policy
+	// declares an age and in which unit, never how long the age is. Only the
+	// security-fix rule names an age of its own, and that one is always zero.
 	code := `
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -224,32 +225,34 @@ import { parsers } from "prettier/plugins/babel";
 const { node } = await parsers.json5.parse(
   await readFile(".config/checks/renovate/renovate.json5", "utf8"), {},
 );
-const ages = [];
+const ages = new Map();
 const walk = (value, path) => {
   if (value?.type === "ObjectExpression") {
     for (const { key, value: inner } of value.properties) {
       const name = key.name ?? key.value;
-      if (name === "minimumReleaseAge") ages.push(path + "=" + inner.value);
-      else if (name === "minimumReleaseAgeBehaviour") ages.push(path + "!" + inner.value);
-      else walk(inner, path + "/" + name);
+      if (name.startsWith("minimumReleaseAge")) {
+        assert.ok(!ages.has(path + "/" + name), "an age is declared twice at " + path);
+        ages.set(path + "/" + name, inner.value);
+      } else walk(inner, path + "/" + name);
     }
   } else if (value?.type === "ArrayExpression") {
     for (const inner of value.elements) walk(inner, path + "[]");
   }
 };
 walk(node, "");
-assert.deepEqual(ages.sort(), [
-  "!timestamp-required",
-  "/packageRules[]=1 day",
-  "/packageRules[]=1 day",
-  "/vulnerabilityAlerts=0 days",
-  "=3 days",
-]);
+assert.deepEqual([...ages.keys()].sort(), [
+  "/minimumReleaseAge",
+  "/minimumReleaseAgeBehaviour",
+  "/vulnerabilityAlerts/minimumReleaseAge",
+], "the root declares the release age, and only security fixes may skip it");
+assert.match(ages.get("/minimumReleaseAge"), /^(0|[1-9]\d*) hours$/, "the release age is a whole number of hours");
+assert.equal(ages.get("/vulnerabilityAlerts/minimumReleaseAge"), "0 hours", "a security fix skips the release age");
+assert.equal(ages.get("/minimumReleaseAgeBehaviour"), "timestamp-required", "an age above zero holds a release without a publish time");
 `
 	call := exec.CommandContext(ctx, "node", "--input-type=module", "-e", code)
 	call.Dir = repositoryRoot(t)
 	if output, err := call.CombinedOutput(); err != nil {
-		t.Fatalf("Renovate release ages: %v\n%s", err, output)
+		t.Fatalf("Renovate release age: %v\n%s", err, output)
 	}
 }
 

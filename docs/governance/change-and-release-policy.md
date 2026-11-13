@@ -53,11 +53,12 @@ belongs in the [Decision Record navigation](../decisions/README.md).
 Its [native mise manager](https://docs.renovatebot.com/modules/manager/mise/) and Go/npm managers read authored manifests and locks; [`includePaths`](https://docs.renovatebot.com/configuration-options/#includepaths)
 excludes disposable snapshots. Declarative extractors read authored Actions,
 images and exact npm client pins in CUE, not generated peer workflows. Native
-client proposals retain npm's three-day release age and deliberate admission.
-Every other release, such as a Go module, a Mise tool, an Action or an image,
-waits one day; only a security fix skips the age. A registry that publishes no
-release time leaves its release held until the publisher's release record
-dates it.
+client proposals keep deliberate admission.
+The policy declares the repository's release age once, in hours, for every
+source; it is zero today, so a stable release may be taken at publication, and
+one value raises it. Only a security fix skips the age. With an age above zero,
+a registry that publishes no release time leaves its release held until the
+publisher's release record dates it.
 `min_version` is a reader floor, not the executed
 Mise pin; the CUE image owns the latter. Dependabot cannot cover this mise graph
 and would introduce competing proposals.
@@ -101,7 +102,7 @@ altered selected copies fail.
 Native upstream bootstrap and peer-isolated cold acquisition are separate
 claims; local inventory cannot establish either hosted result.
 
-Normal proposals wait three days; absent publication times are not guessed.
+Normal proposals wait the declared release age; absent publication times are not guessed.
 Group Go and tools separately. Only non-major updates of stable dependencies may
 auto-merge; toolchains, Actions, images, pre-1.0 and major versions need deliberate
 admission. Security fixes bypass age/quota, not signing or quality. Renovate's

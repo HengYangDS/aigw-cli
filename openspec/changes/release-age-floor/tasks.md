@@ -1,20 +1,17 @@
 ## 1. Rule
 
-- [ ] 1.1 Set the two zero-age package rules of the dependency policy to one day and add
-      `TestRenovateHoldsEveryReleaseForADay`; the test fails on the old policy and passes on the new one, and
+- [ ] 1.1 Declare the release age once at the root of the dependency policy, as `0 hours`, remove the package
+      rules that only carried an age, and add `TestRenovateDeclaresTheReleaseAgeOnce`; the test fails for an age
+      in days, for a rule with its own age and for a security-fix age above zero, passes for `24 hours`, and
       `mise run dependencies:check` accepts the policy.
-- [ ] 1.2 State the one-day floor and the registry without release times in the `supply-chain` requirement and in
-      the dependency section of the change and release policy; strict OpenSpec validation of the Change passes.
+- [ ] 1.2 State the declared release age and the registry without release times in the `supply-chain` requirement
+      and in the dependency section of the change and release policy; strict OpenSpec validation of the Change
+      passes.
 
-## 2. Supply under the rule
+## 2. Supply
 
 - [ ] 2.1 Remove the re2js override that markdownlint 0.42.1 made unnecessary; the lock still resolves re2js to
       the release markdownlint requires, and the npm audit of the lock stays clean.
-- [ ] 2.2 Run the candidate calculation with the new policy and record its result: it admits `go.yaml.in/yaml`
-      v4.0.0 (a major with a new import path) and Claude Code 2.1.322 (it moves with Codex in one Windows supplier
-      archive), and holds Codex 0.169.0, jsdom 31.0.1, Prettier 3.10.1 and both tool images by age. Each needs its
-      own admission in the refresh of 2026-11-14 to 2026-11-16; the npm lock refresh waits for OpenSpec 2.0.0 to
-      pass three days at 2026-11-14T22:46Z.
 
 ## 3. Verification
 
