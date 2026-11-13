@@ -1028,6 +1028,8 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
 
 ## [0.1.0] - 2026-09-19
 
+This section also records the changes of the 0.1.0 release candidates, rc.58 to rc.118, newest first.
+
 ### Added
 
 - Prepare macOS distribution with Developer ID signing, resumable native
@@ -1035,6 +1037,80 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
   both final executable architectures.
 - Generate a Homebrew Cask from the release archive inventory without changing
   the signed executable or configuring clients during installation.
+- Test one explicit endpoint using an ephemeral stdin Token and an absolute
+  configuration path, without reading or changing stored credentials.
+- Decode the current macOS go-keyring storage envelope only when explicitly
+  selected for that endpoint test; raw input remains literal.
+- Inspect the installed program and retained rollback copy with
+  `aigw installation`, including paths, versions, sizes and SHA-256 digests.
+- Retain team recommendations separately from selected client Routes so a
+  compatible Account or client can become available after setup.
+- Verify published artifact bytes through the existing native lifecycle,
+  including the shipped team manifest and real Codex and Claude clients.
+- Verify a selected Codex route through the configured Codex executable and
+  report the measured client identity without persisting a session.
+- Verify the effective Codex model catalog through the installed client's
+  public model inspection command, with exact client and catalog identity.
+- Preview every configured Claude Code and Codex projection in
+  `aigw sync --dry-run --json`, without credentials, client restart, or target
+  mutation.
+- Protect the Windows fallback Token store with current-user DPAPI while
+  retaining native keyring discovery and the explicit read-only environment
+  backend.
+- Allow a Codex-scoped Profile to select one explicit native
+  `model_provider`, projected transactionally with command-backed AIGW Token
+  retrieval while preserving the canonical `aigw` default.
+- Persist Account Tokens in an owner-only local store on macOS or Linux when
+  the native credential service is unavailable, while keeping Windows
+  Credential Manager as the native default and environment Tokens read-only.
+- Support progressive team setup: import the credential-free catalogue first,
+  activate any available provider independently, and adopt Claude Code or Codex
+  later through synchronization without re-importing the manifest.
+- Exercise the complete isolated setup, projection, diagnostics, installation,
+  and removal journey on native macOS, Linux, and Windows, including each
+  platform's system credential store.
+- Project provider-prefixed Codex model metadata from the installed client's
+  complete bundled catalog, with exact client identity binding and a real-client
+  verification command that makes no model request.
+- Add Claude Fable 5, Opus 5, Sonnet 5 and GPT-5.6 Luna, Sol, Terra UCloud
+  profiles to the ready-to-use team manifest, including UCloud's
+  Anthropic-compatible endpoint.
+- Add the regular DMXAPI Claude Opus 5 profile alongside its CC and SSVIP
+  variants.
+- Make DMXAPI Claude Opus 5 the recommended Claude route while retaining
+  DMXAPI GPT-5.6 Terra as the default Codex route.
+- Add a repository-wide Go statement-coverage gate that tests every package
+  under `./...` and requires both every package and the aggregate to remain
+  strictly above 95 percent.
+- Add blocking native Linux and Windows verification alongside the existing
+  macOS release runners, with Windows acceptance enforced on GitHub.
+- Add first-time `aigw setup --from <team-profiles.toml>` for token-free team
+  manifest v3, including reviewed route recommendations, per-Account hidden
+  Token prompts, real Claude-client validation when discoverable, strict Codex
+  endpoint probes, and bounded rollback.
+- Add an offline forge synchronization contract that requires exact canonical
+  commit identity on GitLab and complete ordered source-tree history in the
+  identity-rewritten GitHub projection.
+- Add `aigw profile rename [old] [new]` and `aigw account rename [old] [new]` commands with support for interactive selection, scripting-friendly arguments, and a safe two-phase account credential migration.
+- Add `aigw repair --dry-run [--json]` as a secret-free, lock-free preview for
+  restoring legacy JetBrains target membership while retaining the standalone
+  Codex target.
+- Add host-specific Codex surface classification and `aigw route doctor` for
+  local, secret-free ownership diagnostics. The doctor distinguishes ordinary
+  standalone Codex CLI, PyCharm Codex, JetBrains Air, and Junie CLI without
+  executing a client or probing a provider.
+- Add explicit `aigw route fallback air` and `aigw route restore air` commands
+  with secret-free dry runs and required `--confirm-host-idle` attestation for
+  any mutation.
+- Split the self-update implementation into focused coordinator, candidate, archive, installer, GitLab, and GitHub units without changing the equal-forge update contract.
+- Add the canonical MIT License and align repository, package, and contributor
+  surfaces on the same permissive licensing statement.
+- Add a command-oriented entry path in the CLI and documentation: setup, choose,
+  check, then follow one explicit next action.
+- Add `aigw update --candidate <archive> --checksums <manifest>` for explicit,
+  checksum-first, local-only portable update acceptance.
+- Add a canonical terminal experience contract for task-first navigation,
+  narrow-terminal presentation, and one-action recovery language.
 
 ### Changed
 
@@ -1047,92 +1123,15 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
 - Windows archives do not carry Authenticode signatures. Portable macOS
   executables cannot carry stapled notarization tickets and require online
   ticket discovery on a fresh machine.
-
-## [0.1.0-rc.118] - 2026-09-19
-
-### Changed
-
 - Refresh the locked Go, npm, mise, release, and dependency-automation toolchain
   to the latest stable compatible graph, including Renovate 44.103.1.
 - Use the current GoReleaser archive timestamp contract directly and retain
   reproducible native artifacts without a redundant timestamp rewrite.
-
-## [0.1.0-rc.117] - 2026-09-18
-
-### Changed
-
 - Remove deprecated `whatwg-encoding` from the Mermaid validation graph while
   preserving the established syntax and semantic checks; reject deprecated
   packages in the committed npm graph.
 - Add deterministic, secret-free JSON inventories for Accounts, Profiles and
   per-client Routes while preserving the existing human-readable views.
-
-### Fixed
-
-- Verify an explicitly named Profile through an isolated copy of the current
-  client projection, preserving the selected Route and user configuration while
-  resolving the matching Account Token by projection identity.
-
-## [0.1.0-rc.116] - 2026-09-17
-
-### Fixed
-
-- Preserve explicit host credential executables through synchronization, program
-  updates and client disable/re-enable without changing AIGW's native store.
-- Keep external credential readiness local and require real-client verification
-  instead of a duplicate native Token; suppress unknown credential-bearing
-  diagnostics and reject incompatible program-only rollback before replacement.
-
-## [0.1.0-rc.115] - 2026-09-15
-
-### Fixed
-
-- Keep enabled client integrations throughout a supported program rollback;
-  align command help and rollout guidance with retained-state acceptance instead
-  of requiring an unnecessary disable/re-enable cycle.
-- Prepare the release output parent before reproducibility builds; reject an
-  unusable parent before invoking the builder and preserve existing content.
-
-## [0.1.0-rc.114] - 2026-09-14
-
-### Fixed
-
-- Explain credential-helper failures on stderr while keeping stdout exclusively
-  for credential delivery; redact raw backend and initialization errors.
-- Preserve stale-projection rejection before any Account Token access and
-  provide explicit configuration synchronization and reload guidance.
-- Link shared documentation to tracked repository owners and primary sources;
-  reject local link targets that exist only in an author's working environment.
-
-## [0.1.0-rc.113] - 2026-09-14
-
-### Added
-
-- Test one explicit endpoint using an ephemeral stdin Token and an absolute
-  configuration path, without reading or changing stored credentials.
-- Decode the current macOS go-keyring storage envelope only when explicitly
-  selected for that endpoint test; raw input remains literal.
-
-### Fixed
-
-- Consume Token input through EOF and reject malformed or oversized input
-  instead of silently accepting a first line or trimming secret bytes.
-- Distinguish endpoint HTTP observation from model inference and native-client
-  verification in connectivity-test output.
-
-## [0.1.0-rc.112] - 2026-09-14
-
-### Added
-
-- Inspect the installed program and retained rollback copy with
-  `aigw installation`, including paths, versions, sizes and SHA-256 digests.
-- Retain team recommendations separately from selected client Routes so a
-  compatible Account or client can become available after setup.
-- Verify published artifact bytes through the existing native lifecycle,
-  including the shipped team manifest and real Codex and Claude clients.
-
-### Changed
-
 - Keep one explicit Route per client. Setup and synchronization preserve user
   choices and fill only unselected clients from usable Account capabilities.
 - Align JSON results, errors, help and recovery actions with the same observable
@@ -1143,9 +1142,141 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
   OpenSpec Change tracks pending publication and installation before final archive.
 - Generate both Forge pipelines from one CUE source while retaining native
   platform qualification and independent, exact-object publication.
+- Define the stable extension boundary for provider Accounts, client adapters,
+  and optional external Responses services without coupling AIGW to a proxy.
+- Make each client Route the sole Profile-selection authority; connectivity
+  commands now reject redundant profile/client selectors instead of reconciling
+  parallel intent.
+- Prove install, update, rollback, forward recovery, and uninstall through the
+  shipped executable on macOS, Linux, and Windows while retaining user state.
+- Reduce the locked Go module graph to its current, consumed dependency closure.
+- Make each admitted client select exactly one compatible Profile through its
+  own explicit Route, so Claude Code and Codex can be configured independently
+  without a global default or cross-client inheritance.
+- Make `aigw check` validate every enabled client's selected Route while
+  treating a machine with no enabled clients as a healthy deferred-setup
+  state.
+- Upgrade team manifests to schema v4 and local configuration to schema v3,
+  with one deterministic migration at the read boundary rather than parallel
+  legacy behavior.
+- Remove obsolete OpenSpec summaries, scope carriers, and capability shells
+  after their unique product semantics were absorbed by canonical sources.
+- Refresh the locked stable Node, GoReleaser, Syft, editorconfig-checker,
+  file-locking, terminal-component, and static-analysis toolchain.
+- Rebuild the six-platform mise lock and retain only the minimal consumed Go
+  dependency closure.
+- Lock OpenSpec, Prettier, markdownlint, and their complete npm dependency
+  graph with the standard npm lockfile while retaining mise as the sole owner
+  of language runtimes and standalone tools.
+- Upgrade OpenSpec to 1.11.0 and replace archived placeholder purposes with
+  current product semantics.
+- Use one portable, typed credential authority for API Tokens and provider
+  diagnostic credentials across native keyrings, protected files, and the
+  explicit read-only environment backend.
+- Require canonical lowercase Account IDs so every credential slot has one
+  collision-free environment projection.
+- Refresh the locked stable language, specification, CI, build, and
+  supply-chain toolsets while keeping `mise.toml` and `mise.lock` authoritative.
+- Make local Git the only signed commit and tag authority, with GitLab and
+  GitHub as independent peers that receive the exact same product objects.
+- Remove Forge-specific history replay, identity rewriting, tag namespaces,
+  tree-only parity, and duplicate branch-lifecycle commands.
+- Use aggregate statement and branch coverage as the quantitative release veto;
+  keep every package present, executed, and visible with exact diagnostics.
+- Refresh the locked Go module graph to the current stable releases and rerun
+  the complete cross-platform source, coverage, and release proof.
+- Enforce statement and branch coverage strictly above 95 percent for both the
+  complete module and every canonical Go package, using one machine-readable
+  policy and complete raw evidence.
+- Confirm every direct Go dependency is current without pinning unneeded
+  transitive modules, and replace generated OpenSpec purpose placeholders with
+  concise product semantics.
+- Upgrade the Go dependency graph and immutable GitHub Actions revisions to
+  their current stable releases without retaining obsolete versions as
+  compatibility targets.
+- Remove AIGW's JetBrains Air, PyCharm, and Junie discovery, diagnosis,
+  fallback, attestation, and recovery vertical slices. IDE configuration and
+  lifecycle remain entirely with the owning client; AIGW now projects only to
+  configured standalone Codex homes.
+- Make the version 3 configuration manifest the only admitted manifest shape,
+  retain one deliberately fictitious product-format example, and move real
+  provider endpoints, models, and route recommendations to adopter-owned data.
+- Organize client projection, process execution, launcher management, surface
+  identity, release operations, and repository checks under their semantic
+  owners, enforced by the repository architecture gate.
+- Route every Codex Account in the deployment manifest through its own
+  provider-scoped loopback Responses namespace, so switching providers retains
+  one external replay-compatibility path.
+- Replace the DMXAPI Qwen 3.7 Max team profile with a token-free UCloud
+  Account placeholder at its mainland OpenAI-compatible endpoint while
+  preserving all recommended routes.
+- Make GitLab and GitHub commit email and SSH-signature verification
+  mandatory, and change GitHub projection to signed, forward-only commits
+  without a history-rewrite escape.
+- Run the full release matrix on the dedicated macOS arm64 release runner in
+  both forge pipelines, with a byte-for-byte comparison gate for every matrix.
+- Run the full release matrix on the dedicated macOS arm64 release runner in
+  both forge pipelines, with a byte-for-byte comparison gate for every matrix.
+- Require two byte-identical full-matrix builds before either release plane
+  publishes an artifact set.
+- Make host routing explicit: ordinary standalone Codex CLI receives the AIGW
+  full-selection projection; ChatGPT Desktop retains authority over existing
+  conversation model choices and transcripts; PyCharm Codex and Junie CLI stay
+  JetBrains AI surfaces; and Air stays JetBrains AI except for an explicit,
+  non-default fallback.
+- Restrict generic Codex setup and repair discovery to standalone targets. An
+  explicitly staged Air fallback remains reconcilable, but generic commands no
+  longer adopt JetBrains host defaults.
+- Standardize the repository's user-facing commands, diagnostics, examples,
+  documentation, and release metadata on English-only canonical text.
+- Simplify the public documentation set around portable installation, explicit
+  control-plane boundaries, reproducible source-checkout verification, and a
+  clear legal entry point.
+- Record branch closeout as a release-governance requirement: after merge, the
+  source worktree and branch are removed once reachability and cleanliness are
+  proven.
+- Model update endpoints as atomic provider, origin, and repository tuples,
+  with GitLab and GitHub as equal independently verified release peers.
+- Reorganize root help and documentation around Connect, Use every day,
+  Recover, and Advanced paths without changing the existing command grammar.
+- Make human-readable output adapt to narrow terminals without truncating text
+  or changing JSON output.
+
+### Removed
+
+- Remove `aigw use --all`, `aigw use --for`, Route reset, and implicit Profile
+  fallback because they duplicate or contradict explicit client Route
+  authority.
+- Remove the legacy version 2 manifest parser and the Air-specific route,
+  recovery, attestation, and private-ledger command surface.
+- Remove the three DMXAPI GPT-5.6 `-cdx` aliases from the maintained deployment
+  profile matrix; native Luna, Sol, and Terra profiles remain available.
 
 ### Fixed
 
+- Verify an explicitly named Profile through an isolated copy of the current
+  client projection, preserving the selected Route and user configuration while
+  resolving the matching Account Token by projection identity.
+- Preserve explicit host credential executables through synchronization, program
+  updates and client disable/re-enable without changing AIGW's native store.
+- Keep external credential readiness local and require real-client verification
+  instead of a duplicate native Token; suppress unknown credential-bearing
+  diagnostics and reject incompatible program-only rollback before replacement.
+- Keep enabled client integrations throughout a supported program rollback;
+  align command help and rollout guidance with retained-state acceptance instead
+  of requiring an unnecessary disable/re-enable cycle.
+- Prepare the release output parent before reproducibility builds; reject an
+  unusable parent before invoking the builder and preserve existing content.
+- Explain credential-helper failures on stderr while keeping stdout exclusively
+  for credential delivery; redact raw backend and initialization errors.
+- Preserve stale-projection rejection before any Account Token access and
+  provide explicit configuration synchronization and reload guidance.
+- Link shared documentation to tracked repository owners and primary sources;
+  reject local link targets that exist only in an author's working environment.
+- Consume Token input through EOF and reject malformed or oversized input
+  instead of silently accepting a first line or trimming secret bytes.
+- Distinguish endpoint HTTP observation from model inference and native-client
+  verification in connectivity-test output.
 - Permit team setup with no Tokens or clients, and activate compatible clients
   when any usable Account becomes available without requiring every provider.
 - Check each enabled client's projection before reading its Token. Local
@@ -1170,365 +1301,83 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
   exact selected lockfiles. Preserve prior output on construction failure.
 - Enforce observed remote tips even for fast-forward publication and stream the
   complete link inventory through the native cross-platform checker.
-
-## [0.1.0-rc.110] - 2026-09-01
-
-### Added
-
-- Verify a selected Codex route through the configured Codex executable and
-  report the measured client identity without persisting a session.
-
-### Fixed
-
 - Direct setup without an installed supported client to install one and run
   `aigw sync`, while preserving `aigw check` for configured clients.
 - Treat direct provider endpoints and independently operated gateways as
   equivalent Account endpoints without coupling AIGW to proxy lifecycle.
 - Prove that an unavailable Linux Secret Service fails explicitly without
   reading secret values, choosing a fallback backend, or prompting the user.
-
-## [0.1.0-rc.109] - 2026-09-01
-
-### Fixed
-
 - Report credential availability without exposing secret values or treating
   an unavailable credential backend as an absent Account.
-
-## [0.1.0-rc.108] - 2026-08-31
-
-### Fixed
-
 - Present every compatible Account environment variable as an alternative
   during token-free setup, so any one available credential is sufficient.
 - Re-evaluate available Accounts during `aigw sync`, activate compatible
   Routes, and project clients installed after initial setup.
-
-## [0.1.0-rc.107] - 2026-08-31
-
-### Fixed
-
 - Expose machine-readable readiness checks for configured client routes.
 - Keep readiness failures structured and actionable for automation.
-
-## [0.1.0-rc.106] - 2026-08-31
-
-### Fixed
-
 - Converge a newly installed supported client when its Profile is selected,
   without requiring unrelated Accounts or clients.
 - Direct deferred-client setup to `aigw sync`, the command that activates
   clients installed after initial setup.
-
-## [0.1.0-rc.105] - 2026-08-31
-
-### Changed
-
-- Define the stable extension boundary for provider Accounts, client adapters,
-  and optional external Responses services without coupling AIGW to a proxy.
-
-### Fixed
-
 - Make progressive setup actionable when credentials or supported clients are
   intentionally deferred, while keeping `aigw check` a read-only verifier.
-
-## [0.1.0-rc.104] - 2026-08-30
-
-### Changed
-
-- Make each client Route the sole Profile-selection authority; connectivity
-  commands now reject redundant profile/client selectors instead of reconciling
-  parallel intent.
-- Prove install, update, rollback, forward recovery, and uninstall through the
-  shipped executable on macOS, Linux, and Windows while retaining user state.
-- Reduce the locked Go module graph to its current, consumed dependency closure.
-
-## [0.1.0-rc.103] - 2026-08-30
-
-### Fixed
-
 - Derive each Route health request from its client protocol, including the
   protocol-specific model path and authentication headers used by Claude Code
   and Codex.
-
-## [0.1.0-rc.102] - 2026-08-30
-
-### Changed
-
-- Make each admitted client select exactly one compatible Profile through its
-  own explicit Route, so Claude Code and Codex can be configured independently
-  without a global default or cross-client inheritance.
-- Make `aigw check` validate every enabled client's selected Route while
-  treating a machine with no enabled clients as a healthy deferred-setup
-  state.
-- Upgrade team manifests to schema v4 and local configuration to schema v3,
-  with one deterministic migration at the read boundary rather than parallel
-  legacy behavior.
-
-### Removed
-
-- Remove `aigw use --all`, `aigw use --for`, Route reset, and implicit Profile
-  fallback because they duplicate or contradict explicit client Route
-  authority.
-
-## [0.1.0-rc.101] - 2026-08-30
-
-### Fixed
-
 - Make the projected Codex native-provider authentication command resolve the
   selected Route, Account, and Token through the same fail-closed credential
   authority used by Claude Code.
-
-## [0.1.0-rc.100] - 2026-08-30
-
-### Fixed
-
 - Make `aigw check` validate the selected Account Token for every enabled
   admitted-client Route before reporting the client or overall system ready.
-
-## [0.1.0-rc.99] - 2026-08-29
-
-### Changed
-
-- Remove obsolete OpenSpec summaries, scope carriers, and capability shells
-  after their unique product semantics were absorbed by canonical sources.
-
-### Fixed
-
 - Give environment-backed Accounts the exact `AIGW_TOKEN_<ACCOUNT>` recovery
   action across setup, use, diagnostics, verification, and adapters.
 - Reject environment-backed Token rotation before reading input, validating a
   replacement, opening a credential prompt, or attempting persistence.
-
-## [0.1.0-rc.98] - 2026-08-29
-
-### Changed
-
-- Refresh the locked stable Node, GoReleaser, Syft, editorconfig-checker,
-  file-locking, terminal-component, and static-analysis toolchain.
-- Rebuild the six-platform mise lock and retain only the minimal consumed Go
-  dependency closure.
-
-## [0.1.0-rc.97] - 2026-08-29
-
-### Changed
-
-- Lock OpenSpec, Prettier, markdownlint, and their complete npm dependency
-  graph with the standard npm lockfile while retaining mise as the sole owner
-  of language runtimes and standalone tools.
-- Upgrade OpenSpec to 1.11.0 and replace archived placeholder purposes with
-  current product semantics.
-
-### Fixed
-
 - Make clean local, GitHub, and GitLab source verification install identical
   npm tool bytes, verify registry signatures, and avoid ambient command
   fallback on macOS, Linux, and Windows.
-
-## [0.1.0-rc.96] - 2026-08-27
-
-### Added
-
-- Verify the effective Codex model catalog through the installed client's
-  public model inspection command, with exact client and catalog identity.
-
-### Changed
-
-- Use one portable, typed credential authority for API Tokens and provider
-  diagnostic credentials across native keyrings, protected files, and the
-  explicit read-only environment backend.
-- Require canonical lowercase Account IDs so every credential slot has one
-  collision-free environment projection.
-
-### Fixed
-
 - Allow team setup with any available provider, no installed clients, and
   deferred `aigw sync` after Claude Code or Codex is installed.
-
-## [0.1.0-rc.95] - 2026-08-25
-
-### Added
-
-- Preview every configured Claude Code and Codex projection in
-  `aigw sync --dry-run --json`, without credentials, client restart, or target
-  mutation.
-- Protect the Windows fallback Token store with current-user DPAPI while
-  retaining native keyring discovery and the explicit read-only environment
-  backend.
-
-### Fixed
-
 - Preserve each Provider's recommended model when importing a team manifest,
   rather than allowing a later Provider to replace an earlier recommendation.
 - Separate developer review, accepted publication, and protected-ref parity in
   the CUE-owned CI lifecycle, while enforcing canonical CUE formatting before
   projecting GitHub and GitLab workflows.
-
-## [0.1.0-rc.94] - 2026-08-24
-
-### Added
-
-- Allow a Codex-scoped Profile to select one explicit native
-  `model_provider`, projected transactionally with command-backed AIGW Token
-  retrieval while preserving the canonical `aigw` default.
-- Persist Account Tokens in an owner-only local store on macOS or Linux when
-  the native credential service is unavailable, while keeping Windows
-  Credential Manager as the native default and environment Tokens read-only.
-
-### Fixed
-
 - Distinguish Codex configuration projection from native authentication in
   status output, using Codex's public read-only login status and recommending
   the explicit authentication command instead of reporting unproved readiness.
-
-## [0.1.0-rc.93] - 2026-08-23
-
-### Fixed
-
 - Diagnose credentials only for Accounts selected by active client Routes, so
   optional providers in the reviewed team catalogue can remain unconnected.
-
-## [0.1.0-rc.92] - 2026-08-23
-
-### Fixed
-
 - Derive reproducible release timestamps from repository history instead of an
   ambient or duplicated build value.
 - Route hosted evidence by review, accepted-branch, and release lifecycle stage
   so one product revision does not run redundant copies of the same graph.
 - Keep archived OpenSpec chronology and temporary Git policy fixtures isolated
   from host state, hooks, and signing configuration.
-
-## [0.1.0-rc.91] - 2026-08-22
-
-### Added
-
-- Support progressive team setup: import the credential-free catalogue first,
-  activate any available provider independently, and adopt Claude Code or Codex
-  later through synchronization without re-importing the manifest.
-- Exercise the complete isolated setup, projection, diagnostics, installation,
-  and removal journey on native macOS, Linux, and Windows, including each
-  platform's system credential store.
-
-### Changed
-
-- Refresh the locked stable language, specification, CI, build, and
-  supply-chain toolsets while keeping `mise.toml` and `mise.lock` authoritative.
-
-### Fixed
-
 - Execute Windows client shims through their native command boundary.
 - Verify the exact signed product commit in Forge review pipelines and isolate
   release jobs from ambient lifecycle and credential state.
-
-## [0.1.0-rc.90] - 2026-08-21
-
-### Fixed
-
 - Use Claude Code's non-experimental compatibility mode for every AIGW-owned
   invocation, allowing admitted Anthropic-compatible providers to work without
   optional beta support while keeping the setting process-local.
-
-## [0.1.0-rc.89] - 2026-08-19
-
-### Added
-
-- Project provider-prefixed Codex model metadata from the installed client's
-  complete bundled catalog, with exact client identity binding and a real-client
-  verification command that makes no model request.
-
-### Changed
-
-- Make local Git the only signed commit and tag authority, with GitLab and
-  GitHub as independent peers that receive the exact same product objects.
-- Remove Forge-specific history replay, identity rewriting, tag namespaces,
-  tree-only parity, and duplicate branch-lifecycle commands.
-- Use aggregate statement and branch coverage as the quantitative release veto;
-  keep every package present, executed, and visible with exact diagnostics.
-
-### Fixed
-
 - Make Windows and Linux hosted verification use host-native, deterministic
   fixtures without weakening executable-path or publication rejection checks.
 - Keep Windows native acceptance focused on build, execution, installation, and
   uninstallation; aggregate coverage remains a single source-governance gate.
 - Bind Claude Code credential lookup to the installed AIGW executable so GUI
   and service launches do not depend on shell `PATH`.
-
-## [0.1.0-rc.88] - 2026-08-18
-
-### Fixed
-
 - Isolate Forge test repositories from host Git signing and hook configuration
   so native macOS acceptance cannot wait on workstation Keychain state.
-
-## [0.1.0-rc.87] - 2026-08-18
-
-### Fixed
-
 - Align Codex scheduler projection with the current `max_threads` schema,
   retire the conflicting alias without losing user settings, and preserve the
   configured Codex executable during repair and rediscovery.
-
-## [0.1.0-rc.86] - 2026-08-17
-
-### Changed
-
-- Refresh the locked Go module graph to the current stable releases and rerun
-  the complete cross-platform source, coverage, and release proof.
-
-## [0.1.0-rc.85] - 2026-08-17
-
-### Changed
-
-- Enforce statement and branch coverage strictly above 95 percent for both the
-  complete module and every canonical Go package, using one machine-readable
-  policy and complete raw evidence.
-
-## [0.1.0-rc.84] - 2026-08-16
-
-### Fixed
-
 - Normalize archive ownership metadata so independent GitLab and GitHub
   builders produce byte-identical portable release assets from the same source
   tree, epoch, toolchain, and release inputs.
-
-## [0.1.0-rc.83] - 2026-08-16
-
-### Fixed
-
 - Infer the target client from an explicitly selected single-client Profile,
   so `aigw test` and `aigw verify` no longer require a redundant `--for`
   argument. Unscoped Profiles still require an explicit client, and conflicting
   selections fail before network access.
-
-## [0.1.0-rc.82] - 2026-08-15
-
-### Changed
-
-- Confirm every direct Go dependency is current without pinning unneeded
-  transitive modules, and replace generated OpenSpec purpose placeholders with
-  concise product semantics.
-- Upgrade the Go dependency graph and immutable GitHub Actions revisions to
-  their current stable releases without retaining obsolete versions as
-  compatibility targets.
-- Remove AIGW's JetBrains Air, PyCharm, and Junie discovery, diagnosis,
-  fallback, attestation, and recovery vertical slices. IDE configuration and
-  lifecycle remain entirely with the owning client; AIGW now projects only to
-  configured standalone Codex homes.
-- Make the version 3 configuration manifest the only admitted manifest shape,
-  retain one deliberately fictitious product-format example, and move real
-  provider endpoints, models, and route recommendations to adopter-owned data.
-- Organize client projection, process execution, launcher management, surface
-  identity, release operations, and repository checks under their semantic
-  owners, enforced by the repository architecture gate.
-
-### Removed
-
-- Remove the legacy version 2 manifest parser and the Air-specific route,
-  recovery, attestation, and private-ledger command surface.
-
-### Fixed
-
 - Bind the selected GitHub release tag to the release builder's canonical
   `CI_COMMIT_TAG` input, so packaging follows native macOS, Linux, and Windows
   acceptance instead of failing at the publication boundary.
@@ -1558,69 +1407,14 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
   Hermes or future clients require independent Adapter admission.
 - Project Codex's current per-session scheduler keys with a 16-thread limit and
   depth 1, leaving global transport capacity to the selected external service.
-
-## [0.1.0-rc.77] - 2026-07-30
-
-### Changed
-
-- Route every Codex Account in the deployment manifest through its own
-  provider-scoped loopback Responses namespace, so switching providers retains
-  one external replay-compatibility path.
-
-### Removed
-
-- Remove the three DMXAPI GPT-5.6 `-cdx` aliases from the maintained deployment
-  profile matrix; native Luna, Sol, and Terra profiles remain available.
-
-## [0.1.0-rc.76] - 2026-07-30
-
-### Fixed
-
 - Let an Account declare that Codex Responses items require upstream storage,
   and project the bounded Codex provider identity needed to keep multi-turn
   `rs_...` and tool-call items valid with Codex 0.146.
-
-## [0.1.0-rc.75] - 2026-07-30
-
-### Added
-
-- Add Claude Fable 5, Opus 5, Sonnet 5 and GPT-5.6 Luna, Sol, Terra UCloud
-  profiles to the ready-to-use team manifest, including UCloud's
-  Anthropic-compatible endpoint.
-- Add the regular DMXAPI Claude Opus 5 profile alongside its CC and SSVIP
-  variants.
-- Make DMXAPI Claude Opus 5 the recommended Claude route while retaining
-  DMXAPI GPT-5.6 Terra as the default Codex route.
-
-### Fixed
-
 - Prune stale direct GitLab release tags from persistent CI workspaces without
   removing qualified GitHub provenance, and retain removed release chronology
   in the append-only retirement inventory.
 - Align provider-native commit trust anchors with the currently registered
   GitLab and GitHub SSH signing keys.
-
-## [0.1.0-rc.74] - 2026-07-29
-
-### Added
-
-- Add a repository-wide Go statement-coverage gate that tests every package
-  under `./...` and requires both every package and the aggregate to remain
-  strictly above 95 percent.
-- Add blocking native Linux and Windows verification alongside the existing
-  macOS release runners, with Windows acceptance enforced on GitHub.
-
-### Changed
-
-- Replace the DMXAPI Qwen 3.7 Max team profile with a token-free UCloud
-  Account placeholder at its mainland OpenAI-compatible endpoint while
-  preserving all recommended routes.
-- Make GitLab and GitHub commit email and SSH-signature verification
-  mandatory, and change GitHub projection to signed, forward-only commits
-  without a history-rewrite escape.
-
-### Fixed
-
 - Isolate Changelog regression fixtures from an outer tag workflow's selected
   release identity.
 - Pass the selected provider root tag explicitly through GitHub verification
@@ -1633,42 +1427,13 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
   remove timing-dependent Linux and Windows process/file race fixtures.
 - Preserve signed, forward-only GitHub projection for merge branches forked
   from older canonical ancestors, including Keychain-backed signing.
-
-## [0.1.0-rc.71] - 2026-07-27
-
-### Added
-
-- Add first-time `aigw setup --from <team-profiles.toml>` for token-free team
-  manifest v3, including reviewed route recommendations, per-Account hidden
-  Token prompts, real Claude-client validation when discoverable, strict Codex
-  endpoint probes, and bounded rollback.
-- Add an offline forge synchronization contract that requires exact canonical
-  commit identity on GitLab and complete ordered source-tree history in the
-  identity-rewritten GitHub projection.
-
-### Fixed
-
 - Use protocol-specific authentication headers for direct Claude and Codex
   connectivity checks, so Anthropic-compatible endpoints no longer receive an
   OpenAI bearer header.
 - Preserve qualified GitHub provenance tags while refreshing canonical GitLab
   tags, even when global Git fetch pruning is enabled, and record retired GitLab
   `rc.58` chronology so fresh CI checkouts do not depend on workstation refs.
-
-## [0.1.0-rc.70] - 2026-07-24
-
-### Added
-
-- Add `aigw profile rename [old] [new]` and `aigw account rename [old] [new]` commands with support for interactive selection, scripting-friendly arguments, and a safe two-phase account credential migration.
-
-### Fixed
-
 - Remove runtime and static exclusions for specific `gpt-5.6-*-cdx` profile and model IDs; model identity is now constrained only by general format, references, and client protocol capabilities.
-
-## [0.1.0-rc.69] - 2026-07-21
-
-### Fixed
-
 - Disable Go-cache save in self-hosted GitHub verification so a completed gate
   cannot remain in runner cleanup after its visible test steps finish.
 - Remove the temporary GitHub-only release exception inventory after RC.67 and
@@ -1701,11 +1466,6 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
 - Run tracked Staticcheck and Errcheck checks in local and hosted verification,
   so unchecked errors and analysis regressions fail before a release candidate
   is prepared.
-
-## [0.1.0-rc.68] - 2026-07-19
-
-### Fixed
-
 - Preserve the exact provider/model order in Air host-mirror fingerprints and
   reject quoted, escaped, incomplete, or otherwise malformed protected TOML
   key/table aliases as foreign residue without rejecting valid dotted keys,
@@ -1731,11 +1491,6 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
   histories, including clean CI fixtures that do not inherit a runner identity.
 - Reject credential-shaped literals in tracked source and test fixtures while
   retaining explicit, non-secret redaction sentinels.
-
-## [0.1.0-rc.67] - 2026-07-19
-
-### Fixed
-
 - Distinguish a reference-proven JetBrains-owned Air host mirror from a true
   exact AIGW orphan, and recover only the latter through a case-bound
   quarantine and settlement workflow.
@@ -1744,40 +1499,20 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
   sessions.
 - Preserve existing GitLab Releases by verifying them read-only instead of
   updating them after a publication conflict.
-
-## [0.1.0-rc.66] - 2026-07-18
-
-### Fixed
-
 - Keep `aigw route recover air --dry-run --json` idempotent and path-free when
   Air is already externally owned and no AIGW sidecar remains.
 - Refuse to create an AIGW-managed Claude launcher from recognizable
   ephemeral Go source-run or compiler output, preventing a durable shim
   from pointing to a binary that disappears after the command exits.
-
-## [0.1.0-rc.65] - 2026-07-18
-
-### Fixed
-
 - Recover JetBrains Air only from a verified stale AIGW full-selection and
   fallback-sidecar mismatch, removing AIGW residue and explicit target
   membership without fabricating a JetBrains selection or touching sessions.
-
-## [0.1.0-rc.64] - 2026-07-17
-
-### Fixed
-
 - Keep successful provider CLI diagnostics on stderr out of updater protocol
   output, so GitLab release-asset discovery remains valid when `glab` emits
   local configuration warnings.
 - Recover GitHub private prerelease discovery and asset retrieval through the
   local `gh` credential path when the official API intentionally returns an
   anonymous 404. No GitHub token is read, exported, or persisted by AIGW.
-
-## [0.1.0-rc.63] - 2026-07-17
-
-### Fixed
-
 - Advance the pinned release compiler from Go 1.25.8 to the current stable
   Go 1.25.12 patch across source metadata and both independent CI planes.
 - Keep `aigw route doctor --json` strictly machine-readable when it reports a
@@ -1803,11 +1538,6 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
 - Define the private GitHub Free release plane as signed, independently
   verified provenance rather than claiming unavailable host-enforced tag
   immutability; AIGW automation still never rewrites provider-native tags.
-
-## [0.1.0-rc.62] - 2026-07-17
-
-### Fixed
-
 - Treat the Changelog release date as source-controlled metadata, rather than
   as the timestamp of one forge's independently signed tag.
 - Verify GitLab and GitHub release tags against separate tracked trust anchors;
@@ -1822,64 +1552,6 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
 - Preserve superseded GitLab release headings through an explicit retired-tag
   inventory, and keep the chronology regression fixture valid after a candidate
   tag is created.
-
-## [0.1.0-rc.58] - 2026-07-17
-
-### Added
-
-- Add `aigw repair --dry-run [--json]` as a secret-free, lock-free preview for
-  restoring legacy JetBrains target membership while retaining the standalone
-  Codex target.
-- Add host-specific Codex surface classification and `aigw route doctor` for
-  local, secret-free ownership diagnostics. The doctor distinguishes ordinary
-  standalone Codex CLI, PyCharm Codex, JetBrains Air, and Junie CLI without
-  executing a client or probing a provider.
-- Add explicit `aigw route fallback air` and `aigw route restore air` commands
-  with secret-free dry runs and required `--confirm-host-idle` attestation for
-  any mutation.
-- Split the self-update implementation into focused coordinator, candidate, archive, installer, GitLab, and GitHub units without changing the equal-forge update contract.
-- Add the canonical MIT License and align repository, package, and contributor
-  surfaces on the same permissive licensing statement.
-- Add a command-oriented entry path in the CLI and documentation: setup, choose,
-  check, then follow one explicit next action.
-- Add `aigw update --candidate <archive> --checksums <manifest>` for explicit,
-  checksum-first, local-only portable update acceptance.
-- Add a canonical terminal experience contract for task-first navigation,
-  narrow-terminal presentation, and one-action recovery language.
-
-### Changed
-
-- Run the full release matrix on the dedicated macOS arm64 release runner in
-  both forge pipelines, with a byte-for-byte comparison gate for every matrix.
-- Run the full release matrix on the dedicated macOS arm64 release runner in
-  both forge pipelines, with a byte-for-byte comparison gate for every matrix.
-- Require two byte-identical full-matrix builds before either release plane
-  publishes an artifact set.
-- Make host routing explicit: ordinary standalone Codex CLI receives the AIGW
-  full-selection projection; ChatGPT Desktop retains authority over existing
-  conversation model choices and transcripts; PyCharm Codex and Junie CLI stay
-  JetBrains AI surfaces; and Air stays JetBrains AI except for an explicit,
-  non-default fallback.
-- Restrict generic Codex setup and repair discovery to standalone targets. An
-  explicitly staged Air fallback remains reconcilable, but generic commands no
-  longer adopt JetBrains host defaults.
-- Standardize the repository's user-facing commands, diagnostics, examples,
-  documentation, and release metadata on English-only canonical text.
-- Simplify the public documentation set around portable installation, explicit
-  control-plane boundaries, reproducible source-checkout verification, and a
-  clear legal entry point.
-- Record branch closeout as a release-governance requirement: after merge, the
-  source worktree and branch are removed once reachability and cleanliness are
-  proven.
-- Model update endpoints as atomic provider, origin, and repository tuples,
-  with GitLab and GitHub as equal independently verified release peers.
-- Reorganize root help and documentation around Connect, Use every day,
-  Recover, and Advanced paths without changing the existing command grammar.
-- Make human-readable output adapt to narrow terminals without truncating text
-  or changing JSON output.
-
-### Fixed
-
 - Pin release builds to Go 1.25.8, use one tracked provider-neutral release
   source manifest, and remove AppleDouble metadata before macOS packaging so
   the equal GitLab and GitHub release planes produce the same artifact bytes.
