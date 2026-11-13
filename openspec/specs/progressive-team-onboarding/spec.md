@@ -38,12 +38,11 @@ outside the transaction.
 
 ### Requirement: The shipped team file keeps one general family per other vendor
 
-The shipped team file SHALL hold exactly one general family for each vendor
-other than Anthropic, OpenAI and Google, whose families the owner names. That
-family SHALL be the vendor's most capable generally available general model
-whose provider models qualify. A qualified successor SHALL replace that family
-and its models rather than add a second general family, and applying the file
-SHALL keep explicit client selections of the replaced models.
+The shipped team file SHALL hold one family for each product line of Anthropic, OpenAI and Google, and exactly one
+general family for each other vendor. A curated line's family SHALL be its newest generally available model, and
+another vendor's family its most capable generally available general model, whose provider models qualify. A
+qualified successor SHALL replace its family and models, and applying the file SHALL keep explicit client selections
+of the replaced models.
 
 #### Scenario: A vendor's more capable general model becomes available
 
@@ -64,10 +63,19 @@ SHALL keep explicit client selections of the replaced models.
 
 #### Scenario: The owner names a curated vendor's families
 
-- **WHEN** the owner names the families of Anthropic, OpenAI or Google
-- **THEN** the team file SHALL hold exactly those families, with every
-  provider model of them that qualifies, channel variants included
-- **AND** a family that the owner no longer names SHALL leave the file.
+- **WHEN** the owner names the product lines of Anthropic, OpenAI or Google,
+  such as Claude Fable, Opus, Sonnet and Haiku
+- **THEN** the team file SHALL hold one family for each named line, with every
+  provider model of it that qualifies, channel variants included
+- **AND** a line that the owner no longer names SHALL leave the file.
+
+#### Scenario: A curated line makes a newer model generally available
+
+- **WHEN** a curated line makes a newer model generally available and its
+  provider models qualify, such as GPT-6.2 Astra after GPT-6 Astra
+- **THEN** the team file SHALL replace that line's family and models with the
+  newer model
+- **AND** the repository's tests SHALL fail while one line holds two families.
 
 ### Requirement: Guided setup reaches a working state and can run again
 
