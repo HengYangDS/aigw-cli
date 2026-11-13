@@ -2,8 +2,10 @@
 
 - [ ] 1.1 Declare the release age once at the root of the dependency policy, as `0 hours`, remove the package
       rules that only carried an age, and add `TestRenovateDeclaresTheReleaseAgeOnce`; the test fails for an age
-      in days, for a rule with its own age and for a security-fix age above zero, passes for `24 hours`, and
+      in days, for a rule with its own age, for a security-fix age above zero, for a preset, for `stabilityDays`
+      and for an `internalChecksFilter` other than `strict`, passes for `24 hours`, and
       `mise run dependencies:check` accepts the policy.
+- [ ] 1.3 Give lock maintenance the schedule `at any time`; the lock-maintenance test fails without it.
 - [ ] 1.2 State the declared release age and the registry without release times in the `supply-chain` requirement
       and in the dependency section of the change and release policy; strict OpenSpec validation of the Change
       passes.
@@ -12,6 +14,7 @@
 
 - [ ] 2.1 Remove the re2js override that markdownlint 0.42.1 made unnecessary; the lock still resolves re2js to
       the release markdownlint requires, and the npm audit of the lock stays clean.
+- [ ] 2.2 Run the candidate calculation under the declared age; it holds no release by age.
 
 ## 3. Verification
 

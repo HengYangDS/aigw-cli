@@ -39,6 +39,15 @@ keeping per-source ages, which the owner's decision replaces.
 the security-fix rule declares zero hours, and nothing else declares an age. It passes for `24 hours` as for
 `0 hours`, and fails for `3 days`, for a rule with its own age, and for a security-fix age above zero.
 
+An age can also arrive or vanish without its own key, so the test refuses those ways too: a preset (`extends`),
+which can carry an age for npm; the legacy `stabilityDays`; and any `internalChecksFilter` other than `strict` at
+the root, without which Renovate proposes a release that is still inside the age.
+
+### Lock maintenance follows the age, not a weekday
+
+Renovate holds lock maintenance until Monday morning by default, so transitive releases would wait up to a week
+whatever the age says. The policy gives it the schedule `at any time`, and the lock-maintenance test reads it.
+
 ### A release without a publish time
 
 The policy keeps `timestamp-required`. At zero it has no effect. Above zero, a registry that publishes no release
@@ -52,3 +61,10 @@ refresh takes such a release only after reading its age from the publisher's rel
   one line away from a higher value.
 - npm can unpublish a release within three days. A lock that names an unpublished release fails to install, which
   the next check reports.
+- Above zero, an age in hours is only as exact as the publisher's time. Node and Go publish a date without a time,
+  and a tag is dated by its commit unless a Release exists, so such a release can be up to a day younger than the
+  age reads.
+- One proposal at a time still queues the others. That is the policy's quota, not an age.
+- Mise has a default of its own: range and `latest` queries hide a release younger than 24 hours. Every Mise tool
+  here is an exact pin installed from the lock, so that default decides nothing in the repository. A discovery
+  command outside it has to pass the declared age.

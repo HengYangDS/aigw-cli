@@ -7,7 +7,8 @@ through one repository-owned authority for each ecosystem. The dependency
 policy SHALL declare one minimum release age, in hours, for every source; only a
 security fix skips it. The declared Go toolchain and resolver SHALL own
 transitive closure; local verification and both Forge projections SHALL consume
-those declarations rather than duplicate version literals or fallbacks.
+those declarations rather than duplicate version literals or compatibility
+fallbacks.
 
 #### Scenario: A stable transitive update is available
 

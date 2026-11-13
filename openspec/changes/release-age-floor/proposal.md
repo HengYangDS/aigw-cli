@@ -16,6 +16,8 @@ override in place that `supply-chain` says must leave with it.
 - Declare the release age once, at the root of the dependency policy, in hours. It is `0 hours`: a stable release
   may be taken at publication. No package rule declares an age of its own.
 - Keep the rule that a security fix skips the age, whatever the age is.
+- Let lock maintenance run at any time instead of Renovate's weekly default, so transitive releases follow the same
+  age.
 - Test where the age is declared and in which unit, not how long it is, so that raising it is a one-line change.
 - State the declared age in the `supply-chain` requirement, and what happens above zero when a registry publishes
   no release time.

@@ -203,6 +203,12 @@ const maintenance = field(node, "lockFileMaintenance");
 assert.ok(maintenance, "the policy must configure lock maintenance");
 assert.equal(field(maintenance, "enabled")?.value, true, "lock maintenance must be enabled");
 assert.equal(field(maintenance, "minimumReleaseAge"), undefined, "lock maintenance must keep the policy's release age");
+// Renovate's own default holds lock maintenance until Monday morning, which
+// would make transitive releases wait up to a week whatever the release age.
+assert.deepEqual(
+  field(maintenance, "schedule")?.elements.map(({ value }) => value), ["at any time"],
+  "lock maintenance must not wait for a weekly schedule",
+);
 `
 	call := exec.CommandContext(ctx, "node", "--input-type=module", "-e", code)
 	call.Dir = repositoryRoot(t)
@@ -230,7 +236,9 @@ const walk = (value, path) => {
   if (value?.type === "ObjectExpression") {
     for (const { key, value: inner } of value.properties) {
       const name = key.name ?? key.value;
-      if (name.startsWith("minimumReleaseAge")) {
+      // A preset can bring an age of its own, the legacy stabilityDays is one,
+      // and internalChecksFilter decides whether the age holds anything.
+      if (name.startsWith("minimumReleaseAge") || ["extends", "stabilityDays", "internalChecksFilter"].includes(name)) {
         assert.ok(!ages.has(path + "/" + name), "an age is declared twice at " + path);
         ages.set(path + "/" + name, inner.value);
       } else walk(inner, path + "/" + name);
@@ -241,10 +249,12 @@ const walk = (value, path) => {
 };
 walk(node, "");
 assert.deepEqual([...ages.keys()].sort(), [
+  "/internalChecksFilter",
   "/minimumReleaseAge",
   "/minimumReleaseAgeBehaviour",
   "/vulnerabilityAlerts/minimumReleaseAge",
 ], "the root declares the release age, and only security fixes may skip it");
+assert.equal(ages.get("/internalChecksFilter"), "strict", "a release inside the age must be held, not proposed anyway");
 assert.match(ages.get("/minimumReleaseAge"), /^(0|[1-9]\d*) hours$/, "the release age is a whole number of hours");
 assert.equal(ages.get("/vulnerabilityAlerts/minimumReleaseAge"), "0 hours", "a security fix skips the release age");
 assert.equal(ages.get("/minimumReleaseAgeBehaviour"), "timestamp-required", "an age above zero holds a release without a publish time");

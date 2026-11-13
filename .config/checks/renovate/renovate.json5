@@ -46,8 +46,11 @@
   },
   // Transitive releases move only with a lock refresh. Proposing it keeps the
   // candidate calculation complete under the same release age.
+  // Renovate's default would hold it until Monday morning, so it names its
+  // own schedule: the release age alone decides when a release may move.
   lockFileMaintenance: {
     enabled: true,
+    schedule: ["at any time"],
   },
 
   // A supported fast-forward preserves the locally signed Git object. A
