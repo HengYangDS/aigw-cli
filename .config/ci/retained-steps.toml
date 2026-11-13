@@ -137,7 +137,7 @@ jobs = [
   "accepted-ref-parity",
   "release-version",
 ]
-sha256 = "b25f3fced0c9231dde347f7a085df38849a0ad5cd6aa7fa6bdd9bec3df11db4c"
+sha256 = "a91b433ff17b34a4216058f8f917d2db79633e07731d12656cc5353e18193258"
 class = "operating-system-glue"
 owner = "CI pipeline model (.config/ci/pipeline.cue macosRunnerMise)"
 reason = "Before any locked tool runs, the job shell verifies the digest and version of AIGW's runner-owned Mise beside the macOS host's shared Homebrew Mise, puts it first on PATH, removes a profile's `mise` shell function and prints the verified release; Mise cannot verify the executable that runs it."

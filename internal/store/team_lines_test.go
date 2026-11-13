@@ -5,6 +5,7 @@ import (
 	"maps"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -16,7 +17,9 @@ func TestTeamManifestKeepsOneFamilyPerCuratedLine(t *testing.T) {
 	// A family of those vendors that names no line fails too: skipping it would
 	// let gpt-7, or a dated gpt-6.2-astra-1120, stand beside the line it replaces.
 	line := regexp.MustCompile(`^(?:(claude)-([a-z]+)-\d|(gpt)-\d[\d.]*-([a-z]+)(?:-|$)|(gemini)-\d[\d.]*-([a-z]+)(?:-|$))`)
-	curated := regexp.MustCompile(`^(?:claude|gpt|gemini)-`)
+	// The vendor word counts wherever it stands and however it is spelled, so
+	// GPT-6.2-astra, gpt_6.2-astra or openai-gpt-6.2-astra cannot slip past.
+	curated := regexp.MustCompile(`(?i)claude|gpt|gemini`)
 	lines := map[string]string{}
 	for family := range manifest.Families {
 		match := line.FindStringSubmatch(family)
@@ -39,6 +42,14 @@ func TestTeamManifestKeepsOneFamilyPerCuratedLine(t *testing.T) {
 	}
 	if got := slices.Sorted(maps.Keys(lines)); !slices.Equal(got, want) {
 		t.Errorf("curated lines = %v, want %v", got, want)
+	}
+	// A successor filed as a model of the family it replaces would join the
+	// line unseen: a curated family's wire identity is its own id, with at
+	// most a channel suffix.
+	for routeID, route := range manifest.Models {
+		if line.MatchString(route.Family) && !strings.HasPrefix(route.ID, route.Family) {
+			t.Errorf("model %s of curated family %s carries another identity", routeID, route.Family)
+		}
 	}
 }
 

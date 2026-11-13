@@ -128,7 +128,7 @@ native-darwin:
       if [ ! -x "$mise" ]; then printf '%s\n' 'Runner-owned Mise is missing.' >&2; exit 1; fi
       digest="$(shasum -a 256 "$mise")"
       if [ "${digest%% *}" != '0f7cb85b5c17208cb67088105bd1754c38314cb824cc97d109631b6df638f6fc' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
-      mise_version="$("$mise" --version)"
+      mise_version="$("$mise" --version)" || { printf '%s\n' 'Runner-owned Mise does not run.' >&2; exit 1; }
       case "$mise_version" in
         '2026.11.7 '*) ;;
         *) printf '%s\n' 'Runner-owned Mise version differs from the admitted release.' >&2; exit 1 ;;
@@ -232,7 +232,7 @@ native-darwin-review:
       if [ ! -x "$mise" ]; then printf '%s\n' 'Runner-owned Mise is missing.' >&2; exit 1; fi
       digest="$(shasum -a 256 "$mise")"
       if [ "${digest%% *}" != '0f7cb85b5c17208cb67088105bd1754c38314cb824cc97d109631b6df638f6fc' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
-      mise_version="$("$mise" --version)"
+      mise_version="$("$mise" --version)" || { printf '%s\n' 'Runner-owned Mise does not run.' >&2; exit 1; }
       case "$mise_version" in
         '2026.11.7 '*) ;;
         *) printf '%s\n' 'Runner-owned Mise version differs from the admitted release.' >&2; exit 1 ;;
@@ -775,7 +775,7 @@ accepted-ref-parity:
       if [ ! -x "$mise" ]; then printf '%s\n' 'Runner-owned Mise is missing.' >&2; exit 1; fi
       digest="$(shasum -a 256 "$mise")"
       if [ "${digest%% *}" != '0f7cb85b5c17208cb67088105bd1754c38314cb824cc97d109631b6df638f6fc' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
-      mise_version="$("$mise" --version)"
+      mise_version="$("$mise" --version)" || { printf '%s\n' 'Runner-owned Mise does not run.' >&2; exit 1; }
       case "$mise_version" in
         '2026.11.7 '*) ;;
         *) printf '%s\n' 'Runner-owned Mise version differs from the admitted release.' >&2; exit 1 ;;
@@ -897,7 +897,7 @@ release-version:
       if [ ! -x "$mise" ]; then printf '%s\n' 'Runner-owned Mise is missing.' >&2; exit 1; fi
       digest="$(shasum -a 256 "$mise")"
       if [ "${digest%% *}" != '0f7cb85b5c17208cb67088105bd1754c38314cb824cc97d109631b6df638f6fc' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
-      mise_version="$("$mise" --version)"
+      mise_version="$("$mise" --version)" || { printf '%s\n' 'Runner-owned Mise does not run.' >&2; exit 1; }
       case "$mise_version" in
         '2026.11.7 '*) ;;
         *) printf '%s\n' 'Runner-owned Mise version differs from the admitted release.' >&2; exit 1 ;;

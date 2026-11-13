@@ -351,16 +351,19 @@ func TestGitLabMacOSVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
 		t.Fatal(err)
 	}
-	if _, found := gitlab["default"]; found {
-		t.Fatal("a default section could run commands before the macOS Mise preflight")
+	for _, key := range []string{"default", "before_script"} {
+		if _, found := gitlab[key]; found {
+			t.Fatalf("a top-level %s could run commands before the macOS Mise preflight", key)
+		}
 	}
 	var macos []string
 	steps := map[string]bool{}
 	for name, node := range gitlab {
 		var job struct {
-			Tags         []string `yaml:"tags"`
-			BeforeScript []string `yaml:"before_script"`
-			Script       []string `yaml:"script"`
+			Tags         []string  `yaml:"tags"`
+			Extends      yaml.Node `yaml:"extends"`
+			BeforeScript []string  `yaml:"before_script"`
+			Script       []string  `yaml:"script"`
 		}
 		if node.Kind != yaml.MappingNode {
 			continue
@@ -373,7 +376,8 @@ func TestGitLabMacOSVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T) {
 		}
 		macos = append(macos, name)
 		install := slices.IndexFunc(job.Script, func(command string) bool { return strings.Contains(command, "mise install --locked") })
-		if install < 1 || len(job.BeforeScript) != 0 {
+		// A template that the job extends could bring a before_script of its own.
+		if install < 1 || len(job.BeforeScript) != 0 || job.Extends.Kind != 0 {
 			t.Errorf("%s: no Mise preflight precedes every command: %v %v", name, job.BeforeScript, job.Script)
 			continue
 		}

@@ -40,16 +40,22 @@ func TestGitLabMacOSMisePreflightBindsTheVerifiedExecutable(t *testing.T) {
 	// host's shared executable whatever PATH says.
 	const profile = "mise() { printf '%s\\n' 'shared Mise'; }\n"
 	const use = "\nmise --version\n"
+	bound := "Runner-owned Mise verified: " + admitted + "\n" + admitted + "\n"
 	for _, test := range []struct {
 		name, prefix, prints string
 		present, tampered    bool
+		exits                int
 		want                 string
 	}{
-		{name: "verified", prints: admitted, present: true, want: "Runner-owned Mise verified: " + admitted + "\n" + admitted + "\n"},
-		{name: "verified over a profile function", prefix: profile, prints: admitted, present: true, want: "Runner-owned Mise verified: " + admitted + "\n" + admitted + "\n"},
+		{name: "verified", prints: admitted, present: true, want: bound},
+		{name: "verified over a profile function", prefix: profile, prints: admitted, present: true, want: bound},
+		// A function that the step cannot remove still owns the word, so the
+		// step must stop instead of reporting a verified Mise.
+		{name: "a function that cannot be removed", prefix: profile + "readonly -f mise\n", prints: admitted, present: true, want: "The word mise does not run the runner-owned Mise.\n"},
 		{name: "missing", want: "Runner-owned Mise is missing.\n"},
 		{name: "another digest", prints: admitted, present: true, tampered: true, want: "Runner-owned Mise digest differs from the admitted release.\n"},
 		{name: "another version", prints: identity.Version + "0 macos-arm64 (2026-11-11)", present: true, want: "Runner-owned Mise version differs from the admitted release.\n"},
+		{name: "does not run", present: true, exits: 3, want: "Runner-owned Mise does not run.\n"},
 	} {
 		for _, shell := range []string{"/bin/bash", "/bin/sh"} {
 			t.Run(test.name+" in "+shell, func(t *testing.T) {
@@ -57,6 +63,9 @@ func TestGitLabMacOSMisePreflightBindsTheVerifiedExecutable(t *testing.T) {
 				digest := strings.Repeat("0", 64)
 				if test.present {
 					content := []byte("#!/bin/sh\nprintf '%s\\n' '" + test.prints + "'\n")
+					if test.exits != 0 {
+						content = fmt.Appendf(nil, "#!/bin/sh\nexit %d\n", test.exits)
+					}
 					if err := os.WriteFile(filepath.Join(directory, "mise"), content, 0o700); err != nil {
 						t.Fatal(err)
 					}

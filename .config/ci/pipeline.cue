@@ -359,7 +359,7 @@ macosRunnerMise: #"""
 	if [ ! -x "$mise" ]; then printf '%s\n' 'Runner-owned Mise is missing.' >&2; exit 1; fi
 	digest="$(shasum -a 256 "$mise")"
 	if [ "${digest%% *}" != '\#(miseMacosArm64ExecutableSHA256)' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
-	mise_version="$("$mise" --version)"
+	mise_version="$("$mise" --version)" || { printf '%s\n' 'Runner-owned Mise does not run.' >&2; exit 1; }
 	case "$mise_version" in
 	  '\#(miseVersion) '*) ;;
 	  *) printf '%s\n' 'Runner-owned Mise version differs from the admitted release.' >&2; exit 1 ;;
