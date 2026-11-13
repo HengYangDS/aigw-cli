@@ -190,10 +190,12 @@ runner-owned Mise SHALL be replaced before a job consumes that declaration.
 #### Scenario: Projects share a macOS runner host
 
 - **WHEN** the runners of several projects share a macOS ARM64 host whose shared
-  Mise another owner updates
+  Mise no single project's declaration governs
 - **THEN** each of AIGW's GitLab jobs there SHALL verify the digest and version
-  of a Mise executable in a directory that only AIGW's declaration updates, and
-  run it, before any locked tool runs
+  of a Mise executable in a directory that only AIGW's declaration updates,
+  before any locked tool runs, and SHALL print the release it verified
+- **AND** the word `mise` SHALL run that executable for the rest of the job,
+  whatever the runner account's shell profile defines
 - **AND** a missing executable, another digest or another version SHALL fail the
   job before the locked toolchain installs.
 

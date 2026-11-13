@@ -47,9 +47,12 @@ SHALL choose the SemVer increment from public compatibility impact.
 
 - **WHEN** a release follows pre-release candidates, such as 0.1.0 after
   `0.1.0-rc.58` to `0.1.0-rc.118`
-- **THEN** the release's section SHALL carry the candidates' changes under its
-  categories, and no candidate SHALL keep a section of its own
-- **AND** a product tag without a section SHALL NOT fail the release gate.
+- **THEN** the release's section SHALL carry, under its categories, the changes
+  of every candidate that has no section of its own
+- **AND** a candidate SHALL keep a section of its own only under its published
+  tag, as `0.2.0-rc.1` to `0.2.0-rc.3` do
+- **AND** a product tag other than the selected one SHALL NOT fail the release
+  gate for lacking a section.
 
 ### Requirement: Platform trust is independent of version identity
 
