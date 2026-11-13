@@ -8,8 +8,8 @@
       `npm audit` reports no advisory, and the formatter changes no file.
 - [ ] 1.3 Advance the Renovate image to 44.239.1, pinned to its index digest; `mise run dependencies:check`
       accepts the policy.
-- [ ] 1.4 State in the `supply-chain` requirement that a refresh keeps a runner-owned tool's pinned release until
-      its window; strict OpenSpec validation of the Change passes.
+- [ ] 1.4 State in the `supply-chain` requirement that a refresh without a window keeps a runner-owned tool's
+      pinned release and names the Change that moves it; strict OpenSpec validation of the Change passes.
 
 ## 2. Verification
 

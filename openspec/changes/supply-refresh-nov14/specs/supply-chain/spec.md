@@ -39,12 +39,14 @@ fallbacks.
 - **AND** the runner's executable SHALL be replaced in a window without running
   jobs before any job consumes the new declaration.
 
-#### Scenario: A runner-owned tool is admitted before its window
+#### Scenario: A refresh has no window for a runner-owned tool
 
 - **WHEN** the candidate calculation reports a newer release of a tool whose
-  executable a CI runner owns, and no window has replaced that executable
+  executable a CI runner owns, and the refresh cannot hold that runner's
+  window before its proposal is published
 - **THEN** the refresh SHALL keep the pinned release
-- **AND** it SHALL name the window as the reason, with its owner and a date.
+- **AND** it SHALL name the Change that moves the declaration together with
+  its window, with an owner and a date.
 
 #### Scenario: An admitted tool release fails its own consistency check
 
