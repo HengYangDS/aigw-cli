@@ -13,7 +13,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gofrs/flock"
 )
@@ -339,7 +338,7 @@ func requirePredecessorItem(t *testing.T, path, service, account, token string) 
 	if owners := keychainDecryptOwners(t, path, account); !slices.Equal(owners, []string{"/usr/bin/security"}) {
 		t.Fatalf("restored item %q decrypt owners = %q", account, owners)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), keychainFixtureTimeout)
 	defer cancel()
 	output, err := exec.CommandContext(ctx, "/usr/bin/security", "find-generic-password", "-s", service, "-a", account, "-w", path).Output()
 	if err != nil || strings.TrimSpace(string(output)) != "go-keyring-base64:"+base64.StdEncoding.EncodeToString([]byte(token)) {
@@ -354,7 +353,7 @@ func requirePredecessorItem(t *testing.T, path, service, account, token string) 
 // item attributes, without its secret data.
 func keychainItemLabelAttribute(t *testing.T, path, service, account string) string {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), keychainFixtureTimeout)
 	defer cancel()
 	output, err := exec.CommandContext(ctx, "/usr/bin/security", "find-generic-password", "-s", service, "-a", account, path).Output()
 	if err != nil {
@@ -411,7 +410,7 @@ func requireWorkerOwnedItem(t *testing.T, path, service, account string) {
 // decrypt it. The access dump contains no secret values.
 func keychainDecryptOwners(t *testing.T, path, account string) []string {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), keychainFixtureTimeout)
 	defer cancel()
 	output, err := exec.CommandContext(ctx, "/usr/bin/security", "dump-keychain", "-a", path).Output()
 	if err != nil {

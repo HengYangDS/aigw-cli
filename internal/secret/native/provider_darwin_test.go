@@ -101,7 +101,7 @@ func TestNewNativeKeychainItemsHaveReadablePurposeLabels(t *testing.T) {
 			if err := writeCredentialToKeychain(service, item.account, path, []byte("synthetic")); err != nil {
 				t.Fatal(err)
 			}
-			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), keychainFixtureTimeout)
 			defer cancel()
 			output, err := exec.CommandContext(ctx, "/usr/bin/security", "find-generic-password", "-s", service, "-a", item.account, path).CombinedOutput()
 			if err != nil {
@@ -253,7 +253,7 @@ func runPrivateKeychainChild(t *testing.T, executable, service, account, path, t
 // privateKeychainChildOutput runs one bounded child operation without failing
 // the test, so concurrent callers can report from the test goroutine.
 func privateKeychainChildOutput(parent context.Context, executable, service, account, path, testName string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+	ctx, cancel := context.WithTimeout(parent, keychainFixtureTimeout)
 	defer cancel()
 	command := exec.CommandContext(ctx, executable, "-test.run=^"+testName+"$")
 	command.Env = append(os.Environ(),
@@ -347,9 +347,15 @@ func TestNativePresenceCommandClassifiesExactOutput(t *testing.T) {
 	}
 }
 
+// keychainFixtureTimeout bounds a test's own /usr/bin/security calls and the
+// children it waits for, so that it stops only a hang. A loaded shared CI host
+// slowed create-keychain past five seconds (GitLab job 69467, 2026-11-13).
+// AIGW's own native operations keep operationTimeout.
+const keychainFixtureTimeout = 30 * time.Second
+
 func runKeychainFixtureCommand(t *testing.T, args ...string) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), keychainFixtureTimeout)
 	defer cancel()
 	command := exec.CommandContext(ctx, "/usr/bin/security", args...)
 	if output, err := command.CombinedOutput(); err != nil {
