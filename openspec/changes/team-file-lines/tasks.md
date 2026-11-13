@@ -9,5 +9,7 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` and `mise run dependencies:check` pass on the lane head.
-- [ ] 2.2 The hosted graph passes at the proposal head.
+- [x] 2.1 `mise run check` and `mise run dependencies:check` pass on the lane head (`38815de1`, statement coverage
+      95.55%).
+- [x] 2.2 The hosted graph passes at the proposal head (`38815de1`: GitLab MR !193 pipeline 15336, GitHub PR 259
+      run 43390603848).
