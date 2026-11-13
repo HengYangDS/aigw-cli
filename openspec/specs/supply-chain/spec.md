@@ -155,9 +155,10 @@ runner-owned Mise SHALL be replaced before a job consumes that declaration.
 #### Scenario: A runner owns its Mise
 
 - **WHEN** the declared Mise advances while a runner owns its Mise executable,
-  such as GitLab's Windows ARM64 runner
-- **THEN** that runner's executable and shim SHALL be replaced with the verified
-  release before any of its jobs consumes the declaration.
+  such as GitLab's Windows ARM64 or macOS ARM64 runner
+- **THEN** that runner's Mise executable, and its shim where the release ships
+  one, SHALL be replaced with the verified release before any of its jobs
+  consumes the declaration.
 
 #### Scenario: Projects share a Windows runner host
 
@@ -165,6 +166,16 @@ runner-owned Mise SHALL be replaced before a job consumes that declaration.
 - **THEN** AIGW's jobs SHALL run the Mise executable and shim from a directory
   that only AIGW's declaration updates
 - **AND** replacing AIGW's Mise SHALL leave the other projects' Mise unchanged.
+
+#### Scenario: Projects share a macOS runner host
+
+- **WHEN** the runners of several projects share a macOS ARM64 host whose shared
+  Mise another owner updates
+- **THEN** each of AIGW's GitLab jobs there SHALL verify the digest and version
+  of a Mise executable in a directory that only AIGW's declaration updates, and
+  run it, before any locked tool runs
+- **AND** a missing executable, another digest or another version SHALL fail the
+  job before the locked toolchain installs.
 
 ### Requirement: Real-client acceptance supplies each host's official clients
 
