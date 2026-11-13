@@ -7,7 +7,7 @@ relations: {}
 
 # Provider Model Qualification Evidence
 
-These observations inform the November 12, 2026 team manifest; they neither
+These observations inform the November 13, 2026 team manifest; they neither
 maintain a live catalog nor override the [model inventory](../../manifests/team.toml).
 For setup/selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
 Listings, bounded inference and native-client tool loops prove distinct claims.
@@ -21,7 +21,9 @@ names are provider, `provider/model` and `aigw model search`, `aigw check` and
 
 ## Curated model choices
 
-The owner names the Anthropic, OpenAI and Google families. Select one general model for each other vendor, and
+The owner names the Anthropic, OpenAI and Google product lines, and each line keeps only its newest generally
+available model: a successor such as GPT-6.2 Astra replaces GPT-6 Astra. Select one general model for each other
+vendor, and
 admit only exact provider and protocol pairs qualified by inference and native-client evidence; positioning, suffixes, listings and vendor
 benchmarks inform selection but do not prove independent quality rankings.
 
@@ -51,6 +53,30 @@ GPT/Claude, while DMXAPI required authentication. Neither omission nor anonymous
 Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default models; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
+
+## November 13 line refresh
+
+The owner's rule of November 13: every product line of Claude (Fable, Opus, Sonnet, Haiku), GPT (Astra, Sol, Terra,
+Luna) and Gemini takes its newest generally available model, and each other vendor keeps its single strongest one.
+OpenAI's GPT-6 guide names GPT-6 Astra for the most demanding work and GPT-6 Luna for focused, high-volume tasks;
+Google's model page lists three Gemini 4 lines, Carbon, Argon and Hydrogen, and calls Gemini 3.8 Flash its
+previous-generation Flash. Anthropic lists Claude Mythos 5.2 only under limited availability, so it stays out. Each
+cell passed the three turns of November 12 on the stock Hermes v0.23.1 (`3b4215785882`) that CI now pins. Raw results
+are in the canonical checkout's `build/evidence/team-lines-20261113/`.
+
+| Model             | Admitted provider / protocol                               | Vendor basis                       |
+| ----------------- | ---------------------------------------------------------- | ---------------------------------- |
+| GPT-6 Astra       | DMXAPI, DMXAPI CDX and SSVIP, UCloud, AIHubMix / Responses | OpenAI's newest Astra              |
+| GPT-6 Luna        | DMXAPI, UCloud, AIHubMix / Responses                       | OpenAI's newest Luna               |
+| Gemini 4 Hydrogen | DMXAPI / Responses; AIHubMix / Chat                        | Google's Gemini 4 Hydrogen line    |
+| Claude Fable 5.2  | UCloud / Anthropic, with Claude Desktop tool search        | the line's model on a new provider |
+
+UCloud's Fable 5.2 also answered Claude Desktop's tool-search request shape on November 13 at 01:18: a deferred
+`mcp__` tool found through a client tool search returning `tool_reference` blocks, as UCloud's Opus 5.5 does. So it
+declares `tool_search`, and Desktop keeps host tool search for UCloud. AIHubMix's Responses relay returned empty output
+three times on Hydrogen's resumed tool turn, while its Chat Completions passed. DMXAPI's `gemini-4-carbon` again
+missed the 240 s bound on the resumed tool turn and stays out. The stock Hermes supply lacks the Anthropic SDK until
+`hermes pm install --extra anthropic` runs, which the first Fable attempt showed.
 
 ## November 12 model refresh
 

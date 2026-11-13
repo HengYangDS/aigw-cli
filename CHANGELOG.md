@@ -13,6 +13,9 @@ signing, and GA status remain separate evidence.
 
 ### Changed
 
+- The team file `manifests/team.toml` keeps the newest model of every Claude, GPT and
+  Gemini line. It adds GPT-6 Astra, GPT-6 Luna and Gemini 4 Hydrogen, and UCloud's
+  Claude Fable 5.2, with which Claude Desktop keeps tool search on UCloud.
 - Dependency scans of the program no longer report GO-2026-5932. AIGW is
   built with `golang.org/x/crypto` 0.59.0, which removes the unmaintained
   `openpgp` package that the advisory names; AIGW never imported it.

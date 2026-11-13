@@ -55,6 +55,7 @@ func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.
 		t.Fatal(err)
 	}
 	for routeID, want := range map[domain.ModelRef]bool{
+		domain.NewModelRef("ucloud", "claude-fable-5-2"):  true,
 		domain.NewModelRef("ucloud", "claude-haiku-5-5"):  true,
 		domain.NewModelRef("ucloud", "claude-opus-5-5"):   true,
 		domain.NewModelRef("ucloud", "claude-sonnet-5-5"): true,

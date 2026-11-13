@@ -63,6 +63,23 @@ label = 'DMXAPI · Claude Haiku 5.5 · CC'
 protocols = { anthropic = [] }
 
 [[providers.models]]
+id = 'gpt-6-astra'
+family = 'gpt-6-astra'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gpt-6-astra-cdx'
+family = 'gpt-6-astra'
+label = 'DMXAPI · GPT-6 Astra · CDX'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gpt-6-astra-ssvip'
+family = 'gpt-6-astra'
+label = 'DMXAPI · GPT-6 Astra · SSVIP'
+protocols = { responses = [] }
+
+[[providers.models]]
 id = 'gpt-6.1-sol'
 family = 'gpt-6.1-sol'
 protocols = { responses = [] }
@@ -97,6 +114,11 @@ label = 'DMXAPI · GPT-6.1 Terra · SSVIP'
 protocols = { responses = [] }
 
 [[providers.models]]
+id = 'gpt-6-luna'
+family = 'gpt-6-luna'
+protocols = { responses = [] }
+
+[[providers.models]]
 id = 'deepseek-v4.1-flash-1017'
 family = 'deepseek-v4.1-flash-1017'
 protocols = { responses = [] }
@@ -115,6 +137,11 @@ protocols = { responses = [] }
 id = 'gemini-4-argon-ssvip'
 family = 'gemini-4-argon'
 label = 'DMXAPI · Gemini 4 Argon · SSVIP'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gemini-4-hydrogen'
+family = 'gemini-4-hydrogen'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -168,6 +195,11 @@ label = 'UCloud'
 endpoints = { anthropic = 'https://api.modelverse.cn', responses = 'https://api.modelverse.cn/v1', chat = 'https://api.modelverse.cn/v1' }
 
 [[providers.models]]
+id = 'claude-fable-5-2'
+family = 'claude-fable-5-2'
+protocols = { anthropic = ['tool_search'] }
+
+[[providers.models]]
 id = 'claude-opus-5-5'
 family = 'claude-opus-5-5'
 protocols = { anthropic = ['tool_search'] }
@@ -183,6 +215,11 @@ family = 'claude-haiku-5-5'
 protocols = { anthropic = ['tool_search'] }
 
 [[providers.models]]
+id = 'gpt-6-astra'
+family = 'gpt-6-astra'
+protocols = { responses = [] }
+
+[[providers.models]]
 id = 'gpt-6.1-sol'
 family = 'gpt-6.1-sol'
 protocols = { responses = [] }
@@ -190,6 +227,11 @@ protocols = { responses = [] }
 [[providers.models]]
 id = 'gpt-6.1-terra'
 family = 'gpt-6.1-terra'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gpt-6-luna'
+family = 'gpt-6-luna'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -268,6 +310,11 @@ family = 'claude-haiku-5-5'
 protocols = { anthropic = [] }
 
 [[providers.models]]
+id = 'gpt-6-astra'
+family = 'gpt-6-astra'
+protocols = { responses = [] }
+
+[[providers.models]]
 id = 'gpt-6.1-sol'
 family = 'gpt-6.1-sol'
 protocols = { responses = [] }
@@ -275,6 +322,11 @@ protocols = { responses = [] }
 [[providers.models]]
 id = 'gpt-6.1-terra'
 family = 'gpt-6.1-terra'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gpt-6-luna'
+family = 'gpt-6-luna'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -296,6 +348,11 @@ protocols = { responses = [] }
 id = 'gemini-4-carbon'
 family = 'gemini-4-carbon'
 protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gemini-4-hydrogen'
+family = 'gemini-4-hydrogen'
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'glm-5.3'
@@ -390,12 +447,20 @@ id = 'claude-haiku-5-5'
 label = 'Claude Haiku 5.5'
 
 [[families]]
+id = 'gpt-6-astra'
+label = 'GPT-6 Astra'
+
+[[families]]
 id = 'gpt-6.1-sol'
 label = 'GPT-6.1 Sol'
 
 [[families]]
 id = 'gpt-6.1-terra'
 label = 'GPT-6.1 Terra'
+
+[[families]]
+id = 'gpt-6-luna'
+label = 'GPT-6 Luna'
 
 [[families]]
 id = 'cohere-command-a'
@@ -420,6 +485,10 @@ label = 'Gemini 4 Argon'
 [[families]]
 id = 'gemini-4-carbon'
 label = 'Gemini 4 Carbon'
+
+[[families]]
+id = 'gemini-4-hydrogen'
+label = 'Gemini 4 Hydrogen'
 
 [[families]]
 id = 'glm-5.3'

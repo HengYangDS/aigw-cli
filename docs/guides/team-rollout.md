@@ -122,10 +122,10 @@ recommendation depends on it. A search performs none of those transitions.
 ### Reviewed model defaults
 
 The tracked [team file](../../manifests/team.toml) is the current model
-inventory. It currently contains qualified GPT-6.1 Sol and Terra and Claude
-Opus, Sonnet, and Haiku 5.5, plus one reviewed general family per other
-qualified vendor. Fable, Astra, and Luna await qualified identities meeting the version
-floors.
+inventory. It keeps the newest qualified model of every Claude line (Fable,
+Opus, Sonnet, Haiku), GPT line (Astra, Sol, Terra, Luna) and Gemini line
+(Carbon, Argon, Hydrogen), plus one reviewed general family per other
+qualified vendor. A newer model of a line replaces the older one.
 The [dated qualification
 evidence](../research/provider-model-qualification.md) explains the observed
 IDs, protocol tests, exclusions, and limits. A catalog listing is not a live
