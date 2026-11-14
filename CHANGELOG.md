@@ -11,6 +11,8 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-14
+
 ### Fixed
 
 - `aigw check <client> --depth client` says what to do when Codex or Claude
