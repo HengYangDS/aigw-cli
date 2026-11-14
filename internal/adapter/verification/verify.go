@@ -8,11 +8,17 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/process"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 // ProtocolTimeout bounds each native turn, including cold client startup.
@@ -35,14 +41,91 @@ func ReadBoundedFile(path string, limit int64) ([]byte, error) {
 	return data, nil
 }
 
+// A client's report is at most reportLines distinct lines of at most
+// reportLineRunes characters, and a message names at most deprecatedKeyLimit
+// configuration keys.
+const (
+	reportLines        = 4
+	reportLineRunes    = 300
+	deprecatedKeyLimit = 3
+)
+
+// deprecatedKey is a configuration key that a client calls deprecated: in
+// backticks before the words, in the grammar of a key and never a sentence.
+var deprecatedKey = regexp.MustCompile("`(\\[?[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*\\]?(?:\\.[A-Za-z0-9_-]+)*)` is deprecated")
+
+// reportedError is a verification that a native client's own warning or error
+// leaves unqualified. Its message is AIGW's and carries none of the client's
+// sentences; its report is the client's own lines, for a person who asks.
+type reportedError struct {
+	message string
+	report  []string
+}
+
+func (failure reportedError) Error() string { return failure.message }
+
+// ClientReport returns the client's own lines, redacted and bounded.
+func (failure reportedError) ClientReport() []string { return slices.Clone(failure.report) }
+
+// Reported is the unqualified verification that message describes in AIGW's
+// own words, with diagnostic, the client's output, as its report.
+func Reported(message string, diagnostic []byte) error {
+	return reportedError{message: message, report: clientReport(diagnostic)}
+}
+
 // Diagnostic explains a native client's warning or error output, which leaves
-// verification unqualified.
+// verification unqualified, and keeps that output as the error's report.
 func Diagnostic(label string, diagnostic []byte) error {
 	text := strings.ToLower(string(diagnostic))
 	if strings.Contains(text, "model metadata") && strings.Contains(text, "fallback metadata") {
-		return fmt.Errorf("%s emitted a model-metadata warning; native metadata is incomplete and verification is unqualified; select a model supported by the client or update the client", label)
+		return Reported(fmt.Sprintf("%s emitted a model-metadata warning; native metadata is incomplete and verification is unqualified; select a model supported by the client or update the client", label), diagnostic)
 	}
-	return fmt.Errorf("%s emitted a native-client warning or error; verification is incomplete; inspect the client with the selected model", label)
+	if keys := deprecatedKeys(diagnostic); len(keys) > 0 {
+		return Reported(fmt.Sprintf("%s reports the deprecated configuration key %s; verification is incomplete; remove it from the client's configuration or replace it as the client advises", label, strings.Join(keys, ", ")), diagnostic)
+	}
+	return Reported(fmt.Sprintf("%s emitted a native-client warning or error; verification is incomplete; read the client's report with --verbose", label), diagnostic)
+}
+
+// deprecatedKeys returns the distinct configuration keys that diagnostic
+// calls deprecated, in the order in which it names them.
+func deprecatedKeys(diagnostic []byte) []string {
+	var keys []string
+	for _, match := range deprecatedKey.FindAllSubmatch(diagnostic, -1) {
+		if key := string(match[1]); !slices.Contains(keys, key) && len(keys) < deprecatedKeyLimit {
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
+// clientReport is diagnostic for a person: its lines that carry a warning
+// marker, or its first lines when none does, without control sequences, with
+// credentials redacted and the home directory written as ~.
+func clientReport(diagnostic []byte) []string {
+	home, _ := os.UserHomeDir()
+	var marked, plain []string
+	for line := range strings.SplitSeq(domain.Redact(ansi.Strip(string(diagnostic))), "\n") {
+		line = strings.Join(strings.FieldsFunc(line, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }), " ")
+		if len(home) > 1 {
+			line = strings.ReplaceAll(line, home, "~")
+		}
+		if line == "" || slices.Contains(marked, line) || slices.Contains(plain, line) {
+			continue
+		}
+		if utf8.RuneCountInString(line) > reportLineRunes {
+			line = string([]rune(line)[:reportLineRunes]) + "…"
+		}
+		if process.DiagnosticFailure([]byte(line)) {
+			marked = append(marked, line)
+		} else {
+			plain = append(plain, line)
+		}
+	}
+	report := marked
+	if len(report) == 0 {
+		report = plain
+	}
+	return report[:min(len(report), reportLines)]
 }
 
 type requestFailureError struct {

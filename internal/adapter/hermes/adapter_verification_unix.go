@@ -84,7 +84,7 @@ func verifyIsolated(ctx context.Context, deps adapter.Dependencies, configured d
 		}
 	}
 	if process.DiagnosticFailure(diagnostic) {
-		return adapter.Verification{}, errors.New("hermes emitted a native-client warning or error; verification is incomplete; diagnostics suppressed")
+		return adapter.Verification{}, clientverification.Diagnostic("Hermes", diagnostic)
 	}
 	probe.Args = []string{"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "1", "--run-budget", "45", "--ignore-rules", "--source", "tool"}
 	probe.Stdin = "Reply with exactly AIGW_OK."
@@ -93,7 +93,7 @@ func verifyIsolated(ctx context.Context, deps adapter.Dependencies, configured d
 		return adapter.Verification{}, errors.Join(errors.New("hermes inference failed; external credential diagnostics suppressed"), probeCtx.Err())
 	}
 	if process.DiagnosticFailure(diagnostic) {
-		return adapter.Verification{}, errors.New("hermes emitted a native-client warning or error; verification is incomplete; diagnostics suppressed")
+		return adapter.Verification{}, clientverification.Diagnostic("Hermes", diagnostic)
 	}
 	if !strings.Contains(string(response), "AIGW_OK") {
 		return adapter.Verification{}, errors.New("hermes model response did not return the expected AIGW_OK verification marker")

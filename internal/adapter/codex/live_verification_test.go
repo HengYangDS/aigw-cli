@@ -69,6 +69,8 @@ func TestCodexNativeEvidenceRejectsEventsOutsideTheOwnedTurn(t *testing.T) {
 	for name, diagnostic := range map[string]struct{ message, want string }{
 		"metadata":       {"Model metadata for grok-4.7 not found. Defaulting to fallback metadata; " + private, "model-metadata warning"},
 		"native failure": {"Native capability failed " + private, "native-client warning or error"},
+		// Codex 0.169.0's own item, as it arrived on a host whose configuration held the key.
+		"deprecated key": {"`[features].multi_agent` is deprecated. It still controls the V1 fallback. `[agents].enabled = false` disables subagent tools even when the model selects a subagent version, unless `[features].multi_agent_v2` is enabled. " + private, "deprecated configuration key [features].multi_agent;"},
 	} {
 		for phase, prior := range map[string]string{"initial": "", "resume": previous} {
 			t.Run(name+"/"+phase, func(t *testing.T) {

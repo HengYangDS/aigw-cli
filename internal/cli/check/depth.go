@@ -71,6 +71,9 @@ type failure struct {
 	problem string
 	fix     string
 	probe   *diagnostics.Result
+	// report is the client's own lines behind a failed session, which only
+	// --verbose shows.
+	report []string
 	// cause is the error behind the failure, which no output shows.
 	cause error
 }

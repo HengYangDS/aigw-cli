@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	clientverification "aigw-cli/internal/adapter/verification"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
@@ -51,7 +52,7 @@ func IdentifyExecutable(ctx context.Context, runner process.VerificationRunner, 
 		return ExecutableIdentity{}, fmt.Errorf("inspect Codex version: %w", err)
 	}
 	if process.DiagnosticFailure(diagnostic) {
-		return ExecutableIdentity{}, fmt.Errorf("Codex version probe emitted a native-client warning or error; executable identity is unqualified")
+		return ExecutableIdentity{}, clientverification.Reported("Codex version probe emitted a native-client warning or error; executable identity is unqualified", diagnostic)
 	}
 	version := strings.TrimSpace(string(output))
 	if version == "" {
@@ -87,6 +88,9 @@ func VerificationPlan(executable, configPath, outputPath string, runtime domain.
 	args := []string{"exec", "--sandbox", "read-only", "--color", "never", "--cd", filepath.Dir(outputPath),
 		"-c", "sqlite_home=" + strconv.Quote(filepath.Join(filepath.Dir(configPath), "state")),
 		"-c", "log_dir=" + strconv.Quote(filepath.Join(filepath.Dir(configPath), "log")),
+		// A new home starts Codex's memory work on another model; the session
+		// sends requests for the checked model only.
+		"-c", "features.memories=false",
 	}
 	if sessionID != "" {
 		args = append(args, "resume")
@@ -113,7 +117,7 @@ func runCodexReadOnly(ctx context.Context, runner process.VerificationRunner, ex
 		return nil, fmt.Errorf("run %s %s: %w", filepath.Base(executable), strings.Join(args, " "), err)
 	}
 	if process.DiagnosticFailure(diagnostic) {
-		return nil, fmt.Errorf("Codex catalog probe emitted a native-client warning or error; catalog identity is unqualified")
+		return nil, clientverification.Reported("Codex catalog probe emitted a native-client warning or error; catalog identity is unqualified", diagnostic)
 	}
 	return output, nil
 }

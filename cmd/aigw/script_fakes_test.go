@@ -80,6 +80,7 @@ func refused(w http.ResponseWriter, r *http.Request) bool {
 // scriptedClaude stands in for Claude Code. It reports a version, and a
 // stream-json print reads the given settings, runs their credential helper
 // and sends the prompt to their Anthropic endpoint, as Claude Code does.
+// SCRIPTED_CLIENT_NOTICE is a line that it reports after its answer.
 func scriptedClaude() {
 	args := os.Args[1:]
 	if slices.Equal(args, []string{"--version"}) {
@@ -149,6 +150,11 @@ func scriptedClaude() {
 	}
 	result, _ := json.Marshal(map[string]any{"type": "result", "is_error": false, "result": message.Content[0].Text})
 	fmt.Println(string(result))
+	// A client can answer and still report something of its own, such as a
+	// configuration key that it calls deprecated.
+	if notice := os.Getenv("SCRIPTED_CLIENT_NOTICE"); notice != "" {
+		fmt.Fprintln(os.Stderr, notice)
+	}
 }
 
 func scriptedFailure(message string) {

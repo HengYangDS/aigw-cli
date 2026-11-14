@@ -55,7 +55,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	invocation.BindText(cmd, &opts.depth, "depth", "How far to check: local, endpoint, model or client (default model)")
 	invocation.BindText(cmd, &opts.model, "model", "Try this provider/model with the one named client, without selecting it")
 	cmd.Flags().BoolVar(&opts.tokenStdin, "token-stdin", false, "Read a one-time Token for --model from standard input, at the endpoint or model depth; it is neither read from nor written to the store")
-	cmd.Flags().BoolVar(&opts.verbose, "verbose", false, "Print every local check")
+	cmd.Flags().BoolVar(&opts.verbose, "verbose", false, "Show every local check, and a client's own report of a failed session")
 	cmd.Flags().BoolVar(&opts.jsonMode, "json", false, "Write one JSON document, which carries every local check")
 	_ = cmd.RegisterFlagCompletionFunc("depth", completeDepths)
 	_ = cmd.RegisterFlagCompletionFunc("model", invocation.CompleteClientModel(runtime))
@@ -169,7 +169,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, opts opt
 		checking.saveSnapshot(cmd.Context(), &result)
 	}
 	if opts.jsonMode {
-		doc := result.documented(backend)
+		doc := result.documented(backend, opts.verbose)
 		doc.Model = model.name()
 		if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.ok(), doc); err != nil {
 			return err

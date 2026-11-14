@@ -72,6 +72,9 @@ type failureDocument struct {
 	HTTPStatus int    `json:"http_status,omitempty"`
 	Retryable  bool   `json:"retryable,omitempty"`
 	Attempts   int    `json:"attempts,omitempty"`
+	// ClientReport is the client's own lines behind a failed session, which
+	// only --verbose asks for.
+	ClientReport []string `json:"client_report,omitempty"`
 }
 
 // sessionDocument is the identity of the client that a session ran, measured
@@ -82,11 +85,12 @@ type sessionDocument struct {
 	Scope         string `json:"scope,omitempty"`
 }
 
-// documented is the check as its document reports it.
-func (o outcome) documented(backend secret.BackendSelection) document {
+// documented is the check as its document reports it. verbose adds a failed
+// session's own report, as it does for the text output.
+func (o outcome) documented(backend secret.BackendSelection, verbose bool) document {
 	doc := document{Depth: o.requested, Clients: []clientDocument{}, Checks: documentedChecks(o.shared), CredentialBackend: backend, EnabledClients: o.enabled()}
 	for _, client := range o.clients {
-		doc.Clients = append(doc.Clients, client.documented())
+		doc.Clients = append(doc.Clients, client.documented(verbose))
 	}
 	if o.requested == depthClient {
 		doc.SnapshotWritten = new(bool)
@@ -98,7 +102,7 @@ func (o outcome) documented(backend secret.BackendSelection) document {
 	return doc
 }
 
-func (r *result) documented() clientDocument {
+func (r *result) documented(verbose bool) clientDocument {
 	doc := clientDocument{
 		ID: r.spec.ID, Enabled: r.enabled, Model: r.model, State: domainreadiness.Configured, Depth: r.reached,
 		Skipped: append([]skip{}, r.skipped...), Checks: documentedChecks(r.checks), NativeModelPreference: r.native,
@@ -114,6 +118,9 @@ func (r *result) documented() clientDocument {
 	if r.failure != nil {
 		doc.State, next = r.failure.state, r.failure.fix
 		doc.Failure = &failureDocument{Depth: r.failure.depth, Problem: r.failure.problem}
+		if verbose {
+			doc.Failure.ClientReport = r.failure.report
+		}
 		if probe := r.failure.probe; probe != nil {
 			doc.Failure.Kind, doc.Failure.HTTPStatus = string(probe.Kind), probe.HTTPStatus
 			doc.Failure.Retryable, doc.Failure.Attempts = probe.Retryable, probe.Attempts
@@ -185,7 +192,7 @@ func (o outcome) render(runtime invocation.Context, verbose bool) error {
 	r.Section("Clients")
 	rows := make([]terminal.Field, 0, len(o.clients))
 	for _, client := range o.clients {
-		rows = append(rows, client.row())
+		rows = append(rows, client.row(verbose))
 	}
 	r.Rows(rows...)
 	if verbose {
@@ -224,8 +231,9 @@ func (o outcome) renderResult(r *terminal.Renderer) {
 
 // row is one client's line: its model and the depth that it reached, or the
 // depth at which it stopped, with each skip and its reason, the session's
-// client, and the problem and its fix.
-func (r *result) row() terminal.Field {
+// client, and the problem and its fix. verbose adds the client's own report
+// of a failed session.
+func (r *result) row(verbose bool) terminal.Field {
 	shown, state := r.reached, terminal.OK
 	if r.failure != nil {
 		shown, state = r.failure.depth, terminal.Fail
@@ -237,7 +245,13 @@ func (r *result) row() terminal.Field {
 	// AIGW points the client at a loopback endpoint; it does not run it.
 	loopback := r.resolved && app.EndpointTransport(r.runtime.Endpoint) == app.EndpointTransportExternalLoopback
 	if r.failure != nil {
-		field.Details = append(field.Details, r.failure.problem, "Fix: "+r.failure.fix)
+		field.Details = append(field.Details, r.failure.problem)
+		if verbose {
+			for _, line := range r.failure.report {
+				field.Details = append(field.Details, r.spec.Label+" reported: "+line)
+			}
+		}
+		field.Details = append(field.Details, "Fix: "+r.failure.fix)
 		if loopback && r.failure.probe != nil {
 			field.Details = append(field.Details, r.spec.Label+" uses a loopback endpoint; AIGW does not manage the endpoint runtime")
 		}

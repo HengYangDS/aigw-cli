@@ -11,6 +11,18 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Fixed
+
+- `aigw check <client> --depth client` names what stopped it when the client
+  itself reports a warning or an error. It names a configuration key that the
+  client calls deprecated, such as `[features].multi_agent`, which Codex
+  0.169.0 reports. `--verbose` adds the client's own lines, at most four, with
+  credentials redacted, to the text and, as `failure.client_report`, to the
+  JSON output. The check said only that the client "emitted a native-client
+  warning or error" and showed nothing more with `--verbose`.
+- A client-depth check of Codex no longer starts Codex's memory work, which
+  sent requests for another model than the one being checked.
+
 ### Changed
 
 - The team file `manifests/team.toml` keeps the newest model of every Claude, GPT and

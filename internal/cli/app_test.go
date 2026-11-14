@@ -432,7 +432,7 @@ func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 		want []string
 	}{
 		{args: []string{"setup", "--help"}, want: []string{"With --from, a provider whose Token to read", "With --from, read the one --provider's Token from standard input"}},
-		{args: []string{"check", "--help"}, want: []string{"Check the enabled clients, or the named ones, enabled or not; <client> is claude, claude-desktop, codex, or hermes", "one bounded inference request, which may use quota", "client runs a real client session", "How far to check: local, endpoint, model or client (default model)", "Print every local check"}},
+		{args: []string{"check", "--help"}, want: []string{"Check the enabled clients, or the named ones, enabled or not; <client> is claude, claude-desktop, codex, or hermes", "one bounded inference request, which may use quota", "client runs a real client session", "How far to check: local, endpoint, model or client (default model)", "Show every local check, and a client's own report of a failed session"}},
 		{args: []string{"completion", "--help"}, want: []string{"Generate shell completion"}},
 		{args: []string{"self", "update", "--help"}, want: []string{"Replace only a portable AIGW program", "Homebrew upgrades a program that it installed", "Client settings and Tokens do not change"}},
 		{args: []string{"self", "uninstall", "--help"}, want: []string{"Remove AIGW's settings from the client files", "Providers, models and stored Tokens stay", "Homebrew removes a program that it installed"}},

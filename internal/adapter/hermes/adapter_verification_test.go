@@ -87,8 +87,8 @@ func TestHermesVerificationFailuresPreserveNativeState(t *testing.T) {
 		{name: "deadline", stage: 1, cause: context.DeadlineExceeded, want: "version probe timed out"},
 		{name: "cancellation", stage: 1, cause: context.Canceled, want: "version probe interrupted"},
 		{name: "execution", stage: 1, cause: os.ErrPermission, want: "version probe failed"},
-		{name: "version-warning", stage: 1, diagnostic: "warning: secret=must-not-leak", want: "diagnostics suppressed"},
-		{name: "inference-warning", stage: 2, diagnostic: "warning: secret=must-not-leak", want: "diagnostics suppressed"},
+		{name: "version-warning", stage: 1, diagnostic: "warning: secret=must-not-leak", want: "Hermes emitted a native-client warning or error"},
+		{name: "inference-warning", stage: 2, diagnostic: "warning: secret=must-not-leak", want: "Hermes emitted a native-client warning or error"},
 		{name: "inference-failure", stage: 2, cause: os.ErrPermission, want: "inference failed"},
 		{name: "missing-marker", stage: 2, response: "unexpected response", want: "expected AIGW_OK"},
 	} {

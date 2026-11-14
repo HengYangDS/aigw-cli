@@ -157,6 +157,25 @@ func TestVerificationPlanPreservesCredentialHelperEnvironment(t *testing.T) {
 	}
 }
 
+// The session of a check sends requests for the checked model only: Codex's
+// memory work, which starts its own thread on another model in a new home, is
+// off on the command line, before the prompt and for a resumed session too.
+func TestVerificationPlanTurnsMemoryWorkOff(t *testing.T) {
+	home := t.TempDir()
+	for name, session := range map[string]string{"first turn": "", "resumed turn": "01a1d8bf-14d0-75d2-a5af-524e0e126d0d"} {
+		t.Run(name, func(t *testing.T) {
+			plan, err := VerificationPlan("codex", filepath.Join(home, "config.toml"), filepath.Join(t.TempDir(), "output.txt"), domain.Runtime{Model: domain.NewModelRef("test", "gpt-test"), UpstreamModel: "gpt-test"}, "Read challenge.txt.", session)
+			if err != nil {
+				t.Fatal(err)
+			}
+			override := slices.Index(plan.Args, "features.memories=false")
+			if override < 1 || plan.Args[override-1] != "-c" || override > slices.Index(plan.Args, "--model") {
+				t.Fatalf("the session keeps Codex's memory work: %q", plan.Args)
+			}
+		})
+	}
+}
+
 func TestVerificationPlanOwnsNativeTemporaryRoot(t *testing.T) {
 	parent := t.TempDir()
 	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {

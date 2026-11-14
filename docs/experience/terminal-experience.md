@@ -122,7 +122,9 @@ Use the least powerful command that answers the current question:
 1. `aigw status` reports each client's model and the next useful action.
 2. `aigw check --depth local --verbose` prints every local check: the
    configuration, each Token's presence, each client's files and conflicting
-   `ANTHROPIC_*` or `OPENAI_API_KEY` variables, without a request.
+   `ANTHROPIC_*` or `OPENAI_API_KEY` variables, without a request. When a
+   client's session stops on the client's own warning or error, `--verbose`
+   also shows the client's lines, with credentials redacted.
 3. `aigw check --depth endpoint` authenticates through one model-free request
    per checked client and incurs no inference call.
 4. `aigw check` sends one capped inference request carrying each checked

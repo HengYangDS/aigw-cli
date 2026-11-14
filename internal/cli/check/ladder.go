@@ -127,11 +127,31 @@ func (c *checker) session(ctx context.Context, r *result) {
 	// A named model takes its own isolated session, which its retry names.
 	verification, err := c.deps.Synchronizer().Verify(ctx, c.cfg, r.spec.ID, r.runtime, c.named.name())
 	if err != nil {
-		problem := terminal.ProblemFor(err)
-		r.fail(failure{depth: depthClient, state: domainreadiness.Degraded, problem: problem.Title, fix: problem.Fix, cause: err})
+		r.fail(c.sessionFailure(*r, err))
 		return
 	}
 	r.reached, r.session, r.deeper = depthClient, &verification, ""
+}
+
+// clientReporter is a verification error that carries the client's own lines,
+// which an adapter redacts and bounds.
+type clientReporter interface {
+	error
+	ClientReport() []string
+}
+
+// sessionFailure is the failure of r's session. A client's own warning or
+// error reaches the check as an error that carries the client's lines; its
+// fix is the same check with --verbose, which shows them.
+func (c *checker) sessionFailure(r result, err error) failure {
+	problem := terminal.ProblemFor(err)
+	f := failure{depth: depthClient, state: domainreadiness.Degraded, problem: problem.Title, fix: problem.Fix, cause: err}
+	if reporter, ok := errors.AsType[clientReporter](err); ok {
+		if f.report = reporter.ClientReport(); len(f.report) > 0 {
+			f.fix = strings.TrimSuffix(c.checkCommand(r.spec.ID, depthClient), ".") + " --verbose"
+		}
+	}
+	return f
 }
 
 // sessionCheck is the check that runs a session of the client, which proves
