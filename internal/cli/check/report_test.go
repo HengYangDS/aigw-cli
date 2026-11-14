@@ -44,7 +44,7 @@ func (failure *stubReportError) Remedy() string { return failure.remedy }
 func TestSessionFailureNamesAFixThatIsNotTheSameCheck(t *testing.T) {
 	const (
 		remedy = "Remove [a].b from Codex's configuration."
-		itself = "Run Codex itself with the selected model to read its warning."
+		itself = "Run Codex itself with the same model to read its warning."
 	)
 	spec := domain.ClientSpec{ID: codex.ID, Label: "Codex"}
 	lines := []string{"first", "second"}

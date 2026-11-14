@@ -44,12 +44,12 @@ SHALL be `next_detail`.
 ### Requirement: Every failure names one fix
 
 Every failure SHALL say what happened as its Problem and give one Fix: an exact
-command; a command with placeholders, when the user must choose a value; or one
-sentence that says what to change, when no `aigw` command repairs the cause.
-JSON SHALL carry the last two as `next_detail`, so `next_action` stays exact. A
-Fix SHALL NOT be unrelated to the cause or a command that would fail the same
-way, and a failure SHALL NOT add generic impact text; impact that adds a
-specific fact MAY stay.
+command; a command with placeholders, when the user must choose a value; or a
+sentence on what to change or how to learn it, when no `aigw` command fixes the
+cause. JSON SHALL carry the last two as `next_detail`, so `next_action` stays
+exact. A Fix SHALL NOT be unrelated to the cause or a command that would fail
+the same way, and a failure SHALL NOT add generic impact text; impact that adds
+a specific fact MAY stay.
 
 #### Scenario: A provider rejects the Token
 

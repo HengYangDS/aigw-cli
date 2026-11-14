@@ -28,12 +28,31 @@ func TestFailureAppliesOnlyTheCallersAdvice(t *testing.T) {
 	if err := Failure("Other", "other", "", diagnostic, cause, nil); strings.Contains(err.Error(), "tier gate") {
 		t.Fatalf("a failure without advice applied another client's advice: %v", err)
 	}
-	err := Failure("Client", "client", "", diagnostic, cause, advice, "must-not-leak")
+	err := Failure("Client", "client", "", diagnostic, cause, advice)
 	if !strings.Contains(err.Error(), "Client minimal verification request failed: endpoint rejects the tier gate; disable it and verify again; run `aigw check client --depth client`") || !errors.Is(err, cause) {
 		t.Fatalf("the caller's advice or cause was lost: %v", err)
 	}
 	if err := Failure("Client", "client", "", diagnostic, context.DeadlineExceeded, advice); !strings.Contains(err.Error(), "client verification timed out") {
 		t.Fatalf("advice outranked a timeout: %v", err)
+	}
+}
+
+// The summary reads its markers in the client's own text. A redaction would
+// take the rest of a line after a header, and the marker with it; the summary
+// itself is one of AIGW's fixed sentences and carries none of that text.
+func TestFailureReadsItsMarkersBehindACredentialHeader(t *testing.T) {
+	cause := errors.New("exit status 1")
+	for diagnostic, want := range map[string]string{
+		"Authorization: Bearer must-not-leak; request timed out":                         "client verification timed out",
+		`error: Authorization: Bearer must-not-leak; body {"code":"unrecognized_model"}`: "selected model is unavailable through the client or endpoint",
+		"Proxy-Authorization: Basic must-not-leak model x status 503":                    "selected model is unavailable through the client or endpoint",
+		`cookie: session=must-not-leak {"error":"unauthorized"}`:                         "client or endpoint rejected authentication",
+		"Authorization: Bearer must-not-leak; nothing that AIGW knows":                   "client process rejected the request; diagnostics suppressed",
+	} {
+		err := Failure("Client", "client", "", []byte(diagnostic), cause, nil)
+		if !strings.Contains(err.Error(), ": "+want+"; run") || strings.Contains(err.Error(), "must-not-leak") {
+			t.Errorf("Failure(%q) = %v, want %q", diagnostic, err, want)
+		}
 	}
 }
 
@@ -143,7 +162,11 @@ func TestClientReportIsBoundedAndRedacted(t *testing.T) {
 	if got := utf8.RuneCountInString(report[1]); got != 300 {
 		t.Fatalf("a long line has %d characters, want 300", got)
 	}
-	for _, shown := range []string{err.Error(), fmt.Sprintf("%v %+v %#v %s", err, errors.Unwrap(err), errors.Unwrap(err), errors.Unwrap(err))} {
+	// However the error is printed, alone, wrapped, joined or inside a value
+	// that holds it, it shows its message and never the client's output.
+	holder := struct{ cause error }{cause: err}
+	for _, value := range []any{err, errors.Unwrap(err), errors.Join(errors.New("cleanup"), err), holder, &holder} {
+		shown := fmt.Sprintf("%v %+v %#v %s", value, value, value, value)
 		if strings.Contains(shown, "api_key") || strings.Contains(shown, "must-not-leak") || strings.Contains(shown, "desrever") || strings.Contains(shown, credential) {
 			t.Fatalf("the error shows its report: %s", shown)
 		}

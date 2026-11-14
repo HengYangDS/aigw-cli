@@ -31,7 +31,7 @@ failure that no `aigw` command repairs, such as a key in the client's own config
   them, to run the client itself.
 - **BREAKING** for readers of the JSON output: the check's document has `schema_version` 4, with the new field
   `failure.client_report`; the next step of such a failure is in `next_detail`, and `next_action` is absent.
-- A Fix can be one sentence that says what to change, when no `aigw` command repairs the cause.
+- A Fix can be a sentence on what to change or how to learn it, when no `aigw` command fixes the cause.
 - The private Codex home turns Codex's memory work off for the session.
 - Redaction covers an `Authorization` or a cookie header to the end of its line, a URL's user, a `key`, `sig` or
   `signature` query parameter and a bare `sk-` key.

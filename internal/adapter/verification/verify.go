@@ -68,14 +68,13 @@ type reportedError struct {
 	message string
 	remedy  string
 	// output is the client's output without terminal sequences. It is not
-	// redacted: only ClientReport reads it, and redacts what it returns.
-	output string
+	// redacted: only ClientReport reads it, and redacts what it returns. It
+	// stands behind a pointer, so that no verb prints it, also not %#v of an
+	// error that wraps this one or of a value that holds it.
+	output *string
 }
 
 func (failure reportedError) Error() string { return failure.message }
-
-// GoString keeps the client's output out of a %#v of the error.
-func (failure reportedError) GoString() string { return failure.message }
 
 // Remedy says what to change, when AIGW can name it without the client's
 // sentences, or nothing.
@@ -88,14 +87,14 @@ func (failure reportedError) Remedy() string { return failure.remedy }
 // client can print in a form that no redaction rule describes; without it
 // there is no report.
 func (failure reportedError) ClientReport(credential string) []string {
-	if strings.TrimSpace(credential) == "" {
+	if failure.output == nil || strings.TrimSpace(credential) == "" {
 		return nil
 	}
 	home, _ := os.UserHomeDir()
 	var marked, plain []string
-	for line := range strings.FieldsFuncSeq(failure.output, func(r rune) bool { return r == '\n' || r == '\r' }) {
+	for line := range strings.FieldsFuncSeq(*failure.output, func(r rune) bool { return r == '\n' || r == '\r' }) {
 		line = withoutControl(line)
-		// The client's own line is classified: a redaction can take its marker.
+		// The line is classified before its redaction, which can take its marker.
 		lines := &plain
 		if process.DiagnosticFailure([]byte(line)) {
 			lines = &marked
@@ -120,9 +119,10 @@ func (failure reportedError) ClientReport(credential string) []string {
 // Diagnostic explains a native client's warning or error output, which leaves
 // verification unqualified, and keeps that output as the error's report.
 func Diagnostic(label string, diagnostic []byte) error {
-	failure := reportedError{output: ansi.Strip(string(diagnostic))}
-	lower := strings.ToLower(failure.output)
-	keys := deprecatedKeys(failure.output)
+	output := ansi.Strip(string(diagnostic))
+	failure := reportedError{output: &output}
+	lower := strings.ToLower(output)
+	keys := deprecatedKeys(output)
 	switch {
 	case strings.Contains(lower, "model metadata") && strings.Contains(lower, "fallback metadata"):
 		failure.message = fmt.Sprintf("%s emitted a model-metadata warning; native metadata is incomplete and verification is unqualified", label)
@@ -219,8 +219,8 @@ type Advice struct {
 // Failure is the verification request failure that names its retry command.
 // The client's advice explains its known diagnostics after a timeout and
 // before the shared model and authentication summaries.
-func Failure(label, client, explicitModel string, diagnostic []byte, cause error, advice []Advice, secrets ...string) error {
-	detail := verificationFailureSummary(diagnostic, cause, advice, secrets...)
+func Failure(label, client, explicitModel string, diagnostic []byte, cause error, advice []Advice) error {
+	detail := verificationFailureSummary(diagnostic, cause, advice)
 	return requestFailureError{
 		message: fmt.Sprintf("%s minimal verification request failed: %s; run `%s`", label, detail, Command(client, explicitModel)),
 		cause:   cause,
@@ -239,8 +239,11 @@ func Command(client, explicitModel string) string {
 	return command + " --depth client"
 }
 
-func verificationFailureSummary(diagnostic []byte, cause error, advice []Advice, secrets ...string) string {
-	text := strings.ToLower(domain.Redact(string(diagnostic), secrets...))
+// verificationFailureSummary is one of AIGW's fixed sentences for a failed
+// request. It reads its markers in the client's own text: a redaction takes
+// the rest of a line after a credential header, and a marker with it.
+func verificationFailureSummary(diagnostic []byte, cause error, advice []Advice) string {
+	text := strings.ToLower(string(diagnostic))
 	if errors.Is(cause, context.DeadlineExceeded) || strings.Contains(text, "deadline exceeded") || strings.Contains(text, "timed out") {
 		return "client verification timed out"
 	}

@@ -33,7 +33,7 @@ func TestFailedClaudeVerificationRetriesTheSameInvocation(t *testing.T) {
 				{output: []byte(`{"type":"result","is_error":true,"result":"rejected"}`)},
 				{output: []byte(`{"type":"system","subtype":"api_retry","error_status":403}`), err: context.DeadlineExceeded},
 			} {
-				if err := verifyRuntime(t.Context(), runner, "claude", settings, claudeRuntime, "token", explicitRoute); err == nil || !strings.Contains(err.Error(), want) {
+				if err := verifyRuntime(t.Context(), runner, "claude", settings, claudeRuntime, explicitRoute); err == nil || !strings.Contains(err.Error(), want) {
 					t.Fatalf("Claude retry = %v, want %s", err, want)
 				}
 			}

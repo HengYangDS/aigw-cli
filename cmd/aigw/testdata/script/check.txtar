@@ -222,10 +222,10 @@ exec aigw check claude --depth client
 env SCRIPTED_CLIENT_NOTICE='warning: capability impaired'
 exitcode 1 aigw check claude --depth client --verbose
 stdout 'Claude emitted a native-client warning or error; verification is incomplete'
-stdout 'Fix: Run Claude itself with the selected model to read its warning\.'
+stdout 'Fix: Run Claude itself with the same model to read its warning\.'
 ! stdout 'reported|impaired'
 exitcode 1 aigw check claude --depth client --verbose --json
-stdout '"next_detail": "Run Claude itself with the selected model to read its warning\."'
+stdout '"next_detail": "Run Claude itself with the same model to read its warning\."'
 ! stdout 'client_report|next_action|impaired'
 env SCRIPTED_CLIENT_NOTICE=
 

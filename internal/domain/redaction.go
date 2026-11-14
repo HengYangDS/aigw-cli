@@ -12,7 +12,8 @@ import (
 // caller does not supply stays.
 const redactionReplacement = "[REDACTED]"
 
-var bearerCredential = regexp.MustCompile(`(?i)\bbearer[[:space:]]+[^[:space:],;\}"']+`)
+// bearerCredential is the word Bearer with the credential after it on its line.
+var bearerCredential = regexp.MustCompile(`(?i)\bbearer[ \t]+[^[:space:],;\}"']+`)
 
 // credentialHeader is an Authorization, Proxy-Authorization, Cookie or
 // Set-Cookie header. Its value runs to the end of its line: a scheme and its
@@ -20,8 +21,9 @@ var bearerCredential = regexp.MustCompile(`(?i)\bbearer[[:space:]]+[^[:space:],;
 var credentialHeader = regexp.MustCompile(`(?i)(\b(?:authorization|cookie)[ \t]*:[ \t]*)[^\r\n]+`)
 
 // credentialAssignment is a credential field with its value: quoted, or a bare
-// word, with the word Bearer when it stands before the credential.
-var credentialAssignment = regexp.MustCompile(`(?i)(["']?(api[_-]?key|token|secret|secret[_-]?key|access[_-]?key|password|passwd|client[_-]?secret|access[_-]?token|refresh[_-]?token|authorization)["']?[[:space:]]*[:=][[:space:]]*)("([^"\\]|\\.)*"|'([^'\\]|\\.)*'|(?:bearer[ \t]+)?[^[:space:],;&}]+)`)
+// word, with the authentication scheme when one stands before the credential
+// on its line.
+var credentialAssignment = regexp.MustCompile(`(?i)(["']?(api[_-]?key|token|secret|secret[_-]?key|access[_-]?key|password|passwd|client[_-]?secret|access[_-]?token|refresh[_-]?token|authorization)["']?[[:space:]]*[:=][[:space:]]*)("([^"\\]|\\.)*"|'([^'\\]|\\.)*'|(?:(?:bearer|basic|digest|token)[ \t]+)?[^[:space:],;&}]+)`)
 
 // urlUserinfo is the user of a URL, with or without a password. A port is
 // not one: nothing after a ? or a # is the user.

@@ -38,7 +38,8 @@ copying or owning them.
   which SHALL carry none of the client's sentences
 - **AND** for a configuration key that the client calls deprecated, written as
   a table in brackets and a name, the message SHALL name the key and the Fix
-  SHALL be to remove it
+  SHALL be to remove it, unless the client also reports that it lacks the
+  model's metadata, which the message then names instead
 - **AND** with `--verbose` the text and the JSON output SHALL show the client's
   own lines: at most four, each of at most 300 characters, without the
   provider's Token and the known credential forms, in the text after AIGW's
@@ -52,5 +53,5 @@ copying or owning them.
   external credential helper
 - **THEN** neither output SHALL show the client's lines, with or without
   `--verbose`
-- **AND** without a key to name, the Fix SHALL be to run the client itself with
-  the selected model.
+- **AND** when AIGW names nothing to change, the Fix SHALL be to run the client
+  itself with the same model.

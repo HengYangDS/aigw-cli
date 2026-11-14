@@ -167,7 +167,7 @@ func (c *checker) sessionFailure(r result, err error) failure {
 	case remedy != "":
 		f.fix = remedy
 	case len(f.report) == 0:
-		f.fix = "Run " + r.spec.Label + " itself with the selected model to read its warning."
+		f.fix = "Run " + r.spec.Label + " itself with the same model to read its warning."
 	case c.verbose:
 		f.fix = "Resolve what " + r.spec.Label + " reported, then run the same check again."
 	default:

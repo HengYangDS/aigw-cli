@@ -30,8 +30,9 @@ check's output is pasted into issues.
 `verification.Diagnostic` returns an error with AIGW's message, a remedy where AIGW can name one, and the
 client's output. The message and the remedy never carry the client's sentences, which the existing leak tests
 keep checking. The check command reads the report and the remedy through an interface of its own, so it does
-not import the verification package. The error keeps the output as the client wrote it and shows it through no
-other way, also not when it is printed with `%#v`.
+not import the verification package. The error keeps the output as the client wrote it, behind a pointer, and
+shows it through no other way: no formatting verb prints it, also not `%#v` of an error that wraps it or of a
+value that holds it.
 
 Alternative considered: put a redacted excerpt into the message. Rejected, because the default output would then
 carry client text that nobody asked for, and a redaction miss would reach every paste.
@@ -63,14 +64,15 @@ itself was not covered.
 ### The report is bounded, and each line is redacted once
 
 At most four distinct lines of at most 300 characters. When any line carries a warning marker, only the marked
-lines are reported; without one, the first lines, which is the case of a Codex error item. Each line is judged
-as the client wrote it, since a redaction can take the marker; then control and format characters leave, and one
-redaction removes the credential and the credential forms. One pass, because a form that cuts a part of the
+lines are reported; without one, the first lines, which is the case of a Codex error item. Each line first loses
+its control and format characters and is then judged, before its redaction, which can take the marker; one
+redaction then removes the credential and the credential forms. One pass, because a form that cuts a part of the
 credential would hide the rest from a second one; per line, so that no rule reaches the next line. The home
 directory is written as `~` where it stands as a whole path prefix.
 
 The redaction owner gains the forms that a client's output is likely to hold: an `Authorization` or a cookie
-header to the end of its line, whatever its scheme; a URL's user, with or without a password; a `key`, `sig` or
+header to the end of its line, whatever its scheme, and the scheme word with its credential in an assignment
+such as `Authorization=Basic …`; a URL's user, with or without a password; a `key`, `sig` or
 `signature` query parameter; and a bare `sk-` key of at least 20 further characters, which a model or a
 directory name is not. The header rule can take the rest of a one-line document with it; that is the price of
 not knowing where a scheme's parameters end. They are forms, not a proof: another credential than the session's
@@ -94,7 +96,15 @@ same way, which the rule that every failure names one fix forbids. `aigw check`,
 the same way: at its default depth it starts no client, passes, and names the failing check as the deeper one.
 So the Fix of such a failure is a sentence, which the document carries as `next_detail`: the remedy when AIGW
 names one; else how to read the report; once the output shows the report, to resolve what the client reported;
-and without a report, to run the client itself with the selected model. The rule gains that third kind of Fix.
+and without a report, to run the client itself with the same model. The rule gains a third kind of Fix: a
+sentence on what to change or how to learn it.
+
+### The summary of a failed request reads the client's own text
+
+`Failure` answers a request that the client itself failed with one of AIGW's fixed sentences, which it picks by
+markers in the client's output. It read them in redacted text; with a header rule that takes the rest of a line,
+a marker after a header would be lost. It now reads the client's own text, and needs no secret for that, so the
+Claude adapter no longer passes the Token along.
 
 Hermes's verification treats its output as an external helper's and keeps its messages.
 
@@ -113,6 +123,8 @@ plan of each turn carries the override.
 - **A key-shaped secret in backticks before "is deprecated" would be named in the default message** → the
   grammar admits only a table in brackets with lowercase names of bounded length; the residual case needs a
   client that writes a secret in exactly that form and place.
+- **A Token that is an ordinary word**, such as the placeholder of a local provider → that word leaves the
+  report's lines too. A real Token is not a word of a client's sentences.
 - **Codex deprecates a key that AIGW itself sets for the session** → the remedy would name a key that the
   operator's file does not hold. AIGW sets one such key today, and the release that meets the notice changes
   what AIGW sets.

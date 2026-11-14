@@ -31,14 +31,12 @@ func retainedExecutable(path string, cfg domain.Config, runtime domain.Runtime, 
 
 func (claudeAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, explicitRoute string) (_ adapter.Verification, result error) {
 	clientAdapter := cfg.Clients[ID]
-	token := ""
 	if clientAdapter.CredentialCommand == "" {
 		if deps.Secrets == nil {
 			return adapter.Verification{}, fmt.Errorf("Token for provider %q is unavailable: secret store is unavailable", runtime.ProviderID)
 		}
-		var err error
-		token, err = deps.Secrets.Get(runtime.ProviderID)
-		if err != nil {
+		// The client reads the Token itself; a missing one is named before a session starts.
+		if _, err := deps.Secrets.Get(runtime.ProviderID); err != nil {
 			instruction, _ := secret.TokenRecovery(deps.Secrets, runtime.ProviderID)
 			return adapter.Verification{}, fmt.Errorf("Token for provider %q is unavailable: %w; %s", runtime.ProviderID, err, instruction)
 		}
@@ -88,7 +86,7 @@ func (claudeAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg 
 	if external && runner != nil {
 		runner = adapter.SuppressExternalCredentialDiagnostics(runner)
 	}
-	err = verifyRuntime(verifyCtx, runner, clientAdapter.Executable, settingsPath, runtime, token, explicitRoute)
+	err = verifyRuntime(verifyCtx, runner, clientAdapter.Executable, settingsPath, runtime, explicitRoute)
 	return adapter.Verification{Scope: "Native text response; tools and continuation are not probed"}, err
 }
 

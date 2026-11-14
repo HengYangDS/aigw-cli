@@ -29,7 +29,7 @@ func TestClaudeWarningsDoNotQualifyVerification(t *testing.T) {
 	selected := domain.Runtime{Model: domain.NewModelRef("test", "claude-test"), UpstreamModel: "claude-test", CredentialCommand: filepath.Join(t.TempDir(), "aigw")}
 	for _, diagnostic := range []string{"warning: native capability incomplete\n", "ERROR client could not initialize\n"} {
 		runner := captureRunner{output: []byte("AIGW_OK\n"), stderr: []byte(diagnostic)}
-		if err := verifyRuntime(t.Context(), runner, "claude", filepath.Join(t.TempDir(), "settings.json"), selected, "token", ""); err == nil {
+		if err := verifyRuntime(t.Context(), runner, "claude", filepath.Join(t.TempDir(), "settings.json"), selected, ""); err == nil {
 			t.Fatal("Claude diagnostics qualified a successful process")
 		}
 	}
@@ -59,13 +59,13 @@ func TestVerifyClaude(t *testing.T) {
 	if _, err := ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
-	if err := verifyRuntime(t.Context(), nil, "claude", settings, domain.Runtime{Model: domain.NewModelRef("test", "one")}, "token", ""); err == nil || !strings.Contains(err.Error(), "no model name") {
+	if err := verifyRuntime(t.Context(), nil, "claude", settings, domain.Runtime{Model: domain.NewModelRef("test", "one")}, ""); err == nil || !strings.Contains(err.Error(), "no model name") {
 		t.Fatalf("model error = %v", err)
 	}
-	if err := verifyRuntime(t.Context(), nil, "", settings, runtime, "token", ""); err == nil || !strings.Contains(err.Error(), "executable is not configured") {
+	if err := verifyRuntime(t.Context(), nil, "", settings, runtime, ""); err == nil || !strings.Contains(err.Error(), "executable is not configured") {
 		t.Fatalf("plan error = %v", err)
 	}
-	if err := verifyRuntime(t.Context(), nil, "claude", settings, runtime, "token", ""); err == nil || !strings.Contains(err.Error(), "runner is unavailable") {
+	if err := verifyRuntime(t.Context(), nil, "claude", settings, runtime, ""); err == nil || !strings.Contains(err.Error(), "runner is unavailable") {
 		t.Fatalf("runner error = %v", err)
 	}
 	cause := errors.New("launch /Users/operator/private/claude: exit status 1")
@@ -87,7 +87,7 @@ func TestVerifyClaude(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runner := captureRunner{output: []byte(test.output), stderr: []byte(test.diagnostic), err: test.cause}
-			err := verifyRuntime(t.Context(), runner, "claude", settings, runtime, "must-not-leak", "")
+			err := verifyRuntime(t.Context(), runner, "claude", settings, runtime, "")
 			if test.want == "" && err != nil || test.want != "" && (err == nil || !strings.Contains(err.Error(), test.want)) {
 				t.Fatalf("verification = %v, want %q", err, test.want)
 			}

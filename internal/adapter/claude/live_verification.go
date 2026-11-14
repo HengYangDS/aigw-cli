@@ -26,7 +26,7 @@ var failureAdvice = []clientverification.Advice{{
 
 // verifyRuntime performs one bounded Claude CLI request. explicitRoute is
 // the provider/model that the check named, which its retry advice repeats.
-func verifyRuntime(ctx context.Context, runner process.VerificationRunner, executable, settingsPath string, clientRuntime domain.Runtime, token, explicitRoute string) error {
+func verifyRuntime(ctx context.Context, runner process.VerificationRunner, executable, settingsPath string, clientRuntime domain.Runtime, explicitRoute string) error {
 	if clientRuntime.UpstreamModel == "" {
 		return fmt.Errorf("Claude has no model name for %q", clientRuntime.Model)
 	}
@@ -43,7 +43,7 @@ func verifyRuntime(ctx context.Context, runner process.VerificationRunner, execu
 		if result.status != 0 && errors.Is(err, context.DeadlineExceeded) {
 			return clientverification.RequestFailure(fmt.Sprintf("Claude minimal verification request failed: client verification timed out after endpoint HTTP %d; run `%s`", result.status, clientverification.Command(ID, explicitRoute)), err)
 		}
-		return clientverification.Failure("Claude", ID, explicitRoute, bytes.Join([][]byte{diagnostic, output}, []byte("\n")), err, failureAdvice, token)
+		return clientverification.Failure("Claude", ID, explicitRoute, bytes.Join([][]byte{diagnostic, output}, []byte("\n")), err, failureAdvice)
 	}
 	if process.DiagnosticFailure(diagnostic) {
 		return clientverification.Diagnostic("Claude", diagnostic)
@@ -52,7 +52,7 @@ func verifyRuntime(ctx context.Context, runner process.VerificationRunner, execu
 		return resultErr
 	}
 	if result.failed {
-		return clientverification.Failure("Claude", ID, explicitRoute, output, errors.New("native Claude result reports an error"), failureAdvice, token)
+		return clientverification.Failure("Claude", ID, explicitRoute, output, errors.New("native Claude result reports an error"), failureAdvice)
 	}
 	if strings.TrimSpace(result.response) != responseSentinel {
 		return fmt.Errorf("Claude model response did not return the expected AIGW_OK verification marker")
