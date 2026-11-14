@@ -2,8 +2,8 @@
 
 ### Requirement: Retained job evidence has one declared lifetime
 
-Every artifact that a hosted job retains SHALL expire after one number of days,
-which the CI model declares once and both Forge projections carry.
+Every artifact that a hosted job retains SHALL declare its expiry as one number
+of days, which the CI model declares once and both Forge projections carry.
 
 #### Scenario: A job retains evidence
 
