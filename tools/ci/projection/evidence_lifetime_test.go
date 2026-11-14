@@ -72,7 +72,7 @@ func TestEveryRetainedArtifactCarriesTheDeclaredLifetime(t *testing.T) {
 	for name, action := range map[string]string{"upload": "actions/upload-artifact", "merge": "actions/upload-artifact/merge"} {
 		release := "jobs:\n  publish:\n    steps:\n      - name: Retain\n        uses: " + action + "@0000000000000000000000000000000000000000\n"
 		if _, _, found := evidenceLifetimeProblems(t, gitlab, []string{workflows[0], release}, days); len(found) != 1 {
-			t.Errorf("an %s in a second workflow: the test reports %d problems, want 1: %v", name, len(found), found)
+			t.Errorf("the %s action in a second workflow: the test reports %d problems, want 1: %v", name, len(found), found)
 		}
 	}
 }
