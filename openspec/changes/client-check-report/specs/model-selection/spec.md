@@ -12,8 +12,7 @@ copying or owning them.
 - **THEN** the client SHALL run in a private home or its native isolation mode
   without starting the operator's MCP servers, plugins, hooks, notifications or
   memory providers
-- **AND** Codex's own memory work SHALL be off in that home, so that the
-  session sends requests for the checked model only
+- **AND** Codex's own memory work SHALL be off in that home
 - **AND** an operator extension that cannot start or authorize there SHALL NOT
   decide the result
 - **AND** for Hermes the private home SHALL name no MCP servers or shell hooks
@@ -37,7 +36,7 @@ copying or owning them.
   error of its own
 - **THEN** the check SHALL stop at the `client` depth with AIGW's own message,
   which SHALL carry none of the client's sentences and SHALL name a
-  configuration key that the client calls deprecated
+  configuration key path that the client calls deprecated
 - **AND** with `--verbose` the text and the JSON output SHALL show the client's
   own lines: at most four, each of at most 300 characters, with credentials
   redacted and the home directory written as `~`

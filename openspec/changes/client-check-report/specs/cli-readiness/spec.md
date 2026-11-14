@@ -10,8 +10,8 @@ glyphs and symbols inside a line SHALL NOT.
 #### Scenario: Hermes reports an out-of-sync installation
 
 - **WHEN** Hermes exits zero after printing a line that starts with `⚠`
-- **THEN** verification SHALL report incomplete qualification without the
-  client's text.
+- **THEN** verification SHALL report incomplete qualification in its own
+  words, and the client's line SHALL appear only on request.
 
 #### Scenario: A client prints ordinary progress
 

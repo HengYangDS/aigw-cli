@@ -33,6 +33,7 @@ func TestSessionFailureNamesTheVerboseCheckForAClientsReport(t *testing.T) {
 	}{
 		{name: "selected model", err: reported, report: 2, fix: "aigw check codex --depth client --verbose"},
 		{name: "named model", err: reported, named: named{ref: domain.NewModelRef("one", "gpt-test")}, report: 2, fix: "aigw check codex --model one/gpt-test --depth client --verbose"},
+		{name: "model that needs quoting", err: reported, named: named{ref: domain.NewModelRef("one", "gpt test")}, report: 2, fix: "Run the same check again with --depth client and --verbose."},
 		{name: "empty report", err: &reportedFailure{}, fix: "aigw check"},
 		{name: "no report", err: errors.New("Codex final response did not return the private verification challenge"), fix: "aigw check"},
 	} {

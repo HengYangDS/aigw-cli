@@ -148,7 +148,12 @@ func (c *checker) sessionFailure(r result, err error) failure {
 	f := failure{depth: depthClient, state: domainreadiness.Degraded, problem: problem.Title, fix: problem.Fix, cause: err}
 	if reporter, ok := errors.AsType[clientReporter](err); ok {
 		if f.report = reporter.ClientReport(); len(f.report) > 0 {
-			f.fix = strings.TrimSuffix(c.checkCommand(r.spec.ID, depthClient), ".") + " --verbose"
+			// A model name that needs quoting makes the check prose, which ends in a period.
+			if again := c.checkCommand(r.spec.ID, depthClient); strings.HasSuffix(again, ".") {
+				f.fix = strings.TrimSuffix(again, ".") + " and --verbose."
+			} else {
+				f.fix = again + " --verbose"
+			}
 		}
 	}
 	return f

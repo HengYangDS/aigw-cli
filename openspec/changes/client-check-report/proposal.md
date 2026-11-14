@@ -8,7 +8,7 @@ not with `--verbose`. Whoever runs the check, a person or an agent, cannot tell 
 
 The same reproduction showed that the private Codex home still runs Codex's memory work. It drops the operator's
 `[memories]` table but keeps `features.memories`, so each check starts a second thread on another model, whose
-request fails and is retried five times beside the session that is being verified.
+request ends early and is retried up to five times beside the session that is being verified.
 
 ## What Changes
 
@@ -29,8 +29,9 @@ request fails and is retried five times beside the session that is being verifie
 
 - `model-selection`: a client-depth check shows a client's own report on request, and runs no memory work of
   Codex.
-- `product-quality`: a warning of a successful native session is reported in AIGW's own words.
-- `cli-readiness`: a warning symbol is reported without the client's text.
+- `product-quality`: a warning of a successful native session is reported in AIGW's own words, and the client's
+  text appears only on request.
+- `cli-readiness`: a warning symbol is reported in AIGW's own words; the client's line appears on request.
 
 ## Impact
 

@@ -42,17 +42,21 @@ func ReadBoundedFile(path string, limit int64) ([]byte, error) {
 }
 
 // A client's report is at most reportLines distinct lines of at most
-// reportLineRunes characters, and a message names at most deprecatedKeyLimit
-// configuration keys.
+// reportLineRunes characters. A message names at most deprecatedKeyLimit
+// configuration keys of at most deprecatedKeyLength characters.
 const (
-	reportLines        = 4
-	reportLineRunes    = 300
-	deprecatedKeyLimit = 3
+	reportLines         = 4
+	reportLineRunes     = 300
+	deprecatedKeyLimit  = 3
+	deprecatedKeyLength = 64
 )
 
 // deprecatedKey is a configuration key that a client calls deprecated: in
-// backticks before the words, in the grammar of a key and never a sentence.
-var deprecatedKey = regexp.MustCompile("`(\\[?[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*\\]?(?:\\.[A-Za-z0-9_-]+)*)` is deprecated")
+// backticks before the words, as a path of short names that starts with a
+// letter or a table in brackets. A message is AIGW's own text, so the grammar
+// admits no sentence, and a path needs a dot: a single word in backticks can
+// be a value, such as a credential, that the client quotes.
+var deprecatedKey = regexp.MustCompile("`((?:\\[[A-Za-z][A-Za-z0-9_-]{0,31}(?:\\.[A-Za-z0-9_-]{1,32})*\\]|[A-Za-z][A-Za-z0-9_-]{0,31})(?:\\.[A-Za-z0-9_-]{1,32})+)` is deprecated")
 
 // reportedError is a verification that a native client's own warning or error
 // leaves unqualified. Its message is AIGW's and carries none of the client's
@@ -91,7 +95,7 @@ func Diagnostic(label string, diagnostic []byte) error {
 func deprecatedKeys(diagnostic []byte) []string {
 	var keys []string
 	for _, match := range deprecatedKey.FindAllSubmatch(diagnostic, -1) {
-		if key := string(match[1]); !slices.Contains(keys, key) && len(keys) < deprecatedKeyLimit {
+		if key := string(match[1]); len(key) <= deprecatedKeyLength && !slices.Contains(keys, key) && len(keys) < deprecatedKeyLimit {
 			keys = append(keys, key)
 		}
 	}

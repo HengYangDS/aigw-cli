@@ -47,10 +47,15 @@ func TestDiagnosticKeepsTheClientsTextOutOfItsMessage(t *testing.T) {
 		"deprecated": {"`[features].multi_agent` is deprecated. It still controls the V1 fallback. " + private, "Client reports the deprecated configuration key [features].multi_agent; verification is incomplete"},
 		"two keys":   {"`a.b` is deprecated.\n`[c].d-e` is deprecated; `a.b` is deprecated. " + private, "deprecated configuration key a.b, [c].d-e;"},
 		"not a key":  {"`rm -rf $HOME; echo` is deprecated " + private, "Client emitted a native-client warning or error"},
+		// A single word in backticks can be a value that the client quotes.
+		"one word":  {"API key `sk-live-0123456789abcdef` is deprecated " + private, "Client emitted a native-client warning or error"},
+		"long name": {"`a." + strings.Repeat("b", 33) + "` is deprecated " + private, "Client emitted a native-client warning or error"},
+		"long path": {"`a" + strings.Repeat(".bcdefghi", 8) + "` is deprecated " + private, "Client emitted a native-client warning or error"},
+		"four keys": {"`a.a` is deprecated `b.b` is deprecated `c.c` is deprecated `d.d` is deprecated", "deprecated configuration key a.a, b.b, c.c;"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			err := Diagnostic("Client", []byte(test.diagnostic))
-			if !strings.Contains(err.Error(), test.want) || strings.Contains(err.Error(), "must-not-leak") || strings.Contains(err.Error(), "/Users/operator") || strings.Contains(err.Error(), "fallback.") {
+			if !strings.Contains(err.Error(), test.want) || strings.Contains(err.Error(), "must-not-leak") || strings.Contains(err.Error(), "/Users/operator") || strings.Contains(err.Error(), "fallback.") || strings.Contains(err.Error(), "sk-live") {
 				t.Fatalf("message = %q, want %q and none of the client's text", err, test.want)
 			}
 		})

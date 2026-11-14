@@ -34,8 +34,11 @@ carry client text that nobody asked for, and a redaction miss would reach every 
 ### A deprecated key is named by grammar
 
 A client that calls a configuration key deprecated writes it in backticks before "is deprecated". AIGW reads up
-to three such keys with a fixed grammar of letters, digits, dots, hyphens, underscores and brackets, and names
-them in its message. A key name is configuration vocabulary, not a sentence, and it is what the person must find.
+to three such keys and names them in its message. The grammar is a path: a name or a table in brackets, then at
+least one dot and name, each name at most 32 characters and the path at most 64. A key path is configuration
+vocabulary, not a sentence, and it is what the reader must find. A single word in backticks is not named, because
+a client can quote a value there, such as a credential that it calls deprecated; that case keeps the general
+message, and the report shows the client's line.
 
 ### The report is bounded and redacted
 
@@ -54,8 +57,9 @@ a failure is the same check with `--verbose`, because reading the report is the 
 ### Codex's memory work is off in the private home
 
 The session's command line sets `features.memories=false`. Dropping the key from the copied configuration would
-leave the client's default in force, which a later Codex release may turn on. Measured with Codex 0.169.0: with
-the override the session sends two requests, both for the verified model; without it, six more for another model.
+leave the client's default in force, which a later Codex release may turn on. Measured with Codex 0.169.0 on one
+host: with the override a first turn sends two requests, both for the verified model; without it, five or six
+more for another model, each ending early.
 
 ## Risks / Trade-offs
 
