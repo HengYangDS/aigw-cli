@@ -32,6 +32,11 @@ func TestEveryRetainedArtifactCarriesTheDeclaredLifetime(t *testing.T) {
 	for _, workflow := range projections[1:] {
 		workflows = append(workflows, workflow.Content)
 	}
+	// A workflow that the model does not render would be read by no check.
+	tracked, err := filepath.Glob(filepath.Join("..", "..", "..", ".github", "workflows", "*.y*ml"))
+	if err != nil || len(tracked) != len(workflows) {
+		t.Fatalf("the repository tracks %d GitHub workflows and the model renders %d (%v)", len(tracked), len(workflows), err)
+	}
 	uploads, declarations, problems := evidenceLifetimeProblems(t, gitlab, workflows, days)
 	if uploads == 0 || declarations == 0 {
 		t.Fatalf("found %d GitHub uploads and %d GitLab artifact declarations; the test reads neither", uploads, declarations)
@@ -61,10 +66,14 @@ func TestEveryRetainedArtifactCarriesTheDeclaredLifetime(t *testing.T) {
 			t.Errorf("%s: the test reports %d problems, want 1: %v", name, len(found), found)
 		}
 	}
-	// A workflow other than the first is read too: an upload there without the lifetime is a problem.
-	release := "jobs:\n  publish:\n    steps:\n      - name: Retain\n        uses: actions/upload-artifact@0000000000000000000000000000000000000000\n"
-	if _, _, found := evidenceLifetimeProblems(t, gitlab, []string{workflows[0], release}, days); len(found) != 1 {
-		t.Errorf("an upload in a second workflow: the test reports %d problems, want 1: %v", len(found), found)
+	// A workflow other than the first is read too, and so is the action that
+	// merges artifacts into a new one: each upload there without the lifetime
+	// is a problem.
+	for name, action := range map[string]string{"upload": "actions/upload-artifact", "merge": "actions/upload-artifact/merge"} {
+		release := "jobs:\n  publish:\n    steps:\n      - name: Retain\n        uses: " + action + "@0000000000000000000000000000000000000000\n"
+		if _, _, found := evidenceLifetimeProblems(t, gitlab, []string{workflows[0], release}, days); len(found) != 1 {
+			t.Errorf("an %s in a second workflow: the test reports %d problems, want 1: %v", name, len(found), found)
+		}
 	}
 }
 
@@ -88,7 +97,7 @@ func evidenceLifetimeProblems(t *testing.T, gitlab string, workflows []string, d
 		}
 		for job, declared := range workflow.Jobs {
 			for _, step := range declared.Steps {
-				if !strings.Contains(step.Uses, "upload-artifact@") {
+				if !strings.Contains(step.Uses, "/upload-artifact@") && !strings.Contains(step.Uses, "/upload-artifact/") {
 					continue
 				}
 				uploads++
