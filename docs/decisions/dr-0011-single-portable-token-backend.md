@@ -11,7 +11,7 @@ relations:
 # DR-0011: Select One Portable Token Backend
 
 - Date: 2026-08-23
-- Last amended: 2026-10-13
+- Last amended: 2026-11-15
 
 ## Context
 
@@ -54,6 +54,12 @@ implementation reads or migrates another product's credential state.
 - **Fixed private copy:** rejected for upgrades. It preserves old bytes, but
   replacement changes the pathname's identity. Go does not promise atomic
   `os.Rename` on Windows; open-handle sharing may also reject replacement.
+- **Taking over items of the predecessor's reader:** adopted on 2026-10-13 and
+  retired on 2026-11-15. The installed program migrated an item that trusted
+  only `/usr/bin/security` once to its own ownership and converted it back
+  before a rollback. It needed a second reader, a role per executable, a lock
+  and a staging item, and it served only releases up to 0.3.5, which no
+  supported transition reaches since 0.7.0.
 - **Stable indirection:** rejected as a portable default. A Unix symlink can
   switch targets, but unprivileged Windows symlink creation requires Developer
   Mode. A forwarding executable adds another launcher contract.
@@ -74,36 +80,20 @@ environment; the native writer applies the same base64 envelope exactly once.
 Native metadata observation requests attributes only, under the same no-UI
 policy, without asking for password data.
 
-An item created by the old
-`/usr/bin/security` writer denies the new AIGW identity. On 2026-10-13 a
-Developer ID-signed successor was denied every retained operator item with
-OSStatus `-25293`, and the operator rejected re-entering or hand-authorizing
-each Token as upgrade experience.
-
-Such an item is therefore migrated once:
-when its keychain is unlocked and its access list trusts `/usr/bin/security`,
-the worker reads it through that tool and stages the Token in an AIGW-owned
-`migration@<slot>` item. It then deletes the retained item through the tool,
-recreates the exact slot as an AIGW-owned item and removes the staging item.
-Every intermediate state keeps the Token. A per-user lock serializes
-migrations, and an interrupted one resumes from its staging item. Items that
-trust no application, or another one, keep their denial; the worker never
-changes an ACL, prompts or selects another backend.
-
-Only the installed program migrates: an executable that Homebrew's receipt
-owns, or a portable one beside the predecessor AIGW retained for its rollback.
-Any other AIGW executable cannot tell whether its installation still runs the
-predecessor: the one-time Homebrew cutover stages and verifies the successor's
-reader, and preprojects clients through the extracted successor, while 0.3.5
-still owns the public link; a rollback leaves cached successor commands in
-client settings; and a development build belongs to no installation. Such a
-program therefore reads a retained item through `/usr/bin/security`, or the
-staged Token of an interrupted migration, and never migrates, overwrites or
-converts it. The worker learns its role from its own executable's installation
-evidence, not from a flag or marker its caller could omit.
+An item created by the old `/usr/bin/security` writer denies the AIGW identity.
+AIGW can neither read nor replace such an item: the worker runs no other
+program, changes no access list, prompts for nothing and selects no other
+backend. The failing command says that another program stored the item and
+names the fix, which deletes the item with that tool and stores the Token
+again. AIGW does not replace the item itself, although macOS would let it
+delete one: a write that failed after the deletion would lose a Token that the
+other program may still use. Every AIGW executable takes the same path, so a
+worker needs no knowledge of its installation.
 
 Native Keychain failures retain a typed numeric OSStatus through the bounded
-worker's stderr and the credential command's safe evidence. Standard output
+worker's stderr and the credential command's safe evidence. A refused read or
+write has one status, -25293, for a locked keychain and for another program's
+item, so the worker adds whether the keychain was unlocked. Standard output
 remains Token-only on success and empty on failure. The worker sends no item
 name, path, raw backend text or secret data; its parent rejects extra diagnostic
 fields. This exposes the actual native failure without guessing that the store
@@ -112,18 +102,13 @@ is locked, retrying a denied read or changing authorization.
 The successor uses the predecessor's exact physical Account name, including
 `diagnostic@<account>` for the separate optional provider-diagnostic credential.
 Changing the reader implementation must not change storage identity or require
-Token enrollment again. A migrated item's access list names the AIGW signing
-identifier and team rather than one executable's bytes, so later signed
-releases read it without migration, while ad-hoc builds are denied.
+Token enrollment again. An item that AIGW creates names the AIGW signing
+identifier and team in its access list rather than one executable's bytes, so
+later signed releases read it as it is, while ad-hoc builds are denied.
 
-A portable
-rollback first admits the retained program and current configuration; if that
-program predates AIGW-owned items, AIGW then converts each configured Account's
-items back to `/usr/bin/security` ownership with the same envelope before
-activating it, and takes them back if activation fails. On a Homebrew
-installation, the update command's rollback mode performs only that conversion
-and leaves the program files to Homebrew. A Homebrew downgrade without it
-leaves the older reader asking macOS for authorization.
+A program rollback moves no item. A release from 0.7.0 on reads AIGW-owned
+items as they are, and no older release reads the configuration, so neither a
+portable rollback nor a Homebrew downgrade has an item to convert.
 
 Earlier unreleased candidates created
 `native@` shadow items.
@@ -153,12 +138,12 @@ workstation user.
 Distribution and credential authorization retain separate acceptance
 boundaries:
 
-| Boundary                     | Required outcome                                                                                                                                                   |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Reproducible construction    | Verify deterministic archives, checksums, provenance, and ad-hoc native signatures where required.                                                                 |
-| Public macOS distribution    | Verify Developer ID signing and accepted Apple notarization before publishing final bytes.                                                                         |
-| Routine credential access    | Use the selected backend and exact slots without fallback or access-control modification; only the macOS retained-item custody rules below change an item's owner. |
-| Installed release transition | Prove retained-item access through update, rollback, and re-upgrade using original client commands.                                                                |
+| Boundary                     | Required outcome                                                                                                              |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Reproducible construction    | Verify deterministic archives, checksums, provenance, and ad-hoc native signatures where required.                            |
+| Public macOS distribution    | Verify Developer ID signing and accepted Apple notarization before publishing final bytes.                                    |
+| Routine credential access    | Use the selected backend and exact slots without fallback or access-control modification; no command changes an item's owner. |
+| Installed release transition | Prove retained-item access through update, rollback, and re-upgrade using original client commands.                           |
 
 The release owner applies the signature required by the selected distribution
 mode before final inventory and checksums. Reproducible construction, publisher
@@ -196,7 +181,7 @@ reader, host script, service, or second Token backend is admitted.
 | Independent host-local credential helper      | Rejected                         | Adds another reader and caller boundary.                                                       |
 | Content-addressed AIGW executable copies      | Selected design; cutover pending | Keeps each projected command's executable bytes available across package replacement.          |
 | Security.framework same-executable operations | Selected for macOS               | Keeps new writes readable by AIGW and suppresses legacy-item prompts.                          |
-| One-time retained-item migration              | Selected for macOS               | Upgrades from `/usr/bin/security` items need neither Token entry nor manual authorization.     |
+| One-time retained-item migration              | Retired on 2026-11-15            | Served only releases up to 0.3.5; an item of another program is refused with its fix.          |
 | Silent backend migration                      | Rejected                         | Changes credential authority without the operator's decision.                                  |
 
 The existing optional `credential_command` configuration is an explicit

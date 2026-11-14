@@ -2,6 +2,7 @@ package provider
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -245,6 +246,61 @@ func TestBalanceAndRemoveReportAnOutputThatFails(t *testing.T) {
 type failingOutput struct{}
 
 func (failingOutput) Write([]byte) (int, error) { return 0, errors.New("output refused") }
+
+// refusedDiagnostics is a balance credential store whose Keychain item macOS
+// refuses AIGW while its keychain is unlocked: its read and its write fail as
+// the system keyring's do.
+type refusedDiagnostics struct{ failingDiagnostics }
+
+func (refusedDiagnostics) refusal(provider string) error {
+	return &secret.KeychainItemRefusedError{Kind: secret.ProviderDiagnostic, Provider: provider, Status: -25293}
+}
+
+func (store refusedDiagnostics) Get(provider string) (secret.DiagnosticCredential, error) {
+	return secret.DiagnosticCredential{}, fmt.Errorf("read provider diagnostic credential: %w", store.refusal(provider))
+}
+
+func (store refusedDiagnostics) Set(provider string, _ secret.DiagnosticCredential) error {
+	return fmt.Errorf("write AIGW_TOKEN/diagnostic@%s to system keyring: %w", provider, store.refusal(provider))
+}
+
+// refusedToken is a Token store whose Keychain item macOS refuses AIGW while
+// its keychain is unlocked.
+type refusedToken struct{ secret.Store }
+
+func (refusedToken) Get(provider string) (string, error) {
+	return "", fmt.Errorf("read AIGW_TOKEN/%s from system keyring: %w", provider,
+		&secret.KeychainItemRefusedError{Kind: secret.APIToken, Provider: provider, Status: -25293})
+}
+
+// A balance probe that cannot read a credential because macOS refuses AIGW its
+// Keychain item names that item and its one fix, for the balance credential
+// and for the Token, and sends no request.
+func TestBalanceNamesTheFixOfAKeychainItemThatMacOSRefuses(t *testing.T) {
+	f := newFixture(t)
+	f.runtime.Providers = refusedDiagnostics{}
+	_ = f.run("", "balance", "team", "--json")
+	var document balanceDocument
+	f.decode(t, &document)
+	if item := document.Providers[0]; item.State != balanceFailed || item.NextAction != "" ||
+		item.Problem != "Another program stored provider team's balance credentials in the Keychain" ||
+		item.NextDetail != "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a diagnostic@team`, "+
+			"then run `aigw provider edit team --balance-token-stdin --balance-user-id <user-id>`." {
+		t.Fatalf("a refused balance credential = %+v", item)
+	}
+	f = newFixture(t)
+	f.runtime.Secrets = refusedToken{Store: f.runtime.Secrets}
+	_ = f.run("", "balance", "team", "--json")
+	f.decode(t, &document)
+	if item := document.Providers[0]; item.State != balanceFailed || item.NextAction != "" ||
+		item.Problem != "Another program stored provider team's Token in the Keychain" ||
+		item.NextDetail != "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a team`, then run `aigw provider rotate team`." {
+		t.Fatalf("a refused Token = %+v", item)
+	}
+	if sent := f.http.sent(); len(sent) != 0 {
+		t.Fatalf("a refused credential sent %q", sent)
+	}
+}
 
 // emptyToken is a store whose Token slot is present and empty, as a file
 // backend reports one.

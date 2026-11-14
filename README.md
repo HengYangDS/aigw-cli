@@ -234,8 +234,7 @@ neither retries requests nor guarantees exactly-once inference.
 The client's selection owns this policy, not the shared team file. A portable
 program rollback first gives the retained program the current configuration,
 and refuses a program that cannot read it without changing programs or
-credentials. A Homebrew rollback prepares the Keychain items for the earlier
-release whatever the policy and does not refuse because retry budgets are set.
+credentials.
 
 ### Client forwarding
 
@@ -328,29 +327,22 @@ changes nothing. A release older than 0.7.0 cannot read `aigw.toml`, so
 by other means finds its own files as they were before the upgrade, without
 later changes.
 
-On macOS, the installed AIGW program moves Keychain Tokens saved by 0.3.5 and
-earlier to its own reader the first time it uses them; nothing needs to be
-entered again. The versioned credential readers that clients call never move a
-Token, so a predecessor that is still installed keeps reading it.
-Before a Homebrew downgrade to a release of 0.7.0 or later, run
-`aigw self rollback` on the Homebrew installation: it returns the Tokens without touching Homebrew's files,
-and the next Token use by a kept release takes them back. If it cannot read the
-configuration, it moves no Token and reports that the credentials are not ready.
-Without that step, the older program asks macOS to allow access to each Token.
+On macOS, a signed AIGW release reads the Keychain Tokens that another signed
+release stored, so an upgrade, a program rollback and a Homebrew downgrade move
+no Token. AIGW does not take over a Token that 0.3.5 or earlier stored. The
+first command that needs such a Token says that another program stored the
+item and names the fix: delete the item with
+`security delete-generic-password -s AIGW_TOKEN -a <provider>`, then store the
+Token again with `aigw provider rotate <provider>`. A Token that a release from
+0.4.1 to 0.7.2 used once is already AIGW's own. On a Homebrew installation
+`aigw self rollback` is refused like the other program commands, and Homebrew
+installs the earlier release.
 
-The first Homebrew upgrade from 0.3.5 or earlier is a managed cutover, not a bare
-`brew upgrade aigw`: existing sessions may still call Homebrew's public
-credential-command link. Before the switch, the release operator must stage
-the final successor's private reader, verify its exact commands against the
-existing Keychain items without a prompt, write the managed clients' files
-ahead of the switch, and prefetch the verified Cask. Measure the bounded link
-gap, then immediately test captured commands and real clients; restore the
-predecessor if acceptance fails. Do not switch if a required existing native
-item cannot be read noninteractively.
-
-A session still caching the public link may fail once during the gap. Blanket
-client shutdown or restart does not eliminate that risk and is not an upgrade
-step. Later versioned-reader upgrades must keep old commands callable. See the
+An upgrade from 0.3.5 or earlier is a new setup. A release from 0.7.0 on reads
+neither that release's configuration nor its Keychain Tokens, and a session
+that still calls Homebrew's public credential-command link fails until its
+client is set up again. Later upgrades keep each versioned credential command
+callable. See the
 [credential succession decision](docs/decisions/dr-0011-single-portable-token-backend.md#consequences-and-boundary).
 
 `aigw self uninstall` removes AIGW's settings from the client files, then the

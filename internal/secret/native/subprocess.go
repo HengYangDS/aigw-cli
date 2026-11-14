@@ -25,29 +25,11 @@ const (
 	emptyCommand = "__aigw-native-credential-empty"
 	// listCommand writes the accounts of a service's items, one per line.
 	listCommand = "__aigw-native-credential-list"
-	// restoreCommand returns a macOS item to the predecessor's reader before rollback.
-	restoreCommand = "__aigw-native-credential-restore"
-	// reclaimCommand returns such an item to AIGW when the rollback is not activated.
-	reclaimCommand = "__aigw-native-credential-reclaim"
-	missingExit    = 2
-	failureExit    = 3
+	missingExit = 2
+	failureExit = 3
 	// The shared runner separately bounds pipe teardown and captures at most 64 KiB.
 	operationTimeout = 5 * time.Second
 	maxStoredValue   = 64 * 1024
-)
-
-// Role identifies the program that runs a native credential operation.
-type Role uint8
-
-const (
-	// InstalledProgram may migrate a retained macOS item to AIGW ownership and
-	// return it to the predecessor's reader before a rollback.
-	InstalledProgram Role = iota
-	// OtherProgram is any other AIGW executable: a versioned reader copy that
-	// serves cached client commands, an extracted release or a development
-	// build. It cannot tell whether its installation still runs the predecessor,
-	// so it never changes an item's owner.
-	OtherProgram
 )
 
 var (
@@ -57,9 +39,24 @@ var (
 	ErrUnavailable = errors.New("native credential operation unavailable")
 )
 
+// authenticationFailed is errSecAuthFailed. macOS gives it for an item that
+// this program may not use and for every item of a locked keychain.
+const authenticationFailed int32 = -25293
+
 // KeychainError preserves a native no-interaction failure without item data.
 type KeychainError struct {
 	Status int32 `json:"keychain_status"`
+	// Unlocked says that the keychain was unlocked when macOS refused a read
+	// or a write with errSecAuthFailed. The worker reads it after no other
+	// status.
+	Unlocked bool `json:"keychain_unlocked,omitempty"`
+}
+
+// ItemRefused reports that macOS refused this program one item while its
+// keychain was unlocked: another program stored the item, or its access list
+// does not admit this program.
+func (failure *KeychainError) ItemRefused() bool {
+	return failure.Status == authenticationFailed && failure.Unlocked
 }
 
 // Error describes the native status without credential or item metadata.
@@ -173,11 +170,9 @@ func execute(parent context.Context, runner process.CaptureRunner, plan process.
 }
 
 // RunCredentialSubprocess handles hidden native credential operations before CLI
-// initialization. It learns the program's role only for such an operation.
-func RunCredentialSubprocess(args []string, input io.Reader, out, diagnostic io.Writer, service string, role func() Role) (bool, int) {
-	return dispatch(args, input, out, diagnostic, service, func(operation, service, account string, data []byte) ([]byte, error) {
-		return queryCredential(operation, service, account, data, role())
-	})
+// initialization.
+func RunCredentialSubprocess(args []string, input io.Reader, out, diagnostic io.Writer, service string) (bool, int) {
+	return dispatch(args, input, out, diagnostic, service, queryCredential)
 }
 
 func dispatch(args []string, input io.Reader, out, diagnostic io.Writer, service string, query func(string, string, string, []byte) ([]byte, error)) (bool, int) {
@@ -185,7 +180,7 @@ func dispatch(args []string, input io.Reader, out, diagnostic io.Writer, service
 		return false, 0
 	}
 	switch args[0] {
-	case readCommand, writeCommand, deleteCommand, existsCommand, emptyCommand, restoreCommand, reclaimCommand, listCommand:
+	case readCommand, writeCommand, deleteCommand, existsCommand, emptyCommand, listCommand:
 	default:
 		return false, 0
 	}

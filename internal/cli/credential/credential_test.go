@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -487,5 +488,40 @@ func TestCredentialHelperReportsSafeNativeStatusWithoutRetry(t *testing.T) {
 	failure, ok := errors.AsType[*native.KeychainError](err)
 	if !ok || failure.Status != -25308 {
 		t.Fatal("CLI wrapper lost typed native status")
+	}
+}
+
+// A Token whose Keychain item macOS refuses the reader while its keychain is
+// unlocked keeps the helper's title: its evidence names the status and the
+// unlocked keychain, and its action is the item's one fix. A locked keychain,
+// which answers with the same status, keeps the native-status guidance.
+func TestCredentialHelperNamesTheFixOfAKeychainItemThatMacOSRefuses(t *testing.T) {
+	for _, test := range []struct {
+		name             string
+		cause            error
+		evidence, action string
+	}{
+		{name: "another program's item", cause: &secret.KeychainItemRefusedError{Kind: secret.APIToken, Provider: "gateway", Status: -25293},
+			evidence: "macOS refused AIGW the item while its keychain was unlocked (Keychain OSStatus -25293).",
+			action:   "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a gateway`, then run `aigw provider rotate gateway`."},
+		{name: "a locked keychain", cause: &native.KeychainError{Status: -25293},
+			evidence: "Keychain OSStatus -25293; the native read did not permit user interaction.",
+			action:   "Inspect the selected native store, item authorization and credential-reader identity; repeated helper calls cannot grant access."},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runtime, output := helperRuntime(t, codex.ID, true)
+			store := &refusingSecretStore{readError: fmt.Errorf("read AIGW_TOKEN/gateway from system keyring: %w", test.cause)}
+			runtime.Secrets = store
+			command := NewCommand(runtime)
+			err := command.RunE(command, helperArgs(t, runtime, codex.ID))
+			want := terminal.Problem{Title: "codex Token could not be read", Evidence: test.evidence, Impact: "No Token was returned.", Fix: test.action}
+			if got := terminal.ProblemFor(err); got != want {
+				t.Fatalf("problem = %+v\nwant      %+v", got, want)
+			}
+			failure, typed := errors.AsType[*native.KeychainError](err)
+			if output.Len() != 0 || store.getCalls != 1 || !typed || failure.Status != -25293 {
+				t.Fatalf("output %q, reads %d, native status %v", output, store.getCalls, failure)
+			}
+		})
 	}
 }

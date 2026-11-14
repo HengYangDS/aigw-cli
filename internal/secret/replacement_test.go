@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/platform"
 )
 
 func TestReplacementCompensationOwnsItsAutomaticBackend(t *testing.T) {
@@ -259,6 +261,13 @@ func TestReplacementPartialFailurePreservesCompensationBoundaries(t *testing.T) 
 			}
 			if phase == "restore fails" && !errors.Is(err, restoreErr) {
 				t.Fatalf("compensation failure lost its cause: %v", err)
+			}
+			undo, failedUndo := errors.AsType[*platform.RestoreError](err)
+			if failedUndo != (phase != "restore") {
+				t.Fatalf("failed undo reported = %v in phase %q: %v", failedUndo, phase, err)
+			}
+			if failedUndo && undo.Undo != "restoring the Tokens that this command had stored" {
+				t.Fatalf("failed undo = %q", undo.Undo)
 			}
 			if phase == "newer replacement" && !strings.Contains(err.Error(), "postimage changed") {
 				t.Fatalf("compensation drift was not reported: %v", err)

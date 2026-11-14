@@ -18,8 +18,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	installed := func() Role { return InstalledProgram }
-	if handled, code := RunCredentialSubprocess(os.Args[1:], os.Stdin, os.Stdout, os.Stderr, "AIGW_TOKEN", installed); handled {
+	if handled, code := RunCredentialSubprocess(os.Args[1:], os.Stdin, os.Stdout, os.Stderr, "AIGW_TOKEN"); handled {
 		os.Exit(code)
 	}
 	os.Exit(m.Run())
@@ -150,6 +149,20 @@ func TestCredentialSubprocessRestrictsIdentityAndKeepsFailuresOffStandardOutput(
 	}
 }
 
+// The worker takes its six operations and nothing else: an argument that only
+// carries their prefix is the CLI's to refuse, and reaches no native store.
+func TestCredentialSubprocessLeavesOtherArgumentsToTheCLI(t *testing.T) {
+	for _, argument := range []string{"__aigw-native-credential-restore", "__aigw-native-credential-reclaim", "__aigw-native-credential-", "credential"} {
+		handled, code := dispatch([]string{argument, "AIGW_TOKEN", "team"}, strings.NewReader(""), io.Discard, io.Discard, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) {
+			t.Fatalf("%s reached the native credential service", argument)
+			return nil, nil
+		})
+		if handled || code != 0 {
+			t.Fatalf("the worker took %s: handled=%t code=%d", argument, handled, code)
+		}
+	}
+}
+
 func TestCredentialSubprocessResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 	for _, test := range []struct {
 		name string
@@ -174,11 +187,7 @@ func TestCredentialSubprocessResultOwnsExitStatusAndSecretOutput(t *testing.T) {
 			}
 		})
 	}
-	unresolved := func() Role {
-		t.Fatal("an ordinary command resolved the credential role")
-		return OtherProgram
-	}
-	if handled, _ := RunCredentialSubprocess([]string{"--version"}, strings.NewReader(""), io.Discard, io.Discard, "AIGW_TOKEN", unresolved); handled {
+	if handled, _ := RunCredentialSubprocess([]string{"--version"}, strings.NewReader(""), io.Discard, io.Discard, "AIGW_TOKEN"); handled {
 		t.Fatal("ordinary command intercepted")
 	}
 	for _, out := range []io.Writer{shortWriter{}, failedWriter{}} {
@@ -363,6 +372,39 @@ func TestNativeCredentialFailureTransportsOnlyTypedStatus(t *testing.T) {
 	_, code := dispatch([]string{readCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), io.Discard, failedWriter{}, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return nil, &KeychainError{Status: -25308} })
 	if code != failureExit {
 		t.Fatal("failed status delivery changed failure exit")
+	}
+}
+
+// A worker that macOS refused says whether the keychain was unlocked, and the
+// parent keeps it. Only errSecAuthFailed from an unlocked keychain is the
+// refusal of one item: a locked keychain gives that status for every item.
+func TestNativeCredentialStatusCarriesTheKeychainLockState(t *testing.T) {
+	for _, test := range []struct {
+		diagnostic string
+		refused    bool
+	}{
+		{`{"keychain_status":-25293,"keychain_unlocked":true}`, true},
+		{`{"keychain_status":-25293}`, false},
+		{`{"keychain_status":-25308,"keychain_unlocked":true}`, false},
+	} {
+		var failure *KeychainError
+		if err := json.Unmarshal([]byte(test.diagnostic), &failure); err != nil {
+			t.Fatal(err)
+		}
+		var diagnostic bytes.Buffer
+		_, code := dispatch([]string{readCommand, "AIGW_TOKEN", "team"}, strings.NewReader(""), io.Discard, &diagnostic, "AIGW_TOKEN", func(string, string, string, []byte) ([]byte, error) { return nil, failure })
+		if code != failureExit || diagnostic.String() != test.diagnostic+"\n" {
+			t.Fatalf("worker diagnostic = %q, want %q", &diagnostic, test.diagnostic)
+		}
+		reader := fixtureReader{code: failureExit, diagnostic: diagnostic.String()}
+		_, err := execute(t.Context(), reader, process.Plan{Executable: "/owned/aigw", Args: []string{readCommand, "AIGW_TOKEN", "team"}})
+		refusal, typed := errors.AsType[interface {
+			error
+			ItemRefused() bool
+		}](err)
+		if !typed || refusal.ItemRefused() != test.refused || !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("parent read %s as %v (typed %t)", test.diagnostic, err, typed)
+		}
 	}
 }
 

@@ -32,7 +32,7 @@ type Updater interface {
 	// would do, from public release metadata or the archive's name alone.
 	Preview(ctx context.Context, currentVersion string) (program.Transition, error)
 	PreviewCandidate(currentVersion string, candidate program.CandidateArchive) (program.Transition, error)
-	Rollback(ctx context.Context, config []byte, custody program.CredentialCustody) (program.Transition, error)
+	Rollback(ctx context.Context, config []byte) (program.Transition, error)
 }
 
 // Dependencies are the capabilities that one invocation's use cases share,

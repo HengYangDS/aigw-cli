@@ -178,7 +178,7 @@ func (j *journeyFixture) requireRetryRollbackAdmission(baseline string) {
 	}
 	for _, want := range [][2][]byte{{previous, active}, {active, previous}} {
 		ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-		_, err := (program.Updater{Executable: j.binary, Runner: process.Runner{}}).Rollback(ctx, admission, nil)
+		_, err := (program.Updater{Executable: j.binary, Runner: process.Runner{}}).Rollback(ctx, admission)
 		cancel()
 		if err != nil {
 			t.Fatalf("a retained program that reads retry policies refused rollback: %v", err)

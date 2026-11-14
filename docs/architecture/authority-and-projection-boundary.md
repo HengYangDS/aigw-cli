@@ -330,9 +330,9 @@ Program rollback gives the retained program an isolated copy of the current
 configuration and refuses, without changing anything, a program that cannot
 read it. A program older than 0.7.0 cannot read `aigw.toml`, so the check
 refuses it. An earlier release installed by other means finds its own files as
-they were before the upgrade, without later changes. The Homebrew rollback
-keeps its Keychain custody step and has no retry-policy refusal, because no
-release older than 0.7.0 reads the retry budgets in `aigw.toml`.
+they were before the upgrade, without later changes. A program rollback moves
+no credential, and on a Homebrew installation it is refused with Homebrew's
+operation.
 
 ## Repository tooling
 

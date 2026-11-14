@@ -154,8 +154,9 @@ func probeBalance(ctx context.Context, runtime invocation.Context, cfg domain.Co
 // balanceCredentialProblem says why the balance credentials cannot be read,
 // and what fixes it. None stored: store them, or with the read-only
 // environment backend set the variables that are not set, which it checks one
-// by one, since one of the two alone supplies nothing. Any other failure is
-// the backend's, which the provider's credential report shows.
+// by one, since one of the two alone supplies nothing. A Keychain item that
+// macOS refuses AIGW names its own fix. Any other failure is the backend's,
+// which the provider's credential report shows.
 func balanceCredentialProblem(store secret.Store, id string, err error) (string, string) {
 	if variables := balanceVariables(store, id); len(variables) > 0 {
 		set := secret.EnvironmentVariables(store, id)
@@ -169,13 +170,20 @@ func balanceCredentialProblem(store secret.Store, id string, err error) (string,
 	if errors.Is(err, secret.ErrNotFound) {
 		return "no balance credentials are stored", "aigw provider edit " + id + " --balance-token-stdin --balance-user-id <user-id>"
 	}
+	if refusal, refused := errors.AsType[*secret.KeychainItemRefusedError](err); refused {
+		return refusal.Title(), refusal.Fix()
+	}
 	return "the credential backend could not read the balance credentials", "aigw provider show " + id
 }
 
 // tokenProblem says why the provider's Token cannot be read, and what fixes
-// it: store a missing Token, or set the variable that supplies it; a backend
-// that failed is shown by the provider's credential report.
+// it: store a missing Token, or set the variable that supplies it; a Keychain
+// item that macOS refuses AIGW names its own fix; a backend that failed is
+// shown by the provider's credential report.
 func tokenProblem(store secret.Store, id string, err error) (string, string) {
+	if refusal, refused := errors.AsType[*secret.KeychainItemRefusedError](err); refused {
+		return refusal.Title(), refusal.Fix()
+	}
 	switch {
 	// An empty Token is a missing one, as check reports it: no provider
 	// accepts it, and storing a Token again replaces it.

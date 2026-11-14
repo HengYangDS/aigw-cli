@@ -55,7 +55,7 @@ func VerifyNativeReaderAccess(store Store, executable string, accounts []string)
 		}
 		value, err := native.Read(executable, Service, account)
 		if err != nil {
-			return fmt.Errorf("%w: copied credential reader cannot read the selected Token: %w", ErrNativeReaderUnverified, err)
+			return fmt.Errorf("%w: copied credential reader cannot read the selected Token: %w", ErrNativeReaderUnverified, refusedItem(APIToken, account, err))
 		}
 		if value == "" {
 			return fmt.Errorf("%w: copied credential reader returned an empty Token", ErrNativeReaderUnverified)
@@ -90,7 +90,7 @@ func (store keyringStore) get(kind Kind, account string) (string, error) {
 		return "", ErrNotFound
 	}
 	if err != nil {
-		return "", fmt.Errorf("read %s/%s from system keyring: %w", Service, slot, err)
+		return "", fmt.Errorf("read %s/%s from system keyring: %w", Service, slot, refusedItem(kind, account, err))
 	}
 	if value == "" {
 		return "", ErrEmpty
@@ -101,7 +101,7 @@ func (store keyringStore) get(kind Kind, account string) (string, error) {
 func (store keyringStore) set(kind Kind, account, value string) error {
 	slot := slotName(kind, account)
 	if err := store.write(Service, slot, value); err != nil {
-		return fmt.Errorf("write %s/%s to system keyring: %w", Service, slot, err)
+		return fmt.Errorf("write %s/%s to system keyring: %w", Service, slot, refusedItem(kind, account, err))
 	}
 	return nil
 }

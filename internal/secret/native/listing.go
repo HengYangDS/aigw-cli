@@ -34,7 +34,7 @@ func listThrough(runner process.CaptureRunner, executable, service string) ([]st
 
 // joinAccounts is all that a listing carries across the worker's boundary:
 // each name that is a provider ID, once, sorted, one per line. A name of any
-// other shape, such as a staged migration item, stays in the worker.
+// other shape, such as a balance credential's, stays in the worker.
 func joinAccounts(names []string) []byte {
 	var joined strings.Builder
 	for _, account := range slices.Compact(slices.Sorted(slices.Values(names))) {

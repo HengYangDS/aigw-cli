@@ -17,11 +17,10 @@ import (
 const updateSchemaVersion = 2
 
 // updateDocument is the JSON document of `aigw self update` and `aigw self
-// rollback`. Its state is the program transition's, or prepared when
-// credentials are ready for an earlier Homebrew release; its version is the
-// active program's afterward, and its summary says what happened. A
-// transition that completed while a later step failed names that step's
-// problem, and the document's ok is false.
+// rollback`. Its state is the program transition's, its version is the active
+// program's afterward, and its summary says what happened. A transition that
+// completed while a later step failed names that step's problem, and the
+// document's ok is false.
 type updateDocument struct {
 	DryRun     bool   `json:"dry_run,omitempty"`
 	State      string `json:"state"`

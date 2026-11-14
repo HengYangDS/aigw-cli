@@ -11,6 +11,26 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** on macOS, AIGW no longer takes over a Keychain Token that 0.3.5
+  or earlier stored. It can neither read nor replace such an item. The first
+  command that needs the Token fails, says that another program stored the item
+  and names the fix: delete the item with
+  `security delete-generic-password -s AIGW_TOKEN -a <provider>`, then run
+  `aigw provider rotate <provider>`. A Token that a release from 0.4.1 to 0.7.2
+  used once is already AIGW's own and is read as before. To keep every Token,
+  run `aigw check` once on 0.7.2 before upgrading.
+- **Breaking:** `aigw self rollback` moves no credential. On a Homebrew
+  installation it is refused like the other program commands, and Homebrew
+  installs the earlier release; its `prepared` result is gone. A signed release
+  reads the Keychain items of another signed release, so a rollback or a
+  downgrade to 0.7.0 or later needs no step.
+- No command migrates a Keychain item. `aigw status`, `sync`, `use` and `setup`
+  could do so before, although only `aigw check` was documented to.
+- A Token write or removal on macOS no longer waits on a lock that could fail
+  it after 1.5 seconds.
+
 ## [0.7.2] - 2026-11-14
 
 ### Fixed

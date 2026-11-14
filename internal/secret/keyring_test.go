@@ -113,6 +113,50 @@ func TestNativeKeyringStoreRequiresProductExecutable(t *testing.T) {
 	}
 }
 
+// A read or a write that macOS refused while the keychain was unlocked is the
+// refusal of that credential's item. A locked keychain, which gives the same
+// status, and every other failure keep the store's own error.
+func TestKeyringStoreNamesAnItemThatMacOSRefusesWhileItsKeychainIsUnlocked(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		failure error
+		refused bool
+	}{
+		{"an unlocked keychain", &native.KeychainError{Status: -25293, Unlocked: true}, true},
+		{"a locked keychain", &native.KeychainError{Status: -25293}, false},
+		{"another status", &native.KeychainError{Status: -25308, Unlocked: true}, false},
+		{"a worker without a status", native.ErrUnavailable, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store := keyringStore{
+				read:  func(string, string) (string, error) { return "", test.failure },
+				write: func(string, string, string) error { return test.failure },
+			}
+			_, readErr := store.get(APIToken, "team")
+			writeErr := store.set(ProviderDiagnostic, "team", "synthetic")
+			for _, result := range []struct {
+				kind Kind
+				err  error
+				text string
+			}{
+				{APIToken, readErr, "read AIGW_TOKEN/team from system keyring: " + test.failure.Error()},
+				{ProviderDiagnostic, writeErr, "write AIGW_TOKEN/diagnostic@team to system keyring: " + test.failure.Error()},
+			} {
+				refusal, typed := errors.AsType[*KeychainItemRefusedError](result.err)
+				if typed != test.refused || !errors.Is(result.err, native.ErrUnavailable) {
+					t.Fatalf("%s: refusal %t, error %v", result.text, typed, result.err)
+				}
+				if typed && *refusal != (KeychainItemRefusedError{Kind: result.kind, Provider: "team", Status: -25293}) {
+					t.Fatalf("refusal = %+v", *refusal)
+				}
+				if !typed && result.err.Error() != result.text {
+					t.Fatalf("error = %q, want %q", result.err, result.text)
+				}
+			}
+		})
+	}
+}
+
 func mockKeyringStore() keyringStore {
 	return keyringStore{
 		observe: mockKeyringObserver,
@@ -142,6 +186,9 @@ func TestVerifyNativeReaderAccessUsesOnlyTheCopiedReader(t *testing.T) {
 	}
 	if err := VerifyNativeReaderAccess(scopedView{store: store}, path, []string{"selected-account"}); !errors.Is(err, ErrNativeReaderUnverified) {
 		t.Fatalf("unavailable copied reader authorization error = %v", err)
+	}
+	if err := VerifyNativeReaderAccess(nil, path, []string{"selected-account"}); err == nil || !strings.Contains(err.Error(), "credential backend is unavailable") {
+		t.Fatalf("reader verification without a credential backend = %v", err)
 	}
 	for _, account := range []string{"", "invalid/account"} {
 		if err := VerifyNativeReaderAccess(scopedView{store: store}, path, []string{account}); !errors.Is(err, ErrNativeReaderUnverified) || !strings.Contains(err.Error(), "invalid provider ID") {

@@ -29,12 +29,11 @@ func applicationOutput(t *testing.T, app *cli.App) *bytes.Buffer {
 func TestUpdateWritesItsTransitionAsJSON(t *testing.T) {
 	cleanup := errors.New("remove update workspace: busy")
 	for _, test := range []struct {
-		name     string
-		args     []string
-		updater  *fakeUpdater
-		homebrew bool
-		failed   bool
-		want     string
+		name    string
+		args    []string
+		updater *fakeUpdater
+		failed  bool
+		want    string
 	}{
 		{name: "update", updater: &fakeUpdater{updateResult: updated("0.2.0", "updated to v0.2.0")},
 			want: `{"schema_version":2,"ok":true,"state":"updated","version":"0.2.0","summary":"updated to v0.2.0","next_action":"aigw sync"}`},
@@ -43,19 +42,12 @@ func TestUpdateWritesItsTransitionAsJSON(t *testing.T) {
 			want:    `{"schema_version":2,"ok":true,"state":"current","version":"0.1.0","summary":"already matches","next_action":"aigw sync"}`},
 		{name: "rollback", args: []string{"--rollback"}, updater: &fakeUpdater{rollbackResult: restored("restored the previous program version.")},
 			want: `{"schema_version":2,"ok":true,"state":"restored","version":"0.0.9","summary":"restored the previous program version.","next_action":"aigw sync"}`},
-		{name: "Homebrew rollback", args: []string{"--rollback"}, updater: &fakeUpdater{}, homebrew: true,
-			want: `{"schema_version":2,"ok":true,"state":"prepared","summary":"Credentials are ready for an earlier AIGW release.",` +
-				`"next_detail":"Install the earlier release with Homebrew, then run ` + "`aigw sync` and `aigw check`" + `."}`},
 		{name: "incomplete cleanup", updater: &fakeUpdater{updateResult: updated("0.2.0", "updated to v0.2.0"), updateErr: cleanup}, failed: true,
 			want: `{"schema_version":2,"ok":false,"state":"updated","version":"0.2.0","summary":"updated to v0.2.0","problem":"Program updated; cleanup is incomplete",` +
 				`"next_detail":"Run ` + "`aigw self status` and `aigw check --depth local`" + ` before another program update or rollback."}`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
-			if test.homebrew {
-				homebrewProgram(t, app)
-				keychainRecorder(t, app, "0")
-			}
 			app.Updater = test.updater
 			command := append([]string{"self", "update", "--json"}, test.args...)
 			if slices.Contains(test.args, "--rollback") {

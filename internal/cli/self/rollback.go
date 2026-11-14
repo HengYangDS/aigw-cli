@@ -33,30 +33,25 @@ type rollbackPreview struct {
 }
 
 // newRollbackCommand constructs `aigw self rollback`, which activates the
-// retained previous portable program, or, for a program that Homebrew owns,
-// returns the credentials to the reader of an earlier release before Homebrew
-// installs it.
+// retained previous portable program and moves no credential. Homebrew
+// installs an earlier release of a program that it owns.
 func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode, dryRun bool
 	cmd := &cobra.Command{
 		Use:   "rollback",
 		Short: "Restore the retained previous program, not the configuration",
 		Long: "Activate the program that the last update or installation retained.\n" +
-			"Its check gives the previous program the current configuration, and a\n" +
-			"configuration that it cannot read blocks the rollback without changing\n" +
-			"files. Before Homebrew installs an earlier release, this returns macOS\n" +
-			"Keychain items to that release's reader.",
+			"Its check gives the previous program the current configuration, and\n" +
+			"a configuration that it cannot read blocks the rollback without\n" +
+			"changing files.",
 		Example: "aigw self rollback --dry-run\naigw self rollback\naigw self rollback --json",
 		Args:    cobra.NoArgs,
 		RunE: func(ctx *cobra.Command, _ []string) error {
 			if err := program.RequirePortableOwnership(runtime.Executable); err != nil {
-				if !errors.Is(err, program.ErrHomebrewManaged) {
-					return err
+				if errors.Is(err, program.ErrHomebrewManaged) {
+					return homebrewManaged("Install the earlier release with Homebrew.", "No program file or credential changed.", err)
 				}
-				if dryRun {
-					return previewHomebrewRollback(runtime, jsonMode)
-				}
-				return prepareHomebrewRollback(runtime, jsonMode)
+				return err
 			}
 			if dryRun {
 				return previewRollback(runtime, jsonMode)
@@ -68,10 +63,7 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 			if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
 				return fmt.Errorf("read configuration before program rollback: %w", readErr)
 			}
-			// A configuration this program cannot load names no credential;
-			// the retained program's own compatibility check then decides.
-			custody, _ := credentialCustody(runtime.Dependencies)
-			result, err := runtime.Updater.Rollback(ctx.Context(), config, custody)
+			result, err := runtime.Updater.Rollback(ctx.Context(), config)
 			if err != nil && result.State != "" {
 				return reportIncompleteCleanup(runtime, jsonMode, true, result, err)
 			}
@@ -152,63 +144,4 @@ func retainedVersion(program string) (version, unread string) {
 		}
 	}
 	return "", "its build information names no version"
-}
-
-// prepareHomebrewRollback returns macOS Keychain items to the reader of an
-// earlier release before Homebrew installs it; Homebrew keeps its program
-// files. If the operator keeps this release, its next Token use takes the
-// items back. Without a readable configuration it cannot name those items, so
-// it stops before any native request.
-func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
-	custody, err := credentialCustody(runtime.Dependencies)
-	if err != nil {
-		return homebrewConfigurationProblem(runtime, "Credentials are not ready for a Homebrew rollback",
-			"AIGW could not read the configuration that names its credentials.",
-			"No credential or program changed.", err)
-	}
-	if err := custody.Release(""); err != nil {
-		return terminal.ProblemError(
-			"Credentials are not ready for a Homebrew rollback",
-			"AIGW could not return every Keychain item to the reader of earlier releases.",
-			"The installed program is unchanged and can still read every credential.",
-			"Run `aigw check`, then run `aigw self rollback` again before Homebrew installs the earlier release.",
-			errors.Join(err, custody.Reclaim()))
-	}
-	if jsonMode {
-		return terminal.WriteDocument(runtime.Out, updateSchemaVersion, true, updateDocument{State: "prepared",
-			Summary:    "Credentials are ready for an earlier AIGW release.",
-			NextDetail: "Install the earlier release with Homebrew, then run `aigw sync` and `aigw check`."})
-	}
-	r := invocation.Renderer(runtime)
-	r.ProductTitle("Homebrew rollback")
-	r.Success("Credentials are ready for an earlier AIGW release.")
-	r.Text("Install the earlier release with Homebrew, then run its sync and check commands. If you keep this release, its next Token use takes the credentials back.")
-	r.Next("aigw sync")
-	return nil
-}
-
-// previewHomebrewRollback says what a Homebrew rollback would prepare, and
-// changes nothing.
-func previewHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
-	const summary = "A rollback would return the Keychain items to the reader of earlier releases before Homebrew installs one."
-	if jsonMode {
-		return terminal.WriteDocument(runtime.Out, updateSchemaVersion, true, updateDocument{DryRun: true, State: "preview", Summary: summary, NextAction: "aigw self rollback"})
-	}
-	r := invocation.Renderer(runtime)
-	r.ProductTitle("Homebrew rollback preview")
-	r.Text(summary)
-	r.Success("Preview did not change a credential, a policy or a program")
-	r.Next("aigw self rollback")
-	return nil
-}
-
-// homebrewConfigurationProblem refuses a Homebrew rollback whose configuration
-// did not load: its evidence names the stage that failed, and its fix repairs
-// the configuration before the rollback runs again.
-func homebrewConfigurationProblem(runtime invocation.Context, title, evidence, impact string, err error) error {
-	if stage, ok := terminal.ConfigurationLoadEvidence("AIGW "+runtime.Version, err); ok {
-		evidence = stage
-	}
-	fix := terminal.ConfigurationLoadFix(err) + " Then run `aigw self rollback` again before Homebrew installs the earlier release."
-	return terminal.ProblemError(title, evidence, impact, fix, err)
 }

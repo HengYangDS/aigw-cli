@@ -110,7 +110,7 @@ func TestInstallPortableArchiveRequiresExistingInstallationDirectory(t *testing.
 
 func TestRollbackRejectsEmptyExecutable(t *testing.T) {
 	u := Updater{Executable: "  "}
-	if _, err := u.Rollback(context.Background(), nil, nil); err == nil || !strings.Contains(err.Error(), "AIGW executable path is empty") {
+	if _, err := u.Rollback(context.Background(), nil); err == nil || !strings.Contains(err.Error(), "AIGW executable path is empty") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -124,7 +124,7 @@ func TestRollbackRejectsUnrunnablePredecessorWithoutReplacingPrograms(t *testing
 			t.Fatal(err)
 		}
 	}
-	if _, err := (Updater{Executable: current}).Rollback(t.Context(), nil, nil); err == nil {
+	if _, err := (Updater{Executable: current}).Rollback(t.Context(), nil); err == nil {
 		t.Fatal("rollback activated an unverified predecessor")
 	}
 	for path, value := range map[string]string{current: "current-program", previous: "not an executable"} {
@@ -169,7 +169,7 @@ func TestRollbackConfigurationVerdictsPreservePrograms(t *testing.T) {
 				}
 				return []byte(test.output), test.failure
 			}}
-			_, err := (Updater{Executable: current, Runner: runner}).Rollback(t.Context(), []byte("version = 8\n"), nil)
+			_, err := (Updater{Executable: current, Runner: runner}).Rollback(t.Context(), []byte("version = 8\n"))
 			if test.compatible && err != nil || !test.compatible && err == nil {
 				t.Fatalf("rollback admission: %v", err)
 			}
@@ -246,6 +246,32 @@ func TestRollbackVerificationReadsExactBytesWithoutHostCredentials(t *testing.T)
 	}
 }
 
+// A rollback that admitted the retained program but cannot activate it says
+// so and keeps that program where it was. Here the installed program vanishes
+// while the check runs.
+func TestRollbackReportsAFailedActivationAndKeepsTheRetainedProgram(t *testing.T) {
+	root := t.TempDir()
+	current := filepath.Join(root, "aigw")
+	for path, value := range map[string]string{current: "current", RollbackPath(current): "previous"} {
+		if err := os.WriteFile(path, []byte(value), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runner := &recordingRunner{inspect: func(process.Plan) ([]byte, error) {
+		if err := os.Remove(current); err != nil {
+			t.Fatal(err)
+		}
+		return []byte("aigw version 1.2.3\n"), nil
+	}}
+	result, err := (Updater{Executable: current, Runner: runner}).Rollback(t.Context(), nil)
+	if err == nil || !strings.Contains(err.Error(), "restore previous AIGW executable") || result.State != "" {
+		t.Fatalf("rollback = %+v, %v", result, err)
+	}
+	if data, err := os.ReadFile(RollbackPath(current)); err != nil || string(data) != "previous" {
+		t.Fatalf("retained program = %q, %v", data, err)
+	}
+}
+
 func TestRollbackRejectsMissingCurrentExecutable(t *testing.T) {
 	directory := t.TempDir()
 	executable := filepath.Join(directory, "missing")
@@ -253,7 +279,7 @@ func TestRollbackRejectsMissingCurrentExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	u := Updater{Executable: executable}
-	if _, err := u.Rollback(t.Context(), nil, nil); err == nil || !strings.Contains(err.Error(), "inspect current AIGW executable") {
+	if _, err := u.Rollback(t.Context(), nil); err == nil || !strings.Contains(err.Error(), "inspect current AIGW executable") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -270,7 +296,7 @@ func TestRollbackRejectsUnreadableBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 	u := Updater{Executable: executable}
-	if _, err := u.Rollback(context.Background(), nil, nil); err == nil || !strings.Contains(err.Error(), "read previous AIGW executable") {
+	if _, err := u.Rollback(context.Background(), nil); err == nil || !strings.Contains(err.Error(), "read previous AIGW executable") {
 		t.Fatalf("error = %v", err)
 	}
 }

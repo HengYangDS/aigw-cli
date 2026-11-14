@@ -378,12 +378,22 @@ func problemFor(err error, at platform.PathContext) Problem {
 	// A path failure states its condition's fix, whatever wraps it, unless an
 	// outer error states its own.
 	user, structured := errors.AsType[*userError](err)
+	refusal, refused := errors.AsType[*secret.KeychainItemRefusedError](err)
 	failure, atFile := errors.AsType[*adapter.ApplyError](err)
 	target, atTarget := errors.AsType[*adapter.TargetError](err)
 	impact, recovered := ConfigurationRecoveryImpact(err)
 	switch {
 	case structured:
 		return user.problem
+	case refused:
+		// Before the reader check's own problem: a check that met such an
+		// item has this cause, and this fix.
+		return Problem{
+			Title:    refusal.Title(),
+			Evidence: refusal.Evidence(),
+			Impact:   "The item is unchanged; AIGW neither read nor replaced it.",
+			Fix:      refusal.Fix(),
+		}
 	case errors.Is(err, secret.ErrNativeReaderUnverified):
 		return Problem{
 			Title:    "Cannot verify native Token access for this AIGW version",

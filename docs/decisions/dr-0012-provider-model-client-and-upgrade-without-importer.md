@@ -75,8 +75,9 @@ then remove the old provider.
    frozen field takes a new file name, as this release does.
 5. The program rollback command gives the retained program the current
    configuration and refuses a program that cannot read it, so it cannot return
-   to a release older than 0.7.0. The Homebrew rollback keeps its Keychain
-   custody step and has no retry-policy refusal. A Hermes provider ID is
+   to a release older than 0.7.0. A program rollback moves no credential;
+   0.8.0 retired the Keychain custody step that 0.7.0 still carried. A Hermes
+   provider ID is
    `aigw-<provider>-<protocol>`, such as `aigw-dmxapi-responses`. A Hermes
    session that recorded an earlier ID on the responses or chat protocol does
    not find it after the upgrade; the anthropic ID is unchanged.

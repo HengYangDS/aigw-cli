@@ -92,25 +92,26 @@ other-installation caller remains; neither uninstall nor a prefix or age match
 supplies that proof. AIGW therefore never removes a versioned reader itself.
 
 An already-running client that cached the old package-manager path is not
-migrated by rewriting settings. The one-time transition from 0.3.5 or earlier
-preprojects the private path and uses a bounded, measured Homebrew cutover with
-immediate acceptance and rollback. It cannot claim that every cached public-link
-call remains available during unlink/relink. Later versioned paths remain
-retained for their original callers.
+migrated by rewriting settings: after an upgrade from 0.3.5 or earlier it fails
+until its client is set up again. Later versioned paths remain retained for
+their original callers.
 
-macOS Keychain items written by 0.3.5 and earlier trust only `/usr/bin/security`.
-The installed AIGW program, which Homebrew's receipt owns or which sits beside
-its retained portable predecessor, migrates such an item once to AIGW ownership
-on first use, staging its Token so that no step can lose it, without a prompt or
-an access-list change. Any other AIGW executable, such as a versioned reader, an
-extracted release or a development build, cannot tell whether its installation
-still runs the predecessor, so it reads such an item through `/usr/bin/security`
-and never changes an item's owner. Before a Homebrew downgrade to a release of
-0.7.0 or later, `aigw self rollback` returns the items to the predecessor's
-reader, because it cannot tell which release Homebrew will install. A portable
-rollback admits only a release of 0.7.0 or later, which reads AIGW-owned
-items, so it moves none. The [credential decision](../decisions/dr-0011-single-portable-token-backend.md)
-records the migration and its custody rules.
+A macOS Keychain item that a signed AIGW release creates trusts the signing
+identifier and team, not one executable's bytes. Every later signed release
+reads it without a prompt, so an upgrade, a program rollback and a Homebrew
+downgrade move no item. AIGW uses an item only through that identity: it runs
+no other program to read, replace or delete one, and no command changes an
+item's owner. An item that 0.3.5 or earlier stored trusts only
+`/usr/bin/security`, and AIGW can neither read nor replace it: the failing
+command says that another program stored the item and names the fix, which
+deletes the item with that tool and stores the Token again. An ad-hoc or
+development build has another identity and meets the same refusal. macOS gives
+a locked keychain's refusal the same status, so the credential worker also
+reports whether the keychain was unlocked, and only a refusal with an unlocked
+keychain counts as another program's item. macOS does let AIGW delete such an
+item, so `aigw provider remove` removes it as it removes AIGW's own. The
+[credential decision](../decisions/dr-0011-single-portable-token-backend.md)
+records why the earlier one-time migration was retired.
 
 The [credential-continuity design](../../openspec/changes/archive/2026-10-16-terminal-product-convergence/design.md#4-decide-credential-command-continuity-before-cutover)
 defines native qualification. The [frozen-source and delivery tasks](../../openspec/changes/archive/2026-10-16-terminal-product-convergence/tasks.md#9-frozen-source-and-pre-archive-acceptance)

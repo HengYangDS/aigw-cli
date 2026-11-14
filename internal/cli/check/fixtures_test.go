@@ -66,7 +66,9 @@ type observingSecretStore struct {
 	// empty names the providers whose item holds an empty value, which Exists
 	// reports present, as a store whose metadata cannot tell does, and Get
 	// reports as ErrEmpty.
-	empty           map[string]bool
+	empty map[string]bool
+	// getErr fails every Token read, as a backend that cannot return one does.
+	getErr          error
 	existsErr       error
 	getProviders    []string
 	existsProviders []string
@@ -75,6 +77,9 @@ type observingSecretStore struct {
 
 func (store *observingSecretStore) Get(provider string) (string, error) {
 	store.getProviders = append(store.getProviders, provider)
+	if store.getErr != nil {
+		return "", store.getErr
+	}
 	if store.empty[provider] {
 		return "", secret.ErrEmpty
 	}

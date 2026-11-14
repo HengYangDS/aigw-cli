@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+
+	"aigw-cli/internal/platform"
 )
 
 // Replace applies Account Tokens in stable order and owns their compensation,
@@ -38,7 +40,10 @@ func Replace(store Store, updates map[string]string) (func() error, error) {
 	for _, account := range slices.Sorted(maps.Keys(updates)) {
 		rollback, err := replaceToken(store, account, updates[account])
 		if err != nil {
-			return nil, errors.Join(fmt.Errorf("store Token for provider %q: %w", account, err), compensate())
+			// A compensation that fails is a failed undo, which every
+			// presentation of the batch's failure then states.
+			return nil, errors.Join(fmt.Errorf("store Token for provider %q: %w", account, err),
+				platform.FailedUndo("restoring the Tokens that this command had stored", compensate()))
 		}
 		rollbacks = append(rollbacks, rollback)
 	}

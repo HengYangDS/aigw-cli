@@ -192,9 +192,9 @@ Portable archives for macOS, Linux, and Windows use the CLI-owned lifecycle:
 `aigw self uninstall`. Replacement retains one immediate predecessor and
 restores the current program if activation fails. It is recoverable
 replacement, not uninterrupted atomic visibility or power-loss recovery. The
-macOS Homebrew Cask is a separate installation owner: Homebrew upgrades or
-removes its program, and AIGW's portable update and uninstall commands refuse
-to overwrite it. Linux and Windows currently use the published portable
+macOS Homebrew Cask is a separate installation owner: Homebrew upgrades,
+downgrades or removes its program, and AIGW's portable install, update,
+rollback and uninstall commands refuse to change it. Linux and Windows currently use the published portable
 archives, not an npm or native package-manager channel.
 
 Before rollback, the retained program must start and read an isolated copy of

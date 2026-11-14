@@ -54,12 +54,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 						err,
 					)
 				}
-				evidence := ""
-				action := "Restore read access to the selected backend (unlock the native store if locked), then retry; AIGW will not switch backends."
-				if failure, ok := errors.AsType[*native.KeychainError](err); ok {
-					evidence = fmt.Sprintf("Keychain OSStatus %d; the native read did not permit user interaction.", failure.Status)
-					action = "Inspect the selected native store, item authorization and credential-reader identity; repeated helper calls cannot grant access."
-				}
+				evidence, action := unreadableToken(err)
 				return terminal.ProblemError(
 					fmt.Sprintf("%s Token could not be read", client), evidence,
 					"No Token was returned.",
@@ -74,6 +69,21 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		},
 	}
+}
+
+// unreadableToken is the evidence and the action of a Token read that failed
+// in the backend. A Keychain item that macOS refuses while its keychain is
+// unlocked has one fix, which its refusal owns; any other native status is
+// reported as it is; and any other failure needs the backend's read access.
+func unreadableToken(err error) (evidence, action string) {
+	if refusal, ok := errors.AsType[*secret.KeychainItemRefusedError](err); ok {
+		return refusal.Evidence(), refusal.Fix()
+	}
+	if failure, ok := errors.AsType[*native.KeychainError](err); ok {
+		return fmt.Sprintf("Keychain OSStatus %d; the native read did not permit user interaction.", failure.Status),
+			"Inspect the selected native store, item authorization and credential-reader identity; repeated helper calls cannot grant access."
+	}
+	return "", "Restore read access to the selected backend (unlock the native store if locked), then retry; AIGW will not switch backends."
 }
 
 // configurationProblem names this reader's version and the configuration stage

@@ -2,7 +2,7 @@
 
 package native
 
-func queryCredential(string, string, string, []byte, Role) ([]byte, error) {
+func queryCredential(string, string, string, []byte) ([]byte, error) {
 	return nil, ErrUnavailable
 }
 

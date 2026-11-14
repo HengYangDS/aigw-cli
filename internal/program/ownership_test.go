@@ -31,7 +31,7 @@ func TestHomebrewOwnershipPrecedesPortableMutation(t *testing.T) {
 			operations := map[string]func() error{
 				"update":      func() error { _, err := updater.Update(t.Context(), "0.1.0"); return err },
 				"candidate":   func() error { _, err := updater.UpdateCandidate(t.Context(), "0.1.0", CandidateArchive{}); return err },
-				"rollback":    func() error { _, err := updater.Rollback(t.Context(), nil, nil); return err },
+				"rollback":    func() error { _, err := updater.Rollback(t.Context(), nil); return err },
 				"replacement": func() error { _, err := updater.replacePortableBinary(t.Context(), []byte("replacement")); return err },
 			}
 			for name, operation := range operations {
@@ -50,6 +50,19 @@ func TestHomebrewOwnershipPrecedesPortableMutation(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+// The refusal of a Homebrew-owned program leaves every program operation to
+// Homebrew and names its upgrade as the next action.
+func TestHomebrewOwnershipRefusalNamesHomebrewForEveryOperation(t *testing.T) {
+	const want = "Homebrew manages this executable; upgrade, roll back or remove it with Homebrew, such as `brew upgrade --cask aigw`, instead of portable installation commands"
+	if got := ErrHomebrewManaged.Error(); got != want {
+		t.Fatalf("refusal = %q, want %q", got, want)
+	}
+	refusal, ok := ErrHomebrewManaged.(interface{ NextAction() string })
+	if !ok || refusal.NextAction() != "brew upgrade --cask aigw" {
+		t.Fatalf("refusal names no Homebrew upgrade: %v", ErrHomebrewManaged)
 	}
 }
 
@@ -88,51 +101,5 @@ func TestPortableOwnershipUsesReceiptEvidence(t *testing.T) {
 	}
 	if err := RequirePortableOwnership("invalid\x00path"); err == nil {
 		t.Fatal("invalid path accepted")
-	}
-}
-
-func TestInstalledProgramNeedsItsInstallationRollbackOwner(t *testing.T) {
-	root := t.TempDir()
-	write := func(path, data string) string {
-		t.Helper()
-		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		return path
-	}
-	const receipt = `{"homebrew_version":"7.0.9","source":{"tap":"owner/tap"}}`
-	cask := write(filepath.Join(root, "Caskroom", "aigw", "0.4.0", "aigw"), "installed")
-	write(filepath.Join(root, "Caskroom", "aigw", ".metadata", "INSTALL_RECEIPT.json"), receipt)
-	formula := write(filepath.Join(root, "Cellar", "aigw", "0.4.0", "bin", "aigw"), "installed")
-	write(filepath.Join(root, "Cellar", "aigw", "0.4.0", "INSTALL_RECEIPT.json"), receipt)
-	portable := write(filepath.Join(root, "portable", "aigw"), "installed")
-	write(RollbackPath(portable), "predecessor")
-	incomplete := write(filepath.Join(root, "incomplete", "Caskroom", "aigw", "0.4.0", "aigw"), "candidate")
-	write(filepath.Join(root, "incomplete", "Caskroom", "aigw", ".metadata", "INSTALL_RECEIPT.json"), "{}")
-	directory := write(filepath.Join(root, "directory", "aigw"), "candidate")
-	if err := os.Mkdir(RollbackPath(directory), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	for _, test := range []struct {
-		name, executable string
-		want             bool
-	}{
-		{name: "Homebrew cask", executable: cask, want: true},
-		{name: "Homebrew formula", executable: formula, want: true},
-		{name: "portable program beside its predecessor", executable: portable, want: true},
-		{name: "extracted release", executable: write(filepath.Join(root, "extracted", "aigw"), "candidate")},
-		{name: "versioned reader copy", executable: write(filepath.Join(root, "data", "credential", strings.Repeat("ab", 32), "aigw"), "reader")},
-		{name: "incomplete Homebrew receipt", executable: incomplete},
-		{name: "rollback path without a program", executable: directory},
-		{name: "unknown executable"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if got := InstalledProgram(test.executable); got != test.want {
-				t.Fatalf("installed program = %t, want %t", got, test.want)
-			}
-		})
 	}
 }

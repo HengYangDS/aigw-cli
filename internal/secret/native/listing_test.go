@@ -13,9 +13,9 @@ import (
 )
 
 // The worker's listing takes the service alone and no input, and only
-// provider IDs cross its boundary: a name of any other shape, such as a staged
-// migration item, or anything a backend might wrongly hand back with a space
-// or a line of its own, stays in the worker.
+// provider IDs cross its boundary: a name of any other shape, such as a
+// balance credential's, or anything a backend might wrongly hand back with a
+// space or a line of its own, stays in the worker.
 func TestCredentialSubprocessListingReturnsOnlyProviderIDs(t *testing.T) {
 	const value = "sk secret value"
 	var out, diagnostic bytes.Buffer
@@ -24,7 +24,7 @@ func TestCredentialSubprocessListingReturnsOnlyProviderIDs(t *testing.T) {
 			if operation != listCommand || service != "AIGW_TOKEN" || account != "" || len(data) != 0 {
 				t.Fatalf("listing request = %q %q %q %q", operation, service, account, data)
 			}
-			return []byte(strings.Join([]string{"team", "migration@team", "diagnostic@team", value, "orphan", "team", ""}, "\n")), nil
+			return []byte(strings.Join([]string{"team", "native@team", "diagnostic@team", value, "orphan", "team", ""}, "\n")), nil
 		})
 	if !handled || code != 0 || out.String() != "orphan\nteam\n" || diagnostic.Len() != 0 {
 		t.Fatalf("listing = handled %t, code %d, out %q, diagnostic %q", handled, code, &out, &diagnostic)

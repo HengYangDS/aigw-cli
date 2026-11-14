@@ -28,6 +28,8 @@ func TestEveryExplanationOfADomainErrorSpeaksTheProductVocabulary(t *testing.T) 
 		"a team file version":      &domain.UnsupportedTeamFileVersionError{Version: 7},
 		"an entry":                 domain.NewEntryError("provider `team`", errors.New("provider \"team\" has an empty label")),
 		"an unverified reader":     fmt.Errorf("read: %w", secret.ErrNativeReaderUnverified),
+		"a refused Token item":     &secret.KeychainItemRefusedError{Kind: secret.APIToken, Provider: "team", Status: -25293},
+		"a refused balance item":   &secret.KeychainItemRefusedError{Kind: secret.ProviderDiagnostic, Provider: "team", Status: -25293},
 		"a model without protocol": validationError(t),
 	} {
 		t.Run(name, func(t *testing.T) {

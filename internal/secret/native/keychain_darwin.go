@@ -9,7 +9,6 @@ package native
 #include <LocalAuthentication/LocalAuthentication.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 static OSStatus aigwQueryKeychainItem(const char *service, const char *account,
                                      const char *path, CFTypeRef *result,
@@ -127,21 +126,30 @@ static OSStatus aigwMutateKeychainItem(const char *service, const char *account,
         status = SecKeychainFindGenericPassword(keychain, serviceLength, service,
                                                 accountLength, account,
                                                 NULL, NULL, &item);
-        if (removeItem) {
-            if (status == errSecSuccess) status = SecKeychainItemDelete(item);
-        } else if (status == errSecItemNotFound) {
+        Boolean created = false;
+        if (!removeItem && status == errSecItemNotFound) {
             status = SecKeychainAddGenericPassword(keychain, serviceLength, service,
                                                    accountLength, account,
                                                    length, value, &item);
-            if (status == errSecSuccess) {
-                SecKeychainAttribute attribute = {
-                    kSecLabelItemAttr, (UInt32)strlen(label), (void *)label};
-                SecKeychainAttributeList attributes = {1, &attribute};
-                status = SecKeychainItemModifyAttributesAndData(item, &attributes, 0, NULL);
-                if (status != errSecSuccess) {
-                    OSStatus rollback = SecKeychainItemDelete(item);
-                    if (rollback != errSecSuccess) status = rollback;
-                }
+            created = status == errSecSuccess;
+            if (status == errSecDuplicateItem) {
+                // Another writer created the slot since the lookup: update the
+                // item that it added.
+                status = SecKeychainFindGenericPassword(keychain, serviceLength, service,
+                                                        accountLength, account,
+                                                        NULL, NULL, &item);
+            }
+        }
+        if (removeItem) {
+            if (status == errSecSuccess) status = SecKeychainItemDelete(item);
+        } else if (created) {
+            SecKeychainAttribute attribute = {
+                kSecLabelItemAttr, (UInt32)strlen(label), (void *)label};
+            SecKeychainAttributeList attributes = {1, &attribute};
+            status = SecKeychainItemModifyAttributesAndData(item, &attributes, 0, NULL);
+            if (status != errSecSuccess) {
+                OSStatus rollback = SecKeychainItemDelete(item);
+                if (rollback != errSecSuccess) status = rollback;
             }
         } else if (status == errSecSuccess) {
             // Do not replace a retained item whose value this identity cannot
@@ -169,8 +177,9 @@ static void aigwClearAndFree(void *value, size_t length) {
     }
 }
 
-// aigwKeychainUnlocked reports whether the item's keychain can be read without
-// asking for its password. An explicit path selects an isolated test keychain.
+// aigwKeychainUnlocked reports whether the keychain at path, or the default
+// keychain without one, is unlocked. It reads the keychain's status, which
+// needs no prompt. An explicit path selects an isolated test keychain.
 static OSStatus aigwKeychainUnlocked(const char *path, Boolean *unlocked) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -189,84 +198,6 @@ static OSStatus aigwKeychainUnlocked(const char *path, Boolean *unlocked) {
 #pragma clang diagnostic pop
     return status;
 }
-
-// aigwItemTrustsPath reports whether the exact item's access list names the
-// application at trustedPath for decryption. It reads access metadata only,
-// never the item's data, and runs with Keychain UI disabled.
-static OSStatus aigwItemTrustsPath(const char *service, const char *account,
-                                   const char *path, const char *trustedPath,
-                                   Boolean *trusted) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    *trusted = false;
-    Boolean wasAllowed = false;
-    OSStatus status = SecKeychainGetUserInteractionAllowed(&wasAllowed);
-    if (status != errSecSuccess) return status;
-    status = SecKeychainSetUserInteractionAllowed(false);
-    if (status != errSecSuccess) return status;
-    SecKeychainRef keychain = NULL;
-    SecKeychainItemRef item = NULL;
-    SecAccessRef access = NULL;
-    CFArrayRef entries = NULL;
-    SecTrustedApplicationRef expected = NULL;
-    CFDataRef expectedData = NULL;
-    if (path != NULL && path[0] != '\0') {
-        status = SecKeychainOpen(path, &keychain);
-    }
-    if (status == errSecSuccess) {
-        status = SecKeychainFindGenericPassword(keychain, (UInt32)strlen(service), service,
-                                                (UInt32)strlen(account), account,
-                                                NULL, NULL, &item);
-    }
-    if (status == errSecSuccess) {
-        status = SecKeychainItemCopyAccess(item, &access);
-    }
-    if (status == errSecSuccess) {
-        status = SecTrustedApplicationCreateFromPath(trustedPath, &expected);
-    }
-    if (status == errSecSuccess) {
-        status = SecTrustedApplicationCopyData(expected, &expectedData);
-    }
-    if (status == errSecSuccess) {
-        entries = SecAccessCopyMatchingACLList(access, kSecACLAuthorizationDecrypt);
-        if (entries == NULL) status = errSecInvalidACL;
-    }
-    for (CFIndex index = 0; status == errSecSuccess && index < CFArrayGetCount(entries); index++) {
-        SecACLRef entry = (SecACLRef)CFArrayGetValueAtIndex(entries, index);
-        CFArrayRef applications = NULL;
-        CFStringRef description = NULL;
-        SecKeychainPromptSelector selector = 0;
-        status = SecACLCopyContents(entry, &applications, &description, &selector);
-        // A null application list authorizes every caller; AIGW's own denial
-        // shows that such an entry does not decide this item.
-        for (CFIndex position = 0; status == errSecSuccess && applications != NULL &&
-                                   position < CFArrayGetCount(applications);
-             position++) {
-            SecTrustedApplicationRef application =
-                (SecTrustedApplicationRef)CFArrayGetValueAtIndex(applications, position);
-            CFDataRef applicationData = NULL;
-            if (SecTrustedApplicationCopyData(application, &applicationData) == errSecSuccess) {
-                if (CFEqual(applicationData, expectedData)) *trusted = true;
-                CFRelease(applicationData);
-            }
-        }
-        if (applications != NULL) CFRelease(applications);
-        if (description != NULL) CFRelease(description);
-    }
-    if (entries != NULL) CFRelease(entries);
-    if (expectedData != NULL) CFRelease(expectedData);
-    if (expected != NULL) CFRelease(expected);
-    if (access != NULL) CFRelease(access);
-    if (item != NULL) CFRelease(item);
-    if (keychain != NULL) CFRelease(keychain);
-    OSStatus restore = SecKeychainSetUserInteractionAllowed(wasAllowed);
-#pragma clang diagnostic pop
-    return status == errSecSuccess ? restore : status;
-}
-
-static size_t aigwUserTemporaryDirectory(char *buffer, size_t length) {
-    return confstr(_CS_DARWIN_USER_TEMP_DIR, buffer, length);
-}
 */
 import "C"
 
@@ -274,6 +205,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"strings"
 	"unsafe"
 )
@@ -297,8 +229,18 @@ func observeCredentialInKeychain(service, account, path string) (bool, error) {
 	}
 }
 
-// keychainUnlocked reports whether the selected keychain is unlocked, so a
-// migration cannot cause a keychain password prompt.
+// withLockState adds to the failure of a read or a write whether the keychain
+// was unlocked. macOS fails authentication alike for an item that this program
+// may not use and for every item of a locked keychain, so the lock state is
+// read after that status and no other.
+func withLockState(err error, path string) error {
+	if failure, ok := errors.AsType[*KeychainError](err); ok && failure.Status == authenticationFailed {
+		failure.Unlocked = keychainUnlocked(path)
+	}
+	return err
+}
+
+// keychainUnlocked reports whether the selected keychain is unlocked.
 func keychainUnlocked(path string) bool {
 	keychainPath := C.CString(path)
 	defer C.free(unsafe.Pointer(keychainPath))
@@ -306,34 +248,6 @@ func keychainUnlocked(path string) bool {
 	var unlocked C.Boolean
 	status := C.aigwKeychainUnlocked(keychainPath, &unlocked)
 	return status == C.errSecSuccess && unlocked != 0
-}
-
-// itemTrustsApplication reports whether the exact item authorizes the
-// application at trustedPath to decrypt it. It reads access metadata only.
-func itemTrustsApplication(service, account, path, trustedPath string) bool {
-	serviceName := C.CString(service)
-	accountName := C.CString(account)
-	keychainPath := C.CString(path)
-	applicationPath := C.CString(trustedPath)
-	defer C.free(unsafe.Pointer(serviceName))
-	defer C.free(unsafe.Pointer(accountName))
-	defer C.free(unsafe.Pointer(keychainPath))
-	defer C.free(unsafe.Pointer(applicationPath))
-
-	var trusted C.Boolean
-	status := C.aigwItemTrustsPath(serviceName, accountName, keychainPath, applicationPath, &trusted)
-	return status == C.errSecSuccess && trusted != 0
-}
-
-// userTemporaryDirectory returns the user's private temporary directory, which
-// does not depend on the worker's restricted environment.
-func userTemporaryDirectory() (string, error) {
-	buffer := make([]byte, 1024)
-	length := int(C.aigwUserTemporaryDirectory((*C.char)(unsafe.Pointer(&buffer[0])), C.size_t(len(buffer))))
-	if length == 0 || length > len(buffer) {
-		return "", ErrUnavailable
-	}
-	return string(buffer[:length-1]), nil
 }
 
 func readCredentialFromKeychain(service, account, path string) ([]byte, error) {
@@ -360,7 +274,7 @@ func readCredentialFromKeychain(service, account, path string) ([]byte, error) {
 		}
 	}
 	if status != C.errSecSuccess {
-		return nil, &KeychainError{Status: int32(status)}
+		return nil, withLockState(&KeychainError{Status: int32(status)}, path)
 	}
 	if data == 0 {
 		return nil, ErrUnavailable
@@ -377,8 +291,8 @@ func readCredentialFromKeychain(service, account, path string) ([]byte, error) {
 	return decodeStoredCredential(raw)
 }
 
-// decodeStoredCredential reverses go-keyring's storage envelope, which both the
-// predecessor's tool and AIGW's own writer apply.
+// decodeStoredCredential reverses go-keyring's storage envelope, which AIGW's
+// writer applies.
 func decodeStoredCredential(raw []byte) ([]byte, error) {
 	stored := bytes.TrimSpace(raw)
 	if encoded, ok := bytes.CutPrefix(stored, []byte("go-keyring-base64:")); ok {
@@ -418,7 +332,7 @@ func writeCredentialToKeychain(service, account, path string, value []byte) erro
 	if len(value) == 0 || len(value) > maxStoredValue {
 		return ErrUnavailable
 	}
-	return mutateCredentialInKeychain(service, account, path, value, false)
+	return withLockState(mutateCredentialInKeychain(service, account, path, value, false), path)
 }
 
 func deleteCredentialFromKeychain(service, account, path string) error {
@@ -426,9 +340,6 @@ func deleteCredentialFromKeychain(service, account, path string) error {
 }
 
 func keychainItemLabel(account string) string {
-	if slot, staged := strings.CutPrefix(account, stagedAccountPrefix); staged {
-		return "AIGW Credential Migration: " + slot
-	}
 	if provider, diagnostic := strings.CutPrefix(account, "diagnostic@"); diagnostic {
 		return "AIGW Provider Diagnostic: " + provider
 	}

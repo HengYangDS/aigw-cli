@@ -7,16 +7,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/adapter/claude"
-	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/domain"
 	"aigw-cli/internal/program"
-	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -175,158 +170,6 @@ func TestUpdateRollbackStopsBeforeUpdaterWhenConfigurationCannotBeRead(t *testin
 	}
 }
 
-// keychainRecorder installs an executable that records native credential
-// requests, with a native keyring store that invokes it.
-func keychainRecorder(t *testing.T, app *cli.App, code string) string {
-	t.Helper()
-	cfg := domain.NewConfig(clients.Admission())
-	addProviderModel(&cfg, "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	record := filepath.Join(t.TempDir(), "requests")
-	script := "#!/bin/sh\nprintf '%s %s\\n' \"$1\" \"$3\" >> '" + record + "'\nexit " + code + "\n"
-	if err := os.MkdirAll(filepath.Dir(app.Executable), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(app.Executable, []byte(script), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	store, err := secret.Select(secret.Selection{Backend: "keyring", GOOS: "darwin", Root: t.TempDir(), Executable: app.Executable})
-	if err != nil {
-		t.Fatal(err)
-	}
-	app.Secrets = store
-	return record
-}
-
-// requireCustodyRequests compares the native requests a keychain recorder
-// received. Only macOS Keychain items authorize the reading executable, so other
-// platforms convert nothing.
-func requireCustodyRequests(t *testing.T, record, darwin string) {
-	t.Helper()
-	want := ""
-	if runtime.GOOS == "darwin" {
-		want = darwin
-	}
-	requests, err := os.ReadFile(record)
-	if errors.Is(err, os.ErrNotExist) {
-		err = nil
-	}
-	if err != nil || string(requests) != want {
-		t.Fatalf("custody requests = %q, %v; want %q", requests, err, want)
-	}
-}
-
-func TestUpdateRollbackGivesTheUpdaterCredentialCustody(t *testing.T) {
-	app, _, _, _, _ := testApp(t, "")
-	record := keychainRecorder(t, app, "0")
-	updater := &fakeUpdater{rollbackResult: restored("restored the previous program version.")}
-	app.Updater = updater
-	if err := cli.Execute(app, []string{"self", "rollback"}); err != nil {
-		t.Fatal(err)
-	}
-	requireCustodyRequests(t, record, "")
-	if updater.rollbackCustody == nil {
-		t.Fatal("rollback received no credential custody")
-	}
-	if err := updater.rollbackCustody.Release("0.3.5"); err != nil {
-		t.Fatal(err)
-	}
-	if err := updater.rollbackCustody.Reclaim(); err != nil {
-		t.Fatal(err)
-	}
-	requireCustodyRequests(t, record, "__aigw-native-credential-restore team\n__aigw-native-credential-restore diagnostic@team\n"+
-		"__aigw-native-credential-reclaim team\n__aigw-native-credential-reclaim diagnostic@team\n")
-}
-
-func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
-	for _, test := range []struct {
-		name string
-		code string
-		// budgets gives Codex retry budgets, which no rollback refuses.
-		budgets bool
-		// damage replaces the configuration that names the credentials.
-		damage func(t *testing.T, path string)
-		want   string
-	}{
-		{name: "prepared", code: "0", want: "__aigw-native-credential-restore team\n__aigw-native-credential-restore diagnostic@team\n"},
-		{name: "retry budgets", code: "0", budgets: true, want: "__aigw-native-credential-restore team\n__aigw-native-credential-restore diagnostic@team\n"},
-		{name: "refused", code: "3", want: "__aigw-native-credential-restore team\n__aigw-native-credential-reclaim team\n"},
-		{name: "malformed authority", code: "0", damage: func(t *testing.T, path string) {
-			if err := os.WriteFile(path, []byte("version = 6\n[accounts\n"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-		}},
-		{name: "unreadable authority", code: "0", damage: func(t *testing.T, path string) {
-			if err := os.Remove(path); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.Mkdir(path, 0o700); err != nil {
-				t.Fatal(err)
-			}
-		}},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if test.code != "0" && runtime.GOOS != "darwin" {
-				t.Skip("only a macOS Keychain conversion can be refused")
-			}
-			app, out, _, _, _ := testApp(t, "")
-			homebrewProgram(t, app)
-			record := keychainRecorder(t, app, test.code)
-			if test.budgets {
-				withCodexRetryBudgets(t, app)
-			}
-			if test.damage != nil {
-				test.damage(t, app.Config.Path())
-			}
-			before, beforeErr := os.ReadFile(app.Config.Path())
-			updater := &fakeUpdater{}
-			app.Updater = updater
-			err := cli.Execute(app, []string{"self", "rollback"})
-			switch {
-			case test.damage != nil:
-				requireAuthorityRefusal(t, err, out.String(), app.Config.Path(), before, beforeErr)
-			case test.code == "0":
-				if err != nil || !strings.Contains(out.String(), "Install the earlier release with Homebrew") {
-					t.Fatalf("Homebrew rollback = %v\n%s", err, out.String())
-				}
-			default:
-				if err == nil || !strings.Contains(out.String(), "can still read every credential") {
-					t.Fatalf("refused Homebrew rollback = %v\n%s", err, out.String())
-				}
-			}
-			if updater.rollbackCalls != 0 {
-				t.Fatal("Homebrew rollback replaced a Homebrew-owned program")
-			}
-			requireCustodyRequests(t, record, test.want)
-		})
-	}
-}
-
-// withCodexRetryBudgets gives the configuration a Codex selection on the team
-// provider with retry budgets.
-func withCodexRetryBudgets(t *testing.T, app *cli.App) {
-	t.Helper()
-	cfg, err := app.Config.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	provider := cfg.Providers["team"]
-	provider.Endpoints.Responses = "https://team.test/v1"
-	cfg.Providers["team"] = provider
-	model := qualifiedModel("GPT", "team", "gpt-test", domain.ProtocolResponses)
-	cfg.Models[model.Ref()] = model
-	cfg.SetSelectedModel(codex.ID, model.Ref(), "")
-	budget := uint64(0)
-	binding := cfg.Clients[codex.ID]
-	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &budget}
-	cfg.Clients[codex.ID] = binding
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // homebrewProgram makes app's executable the program of a Homebrew cask.
 func homebrewProgram(t *testing.T, app *cli.App) {
 	t.Helper()
@@ -341,25 +184,9 @@ func homebrewProgram(t *testing.T, app *cli.App) {
 	}
 }
 
-// requireAuthorityRefusal checks a Homebrew rollback that could not read the
-// configuration naming its credentials: it fails without reporting readiness,
-// shows the configuration stage that its fix names, reruns the rollback after
-// that fix, and leaves the configuration as it was.
-func requireAuthorityRefusal(t *testing.T, err error, output, path string, before []byte, beforeErr error) {
-	t.Helper()
-	text := strings.Join(strings.Fields(output), " ")
-	if err == nil || strings.Contains(output, "Credentials are ready") || !strings.Contains(output, "stopped at the configuration") ||
-		!strings.Contains(text, "`aigw config path` prints its location. Then run `aigw self rollback` again before Homebrew installs the earlier release.") {
-		t.Fatalf("Homebrew rollback without a readable configuration = %v\n%s", err, output)
-	}
-	if after, afterErr := os.ReadFile(path); string(after) != string(before) || (afterErr == nil) != (beforeErr == nil) {
-		t.Fatalf("refused Homebrew rollback changed the configuration: %q, %v", after, afterErr)
-	}
-}
-
 // TestSelfUpdateAndRollbackHelpDescribeTheProgramTransition: update's help
 // says what an update changes and what follows it, and rollback's says what
-// it restores, what its check stages and what a Homebrew rollback does first.
+// it restores and what its check stages.
 func TestSelfUpdateAndRollbackHelpDescribeTheProgramTransition(t *testing.T) {
 	for command, wants := range map[string][]string{
 		"update": {
@@ -372,7 +199,6 @@ func TestSelfUpdateAndRollbackHelpDescribeTheProgramTransition(t *testing.T) {
 			"Activate the program that the last update or installation retained",
 			"gives the previous program the current configuration",
 			"a configuration that it cannot read blocks the rollback without changing files",
-			"Before Homebrew installs an earlier release, this returns macOS Keychain items to that release's reader",
 		},
 	} {
 		app, out, _, _, _ := testApp(t, "")
@@ -517,7 +343,6 @@ type fakeUpdater struct {
 	candidateResult   program.Transition
 	rollbackResult    program.Transition
 	rollbackConfig    []byte
-	rollbackCustody   program.CredentialCustody
 	updateErr         error
 	candidateErr      error
 	rollbackErr       error
@@ -538,9 +363,8 @@ func (u *fakeUpdater) UpdateCandidate(_ context.Context, _ string, candidate pro
 	return u.candidateResult, u.candidateErr
 }
 
-func (u *fakeUpdater) Rollback(_ context.Context, config []byte, custody program.CredentialCustody) (program.Transition, error) {
+func (u *fakeUpdater) Rollback(_ context.Context, config []byte) (program.Transition, error) {
 	u.rollbackConfig = append([]byte(nil), config...)
-	u.rollbackCustody = custody
 	u.rollbackCalls++
 	return u.rollbackResult, u.rollbackErr
 }

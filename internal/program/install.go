@@ -163,23 +163,11 @@ func commitProgramReplacement(candidate, current, previous string, rename func(s
 	return nil
 }
 
-// CredentialCustody moves native credential items between the active program
-// and the retained program that a rollback activates.
-type CredentialCustody interface {
-	// Release gives the items to the reader of the retained program, which
-	// reports version, before that program is activated.
-	Release(version string) error
-	// Reclaim returns released items to the active program when the retained
-	// program is not activated.
-	Reclaim() error
-}
-
 // Rollback restores the immediately preceding portable AIGW executable without
 // accessing the network. It swaps the current and previous binaries so the
-// action itself remains reversible and never creates an unbounded chain.
-// Credential custody moves only after the retained program and configuration
-// are admitted, and returns to the active program if activation fails.
-func (u Updater) Rollback(ctx context.Context, config []byte, custody CredentialCustody) (Transition, error) {
+// action itself remains reversible and never creates an unbounded chain. It
+// moves no credential.
+func (u Updater) Rollback(ctx context.Context, config []byte) (Transition, error) {
 	if err := RequirePortableOwnership(u.Executable); err != nil {
 		return Transition{}, err
 	}
@@ -204,18 +192,9 @@ func (u Updater) Rollback(ctx context.Context, config []byte, custody Credential
 	if err != nil {
 		return Transition{}, err
 	}
-	if custody != nil {
-		if err := custody.Release(version); err != nil {
-			return Transition{}, errors.Join(fmt.Errorf("return credentials to the previous program: %w", err), custody.Reclaim())
-		}
-	}
 	activated, err := u.replacePortableBinary(ctx, previous)
 	if !activated {
-		err = fmt.Errorf("restore previous AIGW executable: %w", err)
-		if custody != nil {
-			err = errors.Join(err, custody.Reclaim())
-		}
-		return Transition{}, err
+		return Transition{}, fmt.Errorf("restore previous AIGW executable: %w", err)
 	}
 	// The summary names no command: the restored program may be a release
 	// whose commands differ from this one's.

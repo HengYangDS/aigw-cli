@@ -102,13 +102,7 @@ func nativeEnvironment(getenv func(string) string) []string {
 }
 
 // Credential Manager authorizes the user rather than the reading executable, so
-// every program role reads and writes the same item.
-func writeCredential(service, account string, value []byte, _ Role) error {
+// every AIGW executable reads and writes the same item.
+func writeCredential(service, account string, value []byte) error {
 	return keyring.Set(service, account, string(value))
 }
-
-// restoreCredential and reclaimCredential have no Windows meaning: a rollback
-// needs no conversion where the user, not the executable, is authorized.
-func restoreCredential(string, string) error { return ErrUnavailable }
-
-func reclaimCredential(string, string) error { return ErrUnavailable }

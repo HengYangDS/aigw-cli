@@ -20,7 +20,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 }
 
 // homebrewManaged refuses a program file that a Homebrew receipt owns, naming
-// the Homebrew command that does what the operator asked for.
+// the Homebrew operation that does what the operator asked for.
 func homebrewManaged(fix, impact string, err error) error {
 	return terminal.ProblemError("Homebrew manages this AIGW program", "A Homebrew receipt owns the program file.", impact, fix, err)
 }

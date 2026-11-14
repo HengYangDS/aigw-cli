@@ -172,6 +172,24 @@ func TestRemoveDeletesNothingThatItCannotRestore(t *testing.T) {
 	}
 }
 
+// A provider whose Token another program stored in the Keychain is removed
+// with that item, which macOS lets AIGW delete although it may not read it.
+func TestRemoveDeletesAKeychainItemThatMacOSDoesNotLetAIGWRead(t *testing.T) {
+	f := newFixture(t)
+	f.credentialMixed(t)
+	tokens := f.runtime.Secrets
+	f.runtime.Secrets = refusedToken{Store: tokens}
+	if err := f.run("", "remove", "mixed"); err != nil {
+		t.Fatalf("remove = %v\n%s", err, f.text())
+	}
+	if _, kept := f.load(t).Providers["mixed"]; kept {
+		t.Fatal("the provider stayed")
+	}
+	if present, err := tokens.Exists("mixed"); err != nil || present {
+		t.Fatalf("the Token stayed: %t, %v", present, err)
+	}
+}
+
 func TestRemoveRestoresTheCredentialsWhenTheSaveFails(t *testing.T) {
 	f := newFixture(t)
 	f.credentialMixed(t)

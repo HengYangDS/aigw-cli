@@ -3,6 +3,7 @@ package check
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/native"
 )
 
 // A check climbs to the depth that it asks for and no further: local sends
@@ -433,4 +435,46 @@ func TestCheckTreatsAnEmptyTokenAsAMissingOne(t *testing.T) {
 			t.Fatalf("an empty Token in a store whose metadata cannot tell = %+v", client)
 		}
 	})
+}
+
+// A Token whose Keychain item macOS refuses AIGW while its keychain is
+// unlocked stops the check at the endpoint depth, unavailable, with the
+// item's problem and its one fix, and no request is sent. A locked keychain,
+// which answers with the same status, keeps the credential store's fix.
+func TestCheckNamesTheFixOfAKeychainItemThatMacOSRefuses(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		cause        error
+		problem, fix string
+	}{
+		{name: "another program's item", cause: &secret.KeychainItemRefusedError{Kind: secret.APIToken, Provider: "one", Status: -25293},
+			problem: "Another program stored provider one's Token in the Keychain",
+			fix:     "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a one`, then run `aigw provider rotate one`."},
+		{name: "a locked keychain", cause: &native.KeychainError{Status: -25293},
+			problem: "The credential backend could not return provider one's Token",
+			fix:     "Make the credential store available to this session, such as by unlocking it, then run the same command again."},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runtime, cfg, out := configuredRuntime(t)
+			enable(t, runtime, &cfg, claude.ID)
+			secrets(t, runtime).getErr = fmt.Errorf("read AIGW_TOKEN/one from system keyring: %w", test.cause)
+			runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+				t.Fatalf("a Token that could not be read sent %s", request.URL)
+				return nil, nil
+			})
+			if err := execute(runtime, claude.ID, "--depth", "endpoint", "--json"); !errors.Is(err, native.ErrUnavailable) {
+				t.Fatalf("check = %v", err)
+			}
+			client := decode(t, out).client(t, claude.ID)
+			if client.State != domainreadiness.Unavailable || client.Failure == nil || client.Failure.Depth != depthEndpoint ||
+				client.Failure.Problem != test.problem || client.NextAction != "" || client.NextDetail != test.fix {
+				t.Fatalf("client = %+v, failure %+v", client, client.Failure)
+			}
+			out.Reset()
+			if err := execute(runtime, claude.ID, "--depth", "endpoint"); err == nil || !strings.Contains(strings.Join(strings.Fields(out.String()), " "), test.problem) ||
+				!strings.Contains(strings.Join(strings.Fields(out.String()), " "), test.fix) {
+				t.Fatalf("check = %v\n%s", err, out)
+			}
+		})
+	}
 }

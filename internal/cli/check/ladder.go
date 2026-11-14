@@ -225,13 +225,17 @@ func checkCommand(client string, model named, d depth) string {
 }
 
 // tokenReadFailure is the failure of a Token read before the endpoint depth:
-// a Token removed since its metadata was read, or a backend that failed.
+// a Token removed since its metadata was read, a Keychain item that macOS
+// refuses AIGW, or a backend that failed.
 func (c *checker) tokenReadFailure(r *result, err error) failure {
 	provider := r.runtime.ProviderID
 	// An empty Token is a missing one: no provider accepts it, and storing a
 	// Token again replaces it.
 	if errors.Is(err, secret.ErrNotFound) || errors.Is(err, secret.ErrEmpty) {
 		return failure{depth: depthEndpoint, state: domainreadiness.Deferred, problem: "Provider " + provider + " has no Token", fix: c.rotateFix(provider, false), cause: err}
+	}
+	if refusal, refused := errors.AsType[*secret.KeychainItemRefusedError](err); refused {
+		return failure{depth: depthEndpoint, state: domainreadiness.Unavailable, problem: refusal.Title(), fix: refusal.Fix(), cause: err}
 	}
 	return failure{depth: depthEndpoint, state: domainreadiness.Unavailable, problem: "The credential backend could not return provider " + provider + "'s Token", fix: backendFix, cause: err}
 }

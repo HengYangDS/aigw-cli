@@ -7,27 +7,19 @@ import (
 	"strings"
 )
 
-func queryCredential(operation, service, account string, input []byte, role Role) ([]byte, error) {
+func queryCredential(operation, service, account string, input []byte) ([]byte, error) {
 	switch operation {
 	case readCommand:
-		value, err := readCredential(service, account, role)
+		value, err := readCredential(service, account)
 		return []byte(value), err
 	case writeCommand:
-		return nil, writeCredential(service, account, input, role)
+		return nil, writeCredential(service, account, input)
 	case deleteCommand:
 		err := deleteCredential(service, account)
 		if errors.Is(err, ErrNotFound) {
 			return nil, nil
 		}
 		return nil, err
-	case restoreCommand, reclaimCommand:
-		if role == OtherProgram {
-			return nil, ErrUnavailable
-		}
-		if operation == restoreCommand {
-			return nil, restoreCredential(service, account)
-		}
-		return nil, reclaimCredential(service, account)
 	case listCommand:
 		names, err := listCredentials(service)
 		return []byte(strings.Join(names, "\n")), err

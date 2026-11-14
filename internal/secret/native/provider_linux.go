@@ -18,9 +18,9 @@ const (
 	secretPromptInterface     = "org.freedesktop.Secret.Prompt"
 )
 
-// queryCredential serves every program role alike: Secret Service authorizes
-// the user's session, not the reading executable, so no item changes owner.
-func queryCredential(operation, service, account string, input []byte, _ Role) (_ []byte, resultErr error) {
+// queryCredential serves every AIGW executable alike: Secret Service
+// authorizes the user's session, not the reading executable.
+func queryCredential(operation, service, account string, input []byte) (_ []byte, resultErr error) {
 	switch operation {
 	case readCommand, writeCommand, deleteCommand, existsCommand, listCommand:
 	default:

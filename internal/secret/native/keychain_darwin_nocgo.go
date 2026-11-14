@@ -10,22 +10,14 @@ func listAccountsInKeychain(string, string) ([]string, error) {
 	return nil, ErrUnavailable
 }
 
-func readCredentialWithMigration(string, string, string, Role) ([]byte, error) {
+func readCredentialFromKeychain(string, string, string) ([]byte, error) {
 	return nil, ErrUnavailable
 }
 
-func writeCredentialWithMigration(string, string, string, []byte, Role) error {
+func writeCredentialToKeychain(string, string, string, []byte) error {
 	return ErrUnavailable
 }
 
-func deleteCredentialWithMigration(string, string, string) error {
-	return ErrUnavailable
-}
-
-func restoreCredentialForPredecessor(string, string, string) error {
-	return ErrUnavailable
-}
-
-func reclaimCredentialFromPredecessor(string, string, string) error {
+func deleteCredentialFromKeychain(string, string, string) error {
 	return ErrUnavailable
 }

@@ -289,7 +289,8 @@ func applyEdit(cmd *cobra.Command, runtime invocation.Context, args []string, op
 // edit asks, and returns the change that undoes it. It reads the previous
 // credentials first; ones that cannot be read are still replaced or removed,
 // but nothing can put them back. A write that fails changes nothing, and its
-// fix shows the provider's credentials as the backend reports them.
+// fix shows the provider's credentials as the backend reports them, unless
+// macOS refuses AIGW the Keychain item, which names its own fix.
 func changeBalance(runtime invocation.Context, id string, options editOptions, credential secret.DiagnosticCredential) ([]credentialChange, error) {
 	if !options.balanceTokenStdin && !options.noBalanceToken {
 		return nil, nil
@@ -313,6 +314,9 @@ func changeBalance(runtime invocation.Context, id string, options editOptions, c
 		}
 	} else if err = runtime.Providers.Delete(id); errors.Is(err, secret.ErrNotFound) {
 		err = nil
+	}
+	if _, refused := errors.AsType[*secret.KeychainItemRefusedError](err); refused {
+		return nil, err
 	}
 	if err != nil {
 		return nil, terminal.ProblemError("the balance credentials of provider "+id+" could not be "+verb, "", "Nothing changed.", "aigw provider show "+id, err)

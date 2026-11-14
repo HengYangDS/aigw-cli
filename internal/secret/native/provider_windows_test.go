@@ -60,7 +60,7 @@ func TestWindowsMetadataObservationTracksOnlyItsExactSessionSlot(t *testing.T) {
 		{account: "missing", want: "0"},
 		{account: "*", want: "0"},
 	} {
-		if value, err := queryCredential(existsCommand, service, test.account, nil, InstalledProgram); err != nil || string(value) != test.want {
+		if value, err := queryCredential(existsCommand, service, test.account, nil); err != nil || string(value) != test.want {
 			t.Fatalf("exact metadata observation = %q, %v; want %q", value, err, test.want)
 		}
 	}
@@ -87,7 +87,7 @@ func TestWindowsListingNamesOnlyTheServiceTargets(t *testing.T) {
 			}
 		})
 	}
-	value, err := queryCredential(listCommand, service, "", nil, InstalledProgram)
+	value, err := queryCredential(listCommand, service, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,17 +96,7 @@ func TestWindowsListingNamesOnlyTheServiceTargets(t *testing.T) {
 	if !slices.Equal(names, []string{"orphan", "team"}) || strings.Contains(string(value), blob) {
 		t.Fatalf("listing = %q", value)
 	}
-	if value, err := queryCredential(listCommand, "AIGW_TEST_LIST_ABSENT_"+rand.Text(), "", nil, InstalledProgram); err != nil || len(value) != 0 {
+	if value, err := queryCredential(listCommand, "AIGW_TEST_LIST_ABSENT_"+rand.Text(), "", nil); err != nil || len(value) != 0 {
 		t.Fatalf("a service without credentials = %q, %v", value, err)
-	}
-}
-
-func TestWindowsRollbackHasNoCredentialConversion(t *testing.T) {
-	for _, operation := range []string{restoreCommand, reclaimCommand} {
-		for _, role := range []Role{InstalledProgram, OtherProgram} {
-			if value, err := queryCredential(operation, "AIGW_TEST_RESTORE", "synthetic", nil, role); len(value) != 0 || !errors.Is(err, ErrUnavailable) {
-				t.Fatalf("Windows %s as role %d = %q, %v", operation, role, value, err)
-			}
-		}
 	}
 }

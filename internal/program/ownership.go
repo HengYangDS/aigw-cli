@@ -19,27 +19,11 @@ var ErrHomebrewManaged error = homebrewManagedError{}
 type homebrewManagedError struct{}
 
 func (homebrewManagedError) Error() string {
-	return "Homebrew manages this executable; upgrade, roll back or remove it with Homebrew, such as `brew upgrade --cask aigw`, instead of portable installation commands, and run `aigw self rollback` before Homebrew installs an earlier release"
+	return "Homebrew manages this executable; upgrade, roll back or remove it with Homebrew, such as `brew upgrade --cask aigw`, instead of portable installation commands"
 }
 
 // NextAction is the Homebrew command that keeps the program current.
 func (homebrewManagedError) NextAction() string { return "brew upgrade --cask aigw" }
-
-// InstalledProgram reports whether an installation rolls back through
-// executable: Homebrew's receipt owns it, or AIGW retained the portable
-// predecessor beside it. A versioned reader copy, an extracted release and a
-// development build have neither, so they cannot tell which program their
-// installation runs.
-func InstalledProgram(executable string) bool {
-	if strings.TrimSpace(executable) == "" {
-		return false
-	}
-	if errors.Is(RequirePortableOwnership(executable), ErrHomebrewManaged) {
-		return true
-	}
-	predecessor, err := os.Lstat(RollbackPath(executable))
-	return err == nil && predecessor.Mode().IsRegular()
-}
 
 // RequirePortableOwnership stops product-managed writes to a Homebrew installation.
 // Native receipts, rather than a host prefix or environment hint, establish ownership.

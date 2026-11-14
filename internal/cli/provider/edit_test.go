@@ -7,6 +7,7 @@ import (
 
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 )
 
 func TestEditChangesTheLabelAndKeepsTheToken(t *testing.T) {
@@ -204,6 +205,27 @@ func TestEditStoresNoBalanceCredentialsWhenTheSaveFails(t *testing.T) {
 }
 
 // failingDiagnostics is a balance credential store that fails every write.
+// A balance write that macOS refuses, because another program stored the
+// Keychain item, changes nothing and names that item and its one fix.
+func TestEditNamesTheFixOfABalanceItemThatMacOSRefuses(t *testing.T) {
+	f := newFixture(t)
+	f.runtime.Providers = refusedDiagnostics{}
+	err := f.run("system\n", "edit", "team", "--label", "Renamed", "--balance-token-stdin", "--balance-user-id", "7")
+	want := terminal.Problem{
+		Title:    "Another program stored provider team's balance credentials in the Keychain",
+		Evidence: "macOS refused AIGW the item while its keychain was unlocked (Keychain OSStatus -25293).",
+		Impact:   "The item is unchanged; AIGW neither read nor replaced it.",
+		Fix: "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a diagnostic@team`, " +
+			"then run `aigw provider edit team --balance-token-stdin --balance-user-id <user-id>`.",
+	}
+	if got := problem(err); got != want {
+		t.Fatalf("a refused balance write = %+v\nwant %+v", got, want)
+	}
+	if f.load(t).Providers["team"].Label != "Team" {
+		t.Fatal("the label was saved")
+	}
+}
+
 type failingDiagnostics struct{}
 
 func (failingDiagnostics) Get(string) (secret.DiagnosticCredential, error) {

@@ -1,50 +1,11 @@
 package main
 
 import (
-	"aigw-cli/internal/program"
-	"aigw-cli/internal/secret/native"
 	"bytes"
-	"errors"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 )
-
-// An extracted successor that preprojects clients while its predecessor is
-// still installed must not migrate the predecessor's Keychain items.
-func TestCredentialRoleRequiresTheInstalledProgram(t *testing.T) {
-	root := t.TempDir()
-	installed := filepath.Join(root, "bin", "aigw")
-	extracted := filepath.Join(root, "release", "aigw")
-	reader := filepath.Join(root, "credential", strings.Repeat("ab", 32), "aigw")
-	for _, path := range []string{installed, program.RollbackPath(installed), extracted, reader} {
-		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte("program"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for _, test := range []struct {
-		name       string
-		executable string
-		err        error
-		want       native.Role
-	}{
-		{name: "installed program", executable: installed, want: native.InstalledProgram},
-		{name: "extracted release", executable: extracted, want: native.OtherProgram},
-		{name: "versioned reader", executable: reader, want: native.OtherProgram},
-		{name: "unknown executable", err: errors.New("executable unavailable"), want: native.OtherProgram},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if got := credentialRole(test.executable, test.err); got != test.want {
-				t.Fatalf("credential role = %d, want %d", got, test.want)
-			}
-		})
-	}
-}
 
 // TestMainProcess runs the program's entry point in a process of its own: the
 // aigw command that TestMain installs, which runs main without the script

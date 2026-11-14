@@ -43,6 +43,7 @@ func main() {
     if os.Args[3] == "missing" { os.Exit(2) }
     if strings.Contains(filepath.ToSlash(os.Args[0]), "/credential/") {
         if os.Args[3] == "copied-missing" { os.Exit(2) }
+        if os.Args[3] == "refused" { _, _ = os.Stderr.WriteString("{\"keychain_status\":-25293,\"keychain_unlocked\":true}\n"); os.Exit(3) }
         if _, err := os.Stat(filepath.Join(filepath.Dir(os.Args[0]), "allow-reader")); err != nil { os.Exit(3) }
         if os.Args[3] == "blocked" { os.Exit(3) }
     }
@@ -137,6 +138,42 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 				t.Fatalf("unrelated Claude Token blocked a Codex-only projection: %v", err)
 			}
 		})
+	}
+}
+
+// A copied reader that macOS refuses a Token while its keychain is unlocked
+// stops the projection as the refusal of that Token's Keychain item, which
+// names its fix, and leaves no reader and no client file change.
+func TestKeyringReaderCopyRefusalNamesTheKeychainItem(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "codex.toml")
+	syncer, reader := newKeyringReaderFixture(t, target)
+	original := []byte("model_provider = \"native\"\n")
+	if err := os.WriteFile(target, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	selected := testConfig(target)
+	selected.Providers["refused"] = selected.Providers["gateway"]
+	route := selected.Models[domain.NewModelRef("gateway", "gpt-test")]
+	route.Provider = "refused"
+	selected.Models[route.Ref()] = route
+	selected.SetSelectedModel(codex.ID, route.Ref(), "")
+	err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), selected, "test")
+	refusal, typed := errors.AsType[*secret.KeychainItemRefusedError](err)
+	if !typed || *refusal != (secret.KeychainItemRefusedError{Kind: secret.APIToken, Provider: "refused", Status: -25293}) ||
+		!errors.Is(err, secret.ErrNativeReaderUnverified) {
+		t.Fatalf("projection with a refused Keychain item = %v", err)
+	}
+	for _, path := range []string{reader, reader + ".sha256"} {
+		if _, statErr := os.Stat(path); !errors.Is(statErr, os.ErrNotExist) {
+			t.Fatalf("refused copied reader resource remains at %s: %v", path, statErr)
+		}
+	}
+	if current, readErr := os.ReadFile(target); readErr != nil || !bytes.Equal(current, original) {
+		t.Fatalf("the refusal changed the client file: %q, %v", current, readErr)
+	}
+	if configStore, ok := syncer.Config.(*configStoreStub); !ok || configStore.commits != 0 {
+		t.Fatal("a refused Keychain item reached configuration commit")
 	}
 }
 

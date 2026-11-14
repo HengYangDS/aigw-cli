@@ -8,8 +8,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -101,14 +101,8 @@ func TestNewNativeKeychainItemsHaveReadablePurposeLabels(t *testing.T) {
 			if err := writeCredentialToKeychain(service, item.account, path, []byte("synthetic")); err != nil {
 				t.Fatal(err)
 			}
-			ctx, cancel := context.WithTimeout(t.Context(), keychainFixtureTimeout)
-			defer cancel()
-			output, err := exec.CommandContext(ctx, "/usr/bin/security", "find-generic-password", "-s", service, "-a", item.account, path).CombinedOutput()
-			if err != nil {
-				t.Fatal(err)
-			}
 			observed := ""
-			for line := range strings.SplitSeq(string(output), "\n") {
+			for line := range strings.SplitSeq(keychainItemAttributes(t, path, service, item.account), "\n") {
 				if strings.Contains(line, labelAttribute) {
 					observed = strings.TrimSpace(line)
 					break
@@ -189,12 +183,10 @@ func TestLockedKeychainMetadataDoesNotPrompt(t *testing.T) {
 
 func assertKeychainMutationPreservesDeniedItem(t *testing.T, service, path, token string) {
 	t.Helper()
-	// An item that trusts only another application is not a predecessor item:
-	// the worker neither reads, replaces nor migrates it.
+	// The worker neither reads nor replaces an item that trusts only another
+	// application.
 	runKeychainFixtureCommand(t, "add-generic-password", "-s", service, "-a", "foreign-writer", "-w", "go-keyring-base64:"+base64.StdEncoding.EncodeToString([]byte(token)), "-T", "/usr/bin/true", path)
-	if owners := keychainDecryptOwners(t, path, "foreign-writer"); !slices.Equal(owners, []string{"/usr/bin/true"}) {
-		t.Fatalf("foreign fixture decrypt owners = %q", owners)
-	}
+	foreign := keychainItemAttributes(t, path, service, "foreign-writer")
 	if value, err := readPrivateKeychainFixture(t, service, "foreign-writer", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
 		t.Fatalf("foreign item unexpectedly bypassed authorization: %q, %v", value, err)
 	}
@@ -228,8 +220,8 @@ func assertKeychainMutationPreservesDeniedItem(t *testing.T, service, path, toke
 	if value, err := readPrivateKeychainFixture(t, service, "foreign-writer", path); len(value) != 0 || fixtureExitCode(err) != failureExit {
 		t.Fatalf("foreign item changed during native-slot lifecycle: %q, %v", value, err)
 	}
-	if owners := keychainDecryptOwners(t, path, "foreign-writer"); !slices.Equal(owners, []string{"/usr/bin/true"}) {
-		t.Fatalf("foreign item access changed: %q", owners)
+	if after := keychainItemAttributes(t, path, service, "foreign-writer"); after != foreign {
+		t.Fatalf("foreign item changed during native-slot lifecycle:\n%s\nwas:\n%s", after, foreign)
 	}
 }
 
@@ -241,31 +233,27 @@ func observePrivateKeychainFixture(t *testing.T, service, account, path string) 
 	return runPrivateKeychainChild(t, os.Args[0], service, account, path, "TestPrivateKeychainObserveChild")
 }
 
-func runPrivateKeychainChild(t *testing.T, executable, service, account, path, testName string) ([]byte, error) {
+// runPrivateKeychainChild runs one bounded operation on a private keychain in
+// a child, which environment can give more than the item's identity.
+func runPrivateKeychainChild(t *testing.T, executable, service, account, path, testName string, environment ...string) ([]byte, error) {
 	t.Helper()
-	output, err := privateKeychainChildOutput(t.Context(), executable, service, account, path, testName)
-	if errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("private Keychain read did not return without UI: %v", err)
+	ctx, cancel := context.WithTimeout(t.Context(), keychainFixtureTimeout)
+	defer cancel()
+	command := exec.CommandContext(ctx, executable, "-test.run=^"+testName+"$")
+	command.Env = append(privateKeychainChildEnvironment(service, account, path), environment...)
+	output, err := command.Output()
+	if ctx.Err() != nil {
+		t.Fatalf("private Keychain operation did not return without UI: %v", ctx.Err())
 	}
 	return output, err
 }
 
-// privateKeychainChildOutput runs one bounded child operation without failing
-// the test, so concurrent callers can report from the test goroutine.
-func privateKeychainChildOutput(parent context.Context, executable, service, account, path, testName string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(parent, keychainFixtureTimeout)
-	defer cancel()
-	command := exec.CommandContext(ctx, executable, "-test.run=^"+testName+"$")
-	command.Env = append(os.Environ(),
+func privateKeychainChildEnvironment(service, account, path string) []string {
+	return append(os.Environ(),
 		"AIGW_TEST_KEYCHAIN_PATH="+path,
 		"AIGW_TEST_KEYCHAIN_SERVICE="+service,
 		"AIGW_TEST_KEYCHAIN_ACCOUNT="+account,
 	)
-	output, err := command.Output()
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
-	return output, err
 }
 
 func TestPrivateKeychainObserveChild(t *testing.T) {
@@ -300,20 +288,23 @@ func TestPrivateKeychainReadChild(t *testing.T) {
 	if path == "" {
 		return
 	}
-	role := InstalledProgram
-	if os.Getenv("AIGW_TEST_KEYCHAIN_ROLE") == "other" {
-		role = OtherProgram
-	}
-	value, err := readCredentialWithMigration(
+	value, err := readCredentialFromKeychain(
 		os.Getenv("AIGW_TEST_KEYCHAIN_SERVICE"),
-		os.Getenv("AIGW_TEST_KEYCHAIN_ACCOUNT"), path, role,
+		os.Getenv("AIGW_TEST_KEYCHAIN_ACCOUNT"), path,
 	)
+	exitPrivateKeychainChild(value, err)
+}
+
+// exitPrivateKeychainChild ends a child as the worker ends: the value on
+// standard output, a missing item and a failure as their exit codes, and a
+// Keychain status as the diagnostic.
+func exitPrivateKeychainChild(value []byte, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):
 		os.Exit(missingExit)
 	case err != nil:
 		if failure, ok := errors.AsType[*KeychainError](err); ok {
-			_, _ = fmt.Fprintf(os.Stderr, "{\"keychain_status\":%d}\n", failure.Status)
+			_ = json.NewEncoder(os.Stderr).Encode(failure)
 		}
 		os.Exit(failureExit)
 	}
@@ -322,7 +313,7 @@ func TestPrivateKeychainReadChild(t *testing.T) {
 }
 
 func TestNativePresenceCommandClassifiesExactOutput(t *testing.T) {
-	if _, err := queryCredential("unknown", "aigw-private-test", "synthetic", nil, InstalledProgram); !errors.Is(err, ErrUnavailable) {
+	if _, err := queryCredential("unknown", "aigw-private-test", "synthetic", nil); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("unknown credential operation = %v", err)
 	}
 	for _, test := range []struct {
@@ -361,6 +352,18 @@ func runKeychainFixtureCommand(t *testing.T, args ...string) {
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("private Keychain fixture command %q failed: %v: %s", args[0], err, output)
 	}
+}
+
+// newPrivateKeychain creates an unlocked keychain file of the test's own,
+// which never locks by itself, and deletes it with the test.
+func newPrivateKeychain(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "private.keychain-db")
+	runKeychainFixtureCommand(t, "create-keychain", "-p", "", path)
+	t.Cleanup(func() { runKeychainFixtureCommand(t, "delete-keychain", path) })
+	runKeychainFixtureCommand(t, "set-keychain-settings", path)
+	runKeychainFixtureCommand(t, "unlock-keychain", "-p", "", path)
+	return path
 }
 
 func TestNativeEnvironmentRetainsOnlyKeychainHome(t *testing.T) {

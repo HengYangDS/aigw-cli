@@ -53,7 +53,7 @@ func (u *fakeUpdater) PreviewCandidate(_ string, archive program.CandidateArchiv
 	return u.preview, u.previewErr
 }
 
-func (u *fakeUpdater) Rollback(_ context.Context, config []byte, _ program.CredentialCustody) (program.Transition, error) {
+func (u *fakeUpdater) Rollback(_ context.Context, config []byte) (program.Transition, error) {
 	u.calls, u.rollbackConfig = append(u.calls, "rollback"), config
 	return u.rollback, u.rollbackErr
 }
@@ -292,27 +292,26 @@ func TestRollbackPreviewNamesTheRetainedProgram(t *testing.T) {
 	}
 }
 
-// TestHomebrewRollbackPreparesTheCredentials returns the credentials for an
-// earlier Homebrew release, in JSON and in text, and its preview changes
-// nothing; a configuration that does not load stops it with its fix.
-func TestHomebrewRollbackPreparesTheCredentials(t *testing.T) {
-	runtime, out := lifecycleRuntime(t, &fakeUpdater{})
+// TestHomebrewRollbackIsRefusedWithHomebrewsOperation leaves a program that
+// Homebrew owns to Homebrew, as a preview and as JSON too: the refusal names
+// Homebrew's operation, no updater runs and the program file stays.
+func TestHomebrewRollbackIsRefusedWithHomebrewsOperation(t *testing.T) {
+	updater := &fakeUpdater{}
+	runtime, out := lifecycleRuntime(t, updater)
 	homebrewProgram(t, &runtime)
-	for _, args := range [][]string{{"rollback", "--dry-run", "--json"}, {"rollback", "--dry-run"}} {
-		out.Reset()
-		if err := runSelf(runtime, args...); err != nil || !strings.Contains(out.String(), "aigw self rollback") {
-			t.Fatalf("%v = %v\n%s", args, err, out)
+	for _, args := range [][]string{{"rollback"}, {"rollback", "--json"}, {"rollback", "--dry-run"}, {"rollback", "--dry-run", "--json"}} {
+		err := runSelf(runtime, args...)
+		problem := terminal.ProblemFor(err)
+		if !errors.Is(err, program.ErrHomebrewManaged) || problem.Title != "Homebrew manages this AIGW program" ||
+			problem.Impact != "No program file or credential changed." || problem.Fix != "Install the earlier release with Homebrew." {
+			t.Fatalf("%v = %v: %+v", args, err, problem)
 		}
 	}
-	for _, args := range [][]string{{"rollback", "--json"}, {"rollback"}} {
-		out.Reset()
-		if err := runSelf(runtime, args...); err != nil || !strings.Contains(out.String(), "Credentials are ready for an earlier AIGW release") {
-			t.Fatalf("%v = %v\n%s", args, err, out)
-		}
+	if out.Len() != 0 || len(updater.calls) != 0 {
+		t.Fatalf("a refused Homebrew rollback wrote %q and called %q", out, updater.calls)
 	}
-	writeProgram(t, runtime.Config.Path(), "not = [toml")
-	if problem := terminal.ProblemFor(runSelf(runtime, "rollback")); !strings.Contains(problem.Fix, "Then run `aigw self rollback` again") {
-		t.Fatalf("an unreadable configuration = %+v", problem)
+	if data, err := os.ReadFile(runtime.Executable); err != nil || string(data) != "managed" {
+		t.Fatalf("the Homebrew program = %q, %v", data, err)
 	}
 }
 
