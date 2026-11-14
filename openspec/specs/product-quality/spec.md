@@ -490,7 +490,9 @@ establish warning-free acceptance.
 #### Scenario: Successful native inference emits a capability warning
 
 - **WHEN** Codex, Claude or Hermes exits zero but reports an explicit native stderr warning, error or traceback
-- **THEN** public verification SHALL report incomplete qualification without exposing private diagnostics
+- **THEN** public verification SHALL report incomplete qualification in its own words
+- **AND** for Codex and Claude it SHALL show the client's text only on request, bounded, and only for a session
+  whose credential AIGW holds and removes from that text
 - **AND** verification SHALL NOT write a successful checkpoint or claim unproved inference
 - **AND** missing native model metadata SHALL remain visible without fabricated catalog entries
 - **AND** ordinary version, session and progress stderr SHALL NOT become a warning failure.
