@@ -122,16 +122,16 @@ Use the least powerful command that answers the current question:
 1. `aigw status` reports each client's model and the next useful action.
 2. `aigw check --depth local --verbose` prints every local check: the
    configuration, each Token's presence, each client's files and conflicting
-   `ANTHROPIC_*` or `OPENAI_API_KEY` variables, without a request. When a
-   client's session stops on the client's own warning or error, `--verbose`
-   also shows the client's lines, with credentials redacted.
+   `ANTHROPIC_*` or `OPENAI_API_KEY` variables, without a request.
 3. `aigw check --depth endpoint` authenticates through one model-free request
    per checked client and incurs no inference call.
 4. `aigw check` sends one capped inference request carrying each checked
    client's selected model.
 5. `aigw check <client> --depth client` invokes the real client to prove its
    selected model path. This request may consume quota even when the `model`
-   depth has already passed.
+   depth has already passed. When the session stops on a warning or an error
+   that Codex or Claude Code itself reports, `--verbose` adds the client's own
+   lines, with the known credential forms redacted.
 6. `aigw sync --dry-run --json` previews only AIGW-owned reconciliation;
    `aigw sync` applies that bounded plan.
 
@@ -164,6 +164,7 @@ The JSON vocabulary follows that evidence boundary:
 | `depth`                   | The depth that `check` asked for, and the deepest that each client reached |
 | `skipped`                 | Each depth that a client could not run, with its reason                    |
 | `failure`                 | The depth at which a client failed, its problem and its HTTP status        |
+| `failure.client_report`   | With `--verbose`: the client's own lines behind a failed session, redacted |
 | `endpoint_configured`     | The selected model resolves an endpoint address.                           |
 | `client_files_ready`      | Status: the client's files match its selection.                            |
 | `client_files_deferred`   | Status: the client's files wait for the client or its Token.               |

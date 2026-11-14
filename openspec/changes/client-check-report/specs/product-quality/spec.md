@@ -52,7 +52,7 @@ establish warning-free acceptance.
 
 - **WHEN** Codex, Claude or Hermes exits zero but reports an explicit native stderr warning, error or traceback
 - **THEN** public verification SHALL report incomplete qualification in its own words, and SHALL show the client's
-  text only on request, bounded and with credentials redacted
+  text only on request, bounded and with the known credential forms redacted
 - **AND** verification SHALL NOT write a successful checkpoint or claim unproved inference
 - **AND** missing native model metadata SHALL remain visible without fabricated catalog entries
 - **AND** ordinary version, session and progress stderr SHALL NOT become a warning failure.

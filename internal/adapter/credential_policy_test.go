@@ -226,3 +226,65 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 		})
 	}
 }
+
+// warningClient answers and prints a warning of its own on standard error.
+type warningClient struct{}
+
+func (warningClient) RunCaptureStreams(_ context.Context, plan process.Plan) ([]byte, []byte, error) {
+	if reflect.DeepEqual(plan.Args, []string{"--version"}) {
+		return []byte("codex-cli 0.1.0"), nil, nil
+	}
+	return []byte("{}"), []byte("warning: helper printed public-secret-canary"), nil
+}
+
+func (runner warningClient) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
+	output, _, err := runner.RunCaptureStreams(ctx, plan)
+	return output, err
+}
+
+// A client that reads its Token through an external helper can print the
+// helper's output as its own warning. Its verification stays unqualified, and
+// no reader finds a client report behind the error; with AIGW's own reader,
+// the same warning is the report, which Codex shows here: this fixture has no
+// secret store, from which Claude Code's check reads the Token first.
+func TestExternalCredentialWarningsWithholdTheClientsReport(t *testing.T) {
+	type reporter interface {
+		error
+		ClientReport(secrets ...string) []string
+	}
+	registry := clients.Registry()
+	for _, id := range []string{claude.ID, codex.ID} {
+		for name, external := range map[string]bool{"external helper": true, "AIGW's reader": false} {
+			if id == claude.ID && !external {
+				continue
+			}
+			t.Run(id+"/"+name, func(t *testing.T) {
+				cfg, deps, _ := configuredClient(t, id)
+				if external {
+					clientAdapter := cfg.Clients[id]
+					clientAdapter.CredentialCommand = filepath.Join(t.TempDir(), "credential adapter")
+					cfg.Clients[id] = clientAdapter
+				}
+				if _, _, err := registry.Apply(context.Background(), deps, domain.NewConfig(clients.Admission()), cfg, id); err != nil {
+					t.Fatal(err)
+				}
+				clientRuntime, err := cfg.ResolveRuntime(id, domain.ModelRef{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				deps.Runner = warningClient{}
+				_, err = registry.Verify(context.Background(), deps, cfg, id, clientRuntime, "")
+				if err == nil || strings.Contains(err.Error(), "public-secret-canary") || !strings.Contains(err.Error(), "native-client warning or error") {
+					t.Fatalf("verification = %v", err)
+				}
+				found, reported := errors.AsType[reporter](err)
+				if reported == external {
+					t.Fatalf("a client report is found = %t with an external helper = %t", reported, external)
+				}
+				if !external && (len(found.ClientReport()) != 1 || !strings.Contains(found.ClientReport()[0], "public-secret-canary")) {
+					t.Fatalf("AIGW's reader lost the client's report: %q", found.ClientReport())
+				}
+			})
+		}
+	}
+}

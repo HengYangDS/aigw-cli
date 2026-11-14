@@ -38,3 +38,33 @@ func TestRedactRemovesUnknownStructuredCredentialFields(t *testing.T) {
 		t.Fatalf("redaction removed unrelated diagnostic context: %q", text)
 	}
 }
+
+// The forms in which a client or a provider writes a credential: a header
+// with its authentication scheme, a cookie line, a URL's user and password, a
+// key in a query string and a bare sk- key. The words around them stay; a
+// bare value takes a closing quote with it, since a credential can hold one.
+func TestRedactRemovesHeaderURLAndBareCredentialForms(t *testing.T) {
+	for name, test := range map[string]struct{ text, want string }{
+		"bearer header":       {"error: 401 Authorization: Bearer live-token-123 rejected", "error: 401 Authorization: [REDACTED] rejected"},
+		"basic header":        {"Authorization: Basic dXNlcjpwYXNz", "Authorization: [REDACTED]"},
+		"proxy header":        {"Proxy-Authorization: Digest opaque-0001, retry", "Proxy-Authorization: [REDACTED], retry"},
+		"quoted header":       {`curl -H 'Authorization: Bearer live-token-123' https://example.test`, `curl -H 'Authorization: [REDACTED] https://example.test`},
+		"token with scheme":   {"token: Bearer live-token-123", "token: [REDACTED]"},
+		"scheme word alone":   {"password = basic", "password = [REDACTED]"},
+		"cookie line":         {"Cookie: session=abc; csrf=def\nnext line", "Cookie: [REDACTED]\nnext line"},
+		"set-cookie line":     {"set-cookie: id=abc; Path=/", "set-cookie: [REDACTED]"},
+		"url userinfo":        {"GET https://user:hunter2@host.example.test/v1 failed", "GET https://[REDACTED]@host.example.test/v1 failed"},
+		"query key":           {"POST https://host.example.test/v1?alt=sse&key=AIzaLive0001#frag", "POST https://host.example.test/v1?alt=sse&key=[REDACTED]#frag"},
+		"bare key":            {"Incorrect API key provided: sk-proj-0123456789abcdef.", "Incorrect API key provided: [REDACTED]."},
+		"secret access key":   {"aws_secret_access_key=wJalrXUtnFEMI", "aws_secret_access_key=[REDACTED]"},
+		"passwd":              {"passwd: hunter2", "passwd: [REDACTED]"},
+		"short sk word stays": {"the sk-1 flag and a task-list", "the sk-1 flag and a task-list"},
+		"url without user":    {"https://host.example.test:8443/v1 at 12:30", "https://host.example.test:8443/v1 at 12:30"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := domain.Redact(test.text); got != test.want {
+				t.Fatalf("Redact(%q) = %q, want %q", test.text, got, test.want)
+			}
+		})
+	}
+}

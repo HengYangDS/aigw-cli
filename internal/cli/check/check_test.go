@@ -44,7 +44,7 @@ func TestCheckClimbsToTheRequestedDepth(t *testing.T) {
 			}
 			doc := decode(t, out)
 			client := doc.client(t, codex.ID)
-			if doc.SchemaVersion != 3 || !doc.OK || doc.EnabledClients != 1 || client.Depth != test.reached || client.Failure != nil || len(client.Skipped) != 0 {
+			if doc.SchemaVersion != schemaVersion || !doc.OK || doc.EnabledClients != 1 || client.Depth != test.reached || client.Failure != nil || len(client.Skipped) != 0 {
 				t.Fatalf("check to %s = %+v", test.reached, doc)
 			}
 			if !slices.Equal(provider.requests, test.requests) {

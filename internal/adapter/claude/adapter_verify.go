@@ -84,11 +84,16 @@ func (claudeAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg 
 		}()
 		settingsPath = isolated
 	}
-	runner := deps.Runner
-	if clientAdapter.CredentialCommand != "" && runner != nil {
+	runner, external := deps.Runner, clientAdapter.CredentialCommand != ""
+	if external && runner != nil {
 		runner = adapter.SuppressExternalCredentialDiagnostics(runner)
 	}
-	return adapter.Verification{Scope: "Native text response; tools and continuation are not probed"}, verifyRuntime(verifyCtx, runner, clientAdapter.Executable, settingsPath, runtime, token, explicitRoute)
+	err = verifyRuntime(verifyCtx, runner, clientAdapter.Executable, settingsPath, runtime, token, explicitRoute)
+	if external {
+		// An external helper's output can stand in what the client reports.
+		err = clientverification.WithoutReport(err)
+	}
+	return adapter.Verification{Scope: "Native text response; tools and continuation are not probed"}, err
 }
 
 func isolateProjection(cfg domain.Config, runtime domain.Runtime, source string) (settingsPath, workspace string, result error) {

@@ -23,6 +23,8 @@ type checker struct {
 	plan   plan
 	shared []localCheck
 	named  named
+	// verbose says that the output shows a client's own report.
+	verbose bool
 }
 
 // plan is what the arguments ask a check for: the depth, and the clients to
@@ -83,6 +85,7 @@ func (c *checker) remote(ctx context.Context, r *result) {
 			return
 		}
 	}
+	r.token = token
 	endpoint := diagnostics.ProbeBounded(ctx, c.deps.HTTP, r.runtime, token, diagnostics.ScopeEndpoint)
 	switch {
 	case endpoint.Kind == diagnostics.Healthy:
@@ -133,28 +136,37 @@ func (c *checker) session(ctx context.Context, r *result) {
 	r.reached, r.session, r.deeper = depthClient, &verification, ""
 }
 
-// clientReporter is a verification error that carries the client's own lines,
-// which an adapter redacts and bounds.
+// clientReporter is a verification that a client's own warning or error left
+// unqualified. It carries the client's lines, bounded and without the secrets
+// that the reader names, and what to change when AIGW can name it.
 type clientReporter interface {
 	error
-	ClientReport() []string
+	ClientReport(secrets ...string) []string
+	Remedy() string
 }
 
-// sessionFailure is the failure of r's session. A client's own warning or
-// error reaches the check as an error that carries the client's lines; its
-// fix is the same check with --verbose, which shows them.
+// sessionFailure is the failure of r's session. For a client's own warning
+// or error, its fix is what to change, when the verification names it; else
+// how to read the client's report, which the same check shows with --verbose;
+// and, when the output already shows it, to resolve what the client reported.
+// None of them is a command: the same check again would fail the same way.
 func (c *checker) sessionFailure(r result, err error) failure {
 	problem := terminal.ProblemFor(err)
 	f := failure{depth: depthClient, state: domainreadiness.Degraded, problem: problem.Title, fix: problem.Fix, cause: err}
-	if reporter, ok := errors.AsType[clientReporter](err); ok {
-		if f.report = reporter.ClientReport(); len(f.report) > 0 {
-			// A model name that needs quoting makes the check prose, which ends in a period.
-			if again := c.checkCommand(r.spec.ID, depthClient); strings.HasSuffix(again, ".") {
-				f.fix = strings.TrimSuffix(again, ".") + " and --verbose."
-			} else {
-				f.fix = again + " --verbose"
-			}
-		}
+	reporter, reported := errors.AsType[clientReporter](err)
+	if !reported {
+		return f
+	}
+	f.report = reporter.ClientReport(c.named.token, r.token)
+	switch remedy := reporter.Remedy(); {
+	case remedy != "":
+		f.fix = remedy
+	case len(f.report) == 0:
+		f.fix = "Run " + r.spec.Label + " itself with the selected model to read its warning."
+	case c.verbose:
+		f.fix = "Resolve what " + r.spec.Label + " reported, then run the same check again."
+	default:
+		f.fix = "Run the same check with --verbose to read what " + r.spec.Label + " reported."
 	}
 	return f
 }

@@ -157,7 +157,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, opts opt
 		// names what the shared check names instead.
 		backend.RecoveryAction = backendFix
 	}
-	checking := checker{deps: operation, cfg: cfg, plan: planned, shared: shared, named: model}
+	checking := checker{deps: operation, cfg: cfg, plan: planned, shared: shared, named: model, verbose: opts.verbose}
 	if len(planned.clients) == 0 {
 		return noClient(operation, cfg, checking.shared, backend, planned.requested, opts.jsonMode)
 	}

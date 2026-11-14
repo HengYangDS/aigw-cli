@@ -13,18 +13,29 @@ signing, and GA status remain separate evidence.
 
 ### Fixed
 
-- `aigw check <client> --depth client` names what stopped it when the client
-  itself reports a warning or an error. It names a configuration key that the
-  client calls deprecated, such as `[features].multi_agent`, which Codex
-  0.169.0 reports. `--verbose` adds the client's own lines, at most four, with
-  credentials redacted, to the text and, as `failure.client_report`, to the
-  JSON output. The check said only that the client "emitted a native-client
-  warning or error" and showed nothing more with `--verbose`.
+- `aigw check <client> --depth client` says what to do when Codex or Claude
+  Code itself reports a warning or an error. It names a configuration key
+  that the client calls deprecated, such as `[features].multi_agent`, which
+  Codex 0.169.0 reports, and its Fix is to remove that key. For another
+  report, the Fix says how to read it: `--verbose` adds the client's own
+  lines, at most four, with the known credential forms and the provider's
+  Token redacted. The check said only that the client "emitted a
+  native-client warning or error", showed nothing more with `--verbose`, and
+  named `aigw check` as its Fix, which failed the same way.
 - A client-depth check of Codex no longer starts Codex's memory work, which
   sent requests for another model than the one being checked.
+- Redaction covers more credential forms: an `Authorization` header with its
+  scheme, whose credential stayed visible after the scheme word; a cookie
+  line; a URL's user and password; a `key` query parameter; and a bare `sk-`
+  key.
 
 ### Changed
 
+- The JSON document of `aigw check` has `schema_version` 4. It adds
+  `clients[].failure.client_report`, present only with `--verbose`: the
+  client's own lines behind a failed session. For such a failure the next
+  step is prose in `next_detail`; `next_action` is absent, where it was
+  `aigw check`.
 - The team file `manifests/team.toml` keeps the newest model of every Claude, GPT and
   Gemini line. It adds GPT-6 Astra, GPT-6 Luna and Gemini 4 Hydrogen, and UCloud's
   Claude Fable 5.2, with which Claude Desktop keeps tool search on UCloud.

@@ -48,11 +48,15 @@ func (codexAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg d
 	}
 	verifyCtx, cancel := context.WithTimeout(ctx, 3*clientverification.ProtocolTimeout)
 	defer cancel()
-	runner := deps.Runner
-	if cfg.Clients[ID].CredentialCommand != "" && runner != nil {
+	runner, external := deps.Runner, cfg.Clients[ID].CredentialCommand != ""
+	if external && runner != nil {
 		runner = adapter.SuppressExternalCredentialDiagnostics(runner)
 	}
 	identity, err := VerifyInvocation(verifyCtx, runner, cfg, runtime, explicitRoute)
+	if external {
+		// An external helper's output can stand in what the client reports.
+		err = clientverification.WithoutReport(err)
+	}
 	return adapter.Verification{Version: identity.Version, SHA256: identity.SHA256, Scope: "Native file-tool execution and same-session recall"}, err
 }
 

@@ -32,13 +32,20 @@ copying or owning them.
 
 #### Scenario: A client reports a warning or an error
 
-- **WHEN** a client's session succeeds but the client reports a warning or an
-  error of its own
+- **WHEN** the session of Codex or Claude Code succeeds but the client reports
+  a warning or an error of its own
 - **THEN** the check SHALL stop at the `client` depth with AIGW's own message,
-  which SHALL carry none of the client's sentences and SHALL name a
-  configuration key path that the client calls deprecated
+  which SHALL carry none of the client's sentences
+- **AND** for a configuration key path that the client calls deprecated, the
+  message SHALL name the path and the Fix SHALL be to remove it
 - **AND** with `--verbose` the text and the JSON output SHALL show the client's
-  own lines: at most four, each of at most 300 characters, with credentials
-  redacted and the home directory written as `~`
-- **AND** without `--verbose` neither output SHALL carry them, and the fix
-  SHALL be the same check with `--verbose`.
+  own lines: at most four, each of at most 300 characters, with the known
+  credential forms and the provider's Token redacted
+- **AND** without `--verbose` neither output SHALL carry them, and no Fix of
+  such a failure SHALL be a command.
+
+#### Scenario: An external helper supplies the client's Token
+
+- **WHEN** such a client reads its Token through an external credential helper
+- **THEN** neither output SHALL show the client's lines, with or without
+  `--verbose`.

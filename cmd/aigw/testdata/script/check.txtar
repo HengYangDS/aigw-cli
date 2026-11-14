@@ -88,9 +88,11 @@ cmp stdout snapshot.txt
 grep '"client": "claude",\n\s+"depth": "client"' verified.json
 grep '"client": "claude-desktop",\n\s+"depth": "model"' verified.json
 # A client that answers and reports a warning of its own stops at the client
-# depth. AIGW's message carries none of the client's text and names the key
-# that the client calls deprecated; --verbose shows the client's own line with
-# its credential redacted, in the text and in the document alike.
+# depth. AIGW's message carries none of the client's text. It names the key
+# that the client calls deprecated, and the fix is to remove that key.
+# --verbose shows the client's own line with its credential redacted, in the
+# text and in the document alike. No fix is a command: the same check again
+# would fail the same way.
 env SCRIPTED_CLIENT_NOTICE='warning: `[legacy].flag` is deprecated. Use `[modern].flag`. token=sk-leak-0009'
 exitcode 1 aigw check claude --depth client
 cmp stdout notice.txt
@@ -99,11 +101,22 @@ exitcode 1 aigw check claude --depth client --verbose
 cmp stdout notice-verbose.txt
 ! stdout 'sk-leak'
 exitcode 1 aigw check claude --depth client --json
-! stdout 'sk-leak|modern|client_report'
-stdout '"next_action": "aigw check claude --depth client --verbose"'
+! stdout 'sk-leak|modern|client_report|next_action'
+stdout '"next_detail": "Remove \[legacy\].flag from Claude''s configuration, or replace it as Claude advises."'
 exitcode 1 aigw check claude --depth client --verbose --json
-! stdout 'sk-leak'
+! stdout 'sk-leak|next_action'
 stdout '"client_report": \[\n\s+"warning: `\[legacy\].flag` is deprecated. Use `\[modern\].flag`. token=\[REDACTED\]"\n\s+\]'
+# A warning that names no key: the fix is to read the report, and, once the
+# output shows it, to resolve what the client reported.
+env SCRIPTED_CLIENT_NOTICE='warning: capability degraded for Authorization: Bearer live-leak-0010'
+exitcode 1 aigw check claude --depth client
+stdout 'Claude emitted a native-client warning or error; verification is incomplete'
+stdout 'Fix: Run the same check with --verbose to read what Claude reported\.'
+! stdout 'live-leak|degraded'
+exitcode 1 aigw check claude --depth client --verbose
+stdout 'Claude reported: warning: capability degraded for Authorization: \[REDACTED\]'
+stdout 'Fix: Resolve what Claude reported, then run the same check again\.'
+! stdout 'live-leak'
 env SCRIPTED_CLIENT_NOTICE=
 # A client that stops leaves the verified snapshot as it was: here a variable
 # that competes with AIGW's Token stops every client at the local depth.
@@ -211,7 +224,7 @@ sk-team-token-0001
 sk-once-token-0002
 -- once.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "depth": "endpoint",
   "model": "team/spare-model",
@@ -315,7 +328,7 @@ Fix
   aigw setup
 -- empty.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": false,
   "depth": "model",
   "clients": [],
@@ -354,7 +367,7 @@ Fix
 }
 -- local.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "depth": "local",
   "clients": [
@@ -444,20 +457,20 @@ AIGW  Check
 
 Clients
   ✗ Claude             team/team-model · client
-                       Claude reports the deprecated configuration key [legacy].flag; verification is incomplete; remove it from the client's configuration or replace it as the client advises
-                       Fix: aigw check claude --depth client --verbose
+                       Claude reports the deprecated configuration key [legacy].flag; verification is incomplete
+                       Fix: Remove [legacy].flag from Claude's configuration, or replace it as Claude advises.
 
 Next
-  aigw check claude --depth client --verbose
+  Remove [legacy].flag from Claude's configuration, or replace it as Claude advises.
 -- notice-verbose.txt --
 AIGW  Check
 ────────────────────────────────────────
 
 Clients
   ✗ Claude             team/team-model · client
-                       Claude reports the deprecated configuration key [legacy].flag; verification is incomplete; remove it from the client's configuration or replace it as the client advises
+                       Claude reports the deprecated configuration key [legacy].flag; verification is incomplete
                        Claude reported: warning: `[legacy].flag` is deprecated. Use `[modern].flag`. token=[REDACTED]
-                       Fix: aigw check claude --depth client --verbose
+                       Fix: Remove [legacy].flag from Claude's configuration, or replace it as Claude advises.
 
 Local checks
   ✓ Environment          No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set
@@ -468,7 +481,7 @@ Local checks
   ✓ Claude client files  Match the selection
 
 Next
-  aigw check claude --depth client --verbose
+  Remove [legacy].flag from Claude's configuration, or replace it as Claude advises.
 -- client.txt --
 AIGW  Check
 ────────────────────────────────────────
@@ -500,7 +513,7 @@ Result
   ✓ No checked client failed
 -- native.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "depth": "model",
   "clients": [
@@ -615,7 +628,7 @@ Next
   aigw check claude-desktop
 -- down.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": false,
   "depth": "model",
   "clients": [
@@ -721,7 +734,7 @@ Next
 }
 -- disabled.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "depth": "client",
   "clients": [
@@ -805,7 +818,7 @@ Fix
 -- empty-file --
 -- no-model-list.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "depth": "endpoint",
   "clients": [
@@ -874,7 +887,7 @@ Fix
 }
 -- own-authentication.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "depth": "model",
   "clients": [
@@ -953,7 +966,7 @@ Fix
 }
 -- external-helper.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "depth": "model",
   "clients": [

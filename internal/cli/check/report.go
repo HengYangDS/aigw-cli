@@ -14,8 +14,8 @@ import (
 
 // schemaVersion is the version of `aigw check`'s JSON document, which
 // replaces the documents of check, doctor, test and verify, the highest of
-// which was 2.
-const schemaVersion = 3
+// which was 2. Version 4 adds failure.client_report.
+const schemaVersion = 4
 
 // document is `aigw check`'s JSON document: the depth asked for, each checked
 // client's climb with its local checks, the checks that every client shares,

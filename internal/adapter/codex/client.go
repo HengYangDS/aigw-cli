@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	clientverification "aigw-cli/internal/adapter/verification"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
@@ -52,7 +51,7 @@ func IdentifyExecutable(ctx context.Context, runner process.VerificationRunner, 
 		return ExecutableIdentity{}, fmt.Errorf("inspect Codex version: %w", err)
 	}
 	if process.DiagnosticFailure(diagnostic) {
-		return ExecutableIdentity{}, clientverification.Reported("Codex version probe emitted a native-client warning or error; executable identity is unqualified", diagnostic)
+		return ExecutableIdentity{}, fmt.Errorf("Codex version probe emitted a native-client warning or error; executable identity is unqualified")
 	}
 	version := strings.TrimSpace(string(output))
 	if version == "" {
@@ -117,7 +116,7 @@ func runCodexReadOnly(ctx context.Context, runner process.VerificationRunner, ex
 		return nil, fmt.Errorf("run %s %s: %w", filepath.Base(executable), strings.Join(args, " "), err)
 	}
 	if process.DiagnosticFailure(diagnostic) {
-		return nil, clientverification.Reported("Codex catalog probe emitted a native-client warning or error; catalog identity is unqualified", diagnostic)
+		return nil, fmt.Errorf("Codex catalog probe emitted a native-client warning or error; catalog identity is unqualified")
 	}
 	return output, nil
 }

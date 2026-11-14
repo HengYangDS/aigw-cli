@@ -79,6 +79,14 @@ func TestCodexNativeEvidenceRejectsEventsOutsideTheOwnedTurn(t *testing.T) {
 				if err == nil || !strings.Contains(err.Error(), diagnostic.want) || strings.Contains(err.Error(), private) {
 					t.Fatalf("native error item classification is missing or unsafe: %v", err)
 				}
+				// The item's own text is the report, for a reader who asks, without its credential.
+				reporter, reported := errors.AsType[interface {
+					error
+					ClientReport(secrets ...string) []string
+				}](err)
+				if !reported || len(reporter.ClientReport()) != 1 || strings.Contains(reporter.ClientReport()[0], "must-not-leak") || !strings.Contains(reporter.ClientReport()[0], "token=[REDACTED]") {
+					t.Fatalf("native error item carries no safe report: %v", err)
+				}
 			})
 		}
 	}

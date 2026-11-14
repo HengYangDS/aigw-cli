@@ -103,6 +103,9 @@ type result struct {
 	// deeper is the check that proves what a depth that this one skipped
 	// could not, which only a client session proves.
 	deeper string
+	// token is the provider's Token that the endpoint depth read, which a
+	// client's report must not show. No output carries it.
+	token string
 }
 
 // skipDepth records that the client cannot run d, and why.
