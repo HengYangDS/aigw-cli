@@ -36,10 +36,9 @@ SHALL be `next_detail`.
 
 - **WHEN** a command's document replaces the documents of earlier commands, as
   `aigw check` replaces those of `check`, `doctor`, `test` and `verify`
-- **THEN** its `schema_version` SHALL start at the highest of theirs plus one:
-  `aigw check` started at 3 and `aigw model search` at 2
-- **AND** a document without a predecessor SHALL start at 1
-- **AND** a later change of its fields SHALL increase it from there.
+- **THEN** its `schema_version` SHALL start at the highest of theirs plus one,
+  3 for `aigw check` and 2 for `aigw model search`
+- **AND** a document without a predecessor SHALL start at 1.
 
 ### Requirement: Every failure names one fix
 
@@ -77,12 +76,3 @@ a specific fact MAY stay.
 - **WHEN** `aigw provider show` runs without its `<provider>` argument
 - **THEN** the Problem SHALL name the missing argument
 - **AND** the Fix SHALL be `aigw provider show --help`, not `aigw check`.
-
-#### Scenario: No command repairs the cause
-
-- **WHEN** a session of Codex stops on a configuration key that Codex calls
-  deprecated, which stands in Codex's own configuration
-- **THEN** the Fix SHALL be one sentence that says to remove that key
-- **AND** JSON SHALL carry it as `next_detail`, with no `next_action`
-- **AND** the Fix SHALL NOT be `aigw check`, which starts no client at its
-  default depth.
