@@ -176,17 +176,10 @@ func configurationLoadTitle(phase store.LoadPhase) string {
 	}
 }
 
-// ConfigurationLoadFix is the fix for a configuration that did not load. It
-// names the stage at which err stopped and `aigw config path`, never a command
-// that loads the configuration and so fails the same way.
-func ConfigurationLoadFix(err error) string {
-	var phase store.LoadPhase
-	if failure, ok := errors.AsType[*store.LoadError](err); ok {
-		phase = failure.Phase
-	}
-	return configurationLoadFix(phase)
-}
-
+// configurationLoadFix is the fix for a configuration that did not load at
+// phase. It names that stage and `aigw config path`, never a command that
+// loads the configuration and so fails the same way; a failure without a
+// stage gets the general sentence.
 func configurationLoadFix(phase store.LoadPhase) string {
 	switch phase {
 	case store.LoadPhaseRead:

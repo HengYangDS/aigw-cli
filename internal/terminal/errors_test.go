@@ -156,7 +156,7 @@ func TestLocalFailureKeepsOtherErrorsUnchanged(t *testing.T) {
 	}
 	// An unsupported version that the configuration carries keeps its own
 	// problem, and its fix is the validate stage's.
-	if got := ProblemFor(LocalFailure("1.2.3", platform.PathContext{}, unsupported)).Fix; got != ConfigurationLoadFix(unsupported) || !strings.Contains(got, "aigw config path") {
+	if got := ProblemFor(LocalFailure("1.2.3", platform.PathContext{}, unsupported)).Fix; got != configurationLoadFix(store.LoadPhaseValidate) || !strings.Contains(got, "aigw config path") {
 		t.Fatalf("unsupported configuration version fix = %q", got)
 	}
 }
@@ -224,12 +224,13 @@ func TestALocalFileFailureNamesItsPathAgainstTheRunsHome(t *testing.T) {
 	}
 }
 
-// ConfigurationLoadFix names `aigw config path` for an error that is not a
-// load failure, without inventing a stage.
-func TestConfigurationLoadFixWithoutALoadFailure(t *testing.T) {
-	got := ConfigurationLoadFix(errors.New("configuration manifest: unreadable"))
+// A configuration failure without a stage names `aigw config path`, without
+// inventing a stage.
+func TestConfigurationLoadFixWithoutAStage(t *testing.T) {
+	var none store.LoadPhase
+	got := configurationLoadFix(none)
 	if got != "Correct the configuration file, or restore it from a backup; `aigw config path` prints its location." {
-		t.Fatalf("ConfigurationLoadFix() = %q", got)
+		t.Fatalf("configurationLoadFix() = %q", got)
 	}
 }
 
