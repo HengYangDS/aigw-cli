@@ -68,20 +68,16 @@
 
 ## 3. Adopt The ETHOS Reference Successor
 
-- [ ] 3.1 Once ETHOS accepts its identity and reference successor, qualify the
-      installed admission: reachable wrong-repository links fail, and historical
-      peer tag identities reconcile through authorized native repair without
-      copied maps or checkers. The installed alpha.16 parser still accepts a
-      history link to another repository's release (Codex finding `ccc9685b`);
-      ETHOS adds that check to `forge-admission-and-assurance`. DR-0016
-      withdrew publication-history-repair 13.4.9, reconciling the eleven rc
-      tags, as environment work that waits for the GitLab batch backfill; their
+- [ ] 3.1 Reconcile the historical peer tag identities through authorized
+      native repair without copied maps or checkers: the eleven rc tags, whose
       per-peer objects are in
       `build/evidence/gitlab-peer-reconciliation/rc-tag-identities-20261020/`
-      of the main checkout. Owner: a225 (ETHOS product lane), which has not
-      yet opened `forge-admission-and-assurance`; repairing the rc tags'
-      history on both peers needs the user's authorization. Next: qualify once
-      that Change ships in an aigw runtime; review 2026-11-08.
+      of the main checkout, leave with the retire set of the history rebuild.
+      It closes when both peers hold the same object for every remaining tag.
+      Its former first half, a check that refuses a link to another
+      repository's release, is withdrawn: ETHOS ruled on 2026-11-15 that no
+      such rule comes, after a reproduction on beta.10 showed that no step
+      reads a link's target and that neither product tracks such a link.
 - [x] 3.2 Remove the GitHub `tool_source=peer` glab carrier
       (`miseMirror.githubRelease` and the workflow `MISE_URL_REPLACEMENTS`),
       or point it at a `mise-glab-v<locked>` Release that a test keeps equal
