@@ -3,6 +3,7 @@
 package hermes
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -96,7 +97,7 @@ func TestHermesVerificationWaitsForItsGatewayProcessAfterTheLock(t *testing.T) {
 	holder := &gatewayLockHolder{}
 	// The gateway's exit tail: its process outlives the lock it already released.
 	tail := exec.Command("sleep", "1")
-	exited := make(chan time.Time, 1)
+	reaped := make(chan struct{})
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
 	runner.observe = func(plan process.Plan) {
 		if plan.Args[0] != "chat" {
@@ -106,9 +107,10 @@ func TestHermesVerificationWaitsForItsGatewayProcessAfterTheLock(t *testing.T) {
 		if err := tail.Start(); err != nil {
 			t.Fatal(err)
 		}
+		// Init reaps a real gateway; here the test does, so that the process can be seen gone.
 		go func() {
 			_ = tail.Wait()
-			exited <- time.Now()
+			close(reaped)
 		}()
 		state := fmt.Sprintf(`{"pid": %d, "kind": "gateway", "gateway_state": "running"}`, tail.Process.Pid)
 		if err := os.WriteFile(filepath.Join(plan.Directory, "gateway_state.json"), []byte(state), 0o600); err != nil {
@@ -120,10 +122,14 @@ func TestHermesVerificationWaitsForItsGatewayProcessAfterTheLock(t *testing.T) {
 	if _, err := (hermesAdapter{}).Verify(t.Context(), deps, cfg, selected, ""); err != nil {
 		t.Fatal(err)
 	}
-	finished := time.Now()
-	if processExit := <-exited; processExit.After(finished) {
-		t.Fatal("verification deleted its home while the gateway process still ran")
+	// The kernel answers for the process itself, so no clock of this test decides the order.
+	if tail.Process == nil {
+		t.Fatal("verification never started its chat")
 	}
+	if err := syscall.Kill(tail.Process.Pid, 0); !errors.Is(err, syscall.ESRCH) {
+		t.Fatalf("verification returned while the gateway process still ran: signal 0 gave %v", err)
+	}
+	<-reaped
 	if _, err := os.Lstat(runner.plans[1].Directory); !os.IsNotExist(err) {
 		t.Fatalf("verification home survived after its gateway process exited: %v", err)
 	}
