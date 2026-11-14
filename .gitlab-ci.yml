@@ -70,6 +70,7 @@ native-linux:
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:
     when: always
+    expire_in: 7 days
     paths:
       - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
   before_script:
@@ -222,6 +223,7 @@ native-darwin:
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab,github:indygreg/apple-platform-rs
   artifacts:
     when: always
+    expire_in: 7 days
     paths:
       - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
 native-darwin-review:
@@ -319,6 +321,7 @@ native-darwin-review:
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab,github:indygreg/apple-platform-rs
   artifacts:
     when: always
+    expire_in: 7 days
     paths:
       - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
 native-windows:
@@ -472,6 +475,7 @@ native-windows:
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:
     when: always
+    expire_in: 7 days
     paths:
       - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
 native-windows-review:
@@ -612,6 +616,7 @@ native-windows-review:
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:
     when: always
+    expire_in: 7 days
     paths:
       - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
 variables:
@@ -745,6 +750,7 @@ quality:
       fi
   artifacts:
     when: always
+    expire_in: 7 days
     paths:
       - build/verification/dependencies
       - build/verification/workflows

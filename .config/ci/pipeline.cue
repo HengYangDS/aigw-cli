@@ -422,6 +422,10 @@ actions: {
 dependencyEvidencePath: "build/verification/dependencies"
 workflowEvidencePath:   "build/verification/workflows"
 
+// Every artifact that a job retains expires after this many days, on both Forges.
+evidenceRetentionDays: 7
+_gitLabEvidenceExpiry: "\(evidenceRetentionDays) days"
+
 #DependencyEvidenceGitHubStep: {
 	_name: string
 	name:  "Retain native dependency evidence"
@@ -431,6 +435,7 @@ workflowEvidencePath:   "build/verification/workflows"
 		name:                _name
 		path:                dependencyEvidencePath
 		"if-no-files-found": "ignore"
+		"retention-days":    evidenceRetentionDays
 	}
 }
 
@@ -469,7 +474,7 @@ workflowEvidencePath:   "build/verification/workflows"
 	name:  "Retain native source evidence"
 	if:    "always()"
 	uses:  actions.upload
-	with: {name: _name, path: "\(workflowEvidencePath)\nbuild/verification/coverage", "if-no-files-found": "ignore"}
+	with: {name: _name, path: "\(workflowEvidencePath)\nbuild/verification/coverage", "if-no-files-found": "ignore", "retention-days": evidenceRetentionDays}
 }
 
 #NativeGitHubJob: {
@@ -550,6 +555,7 @@ workflowEvidencePath:   "build/verification/workflows"
 				name:                   "mise-lock-\(_platform)"
 				path:                   ".config/mise/mise.lock\n.config/mise/locks\n"
 				"include-hidden-files": true
+				"retention-days":       evidenceRetentionDays
 			}
 		},
 		for full in [false, true] {
@@ -632,6 +638,7 @@ workflowEvidencePath:   "build/verification/workflows"
 				name:                "performance-\(_platform)"
 				path:                "build/performance"
 				"if-no-files-found": "error"
+				"retention-days":    evidenceRetentionDays
 			}
 		},
 	]
@@ -738,7 +745,8 @@ workflowEvidencePath:   "build/verification/workflows"
 		}
 	}
 	artifacts: {
-		when: "always"
+		when:      "always"
+		expire_in: _gitLabEvidenceExpiry
 		paths: ["./{.config/mise/mise.lock,.config/mise/locks,build/verification}"]
 	}
 	if _platform == "linux" {
@@ -825,7 +833,7 @@ gitlab: {
 			commands.quality,
 			miseMirror.unixCleanup,
 		]
-		artifacts: {when: "always", paths: [dependencyEvidencePath, workflowEvidencePath, "build/verification/coverage"]}
+		artifacts: {when: "always", expire_in: _gitLabEvidenceExpiry, paths: [dependencyEvidencePath, workflowEvidencePath, "build/verification/coverage"]}
 
 		stage: graph.quality.stage
 		variables: qualityToolchain & {CGO_ENABLED: "0"}
