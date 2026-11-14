@@ -245,15 +245,15 @@ func (r *result) row(verbose bool) terminal.Field {
 	// AIGW points the client at a loopback endpoint; it does not run it.
 	loopback := r.resolved && app.EndpointTransport(r.runtime.Endpoint) == app.EndpointTransportExternalLoopback
 	if r.failure != nil {
-		field.Details = append(field.Details, r.failure.problem)
-		if verbose {
-			for _, line := range r.failure.report {
-				field.Details = append(field.Details, r.spec.Label+" reported: "+line)
-			}
-		}
-		field.Details = append(field.Details, "Fix: "+r.failure.fix)
+		field.Details = append(field.Details, r.failure.problem, "Fix: "+r.failure.fix)
 		if loopback && r.failure.probe != nil {
 			field.Details = append(field.Details, r.spec.Label+" uses a loopback endpoint; AIGW does not manage the endpoint runtime")
+		}
+		// The client's own lines stand after AIGW's, as quotes.
+		if verbose {
+			for _, line := range r.failure.report {
+				field.Quotes = append(field.Quotes, r.spec.Label+" reported: "+line)
+			}
 		}
 		return field
 	}

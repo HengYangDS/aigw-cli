@@ -36,16 +36,21 @@ copying or owning them.
   a warning or an error of its own
 - **THEN** the check SHALL stop at the `client` depth with AIGW's own message,
   which SHALL carry none of the client's sentences
-- **AND** for a configuration key path that the client calls deprecated, the
-  message SHALL name the path and the Fix SHALL be to remove it
+- **AND** for a configuration key that the client calls deprecated, written as
+  a table in brackets and a name, the message SHALL name the key and the Fix
+  SHALL be to remove it
 - **AND** with `--verbose` the text and the JSON output SHALL show the client's
-  own lines: at most four, each of at most 300 characters, with the known
-  credential forms and the provider's Token redacted
-- **AND** without `--verbose` neither output SHALL carry them, and no Fix of
-  such a failure SHALL be a command.
+  own lines: at most four, each of at most 300 characters, without the
+  provider's Token and the known credential forms, in the text after AIGW's
+  own lines
+- **AND** without `--verbose` neither output SHALL carry them
+- **AND** the Fix SHALL be one sentence and SHALL NOT be `aigw check`.
 
-#### Scenario: An external helper supplies the client's Token
+#### Scenario: AIGW does not hold the session's credential
 
-- **WHEN** such a client reads its Token through an external credential helper
+- **WHEN** such a client authenticates itself, or reads its Token through an
+  external credential helper
 - **THEN** neither output SHALL show the client's lines, with or without
-  `--verbose`.
+  `--verbose`
+- **AND** without a key to name, the Fix SHALL be to run the client itself with
+  the selected model.

@@ -131,7 +131,8 @@ Use the least powerful command that answers the current question:
    selected model path. This request may consume quota even when the `model`
    depth has already passed. When the session stops on a warning or an error
    that Codex or Claude Code itself reports, `--verbose` adds the client's own
-   lines, with the known credential forms redacted.
+   lines after AIGW's, without the provider's Token and the known credential
+   forms. A session whose credential AIGW does not hold shows none.
 6. `aigw sync --dry-run --json` previews only AIGW-owned reconciliation;
    `aigw sync` applies that bounded plan.
 

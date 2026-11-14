@@ -19,7 +19,9 @@ check's output is pasted into issues.
 - Deciding that some client reports are harmless. A deprecation notice still stops the check; the owner of the
   configuration removes the key or accepts the stop.
 - Showing a client's output of a successful session, or without a request.
-- Showing the output of a client whose Token an external helper supplies.
+- Showing the output of a session whose credential AIGW does not hold.
+- A proof of redaction. The rules are forms; what makes a report safe to ask for is the session's credential,
+  which is removed by its value.
 
 ## Decisions
 
@@ -27,34 +29,52 @@ check's output is pasted into issues.
 
 `verification.Diagnostic` returns an error with AIGW's message, a remedy where AIGW can name one, and the
 client's output. The message and the remedy never carry the client's sentences, which the existing leak tests
-keep checking. The check command reads the report and the remedy through methods of the error, so it imports
-nothing from the adapter layer.
+keep checking. The check command reads the report and the remedy through an interface of its own, so it does
+not import the verification package. The error keeps the output as the client wrote it and shows it through no
+other way, also not when it is printed with `%#v`.
 
 Alternative considered: put a redacted excerpt into the message. Rejected, because the default output would then
 carry client text that nobody asked for, and a redaction miss would reach every paste.
 
 ### A deprecated key is named by grammar
 
-A client that calls a configuration key deprecated writes it in backticks before "is deprecated". AIGW reads up
-to three such keys and names them in its message and in the remedy "Remove … from the client's configuration".
-The grammar is a path of lowercase names that start with a letter: a name or a table in brackets, then at least
-one dot and name, each name at most 32 characters and the path at most 64. A key path is configuration
-vocabulary, not a sentence, and it is what the reader must find. A single word, a capital and a name that starts
-with a digit are not named, because a client can quote a value there, such as a credential that it calls
-deprecated; that case keeps the general message, and the report shows the client's line.
+Codex writes a deprecated configuration key in backticks before "is deprecated", as a table in brackets and a
+name: `[features].multi_agent`. AIGW reads up to three such keys and names them in its message and in the remedy
+"Remove … from the client's configuration". The grammar is that form only: a table in brackets, then at least
+one dot and name, in lowercase names that start with a letter, each at most 32 characters and the whole at most 64. A key is configuration vocabulary, not a sentence, and it is what the reader must find.
 
-### The report is bounded and redacted, and the reader names its secrets
+A path without a table is not named: a provider's error can quote a field of its own request that way, and
+"remove it from the client's configuration" would then be false. A single word, a capital and a name that starts
+with a digit are not named either, because a client can quote a value there. Each of those cases keeps the
+general message.
 
-At most four distinct lines of at most 300 characters. Lines that carry a warning marker come first, judged on
-the whole line; without one, the first lines are taken, which is the case of a Codex error item. ANSI sequences,
-control characters and format characters leave. The redaction owner removes the credential forms that it knows,
-and the check adds the provider's Token that it read for the endpoint depth, which catches a Token that the
-client prints bare. The home directory is written as `~` where it stands as a whole path prefix.
+### A report needs the session's credential
 
-The redaction owner gains the forms that a client's output is likely to hold: an `Authorization` header with its
-scheme word, a cookie line, a URL's user and password, a `key` query parameter and a bare `sk-` key. They are
-forms, not a proof: a credential that no form describes and that is not the provider's Token stays visible in
-output that the caller asked for.
+A client can print its credential in a form that no rule describes. So the report is given only to a reader who
+names the session's credential, and that value is taken out first. The check names the Token that its endpoint
+depth read from AIGW's store, which is the Token of the session. A client that authenticates itself, or whose
+Token an external helper supplies, has no such Token in the check, and so no report, with or without
+`--verbose`. One rule covers both cases, in the one place that builds a report.
+
+Alternative considered: the adapters withhold the report for an external helper. Rejected after review: the
+withheld failure lost its remedy and fell back to `aigw check` as its Fix, and a client that authenticates
+itself was not covered.
+
+### The report is bounded, and each line is redacted once
+
+At most four distinct lines of at most 300 characters. When any line carries a warning marker, only the marked
+lines are reported; without one, the first lines, which is the case of a Codex error item. Each line is judged
+as the client wrote it, since a redaction can take the marker; then control and format characters leave, and one
+redaction removes the credential and the credential forms. One pass, because a form that cuts a part of the
+credential would hide the rest from a second one; per line, so that no rule reaches the next line. The home
+directory is written as `~` where it stands as a whole path prefix.
+
+The redaction owner gains the forms that a client's output is likely to hold: an `Authorization` or a cookie
+header to the end of its line, whatever its scheme; a URL's user, with or without a password; a `key`, `sig` or
+`signature` query parameter; and a bare `sk-` key of at least 20 further characters, which a model or a
+directory name is not. The header rule can take the rest of a one-line document with it; that is the price of
+not knowing where a scheme's parameters end. They are forms, not a proof: another credential than the session's
+that no form describes stays visible in output that the caller asked for.
 
 ### Only a request shows it, in either output
 
@@ -63,33 +83,39 @@ the JSON document gains them as `failure.client_report`: an agent that runs the 
 much as a person does, and reads the document. Without `--verbose` neither output carries them. The document's
 `schema_version` becomes 4, as the rule for a changed field requires.
 
-### The Fix is never the same check
+In the text the client's lines stand after AIGW's problem and Fix, as quotes: where a quote wraps, it continues
+two columns deeper than a detail begins. A client's line that holds the words "Fix:" can therefore not read as
+AIGW's own Fix.
 
-The rule that every failure names one fix forbids a command that would fail the same way, and the same check
-with `--verbose` fails the same way. So the Fix of such a failure is prose, which the document carries as
-`next_detail`: the remedy when AIGW names one; else how to read the report; and, once the output shows the
-report, to resolve what the client reported.
+### The Fix is one sentence
 
-### An external credential helper withholds the report
+No `aigw` command repairs a key in the client's own configuration, and the same check with `--verbose` fails the
+same way, which the rule that every failure names one fix forbids. `aigw check`, the earlier Fix, does not fail
+the same way: at its default depth it starts no client, passes, and names the failing check as the deeper one.
+So the Fix of such a failure is a sentence, which the document carries as `next_detail`: the remedy when AIGW
+names one; else how to read the report; once the output shows the report, to resolve what the client reported;
+and without a report, to run the client itself with the selected model. The rule gains that third kind of Fix.
 
-For a client that reads its Token through an external helper, the runner already replaces the client's output:
-the helper's output can stand in it. The adapters withhold the report in that case, for the client's event
-stream too. Hermes's verification treats its output the same way and keeps its messages.
+Hermes's verification treats its output as an external helper's and keeps its messages.
 
 ### Codex's memory work is off in the private home
 
 The session's command line sets `features.memories=false`. Dropping the key from the copied configuration would
-leave the client's default in force, which a later Codex release may turn on. Measured with Codex 0.169.0 on one
-host: with the override a first turn sends two requests, both for the verified model; without it, five or six
-more for another model, each ending early.
+leave the client's default in force, which a later Codex release may turn on. Measured by hand on 2026-11-14
+with Codex 0.169.0 on one host, not by a test: with the override a first turn sends two requests, both for the
+verified model; without it, five or six more for another model, each ending early. The test holds only that the
+plan of each turn carries the override.
 
 ## Risks / Trade-offs
 
 - **A report line can still hold something private** that no form describes, such as a host name → it appears
   only on request, in the caller's own output, bounded to four lines.
 - **A key-shaped secret in backticks before "is deprecated" would be named in the default message** → the
-  grammar admits only lowercase dotted names of bounded length; the residual case needs a client that writes a
-  secret in exactly that place.
+  grammar admits only a table in brackets with lowercase names of bounded length; the residual case needs a
+  client that writes a secret in exactly that form and place.
+- **Codex deprecates a key that AIGW itself sets for the session** → the remedy would name a key that the
+  operator's file does not hold. AIGW sets one such key today, and the release that meets the notice changes
+  what AIGW sets.
 - **A client changes its wording**, and the deprecated key is no longer named → the message falls back to the
   general sentence, and the report still shows the client's words.
 - **Another background feature of a client sends its own requests** → only the observed one is turned off; the

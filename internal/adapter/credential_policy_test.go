@@ -242,15 +242,17 @@ func (runner warningClient) RunCapture(ctx context.Context, plan process.Plan) (
 	return output, err
 }
 
-// A client that reads its Token through an external helper can print the
-// helper's output as its own warning. Its verification stays unqualified, and
-// no reader finds a client report behind the error; with AIGW's own reader,
-// the same warning is the report, which Codex shows here: this fixture has no
-// secret store, from which Claude Code's check reads the Token first.
-func TestExternalCredentialWarningsWithholdTheClientsReport(t *testing.T) {
+// A client's own warning leaves its verification unqualified, and the error
+// gives the client's lines only to a reader who names the session's
+// credential. With an external helper AIGW holds none, so its check asks
+// without one; and what such a client printed never reaches the error, since
+// the helper's output can stand in it. With AIGW's own reader the warning is
+// the report, which Codex shows here: this fixture has no secret store, from
+// which Claude Code's check reads the Token first.
+func TestClientWarningsReportOnlyToAReaderWithTheCredential(t *testing.T) {
 	type reporter interface {
 		error
-		ClientReport(secrets ...string) []string
+		ClientReport(credential string) []string
 	}
 	registry := clients.Registry()
 	for _, id := range []string{claude.ID, codex.ID} {
@@ -278,11 +280,12 @@ func TestExternalCredentialWarningsWithholdTheClientsReport(t *testing.T) {
 					t.Fatalf("verification = %v", err)
 				}
 				found, reported := errors.AsType[reporter](err)
-				if reported == external {
-					t.Fatalf("a client report is found = %t with an external helper = %t", reported, external)
+				if !reported || found.ClientReport("") != nil {
+					t.Fatalf("report found = %t; without a credential: %q", reported, found.ClientReport(""))
 				}
-				if !external && (len(found.ClientReport()) != 1 || !strings.Contains(found.ClientReport()[0], "public-secret-canary")) {
-					t.Fatalf("AIGW's reader lost the client's report: %q", found.ClientReport())
+				report := strings.Join(found.ClientReport("session-credential"), "\n")
+				if canary := strings.Contains(report, "public-secret-canary"); report == "" || canary == external {
+					t.Fatalf("report with a credential = %q with an external helper = %t", report, external)
 				}
 			})
 		}

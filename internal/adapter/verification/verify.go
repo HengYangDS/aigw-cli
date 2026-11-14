@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -51,66 +52,87 @@ const (
 	deprecatedKeyLength = 64
 )
 
-// deprecatedKey is a configuration key that a client calls deprecated: in
-// backticks before the words, as a path of at least two lowercase names, each
-// starting with a letter, the first of them optionally a table in brackets. A
-// message is AIGW's own text, so the grammar admits no sentence; a single
-// word, a capital and a name that starts with a digit can each be a value,
-// such as a credential, that the client quotes.
-var deprecatedKey = regexp.MustCompile("`((?:\\[[a-z][a-z0-9_-]{0,31}(?:\\.[a-z][a-z0-9_-]{0,31})*\\]|[a-z][a-z0-9_-]{0,31})(?:\\.[a-z][a-z0-9_-]{0,31})+)` is deprecated")
+// deprecatedKey is a configuration key that a client calls deprecated, in the
+// form in which Codex names one: in backticks before the words, a table in
+// brackets and at least one name after it, in lowercase names that start with
+// a letter. A message is AIGW's own text, so the grammar admits no sentence,
+// and no path without a table: a provider's error can quote one of its own
+// request fields that way.
+var deprecatedKey = regexp.MustCompile("`(\\[[a-z][a-z0-9_-]{0,31}(?:\\.[a-z][a-z0-9_-]{0,31})*\\](?:\\.[a-z][a-z0-9_-]{0,31})+)` is deprecated")
 
 // reportedError is a verification that a native client's own warning or error
 // leaves unqualified. Its message and remedy are AIGW's and carry none of the
 // client's sentences; its report is the client's own lines, for a reader who
-// asks.
+// holds the session's credential.
 type reportedError struct {
 	message string
 	remedy  string
-	// text is the client's output without control sequences, with the known
-	// credential forms redacted.
-	text string
+	// output is the client's output without terminal sequences. It is not
+	// redacted: only ClientReport reads it, and redacts what it returns.
+	output string
 }
 
 func (failure reportedError) Error() string { return failure.message }
+
+// GoString keeps the client's output out of a %#v of the error.
+func (failure reportedError) GoString() string { return failure.message }
 
 // Remedy says what to change, when AIGW can name it without the client's
 // sentences, or nothing.
 func (failure reportedError) Remedy() string { return failure.remedy }
 
-// ClientReport returns the client's own lines without secrets, bounded: the
-// lines that carry a warning marker, or the first lines when none does.
-func (failure reportedError) ClientReport(secrets ...string) []string {
-	return clientReport(failure.text, secrets...)
-}
-
-// unreportedError is a verification failure whose client report a caller
-// withheld. It does not unwrap, so no reader finds the report behind it.
-type unreportedError struct{ message string }
-
-func (failure unreportedError) Error() string { return failure.message }
-
-// WithoutReport returns err without a client's report, for a client whose
-// output a runner must not pass on; another error is returned as it is.
-func WithoutReport(err error) error {
-	if _, reported := errors.AsType[reportedError](err); !reported {
-		return err
+// ClientReport returns the client's own lines for a reader: the lines that
+// carry a warning marker, or the first lines when none does, each on one line
+// of at most reportLineRunes characters, without credential and with the home
+// directory written as ~. credential is the session's credential, which the
+// client can print in a form that no redaction rule describes; without it
+// there is no report.
+func (failure reportedError) ClientReport(credential string) []string {
+	if strings.TrimSpace(credential) == "" {
+		return nil
 	}
-	return unreportedError{message: err.Error()}
+	home, _ := os.UserHomeDir()
+	var marked, plain []string
+	for line := range strings.FieldsFuncSeq(failure.output, func(r rune) bool { return r == '\n' || r == '\r' }) {
+		line = withoutControl(line)
+		// The client's own line is classified: a redaction can take its marker.
+		lines := &plain
+		if process.DiagnosticFailure([]byte(line)) {
+			lines = &marked
+		}
+		// One redaction, of one line: a second one would miss a credential
+		// that the first had cut, and a rule would otherwise reach the next line.
+		line = strings.Join(strings.Fields(domain.Redact(line, credential)), " ")
+		line = shortenHome(line, home)
+		if utf8.RuneCountInString(line) > reportLineRunes {
+			line = string([]rune(line)[:reportLineRunes-1]) + "…"
+		}
+		if line != "" && !slices.Contains(*lines, line) {
+			*lines = append(*lines, line)
+		}
+	}
+	if len(marked) == 0 {
+		marked = plain
+	}
+	return marked[:min(len(marked), reportLines)]
 }
 
 // Diagnostic explains a native client's warning or error output, which leaves
 // verification unqualified, and keeps that output as the error's report.
 func Diagnostic(label string, diagnostic []byte) error {
-	failure := reportedError{text: withoutControl(domain.Redact(ansi.Strip(string(diagnostic))))}
-	lower := strings.ToLower(string(diagnostic))
-	keys := deprecatedKeys(diagnostic)
+	failure := reportedError{output: ansi.Strip(string(diagnostic))}
+	lower := strings.ToLower(failure.output)
+	keys := deprecatedKeys(failure.output)
 	switch {
 	case strings.Contains(lower, "model metadata") && strings.Contains(lower, "fallback metadata"):
 		failure.message = fmt.Sprintf("%s emitted a model-metadata warning; native metadata is incomplete and verification is unqualified", label)
 		failure.remedy = fmt.Sprintf("Select a model that %s supports, or update %s.", label, label)
 	case len(keys) > 0:
-		named := strings.Join(keys, ", ")
-		failure.message = fmt.Sprintf("%s reports the deprecated configuration key %s; verification is incomplete", label, named)
+		noun, named := "key", strings.Join(keys, ", ")
+		if len(keys) > 1 {
+			noun = "keys"
+		}
+		failure.message = fmt.Sprintf("%s reports the deprecated configuration %s %s; verification is incomplete", label, noun, named)
 		failure.remedy = fmt.Sprintf("Remove %s from %s's configuration, or replace it as %s advises.", named, label, label)
 	default:
 		failure.message = fmt.Sprintf("%s emitted a native-client warning or error; verification is incomplete", label)
@@ -118,62 +140,35 @@ func Diagnostic(label string, diagnostic []byte) error {
 	return failure
 }
 
-// deprecatedKeys returns the distinct configuration keys that diagnostic
-// calls deprecated, in the order in which it names them.
-func deprecatedKeys(diagnostic []byte) []string {
+// deprecatedKeys returns the distinct configuration keys that output calls
+// deprecated, in the order in which it names them.
+func deprecatedKeys(output string) []string {
 	var keys []string
-	for _, match := range deprecatedKey.FindAllSubmatch(diagnostic, -1) {
-		if key := string(match[1]); len(key) <= deprecatedKeyLength && !slices.Contains(keys, key) && len(keys) < deprecatedKeyLimit {
+	for _, match := range deprecatedKey.FindAllStringSubmatch(output, -1) {
+		if key := match[1]; len(key) <= deprecatedKeyLength && !slices.Contains(keys, key) && len(keys) < deprecatedKeyLimit {
 			keys = append(keys, key)
 		}
 	}
 	return keys
 }
 
-// withoutControl drops the format characters of text, such as a direction
-// override, which change how a terminal shows the characters around them.
-func withoutControl(text string) string {
+// withoutControl drops the control and format characters of line, such as a
+// bell or a direction override: they change how a terminal shows the
+// characters around them, and one inside a credential would hide it from
+// redaction. A tab stays, as the space that it is.
+func withoutControl(line string) string {
 	return strings.Map(func(r rune) rune {
-		if unicode.Is(unicode.Cf, r) {
+		if r != '\t' && (unicode.IsControl(r) || unicode.Is(unicode.Cf, r)) {
 			return -1
 		}
 		return r
-	}, text)
-}
-
-// clientReport is a client's output for a reader: its lines that carry a
-// warning marker, or its first lines when none does, each on one line of at
-// most reportLineRunes characters, without the caller's secrets and with the
-// home directory written as ~.
-func clientReport(text string, secrets ...string) []string {
-	home, _ := os.UserHomeDir()
-	var marked, plain []string
-	for line := range strings.SplitSeq(domain.Redact(text, secrets...), "\n") {
-		line = strings.Join(strings.FieldsFunc(line, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }), " ")
-		line = shortenHome(line, home)
-		// A marker can stand after the bound, so the whole line is classified.
-		warns := process.DiagnosticFailure([]byte(line))
-		if utf8.RuneCountInString(line) > reportLineRunes {
-			line = string([]rune(line)[:reportLineRunes-1]) + "…"
-		}
-		switch {
-		case line == "" || slices.Contains(marked, line) || slices.Contains(plain, line):
-		case warns:
-			marked = append(marked, line)
-		default:
-			plain = append(plain, line)
-		}
-	}
-	report := marked
-	if len(report) == 0 {
-		report = plain
-	}
-	return report[:min(len(report), reportLines)]
+	}, line)
 }
 
 // shortenHome writes home as ~ where it stands as a whole path prefix: not
 // inside a longer name, such as the home of a user whose name it begins.
 func shortenHome(line, home string) string {
+	home = filepath.Clean(home)
 	if len(home) < 2 {
 		return line
 	}
@@ -184,10 +179,10 @@ func shortenHome(line, home string) string {
 		if at < 0 {
 			break
 		}
-		before, _ := utf8.DecodeLastRuneInString(line[:at])
-		after, _ := utf8.DecodeRuneInString(line[at+len(home):])
 		shortened.WriteString(line[:at])
-		if (at > 0 && named(before)) || (at+len(home) < len(line) && named(after)) {
+		before, _ := utf8.DecodeLastRuneInString(shortened.String())
+		after, _ := utf8.DecodeRuneInString(line[at+len(home):])
+		if (shortened.Len() > 0 && named(before)) || (at+len(home) < len(line) && named(after)) {
 			shortened.WriteString(home)
 		} else {
 			shortened.WriteString("~")

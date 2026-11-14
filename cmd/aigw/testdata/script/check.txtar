@@ -90,9 +90,9 @@ grep '"client": "claude-desktop",\n\s+"depth": "model"' verified.json
 # A client that answers and reports a warning of its own stops at the client
 # depth. AIGW's message carries none of the client's text. It names the key
 # that the client calls deprecated, and the fix is to remove that key.
-# --verbose shows the client's own line with its credential redacted, in the
-# text and in the document alike. No fix is a command: the same check again
-# would fail the same way.
+# --verbose shows the client's own line with its credential redacted, after
+# AIGW's own lines in the text and in the document alike. No fix is
+# `aigw check`: at its default depth it starts no client and passes.
 env SCRIPTED_CLIENT_NOTICE='warning: `[legacy].flag` is deprecated. Use `[modern].flag`. token=sk-leak-0009'
 exitcode 1 aigw check claude --depth client
 cmp stdout notice.txt
@@ -117,6 +117,15 @@ exitcode 1 aigw check claude --depth client --verbose
 stdout 'Claude reported: warning: capability degraded for Authorization: \[REDACTED\]'
 stdout 'Fix: Resolve what Claude reported, then run the same check again\.'
 ! stdout 'live-leak'
+# The provider's Token is taken out by its value: no redaction rule describes
+# this one.
+env SCRIPTED_CLIENT_NOTICE='warning: the endpoint rejected sk-team-token-0001 twice'
+exitcode 1 aigw check claude --depth client --verbose
+stdout 'Claude reported: warning: the endpoint rejected \[REDACTED\] twice'
+! stdout 'sk-team-token'
+exitcode 1 aigw check claude --depth client --verbose --json
+stdout '"client_report": \[\n\s+"warning: the endpoint rejected \[REDACTED\] twice"\n\s+\]'
+! stdout 'sk-team-token'
 env SCRIPTED_CLIENT_NOTICE=
 # A client that stops leaves the verified snapshot as it was: here a variable
 # that competes with AIGW's Token stops every client at the local depth.
@@ -207,6 +216,18 @@ exec aigw check claude
 stdout 'Endpoint skipped: An external credential helper gives Claude Code its Token, which only a session of it proves'
 stdout 'Model skipped: An external credential helper gives Claude Code its Token, which only a session of it proves'
 stdout 'Deeper check: aigw check claude --depth client'
+# AIGW holds no credential of such a session, so it cannot take one out of
+# the client's lines: --verbose shows none, and the fix is to run the client.
+exec aigw check claude --depth client
+env SCRIPTED_CLIENT_NOTICE='warning: capability impaired'
+exitcode 1 aigw check claude --depth client --verbose
+stdout 'Claude emitted a native-client warning or error; verification is incomplete'
+stdout 'Fix: Run Claude itself with the selected model to read its warning\.'
+! stdout 'reported|impaired'
+exitcode 1 aigw check claude --depth client --verbose --json
+stdout '"next_detail": "Run Claude itself with the selected model to read its warning\."'
+! stdout 'client_report|next_action|impaired'
+env SCRIPTED_CLIENT_NOTICE=
 
 [darwin] cp $HOME/Library/Application' 'Support/aigw/aigw.toml good.toml
 [!darwin] cp $HOME/aigw/aigw.toml good.toml
@@ -469,8 +490,8 @@ AIGW  Check
 Clients
   ✗ Claude             team/team-model · client
                        Claude reports the deprecated configuration key [legacy].flag; verification is incomplete
-                       Claude reported: warning: `[legacy].flag` is deprecated. Use `[modern].flag`. token=[REDACTED]
                        Fix: Remove [legacy].flag from Claude's configuration, or replace it as Claude advises.
+                       Claude reported: warning: `[legacy].flag` is deprecated. Use `[modern].flag`. token=[REDACTED]
 
 Local checks
   ✓ Environment          No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set

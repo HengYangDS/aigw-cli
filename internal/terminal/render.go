@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -45,6 +46,10 @@ type Field struct {
 	Label   string
 	Value   string
 	Details []string
+	// Quotes are lines of another program's output, shown after the details.
+	// A quote that wraps continues deeper than a detail begins, so no part of
+	// it reads as one of AIGW's own details.
+	Quotes []string
 	// Command marks a label that is executable text. It is written whole at
 	// every width, so a copy keeps the command; the terminal soft-wraps it.
 	Command bool
@@ -63,6 +68,8 @@ const (
 	valueRoom = 20
 	// noteIndent places notes and stacked values under a statement's text.
 	noteIndent = 4
+	// quoteIndent places a quote's further lines inside its first one.
+	quoteIndent = 2
 )
 
 var stateSymbols = map[State]string{OK: "✓", Warn: "!", Fail: "✗", Info: "·"}
@@ -201,6 +208,13 @@ func (r *Renderer) Rows(fields ...Field) {
 				r.writeHanging(strings.Repeat(" ", valueColumn), detail, valueColumn, r.styles.dim)
 			}
 		}
+		quoteColumn := valueColumn
+		if stacked {
+			quoteColumn = noteIndent
+		}
+		for _, quote := range field.Quotes {
+			r.writeHanging(strings.Repeat(" ", quoteColumn), quote, quoteColumn+quoteIndent, r.styles.dim)
+		}
 		r.hasContent = true
 	}
 }
@@ -219,7 +233,7 @@ func (r *Renderer) stacks(fields []Field, valueColumn int) bool {
 		return false
 	}
 	for _, field := range fields {
-		for _, text := range append([]string{field.Value}, field.Details...) {
+		for _, text := range slices.Concat([]string{field.Value}, field.Details, field.Quotes) {
 			for _, line := range wrap(text, 0) {
 				if DisplayWidth(line) > room {
 					return true

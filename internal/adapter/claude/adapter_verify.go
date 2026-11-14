@@ -89,10 +89,6 @@ func (claudeAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg 
 		runner = adapter.SuppressExternalCredentialDiagnostics(runner)
 	}
 	err = verifyRuntime(verifyCtx, runner, clientAdapter.Executable, settingsPath, runtime, token, explicitRoute)
-	if external {
-		// An external helper's output can stand in what the client reports.
-		err = clientverification.WithoutReport(err)
-	}
 	return adapter.Verification{Scope: "Native text response; tools and continuation are not probed"}, err
 }
 

@@ -18,16 +18,20 @@ signing, and GA status remain separate evidence.
   that the client calls deprecated, such as `[features].multi_agent`, which
   Codex 0.169.0 reports, and its Fix is to remove that key. For another
   report, the Fix says how to read it: `--verbose` adds the client's own
-  lines, at most four, with the known credential forms and the provider's
-  Token redacted. The check said only that the client "emitted a
-  native-client warning or error", showed nothing more with `--verbose`, and
-  named `aigw check` as its Fix, which failed the same way.
+  lines after AIGW's, at most four, without the provider's Token and the
+  known credential forms. A client that authenticates itself, or through an
+  external credential helper, shows no such lines, because AIGW holds no
+  credential to take out of them; its Fix is to run the client itself. The
+  check said only that the client "emitted a native-client warning or
+  error", showed nothing more with `--verbose`, and named `aigw check` as
+  its Fix, which starts no client and passes.
 - A client-depth check of Codex no longer starts Codex's memory work, which
   sent requests for another model than the one being checked.
-- Redaction covers more credential forms: an `Authorization` header with its
-  scheme, whose credential stayed visible after the scheme word; a cookie
-  line; a URL's user and password; a `key` query parameter; and a bare `sk-`
-  key.
+- Redaction covers more credential forms: an `Authorization` header to the
+  end of its line, whose credential stayed visible after the scheme word; a
+  cookie header; a URL's user, with or without a password; a `key`, `sig` or
+  `signature` query parameter; and a bare `sk-` key of at least 20 further
+  characters.
 
 ### Changed
 

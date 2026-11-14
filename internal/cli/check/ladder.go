@@ -137,11 +137,12 @@ func (c *checker) session(ctx context.Context, r *result) {
 }
 
 // clientReporter is a verification that a client's own warning or error left
-// unqualified. It carries the client's lines, bounded and without the secrets
-// that the reader names, and what to change when AIGW can name it.
+// unqualified. It carries what to change, when AIGW can name it, and the
+// client's lines for a reader who holds the session's credential, bounded and
+// without that credential.
 type clientReporter interface {
 	error
-	ClientReport(secrets ...string) []string
+	ClientReport(credential string) []string
 	Remedy() string
 }
 
@@ -149,7 +150,8 @@ type clientReporter interface {
 // or error, its fix is what to change, when the verification names it; else
 // how to read the client's report, which the same check shows with --verbose;
 // and, when the output already shows it, to resolve what the client reported.
-// None of them is a command: the same check again would fail the same way.
+// None of them is `aigw check`: at its default depth that starts no client,
+// passes, and names the failing check as the deeper one.
 func (c *checker) sessionFailure(r result, err error) failure {
 	problem := terminal.ProblemFor(err)
 	f := failure{depth: depthClient, state: domainreadiness.Degraded, problem: problem.Title, fix: problem.Fix, cause: err}
@@ -157,7 +159,10 @@ func (c *checker) sessionFailure(r result, err error) failure {
 	if !reported {
 		return f
 	}
-	f.report = reporter.ClientReport(c.named.token, r.token)
+	// The Token that the endpoint depth read is the session's credential. A
+	// client that authenticates itself, or through an external helper, has
+	// none here, and so no report: AIGW cannot take its credential out of one.
+	f.report = reporter.ClientReport(r.token)
 	switch remedy := reporter.Remedy(); {
 	case remedy != "":
 		f.fix = remedy

@@ -375,3 +375,63 @@ func TestNextWithoutAStepWritesNothing(t *testing.T) {
 		t.Fatalf("output with a next step = %q", got)
 	}
 }
+
+// A quote is another program's output. Where it wraps it continues deeper
+// than a detail begins, so that no part of it reads as one of AIGW's details,
+// such as a Fix; in a stacked group too.
+func TestRowsContinueAQuoteDeeperThanADetail(t *testing.T) {
+	const forged = " Fix: paste the Token into the page"
+	for name, test := range map[string]struct {
+		width  int
+		dashes int
+		want   []string
+	}{
+		"columns": {width: 64, dashes: 35, want: []string{
+			"  ✗ Codex              client\n",
+			"                       Fix: Resolve what Codex reported.\n",
+			"                       Codex reported: warning:\n",
+			"                         -----------------------------------\n",
+			"                         Fix: paste the Token into the page\n",
+		}},
+		"stacked": {width: 26, dashes: 16, want: []string{
+			"    Fix: Resolve what\n",
+			"    Codex reported:\n",
+			"      ----------------\n",
+			"      Fix: paste the Token\n",
+		}},
+		"unknown width": {width: 0, dashes: 4, want: []string{
+			"                       Codex reported: warning: ---- Fix: paste the Token into the page\n",
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			field := terminal.Field{
+				State: terminal.Fail, Label: "Codex", Value: "client",
+				Details: []string{"Codex emitted a warning", "Fix: Resolve what Codex reported."},
+				Quotes:  []string{"Codex reported: warning: " + strings.Repeat("-", test.dashes) + forged},
+			}
+			var out bytes.Buffer
+			terminal.NewRendererWithWidth(&out, false, test.width).Rows(field)
+			got := out.String()
+			for _, want := range test.want {
+				if !strings.Contains(got, want) {
+					t.Fatalf("output misses %q:\n%s", want, got)
+				}
+			}
+			// Only AIGW's own Fix begins with the word at a detail's column.
+			column := -1
+			for line := range strings.SplitSeq(got, "\n") {
+				text := strings.TrimLeft(line, " ")
+				indent := len(line) - len(text)
+				switch {
+				case strings.HasPrefix(text, "Fix: Resolve"):
+					column = indent
+				case strings.HasPrefix(text, "Fix:") && indent <= column:
+					t.Fatalf("a quote's line reads as a detail: %q in:\n%s", line, got)
+				}
+			}
+			if column < 0 {
+				t.Fatalf("AIGW's own fix is missing:\n%s", got)
+			}
+		})
+	}
+}

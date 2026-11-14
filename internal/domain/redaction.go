@@ -14,24 +14,26 @@ const redactionReplacement = "[REDACTED]"
 
 var bearerCredential = regexp.MustCompile(`(?i)\bbearer[[:space:]]+[^[:space:],;\}"']+`)
 
+// credentialHeader is an Authorization, Proxy-Authorization, Cookie or
+// Set-Cookie header. Its value runs to the end of its line: a scheme and its
+// credential, a scheme's parameters, or a cookie's pairs.
+var credentialHeader = regexp.MustCompile(`(?i)(\b(?:authorization|cookie)[ \t]*:[ \t]*)[^\r\n]+`)
+
 // credentialAssignment is a credential field with its value: quoted, or a bare
-// word, with the authentication scheme that an Authorization header names
-// before its credential.
-var credentialAssignment = regexp.MustCompile(`(?i)(["']?(api[_-]?key|token|secret|secret[_-]?key|access[_-]?key|password|passwd|client[_-]?secret|access[_-]?token|refresh[_-]?token|authorization)["']?[[:space:]]*[:=][[:space:]]*)("([^"\\]|\\.)*"|'([^'\\]|\\.)*'|(?:(?:bearer|basic|digest|token)[[:space:]]+)?[^[:space:],;&}]+)`)
+// word, with the word Bearer when it stands before the credential.
+var credentialAssignment = regexp.MustCompile(`(?i)(["']?(api[_-]?key|token|secret|secret[_-]?key|access[_-]?key|password|passwd|client[_-]?secret|access[_-]?token|refresh[_-]?token|authorization)["']?[[:space:]]*[:=][[:space:]]*)("([^"\\]|\\.)*"|'([^'\\]|\\.)*'|(?:bearer[ \t]+)?[^[:space:],;&}]+)`)
 
-// cookieHeader is a Cookie or Set-Cookie header, whose pairs run to the end of
-// its line.
-var cookieHeader = regexp.MustCompile(`(?i)(\bcookie[[:space:]]*:[[:space:]]*)[^\r\n]+`)
+// urlUserinfo is the user of a URL, with or without a password. A port is
+// not one: nothing after a ? or a # is the user.
+var urlUserinfo = regexp.MustCompile(`(://)[^/[:space:]:@?#]*(?::[^/[:space:]@?#]*)?@`)
 
-// urlUserinfo is the user and password of a URL.
-var urlUserinfo = regexp.MustCompile(`(://)[^/[:space:]:@]+:[^/[:space:]@]+@`)
+// queryKey is a query parameter by which some providers take a credential or
+// a signature.
+var queryKey = regexp.MustCompile(`(?i)([?&](?:key|sig|signature)=)[^&#[:space:]"']+`)
 
-// queryKey is the key parameter of a query string, by which some providers
-// take their credential.
-var queryKey = regexp.MustCompile(`([?&]key=)[^&#[:space:]"']+`)
-
-// prefixedKey is a bare provider key in its sk- form.
-var prefixedKey = regexp.MustCompile(`\bsk-[A-Za-z0-9_-]{8,}`)
+// prefixedKey is a bare provider key in its sk- form, which is longer than a
+// model or a directory name that begins that way.
+var prefixedKey = regexp.MustCompile(`\bsk-[A-Za-z0-9_-]{20,}`)
 
 // Redact removes every supplied secret in its plain and URL-escaped forms, then
 // the credential forms that the rules above describe.
@@ -45,7 +47,7 @@ func Redact(value string, secrets ...string) string {
 			value = strings.ReplaceAll(value, variant, redactionReplacement)
 		}
 	}
-	value = cookieHeader.ReplaceAllString(value, "${1}"+redactionReplacement)
+	value = credentialHeader.ReplaceAllString(value, "${1}"+redactionReplacement)
 	value = credentialAssignment.ReplaceAllString(value, "${1}"+redactionReplacement)
 	value = bearerCredential.ReplaceAllString(value, "Bearer "+redactionReplacement)
 	value = urlUserinfo.ReplaceAllString(value, "${1}"+redactionReplacement+"@")
