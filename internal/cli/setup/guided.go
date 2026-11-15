@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -182,7 +183,9 @@ func setEndpoint(endpoints *domain.Endpoints, protocol domain.EndpointProtocol, 
 // provider that setup adds, whose Token an earlier setup or release stored,
 // or asks for one and validates it as `aigw provider add` does. Only adding
 // the provider makes it configured; a stored Token alone does not. The
-// read-only environment backend supplies the Token itself.
+// read-only environment backend supplies the Token itself. A stored Token
+// whose Keychain item macOS refuses AIGW ends setup here, before the
+// questions whose answers it could not use.
 func (g guidedSetup) storedOrAsked(ctx context.Context, provider *guidedProvider) error {
 	present, err := g.runtime.Secrets.Exists(provider.ID)
 	if err != nil {
@@ -196,6 +199,11 @@ func (g guidedSetup) storedOrAsked(ctx context.Context, provider *guidedProvider
 		return nil
 	}
 	if stored {
+		// The slot's metadata names an item, not whether AIGW may read it.
+		_, readErr := g.runtime.Secrets.Get(provider.ID)
+		if _, refused := errors.AsType[*secret.KeychainItemRefusedError](readErr); refused {
+			return readErr
+		}
 		return nil
 	}
 	token, err := g.runtime.Prompt.Secret("Paste the " + provider.Label + " Token: ")

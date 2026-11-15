@@ -179,12 +179,13 @@ func sourceLabel(protocol domain.EndpointProtocol) string {
 }
 
 // sourceProblem says why a protocol source could not be read, and what fixes
-// it: a missing Token is stored or set; a credential backend that failed is
-// shown by the provider's credential report; a rejected Token is replaced, or
-// its variable changed before the same command runs again; a status that a
-// later request may not repeat and a request that did not complete need the
-// same command again; and any other status or a response that is not a
-// catalog points at the endpoint.
+// it: a missing Token is stored or set; a Keychain item that macOS refuses
+// AIGW names its own fix; a credential backend that failed is shown by the
+// provider's credential report; a rejected Token is replaced, or its variable
+// changed before the same command runs again; a status that a later request
+// may not repeat and a request that did not complete need the same command
+// again; and any other status or a response that is not a catalog points at
+// the endpoint.
 func sourceProblem(cmd *cobra.Command, runtime invocation.Context, id string, observation app.CatalogObservation) (string, string) {
 	key, readOnly := secret.EnvironmentKey(id), secret.IsReadOnly(runtime.Secrets)
 	retry := invocation.Retry(cmd, cmd.Flags().Args())
@@ -197,7 +198,10 @@ func sourceProblem(cmd *cobra.Command, runtime invocation.Context, id string, ob
 	}
 	edit := "aigw provider edit " + id + " --endpoint " + cmp.Or(observation.Source.Protocol.Name(), "<protocol>") + "=<url>"
 	status, answered := errors.AsType[*app.CatalogStatusError](observation.Failure)
+	refusal, refused := errors.AsType[*secret.KeychainItemRefusedError](observation.Failure)
 	switch {
+	case refused:
+		return refusal.Title(), refusal.Fix()
 	case observation.Status == app.CatalogTokenUnavailable && readOnly:
 		return "no Token: " + key + " is not set", "Set " + key + " in aigw's environment."
 	case observation.Status == app.CatalogTokenUnavailable:

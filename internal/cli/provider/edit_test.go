@@ -204,7 +204,6 @@ func TestEditStoresNoBalanceCredentialsWhenTheSaveFails(t *testing.T) {
 	}
 }
 
-// failingDiagnostics is a balance credential store that fails every write.
 // A balance write that macOS refuses, because another program stored the
 // Keychain item, changes nothing and names that item and its one fix.
 func TestEditNamesTheFixOfABalanceItemThatMacOSRefuses(t *testing.T) {
@@ -214,8 +213,8 @@ func TestEditNamesTheFixOfABalanceItemThatMacOSRefuses(t *testing.T) {
 	want := terminal.Problem{
 		Title:    "Another program stored provider team's balance credentials in the Keychain",
 		Evidence: "macOS refused AIGW the item while its keychain was unlocked (Keychain OSStatus -25293).",
-		Impact:   "The item is unchanged; AIGW neither read nor replaced it.",
-		Fix: "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a diagnostic@team`, " +
+		Impact:   "The item is unchanged; AIGW neither read nor replaced it. Deleting it also takes it from the program that stored it.",
+		Fix: "Have the balance credentials at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a diagnostic@team`, " +
 			"then run `aigw provider edit team --balance-token-stdin --balance-user-id <user-id>`.",
 	}
 	if got := problem(err); got != want {
@@ -226,6 +225,7 @@ func TestEditNamesTheFixOfABalanceItemThatMacOSRefuses(t *testing.T) {
 	}
 }
 
+// failingDiagnostics is a balance credential store that fails every write.
 type failingDiagnostics struct{}
 
 func (failingDiagnostics) Get(string) (secret.DiagnosticCredential, error) {

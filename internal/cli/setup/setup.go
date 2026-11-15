@@ -61,10 +61,16 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 			// A JSON caller reads one document, so setup never prompts for it.
 			operation.Interactive = operation.Interactive && !request.JSON
+			var err error
 			if cmd.Flags().Changed("from") {
-				return invocation.CancelledPrompt(cmd, nil, beforeConfiguration(operation, runTeamSetup(cmd, operation, request)))
+				err = runTeamSetup(cmd, operation, request)
+			} else {
+				err = runGuided(cmd, operation)
 			}
-			return invocation.CancelledPrompt(cmd, nil, beforeConfiguration(operation, runGuided(cmd, operation)))
+			err = invocation.CancelledPrompt(cmd, nil, beforeConfiguration(operation, err))
+			// A Keychain item that macOS refuses is replaced by setup again:
+			// `aigw provider rotate` does not know a provider that setup adds.
+			return secret.AfterDeletionRun(err, invocation.Rerun(cmd, nil, nil))
 		},
 	}
 	cmd.Flags().StringVar(&request.From, "from", "", "Apply a team file: its providers, models, families and recommendations")

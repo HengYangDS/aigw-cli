@@ -17,15 +17,19 @@ that failed on a loaded macOS guest are in it. A plain write waits on the migrat
 ## What Changes
 
 - **BREAKING**: AIGW no longer takes over a Keychain item that 0.3.5 or earlier stored. It can neither read nor
-  replace such an item; the command that meets one says that another program stored it and names the two steps
-  that replace it: delete the item, then store the Token again. Nothing changes for a Token that 0.4.1 or later
-  has used once.
+  replace such an item; the command that meets one says that another program stored it and names the steps that
+  replace it: have the Token at hand, delete the item, then store the Token again. Nothing changes for an item
+  that the installed program of 0.4.1 to 0.7.2 read or replaced, which made it AIGW's own.
 - **BREAKING**: `aigw self rollback` moves no credential. On a Homebrew installation it is refused like the other
   program commands, and Homebrew installs the earlier release; its `prepared` result is gone.
 - The macOS worker reads, writes and deletes only through the Security framework. No product code runs
   `/usr/bin/security`, and no command migrates an item.
-- A write or a delete no longer waits on a lock, and two commands that create one slot at once both succeed. The
-  worker no longer learns a role from its installation.
+- A write or a delete no longer waits on a lock. An item is created with its label in one call, and a write or
+  a delete looks its slot up again when another writer changed it, so it completes on the slot as it then is.
+  The worker no longer learns a role from its installation.
+- The one-time cutover for a session that still calls Homebrew's public credential-command link leaves the
+  README, the decision record and the specification. It was written for the first upgrade from 0.3.5 and rested
+  on reading that release's Keychain items; since 0.7.0 such an upgrade is a new setup.
 
 ## Capabilities
 
@@ -36,9 +40,9 @@ that failed on a loaded macOS guest are in it. A plain write waits on the migrat
 ### Modified Capabilities
 
 - `credential-continuity`: no migration and no rollback custody; an item of another program is refused with its
-  fix.
+  fix; no cutover for a caller of a package manager's link.
 - `secret-storage`: the native bound has no retained-item exception; a retained item is reached only by its own
-  signing identity; concurrent creation of one slot succeeds.
+  signing identity; a mutation looks its slot up again when another writer changed it.
 - `cli-readiness`: `aigw check` changes no credential.
 - `release-distribution`: Homebrew's ownership of the program covers a rollback.
 
@@ -47,7 +51,7 @@ that failed on a loaded macOS guest are in it. A plain write waits on the migrat
 Code: `internal/secret/native` (the migration file, the access-list and lock helpers, the worker's commands and
 role), `internal/secret` (predecessor custody), `internal/program` (rollback custody, the installed-program
 test), `internal/cli/self` (the Homebrew rollback), `cmd/aigw`, and their tests. The decision record on the Token
-backend and the README, security model and contribution guide follow.
+backend and the README, security model and release policy follow.
 
 Linux and Windows authorize the user or the session, never the executable, and never had this path; they lose
 only the two unused worker commands.

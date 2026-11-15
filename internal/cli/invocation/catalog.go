@@ -2,12 +2,14 @@ package invocation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
 	"aigw-cli/internal/app"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 )
 
@@ -26,7 +28,9 @@ type CatalogCommands struct {
 // provider's protocols, with runtime's Tokens, and admits the model only
 // when a catalog lists its ID. A catalog that cannot be read on any protocol,
 // or that lists no model, is refused with the command rerun with --unlisted,
-// and a catalog that does not list the model with its closest listed IDs.
+// and a catalog that does not list the model with its closest listed IDs. A
+// Token whose Keychain item macOS refuses AIGW is that item's refusal, which
+// --unlisted would only postpone to the first use of the model.
 func CheckCatalog(ctx context.Context, runtime Context, cfg domain.Config, ref domain.ModelRef, commands CatalogCommands) error {
 	scoped := cfg.Clone()
 	for id := range scoped.Providers {
@@ -38,6 +42,9 @@ func CheckCatalog(ctx context.Context, runtime Context, cfg domain.Config, ref d
 	var listed []string
 	read := false
 	for _, observation := range report.Observations {
+		if _, refused := errors.AsType[*secret.KeychainItemRefusedError](observation.Failure); refused {
+			return observation.Failure
+		}
 		if observation.Status != app.CatalogOK {
 			continue
 		}

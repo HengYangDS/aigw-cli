@@ -282,6 +282,72 @@ func TestReplacementPartialFailurePreservesCompensationBoundaries(t *testing.T) 
 	}
 }
 
+// selectingBackend is a backend whose write for one provider fails after
+// another program replaced the automatic backend choice.
+type selectingBackend struct {
+	credentialBackend
+	choice  backendChoice
+	account string
+	err     error
+}
+
+func (backend selectingBackend) set(kind Kind, account, value string) error {
+	if account != backend.account {
+		return backend.credentialBackend.set(kind, account, value)
+	}
+	if err := replaceBackendChoice(backend.choice, "keyring"); err != nil {
+		return err
+	}
+	return backend.err
+}
+
+// A batch that fails after it stored a Token undoes what it did, and reports
+// each undo that failed once, under its own name: the Tokens that it could
+// not put back, or the backend choice that it recorded and could not remove.
+// Neither is reported as the other, or as a failure that "also failed".
+func TestReplacementPartialFailureNamesEachFailedUndoOnce(t *testing.T) {
+	writeErr := errors.New("second write failed")
+	const stored = `store Token for provider "second": second write failed` + "\n"
+
+	t.Run("a Token that cannot be put back", func(t *testing.T) {
+		store := &faultStore{Store: NewMemoryStore(), setErrors: map[int]error{2: writeErr, 3: errors.New("restore failed")}}
+		if err := store.Store.Set("first", "original"); err != nil {
+			t.Fatal(err)
+		}
+		_, err := Replace(store, map[string]string{"first": "prepared", "second": "new"})
+		want := stored + `restoring the Tokens that this command had stored failed: restore Token for provider "first": restore failed`
+		if err == nil || err.Error() != want {
+			t.Fatalf("batch failure = %q\nwant            %q", err, want)
+		}
+	})
+
+	t.Run("a backend choice that cannot be removed", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "secrets")
+		choice := newBackendChoice(root)
+		automatic := &automaticStore{
+			selection: Selection{GOOS: runtime.GOOS, Root: root}, choice: choice, selectedBackend: "file",
+			selected: selectingBackend{credentialBackend: backendStore(NewMemoryStore()), choice: choice, account: "second", err: writeErr},
+		}
+		store := scopedView{store: automatic}
+		_, err := Replace(store, map[string]string{"first": "prepared", "second": "new"})
+		undo, failedUndo := errors.AsType[*platform.RestoreError](err)
+		if !errors.Is(err, writeErr) || !failedUndo || undo.Undo != "removing the credential backend choice that this command recorded" {
+			t.Fatalf("batch failure = %v", err)
+		}
+		text := err.Error()
+		if !strings.HasPrefix(text, stored+"removing the credential backend choice that this command recorded failed: restore automatic credential backend selection: ") ||
+			strings.Contains(text, "also failed") || strings.Contains(text, "Tokens") || strings.Count(text, "\n") != 1 {
+			t.Fatalf("batch failure = %q", text)
+		}
+		if _, err := store.Get("first"); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("the Token that the batch stored = %v; want it removed again", err)
+		}
+		if selected, err := choice.Read(); err != nil || selected != "keyring" {
+			t.Fatalf("backend choice = %q, %v; want the other program's", selected, err)
+		}
+	})
+}
+
 func TestReplacementReportsStorageFailures(t *testing.T) {
 	failure := errors.New("storage unavailable")
 	for _, phase := range []string{"read", "write", "observe", "restore", "delete"} {

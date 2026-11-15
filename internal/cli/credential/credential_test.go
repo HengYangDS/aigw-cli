@@ -503,7 +503,7 @@ func TestCredentialHelperNamesTheFixOfAKeychainItemThatMacOSRefuses(t *testing.T
 	}{
 		{name: "another program's item", cause: &secret.KeychainItemRefusedError{Kind: secret.APIToken, Provider: "gateway", Status: -25293},
 			evidence: "macOS refused AIGW the item while its keychain was unlocked (Keychain OSStatus -25293).",
-			action:   "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a gateway`, then run `aigw provider rotate gateway`."},
+			action:   "Have the Token at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a gateway`, then run `aigw provider rotate gateway`."},
 		{name: "a locked keychain", cause: &native.KeychainError{Status: -25293},
 			evidence: "Keychain OSStatus -25293; the native read did not permit user interaction.",
 			action:   "Inspect the selected native store, item authorization and credential-reader identity; repeated helper calls cannot grant access."},

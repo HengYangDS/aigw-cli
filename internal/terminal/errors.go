@@ -384,7 +384,7 @@ func problemFor(err error, at platform.PathContext) Problem {
 		return Problem{
 			Title:    refusal.Title(),
 			Evidence: refusal.Evidence(),
-			Impact:   "The item is unchanged; AIGW neither read nor replaced it.",
+			Impact:   "The item is unchanged; AIGW neither read nor replaced it. Deleting it also takes it from the program that stored it.",
 			Fix:      refusal.Fix(),
 		}
 	case errors.Is(err, secret.ErrNativeReaderUnverified):

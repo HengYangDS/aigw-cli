@@ -329,20 +329,21 @@ later changes.
 
 On macOS, a signed AIGW release reads the Keychain Tokens that another signed
 release stored, so an upgrade, a program rollback and a Homebrew downgrade move
-no Token. AIGW does not take over a Token that 0.3.5 or earlier stored. The
-first command that needs such a Token says that another program stored the
-item and names the fix: delete the item with
+no Token. AIGW does not take over an item that 0.3.5 or earlier stored. A
+command that meets such an item says that another program stored it and names
+the fix: have the credential at hand, delete the item with
 `security delete-generic-password -s AIGW_TOKEN -a <provider>`, then store the
-Token again with `aigw provider rotate <provider>`. A Token that a release from
-0.4.1 to 0.7.2 used once is already AIGW's own. On a Homebrew installation
-`aigw self rollback` is refused like the other program commands, and Homebrew
-installs the earlier release.
+Token again with `aigw provider rotate <provider>`. A release from 0.4.1 to
+0.7.2 took such an item over only when its installed program read or replaced
+it, so an item that none of them used that way is still the other program's. On
+a Homebrew installation `aigw self rollback` is refused like the other program
+commands, and Homebrew installs the earlier release.
 
-An upgrade from 0.3.5 or earlier is a new setup. A release from 0.7.0 on reads
-neither that release's configuration nor its Keychain Tokens, and a session
-that still calls Homebrew's public credential-command link fails until its
-client is set up again. Later upgrades keep each versioned credential command
-callable. See the
+An upgrade from 0.3.5 or earlier is a new setup. A release from 0.7.0 on does
+not read that release's configuration, and a release from 0.8.0 on does not
+read its Keychain Tokens. A session that still calls Homebrew's public
+credential-command link fails until its client is set up again. Later upgrades
+keep each versioned credential command callable. See the
 [credential succession decision](docs/decisions/dr-0011-single-portable-token-backend.md#consequences-and-boundary).
 
 `aigw self uninstall` removes AIGW's settings from the client files, then the

@@ -267,9 +267,6 @@ func (j *journeyFixture) preparePerformanceCredentials(backend, account, credent
 		j.testing.Fatal(err)
 	}
 	requireUnoccupiedNativeCredentialSlots(j.testing, store, account)
-	if runtime.GOOS == "darwin" {
-		requireUnoccupiedLegacyKeychainSlot(j.testing, account, "")
-	}
 }
 
 func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend string, block int) ([]performance.Measurement, error) {

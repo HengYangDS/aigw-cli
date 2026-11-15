@@ -449,7 +449,7 @@ func TestCheckNamesTheFixOfAKeychainItemThatMacOSRefuses(t *testing.T) {
 	}{
 		{name: "another program's item", cause: &secret.KeychainItemRefusedError{Kind: secret.APIToken, Provider: "one", Status: -25293},
 			problem: "Another program stored provider one's Token in the Keychain",
-			fix:     "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a one`, then run `aigw provider rotate one`."},
+			fix:     "Have the Token at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a one`, then run `aigw provider rotate one`."},
 		{name: "a locked keychain", cause: &native.KeychainError{Status: -25293},
 			problem: "The credential backend could not return provider one's Token",
 			fix:     "Make the credential store available to this session, such as by unlocking it, then run the same command again."},

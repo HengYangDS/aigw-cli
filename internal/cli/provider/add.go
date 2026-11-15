@@ -52,7 +52,9 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 		},
 		ValidArgsFunction: invocation.CompleteNothing,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAdd(cmd, runtime, args, options)
+			// A Keychain item that macOS refuses is replaced by this command
+			// again: `aigw provider rotate` does not know the provider yet.
+			return secret.AfterDeletionRun(runAdd(cmd, runtime, args, options), invocation.Rerun(cmd, args, nil))
 		},
 	}
 	invocation.BindText(cmd, &options.label, "label", "Display name; the provider ID by default")

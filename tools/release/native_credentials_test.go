@@ -23,12 +23,13 @@ import (
 func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersion string) {
 	t.Helper()
 	const (
-		sourceAccount = "native-system-keyring-probe"
-		targetAccount = "renamed-system-keyring-probe"
-		token         = "native-system-keyring-token"
-		replacement   = "native-system-keyring-replacement"
-		diagnostic    = "native-diagnostic-token"
-		diagnosticID  = "native-diagnostic-user"
+		sourceAccount  = "native-system-keyring-probe"
+		targetAccount  = "renamed-system-keyring-probe"
+		foreignAccount = "foreign-system-keyring-probe"
+		token          = "native-system-keyring-token"
+		replacement    = "native-system-keyring-replacement"
+		diagnostic     = "native-diagnostic-token"
+		diagnosticID   = "native-diagnostic-user"
 	)
 	baseline := requireNativeLifecycleBaseline(t, func() string { return artifact })
 	journey := newNativeJourney(t, baseline, endpoint, true)
@@ -47,6 +48,11 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		t.Fatal(err)
 	}
 	requireUnoccupiedNativeCredentialSlots(t, diagnosticSlots, sourceAccount, targetAccount)
+	if runtime.GOOS == "darwin" {
+		// The default keychain holds an item that another program stored, as
+		// it does after an upgrade from 0.3.5 or earlier.
+		requireRefusedKeychainItemOfAnotherProgram(t, store, foreignAccount, "")
+	}
 	diagnostics, err := secret.NewDiagnosticCredentialStore(store)
 	if err != nil {
 		t.Fatal(err)

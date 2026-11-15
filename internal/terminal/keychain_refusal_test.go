@@ -21,7 +21,7 @@ func TestKeychainItemRefusalIsPresentedWithItsFix(t *testing.T) {
 	token := &secret.KeychainItemRefusedError{Kind: secret.APIToken, Provider: "team", Status: -25293}
 	balance := &secret.KeychainItemRefusedError{Kind: secret.ProviderDiagnostic, Provider: "team", Status: -25293}
 	const evidence = "macOS refused AIGW the item while its keychain was unlocked (Keychain OSStatus -25293)."
-	const impact = "The item is unchanged; AIGW neither read nor replaced it."
+	const impact = "The item is unchanged; AIGW neither read nor replaced it. Deleting it also takes it from the program that stored it."
 	for name, test := range map[string]struct {
 		err  error
 		want Problem
@@ -29,17 +29,17 @@ func TestKeychainItemRefusalIsPresentedWithItsFix(t *testing.T) {
 		"a Token write": {
 			err: fmt.Errorf("store Token for provider %q: %w", "team", fmt.Errorf("write AIGW_TOKEN/team to system keyring: %w", token)),
 			want: Problem{Title: "Another program stored provider team's Token in the Keychain", Evidence: evidence, Impact: impact,
-				Fix: "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a team`, then run `aigw provider rotate team`."},
+				Fix: "Have the Token at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a team`, then run `aigw provider rotate team`."},
 		},
 		"a reader check": {
 			err: errors.Join(fmt.Errorf("%w: copied credential reader cannot read the selected Token: %w", secret.ErrNativeReaderUnverified, token), nil),
 			want: Problem{Title: "Another program stored provider team's Token in the Keychain", Evidence: evidence, Impact: impact,
-				Fix: "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a team`, then run `aigw provider rotate team`."},
+				Fix: "Have the Token at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a team`, then run `aigw provider rotate team`."},
 		},
 		"a balance credential write": {
 			err: fmt.Errorf("write AIGW_TOKEN/diagnostic@team to system keyring: %w", balance),
 			want: Problem{Title: "Another program stored provider team's balance credentials in the Keychain", Evidence: evidence, Impact: impact,
-				Fix: "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a diagnostic@team`, " +
+				Fix: "Have the balance credentials at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a diagnostic@team`, " +
 					"then run `aigw provider edit team --balance-token-stdin --balance-user-id <user-id>`."},
 		},
 	} {

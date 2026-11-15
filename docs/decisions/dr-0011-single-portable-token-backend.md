@@ -84,16 +84,23 @@ An item created by the old `/usr/bin/security` writer denies the AIGW identity.
 AIGW can neither read nor replace such an item: the worker runs no other
 program, changes no access list, prompts for nothing and selects no other
 backend. The failing command says that another program stored the item and
-names the fix, which deletes the item with that tool and stores the Token
-again. AIGW does not replace the item itself, although macOS would let it
-delete one: a write that failed after the deletion would lose a Token that the
-other program may still use. Every AIGW executable takes the same path, so a
-worker needs no knowledge of its installation.
+names the fix: have the credential at hand, delete the item with that tool and
+store the credential again. AIGW does not replace the item itself, although
+macOS would let it delete one: a write that failed after the deletion would
+lose a Token that the other program may still use. Every AIGW executable takes
+the same path, so a worker needs no knowledge of its installation.
+
+A release from 0.4.1 to 0.7.2 took such an item over only when its installed
+program read or replaced it. Balance credentials and Tokens that no command
+read, items that only a versioned credential reader or a portable copy without
+a retained predecessor used, and items left unused after a 0.7.x Homebrew
+rollback stayed the old writer's.
 
 Native Keychain failures retain a typed numeric OSStatus through the bounded
 worker's stderr and the credential command's safe evidence. A refused read or
 write has one status, -25293, for a locked keychain and for another program's
-item, so the worker adds whether the keychain was unlocked. Standard output
+item, so the worker adds whether the keychain that holds the item was unlocked,
+both before the operation and after its refusal. Standard output
 remains Token-only on success and empty on failure. The worker sends no item
 name, path, raw backend text or secret data; its parent rejects extra diagnostic
 fields. This exposes the actual native failure without guessing that the store
@@ -104,7 +111,11 @@ The successor uses the predecessor's exact physical Account name, including
 Changing the reader implementation must not change storage identity or require
 Token enrollment again. An item that AIGW creates names the AIGW signing
 identifier and team in its access list rather than one executable's bytes, so
-later signed releases read it as it is, while ad-hoc builds are denied.
+later signed releases read it as it is, while ad-hoc builds are denied. The
+worker creates an item with its label in one call, so macOS names the item by
+that label when it asks for access. A write or a delete acts on the item that
+its lookup found, and looks the slot up again, with at most five lookups, when
+another process changed the slot meanwhile.
 
 A program rollback moves no item. A release from 0.7.0 on reads AIGW-owned
 items as they are, and no older release reads the configuration, so neither a
@@ -227,16 +238,13 @@ readers are not created. Exact reader retirement requires separate
 evidence that no cached, rollback, explicit, or other-installation consumer
 remains; uninstall alone cannot establish that fact.
 
-This choice does not retroactively protect cached commands of 0.3.5 and earlier that name the
-Homebrew link. Reprojecting client files cannot prove that an existing session
-reloads its command. For that one-time bridge, prepare and verify the private
-successor, project managed clients before package replacement, and prefetch the
-verified Homebrew artifact. Upgrade in a bounded quiet window, measure any
-public-link gap, then exercise the captured old commands and real clients
-immediately; a failed candidate restores the working predecessor. A cached
-public-link call during the gap can still fail once. Report that residual risk
-and measured interval rather than claiming zero interruption or seizing
-Homebrew's link.
+This choice does not retroactively protect cached commands of 0.3.5 and earlier
+that name the Homebrew link. Reprojecting client files cannot prove that an
+existing session reloads its command, and no release since 0.7.0 reads that
+release's configuration. An upgrade from 0.3.5 or earlier is therefore a new
+setup: a session that still calls the public link fails until its client is
+set up again, and AIGW neither seizes Homebrew's link nor claims an
+uninterrupted transition.
 
 Later versioned-path upgrades must keep old commands callable
 throughout. Native macOS Keychain, Linux backend and Windows credential tests,

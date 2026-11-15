@@ -25,6 +25,9 @@ type KeychainItemRefusedError struct {
 	Provider string
 	// Status is the Keychain status with which macOS refused the item.
 	Status int32
+	// lastStep is the last step of the fix when the command that met the
+	// refusal stores the credential itself, which AfterDeletionRun sets.
+	lastStep string
 }
 
 // Error names the credential and the native status, without a value.
@@ -47,15 +50,37 @@ func (e *KeychainItemRefusedError) Evidence() string {
 	return fmt.Sprintf("macOS refused AIGW the item while its keychain was unlocked (Keychain OSStatus %d).", e.Status)
 }
 
-// Fix is the one fix: delete the item with the system tool, then store the
-// credential again with its own command. AIGW does not delete the item
-// itself, because the other program may still use it.
+// Fix is the one fix: have the credential at hand, delete the item with the
+// system tool, then store the credential again, with its own command unless
+// the command that met the refusal stores it. AIGW does not delete the item
+// itself, because the other program may still use it. The credential comes
+// first, because AIGW cannot read back the copy that the deletion removes.
 func (e *KeychainItemRefusedError) Fix() string {
-	store := "aigw provider rotate " + e.Provider
-	if e.Kind == ProviderDiagnostic {
-		store = "aigw provider edit " + e.Provider + " --balance-token-stdin --balance-user-id <user-id>"
+	last := e.lastStep
+	if last == "" {
+		last = "run `aigw provider rotate " + e.Provider + "`"
+		if e.Kind == ProviderDiagnostic {
+			last = "run `aigw provider edit " + e.Provider + " --balance-token-stdin --balance-user-id <user-id>`"
+		}
 	}
-	return "Delete the item with `security delete-generic-password -s " + Service + " -a " + slotName(e.Kind, e.Provider) + "`, then run `" + store + "`."
+	return "Have the " + e.credential() + " at hand, delete the item with `security delete-generic-password -s " + Service +
+		" -a " + slotName(e.Kind, e.Provider) + "`, then " + last + "."
+}
+
+// AfterDeletionRun makes command the last step of the fix of a refusal that
+// err wraps, and returns err. It serves a command that stores the credential
+// itself and adds its provider: until that command succeeds, the credential's
+// own command does not know the provider. command is the command's plain
+// line, or "" when the line would need quoting, which the fix then names as
+// the same command.
+func AfterDeletionRun(err error, command string) error {
+	if refusal, refused := errors.AsType[*KeychainItemRefusedError](err); refused {
+		refusal.lastStep = "run the same command again"
+		if command != "" {
+			refusal.lastStep = "run `" + command + "`"
+		}
+	}
+	return err
 }
 
 // credential names the kind of credential that the item holds.

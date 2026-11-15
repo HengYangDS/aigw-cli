@@ -80,12 +80,11 @@ func TestKeychainReadUsesPrivateFixtureWithoutAuthorizationUI(t *testing.T) {
 	}
 }
 
+// A new item carries its label from its creation, so macOS names it by that
+// label, never by the service that every item shares, when it asks a person
+// for access. Each item has a keychain of its own, whose access lists are then
+// that item's alone.
 func TestNewNativeKeychainItemsHaveReadablePurposeLabels(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "labels.keychain-db")
-	runKeychainFixtureCommand(t, "create-keychain", "-p", "", path)
-	t.Cleanup(func() { runKeychainFixtureCommand(t, "delete-keychain", path) })
-	runKeychainFixtureCommand(t, "unlock-keychain", "-p", "", path)
-
 	const service = "aigw-private-test"
 	// security renders kSecLabelItemAttr with its legacy numeric tag.
 	const labelAttribute = "0x00000007 <blob>="
@@ -98,6 +97,7 @@ func TestNewNativeKeychainItemsHaveReadablePurposeLabels(t *testing.T) {
 		{"native@team", "AIGW Account Token: native@team"},
 	} {
 		t.Run(item.account, func(t *testing.T) {
+			path := newPrivateKeychain(t)
 			if err := writeCredentialToKeychain(service, item.account, path, []byte("synthetic")); err != nil {
 				t.Fatal(err)
 			}
@@ -110,6 +110,21 @@ func TestNewNativeKeychainItemsHaveReadablePurposeLabels(t *testing.T) {
 			}
 			if observed != labelAttribute+`"`+item.label+`"` {
 				t.Fatalf("new native item label = %q, want %q", observed, item.label)
+			}
+			access := keychainAccessLists(t, path)
+			described := false
+			for line := range strings.SplitSeq(access, "\n") {
+				description, found := strings.CutPrefix(strings.TrimSpace(line), "description: ")
+				if !found {
+					continue
+				}
+				described = true
+				if description != item.label {
+					t.Fatalf("macOS would name the new item %q when it asks for access, want %q:\n%s", description, item.label, access)
+				}
+			}
+			if !described {
+				t.Fatalf("the new item's access list has no description:\n%s", access)
 			}
 		})
 	}
@@ -352,6 +367,20 @@ func runKeychainFixtureCommand(t *testing.T, args ...string) {
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("private Keychain fixture command %q failed: %v: %s", args[0], err, output)
 	}
+}
+
+// keychainAccessLists returns a private keychain's items with their access
+// lists, whose descriptions are what macOS names an item when it asks for
+// access. The dump decrypts no value.
+func keychainAccessLists(t *testing.T, path string) string {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), keychainFixtureTimeout)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, "/usr/bin/security", "dump-keychain", "-a", path).Output()
+	if err != nil {
+		t.Fatalf("dump private Keychain access lists: %v", err)
+	}
+	return string(output)
 }
 
 // newPrivateKeychain creates an unlocked keychain file of the test's own,

@@ -27,17 +27,37 @@ or timing SHALL NOT prove later authorization.
 
 #### Scenario: A credential operation fails or requires authorization
 
-- **WHEN** the exact native item cannot be accessed within the admitted operation
-- **THEN** the subprocess fails without retrying or returning a Token
+- **WHEN** the platform refuses the exact native item, or would need a person
+  to admit the operation
+- **THEN** the subprocess fails without running the operation again and
+  without returning a Token
 - **AND** no credential or access-control state changes
 - **AND** any operating-system authorization UI remains an explicit platform
   behavior rather than a suppressed or disproved event.
 
-#### Scenario: Two commands write one new slot at once
+#### Scenario: A new macOS item is created
 
-- **WHEN** two native writers create the same absent slot at the same time
-- **THEN** both SHALL succeed and the slot SHALL hold one of the two values
-- **AND** no second item SHALL exist for the slot.
+- **WHEN** the macOS writer creates a slot's item
+- **THEN** it SHALL store the value and the purpose label in one Keychain call
+- **AND** the item's access description SHALL be that label.
+
+#### Scenario: Several writers write one slot at once
+
+- **WHEN** two native writers create the same absent slot, or three replace
+  the same slot, at the same time
+- **THEN** each SHALL succeed and the slot SHALL hold one of their values
+- **AND** one item SHALL exist for the slot, with its purpose label.
+
+#### Scenario: Another writer changes the slot during a mutation
+
+- **WHEN** another process replaces, deletes or creates the slot's item between
+  a macOS writer's lookup and its write or delete
+- **THEN** the writer SHALL look the slot up again, with at most five lookups
+  in all, and complete on the item that it then finds
+- **AND** a delete SHALL report an absent item only when its own lookup found
+  none
+- **AND** a slot that changes at every lookup SHALL end the operation with a
+  failure.
 
 #### Scenario: The native service does not answer
 

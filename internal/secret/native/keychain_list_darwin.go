@@ -33,7 +33,7 @@ static char *aigwJoinKeychainAccounts(CFArrayRef items) {
 
 // aigwCopyKeychainAttributes runs the attribute-only query of every item of a
 // service. It asks for no item's data and forbids any authentication UI.
-static OSStatus aigwCopyKeychainAttributes(CFStringRef service, const char *path, CFTypeRef *results) {
+static OSStatus aigwCopyKeychainAttributes(CFStringRef service, CFArrayRef keychains, CFTypeRef *results) {
     CFMutableDictionaryRef query = CFDictionaryCreateMutable(
         NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     if (query == NULL) return errSecAllocate;
@@ -44,28 +44,8 @@ static OSStatus aigwCopyKeychainAttributes(CFStringRef service, const char *path
     LAContext *context = [[LAContext alloc] init];
     context.interactionNotAllowed = YES;
     CFDictionarySetValue(query, kSecUseAuthenticationContext, (CFTypeRef)context);
-    SecKeychainRef keychain = NULL;
-    CFArrayRef searchList = NULL;
-    OSStatus status = errSecSuccess;
-    if (path != NULL && path[0] != '\0') {
-        // The explicit search list is used only by isolated test keychains.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        status = SecKeychainOpen(path, &keychain);
-#pragma clang diagnostic pop
-        if (status == errSecSuccess) {
-            const void *items[] = {keychain};
-            searchList = CFArrayCreate(NULL, items, 1, &kCFTypeArrayCallBacks);
-            if (searchList == NULL) {
-                status = errSecAllocate;
-            } else {
-                CFDictionarySetValue(query, kSecMatchSearchList, searchList);
-            }
-        }
-    }
-    if (status == errSecSuccess) status = SecItemCopyMatching(query, results);
-    if (searchList != NULL) CFRelease(searchList);
-    if (keychain != NULL) CFRelease(keychain);
+    if (keychains != NULL) CFDictionarySetValue(query, kSecMatchSearchList, keychains);
+    OSStatus status = SecItemCopyMatching(query, results);
     [context release];
     CFRelease(query);
     return status;
@@ -73,7 +53,7 @@ static OSStatus aigwCopyKeychainAttributes(CFStringRef service, const char *path
 
 // aigwListKeychainAccounts lists a service's accounts with user interaction
 // off for the single-operation worker, as the item observation does.
-static OSStatus aigwListKeychainAccounts(const char *service, const char *path, char **joined) {
+static OSStatus aigwListKeychainAccounts(const char *service, CFArrayRef keychains, char **joined) {
     *joined = NULL;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -88,7 +68,7 @@ static OSStatus aigwListKeychainAccounts(const char *service, const char *path, 
             status = errSecParam;
         } else {
             CFTypeRef results = NULL;
-            status = aigwCopyKeychainAttributes(serviceName, path, &results);
+            status = aigwCopyKeychainAttributes(serviceName, keychains, &results);
             if (status == errSecSuccess) {
                 if (results != NULL && CFGetTypeID(results) == CFArrayGetTypeID()) {
                     *joined = aigwJoinKeychainAccounts((CFArrayRef)results);
@@ -114,14 +94,17 @@ import (
 // listAccountsInKeychain names the accounts of a service's items from their
 // attributes alone. A keychain that would need a person fails with its status.
 func listAccountsInKeychain(service, path string) ([]string, error) {
+	keychains, err := openKeychains(path)
+	if err != nil {
+		return nil, err
+	}
+	defer releaseKeychains(keychains)
 	serviceName := C.CString(service)
-	keychainPath := C.CString(path)
 	defer C.free(unsafe.Pointer(serviceName))
-	defer C.free(unsafe.Pointer(keychainPath))
 
 	var joined *C.char
 	//nolint:gocritic // cgo maps a generated comparison to this call, which has none.
-	status := C.aigwListKeychainAccounts(serviceName, keychainPath, &joined)
+	status := C.aigwListKeychainAccounts(serviceName, keychains, &joined)
 	if joined != nil {
 		defer C.free(unsafe.Pointer(joined))
 	}

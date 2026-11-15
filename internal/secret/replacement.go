@@ -24,13 +24,17 @@ func Replace(store Store, updates map[string]string) (func() error, error) {
 		return nil, err
 	}
 	rollbacks := make([]func() error, 0, len(updates))
-	compensate := func() error {
+	// restoreTokens puts back, newest first, the Tokens that this call stored.
+	restoreTokens := func() error {
 		var failure error
 		for _, rollback := range slices.Backward(rollbacks) {
 			failure = errors.Join(failure, rollback())
 		}
-		if failure != nil {
-			return fmt.Errorf("credential rollback also failed: %w", failure)
+		return failure
+	}
+	compensate := func() error {
+		if err := restoreTokens(); err != nil {
+			return fmt.Errorf("credential rollback also failed: %w", err)
 		}
 		if err := rollbackBackend(); err != nil {
 			return fmt.Errorf("backend selection rollback also failed: %w", err)
@@ -40,10 +44,15 @@ func Replace(store Store, updates map[string]string) (func() error, error) {
 	for _, account := range slices.Sorted(maps.Keys(updates)) {
 		rollback, err := replaceToken(store, account, updates[account])
 		if err != nil {
-			// A compensation that fails is a failed undo, which every
-			// presentation of the batch's failure then states.
-			return nil, errors.Join(fmt.Errorf("store Token for provider %q: %w", account, err),
-				platform.FailedUndo("restoring the Tokens that this command had stored", compensate()))
+			// An undo that fails is a failed undo under its own name, which
+			// every presentation of the batch's failure then states once. As
+			// in the compensation, the backend choice is kept while a Token
+			// that this call stored could not be put back.
+			failure := fmt.Errorf("store Token for provider %q: %w", account, err)
+			if err := restoreTokens(); err != nil {
+				return nil, errors.Join(failure, platform.FailedUndo("restoring the Tokens that this command had stored", err))
+			}
+			return nil, errors.Join(failure, platform.FailedUndo("removing the credential backend choice that this command recorded", rollbackBackend()))
 		}
 		rollbacks = append(rollbacks, rollback)
 	}

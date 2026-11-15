@@ -7,6 +7,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -122,6 +123,19 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 				return nil
 			}
 			if err := runtime.Synchronizer().Commit(cmd.Context(), current, restored, "rollback"); err != nil {
+				// A Token whose Keychain item macOS refuses AIGW stops the
+				// rollback before it writes; that item's own fix resolves it,
+				// and the local check would meet the same item.
+				if refusal, refused := errors.AsType[*secret.KeychainItemRefusedError](err); refused {
+					// `aigw provider rotate` knows the providers of the current
+					// configuration alone. Without the item the rollback
+					// restores a provider that only its source holds, and
+					// leaves that provider's client for its Token.
+					if _, configured := current.Providers[refusal.Provider]; !configured {
+						return secret.AfterDeletionRun(err, invocation.Rerun(cmd, nil, nil))
+					}
+					return err
+				}
 				return terminal.ProblemError(
 					"Configuration rollback did not complete",
 					"One rollback step failed; the cause identifies the affected boundary.",

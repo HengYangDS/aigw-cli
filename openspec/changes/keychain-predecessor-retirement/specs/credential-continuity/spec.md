@@ -6,8 +6,8 @@ On macOS, AIGW SHALL use a Keychain item only through its own signing identity
 and SHALL NOT run another program to read, replace or delete one. When macOS
 refuses AIGW the read or the replacement of an item while its keychain is
 unlocked, the failing command SHALL say that another program stored the item
-and SHALL name one fix: delete the item with the system tool, then store the
-credential again. No command SHALL change an item's owner.
+and SHALL name one fix: have the credential at hand, delete the item with the
+system tool, then store it again. No command SHALL change an item's owner.
 
 #### Scenario: A release meets an item that 0.3.5 or earlier stored
 
@@ -17,8 +17,37 @@ credential again. No command SHALL change an item's owner.
   that tool
 - **AND** the item, its access list and every other item SHALL be unchanged
 - **AND** the failure SHALL name
-  `security delete-generic-password -s AIGW_TOKEN -a <slot>` and, for a Token,
-  `aigw provider rotate <provider>`.
+  `security delete-generic-password -s AIGW_TOKEN -a <slot>` and a last step
+  that stores the credential again: for a Token
+  `aigw provider rotate <provider>`, unless a scenario below names another.
+
+#### Scenario: The refused command stores the Token itself
+
+- **WHEN** `aigw provider add` or `aigw setup` meets such an item
+- **THEN** the last step of its fix SHALL be that command's own line, or the
+  same command in prose when a word would need quoting
+- **AND** guided setup SHALL stop at the refusal before it asks for a model.
+
+#### Scenario: A rollback restores a provider with such an item
+
+- **WHEN** `aigw config rollback` meets such an item for a provider that only
+  the configuration it restores holds
+- **THEN** the last step of its fix SHALL be the rollback's own line
+- **AND** the rollback, run after the deletion, SHALL restore the configuration.
+
+#### Scenario: A printed fix is followed
+
+- **WHEN** the item that a printed fix names is deleted and its last step is
+  run as printed
+- **THEN** that step SHALL succeed
+- **AND** the command that met the refusal SHALL no longer meet it.
+
+#### Scenario: A command reads the credential for another purpose
+
+- **WHEN** `aigw model search`, `aigw model add`, `aigw use`,
+  `aigw provider balance` or `aigw config rollback` meets such an item
+- **THEN** it SHALL show the title and the fix of the refusal
+- **AND** its JSON result SHALL name no single next command.
 
 #### Scenario: The provider of such an item is removed
 
@@ -30,9 +59,10 @@ credential again. No command SHALL change an item's owner.
 
 #### Scenario: The keychain is locked
 
-- **WHEN** macOS refuses a read or a replacement while the item's keychain is
-  locked
-- **THEN** the command SHALL fail without a prompt
+- **WHEN** macOS refuses a read or a replacement while the keychain that holds
+  the item is locked, wherever it stands in the search list, or was locked when
+  the operation began
+- **THEN** the command SHALL fail without a prompt and without a second attempt
 - **AND** its fix SHALL NOT tell the operator to delete the item.
 
 #### Scenario: A later signed release reads the item
@@ -157,13 +187,9 @@ SHALL NOT substitute for existing-caller continuity.
   will unlink
 - **THEN** AIGW SHALL NOT claim the cached caller was migrated by rewriting a
   configuration file or testing a fresh client
-- **AND** the one-time cutover SHALL first point client configuration files at
-  qualified private readers, prefetch the successor, bound, measure and
-  minimize the link gap, test captured commands immediately, and restore the
-  predecessor on failure
-- **AND** a possible cached-link call during that gap SHALL remain an explicit
-  residual risk, never represented as uninterrupted service; if that bounded
-  cutover cannot be qualified, it SHALL stop.
+- **AND** no release SHALL carry a cutover for that caller: an upgrade from a
+  release that wrote such a command is a new setup, and the caller fails until
+  its client is set up again.
 
 #### Scenario: The last default Token consumer is withdrawn
 
@@ -237,4 +263,4 @@ rollback SHALL restore a compatible program and configuration.
 
 **Reason**: No supported release reads through `/usr/bin/security`, and a signed release reads the items that another signed release stored, so neither the migration nor the conversion back has a consumer.
 
-**Migration**: Use each stored Token once with 0.4.1 to 0.7.2 before upgrading, or follow the fix that "A Keychain item of another program is refused with its fix" requires.
+**Migration**: No item is taken over. A command that meets an item of another program names the fix that "A Keychain item of another program is refused with its fix" requires.

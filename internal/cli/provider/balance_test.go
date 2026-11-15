@@ -284,7 +284,7 @@ func TestBalanceNamesTheFixOfAKeychainItemThatMacOSRefuses(t *testing.T) {
 	f.decode(t, &document)
 	if item := document.Providers[0]; item.State != balanceFailed || item.NextAction != "" ||
 		item.Problem != "Another program stored provider team's balance credentials in the Keychain" ||
-		item.NextDetail != "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a diagnostic@team`, "+
+		item.NextDetail != "Have the balance credentials at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a diagnostic@team`, "+
 			"then run `aigw provider edit team --balance-token-stdin --balance-user-id <user-id>`." {
 		t.Fatalf("a refused balance credential = %+v", item)
 	}
@@ -294,7 +294,7 @@ func TestBalanceNamesTheFixOfAKeychainItemThatMacOSRefuses(t *testing.T) {
 	f.decode(t, &document)
 	if item := document.Providers[0]; item.State != balanceFailed || item.NextAction != "" ||
 		item.Problem != "Another program stored provider team's Token in the Keychain" ||
-		item.NextDetail != "Delete the item with `security delete-generic-password -s AIGW_TOKEN -a team`, then run `aigw provider rotate team`." {
+		item.NextDetail != "Have the Token at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a team`, then run `aigw provider rotate team`." {
 		t.Fatalf("a refused Token = %+v", item)
 	}
 	if sent := f.http.sent(); len(sent) != 0 {

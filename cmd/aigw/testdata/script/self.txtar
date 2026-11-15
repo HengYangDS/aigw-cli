@@ -149,7 +149,8 @@ AIGW  aigw self rollback
   Activate the program that the last update or installation retained.
   Its check gives the previous program the current configuration, and
   a configuration that it cannot read blocks the rollback without
-  changing files.
+  changing files. Homebrew installs an earlier release of a program that
+  it installed.
 
 Usage
   aigw self rollback [flags]

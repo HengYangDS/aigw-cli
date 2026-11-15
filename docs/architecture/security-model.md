@@ -103,13 +103,21 @@ downgrade move no item. AIGW uses an item only through that identity: it runs
 no other program to read, replace or delete one, and no command changes an
 item's owner. An item that 0.3.5 or earlier stored trusts only
 `/usr/bin/security`, and AIGW can neither read nor replace it: the failing
-command says that another program stored the item and names the fix, which
-deletes the item with that tool and stores the Token again. An ad-hoc or
-development build has another identity and meets the same refusal. macOS gives
-a locked keychain's refusal the same status, so the credential worker also
-reports whether the keychain was unlocked, and only a refusal with an unlocked
-keychain counts as another program's item. macOS does let AIGW delete such an
-item, so `aigw provider remove` removes it as it removes AIGW's own. The
+command says that another program stored the item and names the fix, which is
+to have the credential at hand, delete the item with that tool and store the
+credential again. An ad-hoc or development build has another identity and
+meets the same refusal. Deleting the item for such a build takes the Token
+from the installed release, so a development build uses a home of its own.
+macOS gives a locked keychain's refusal the same status, so the credential
+worker also reports whether the keychain that holds the item was unlocked,
+before the operation and after its refusal, and only a refusal with a keychain
+unlocked at both times counts as another program's item. macOS does let AIGW
+delete such an item, so `aigw provider remove` removes it as it removes AIGW's
+own. A migration that a release from 0.4.1 to 0.7.2 began and did not finish
+can have left an item named `migration@<slot>` under the service `AIGW_TOKEN`.
+AIGW neither reads, lists nor removes it;
+`security delete-generic-password -s AIGW_TOKEN -a migration@<slot>` removes
+it. The
 [credential decision](../decisions/dr-0011-single-portable-token-backend.md)
 records why the earlier one-time migration was retired.
 

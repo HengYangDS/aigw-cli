@@ -43,7 +43,8 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 		Long: "Activate the program that the last update or installation retained.\n" +
 			"Its check gives the previous program the current configuration, and\n" +
 			"a configuration that it cannot read blocks the rollback without\n" +
-			"changing files.",
+			"changing files. Homebrew installs an earlier release of a program that\n" +
+			"it installed.",
 		Example: "aigw self rollback --dry-run\naigw self rollback\naigw self rollback --json",
 		Args:    cobra.NoArgs,
 		RunE: func(ctx *cobra.Command, _ []string) error {

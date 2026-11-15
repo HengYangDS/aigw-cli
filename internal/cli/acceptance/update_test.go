@@ -186,7 +186,8 @@ func homebrewProgram(t *testing.T, app *cli.App) {
 
 // TestSelfUpdateAndRollbackHelpDescribeTheProgramTransition: update's help
 // says what an update changes and what follows it, and rollback's says what
-// it restores and what its check stages.
+// it restores and what its check stages. Each names what Homebrew does for a
+// program that it installed, where the command is refused.
 func TestSelfUpdateAndRollbackHelpDescribeTheProgramTransition(t *testing.T) {
 	for command, wants := range map[string][]string{
 		"update": {
@@ -199,6 +200,7 @@ func TestSelfUpdateAndRollbackHelpDescribeTheProgramTransition(t *testing.T) {
 			"Activate the program that the last update or installation retained",
 			"gives the previous program the current configuration",
 			"a configuration that it cannot read blocks the rollback without changing files",
+			"Homebrew installs an earlier release of a program that it installed",
 		},
 	} {
 		app, out, _, _, _ := testApp(t, "")
