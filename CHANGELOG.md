@@ -16,16 +16,17 @@ signing, and GA status remain separate evidence.
 - Each command asks the credential store about a provider's Token and about
   its balance credentials once, and again only after it stores or removes that
   credential itself. `aigw provider edit`, `aigw provider remove`,
-  `aigw model add` and `aigw model remove` asked again for each step, so
-  `provider` and `model` commands now run fewer native credential operations,
-  each of which has a time limit.
+  `aigw model add`, `aigw model remove` and guided `aigw setup` asked again
+  for a later step, so they now run fewer native credential operations, each
+  of which has a time limit.
 
 ### Fixed
 
 - `aigw use` says that the Token that you entered was not kept when its
   selection fails after it stored that Token, also with the credential backend
-  that AIGW selects automatically. It removed the Token then and said so only
-  with a backend that `AIGW_SECRET_BACKEND` names.
+  that AIGW selects automatically, which is the default. It removed the Token
+  then and said so only with a backend that `AIGW_SECRET_BACKEND` names.
+  Releases 0.7.0 to 0.8.0 have the defect.
 
 ## [0.8.0] - 2026-11-15
 

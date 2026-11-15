@@ -14,7 +14,7 @@ extra call is one more native operation under its bound.
   command itself stores or removes that credential, also when it removes one to undo its own change.
 - Fixed with it: `aigw use` removed a Token that it had stored when its selection then failed, and said so
   only with a credential backend that `AIGW_SECRET_BACKEND` names. With the backend that AIGW selects itself,
-  the undo ran outside the scope, which kept the Token as present. Releases 0.7.2 and 0.8.0 have the defect.
+  the undo ran outside the scope, which kept the Token as present. Releases 0.7.0 to 0.8.0 have the defect.
 - Reading a credential's value is unchanged and is never served from a scope.
 
 ## Capabilities

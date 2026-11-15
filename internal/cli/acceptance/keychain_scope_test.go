@@ -346,18 +346,25 @@ func (d savingDiscovery) Discover(clients ...string) discovery.Result {
 // A selection whose commit fails after it stored the Token removes the Token
 // again, and then asks the credential store once more: the answer that it had
 // after it stored the Token no longer holds, so the failure says that the
-// Token was not kept. That holds over the system keyring, whose worker
-// records the questions, and over the backend that AIGW chooses when none is
-// named, whose removal goes to the chosen backend itself.
+// Token was not kept. That holds over a system keyring that is named, whose
+// worker records the questions, and over the backend that AIGW chooses when
+// none is named, whose removal goes to the chosen backend itself: the system
+// keyring where its probe passes, which is the product's default, and the
+// file backend where it fails.
 func TestACommandAsksAgainAboutTheTokenThatItRemoved(t *testing.T) {
-	for _, backend := range []string{"the system keyring", "the backend that AIGW chooses"} {
+	const named, chosenKeyring, chosenFile = "the system keyring", "the system keyring that AIGW chooses", "the file backend that AIGW chooses"
+	for _, backend := range []string{named, chosenKeyring, chosenFile} {
 		t.Run(backend, func(t *testing.T) {
 			app, out, items, args := useInATerminal(t)
-			if backend != "the system keyring" {
-				chosen, err := secret.Select(secret.Selection{
-					GOOS: runtime.GOOS, Root: filepath.Join(t.TempDir(), "secrets"),
-					KeyringProbe: func(secret.Store) error { return errors.New("no system keyring") },
-				})
+			if backend != named {
+				selection := secret.Selection{
+					GOOS: runtime.GOOS, Root: filepath.Join(t.TempDir(), "secrets"), Executable: items.worker(),
+					KeyringProbe: func(secret.Store) error { return nil },
+				}
+				if backend == chosenFile {
+					selection.KeyringProbe = func(secret.Store) error { return errors.New("no system keyring") }
+				}
+				chosen, err := secret.Select(selection)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -383,7 +390,7 @@ func TestACommandAsksAgainAboutTheTokenThatItRemoved(t *testing.T) {
 			if secretExists(t, app.Secrets, "one") {
 				t.Fatalf("%v kept the Token of a selection that failed", args)
 			}
-			if backend != "the system keyring" {
+			if backend == chosenFile {
 				return
 			}
 			want := []string{"exists one", "read one", "write one", "exists one", "empty one", "read one", "delete one", "exists one"}
