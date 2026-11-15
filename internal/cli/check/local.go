@@ -190,7 +190,9 @@ func (c *checker) selectionFix(id string) string {
 
 // tokenCheck observes whether the client's provider has a Token, reading its
 // metadata only. A client that authenticates itself, or whose Token an
-// external helper supplies, needs none from AIGW.
+// external helper supplies, needs none from AIGW. A Keychain item that macOS
+// refuses AIGW is there and is no Token that the client can use: the check
+// fails with that item's title and fix.
 func (c *checker) tokenCheck(r result) localCheck {
 	name, label := r.spec.ID+":token", r.spec.Label+" Token"
 	switch {
@@ -204,8 +206,10 @@ func (c *checker) tokenCheck(r result) localCheck {
 		return skippedCheck(name, label, "An external credential helper gives "+c.admission().ProductName(r.spec.ID)+" its Token")
 	}
 	provider := r.runtime.ProviderID
-	present, err := c.deps.Secrets.Exists(provider)
+	observation, err := secret.ObserveToken(c.deps.Secrets, provider)
 	switch {
+	case observation.Refusal != nil:
+		return failedCheck(name, label, observation.Refusal.Title(), observation.Refusal.Fix(), domainreadiness.Unavailable)
 	case err != nil:
 		// A file in the way of the Token folder, or a link that leads nowhere,
 		// names that path and its one fix, as every surface does.
@@ -214,7 +218,7 @@ func (c *checker) tokenCheck(r result) localCheck {
 			return failedCheck(name, label, cause, fix, domainreadiness.Unavailable)
 		}
 		return failedCheck(name, label, "The credential backend cannot tell whether provider "+provider+" has a Token", backendFix, domainreadiness.Unavailable)
-	case !present || secret.TokenSlotEmpty(c.deps.Secrets, provider):
+	case !observation.Usable():
 		fix, writable := secret.TokenRecovery(c.deps.Secrets, provider)
 		if writable {
 			fix = "aigw provider rotate " + provider

@@ -4,10 +4,11 @@
 
 On macOS, AIGW SHALL use a Keychain item only through its own signing identity
 and SHALL NOT run another program to read, replace or delete one. When macOS
-refuses AIGW the read or the replacement of an item while its keychain is
-unlocked, the failing command SHALL say that another program stored the item
-and SHALL name one fix: have the credential at hand, delete the item with the
-system tool, then store it again. No command SHALL change an item's owner.
+refuses AIGW the read of an item while its keychain is unlocked, AIGW SHALL NOT
+replace the item, and the failing command SHALL say that another program
+stored it and SHALL name one fix: have the credential at hand, delete the item
+with the system tool, then store it again. No command SHALL change an item's
+owner.
 
 #### Scenario: A release meets an item that 0.3.5 or earlier stored
 
@@ -15,39 +16,80 @@ system tool, then store it again. No command SHALL change an item's owner.
   `/usr/bin/security`
 - **THEN** it SHALL fail without a Token, without a prompt and without running
   that tool
-- **AND** the item, its access list and every other item SHALL be unchanged
+- **AND** the item, its value, its access list and every other item SHALL be
+  unchanged, although macOS would accept a new value for an item that it does
+  not let AIGW read
 - **AND** the failure SHALL name
   `security delete-generic-password -s AIGW_TOKEN -a <slot>` and a last step
   that stores the credential again: for a Token
   `aigw provider rotate <provider>`, unless a scenario below names another.
 
-#### Scenario: The refused command stores the Token itself
+#### Scenario: The configuration does not hold the provider yet
 
-- **WHEN** `aigw provider add` or `aigw setup` meets such an item
+- **WHEN** `aigw provider add` or `aigw setup` meets such an item for a provider
+  that the command names and the configuration does not hold
 - **THEN** the last step of its fix SHALL be that command's own line, or the
-  same command in prose when a word would need quoting
+  same command in prose when a word would need quoting, because that command
+  stores the Token
+- **AND** `aigw setup --from` SHALL add `--token-stdin` to that line when the
+  command had no Token input and could not ask for one
+- **AND** for a provider that the configuration holds, the last step SHALL be
+  the credential's own command
 - **AND** guided setup SHALL stop at the refusal before it asks for a model.
 
-#### Scenario: A rollback restores a provider with such an item
+#### Scenario: A command reconciles several clients
 
-- **WHEN** `aigw config rollback` meets such an item for a provider that only
-  the configuration it restores holds
-- **THEN** the last step of its fix SHALL be the rollback's own line
-- **AND** the rollback, run after the deletion, SHALL restore the configuration.
+- **WHEN** `aigw sync`, `aigw config rollback`, or `aigw setup --from` for a
+  provider that it does not name, would write the files of a client whose
+  provider's Token slot holds such an item
+- **THEN** it SHALL complete for the other clients and SHALL NOT write that
+  client's files, as for a client whose Token is missing
+- **AND** it SHALL name the item's fix as the next step: `aigw setup --from` in
+  that client's row, and `aigw sync` and `aigw config rollback` as their one
+  next step, for the first client that waits
+- **AND** its preview SHALL plan the same clients as its apply.
 
 #### Scenario: A printed fix is followed
 
-- **WHEN** the item that a printed fix names is deleted and its last step is
-  run as printed
-- **THEN** that step SHALL succeed
-- **AND** the command that met the refusal SHALL no longer meet it.
+- **WHEN** the item that a printed fix names is deleted and its further steps
+  are run as printed
+- **THEN** each step SHALL succeed and the credential SHALL be stored
+- **AND** the command that met the refusal SHALL no longer meet it
+- **AND** a client that waited for that Token and whose files differ SHALL get
+  them from `aigw sync`, which `aigw check --depth local` names until then.
 
 #### Scenario: A command reads the credential for another purpose
 
-- **WHEN** `aigw model search`, `aigw model add`, `aigw use`,
-  `aigw provider balance` or `aigw config rollback` meets such an item
-- **THEN** it SHALL show the title and the fix of the refusal
+- **WHEN** `aigw model search`, `aigw model add` or `aigw provider balance`
+  reads such an item, or `aigw use`, `aigw client enable` or `aigw client edit`
+  with configuration files selects, enables or moves the client that needs it
+- **THEN** it SHALL end with the title and the fix of the refusal, and
+  `aigw use`, `aigw client enable` and `aigw client edit` SHALL change nothing
 - **AND** its JSON result SHALL name no single next command.
+
+#### Scenario: A command observes whether a Token is stored
+
+- **WHEN** `aigw check --depth local`, `aigw status` or `aigw setup` observes a
+  slot that holds such an item
+- **THEN** it SHALL report the refusal with its fix
+- **AND** it SHALL NOT count the item as a stored Token
+- **AND** `aigw setup --from` SHALL end with the refusal only for a provider
+  that the command names; any other provider SHALL wait with the fix while the
+  setup completes for the rest.
+
+#### Scenario: A stored Token is empty
+
+- **WHEN** a command would write the files of a client whose provider's Token
+  slot is present and holds no value
+- **THEN** it SHALL treat that client as one whose Token is missing, on every
+  credential backend
+- **AND** it SHALL NOT fail as an unverified credential reader.
+
+#### Scenario: A client file lists the providers that the client can use
+
+- **WHEN** AIGW writes a client file that lists every provider with a Token
+- **THEN** it SHALL list no provider whose Token slot is empty or holds such an
+  item, as it lists none without a Token.
 
 #### Scenario: The provider of such an item is removed
 

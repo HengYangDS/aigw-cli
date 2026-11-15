@@ -15,15 +15,25 @@ signing, and GA status remain separate evidence.
 
 - **Breaking:** on macOS, AIGW no longer takes over a Keychain item that 0.3.5
   or earlier stored, whether it holds a Token or a provider's balance
-  credentials. It can neither read nor replace such an item. A command that
-  meets one fails, says that another program stored the item and names the fix:
-  have the credential at hand, delete the item with
+  credentials. macOS refuses AIGW the read of such an item, and AIGW does not
+  replace an item that it cannot read: macOS would accept the new value and
+  still refuse the read. Such an item is no Token that AIGW can use. A command
+  that needs the credential for its own purpose, `aigw use`,
+  `aigw client enable` and `aigw client edit --target` among them, ends there,
+  says that another program stored the item and names the fix: have the
+  credential at hand, delete the item with
   `security delete-generic-password -s AIGW_TOKEN -a <provider>`, or
   `-a diagnostic@<provider>` for balance credentials, then store the credential
-  again, a Token with `aigw provider rotate <provider>`. For
-  `aigw provider add` and `aigw setup` the last step is that command again,
-  because `aigw provider rotate` does not know a provider before one of them
-  adds it. A release from 0.4.1 to 0.7.2 took such an item over only when its
+  again, a Token with `aigw provider rotate <provider>`. For a provider that
+  `aigw provider add` or `aigw setup` adds, the last step is that command
+  again, because `aigw provider rotate` does not know a provider before one of
+  them adds it. `aigw sync`, `aigw config rollback` and `aigw setup --from`,
+  for a provider that the setup does not name, complete: they leave the client
+  of such a provider waiting, with its files unchanged and the fix as the next
+  step, as they do for a missing Token. Hermes's file lists no provider with
+  such an item, as it lists none without a Token. `aigw check --depth local`
+  and `aigw status` report such an item instead of counting it as a stored
+  Token. A release from 0.4.1 to 0.7.2 took such an item over only when its
   installed program read or replaced it. An item is therefore still the other
   program's when no command read it, as with balance credentials that were
   never used; when only a versioned credential reader, or a portable copy
@@ -47,6 +57,14 @@ signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- A stored Token that is empty counts as a missing Token where a client's
+  files are written, as `aigw status` and `aigw check` report it. `aigw sync`
+  and `aigw config rollback` leave its client waiting and complete for the
+  others, `aigw use` asks for a Token in a terminal, `aigw client enable` and
+  `aigw client edit --target` say that the provider has none, and Hermes's
+  file lists no provider whose stored Token is empty. On the system keyring
+  `aigw sync` and `aigw use` failed before, with a credential reader that could
+  not be verified.
 - On macOS, a new Keychain item is created with its label in one step, and
   macOS names the item by that label, such as `AIGW Account Token: <provider>`,
   when it asks for access to it. It named the item by the service,

@@ -379,8 +379,9 @@ func problemFor(err error, at platform.PathContext) Problem {
 	case structured:
 		return user.problem
 	case refused:
-		// Before the reader check's own problem: a check that met such an
-		// item has this cause, and this fix.
+		// The refusal names the one fix of its item, so it comes before every
+		// general problem below. The reader check never yields one: a client
+		// whose provider's item is refused waits before a reader is installed.
 		return Problem{
 			Title:    refusal.Title(),
 			Evidence: refusal.Evidence(),

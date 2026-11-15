@@ -214,7 +214,11 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 	if err := checkTargets(cmd, runtime, spec.ID, targets); err != nil {
 		return err
 	}
-	if err := admitTargets(runtime, cfg, spec, targets); err != nil {
+	// One observation of the provider's Token serves the admission, the plan,
+	// the commit and the step that an edit without a written file names.
+	operation := runtime
+	operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
+	if err := admitTargets(operation, cfg, spec, targets); err != nil {
 		return err
 	}
 	before := cfg.Clone()
@@ -225,20 +229,20 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 	document.Changed = !reflect.DeepEqual(before, cfg)
 	preview := invocation.Preview{}
 	if document.Changed {
-		if preview, err = invocation.PreviewProjection(runtime, before, cfg, spec.ID); err != nil {
+		if preview, err = invocation.PreviewProjection(operation, before, cfg, spec.ID); err != nil {
 			return targetFailure(spec.ID, targets, err)
 		}
 	}
 	document.ClientFiles, document.CredentialReader = invocation.ClientFiles(runtime, preview), preview.CredentialEntrypoint
 	document.RestartRequired = spec.RestartAfterProjection && len(document.ClientFiles) > 0
 	if !options.dryRun && document.Changed {
-		if err := runtime.Synchronizer().CommitProjection(cmd.Context(), before, cfg, "client edit", spec.ID); err != nil {
+		if err := operation.Synchronizer().CommitProjection(cmd.Context(), before, cfg, "client edit", spec.ID); err != nil {
 			return targetFailure(spec.ID, targets, err)
 		}
 	}
 	pending := ""
 	if document.Changed && !options.dryRun {
-		pending = pendingStep(runtime, cfg, document)
+		pending = pendingStep(operation, cfg, document)
 	}
 	return writeEdit(cmd, runtime, spec, document, options, pending)
 }
@@ -318,9 +322,12 @@ func refuseTargetsUnderFiles(targets []string, spec domain.ClientSpec, home stri
 }
 
 // admitTargets refuses to change an enabled client's configuration files
-// while its provider's Token is missing or cannot be observed: the transaction
-// then writes no client file, and AIGW's settings would stay behind in the
-// files that the edit drops, which no later synchronization visits.
+// while its provider has no Token that AIGW can use, or its Token cannot be
+// observed: the transaction then writes no client file, and AIGW's settings
+// would stay behind in the files that the edit drops, which no later
+// synchronization visits. An empty Token is a missing one. A Keychain item
+// that macOS refuses AIGW ends the edit with the item's refusal, which names
+// its fix, as it ends enabling the client.
 func admitTargets(runtime invocation.Context, cfg domain.Config, spec domain.ClientSpec, targets []string) error {
 	if len(targets) == 0 || !cfg.Clients[spec.ID].Enabled {
 		return nil
@@ -329,12 +336,15 @@ func admitTargets(runtime invocation.Context, cfg domain.Config, spec domain.Cli
 	if err != nil || !selected.UsesAIGWCredentialStore() {
 		return nil
 	}
-	available, err := runtime.Secrets.Exists(selected.ProviderID)
-	if err == nil && available {
+	observation, err := secret.ObserveToken(runtime.Secrets, selected.ProviderID)
+	if err == nil && observation.Usable() {
 		return nil
 	}
 	if _, blocked := platform.BlockedPath(err); blocked {
 		return err
+	}
+	if observation.Refusal != nil {
+		return observation.Refusal
 	}
 	title := fmt.Sprintf("%s's configuration files cannot change while provider %s has no Token", spec.Label, selected.ProviderID)
 	fix := "aigw provider rotate " + selected.ProviderID

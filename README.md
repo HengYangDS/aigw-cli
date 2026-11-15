@@ -333,11 +333,14 @@ no Token. AIGW does not take over an item that 0.3.5 or earlier stored. A
 command that meets such an item says that another program stored it and names
 the fix: have the credential at hand, delete the item with
 `security delete-generic-password -s AIGW_TOKEN -a <provider>`, then store the
-Token again with `aigw provider rotate <provider>`. A release from 0.4.1 to
-0.7.2 took such an item over only when its installed program read or replaced
-it, so an item that none of them used that way is still the other program's. On
-a Homebrew installation `aigw self rollback` is refused like the other program
-commands, and Homebrew installs the earlier release.
+Token again with `aigw provider rotate <provider>`. A command that needs the
+Token itself, such as `aigw use`, ends there; `aigw sync` and the other
+commands that write several clients' files name the fix as their next step,
+leave that provider's client waiting and complete for the rest. A release from
+0.4.1 to 0.7.2 took such an item over only when its installed program read or
+replaced it, so an item that none of them used that way is still the other
+program's. On a Homebrew installation `aigw self rollback` is refused like the
+other program commands, and Homebrew installs the earlier release.
 
 An upgrade from 0.3.5 or earlier is a new setup. A release from 0.7.0 on does
 not read that release's configuration, and a release from 0.8.0 on does not

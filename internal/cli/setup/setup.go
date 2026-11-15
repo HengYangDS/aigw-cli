@@ -67,10 +67,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			} else {
 				err = runGuided(cmd, operation)
 			}
-			err = invocation.CancelledPrompt(cmd, nil, beforeConfiguration(operation, err))
-			// A Keychain item that macOS refuses is replaced by setup again:
-			// `aigw provider rotate` does not know a provider that setup adds.
-			return secret.AfterDeletionRun(err, invocation.Rerun(cmd, nil, nil))
+			return invocation.CancelledPrompt(cmd, nil, beforeConfiguration(operation, err))
 		},
 	}
 	cmd.Flags().StringVar(&request.From, "from", "", "Apply a team file: its providers, models, families and recommendations")

@@ -18,17 +18,32 @@
       readings do. Tests show a locked keychain for a locked second keychain behind an unlocked first one, and for
       a keychain unlocked between the refusal and the second reading.
 - [x] 2.2 Give a refusal with an unlocked keychain one typed failure whose fix has one owner: have the credential
-      at hand, delete the item with the system tool, then store the credential again. `provider add` and `setup`
-      name their own line as the last step, and `config rollback` does for a provider that only the restored
-      configuration holds. `aigw check`, the credential command and the general presentation of a store failure
-      give it; a locked keychain keeps its own fix. Tests read the fix on each surface and follow each kind of
-      last step as printed.
-- [x] 2.3 Show the same title and fix from `model search`, `model add`, `use` for a model that is not added yet
-      and `config rollback`, and stop guided setup at the refusal before it asks for a model. Tests read each
-      surface, in text and in JSON where the command has JSON.
+      at hand, delete the item with the system tool, then store the credential again. For a provider that the
+      configuration does not hold, `provider add` and `setup` name their own line as the last step, with
+      `--token-stdin` where `setup --from` could not ask. `aigw check`, the credential command and
+      the general presentation of a store failure give the fix; a locked keychain keeps its own. Tests read the
+      fix on each surface and follow every printed step of each kind of fix until the credential is stored.
+- [x] 2.3 Show the same title and fix from `model search`, `model add` and `use` for a model that is not added
+      yet, and stop guided setup at the refusal before it asks for a model. Tests read each surface, in text and
+      in JSON where the command has JSON.
 - [x] 2.4 Add to the system-store journey a step that stores an item through the system tool in the default
       keychain of its disposable host and requires the refusal from the candidate's store; the step is not
       reached where that scope is not set.
+- [x] 2.5 Keep a refusal in the observation of whether a Token is stored: `aigw check --depth local`,
+      `aigw status` and `aigw setup` report the refusal with its fix and do not count the item as a stored Token.
+      `setup --from` ends with it for a provider that it names and lets any other provider wait with the fix.
+      Tests read each in text and, where the command has it, in JSON, and follow the fix that
+      `check --depth local`, `status` and a waiting provider's row print.
+- [x] 2.6 Decide in the one owner of readiness that a client whose Token slot is empty or holds an item that
+      macOS refuses is not written: `sync`, `config rollback` and a team setup complete for the other clients
+      and name the fix, a preview plans the same clients as its apply, and `use` and `client enable` end with the
+      refusal and change nothing. The reader check's failure is the reader's again. Tests cover the transaction,
+      each command in text and JSON, a second client that is written, and an empty Token on the file backend.
+- [x] 2.7 Observe a Token through one owner, `secret.ObserveToken` (present, empty, refused), at every site that
+      decides on one. `client edit` with configuration files refuses a client whose Token is unusable and changes
+      nothing; an adapter leaves such a client's activation as it is, and Hermes lists no provider whose Token
+      AIGW cannot use. Tests cover the owner's cases, `client edit` in text and JSON, and both adapter decisions
+      for an empty and a refused slot.
 
 ## 3. A rollback moves no credential
 

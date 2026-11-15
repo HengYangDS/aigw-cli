@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/secret"
 )
 
 // presenceStore answers whether an Account's Token exists, records each
@@ -53,6 +54,21 @@ func TestPresumedTokensAskOnlyOtherProvidersPresence(t *testing.T) {
 	}
 	if got, err := (presumedTokens{providers: []string{"new"}}).Exists("other"); err != nil || got {
 		t.Fatalf("without a store, Exists(other) = %v, %v", got, err)
+	}
+	// The observation of a Token follows: a presumed Token is one that AIGW
+	// can use, and any other Account's is what the store shows.
+	store.asked = nil
+	for account, want := range map[string]bool{"new": true, "stored": true, "missing": false} {
+		if got, err := secret.ObserveToken(presumed, account); err != nil || got.Usable() != want {
+			t.Fatalf("ObserveToken(%s) = %+v, %v; want usable %v", account, got, err, want)
+		}
+	}
+	slices.Sort(store.asked)
+	if !slices.Equal(store.asked, []string{"missing", "stored"}) {
+		t.Fatalf("the observation asked the store about %q", store.asked)
+	}
+	if got, err := secret.ObserveToken(presumedTokens{providers: []string{"new"}}, "other"); err != nil || got.Present {
+		t.Fatalf("without a store, ObserveToken(other) = %+v, %v", got, err)
 	}
 }
 

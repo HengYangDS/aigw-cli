@@ -27,6 +27,12 @@ that failed on a loaded macOS guest are in it. A plain write waits on the migrat
 - A write or a delete no longer waits on a lock. An item is created with its label in one call, and a write or
   a delete looks its slot up again when another writer changed it, so it completes on the slot as it then is.
   The worker no longer learns a role from its installation.
+- A client whose provider's Token slot holds such an item, or an empty value, waits for its Token as a client
+  without one does: `sync`, `config rollback` and a team setup complete for the other clients and name the fix,
+  and `use`, `client enable` and `client edit` end with the refusal of such an item. An empty value is a
+  missing Token to them: `use` asks for one in a terminal, and the other two name the step that stores one. On
+  the system keyring an empty stored Token failed `sync` and `use` as an unverified credential reader before;
+  on the file backend, which has no reader check, the client's file was written.
 - The one-time cutover for a session that still calls Homebrew's public credential-command link leaves the
   README, the decision record and the specification. It was written for the first upgrade from 0.3.5 and rested
   on reading that release's Keychain items; since 0.7.0 such an upgrade is a new setup.
@@ -40,7 +46,8 @@ that failed on a loaded macOS guest are in it. A plain write waits on the migrat
 ### Modified Capabilities
 
 - `credential-continuity`: no migration and no rollback custody; an item of another program is refused with its
-  fix; no cutover for a caller of a package manager's link.
+  fix and leaves its client waiting, as a missing or an empty Token does; no cutover for a caller of a package
+  manager's link.
 - `secret-storage`: the native bound has no retained-item exception; a retained item is reached only by its own
   signing identity; a mutation looks its slot up again when another writer changed it.
 - `cli-readiness`: `aigw check` changes no credential.

@@ -121,6 +121,10 @@ type tokenItem struct {
 	State      string `json:"state"`
 	NextAction string `json:"next_action,omitempty"`
 	NextDetail string `json:"next_detail,omitempty"`
+	// problem is the title of the Keychain item that macOS refuses AIGW, for
+	// a Token that is unobserved for that reason, which the human report
+	// shows; the document's state and next step carry what a script reads.
+	problem string
 }
 
 // clientItem is one client's state: the model that it selects, if any, and
@@ -131,6 +135,9 @@ type clientItem struct {
 	Model      string `json:"model,omitempty"`
 	NextAction string `json:"next_action,omitempty"`
 	NextDetail string `json:"next_detail,omitempty"`
+	// problem is the title of the Keychain item that macOS refuses AIGW,
+	// when the client waits for that provider's Token.
+	problem string
 }
 
 // document reports the merge, the Tokens and the clients of after.
@@ -174,10 +181,10 @@ func (t teamSetup) document(after domain.Config, states map[string]string, conne
 			NextDetail: "aigw provider edit " + unusable.Model.Provider() + " --endpoint " + unusable.Protocol.Name() + "=<url>"})
 	}
 	for _, id := range slices.Sorted(maps.Keys(states)) {
-		item := tokenItem{Provider: id, State: states[id]}
+		item := tokenItem{Provider: id, State: states[id], problem: t.tokenProblem(id)}
 		// A named provider's Token is the command's own input.
 		if !slices.Contains(t.request.Providers, id) {
-			item.NextAction, item.NextDetail = terminal.NextSteps(tokenStep(t.runtime.Secrets, id, item.State))
+			item.NextAction, item.NextDetail = terminal.NextSteps(t.tokenStep(id, item.State))
 		}
 		document.Tokens = append(document.Tokens, item)
 	}
@@ -198,8 +205,8 @@ func (t teamSetup) client(after domain.Config, spec domain.ClientSpec, connected
 	item.Model, item.State = selected.Model.String(), clientConfigured
 	switch next := clientactivation.ProjectionPrerequisites(after)[spec.ID]; {
 	case selected.RequiresProviderToken() && !slices.Contains(connected, selected.ProviderID):
-		item.State = clientWaitsForToken
-		item.NextAction, item.NextDetail = terminal.NextSteps(tokenStep(t.runtime.Secrets, selected.ProviderID, states[selected.ProviderID]))
+		item.State, item.problem = clientWaitsForToken, t.tokenProblem(selected.ProviderID)
+		item.NextAction, item.NextDetail = terminal.NextSteps(t.tokenStep(selected.ProviderID, states[selected.ProviderID]))
 	case next != "":
 		item.State = clientWaitsForClient
 		item.NextAction, item.NextDetail = terminal.NextSteps(next)
@@ -208,16 +215,31 @@ func (t teamSetup) client(after domain.Config, spec domain.ClientSpec, connected
 }
 
 // tokenStep is the step that a provider's Token in state waits for: none
-// once one is stored, the local check, which inspects a credential store that
-// cannot tell, or else the step that stores one.
-func tokenStep(store secret.Store, id, state string) string {
+// once one is stored; for a Token that the credential store cannot tell, the
+// fix of its Keychain item when macOS refuses AIGW that item, or else the
+// local check, which inspects the store; and otherwise the step that stores
+// one. The item's fix ends with the credential's own command, which knows the
+// provider once this setup has saved the configuration.
+func (t teamSetup) tokenStep(id, state string) string {
 	switch state {
 	case tokenStored, tokenPresent, tokenEnvironment:
 		return ""
 	case tokenUnobserved:
+		if refusal, refused := t.refused[id]; refused {
+			return refusal.Fix()
+		}
 		return domainreadiness.CredentialBackendRecovery
 	}
-	return tokenFix(store, id)
+	return tokenFix(t.runtime.Secrets, id)
+}
+
+// tokenProblem is the title of the Keychain item of provider's Token that
+// macOS refuses AIGW, or nothing for any other Token.
+func (t teamSetup) tokenProblem(id string) string {
+	if refusal, refused := t.refused[id]; refused {
+		return refusal.Title()
+	}
+	return ""
 }
 
 // tokenFix is the step that stores provider's Token: piping it into provider
@@ -388,6 +410,9 @@ func tokenField(token tokenItem) terminal.Field {
 		field.Value = "Supplied by " + secret.EnvironmentKey(token.Provider)
 	case tokenUnobserved:
 		field.State, field.Value = terminal.Warn, "The credential store cannot tell; "+token.NextAction+token.NextDetail
+		if token.problem != "" {
+			field.Value, field.Details = token.problem, []string{"Fix: " + token.NextDetail}
+		}
 	default:
 		field.State, field.Value = terminal.Info, "None"
 		if next := token.NextAction + token.NextDetail; next != "" {
@@ -405,6 +430,9 @@ func clientField(admission domain.Admission, client clientItem) terminal.Field {
 		field.State, field.Value = terminal.Info, "No model selected"
 	case clientWaitsForToken, clientWaitsForClient:
 		field.State, field.Value = terminal.Info, client.Model+"; "+client.NextAction+client.NextDetail
+		if client.problem != "" {
+			field.State, field.Value, field.Details = terminal.Warn, client.Model, []string{client.problem, "Fix: " + client.NextDetail}
+		}
 	}
 	return field
 }

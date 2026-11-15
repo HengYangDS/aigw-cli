@@ -76,7 +76,7 @@ They answer different questions; none substitutes for all the others.
 - **Operations:** [Operations](operations/README.md) covers independent GitLab
   and GitHub publication and real-client acceptance.
 - **Research:** [Research](research/README.md) separates comparisons and
-  dated provider evidence from adopted decisions.
+  dated provider and platform evidence from adopted decisions.
 - **History and legal:** [Changelog](../CHANGELOG.md) records releases;
   [License](../LICENSE) supplies the MIT terms.
 

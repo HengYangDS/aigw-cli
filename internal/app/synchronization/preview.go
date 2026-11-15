@@ -134,6 +134,20 @@ func (presumed presumedTokens) Exists(account string) (bool, error) {
 	return presumed.store.Exists(account)
 }
 
+// ObserveToken answers that a presumed Account's Token is one that AIGW can
+// use, without consulting the credential store, and observes any other
+// Account's there: the readiness owner and the client adapters then plan the
+// clients that the previewed command would write.
+func (presumed presumedTokens) ObserveToken(account string) (secret.TokenObservation, error) {
+	if slices.Contains(presumed.providers, account) {
+		return secret.TokenObservation{Present: true}, nil
+	}
+	if presumed.store == nil {
+		return secret.TokenObservation{}, nil
+	}
+	return secret.ObserveToken(presumed.store, account)
+}
+
 func (presumedTokens) Get(string) (string, error) { return "", errPresumedToken }
 
 func (presumedTokens) Set(string, string) error { return errPresumedToken }

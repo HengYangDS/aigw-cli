@@ -52,9 +52,14 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 		},
 		ValidArgsFunction: invocation.CompleteNothing,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// A Keychain item that macOS refuses is replaced by this command
-			// again: `aigw provider rotate` does not know the provider yet.
-			return secret.AfterDeletionRun(runAdd(cmd, runtime, args, options), invocation.Rerun(cmd, args, nil))
+			before, err := runtime.Config.Load()
+			if err != nil {
+				return err
+			}
+			// This command stores the Token of the provider that it adds, which
+			// `aigw provider rotate` does not know yet: after the deletion of a
+			// Keychain item that macOS refuses, this command stores it again.
+			return secret.AfterDeletionRun(runAdd(cmd, runtime, args, options, before), invocation.Rerun(cmd, args, nil), before.Providers)
 		},
 	}
 	invocation.BindText(cmd, &options.label, "label", "Display name; the provider ID by default")
@@ -66,13 +71,11 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
-func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, options addOptions) error {
-	cfg, err := runtime.Config.Load()
-	if err != nil {
-		return err
-	}
+// runAdd adds the provider to before, the configuration as it is, which it
+// leaves unchanged.
+func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, options addOptions, before domain.Config) error {
 	id := args[0]
-	if _, exists := cfg.Providers[id]; exists {
+	if _, exists := before.Providers[id]; exists {
 		return terminal.ProblemError("provider "+id+" already exists; `aigw provider edit` changes it and `aigw provider rotate` replaces its Token", "", "",
 			"aigw provider show "+id, nil)
 	}
@@ -87,7 +90,7 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 	for _, given := range endpoints {
 		setEndpoint(&provider.Endpoints, given.protocol, given.url)
 	}
-	before := cfg.Clone()
+	cfg := before.Clone()
 	cfg.Providers[id] = provider
 	preview, err := invocation.PreviewChange(runtime, before, cfg)
 	if err != nil {

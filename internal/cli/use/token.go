@@ -12,13 +12,16 @@ import (
 )
 
 // tokenMissing reports whether the selection reads its provider's Token from
-// AIGW's credential store and the store holds none. It reads the Token's
-// metadata, never its value.
+// AIGW's credential store and the store holds none: no slot, or a slot that
+// holds nothing. It observes the slot and never returns the Token's value. A
+// Keychain item that macOS refuses AIGW is no Token that the client could
+// read, and the selection is for that client alone, so it ends with the
+// item's refusal, which names its fix.
 func tokenMissing(runtime invocation.Context, selected domain.Runtime) (bool, error) {
 	if !selected.UsesAIGWCredentialStore() {
 		return false, nil
 	}
-	available, err := runtime.Secrets.Exists(selected.ProviderID)
+	observation, err := secret.ObserveToken(runtime.Secrets, selected.ProviderID)
 	// A blocked Token folder states its own fix, which the command's
 	// presentation renders.
 	if _, blocked := platform.BlockedPath(err); blocked {
@@ -27,7 +30,10 @@ func tokenMissing(runtime invocation.Context, selected domain.Runtime) (bool, er
 	if err != nil {
 		return false, terminal.ProblemError("the Token of provider "+selected.ProviderID+" cannot be observed", "", "", "aigw provider show "+selected.ProviderID, err)
 	}
-	return !available, nil
+	if observation.Refusal != nil {
+		return false, observation.Refusal
+	}
+	return !observation.Usable(), nil
 }
 
 // acquireToken asks for the provider's missing Token in a terminal and

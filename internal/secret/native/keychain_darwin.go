@@ -118,8 +118,9 @@ static OSStatus aigwObserveKeychainItem(const char *service, const char *account
 
 // aigwDisableKeychainInteraction turns Keychain user interaction off for the
 // whole of a write or a delete, whose steps Go orders, and reports what it was.
-// The setting is the process's, so it holds on whichever thread Go runs the
-// next step (measured on macOS 27.2.1).
+// Go may run consecutive cgo calls of one goroutine on different threads, so
+// the caller keeps the operation on one thread: the setting then holds for
+// every step, whether macOS keeps it for the process or for the thread.
 static OSStatus aigwDisableKeychainInteraction(Boolean *wasAllowed) {
     OSStatus status = SecKeychainGetUserInteractionAllowed(wasAllowed);
     if (status != errSecSuccess) return status;
@@ -228,6 +229,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"runtime"
 	"strings"
 	"unsafe"
 )
@@ -235,11 +237,11 @@ import (
 // slotLookups is how often one write or delete looks its slot up. Another
 // writer that changes the slot between a lookup and the operation on what it
 // found makes macOS refuse that operation, and the mutation then looks the
-// slot up again. Of the writers that replace one slot at once at least one
-// succeeds, and each of the others is refused with a status that slotChanged
-// names (measured on macOS 27.2.1 in 200 rounds of three writers and 150 of
-// five), so a writer among N needs at most N lookups. Five lookups cover five
-// commands that write one slot at once and bound a writer that keeps losing.
+// slot up again. In every round measured on macOS 27.2.1, 200 rounds of three
+// writers that replace one slot at once and 150 of five, at least one writer
+// succeeded, and each refused writer got a status that slotChanged names.
+// Five lookups are a bound, which the suite pins with two creators and with
+// three replacers of one slot, and which ends a writer that keeps losing.
 const slotLookups = 5
 
 // keychainStep is where a test lets another process act while an operation
@@ -508,8 +510,12 @@ func (slot *keychainSlot) mutate(operation func(item C.SecKeychainItemRef, found
 
 // withoutKeychainInteraction runs operation with Keychain user interaction
 // off and puts the setting back. A setting that cannot be changed fails the
-// operation before it starts, as it could otherwise prompt.
+// operation before it starts, as it could otherwise prompt. The goroutine
+// stays on its thread from the change of the setting to its restoration,
+// because Go may otherwise run the steps between them on other threads.
 func withoutKeychainInteraction(operation func() C.OSStatus) C.OSStatus {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	var wasAllowed C.Boolean
 	status := C.aigwDisableKeychainInteraction(&wasAllowed)
 	if status == C.errSecSuccess {

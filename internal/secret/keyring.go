@@ -44,6 +44,8 @@ func newKeyringStore(executable string) keyringStore {
 // VerifyNativeReaderAccess checks that a copied executable can read every
 // preflight-confirmed Account Token from the selected native store before client
 // files point at it. Other backends have no per-executable native authorization.
+// A failure is the reader's own, whatever the native store answered: whether a
+// Token is one that AIGW can use is decided before a reader is installed.
 func VerifyNativeReaderAccess(store Store, executable string, accounts []string) error {
 	keyring, err := selectedKeyring(store)
 	if err != nil || !keyring {
@@ -55,7 +57,7 @@ func VerifyNativeReaderAccess(store Store, executable string, accounts []string)
 		}
 		value, err := native.Read(executable, Service, account)
 		if err != nil {
-			return fmt.Errorf("%w: copied credential reader cannot read the selected Token: %w", ErrNativeReaderUnverified, refusedItem(APIToken, account, err))
+			return fmt.Errorf("%w: copied credential reader cannot read the selected Token: %w", ErrNativeReaderUnverified, err)
 		}
 		if value == "" {
 			return fmt.Errorf("%w: copied credential reader returned an empty Token", ErrNativeReaderUnverified)
@@ -137,7 +139,8 @@ func (store keyringStore) exists(kind Kind, account string) (bool, error) {
 // holdsNoValue reports whether a present item is empty. The native metadata
 // query cannot tell an empty item, so the worker reads it and answers only
 // whether its value is empty; the value never reaches this process. An absent
-// item and a failed worker are not empty.
+// item and a failed worker are not empty, and a read that macOS refuses while
+// the keychain is unlocked fails as the refusal of that item.
 func (store keyringStore) holdsNoValue(kind Kind, account string) (bool, error) {
 	slot := slotName(kind, account)
 	empty, err := store.empty(Service, slot)
@@ -145,7 +148,7 @@ func (store keyringStore) holdsNoValue(kind Kind, account string) (bool, error) 
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("inspect %s/%s in system keyring: %w", Service, slot, err)
+		return false, fmt.Errorf("inspect %s/%s in system keyring: %w", Service, slot, refusedItem(kind, account, err))
 	}
 	return empty, nil
 }

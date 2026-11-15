@@ -120,7 +120,11 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if current.Enabled && (current.Executable != "" || len(current.Targets) > 0) {
 			return terminal.ProblemError(spec.Label+" is already enabled, so its executable and configuration files change through client edit", "", "", editInstead(spec, executable, targets), nil)
 		}
-		if err := admitEnablement(runtime, cfg, client, targets); err != nil {
+		// One observation of the provider's Token serves the admission, the
+		// preview and the commit.
+		operation := runtime
+		operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
+		if err := admitEnablement(operation, cfg, client, targets); err != nil {
 			return err
 		}
 		if len(targets) == 0 {
@@ -128,13 +132,13 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		}
 		cfg.SetClientActivation(client, true, executable, targets)
 		if dryRun {
-			preview, err := invocation.PreviewChange(runtime, before, cfg)
+			preview, err := invocation.PreviewChange(operation, before, cfg)
 			if err != nil {
 				return fmt.Errorf("Client enablement preview could not finish: %w", err)
 			}
 			return writeProjectionPreview(runtime, enableSchemaVersion, jsonMode, spec, "enabled", preview, invocation.ApplyCommand(cmd, args))
 		}
-		if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
+		if err := operation.Synchronizer().Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
 			return fmt.Errorf("Client enablement could not finish: %w", err)
 		}
 		if jsonMode {
@@ -152,8 +156,25 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
+// holdsToken reports whether the store holds provider's Token: a slot that is
+// there and holds a value. A Keychain item that macOS refuses AIGW is no Token
+// that a client could read, and its refusal, which names its fix, is the
+// error.
+func holdsToken(store secret.Store, provider string) (bool, error) {
+	observation, err := secret.ObserveToken(store, provider)
+	if err != nil {
+		return false, fmt.Errorf("Cannot inspect provider %q credential: %w", provider, err)
+	}
+	if observation.Refusal != nil {
+		return false, observation.Refusal
+	}
+	return observation.Usable(), nil
+}
+
 // admitEnablement refuses to enable a client whose Account has no Token, or
-// with a configuration target that the client does not accept.
+// with a configuration target that the client does not accept. Enabling is
+// for that client alone, so the refusal of its provider's Keychain item ends
+// it.
 func admitEnablement(runtime invocation.Context, cfg domain.Config, client string, targets []string) error {
 	// A file that no client can read is refused before anything else that
 	// enabling needs, such as a selected model.
@@ -166,11 +187,11 @@ func admitEnablement(runtime invocation.Context, cfg domain.Config, client strin
 		return err
 	}
 	if clientRuntime.UsesAIGWCredentialStore() {
-		available, err := runtime.Secrets.Exists(clientRuntime.ProviderID)
+		held, err := holdsToken(runtime.Secrets, clientRuntime.ProviderID)
 		if err != nil {
-			return fmt.Errorf("Cannot inspect provider %q credential: %w", clientRuntime.ProviderID, err)
+			return err
 		}
-		if !available {
+		if !held {
 			instruction, _ := secret.TokenRecovery(runtime.Secrets, clientRuntime.ProviderID)
 			return fmt.Errorf("provider %q is missing a Token; %s", clientRuntime.ProviderID, instruction)
 		}

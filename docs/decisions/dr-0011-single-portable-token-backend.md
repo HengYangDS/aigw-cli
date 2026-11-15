@@ -80,15 +80,23 @@ environment; the native writer applies the same base64 envelope exactly once.
 Native metadata observation requests attributes only, under the same no-UI
 policy, without asking for password data.
 
-An item created by the old `/usr/bin/security` writer denies the AIGW identity.
-AIGW can neither read nor replace such an item: the worker runs no other
-program, changes no access list, prompts for nothing and selects no other
-backend. The failing command says that another program stored the item and
-names the fix: have the credential at hand, delete the item with that tool and
-store the credential again. AIGW does not replace the item itself, although
-macOS would let it delete one: a write that failed after the deletion would
-lose a Token that the other program may still use. Every AIGW executable takes
-the same path, so a worker needs no knowledge of its installation.
+An item created by the old `/usr/bin/security` writer denies the AIGW identity
+the read. AIGW does not replace an item that it cannot read: macOS would accept
+the new value and still refuse the read (measured on 2026-11-15). The worker
+runs no other program, changes no access list, prompts for nothing and selects
+no other backend. Such an item is no Token that AIGW can use. A command that
+needs the credential for its own purpose ends there, says that another program
+stored the item and names the fix: have the credential at hand, delete the
+item with that tool and store the credential again. A command that reconciles
+several clients leaves the client of that provider waiting with the same fix,
+as it does for a missing or an empty Token, and completes for the others. The
+readiness of a Token is decided once, before a credential reader is installed,
+from the worker's observation of presence and emptiness; the check of the
+installed reader stays the reader's own and names no item. AIGW does not
+replace the item itself, although macOS would let it delete one: a write that
+failed after the deletion would lose a Token that the other program may still
+use. Every AIGW executable takes the same path, so a worker needs no knowledge
+of its installation.
 
 A release from 0.4.1 to 0.7.2 took such an item over only when its installed
 program read or replaced it. Balance credentials and Tokens that no command

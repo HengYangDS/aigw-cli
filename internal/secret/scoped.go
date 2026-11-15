@@ -25,29 +25,40 @@ type scopedView struct {
 type availabilityObservation struct {
 	mutex sync.Mutex
 	slots map[string]availabilityResult
-	empty map[string]bool
+	empty map[string]emptinessResult
 }
 
-// emptiness runs ask once per slot in this scope and keeps the answer; a
-// failed ask counts as not empty.
-func (observation *availabilityObservation) emptiness(slot string, ask func() (bool, error)) bool {
+// emptiness runs ask once per slot in this scope and keeps its answer:
+// whether the slot is empty, or the refusal of its Keychain item.
+func (observation *availabilityObservation) emptiness(slot string, ask func() (bool, error)) (bool, error) {
 	observation.mutex.Lock()
 	defer observation.mutex.Unlock()
-	if empty, observed := observation.empty[slot]; observed {
-		return empty
+	result, observed := observation.empty[slot]
+	if !observed {
+		result.empty, result.refusal = ask()
+		if observation.empty == nil {
+			observation.empty = map[string]emptinessResult{}
+		}
+		observation.empty[slot] = result
 	}
-	empty, err := ask()
-	empty = err == nil && empty
-	if observation.empty == nil {
-		observation.empty = map[string]bool{}
-	}
-	observation.empty[slot] = empty
-	return empty
+	return result.empty, result.refusal
+}
+
+// forget drops what the scope observed of slot, presence and emptiness alike,
+// before the operation changes the slot. The caller holds the mutex.
+func (observation *availabilityObservation) forget(slot string) {
+	delete(observation.slots, slot)
+	delete(observation.empty, slot)
 }
 
 type availabilityResult struct {
 	present bool
 	err     error
+}
+
+type emptinessResult struct {
+	empty   bool
+	refusal error
 }
 
 // ObserveAvailability starts one operation's presence-metadata scope without
@@ -91,7 +102,7 @@ func (view scopedView) Set(account, value string) error {
 	if view.availability != nil {
 		view.availability.mutex.Lock()
 		defer view.availability.mutex.Unlock()
-		delete(view.availability.slots, slotName(view.kind, account))
+		view.availability.forget(slotName(view.kind, account))
 	}
 	return view.store.set(view.kind, account, value)
 }
@@ -103,7 +114,7 @@ func (view scopedView) Delete(account string) error {
 	if view.availability != nil {
 		view.availability.mutex.Lock()
 		defer view.availability.mutex.Unlock()
-		delete(view.availability.slots, slotName(view.kind, account))
+		view.availability.forget(slotName(view.kind, account))
 	}
 	return view.store.delete(view.kind, account)
 }

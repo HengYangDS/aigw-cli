@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret/native"
 )
 
@@ -84,20 +85,57 @@ func TestTheRefusedCommandIsTheLastStepOfItsFix(t *testing.T) {
 		"aigw provider add team --endpoint anthropic=https://team.test --token-stdin": "`aigw provider add team --endpoint anthropic=https://team.test --token-stdin`.",
 		"": "the same command again.",
 	} {
-		if got := AfterDeletionRun(wrapped, command); !errors.Is(got, wrapped) || refusal.Fix() != item+last {
+		if got := AfterDeletionRun(wrapped, command, nil); !errors.Is(got, wrapped) || refusal.Fix() != item+last {
 			t.Errorf("after %q: error %v, fix %q, want the last step %q", command, got, refusal.Fix(), last)
 		}
 	}
 	balance := &KeychainItemRefusedError{Kind: ProviderDiagnostic, Provider: "team", Status: -25293}
-	if _ = AfterDeletionRun(balance, "aigw setup"); balance.Fix() !=
+	if _ = AfterDeletionRun(balance, "aigw setup", nil); balance.Fix() !=
 		"Have the balance credentials at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a diagnostic@team`, then run `aigw setup`." {
 		t.Errorf("a balance item's fix = %q", balance.Fix())
 	}
 	other := errors.New("backend failed")
-	if got := AfterDeletionRun(other, "aigw setup"); !errors.Is(got, other) || got.Error() != other.Error() {
+	if got := AfterDeletionRun(other, "aigw setup", nil); !errors.Is(got, other) || got.Error() != other.Error() {
 		t.Errorf("another error = %v", got)
 	}
-	if got := AfterDeletionRun(nil, "aigw setup"); got != nil {
+	if got := AfterDeletionRun(nil, "aigw setup", nil); got != nil {
 		t.Errorf("no error = %v", got)
+	}
+}
+
+// The credential's own command knows the providers of the configuration
+// alone, so the last step of the fix depends on the configuration before the
+// command that met the refusal. A provider that it holds keeps the
+// credential's own command, whatever that command is. For a provider that it
+// does not hold, the command that met the refusal, which stores the
+// credential itself, is the last step.
+func TestTheLastStepOfTheFixFollowsTheConfiguration(t *testing.T) {
+	t.Parallel()
+
+	const (
+		token   = "Have the Token at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a team`, then run "
+		balance = "Have the balance credentials at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a diagnostic@team`, then run "
+	)
+	configured := map[string]domain.Provider{"team": {}}
+	elsewhere := map[string]domain.Provider{"other": {}}
+	for _, test := range []struct {
+		name, command string
+		kind          Kind
+		providers     map[string]domain.Provider
+		fix           string
+	}{
+		{"a configured provider", "aigw setup", APIToken, configured, token + "`aigw provider rotate team`."},
+		{"a configured provider and a line that needs quoting", "", APIToken, configured, token + "`aigw provider rotate team`."},
+		{"configured balance credentials", "aigw setup", ProviderDiagnostic, configured,
+			balance + "`aigw provider edit team --balance-token-stdin --balance-user-id <user-id>`."},
+		{"a provider that the configuration does not hold", "aigw setup", APIToken, elsewhere, token + "`aigw setup`."},
+		{"such a provider and a line that needs quoting", "", APIToken, elsewhere, token + "the same command again."},
+		{"such balance credentials", "aigw setup", ProviderDiagnostic, nil, balance + "`aigw setup`."},
+	} {
+		refusal := &KeychainItemRefusedError{Kind: test.kind, Provider: "team", Status: -25293}
+		wrapped := fmt.Errorf("setup: %w", refusal)
+		if got := AfterDeletionRun(wrapped, test.command, test.providers); !errors.Is(got, wrapped) || refusal.Fix() != test.fix {
+			t.Errorf("%s: error %v, fix %q, want %q", test.name, got, refusal.Fix(), test.fix)
+		}
 	}
 }

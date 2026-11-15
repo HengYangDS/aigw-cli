@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret/native"
 )
 
@@ -25,9 +26,10 @@ type KeychainItemRefusedError struct {
 	Provider string
 	// Status is the Keychain status with which macOS refused the item.
 	Status int32
-	// lastStep is the last step of the fix when the command that met the
-	// refusal stores the credential itself, which AfterDeletionRun sets.
-	lastStep string
+	// rerun is the command that met the refusal, as the last step of the fix,
+	// for a provider that the configuration before that command does not
+	// hold. AfterDeletionRun sets it.
+	rerun string
 }
 
 // Error names the credential and the native status, without a value.
@@ -51,12 +53,15 @@ func (e *KeychainItemRefusedError) Evidence() string {
 }
 
 // Fix is the one fix: have the credential at hand, delete the item with the
-// system tool, then store the credential again, with its own command unless
-// the command that met the refusal stores it. AIGW does not delete the item
-// itself, because the other program may still use it. The credential comes
-// first, because AIGW cannot read back the copy that the deletion removes.
+// system tool, then store the credential again with its own command. AIGW
+// does not delete the item itself, because the other program may still use
+// it. The credential comes first, because AIGW cannot read back the copy that
+// the deletion removes. The credential's own command knows the providers of
+// the configuration alone, so for a provider that the configuration does not
+// hold the last step is the command that met the refusal, which stores the
+// credential itself.
 func (e *KeychainItemRefusedError) Fix() string {
-	last := e.lastStep
+	last := e.rerun
 	if last == "" {
 		last = "run `aigw provider rotate " + e.Provider + "`"
 		if e.Kind == ProviderDiagnostic {
@@ -67,18 +72,24 @@ func (e *KeychainItemRefusedError) Fix() string {
 		" -a " + slotName(e.Kind, e.Provider) + "`, then " + last + "."
 }
 
-// AfterDeletionRun makes command the last step of the fix of a refusal that
-// err wraps, and returns err. It serves a command that stores the credential
-// itself and adds its provider: until that command succeeds, the credential's
-// own command does not know the provider. command is the command's plain
-// line, or "" when the line would need quoting, which the fix then names as
-// the same command.
-func AfterDeletionRun(err error, command string) error {
-	if refusal, refused := errors.AsType[*KeychainItemRefusedError](err); refused {
-		refusal.lastStep = "run the same command again"
-		if command != "" {
-			refusal.lastStep = "run `" + command + "`"
-		}
+// AfterDeletionRun makes the command that met a refusal that err wraps the
+// last step of its fix, and returns err. It serves a command that stores the
+// credential itself, and does so only for a provider that configured, the
+// providers of the configuration before the command, does not hold: the
+// credential's own command knows every other provider. command is the
+// command's plain line, or "" when the line would need quoting, which the fix
+// then names as the same command.
+func AfterDeletionRun(err error, command string, configured map[string]domain.Provider) error {
+	refusal, refused := errors.AsType[*KeychainItemRefusedError](err)
+	if !refused {
+		return err
+	}
+	if _, known := configured[refusal.Provider]; known {
+		return err
+	}
+	refusal.rerun = "run the same command again"
+	if command != "" {
+		refusal.rerun = "run `" + command + "`"
 	}
 	return err
 }

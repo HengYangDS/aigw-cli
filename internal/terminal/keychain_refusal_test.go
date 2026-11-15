@@ -13,10 +13,10 @@ import (
 )
 
 // A Keychain item that macOS refuses AIGW while its keychain is unlocked is
-// presented as that credential's problem with its one fix, whatever wraps it:
-// a store read or write, or a synchronization whose reader check met it. A
-// locked keychain, which gives the same status, keeps the presentations that
-// it had.
+// presented as that credential's problem with its one fix, whatever wraps it
+// or stands beside it: a store read or write, or an error that also carries
+// the reader check's category. A locked keychain, which gives the same
+// status, keeps the presentations that it had.
 func TestKeychainItemRefusalIsPresentedWithItsFix(t *testing.T) {
 	token := &secret.KeychainItemRefusedError{Kind: secret.APIToken, Provider: "team", Status: -25293}
 	balance := &secret.KeychainItemRefusedError{Kind: secret.ProviderDiagnostic, Provider: "team", Status: -25293}
@@ -31,7 +31,7 @@ func TestKeychainItemRefusalIsPresentedWithItsFix(t *testing.T) {
 			want: Problem{Title: "Another program stored provider team's Token in the Keychain", Evidence: evidence, Impact: impact,
 				Fix: "Have the Token at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a team`, then run `aigw provider rotate team`."},
 		},
-		"a reader check": {
+		"beside an unverified reader": {
 			err: errors.Join(fmt.Errorf("%w: copied credential reader cannot read the selected Token: %w", secret.ErrNativeReaderUnverified, token), nil),
 			want: Problem{Title: "Another program stored provider team's Token in the Keychain", Evidence: evidence, Impact: impact,
 				Fix: "Have the Token at hand, delete the item with `security delete-generic-password -s AIGW_TOKEN -a team`, then run `aigw provider rotate team`."},

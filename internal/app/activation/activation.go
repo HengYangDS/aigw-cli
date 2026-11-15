@@ -33,15 +33,34 @@ type Activation struct {
 type credentialObservation struct {
 	available bool
 	err       error
+	// refusal is the refusal of the Token's Keychain item when macOS refuses
+	// AIGW that item, which leaves the provider without a Token that AIGW can
+	// read, as a missing one does.
+	refusal *secret.KeychainItemRefusedError
+}
+
+// recovery is the step that gives the observed provider a Token that AIGW can
+// read: the fix of the Keychain item that macOS refuses AIGW, or else the
+// store's own recovery of a missing Token.
+func (observation credentialObservation) recovery(store secret.Store, account string) string {
+	if observation.refusal != nil {
+		return observation.refusal.Fix()
+	}
+	action, _ := secret.TokenRecovery(store, account)
+	return action
 }
 
 // CredentialAvailability reuses metadata already observed for one selected
-// Account; it never returns or reads the Token value.
+// Account; it never returns or reads the Token value. A Keychain item that
+// macOS refuses AIGW is no available Token, and its refusal is the error.
 func (a *Activation) CredentialAvailability(account string) (available bool, err error, observed bool) {
 	if a == nil {
 		return false, nil, false
 	}
 	result, observed := a.observedCredentials[account]
+	if result.refusal != nil {
+		return false, result.refusal, observed
+	}
 	return result.available, result.err, observed
 }
 
@@ -143,12 +162,10 @@ func observeCredential(store secret.Store, observed map[string]credentialObserva
 	}
 	observation, exists := observed[account]
 	if !exists {
-		observation.available, observation.err = store.Exists(account)
-		// A slot that holds no value holds no Token: its metadata tells so
-		// without reading it.
-		if observation.available && observation.err == nil && secret.TokenSlotEmpty(store, account) {
-			observation.available = false
-		}
+		// A slot that holds no value holds no Token, and neither does an item
+		// that macOS refuses AIGW.
+		token, err := secret.ObserveToken(store, account)
+		observation = credentialObservation{available: token.Usable(), err: err, refusal: token.Refusal}
 		observed[account] = observation
 	}
 	return observation, true
@@ -202,7 +219,7 @@ func assessEnabledProjection(cfg domain.Config, store secret.Store, result Activ
 			case !observed || observation.err != nil:
 				metadataUnavailable = true
 			case !observation.available:
-				result.ClientCredentialPrerequisites[spec.ID], _ = secret.TokenRecovery(store, runtime.ProviderID)
+				result.ClientCredentialPrerequisites[spec.ID] = observation.recovery(store, runtime.ProviderID)
 			}
 		}
 		if result.ProjectionPrerequisites[spec.ID] != "" || result.ClientCredentialPrerequisites[spec.ID] != "" {
@@ -270,7 +287,7 @@ func (assessment *inactiveClientAssessment) consider(client string, ref domain.M
 		}
 		return true
 	}
-	action, _ := secret.TokenRecovery(assessment.store, candidate.ProviderID)
+	action := observation.recovery(assessment.store, candidate.ProviderID)
 	assessment.result.ClientCredentialPrerequisites[client] = action
 	if selected && assessment.firstMissing == "" {
 		assessment.firstMissing = action

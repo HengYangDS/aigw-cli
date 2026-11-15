@@ -8,6 +8,7 @@ import (
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"context"
+	"errors"
 	"net/url"
 	"strings"
 )
@@ -122,7 +123,14 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 			facts.CredentialRequired = false
 			return
 		}
-		available, observationErr = store.Exists(accountID)
+		// The same observation as the activation's, so that a slot that
+		// holds nothing, or a Keychain item that macOS refuses AIGW, is no
+		// available Token here either, and the refusal is the error.
+		observation, err := secret.ObserveToken(store, accountID)
+		available, observationErr = observation.Usable(), err
+		if observation.Refusal != nil {
+			observationErr = observation.Refusal
+		}
 	}
 	facts.CredentialAvailable = available
 	if observationErr != nil {
@@ -130,6 +138,10 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 		if secret.NamesTokenFolder(observationErr) {
 			cause, fix := secret.ObservationFailure(observationErr, platform.PathContext{Home: home, Check: true})
 			facts.CredentialObservationIssue, facts.CredentialObservationAction = cause, fix
+		}
+		// A Keychain item that macOS refuses AIGW names itself and its fix.
+		if refusal, refused := errors.AsType[*secret.KeychainItemRefusedError](observationErr); refused {
+			facts.CredentialObservationIssue, facts.CredentialObservationAction = refusal.Title(), refusal.Fix()
 		}
 		return
 	}

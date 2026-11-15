@@ -86,6 +86,34 @@ func TestDeletingAnotherProgramsItemRemovesIt(t *testing.T) {
 	}
 }
 
+// A migration that a release from 0.4.1 to 0.7.2 did not finish left an item
+// of that release's own under the account migration@<slot>, which this
+// release neither reads, lists nor removes. The system tool deletes it by that
+// account, as the changelog and the security model say, and leaves the slot's
+// own item.
+func TestTheSystemToolDeletesAMigrationsLeftoverItem(t *testing.T) {
+	path := newPrivateKeychain(t)
+	const service, leftover, neighbor = "aigw-private-test", "migration@team", "team"
+	for _, account := range []string{leftover, neighbor} {
+		if err := writeCredentialToKeychain(service, account, path, []byte("synthetic-"+account)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if present, err := observeCredentialInKeychain(service, leftover, path); err != nil || !present {
+		t.Fatalf("the leftover item before its deletion = %t, %v", present, err)
+	}
+	runKeychainFixtureCommand(t, "delete-generic-password", "-s", service, "-a", leftover, path)
+	if present, err := observeCredentialInKeychain(service, leftover, path); err != nil || present {
+		t.Fatalf("the leftover item after the system tool's deletion = %t, %v", present, err)
+	}
+	if value, err := readCredentialFromKeychain(service, neighbor, path); err != nil || string(value) != "synthetic-"+neighbor {
+		t.Fatalf("the slot's own item = %q, %v", value, err)
+	}
+	if names := listedKeychainAccounts(t, service, path); !slices.Equal(names, []string{neighbor}) {
+		t.Fatalf("items after the deletion = %q", names)
+	}
+}
+
 // A locked keychain refuses a read and a write of every item with
 // errSecAuthFailed, without waiting for a person, and its diagnostic does not
 // say that the keychain was unlocked. It holds the same items once it is.

@@ -2,7 +2,6 @@ package setup
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -56,23 +55,33 @@ func runGuided(cmd *cobra.Command, runtime invocation.Context) error {
 		return err
 	}
 	g := guidedSetup{cmd: cmd, runtime: runtime, before: cfg}
-	provider, err := g.provider(cmd.Context())
+	// Guided setup asks for the Token of a provider that has none. Once a
+	// Keychain item that macOS refuses is deleted, it therefore stores again
+	// the Token of a provider that it adds, which `aigw provider rotate` does
+	// not know yet.
+	return secret.AfterDeletionRun(g.run(), invocation.Rerun(cmd, nil, nil), cfg.Providers)
+}
+
+// run asks for the provider, the client and the model, saves them in one
+// transaction and checks the client.
+func (g guidedSetup) run() error {
+	provider, err := g.provider(g.cmd.Context())
 	if err != nil {
 		return err
 	}
-	discovered, err := runtime.Discover()
+	discovered, err := g.runtime.Discover()
 	if err != nil {
 		return err
 	}
 	clients := g.installedClients(provider.Provider, discovered)
 	if len(clients) == 0 {
-		return g.stopWithoutClient(cmd.Context(), provider)
+		return g.stopWithoutClient(g.cmd.Context(), provider)
 	}
 	spec, err := g.client(clients)
 	if err != nil {
 		return err
 	}
-	ref, protocols, err := g.model(cmd.Context(), provider, spec)
+	ref, protocols, err := g.model(g.cmd.Context(), provider, spec)
 	if err != nil {
 		return err
 	}
@@ -82,7 +91,7 @@ func runGuided(cmd *cobra.Command, runtime invocation.Context) error {
 	}
 	working := g.withProvider(provider)
 	withModel(&working, ref, protocol)
-	synchronizer := runtime.Synchronizer()
+	synchronizer := g.runtime.Synchronizer()
 	after, selected, err := synchronizer.PrepareSelection(working, spec.ID, ref, protocol)
 	if err != nil {
 		return err
@@ -92,7 +101,7 @@ func runGuided(cmd *cobra.Command, runtime invocation.Context) error {
 	binding := after.Clients[spec.ID]
 	binding.Enabled = true
 	after.Clients[spec.ID] = binding
-	if _, _, _, err := synchronizer.SelectModel(cmd.Context(), cfg, after, spec.ID, provider.token); err != nil {
+	if _, _, _, err := synchronizer.SelectModel(g.cmd.Context(), g.before, after, spec.ID, provider.token); err != nil {
 		return err
 	}
 	if err := g.renderSaved(provider, spec, selected, wasDisabled); err != nil {
@@ -185,13 +194,17 @@ func setEndpoint(endpoints *domain.Endpoints, protocol domain.EndpointProtocol, 
 // the provider makes it configured; a stored Token alone does not. The
 // read-only environment backend supplies the Token itself. A stored Token
 // whose Keychain item macOS refuses AIGW ends setup here, before the
-// questions whose answers it could not use.
+// questions whose answers it could not use: the observation of the item tells
+// that it is there, and that AIGW may not read it.
 func (g guidedSetup) storedOrAsked(ctx context.Context, provider *guidedProvider) error {
-	present, err := g.runtime.Secrets.Exists(provider.ID)
+	observation, err := secret.ObserveToken(g.runtime.Secrets, provider.ID)
 	if err != nil {
 		return fmt.Errorf("observe the Token of provider %s: %w", provider.ID, err)
 	}
-	stored := present && !secret.TokenSlotEmpty(g.runtime.Secrets, provider.ID)
+	if observation.Refusal != nil {
+		return observation.Refusal
+	}
+	stored := observation.Usable()
 	if secret.IsReadOnly(g.runtime.Secrets) {
 		if !stored {
 			return readOnlyTokenInput(provider.ID, "aigw setup")
@@ -199,11 +212,6 @@ func (g guidedSetup) storedOrAsked(ctx context.Context, provider *guidedProvider
 		return nil
 	}
 	if stored {
-		// The slot's metadata names an item, not whether AIGW may read it.
-		_, readErr := g.runtime.Secrets.Get(provider.ID)
-		if _, refused := errors.AsType[*secret.KeychainItemRefusedError](readErr); refused {
-			return readErr
-		}
 		return nil
 	}
 	token, err := g.runtime.Prompt.Secret("Paste the " + provider.Label + " Token: ")

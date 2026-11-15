@@ -72,36 +72,91 @@ func UnusedTokens(store Store, providers []string) ([]string, error) {
 	return slices.Compact(unused), nil
 }
 
+// TokenObservation is what AIGW learns of a provider's Token slot without the
+// value reaching this process.
+type TokenObservation struct {
+	// Present says that the store has a slot for the provider.
+	Present bool
+	// Empty says that the slot holds no value, which is no Token.
+	Empty bool
+	// Refusal is the refusal of the slot's Keychain item when macOS refuses
+	// AIGW that item while its keychain is unlocked. The item is there, and it
+	// is no Token that AIGW can use; the refusal owns its title and its fix.
+	Refusal *KeychainItemRefusedError
+}
+
+// Usable reports whether the slot holds a Token that AIGW can use: it is
+// present, holds a value, and is no Keychain item that macOS refuses AIGW.
+func (observation TokenObservation) Usable() bool {
+	return observation.Present && !observation.Empty && observation.Refusal == nil
+}
+
+// ObserveToken observes account's Token slot. It is the one owner of that
+// observation, so that every command decides from the same facts: whether the
+// store has the slot and, for a slot that it has, whether the slot is empty or
+// is a Keychain item that macOS refuses AIGW. Its error is the store's failure
+// to tell presence, as Exists returns it. A backend that cannot tell whether a
+// slot is empty reports one that is not, and its Get reports ErrEmpty. One
+// availability scope asks the backend once about each slot. A store that
+// stands in front of another, as a preview does that presumes the Token that
+// its command would store, answers the observation itself.
+func ObserveToken(store Store, account string) (TokenObservation, error) {
+	if observer, ok := store.(interface {
+		ObserveToken(account string) (TokenObservation, error)
+	}); ok {
+		return observer.ObserveToken(account)
+	}
+	present, err := store.Exists(account)
+	if err != nil || !present {
+		return TokenObservation{}, err
+	}
+	empty, err := tokenSlotEmpty(store, account)
+	refusal, _ := errors.AsType[*KeychainItemRefusedError](err)
+	return TokenObservation{Present: true, Empty: empty, Refusal: refusal}, nil
+}
+
 // slotEmptiness is implemented by a backend that tells whether a present slot
 // holds nothing, from its metadata or from a read that keeps only emptiness.
 type slotEmptiness interface {
 	holdsNoValue(kind Kind, account string) (bool, error)
 }
 
-// TokenSlotEmpty reports that the backend's metadata shows account's Token
+// tokenSlotEmpty reports that the backend's metadata shows account's Token
 // slot present and empty, which holds no Token. It returns no value. A backend
 // whose metadata and reader cannot tell reports false, and its Get reports
 // ErrEmpty. The system keyring reads in its worker and keeps only emptiness.
-func TokenSlotEmpty(store Store, account string) bool {
+// The one observation that fails is of a Keychain item that macOS refuses
+// AIGW while its keychain is unlocked, whose refusal it returns: that item is
+// there, and it is no Token that AIGW can use. Every other observation that
+// fails reports a slot that is not empty.
+func tokenSlotEmpty(store Store, account string) (bool, error) {
 	backend := backendStore(store)
 	if automatic, ok := backend.(*automaticStore); ok {
 		selected, err := automatic.resolve()
 		if err != nil {
-			return false
+			return false, nil
 		}
 		backend = selected
 	}
 	observer, ok := backend.(slotEmptiness)
 	if !ok {
-		return false
+		return false, nil
 	}
+	ask := func() (bool, error) { return emptinessObserved(observer.holdsNoValue(APIToken, account)) }
 	if view, scoped := store.(scopedView); scoped && view.availability != nil {
-		return view.availability.emptiness(slotName(APIToken, account), func() (bool, error) {
-			return observer.holdsNoValue(APIToken, account)
-		})
+		return view.availability.emptiness(slotName(APIToken, account), ask)
 	}
-	empty, err := observer.holdsNoValue(APIToken, account)
-	return err == nil && empty
+	return ask()
+}
+
+// emptinessObserved keeps of a backend's answer what a caller acts on:
+// whether the slot is empty, or the refusal of its Keychain item. Any other
+// failure is a slot that is not empty.
+func emptinessObserved(empty bool, err error) (bool, error) {
+	if _, refused := errors.AsType[*KeychainItemRefusedError](err); refused {
+		return false, err
+	}
+	return err == nil && empty, nil
 }
 
 // IsReadOnly reports whether a Store can persist credential mutations.

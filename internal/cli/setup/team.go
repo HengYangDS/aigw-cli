@@ -52,6 +52,9 @@ type teamSetup struct {
 	merged    domain.Config
 	report    domain.TeamMerge
 	installed map[string]bool
+	// refused are the refusals of the Keychain items of the providers that
+	// wait for their Token because macOS refuses AIGW the item, by provider.
+	refused map[string]*secret.KeychainItemRefusedError
 }
 
 // runTeamSetup applies a team file in one transaction: it merges the file
@@ -86,11 +89,44 @@ func runTeamSetup(cmd *cobra.Command, runtime invocation.Context, request setupR
 		return err
 	}
 	team := teamSetup{cmd: cmd, runtime: runtime, request: request, file: file, before: cfg, merged: merged, report: report,
-		installed: manifestSetupAvailableClients(cfg.Admission(), discovered.Executables)}
+		installed: manifestSetupAvailableClients(cfg.Admission(), discovered.Executables), refused: map[string]*secret.KeychainItemRefusedError{}}
 	if request.DryRun {
-		return team.preview()
+		return team.afterDeletion(team.preview())
 	}
-	return team.apply(cmd.Context())
+	return team.afterDeletion(team.apply(cmd.Context()))
+}
+
+// afterDeletion completes the fix of a Keychain item that macOS refuses, when
+// err is the refusal of one. A refusal that ends a team setup is of a provider
+// that the setup names, whose Token it reads and stores; the item of any other
+// provider leaves that provider's client waiting. For a named provider that
+// the configuration does not hold yet, which `aigw provider rotate` does not
+// know, the setup stores the Token again once the item is deleted.
+func (t teamSetup) afterDeletion(err error) error {
+	refusal, refused := errors.AsType[*secret.KeychainItemRefusedError](err)
+	if !refused {
+		return err
+	}
+	return secret.AfterDeletionRun(err, t.storingLine(refusal.Provider), t.before.Providers)
+}
+
+// storingLine is the setup that stores provider's Token once its refused
+// item is deleted: this command's line, without --dry-run, because a preview
+// stores nothing, and reading the Token of that provider alone from standard
+// input where this command neither has that input nor can prompt, which would
+// end a rerun as promptRefusal ends it. Where the line then differs from the
+// one given and its team file would need quoting, it names the file to fill
+// in, because the same command again would not be that setup.
+func (t teamSetup) storingLine(provider string) string {
+	replaced, added := []string{"dry-run"}, []string(nil)
+	if !t.request.TokenStdin && !t.runtime.Interactive {
+		replaced, added = append(replaced, "provider"), []string{"--provider", provider, "--token-stdin"}
+	}
+	line := invocation.Rerun(t.cmd, nil, replaced, added...)
+	if line == "" && (t.request.DryRun || added != nil) {
+		line = invocation.Rerun(t.cmd, nil, append(replaced, "from"), append([]string{"--from", "<file>"}, added...)...)
+	}
+	return line
 }
 
 // readTeamFile reads and parses the team file at path. A file that cannot be
@@ -216,17 +252,27 @@ func (t teamSetup) tokenProviders() []string {
 // credential store's metadata alone. An empty stored Token is no Token, and
 // a store that cannot tell leaves the Token unobserved, which is not absent:
 // such a provider waits, unless the command names it, whose Token it would
-// store, which is refused before any input is read.
+// store, which is refused before any input is read. A Keychain item that
+// macOS refuses AIGW is such an observation: the provider that the command
+// names ends the setup with the item's refusal, and any other one waits with
+// the item's title and fix, which refused keeps for the report.
 func (t teamSetup) tokenStates() (map[string]string, error) {
 	states := map[string]string{}
 	for _, id := range t.tokenProviders() {
-		present, err := t.runtime.Secrets.Exists(id)
+		observation, err := secret.ObserveToken(t.runtime.Secrets, id)
+		if observation.Refusal != nil {
+			// For the provider that the command names, the refusal ends the
+			// setup as a store that cannot tell does.
+			err = observation.Refusal
+		}
 		switch {
 		case err != nil && slices.Contains(t.request.Providers, id):
 			return nil, fmt.Errorf("observe the Token of provider %s: %w", id, err)
+		case observation.Refusal != nil:
+			states[id], t.refused[id] = tokenUnobserved, observation.Refusal
 		case err != nil:
 			states[id] = tokenUnobserved
-		case !present || secret.TokenSlotEmpty(t.runtime.Secrets, id):
+		case !observation.Usable():
 			states[id] = tokenMissing
 		case secret.IsReadOnly(t.runtime.Secrets):
 			states[id] = tokenEnvironment

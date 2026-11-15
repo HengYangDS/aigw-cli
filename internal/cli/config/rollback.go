@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 
+	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
@@ -61,6 +62,21 @@ func rollbackUnavailable(runtime invocation.Context, cause error) error {
 		fix,
 		cause,
 	)
+}
+
+// nextAfterRollback is the step after a rollback. An enabled client of the
+// restored configuration whose provider has no Token that AIGW can use waits:
+// the rollback left its files as they were, so the step is the one that
+// `aigw sync` names for it, where the local check would stop at the same
+// Token. Without such a client the step is the local check.
+func nextAfterRollback(restored domain.Config, secrets secret.Store) string {
+	activation := clientactivation.AssessActivation(restored, secrets)
+	for _, client := range restored.EnabledClientIDs() {
+		if activation.ClientCredentialPrerequisites[client] != "" {
+			return activation.NextActionFor(nil)
+		}
+	}
+	return "aigw check --depth local"
 }
 
 // restoreSource is the configuration that a rollback restores, with its
@@ -122,20 +138,10 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 				invocation.RenderPreview(r, preview, apply)
 				return nil
 			}
-			if err := runtime.Synchronizer().Commit(cmd.Context(), current, restored, "rollback"); err != nil {
-				// A Token whose Keychain item macOS refuses AIGW stops the
-				// rollback before it writes; that item's own fix resolves it,
-				// and the local check would meet the same item.
-				if refusal, refused := errors.AsType[*secret.KeychainItemRefusedError](err); refused {
-					// `aigw provider rotate` knows the providers of the current
-					// configuration alone. Without the item the rollback
-					// restores a provider that only its source holds, and
-					// leaves that provider's client for its Token.
-					if _, configured := current.Providers[refusal.Provider]; !configured {
-						return secret.AfterDeletionRun(err, invocation.Rerun(cmd, nil, nil))
-					}
-					return err
-				}
+			// One observation of each Token serves the commit and the next step.
+			operation := runtime
+			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
+			if err := operation.Synchronizer().Commit(cmd.Context(), current, restored, "rollback"); err != nil {
 				return terminal.ProblemError(
 					"Configuration rollback did not complete",
 					"One rollback step failed; the cause identifies the affected boundary.",
@@ -144,15 +150,18 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 					err,
 				)
 			}
+			next := nextAfterRollback(restored, operation.Secrets)
 			if jsonMode {
-				return terminal.WriteDocument(runtime.Out, rollbackSchemaVersion, true, rollbackDocument{Source: sourceID, NextAction: "aigw check --depth local"})
+				document := rollbackDocument{Source: sourceID}
+				document.NextAction, document.NextDetail = terminal.NextSteps(next)
+				return terminal.WriteDocument(runtime.Out, rollbackSchemaVersion, true, document)
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Rolled back safely")
 			r.Section("Restore source")
 			r.Rows(terminal.Field{Label: "Configuration", Value: source})
 			r.Success("Client selections and files were restored; clients were not restarted.")
-			r.Next("aigw check --depth local")
+			r.Next(next)
 			return nil
 		},
 	}

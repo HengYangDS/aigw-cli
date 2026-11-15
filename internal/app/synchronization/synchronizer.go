@@ -229,8 +229,9 @@ func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...d
 }
 
 // credentialReadyClients excludes default-Token consumers only when their
-// selected Account Token is known absent. Disabled and external-credential
-// clients remain eligible for withdrawal or independent convergence.
+// selected Account has no Token that AIGW can use. Disabled and
+// external-credential clients remain eligible for withdrawal or independent
+// convergence.
 func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...string) ([]string, error) {
 	if len(clientIDs) == 0 {
 		clientIDs = s.ClientIDs()
@@ -247,11 +248,11 @@ func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...str
 		}
 		ready := true
 		for _, account := range accounts {
-			present, err := s.Secrets.Exists(account)
+			usable, err := s.tokenUsable(account)
 			if err != nil {
 				return nil, fmt.Errorf("inspect provider %q Token availability: %w", account, err)
 			}
-			if !present {
+			if !usable {
 				ready = false
 				break
 			}
@@ -261,6 +262,18 @@ func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...str
 		}
 	}
 	return projectable, nil
+}
+
+// tokenUsable reports whether account has a Token that AIGW can use: its slot
+// is present, holds a value, and is no Keychain item that macOS refuses AIGW.
+// Each of the three leaves the client waiting for its Token, as status and
+// the local check report it, and none stops the other clients: the client's
+// files are not written to name a reader that would return no Token. A
+// preview presumes the Token that its command would store, which its store
+// answers for itself.
+func (s Synchronizer) tokenUsable(account string) (bool, error) {
+	observation, err := secret.ObserveToken(s.Secrets, account)
+	return observation.Usable(), err
 }
 
 func (s Synchronizer) credentialEntrypointProviders(cfg domain.Config, clientIDs ...string) ([]string, error) {

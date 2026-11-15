@@ -57,6 +57,7 @@ func requireRefusedKeychainItemOfAnotherProgram(t *testing.T, store secret.Store
 	if !keychainTool(t, "delete-generic-password", account, keychain) || keychainTool(t, "find-generic-password", account, keychain) {
 		t.Fatalf("the tool that stored the %q item did not delete it", account)
 	}
+	t.Logf("the candidate's store refused the read and the replacement of another program's Keychain item %q with OSStatus -25293 and left it unchanged; the system tool deleted it", account)
 }
 
 // keychainItemRefused reports that err is the refusal of a Keychain item that
