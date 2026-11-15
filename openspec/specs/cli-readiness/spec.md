@@ -477,10 +477,7 @@ model, client, backend or endpoint and exactly one Fix.
 
 `aigw check --json` SHALL write one JSON document from the same evaluation as
 its human output, without changing configuration, credentials, client files or
-network state beyond the requests of its depths. On macOS, the installed
-program's first read of a retained Keychain item MAY perform the one-time
-migration to AIGW ownership, which keeps the Token and the item's service and
-account attributes unchanged.
+network state beyond the requests of its depths.
 
 #### Scenario: Each checked client is reported as structured facts
 

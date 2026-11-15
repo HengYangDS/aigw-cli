@@ -27,14 +27,12 @@ SHALL NOT substitute for existing-caller continuity.
 
 - **WHEN** an exact selected Keychain item cannot be read without presenting
   authorization UI
-- **AND** it does not qualify under "Retained macOS Keychain items migrate to
-  AIGW ownership"
 - **THEN** the bounded AIGW credential worker SHALL return no Token and SHALL
   NOT open that UI, retry, change the item's ACL, or select another backend
 - **AND** a replacement SHALL NOT overwrite an existing item that the selected
   AIGW identity cannot read without interaction
-- **AND** an accessible legacy item SHALL retain its logical Token value,
-  while an absent item remains distinct from denied access.
+- **AND** an accessible item SHALL retain its logical Token value, while an
+  absent item remains distinct from denied access.
 
 #### Scenario: A successor preserves the retained macOS credential identity
 
@@ -43,12 +41,9 @@ SHALL NOT substitute for existing-caller continuity.
 - **WHEN** a successor changes the native reader implementation
 - **THEN** read, metadata observation, write and delete SHALL use the same
   physical service and account identity without Token enrollment again
-- **AND** only an exact retained item admitted by "Retained macOS Keychain items
-  migrate to AIGW ownership" MAY change credential ownership through that
-  one-time migration
-- **AND** all other authorization denials SHALL block the affected cutover
-  without a shadow item, Token copy, ACL mutation, backend fallback or credential
-  prompt
+- **AND** an authorization denial SHALL block the affected cutover without a
+  shadow item, Token copy, ACL mutation, backend fallback, change of the item's
+  owner or credential prompt
 - **AND** predecessor rotation after rollback SHALL be visible to captured
   readers and the successor before `aigw sync` or re-upgrade
 - **AND** exact shadow items from unreleased candidates SHALL remain owned until
@@ -83,9 +78,9 @@ SHALL NOT substitute for existing-caller continuity.
 - **AND** each later captured versioned command SHALL remain callable through
   subsequent rollback and re-upgrade until explicitly retired after proving
   that no consumer can invoke it
-- **AND** native credential denial outside the admitted macOS retained-item
-  migration SHALL block production acceptance rather than trigger an alternate
-  reader, ACL change or repeated authorization attempt.
+- **AND** native credential denial SHALL block production acceptance rather
+  than trigger an alternate reader, ACL change, change of the item's owner or
+  repeated authorization attempt.
 
 #### Scenario: A Windows credential reader exceeds the native shell path limit
 
@@ -119,13 +114,9 @@ SHALL NOT substitute for existing-caller continuity.
   will unlink
 - **THEN** AIGW SHALL NOT claim the cached caller was migrated by rewriting a
   configuration file or testing a fresh client
-- **AND** the one-time cutover SHALL first point client configuration files at
-  qualified private readers, prefetch the successor, bound, measure and
-  minimize the link gap, test captured commands immediately, and restore the
-  predecessor on failure
-- **AND** a possible cached-link call during that gap SHALL remain an explicit
-  residual risk, never represented as uninterrupted service; if that bounded
-  cutover cannot be qualified, it SHALL stop.
+- **AND** no release SHALL carry a cutover for that caller: an upgrade from a
+  release that wrote such a command is a new setup, and the caller fails until
+  its client is set up again.
 
 #### Scenario: The last default Token consumer is withdrawn
 
@@ -180,105 +171,18 @@ SHALL NOT substitute for existing-caller continuity.
 ### Requirement: Upgrade recovery preserves credential ownership
 
 Candidate, rollback, and re-upgrade SHALL preserve configuration and credential
-ownership without ACL change, backend migration, fallback, or helper
-substitution. On macOS the installed successor SHALL migrate retained
-`/usr/bin/security` items once, and a rollback SHALL return them to the retained
-program's reader. Complete rollback SHALL restore a compatible program,
-configuration, and credential owner.
+ownership without ACL change, backend migration, fallback, helper substitution
+or a change of an item's owner. A rollback SHALL move no credential, because a
+signed release reads the items that another signed release stored. Complete
+rollback SHALL restore a compatible program and configuration.
 
 #### Scenario: Rollback follows a failed candidate
 
 - **WHEN** a candidate fails after replacing the installed program
-- **THEN** rollback SHALL restore a compatible reader for the retained item,
-  converting a migrated macOS item back before activation
+- **THEN** rollback SHALL restore a program that reads the retained item as it
+  is
 - **AND** the original client invocation SHALL work without fallback, ACL change,
   or a new helper.
-
-### Requirement: Retained macOS Keychain items migrate to AIGW ownership
-
-On macOS, when the installed program's credential operation is denied an exact
-retained item that trusts `/usr/bin/security`, it SHALL migrate that item once to
-an AIGW-owned item at the same service and account, without Token entry,
-access-list change, or authorization UI, keeping the Token in the retained item,
-a staging item, or both at every step. No other AIGW program SHALL change an
-item's owner. Linux and Windows stores authorize the user or session and SHALL
-NOT migrate.
-
-#### Scenario: A predecessor item is used after upgrade
-
-- **WHEN** the installed program's worker reads, writes, or deletes a slot whose
-  item was written by the predecessor's `/usr/bin/security` writer
-- **THEN** it SHALL migrate the item and complete the operation without
-  interaction
-- **AND** a later build with the same signing identifier and team SHALL use the
-  item without migration.
-
-#### Scenario: Another AIGW program meets a retained item
-
-- **GIVEN** the installed program is an executable that Homebrew's receipt owns,
-  or a portable one beside the predecessor AIGW retained for its rollback
-- **WHEN** a versioned reader copy, an extracted release or a development build
-  reads a slot whose item still trusts `/usr/bin/security`, or whose migration
-  the installed program left staged
-- **THEN** it SHALL return the Token through that tool or from the staging item
-  without migrating the item or completing the migration, because it cannot
-  tell whether its installation still runs the predecessor
-- **AND** SHALL NOT replace the retained item or convert any item for a rollback
-- **AND** the predecessor and every cached successor command SHALL keep reading
-  the same item without a prompt
-- **AND** the worker SHALL learn its role from its own executable's installation
-  evidence, not from a flag or marker its caller could omit.
-
-#### Scenario: A migration is interrupted
-
-- **WHEN** a worker stops after staging the Token but before the owned item is
-  verified
-- **THEN** the installed program's next read of that slot SHALL complete the
-  migration from the staged Token or repeat it
-- **AND** the Token SHALL NOT be lost.
-
-#### Scenario: Several workers meet the same retained item
-
-- **WHEN** concurrent workers are denied the same retained item
-- **THEN** exactly one SHALL migrate it while the others wait for the owned item
-- **AND** none SHALL invoke `/usr/bin/security` on an item that no longer trusts
-  it.
-
-#### Scenario: Migration would require interaction
-
-- **WHEN** the item's keychain is locked or the denied item does not trust
-  `/usr/bin/security`
-- **THEN** the worker SHALL return the denial without invoking
-  `/usr/bin/security`, changing an item, or showing UI.
-
-#### Scenario: A portable rollback restores the predecessor reader
-
-- **WHEN** `aigw self rollback` has checked the retained program against the
-  configuration it reads, and that program predates AIGW-owned items
-- **THEN** AIGW SHALL convert each configured provider's items back to
-  `/usr/bin/security` ownership with the same storage envelope before activating
-  that program
-- **AND** a refused check SHALL change no item
-- **AND** if a conversion or the activation fails, AIGW SHALL return the
-  converted items to the active program and leave that program in place
-- **AND** a retained program that reads AIGW-owned items SHALL need no
-  conversion.
-
-#### Scenario: A package manager downgrades AIGW
-
-- **WHEN** `aigw self rollback` runs on a Homebrew installation
-- **THEN** AIGW SHALL convert each configured provider's items back without
-  changing Homebrew-owned files and direct the operator to Homebrew for the
-  earlier release
-- **AND** it SHALL NOT refuse because a client declares retry budgets
-- **AND** if a conversion fails, AIGW SHALL return the converted items and report
-  that the installed program is unchanged
-- **AND** if the configuration that names those providers cannot be read or
-  decoded, AIGW SHALL change no item and SHALL NOT report the credentials ready
-- **AND** if the operator keeps the release, its next Token use SHALL migrate the
-  items again
-- **AND** without that preparation AIGW SHALL NOT claim credential continuity,
-  and the predecessor's reader MAY ask macOS to authorize each migrated item.
 
 ### Requirement: One command verifies each credential executable once
 
@@ -446,3 +350,128 @@ only those files has no configuration, and Token items SHALL stay unchanged.
   credential reader SHALL keep their bytes
 - **AND** a credential command that a running session loaded from an earlier
   release SHALL keep returning its Token from them.
+
+### Requirement: A Keychain item of another program is refused with its fix
+
+On macOS, AIGW SHALL use a Keychain item only through its own signing identity
+and SHALL NOT run another program to read, replace or delete one. When macOS
+refuses AIGW the read of an item while its keychain is unlocked, AIGW SHALL NOT
+replace the item, and the failing command SHALL say that another program
+stored it and SHALL name one fix: have the credential at hand, delete the item
+with the system tool, then store it again. No command SHALL change an item's
+owner.
+
+#### Scenario: A release meets an item that 0.3.5 or earlier stored
+
+- **WHEN** a command reads or replaces a slot whose item trusts only
+  `/usr/bin/security`
+- **THEN** it SHALL fail without a Token, without a prompt and without running
+  that tool
+- **AND** the item, its value, its access list and every other item SHALL be
+  unchanged, although macOS would accept a new value for an item that it does
+  not let AIGW read
+- **AND** the failure SHALL name
+  `security delete-generic-password -s AIGW_TOKEN -a <slot>` and a last step
+  that stores the credential again: for a Token
+  `aigw provider rotate <provider>`, unless a scenario below names another.
+
+#### Scenario: The configuration does not hold the provider yet
+
+- **WHEN** `aigw provider add` or `aigw setup` meets such an item for a provider
+  that the command names and the configuration does not hold
+- **THEN** the last step of its fix SHALL be that command's own line, or the
+  same command in prose when a word would need quoting, because that command
+  stores the Token
+- **AND** `aigw setup --from` SHALL add `--token-stdin` to that line when the
+  command had no Token input and could not ask for one
+- **AND** for a provider that the configuration holds, the last step SHALL be
+  the credential's own command
+- **AND** a preview of `aigw setup --from`, which saves nothing, SHALL name as
+  the last step for a waiting provider that the configuration does not hold
+  that setup without `--dry-run`, naming the provider
+- **AND** guided setup SHALL stop at the refusal before it asks for a model.
+
+#### Scenario: A command reconciles several clients
+
+- **WHEN** `aigw sync`, `aigw config rollback`, or `aigw setup --from` for a
+  provider that it does not name, would write the files of a client whose
+  provider's Token slot holds such an item
+- **THEN** it SHALL complete for the other clients and SHALL NOT write that
+  client's files, as for a client whose Token is missing
+- **AND** it SHALL name the item's fix as the next step: `aigw setup --from` in
+  that client's row, and `aigw sync` and `aigw config rollback` as their one
+  next step, for the first client that waits
+- **AND** its preview SHALL plan the same clients as its apply.
+
+#### Scenario: A printed fix is followed
+
+- **WHEN** the item that a printed fix names is deleted and its further steps
+  are run as printed
+- **THEN** each step SHALL succeed and the credential SHALL be stored
+- **AND** the command that met the refusal SHALL no longer meet it
+- **AND** a client that waited for that Token and whose files differ SHALL get
+  them from `aigw sync`, which `aigw check --depth local` names until then.
+
+#### Scenario: A command reads the credential for another purpose
+
+- **WHEN** `aigw model search`, `aigw model add` or `aigw provider balance`
+  reads such an item, or `aigw use`, `aigw client enable` or `aigw client edit`
+  with configuration files selects, enables or moves the client that needs it
+- **THEN** it SHALL end with the title and the fix of the refusal, and
+  `aigw use`, `aigw client enable` and `aigw client edit` SHALL change nothing
+- **AND** its JSON result SHALL name no single next command.
+
+#### Scenario: A command observes whether a Token is stored
+
+- **WHEN** `aigw check --depth local`, `aigw status` or `aigw setup` observes a
+  slot that holds such an item
+- **THEN** it SHALL report the refusal with its fix
+- **AND** it SHALL NOT count the item as a stored Token
+- **AND** a next step that offers that provider to a client that is not
+  enabled SHALL name that fix for it, not the credential's command alone
+- **AND** `aigw setup --from` SHALL end with the refusal only for a provider
+  that the command names; any other provider SHALL wait with the fix while the
+  setup completes for the rest.
+
+#### Scenario: A stored Token is empty
+
+- **WHEN** a command would write the files of a client whose provider's Token
+  slot is present and holds no value
+- **THEN** it SHALL treat that client as one whose Token is missing, on every
+  credential backend
+- **AND** it SHALL NOT fail as an unverified credential reader.
+
+#### Scenario: A client file lists the providers that the client can use
+
+- **WHEN** AIGW writes a client file that lists every provider with a Token
+- **THEN** it SHALL list no provider whose Token slot is empty or holds such an
+  item, as it lists none without a Token.
+
+#### Scenario: The provider of such an item is removed
+
+- **WHEN** `aigw provider remove` deletes a slot whose item another program
+  stored
+- **THEN** the item SHALL be removed without a prompt and without running that
+  tool, as an item of AIGW's own is
+- **AND** every other item SHALL be unchanged.
+
+#### Scenario: The keychain is locked
+
+- **WHEN** macOS refuses a read or a replacement while the keychain that holds
+  the item is locked, wherever it stands in the search list, or was locked when
+  the operation began
+- **THEN** the command SHALL fail without a prompt and without a second attempt
+- **AND** its fix SHALL NOT tell the operator to delete the item.
+
+#### Scenario: A later signed release reads the item
+
+- **WHEN** a release with the same signing identifier and team reads an item
+  that an earlier signed release stored
+- **THEN** it SHALL return the Token without a prompt and without changing the
+  item.
+
+#### Scenario: A program rollback runs
+
+- **WHEN** `aigw self rollback` activates the retained program
+- **THEN** no Keychain item SHALL change
+- **AND** the retained program SHALL read the items as they are.
