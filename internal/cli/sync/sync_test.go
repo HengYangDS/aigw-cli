@@ -126,10 +126,13 @@ func TestSyncMetadataObservationScopeExpiresWithCommand(t *testing.T) {
 		Config: store, Executable: source, Secrets: tokens, Out: &bytes.Buffer{}, Discovery: staticDiscovery{},
 		Host: hostAt(root), ResolveCredentialPath: func() (string, error) { return reader, nil },
 	}
-	cmd := NewCommand(runtime)
-	cmd.SilenceErrors, cmd.SilenceUsage = true, true
-	cmd.SetArgs([]string{"--dry-run", "--json"})
 	for invocation := 1; invocation <= 2; invocation++ {
+		// The composition root opens one availability scope for the commands
+		// of each invocation; this test builds the command's context itself.
+		runtime.Secrets = secret.ObserveAvailability(tokens)
+		cmd := NewCommand(runtime)
+		cmd.SilenceErrors, cmd.SilenceUsage = true, true
+		cmd.SetArgs([]string{"--dry-run", "--json"})
 		if err := cmd.Execute(); err != nil {
 			t.Fatal(err)
 		}

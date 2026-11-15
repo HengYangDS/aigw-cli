@@ -76,7 +76,9 @@ func replaceToken(store Store, account, token string) (func() error, error) {
 			if err != nil {
 				return nil, err
 			}
-			restore = scopedView{store: selected, kind: view.kind}
+			// The compensation changes the slot too, so it shares the scope
+			// of the store, which then forgets what it observed of the slot.
+			restore = scopedView{store: selected, kind: view.kind, availability: view.availability}
 		}
 	}
 	if err := store.Set(account, token); err != nil {

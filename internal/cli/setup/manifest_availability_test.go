@@ -89,15 +89,18 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 		}},
 		Out: io.Discard,
 	}
-	cmd := NewCommand(runtime)
-	cmd.SetContext(t.Context())
-	cmd.SetArgs([]string{"--from", filepath.Join(root, "team.toml"), "--json"})
 	for invocation := 1; invocation <= 2; invocation++ {
 		if invocation > 1 {
 			if err := os.Remove(filepath.Join(root, "configuration.toml")); err != nil {
 				t.Fatal(err)
 			}
 		}
+		// The composition root opens one availability scope for the commands
+		// of each invocation; this test builds the command's context itself.
+		runtime.Secrets = secret.ObserveAvailability(secretStore)
+		cmd := NewCommand(runtime)
+		cmd.SetContext(t.Context())
+		cmd.SetArgs([]string{"--from", filepath.Join(root, "team.toml"), "--json"})
 		if err := cmd.Execute(); err != nil {
 			t.Fatal(err)
 		}

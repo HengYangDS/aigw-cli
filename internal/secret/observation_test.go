@@ -2,6 +2,8 @@ package secret
 
 import (
 	"errors"
+	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -205,6 +207,42 @@ func TestAvailabilityObservationInvalidatesBeforeMutation(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// A compensation is the operation's own change of a slot, as the write that
+// it undoes is: the scope forgets what it observed of a Token that a
+// replacement stored once the replacement is undone, whether the backend was
+// named or chosen automatically, whose compensation goes to the chosen
+// backend itself.
+func TestAvailabilityObservationForgetsATokenThatACompensationRemoves(t *testing.T) {
+	for _, backend := range []string{"file", ""} {
+		t.Run("backend="+backend, func(t *testing.T) {
+			selected, err := Select(Selection{
+				Backend: backend, GOOS: runtime.GOOS, Root: filepath.Join(t.TempDir(), "secrets"),
+				KeyringProbe: func(Store) error { return errors.New("isolated file backend") },
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			store := ObserveAvailability(selected)
+			if mustExist(t, store, "team") {
+				t.Fatal("an empty store holds a Token")
+			}
+			rollback, err := Replace(store, map[string]string{"team": "written-token"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !mustExist(t, store, "team") {
+				t.Fatal("the scope kept the absence of a Token that the operation stored")
+			}
+			if err := rollback(); err != nil {
+				t.Fatal(err)
+			}
+			if mustExist(t, store, "team") {
+				t.Fatal("the scope kept the presence of a Token that the compensation removed")
+			}
+		})
 	}
 }
 

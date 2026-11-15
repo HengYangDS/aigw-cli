@@ -61,17 +61,41 @@ type emptinessResult struct {
 	refusal error
 }
 
-// ObserveAvailability starts one operation's presence-metadata scope without
-// changing its backend or caching credential reads. Purpose views share the
-// scope; each new operation gets fresh observations, including prior errors.
-// Stores without AIGW's typed backend remain unchanged.
-func ObserveAvailability(store Store) Store {
+// over returns store observing through the scope, or store itself when it is
+// not AIGW's typed view.
+func (observation *availabilityObservation) over(store Store) Store {
 	view, ok := store.(scopedView)
 	if !ok {
 		return store
 	}
-	view.availability = &availabilityObservation{slots: map[string]availabilityResult{}}
+	view.availability = observation
 	return view
+}
+
+// ObserveAvailability starts one operation's presence-metadata scope over one
+// credential view, as ObserveCredentials does over an installation's two.
+// Purpose views that are derived from the result share its scope.
+func ObserveAvailability(store Store) Store {
+	observed, _ := ObserveCredentials(store, nil)
+	return observed
+}
+
+// ObserveCredentials starts one operation's presence-metadata scope over the
+// two views of an installation's credentials: tokens, its providers' Tokens,
+// and balance, their balance credentials. In the scope each fact of a slot's
+// availability is asked of the backend once, through whichever view, and a
+// write or a removal through either view makes the scope forget that slot. It
+// changes no backend, caches no credential read and leaves its arguments as
+// they are; each new operation gets fresh observations, including prior
+// errors. A store without AIGW's typed backend, such as a double that a test
+// supplies, returns unchanged, and the other one still observes through the
+// scope.
+func ObserveCredentials(tokens Store, balance DiagnosticCredentialStore) (Store, DiagnosticCredentialStore) {
+	scope := &availabilityObservation{slots: map[string]availabilityResult{}}
+	if typed, ok := balance.(diagnosticCredentialStore); ok {
+		balance = diagnosticCredentialStore{backend: scope.over(typed.backend)}
+	}
+	return scope.over(tokens), balance
 }
 
 // ForKind returns a narrow string-store view over one credential kind without

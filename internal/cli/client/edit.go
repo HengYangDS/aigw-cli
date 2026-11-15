@@ -214,11 +214,7 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 	if err := checkTargets(cmd, runtime, spec.ID, targets); err != nil {
 		return err
 	}
-	// One observation of the provider's Token serves the admission, the plan,
-	// the commit and the step that an edit without a written file names.
-	operation := runtime
-	operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
-	if err := admitTargets(operation, cfg, spec, targets); err != nil {
+	if err := admitTargets(runtime, cfg, spec, targets); err != nil {
 		return err
 	}
 	before := cfg.Clone()
@@ -229,20 +225,20 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 	document.Changed = !reflect.DeepEqual(before, cfg)
 	preview := invocation.Preview{}
 	if document.Changed {
-		if preview, err = invocation.PreviewProjection(operation, before, cfg, spec.ID); err != nil {
+		if preview, err = invocation.PreviewProjection(runtime, before, cfg, spec.ID); err != nil {
 			return targetFailure(spec.ID, targets, err)
 		}
 	}
 	document.ClientFiles, document.CredentialReader = invocation.ClientFiles(runtime, preview), preview.CredentialEntrypoint
 	document.RestartRequired = spec.RestartAfterProjection && len(document.ClientFiles) > 0
 	if !options.dryRun && document.Changed {
-		if err := operation.Synchronizer().CommitProjection(cmd.Context(), before, cfg, "client edit", spec.ID); err != nil {
+		if err := runtime.Synchronizer().CommitProjection(cmd.Context(), before, cfg, "client edit", spec.ID); err != nil {
 			return targetFailure(spec.ID, targets, err)
 		}
 	}
 	pending := ""
 	if document.Changed && !options.dryRun {
-		pending = pendingStep(operation, cfg, document)
+		pending = pendingStep(runtime, cfg, document)
 	}
 	return writeEdit(cmd, runtime, spec, document, options, pending)
 }

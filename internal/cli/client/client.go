@@ -120,11 +120,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if current.Enabled && (current.Executable != "" || len(current.Targets) > 0) {
 			return terminal.ProblemError(spec.Label+" is already enabled, so its executable and configuration files change through client edit", "", "", editInstead(spec, executable, targets), nil)
 		}
-		// One observation of the provider's Token serves the admission, the
-		// preview and the commit.
-		operation := runtime
-		operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
-		if err := admitEnablement(operation, cfg, client, targets); err != nil {
+		if err := admitEnablement(runtime, cfg, client, targets); err != nil {
 			return err
 		}
 		if len(targets) == 0 {
@@ -132,13 +128,13 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		}
 		cfg.SetClientActivation(client, true, executable, targets)
 		if dryRun {
-			preview, err := invocation.PreviewChange(operation, before, cfg)
+			preview, err := invocation.PreviewChange(runtime, before, cfg)
 			if err != nil {
 				return fmt.Errorf("Client enablement preview could not finish: %w", err)
 			}
 			return writeProjectionPreview(runtime, enableSchemaVersion, jsonMode, spec, "enabled", preview, invocation.ApplyCommand(cmd, args))
 		}
-		if err := operation.Synchronizer().Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
+		if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
 			return fmt.Errorf("Client enablement could not finish: %w", err)
 		}
 		if jsonMode {

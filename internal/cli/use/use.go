@@ -161,7 +161,6 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	}
 	operation := runtime
 	operation.Interactive = runtime.Interactive && !options.jsonMode
-	operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 	chosen, err := resolve(operation, cfg, given, options.protocol)
 	if err != nil {
 		return invocation.CancelledPrompt(cmd, args, err)

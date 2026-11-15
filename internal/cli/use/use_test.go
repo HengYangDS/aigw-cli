@@ -314,7 +314,7 @@ func TestUseSaysThatItEnablesADisabledClient(t *testing.T) {
 func TestUseRenderingDoesNotReinspectCredentialMetadata(t *testing.T) {
 	run, _, out := configuredRuntime(t)
 	reads, renderingReads := 0, 0
-	run.Secrets = environmentBackend(func(string) string {
+	backend := environmentBackend(func(string) string {
 		reads++
 		if out.Len() > 0 {
 			renderingReads++
@@ -323,6 +323,9 @@ func TestUseRenderingDoesNotReinspectCredentialMetadata(t *testing.T) {
 	})
 	for invocation := 1; invocation <= 2; invocation++ {
 		out.Reset()
+		// The composition root opens one availability scope for the commands
+		// of each invocation; this test builds the command's context itself.
+		run.Secrets = secret.ObserveAvailability(backend)
 		if err := execute(run, codex.ID, "gateway/gpt-test"); err != nil {
 			t.Fatal(err)
 		}

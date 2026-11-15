@@ -328,7 +328,16 @@ func environmentMap(values []string) map[string]string {
 	return out
 }
 
+// invocationContext builds the capabilities of one command execution. Its
+// Secrets and its Providers are the two views of one availability scope over
+// the App's credential stores, in which a command asks each fact of a
+// provider's Token or of its balance credentials once, and again after it
+// stores or removes that credential itself. NewRoot builds one context for
+// the commands of one Execute call, so every command has the scope without
+// opening one, and no reading outlives the call. A credential's value is read
+// from the store each time.
 func (a *App) invocationContext() invocation.Context {
+	secrets, providers := secret.ObserveCredentials(a.Secrets, a.Providers)
 	return invocation.Context{
 		Version: appVersion(a), Executable: a.Executable, InstallTarget: a.InstallTarget,
 		ResolveCredentialPath: a.ResolveCredentialPath,
@@ -336,7 +345,7 @@ func (a *App) invocationContext() invocation.Context {
 		Files:                 a.Files,
 		Host:                  a.Host,
 		Env:                   a.Env,
-		Config:                a.Config, Secrets: a.Secrets, Providers: a.Providers, Out: a.outputWriter(),
+		Config:                a.Config, Secrets: secrets, Providers: providers, Out: a.outputWriter(),
 		In:    a.In,
 		Color: a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
@@ -349,6 +358,8 @@ var Version = "0.1.0-dev"
 
 // NewRoot constructs the complete Cobra command tree from its authoritative command metadata.
 func NewRoot(app *App) *cobra.Command {
+	// One context serves every command of the tree, bare aigw among them.
+	runtime := app.invocationContext()
 	root := &cobra.Command{
 		Use:           "aigw",
 		Short:         "Local AI provider, model and client configuration, and diagnostics",
@@ -357,7 +368,7 @@ func NewRoot(app *App) *cobra.Command {
 		// Bare aigw is aigw status, which names `aigw setup` without a
 		// configuration; only setup starts the guided first run.
 		RunE: func(*cobra.Command, []string) error {
-			return status.RunStatus(app.invocationContext(), false)
+			return status.RunStatus(runtime, false)
 		},
 	}
 	root.SetOut(app.outputWriter())
@@ -393,7 +404,6 @@ func NewRoot(app *App) *cobra.Command {
 		&cobra.Group{ID: "clients", Title: "Clients"},
 		&cobra.Group{ID: "maintain", Title: "Maintain"},
 	)
-	runtime := app.invocationContext()
 	for group, commands := range map[string][]*cobra.Command{
 		"daily":     {status.NewCommand(runtime), use.NewCommand(runtime), check.NewCommand(runtime)},
 		"models":    {modelcli.NewCommand(runtime)},

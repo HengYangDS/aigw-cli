@@ -58,7 +58,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				request.apply = invocation.ApplyCommand(cmd, nil)
 			}
 			operation := runtime
-			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 			// A JSON caller reads one document, so setup never prompts for it.
 			operation.Interactive = operation.Interactive && !request.JSON
 			var err error

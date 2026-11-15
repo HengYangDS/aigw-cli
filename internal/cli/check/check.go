@@ -142,8 +142,6 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, opts opt
 	if err != nil {
 		return err
 	}
-	operation := runtime
-	operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 	if !planned.named {
 		planned.clients = cfg.EnabledClientIDs()
 	}
@@ -151,19 +149,19 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, opts opt
 	if err != nil {
 		return err
 	}
-	shared, backend := sharedChecks(operation.Dependencies)
+	shared, backend := sharedChecks(runtime.Dependencies)
 	if backend.Availability == "unavailable" {
 		// The backend's recovery is this check's local depth, so the document
 		// names what the shared check names instead.
 		backend.RecoveryAction = backendFix
 	}
-	checking := checker{deps: operation, cfg: cfg, plan: planned, shared: shared, named: model, verbose: opts.verbose}
+	checking := checker{deps: runtime, cfg: cfg, plan: planned, shared: shared, named: model, verbose: opts.verbose}
 	if len(planned.clients) == 0 {
-		return noClient(operation, cfg, checking.shared, backend, planned.requested, opts.jsonMode)
+		return noClient(runtime, cfg, checking.shared, backend, planned.requested, opts.jsonMode)
 	}
 	result := checking.run(cmd.Context())
 	if !planned.named {
-		result.unused = listUnused(operation, cfg)
+		result.unused = listUnused(runtime, cfg)
 	}
 	if result.writesSnapshot() {
 		checking.saveSnapshot(cmd.Context(), &result)

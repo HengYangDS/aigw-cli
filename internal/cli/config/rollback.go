@@ -138,10 +138,7 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 				invocation.RenderPreview(r, preview, apply)
 				return nil
 			}
-			// One observation of each Token serves the commit and the next step.
-			operation := runtime
-			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
-			if err := operation.Synchronizer().Commit(cmd.Context(), current, restored, "rollback"); err != nil {
+			if err := runtime.Synchronizer().Commit(cmd.Context(), current, restored, "rollback"); err != nil {
 				return terminal.ProblemError(
 					"Configuration rollback did not complete",
 					"One rollback step failed; the cause identifies the affected boundary.",
@@ -150,7 +147,7 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 					err,
 				)
 			}
-			next := nextAfterRollback(restored, operation.Secrets)
+			next := nextAfterRollback(restored, runtime.Secrets)
 			if jsonMode {
 				document := rollbackDocument{Source: sourceID}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)

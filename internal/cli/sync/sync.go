@@ -12,7 +12,6 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
-	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -59,9 +58,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if len(before.Providers) == 0 {
 				return terminal.ProblemError("Not configured", "No provider has been added.", "", "aigw setup", fmt.Errorf("not configured"))
 			}
-			operation := runtime
-			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
-			synchronizer := operation.Synchronizer()
+			synchronizer := runtime.Synchronizer()
 			adoptedConfig, adopted, err := synchronizer.AdoptNativeSelections(before)
 			if err != nil {
 				return fmt.Errorf("sync synchronization preflight failed; configuration and client files were unchanged: %w", err)
@@ -81,7 +78,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					err,
 				)
 			}
-			activation := clientactivation.AssessActivation(after, operation.Secrets)
+			activation := clientactivation.AssessActivation(after, runtime.Secrets)
 			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, next: activation.NextActionFor(nil)}
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
@@ -97,7 +94,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 			if dryRun {
-				if err := prepareSyncPreview(operation, before, after, &result); err != nil {
+				if err := prepareSyncPreview(runtime, before, after, &result); err != nil {
 					return err
 				}
 			} else if err := synchronizer.CommitProjection(cmd.Context(), before, after, "sync"); err != nil {
