@@ -83,6 +83,12 @@ itself. Where `setup --from` had no Token input and could not ask, its line gain
 refusal of a missing Token does. For a provider that the configuration holds, the last step is the credential's
 own command, whichever command met the refusal.
 
+The configuration that decides is the one at the time the fix is printed. A team setup's apply has saved a
+provider that it does not name, so that provider's row ends with the credential's own command. Its preview
+saves nothing, so for a provider that the configuration does not hold the row ends with the setup that stores
+that provider's Token: the same line without `--dry-run`, naming the provider. The third review followed the
+preview's first form, and its last step answered "unknown provider".
+
 Acceptance tests follow each printed fix: the fixture removes the item that the printed deletion names, the test
 runs every printed step word for word, and it requires the credential stored and the first command free of the
 refusal. The first design of this fix asserted its sentence, and `aigw provider add` printed a last step that
@@ -121,8 +127,9 @@ the refusal returns it, and the general presentation of a store failure renders 
 takes the item from the program that stored it. A locked keychain keeps its own fix.
 
 One observation answers every one of these decisions: `secret.ObserveToken` reports a slot as present, empty or
-refused, and a Token is usable when the slot is present and neither of the other two. Seven sites repeated its
-two questions before and four asked only the first: `client edit`, the adapters' readiness, Hermes's list of
+refused, and a Token is usable when the slot is present and neither of the other two. Before it, each site
+that decides on a Token asked the two questions itself, and four asked only the first: `client edit`, the
+adapters' readiness, Hermes's list of
 providers, which therefore listed a provider whose Token no reader could return, and a fallback of `status`
 that no command reaches. A preview that presumes the Token that its command would store answers the
 observation itself, so that the adapters plan what the apply writes.
@@ -135,7 +142,7 @@ slot that a command decided by presence before: a `sync` with two Hermes provide
 before.
 
 The observation asks the worker whether a present item is empty. The worker reads the item and
-answers only that, so no value reaches the process, and one command asks once for each slot. It kept only the
+answers only that, so no value reaches the process, and one availability scope asks once for each slot. It kept only the
 answer before: a refused item counted as a stored Token. In a team setup a waiting provider's row shows the
 refusal's title and fix, and its item in the document keeps the state `unobserved` with the fix as
 `next_detail`, so the document's schema is unchanged.
@@ -241,6 +248,19 @@ state was a value of the Homebrew branch that no longer answers.
   no credential store any more.
 - A read and a write look the slot up once more before they start, for the lock state. Its cost was not
   recorded.
+- From the third review: a command that previews and then commits without an availability scope asks the worker
+  about a slot once for each (`provider add`, `provider edit`, `provider remove`, the `model` commands: two
+  worker calls more). Seven commands open a scope each, which is the same rule at seven sites. The end state is
+  one scope for each command, opened where every command starts, with the per-command scopes removed and the
+  acceptance tests' counts of worker operations as its pin. It changes what every command observes, so it is
+  not added after the last review of this Change. Owner: this repository's maintainer. Next action: a Change
+  for that scope. Review: 2026-11-20, with the bounds of the native credential tests, which the same worker
+  calls decide.
+- From the third review: a client that no command has enabled got the bare `aigw provider rotate` as its next
+  step for such an item, and `aigw config rollback` changed its next step for a plain missing Token without a
+  changelog entry. Both are corrected on the lane, the first with tests that follow the step.
+- From the third review: no test pinned the thread on which the worker kept a write or a delete. Measured after
+  the review, the user-interaction switch is the process's, so the pin protected nothing and is removed.
 
 ## Migration Plan
 

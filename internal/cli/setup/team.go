@@ -112,15 +112,21 @@ func (t teamSetup) afterDeletion(err error) error {
 
 // storingLine is the setup that stores provider's Token once its refused
 // item is deleted: this command's line, without --dry-run, because a preview
-// stores nothing, and reading the Token of that provider alone from standard
-// input where this command neither has that input nor can prompt, which would
-// end a rerun as promptRefusal ends it. Where the line then differs from the
-// one given and its team file would need quoting, it names the file to fill
-// in, because the same command again would not be that setup.
+// stores nothing; naming that provider alone where this command does not name
+// it, because a setup reads the Token of a provider that it names; and
+// reading the Token of that provider alone from standard input where this
+// command neither has that input nor can prompt, which would end a rerun as
+// promptRefusal ends it. Where the line then differs from the one given and
+// its team file would need quoting, it names the file to fill in, because the
+// same command again would not be that setup.
 func (t teamSetup) storingLine(provider string) string {
 	replaced, added := []string{"dry-run"}, []string(nil)
-	if !t.request.TokenStdin && !t.runtime.Interactive {
-		replaced, added = append(replaced, "provider"), []string{"--provider", provider, "--token-stdin"}
+	piped := !t.request.TokenStdin && !t.runtime.Interactive
+	if piped || !slices.Contains(t.request.Providers, provider) {
+		replaced, added = append(replaced, "provider"), []string{"--provider", provider}
+	}
+	if piped {
+		added = append(added, "--token-stdin")
 	}
 	line := invocation.Rerun(t.cmd, nil, replaced, added...)
 	if line == "" && (t.request.DryRun || added != nil) {
@@ -255,7 +261,9 @@ func (t teamSetup) tokenProviders() []string {
 // store, which is refused before any input is read. A Keychain item that
 // macOS refuses AIGW is such an observation: the provider that the command
 // names ends the setup with the item's refusal, and any other one waits with
-// the item's title and fix, which refused keeps for the report.
+// the item's title and fix, which refused keeps for the report. The fix ends
+// with the credential's own command when the configuration holds the provider
+// at the time the fix is printed.
 func (t teamSetup) tokenStates() (map[string]string, error) {
 	states := map[string]string{}
 	for _, id := range t.tokenProviders() {
@@ -269,6 +277,13 @@ func (t teamSetup) tokenStates() (map[string]string, error) {
 		case err != nil && slices.Contains(t.request.Providers, id):
 			return nil, fmt.Errorf("observe the Token of provider %s: %w", id, err)
 		case observation.Refusal != nil:
+			if t.request.DryRun {
+				// A preview saves no provider, so the credential's own command
+				// would not know one that only the team file holds: the fix
+				// of such a provider's item ends with the setup that stores
+				// its Token. An apply saves the provider before it prints.
+				_ = secret.AfterDeletionRun(observation.Refusal, t.storingLine(id), t.before.Providers)
+			}
 			states[id], t.refused[id] = tokenUnobserved, observation.Refusal
 		case err != nil:
 			states[id] = tokenUnobserved

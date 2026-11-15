@@ -35,6 +35,9 @@ owner.
   command had no Token input and could not ask for one
 - **AND** for a provider that the configuration holds, the last step SHALL be
   the credential's own command
+- **AND** a preview of `aigw setup --from`, which saves nothing, SHALL name as
+  the last step for a waiting provider that the configuration does not hold
+  that setup without `--dry-run`, naming the provider
 - **AND** guided setup SHALL stop at the refusal before it asks for a model.
 
 #### Scenario: A command reconciles several clients
@@ -73,6 +76,8 @@ owner.
   slot that holds such an item
 - **THEN** it SHALL report the refusal with its fix
 - **AND** it SHALL NOT count the item as a stored Token
+- **AND** a next step that offers that provider to a client that is not
+  enabled SHALL name that fix for it, not the credential's command alone
 - **AND** `aigw setup --from` SHALL end with the refusal only for a provider
   that the command names; any other provider SHALL wait with the fix while the
   setup completes for the rest.

@@ -24,6 +24,8 @@ product support by themselves, and they hold for the versions and samples named 
 4. What do several concurrent writers of one slot get, through an item reference and by query?
 5. Does a signed release read and replace the items of another signed release, in both
    directions of an upgrade?
+6. Does the switch that turns Keychain user interaction off belong to the process or to the
+   calling thread?
 
 ## Method
 
@@ -153,6 +155,20 @@ A process read one slot in a loop while a child process wrote it, for 200 rounds
 A reader can see a slot missing or invalid in the instant of another process's replacement: 15
 of 5,785 reads here.
 
+### The user-interaction switch
+
+A process turns Keychain user interaction off with `SecKeychainSetUserInteractionAllowed` and
+reads the switch with `SecKeychainGetUserInteractionAllowed`. A probe that calls only these two,
+on several threads, gave the same answers in three of three runs:
+
+| Step                                   | Read on the main thread | Read on another thread |
+| -------------------------------------- | ----------------------- | ---------------------- |
+| At the start                           | allowed                 | allowed                |
+| After the main thread turned it off    | off                     | off, on two threads    |
+| After another thread turned it back on | allowed                 | not read               |
+
+The switch is the process's and not the thread's. (_Probe; it names no keychain and no item._)
+
 ### Signed builds
 
 (_Probe binaries as described under Method; macOS 27.2.1._)
@@ -183,6 +199,7 @@ of 2026-10-13 on macOS 27.0.1 gave the same binding to identifier and team.
 | A changed item makes a held reference stale, with three statuses | A write or a delete releases its reference and looks the slot up again, with five lookups at most |
 | By query, writers collide alike                                  | The worker keeps the lookup and the reference; no retry would be saved                            |
 | Signed builds read and replace each other's items, both ways     | No release takes over an item, and a program rollback moves no credential                         |
+| The user-interaction switch is the process's                     | The worker turns it off for a whole operation and keeps no thread for it                          |
 
 That AIGW does not delete another program's item for the operator, although macOS would let it,
 is a decision about ownership and not a finding.
@@ -197,8 +214,7 @@ is a decision about ownership and not a finding.
 - **Samples.** The counts above are single runs of 150 or 200 rounds on one host under its load
   of that hour. They bound nothing; the worker's bound of five lookups is a choice that the tests
   pin with two creators and three replacers.
-- **Not measured.** Whether the user-interaction switch belongs to the process or to the thread;
-  the worker keeps one operation on one thread instead. What a writer gets while a person locks
-  and unlocks a keychain within one operation.
+- **Not measured.** What a writer gets while a person locks and unlocks a keychain within one
+  operation.
 - **Mechanism.** Why a replacement collides as a duplicate, and why a replaced item invalidates
   a reference, were not investigated.

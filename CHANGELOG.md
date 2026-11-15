@@ -39,6 +39,12 @@ signing, and GA status remain separate evidence.
   never used; when only a versioned credential reader, or a portable copy
   without a retained predecessor beside it, used it; and when no command used
   it after a 0.7.x `aigw self rollback` on Homebrew.
+- `aigw config rollback` names the step that stores the Token as its next
+  step when an enabled client of the configuration that it restores waits for
+  one: for a missing or an empty Token on every credential backend, as for a
+  Keychain item that macOS refuses AIGW. It named `aigw check --depth local`
+  before, and still does when no such client waits. Its JSON then carries the
+  step as `next_detail` in place of `next_action`.
 - **Breaking:** `aigw self rollback` moves no credential. On a Homebrew
   installation it is refused like the other program commands, and Homebrew
   installs the earlier release; its `prepared` result is gone. A signed release

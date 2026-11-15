@@ -62,4 +62,4 @@
 
 - [ ] 5.1 `mise run check` passes on the lane head.
 - [ ] 5.2 The hosted graph passes at the proposal head on both forges.
-- [ ] 5.3 Each finding of a fresh-context review of the lane is fixed on the lane head or answered in the design.
+- [x] 5.3 Each finding of a fresh-context review of the lane is fixed on the lane head or answered in the design.

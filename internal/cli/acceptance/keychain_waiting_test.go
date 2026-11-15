@@ -272,6 +272,36 @@ func TestConfigRollbackLeavesTheClientOfAnItemOfAnotherProgramWaiting(t *testing
 	}
 }
 
+// The rule is the missing Token's: on any credential backend, a rollback to a
+// configuration whose enabled client has no Token for its provider names the
+// step that stores one as its next step, in text and as guidance in its
+// document, in place of the local check, which would stop at that Token.
+func TestConfigRollbackNamesTheStepThatStoresAMissingToken(t *testing.T) {
+	const step = "run `aigw provider rotate one`"
+	for _, flags := range [][]string{nil, {"--json"}} {
+		app, out, _, _, _ := testApp(t, "")
+		bindCredentialReader(t, app)
+		installed := executableFixture(t, "claude")
+		app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: installed}}}
+		cfg := domain.NewConfig(clients.Admission())
+		cfg.SetSelectedModel(claude.ID, addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test"), "")
+		cfg.SetClientActivation(claude.ID, true, installed, nil)
+		for _, saved := range []domain.Config{cfg, domain.NewConfig(clients.Admission())} {
+			if err := app.Config.Save(saved); err != nil {
+				t.Fatal(err)
+			}
+		}
+		args := append([]string{"config", "rollback", "--last-change"}, flags...)
+		if err := cli.Execute(app, args); err != nil {
+			t.Fatalf("%v = %v\n%s", args, err, out)
+		}
+		requireNextStep(t, args, out, step)
+		if strings.Contains(out.String(), "aigw check --depth local") || claudeFile(t, app) != nil {
+			t.Fatalf("%v names the local check, or wrote the file of the client that waits:\n%s", args, out)
+		}
+	}
+}
+
 // A preview of a rollback plans the clients that the rollback writes: none
 // for a client whose provider's Keychain item another program stored. It
 // reads no Token and changes nothing.

@@ -105,17 +105,18 @@ item's owner. An item that 0.3.5 or earlier stored trusts only
 `/usr/bin/security`. macOS refuses AIGW the read of it, and AIGW does not
 replace an item that it cannot read: macOS would accept the new value and
 still refuse the read (measured on 2026-11-15). Such an item is no Token that
-AIGW can use, and every command says that another program stored it and names
-the fix, which is to have the credential at hand, delete the item with that
-tool and store the credential again. A command that needs the credential for
-its own purpose ends with that refusal. A command that writes the files of
-several clients leaves the client of that provider waiting, as it does for a
-missing Token, and completes for the others: it decides from an observation
-that returns no value, before it installs a credential reader, so no client
-file is written to name a reader that would return no Token. An ad-hoc or
-development build has another identity and meets the same refusal. Deleting the
-item for such a build takes the Token from the installed release, so a
-development build uses a home of its own.
+AIGW can use. A command that needs the credential for its own purpose ends
+with the refusal, which says that another program stored the item and names
+the fix: have the credential at hand, delete the item with that tool and store
+the credential again. `aigw status` and `aigw check --depth local` report the
+item with that fix, and `aigw provider show`, which reads no Token, reports it
+as stored. A command that writes the files of several clients leaves the client
+of that provider waiting, as it does for a missing Token, and completes for the
+others: it decides from an observation that returns no value, before it
+installs a credential reader, so no client file is written to name a reader
+that would return no Token. An ad-hoc or development build has another identity
+and meets the same refusal. Deleting the item for such a build takes the Token
+from the installed release, so a development build uses a home of its own.
 macOS gives a locked keychain's refusal the same status, so the credential
 worker also reports whether the keychain that holds the item was unlocked,
 before the operation and after its refusal, and only a refusal with a keychain

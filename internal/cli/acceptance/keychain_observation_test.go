@@ -48,20 +48,22 @@ func requireNoTokenRead(t *testing.T, items *keychain, args []string) {
 	}
 }
 
-// storeTokenAsPrinted follows the fix that out shows for provider one's item:
+// storeTokenAsPrinted follows the fix that out shows for a provider's item:
 // the fixture removes the item that the printed deletion names, and the
-// printed steps run word for word, with the Token at a scripted prompt.
+// printed steps run word for word, with the Token at a scripted prompt. The
+// Token is then stored for the provider whose item the deletion names.
 func storeTokenAsPrinted(t *testing.T, app *cli.App, out *bytes.Buffer, items *keychain) {
 	t.Helper()
 	deletion, steps := fixSteps(t, out)
 	items.delete(t, deletion)
+	provider := deletion[strings.LastIndex(deletion, " ")+1:]
 	prompt := &scriptedPrompt{secrets: []string{fixtureToken}}
 	interactive := app.Interactive
 	app.Interactive, app.Prompt = true, prompt
 	followSteps(t, app, out, steps, nil, "")
 	app.Interactive = interactive
-	if stored, err := items.Get("one"); err != nil || stored != fixtureToken || len(prompt.secretCalls) != 1 {
-		t.Fatalf("after the fix: Token stored %t, %v, after %d prompts", stored == fixtureToken, err, len(prompt.secretCalls))
+	if stored, err := items.Get(provider); err != nil || stored != fixtureToken || len(prompt.secretCalls) != 1 {
+		t.Fatalf("after the fix: Token of provider %s stored %t, %v, after %d prompts", provider, stored == fixtureToken, err, len(prompt.secretCalls))
 	}
 }
 

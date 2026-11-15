@@ -118,9 +118,9 @@ static OSStatus aigwObserveKeychainItem(const char *service, const char *account
 
 // aigwDisableKeychainInteraction turns Keychain user interaction off for the
 // whole of a write or a delete, whose steps Go orders, and reports what it was.
-// Go may run consecutive cgo calls of one goroutine on different threads, so
-// the caller keeps the operation on one thread: the setting then holds for
-// every step, whether macOS keeps it for the process or for the thread.
+// The setting is the process's, not the thread's, so it holds on whichever
+// thread Go runs the next step: measured on macOS 27.2.1, as
+// docs/research/macos-keychain-behavior.md records.
 static OSStatus aigwDisableKeychainInteraction(Boolean *wasAllowed) {
     OSStatus status = SecKeychainGetUserInteractionAllowed(wasAllowed);
     if (status != errSecSuccess) return status;
@@ -229,7 +229,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
-	"runtime"
 	"strings"
 	"unsafe"
 )
@@ -510,12 +509,11 @@ func (slot *keychainSlot) mutate(operation func(item C.SecKeychainItemRef, found
 
 // withoutKeychainInteraction runs operation with Keychain user interaction
 // off and puts the setting back. A setting that cannot be changed fails the
-// operation before it starts, as it could otherwise prompt. The goroutine
-// stays on its thread from the change of the setting to its restoration,
-// because Go may otherwise run the steps between them on other threads.
+// operation before it starts, as it could otherwise prompt. The setting is
+// the process's, so it holds on whichever thread Go runs each step between
+// its change and its restoration: measured on macOS 27.2.1, as
+// docs/research/macos-keychain-behavior.md records.
 func withoutKeychainInteraction(operation func() C.OSStatus) C.OSStatus {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
 	var wasAllowed C.Boolean
 	status := C.aigwDisableKeychainInteraction(&wasAllowed)
 	if status == C.errSecSuccess {

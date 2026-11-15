@@ -238,12 +238,15 @@ func assessEnabledProjection(cfg domain.Config, store secret.Store, result Activ
 }
 
 type inactiveClientAssessment struct {
-	cfg            domain.Config
-	store          secret.Store
-	result         Activation
-	readOnly       bool
-	seen           map[string]bool
-	alternatives   []string
+	cfg          domain.Config
+	store        secret.Store
+	result       Activation
+	readOnly     bool
+	seen         map[string]bool
+	alternatives []string
+	// refused are the refusals of the Keychain items of recommended
+	// providers that macOS refuses AIGW, one for each provider.
+	refused        []*secret.KeychainItemRefusedError
 	firstMissing   string
 	backendMissing bool
 }
@@ -292,32 +295,64 @@ func (assessment *inactiveClientAssessment) consider(client string, ref domain.M
 	if selected && assessment.firstMissing == "" {
 		assessment.firstMissing = action
 	} else if !selected && !assessment.seen[candidate.ProviderID] {
-		alternative := "aigw provider rotate " + candidate.ProviderID
-		if assessment.readOnly {
-			alternative = secret.EnvironmentKey(candidate.ProviderID)
-		}
-		assessment.alternatives = append(assessment.alternatives, alternative)
 		assessment.seen[candidate.ProviderID] = true
+		switch {
+		case observation.refusal != nil:
+			// The command that stores a Token would ask for one, send it to
+			// the provider and then end at the item, so the item's fix is the
+			// step.
+			assessment.refused = append(assessment.refused, observation.refusal)
+		case assessment.readOnly:
+			assessment.alternatives = append(assessment.alternatives, secret.EnvironmentKey(candidate.ProviderID))
+		default:
+			assessment.alternatives = append(assessment.alternatives, "aigw provider rotate "+candidate.ProviderID)
+		}
 	}
 	return false
+}
+
+// choice is the step that gives one recommended provider a Token: the
+// commands of the providers without one, joined as a choice, and then, for
+// each provider whose Keychain item macOS refuses AIGW, a sentence of its own
+// that names the provider and the item's fix in the refusal's words. One
+// provider is no choice, so its command or its item's fix stands alone.
+func (assessment *inactiveClientAssessment) choice() string {
+	slices.Sort(assessment.alternatives)
+	slices.SortFunc(assessment.refused, func(left, right *secret.KeychainItemRefusedError) int {
+		return strings.Compare(left.Provider, right.Provider)
+	})
+	if len(assessment.alternatives) == 0 && len(assessment.refused) == 1 {
+		return assessment.refused[0].Fix()
+	}
+	sentences := make([]string, 0, 1+len(assessment.refused))
+	if len(assessment.alternatives) > 0 {
+		prefix, continuation := "Choose one compatible provider: ", ""
+		if assessment.readOnly {
+			// Only synchronization adopts an environment Token that appears later.
+			prefix, continuation = "Set one compatible provider's variable: ", ", then run `aigw sync`"
+		}
+		if len(assessment.alternatives)+len(assessment.refused) == 1 && !assessment.readOnly {
+			prefix = ""
+		}
+		commands := prefix + strings.Join(assessment.alternatives, " or ") + continuation
+		if len(assessment.refused) > 0 {
+			// The commands end as a sentence where the sentence of an item follows.
+			commands += "."
+		}
+		sentences = append(sentences, commands)
+	}
+	for _, refusal := range assessment.refused {
+		sentences = append(sentences, refusal.Title()+": "+refusal.Fix())
+	}
+	return strings.Join(sentences, " ")
 }
 
 func (assessment *inactiveClientAssessment) finish() Activation {
 	switch {
 	case assessment.firstMissing != "":
 		assessment.result.CredentialPrerequisite = assessment.firstMissing
-	case len(assessment.alternatives) > 0:
-		slices.Sort(assessment.alternatives)
-		prefix, continuation := "Choose one compatible provider: ", ""
-		if assessment.readOnly {
-			// Only synchronization adopts an environment Token that appears later.
-			prefix, continuation = "Set one compatible provider's variable: ", ", then run `aigw sync`"
-		}
-		if len(assessment.alternatives) == 1 && !assessment.readOnly {
-			// One provider is no choice: its command stands alone.
-			prefix = ""
-		}
-		assessment.result.CredentialPrerequisite = prefix + strings.Join(assessment.alternatives, " or ") + continuation
+	case len(assessment.alternatives)+len(assessment.refused) > 0:
+		assessment.result.CredentialPrerequisite = assessment.choice()
 	case assessment.backendMissing:
 		assessment.result.State = domainreadiness.Unavailable
 		assessment.result.CredentialPrerequisite = "aigw check --depth local"
