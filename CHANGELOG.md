@@ -11,6 +11,8 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-15
+
 ### Changed
 
 - **Breaking:** on macOS, AIGW no longer takes over a Keychain item that 0.3.5
