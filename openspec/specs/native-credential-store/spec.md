@@ -3,8 +3,9 @@
 ## Purpose
 
 Define how AIGW uses the operating system's credential service: what a failure of that service means on
-every platform, how availability is observed without interaction, how real stores are qualified, how a
-secret crosses the process boundary, and the bound on every native operation.
+every platform, how availability is observed without interaction, how a service's Tokens are listed by
+name, how real stores are qualified, how a secret crosses the process boundary, and the bound on every
+native operation.
 
 ## Requirements
 
@@ -224,3 +225,20 @@ or timing SHALL NOT prove later authorization.
   that is much slower than a quiet one
 - **AND** the five-second deadline SHALL remain the bound of AIGW's own
   native credential operations.
+
+### Requirement: A service's Tokens can be listed by name alone
+
+AIGW SHALL list the provider IDs of a service's Tokens from item names or
+attributes alone, in the same bounded private subprocess as other native
+operations. The listing SHALL read no value, prompt for nothing and pass only
+provider IDs across the subprocess boundary. An API that returns values with
+the names, as Windows Credential Manager does, SHALL have them zeroed unread
+inside the subprocess.
+
+#### Scenario: A store needs a person to list
+
+- **WHEN** a keychain or collection is locked
+- **THEN** the listing SHALL name its items or refuse, and SHALL NOT ask for
+  access
+- **AND** a refusal SHALL be reported as unable to list, never as no Tokens
+- **AND** no credential or access-control state SHALL change.

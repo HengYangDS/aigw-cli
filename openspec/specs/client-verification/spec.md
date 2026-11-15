@@ -3,7 +3,8 @@
 ## Purpose
 
 Define how a real client session proves a model at the client depth of `aigw check`: what a Hermes
-verification owns, reuses and releases, and what a Codex session must show.
+verification owns, reuses and releases, what a Codex session must show, and which lines of a client count
+as a warning.
 
 ## Requirements
 
@@ -201,3 +202,21 @@ Codex client path.
 - **THEN** AIGW SHALL stop the client process tree it started and remove its
   verification workspace before returning
 - **AND** SHALL leave unrelated processes and protected files unchanged.
+
+### Requirement: Native warning symbols are diagnostics
+
+A native diagnostic line whose first visible character is an explicit warning
+or error symbol, `⚠`, `✗`, `✖`, `✘` or `❌`, SHALL count as a warning in
+every check that rejects explicit native warnings. Check marks, progress
+glyphs and symbols inside a line SHALL NOT.
+
+#### Scenario: Hermes reports an out-of-sync installation
+
+- **WHEN** Hermes exits zero after printing a line that starts with `⚠`
+- **THEN** verification SHALL report incomplete qualification without the
+  private diagnostic.
+
+#### Scenario: A client prints ordinary progress
+
+- **WHEN** a client prints `session_id:`, a `✓` result or a `↻` resume line
+- **THEN** that line SHALL NOT be a warning.

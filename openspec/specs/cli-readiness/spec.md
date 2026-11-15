@@ -34,24 +34,6 @@ clients, and `enabled_clients` SHALL count only those that are enabled.
 - **AND** a named disabled client SHALL be checked like an enabled one, with
   the match of its client files skipped, because it has none.
 
-### Requirement: Native warning symbols are diagnostics
-
-A native diagnostic line whose first visible character is an explicit warning
-or error symbol, `⚠`, `✗`, `✖`, `✘` or `❌`, SHALL count as a warning in
-every check that rejects explicit native warnings. Check marks, progress
-glyphs and symbols inside a line SHALL NOT.
-
-#### Scenario: Hermes reports an out-of-sync installation
-
-- **WHEN** Hermes exits zero after printing a line that starts with `⚠`
-- **THEN** verification SHALL report incomplete qualification without the
-  private diagnostic.
-
-#### Scenario: A client prints ordinary progress
-
-- **WHEN** a client prints `session_id:`, a `✓` result or a `↻` resume line
-- **THEN** that line SHALL NOT be a warning.
-
 ### Requirement: Readiness reports an unreadable configuration's stage
 
 `status` and `check` SHALL report a configuration that cannot be loaded with

@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Define the quality graph and the quality of repository text that make AIGW
-verifiable and portable, without turning presentation preferences into
-arbitrary merge vetoes.
+Define the quality graph, its evidence and the quality of repository text that
+make AIGW verifiable and portable, without turning presentation preferences
+into arbitrary merge vetoes.
 
 ## Requirements
 

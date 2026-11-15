@@ -34,22 +34,22 @@ commit. Read at `dbcded17`: `command-line` 499, `product-quality` 499, `secret-s
 - **Applies to:** the four specifications and the four new ones. The other specifications keep their place;
   four of them hold between 456 and 477 lines and will need the same when a Change grows them.
 
-| From              | To                        | Requirements                                                                                    |
-| ----------------- | ------------------------- | ----------------------------------------------------------------------------------------------- |
-| `secret-storage`  | `native-credential-store` | the five whose subject is the operating system's credential service                             |
-| `cli-readiness`   | `client-verification`     | the four of a Hermes verification and "A real Codex session proves the Codex client depth"      |
-| `command-line`    | `command-output`          | the seven on who owns output, the layout and naming of human output and the JSON contract       |
-| `product-quality` | `quantitative-quality`    | the four on quantitative evidence, the coverage authority, derived policy and coverage attempts |
+| From              | To                        | Requirements                                                                                       |
+| ----------------- | ------------------------- | -------------------------------------------------------------------------------------------------- |
+| `secret-storage`  | `native-credential-store` | the six whose subject is the operating system's credential service, the listing by name among them |
+| `cli-readiness`   | `client-verification`     | the four of a Hermes verification, the one of a real Codex session and the one on warning symbols  |
+| `command-line`    | `command-output`          | the seven on who owns output, the layout and naming of human output and the JSON contract          |
+| `product-quality` | `quantitative-quality`    | the four on quantitative evidence, the coverage authority, derived policy and coverage attempts    |
 
 ### The move is an ordinary commit, and the one delta states its proof
 
 - **Rests on:** a delta states a moved requirement twice, as REMOVED with a reason and as ADDED in full, for
-  the 21 requirements here. A Change without any delta must declare `skip_specs: true`; OpenSpec 1.16.0 then
+  the 23 requirements here. A Change without any delta must declare `skip_specs: true`; OpenSpec 1.16.0 then
   reports one INFO finding for it, and this repository's OpenSpec gate fails on every finding at every
   severity, as `product-quality` requires (both measured in this lane on 2026-11-16).
 - **Considered:** deltas for every moved block; a Change without deltas and a gate that admits its
   declaration; a direct move with one delta for the rule that the move follows.
-- **Chosen because:** 21 blocks restated by hand are 21 places where a word can change unseen, and a direct
+- **Chosen because:** 23 blocks restated by hand are 23 places where a word can change unseen, and a direct
   move is one operation by a script whose proof is the comparison of blocks. A gate that admits one kind of
   finding is a change of the quality policy and not this Change's. The rule of a move without a change was
   unwritten; `repository-organization` now states it, and that is the Change's one delta.

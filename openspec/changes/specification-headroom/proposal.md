@@ -11,7 +11,9 @@ to learn that `secret-storage` would hold.
 - Move four cohesive groups of requirements, word for word, into capabilities of their own:
   `native-credential-store` out of `secret-storage`, `client-verification` out of `cli-readiness`,
   `command-output` out of `command-line` and `quantitative-quality` out of `product-quality`.
-- Shorten the purpose of `cli-readiness`, `command-line` and `product-quality` by the clause that moved.
+- Shorten the purpose of `cli-readiness` and `product-quality` by the clause that moved. Restate the purpose
+  of `command-line`: it named the output that leaves and did not name the command tree, the flags or the exit
+  status that the specification holds.
 - No moved requirement and no scenario changes a word, and no behavior of the product changes.
 - State how such a move is proved: every requirement of the sources stands byte for byte in exactly one
   specification afterwards.
@@ -29,7 +31,7 @@ None by delta. The four capabilities above come into being by the move itself, i
 
 ## Impact
 
-- `openspec/specs/` gains four specifications and the four sources shrink to between 326 and 346 lines.
+- `openspec/specs/` gains four specifications and the four sources shrink to between 325 and 335 lines.
 - No source file, test, command, document outside `openspec/` or release artifact changes.
 - Out of scope: the specifications between 456 and 477 lines (`repository-organization`,
   `product-control-plane`, `model-selection`, `progressive-team-onboarding`), and any change of the ceiling.
