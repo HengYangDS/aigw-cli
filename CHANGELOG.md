@@ -11,6 +11,8 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-16
+
 ### Changed
 
 - Each command asks the credential store about a provider's Token and about
@@ -27,6 +29,9 @@ signing, and GA status remain separate evidence.
   that AIGW selects automatically, which is the default. It removed the Token
   then and said so only with a backend that `AIGW_SECRET_BACKEND` names.
   Releases 0.7.0 to 0.8.0 have the defect.
+- A build of AIGW from a checkout that has no Git remote completes. GoReleaser
+  warned there that it found no remote URL, so the build was refused as not
+  qualified, and its metadata named no commit.
 
 ## [0.8.0] - 2026-11-15
 
