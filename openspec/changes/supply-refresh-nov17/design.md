@@ -22,7 +22,8 @@ newest stable release.
 ### Mise 2026.11.8 waits for the runners' window
 
 - **Rests on:** the calculation of 2026-11-16, which reports `docker.io/jdxcode/mise` 2026.11.8 against the
-  pinned 2026.11.7. The CUE authority derives one Mise release from the Linux image's tag and pins the digests
+  pinned 2026.11.7. The refresh of 2026-11-14 held the same release and set its review for 2026-11-17; this
+  refresh is that review, and no window was held in between. The CUE authority derives one Mise release from the Linux image's tag and pins the digests
   of the macOS and Windows executables that the GitLab runners own; each macOS and Windows job verifies its
   executable against them before it runs. The executables of 2026.11.7 were placed on both guests on
   2026-11-13, and the Windows replacement needed the guest's network and two paused runners. The scenario "A
@@ -33,20 +34,27 @@ newest stable release.
   both; a second one a few days earlier costs the other projects' runners an interruption for one patch
   release.
 - **Applies to:** the Mise release of the Linux image and of the two runner-owned executables. The Change
-  `runner-mise-window` moves them together with its window: owner, the maintainer of this repository's CI
-  guests; date, 2026-11-20. The Mise action of the hosted runners is a separate pin and advances here.
+  `runner-mise-window` will move them together with its window; it is not open yet. Owner: the maintainer of
+  this repository's CI guests. Date: 2026-11-20, the day on which the window for the rollback copies is due.
+  The Mise action of the hosted runners is a separate pin and advances here.
 
 ### The YAML library's new import path gets a Change of its own
 
 - **Rests on:** the calculation of 2026-11-16, which reports `go.yaml.in/yaml/v4` v4.0.0 for
-  `go.yaml.in/yaml/v3` v3.0.6. The module path changes, and 33 Go files of this repository import the
-  library, among them the readers and writers of client configuration files.
+  `go.yaml.in/yaml/v3` v3.0.6. In Go a major version is a module of its own: v3.0.6 is the newest release of
+  the module that this repository pins, and v4 is another module, which 34 Go files at this lane's head
+  would import in its place, the writer of a client's configuration among them. The refresh of 2026-11-14
+  held it and set a review for 2026-11-17; this refresh is that review. A reading of v4.0.0's source on
+  2026-11-16 found that its encoder folds a line past column 80 where v3 folds none, and that its node type
+  gains a field that would enter a state file which released programs read with unknown fields refused.
+  No test of this repository compares a written file byte for byte.
 - **Considered:** migrate in this refresh; migrate in a Change of its own after this one.
-- **Chosen because:** a major release of the library that reads and writes users' client files needs its
-  release notes read against every use, and its output compared byte for byte, before it ships. That review
-  should not decide when the fixes that already wait on `dev` reach users.
-- **Applies to:** `go.yaml.in/yaml` only. The Change `yaml-v4-import-path` carries the migration: owner, this
-  repository's maintainer; it opens when this Change has landed; date, 2026-11-18.
+- **Chosen because:** the supply rule asks for the newest release of each pinned input, and v3.0.6 is that.
+  A move to another module that changes the bytes of a user's file is a change of the product: it needs
+  tests of the written bytes first, which do not exist, and it should not decide when the fixes that already
+  wait on `dev` reach users.
+- **Applies to:** `go.yaml.in/yaml` only. The Change `yaml-v4-import-path` will carry the migration; it is
+  not open yet. Owner: this repository's maintainer. It opens when this Change has landed. Date: 2026-11-18.
 
 ### 0.8.1 is cut with this refresh
 

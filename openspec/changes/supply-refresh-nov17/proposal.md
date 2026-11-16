@@ -13,8 +13,9 @@ candidates. The dependency Changes on `dev` since 0.8.0 are also unreleased, amo
 - `jdx/mise-action` advances from v5.2.8 to v5.2.9, pinned to its commit, in the CUE authority and the
   GitHub workflows that it projects.
 - The npm lock is refreshed within its declared ranges: DOMPurify 3.4.18 and two packages of `tldts`.
-- Two candidates are held, each with its owner and next action in the design: Mise 2026.11.8, a runner-owned
-  tool for which this refresh has no window, and `go.yaml.in/yaml/v4`, a new import path in 33 files.
+- Two candidates are held for the second time, each with its owner and next action in the design: Mise
+  2026.11.8, a runner-owned tool for which this refresh has no window, and `go.yaml.in/yaml/v4`, another
+  module, which 34 Go files would have to import in place of v3.
 - Release 0.8.1 is prepared.
 
 ## Capabilities
