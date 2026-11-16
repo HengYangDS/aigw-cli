@@ -252,11 +252,22 @@ establish warning-free acceptance.
 
 #### Scenario: Native validation distinguishes advice from failure
 
-- **WHEN** OpenSpec reports `INFO`, `WARNING`, `ERROR`, or a failed summary
+- **WHEN** OpenSpec reports `INFO`, `WARNING`, `ERROR`, or a failed summary,
+  other than its acknowledgement of a Change's own `skip_specs` declaration
 - **THEN** the repository gate fails and reports every finding without filtering
   it, even if the native validator classifies the item as informational
 - **AND** unknown severity, malformed evidence, or diagnostic output failure
   also fails admission.
+
+#### Scenario: A Change declares that it changes no specification
+
+- **WHEN** an active Change declares `skip_specs: true`, holds no delta, and
+  OpenSpec's only finding for it is the acknowledgement of that declaration
+- **THEN** the repository gate passes and names that Change in its summary as
+  one without a specification change
+- **AND** any other finding of that Change still fails the gate
+- **AND** the same acknowledgement for a Change whose metadata does not declare
+  `skip_specs: true` fails the gate.
 
 #### Scenario: Successful child diagnostics remain observable
 
