@@ -13,5 +13,5 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` passes on the lane head.
-- [ ] 2.2 The hosted graph passes at the proposal head on both forges.
+- [x] 2.1 `mise run check` passes on the lane head.
+- [x] 2.2 The hosted graph passes at the proposal head on both forges.
