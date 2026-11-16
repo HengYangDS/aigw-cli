@@ -3,9 +3,9 @@
 AIGW's OpenSpec gate fails on every finding of the validator, whatever its level. Since OpenSpec 2.0 a
 Change that changes no specification declares `skip_specs: true` in its metadata, and the validator answers
 with a finding of its own: read on 2026-11-16 with the bundled 2.0.0, such a Change is `valid` and carries one
-issue at level `INFO`, path `file`, "skip_specs is set in .openspec.yaml: change declares no spec-level
-behavior changes, zero deltas accepted". The gate fails on that acknowledgement, so every Change of this
-repository must carry a delta.
+issue at level `INFO`, path `file`, which begins `skip_specs is set in .openspec.yaml` and says that the
+Change declares no change of behavior at the level of a specification. The gate fails on that
+acknowledgement, so every Change of this repository must carry a delta.
 
 A Change that changes no behavior then has to add text. Eight archived Changes modified the requirement
 "Latest stable repository-owned supply chain", which holds 17 scenarios at `9a3cf734`, and a fix of a defect

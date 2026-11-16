@@ -23,7 +23,7 @@ validation distinguishes advice from failure".
 
 - **Rests on:** the validator's report for a Change with `skip_specs: true` and no delta, read on 2026-11-16
   with the bundled OpenSpec 2.0.0 in this lane: the item is `valid`, its one issue has level `INFO` and path
-  `file`, and its message begins "skip_specs is set in .openspec.yaml". A Change without a delta and without
+  `file`, and its message begins `skip_specs is set in .openspec.yaml`. A Change without a delta and without
   the declaration is invalid, with an `ERROR` that names the declaration as the way to state the intent; one
   with both is invalid too. The gate's reader took each item's identifier and issues from that report at
   `9a3cf734` and now also takes its type and validity. Eight archived
