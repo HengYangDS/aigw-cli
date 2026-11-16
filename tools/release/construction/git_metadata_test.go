@@ -15,9 +15,11 @@ import (
 )
 
 // Release metadata selects a peer only when the checkout leaves exactly one
-// unambiguous native choice, and reports every Git failure it depends on.
+// unambiguous native choice, names the checkout itself where Git has no remote
+// to answer with, and reports every Git failure it depends on.
 func TestReleaseGitEnvironmentSelectsOnlyAnUnambiguousPeer(t *testing.T) {
 	failure := errors.New("git exited with status 128")
+	checkout := []string{"GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=remote.origin.url", "GIT_CONFIG_VALUE_0=."}
 	for _, test := range []struct {
 		name, branch, remote, remotes, count string
 		failing                              string
@@ -25,7 +27,13 @@ func TestReleaseGitEnvironmentSelectsOnlyAnUnambiguousPeer(t *testing.T) {
 		problem                              string
 	}{
 		{name: "unreadable branch", failing: "rev-parse --abbrev-ref HEAD", problem: "read release source branch"},
-		{name: "detached checkout", branch: "HEAD", remotes: "origin\n"},
+		{name: "detached checkout with origin", branch: "HEAD", remotes: "origin\n"},
+		{name: "detached checkout with one peer", branch: "HEAD", remotes: "github\n"},
+		{name: "detached checkout with origin among peers", branch: "HEAD", remotes: "github\norigin\n"},
+		{name: "detached checkout among peers without origin", branch: "HEAD", remotes: "github\ngitlab\n", want: checkout},
+		{name: "detached checkout among peers that are not native", branch: "HEAD", remotes: "mirror\nbackup\n", want: checkout},
+		{name: "detached checkout without a peer", branch: "HEAD", want: checkout},
+		{name: "unnamed checkout among peers without origin", remotes: "github\ngitlab\n", want: checkout},
 		{name: "unreadable branch peer", branch: "work/x", failing: "config get --default= branch.work/x.remote", problem: "read release source peer"},
 		{name: "explicit branch peer", branch: "work/x", remote: "gitlab"},
 		{name: "unreadable peers", branch: "work/x", failing: "remote", problem: "read release source peers"},
@@ -147,9 +155,10 @@ func remoteFreeCheckout(t *testing.T) (root string, git func(args ...string) str
 	return root, git
 }
 
-// Where no Forge is configured, GoReleaser's question for the remote's URL is
-// answered with the checkout itself, through the process environment alone.
-func TestReleaseGitEnvironmentNamesTheCheckoutWhereNoForgeIsConfigured(t *testing.T) {
+// Where Git has no remote to answer GoReleaser's question with, the checkout
+// itself is the answer, through the process environment alone; where Git
+// answers by itself, nothing is added.
+func TestReleaseGitEnvironmentNamesTheCheckoutWhereGitHasNoAnswer(t *testing.T) {
 	t.Setenv("GIT_CONFIG_COUNT", "")
 	root, git := remoteFreeCheckout(t)
 	run := executeTool(t.Context())
@@ -158,32 +167,61 @@ func TestReleaseGitEnvironmentNamesTheCheckoutWhereNoForgeIsConfigured(t *testin
 		err := run(toolCall{Name: "git", Directory: root, Args: []string{"ls-remote", "--get-url"}, Env: environment, Stdout: &answer, Stderr: &diagnostic})
 		return strings.TrimSpace(answer.String()), err
 	}
-	configuration, err := os.ReadFile(filepath.Join(root, ".git", "config"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=remote.origin.url", "GIT_CONFIG_VALUE_0=."}
-	for _, state := range []string{"on a branch", "detached"} {
-		if state == "detached" {
-			git("checkout", "--quiet", "--detach")
+	for _, state := range []struct {
+		name    string
+		prepare [][]string
+		answers bool
+	}{
+		{name: "on a branch without a remote"},
+		{name: "detached without a remote", prepare: [][]string{{"checkout", "--quiet", "--detach"}}},
+		{name: "detached with one remote that is not origin", answers: true,
+			prepare: [][]string{{"remote", "add", "github", "https://github.example.test/owner/aigw-cli.git"}}},
+		{name: "detached with origin among two remotes", answers: true,
+			prepare: [][]string{{"remote", "add", "origin", "https://origin.example.test/owner/aigw-cli.git"}}},
+		{name: "detached among two remotes without origin",
+			prepare: [][]string{{"remote", "remove", "origin"}, {"remote", "add", "gitlab", "https://gitlab.example.test/owner/aigw-cli.git"}}},
+	} {
+		for _, arguments := range state.prepare {
+			git(arguments...)
 		}
-		if answer, err := remoteURL(nil); err == nil {
-			t.Fatalf("%s: Git names a remote where none is configured: %q", state, answer)
+		configuration, err := os.ReadFile(filepath.Join(root, ".git", "config"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if answer, err := remoteURL(nil); (err == nil) != state.answers || state.answers && (answer == "" || answer == ".") {
+			t.Fatalf("%s: Git's own remote URL = %q, %v", state.name, answer, err)
+		}
+		var want []string
+		if !state.answers {
+			want = []string{"GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=remote.origin.url", "GIT_CONFIG_VALUE_0=."}
 		}
 		environment, err := goReleaserGitEnvironment(root, nil, run)
 		if err != nil || !slices.Equal(environment, want) {
-			t.Fatalf("%s: environment = %q, %v; want %q", state, environment, err, want)
+			t.Fatalf("%s: environment = %q, %v; want %q", state.name, environment, err, want)
 		}
-		if answer, err := remoteURL(environment); err != nil || answer != "." {
-			t.Fatalf("%s: remote URL = %q, %v", state, answer, err)
+		if answer, err := remoteURL(environment); !state.answers && (err != nil || answer != ".") {
+			t.Fatalf("%s: remote URL = %q, %v", state.name, answer, err)
+		}
+		if written, err := os.ReadFile(filepath.Join(root, ".git", "config")); err != nil || !bytes.Equal(written, configuration) {
+			t.Fatalf("%s: construction wrote Git configuration: %v\n%s", state.name, err, written)
 		}
 	}
-	if written, err := os.ReadFile(filepath.Join(root, ".git", "config")); err != nil || !bytes.Equal(written, configuration) {
-		t.Fatalf("construction wrote Git configuration: %v\n%s", err, written)
+}
+
+// requirePortableArtifacts runs the real build of root for the host's platform
+// and reads both of its archives.
+func requirePortableArtifacts(t *testing.T, root string) {
+	t.Helper()
+	request := buildRequest{Root: root, Version: "1.2.3", Epoch: "1784246400", TargetOS: runtime.GOOS}
+	stage, err := buildArchives(request, t.TempDir(), executeTool(t.Context()))
+	if err != nil {
+		t.Fatalf("build where Git names no remote: %v", err)
 	}
-	git("remote", "add", "mirror", filepath.Join(root, "mirror"))
-	if environment, err := goReleaserGitEnvironment(root, nil, run); err != nil || environment != nil {
-		t.Fatalf("a configured remote was replaced: %q, %v", environment, err)
+	for _, arch := range []string{"amd64", "arm64"} {
+		target := artifact.Target{OS: runtime.GOOS, Arch: arch}
+		if _, err := target.ReadProgram(filepath.Join(stage, target.ArchiveName(request.Version)), filepath.Join(stage, "checksums.txt"), request.Version); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
@@ -193,15 +231,16 @@ func TestReleaseGitEnvironmentNamesTheCheckoutWhereNoForgeIsConfigured(t *testin
 // its qualification.
 func TestPortableArtifactsBuildWhereNoForgeIsConfigured(t *testing.T) {
 	root, _ := remoteFreeCheckout(t)
-	request := buildRequest{Root: root, Version: "1.2.3", Epoch: "1784246400", TargetOS: runtime.GOOS}
-	stage, err := buildArchives(request, t.TempDir(), executeTool(t.Context()))
-	if err != nil {
-		t.Fatalf("build without a Git remote: %v", err)
-	}
-	for _, arch := range []string{"amd64", "arm64"} {
-		target := artifact.Target{OS: runtime.GOOS, Arch: arch}
-		if _, err := target.ReadProgram(filepath.Join(stage, target.ArchiveName(request.Version)), filepath.Join(stage, "checksums.txt"), request.Version); err != nil {
-			t.Fatal(err)
-		}
-	}
+	requirePortableArtifacts(t, root)
+}
+
+// A detached checkout among several peers, none of them origin, is this
+// repository's own remote layout in a detached worktree; its real build is
+// complete as well.
+func TestPortableArtifactsBuildDetachedAmongPeersWithoutOrigin(t *testing.T) {
+	root, git := remoteFreeCheckout(t)
+	git("remote", "add", "github", "https://github.example.test/owner/aigw-cli.git")
+	git("remote", "add", "gitlab", "https://gitlab.example.test/owner/aigw-cli.git")
+	git("checkout", "--quiet", "--detach")
+	requirePortableArtifacts(t, root)
 }

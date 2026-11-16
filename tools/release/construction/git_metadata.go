@@ -12,8 +12,9 @@ import (
 
 // goReleaserGitEnvironment returns the Git configuration that GoReleaser needs
 // to read a remote's URL in this checkout (`git ls-remote --get-url`), as
-// process environment. It writes no Git configuration, and it adds nothing
-// where Git already answers.
+// process environment. It writes no Git configuration, reads no remote's URL,
+// and adds nothing where Git already answers: on a branch that names its peer,
+// with one remote, or with a remote named origin.
 func goReleaserGitEnvironment(root string, environment []string, run toolRunner) ([]string, error) {
 	var branch bytes.Buffer
 	if err := run(toolCall{Name: "git", Directory: root, Args: []string{"rev-parse", "--abbrev-ref", "HEAD"}, Env: environment, Stdout: &branch}); err != nil {
@@ -36,13 +37,15 @@ func goReleaserGitEnvironment(root string, environment []string, run toolRunner)
 		return nil, fmt.Errorf("read release source peers: %w", err)
 	}
 	remotes := strings.Fields(remoteOutput.String())
-	if len(remotes) == 0 {
-		// No Forge is configured: the checkout itself, as Git's relative path
-		// from the directory where GoReleaser runs, is the remote's URL.
-		return gitConfigurationEnvironment("remote.origin.url", ".")
+	if len(remotes) == 1 || slices.Contains(remotes, "origin") {
+		return nil, nil // Git answers with its only remote, or with origin.
 	}
-	if detached || len(remotes) < 2 || slices.Contains(remotes, "origin") {
-		return nil, nil // Detached Forge checkouts retain their native clone remote.
+	if detached || len(remotes) == 0 {
+		// Git has no answer: no Forge is configured, or a detached checkout
+		// has several peers and none of them is origin. The checkout itself,
+		// as Git's relative path from the directory where GoReleaser runs, is
+		// the remote's URL.
+		return gitConfigurationEnvironment("remote.origin.url", ".")
 	}
 	for _, peer := range []string{"github", "gitlab"} {
 		if slices.Contains(remotes, peer) {

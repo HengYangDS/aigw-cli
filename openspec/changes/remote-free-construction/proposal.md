@@ -10,8 +10,9 @@ are owned failures" requires.
 
 ## What Changes
 
-- Release construction builds the portable artifacts in a checkout without a Git remote, and GoReleaser
-  emits no diagnostic there.
+- Release construction builds the portable artifacts wherever Git has no answer of its own for the remote's
+  URL: in a checkout without a Git remote, and in a detached checkout that has several peers and none named
+  `origin`. GoReleaser emits no diagnostic there.
 - A test builds in such a checkout and names the scenario that it verifies.
 - The classification of native diagnostics does not change: a warning of a native tool still prevents
   qualification.
