@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"go.yaml.in/yaml/v3"
 )
 
 type openSpecValidationReport struct {
@@ -31,14 +33,18 @@ type openSpecValidationReport struct {
 			Failed int `json:"failed"`
 		} `json:"totals"`
 	} `json:"summary"`
-	ItemFindings []struct {
-		ID     string `json:"id"`
-		Issues []struct {
-			Level   string `json:"level"`
-			Path    string `json:"path"`
-			Message string `json:"message"`
-		} `json:"issues"`
-	} `json:"itemFindings"`
+	ItemFindings []openSpecItemFindings `json:"itemFindings"`
+}
+
+type openSpecItemFindings struct {
+	ID     string `json:"id"`
+	Type   string `json:"type"`
+	Valid  bool   `json:"valid"`
+	Issues []struct {
+		Level   string `json:"level"`
+		Path    string `json:"path"`
+		Message string `json:"message"`
+	} `json:"issues"`
 }
 
 func runOpenSpecValidation(stdout io.Writer, runner outputRunner) error {
@@ -79,27 +85,69 @@ func validateOpenSpecReport(raw []byte, root string, stdout io.Writer) error {
 	if !filepath.IsAbs(report.Root.Path) || expectedErr != nil || observedErr != nil || !observed.IsDir() || !os.SameFile(expected, observed) {
 		return fmt.Errorf("OpenSpec validation root %q does not identify requested checkout %q", report.Root.Path, root)
 	}
-	findings := make([]string, 0, report.Report.ReturnedItems)
-	failed := totals.Failed != 0 || header.ReturnedItems != 0
+	findings, specFree, err := report.findings(root)
+	if err != nil {
+		return err
+	}
+	if totals.Failed != 0 || len(specFree) != header.ReturnedItems {
+		return fmt.Errorf("OpenSpec validation findings (validator failures: %d, reported findings: %d):\n%s", totals.Failed, len(findings), strings.Join(findings, "\n"))
+	}
+	summary := fmt.Sprintf("OpenSpec: %d items, %d findings", header.TotalItems, len(findings)-len(specFree))
+	if len(specFree) != 0 {
+		summary += "; without a specification change: " + strings.Join(specFree, ", ")
+	}
+	_, err = fmt.Fprintln(stdout, summary)
+	return err
+}
+
+// findings lists every finding of the report, and the Changes whose only
+// finding acknowledges their own declaration that they change no
+// specification. Every other item with a finding fails the gate.
+func (report openSpecValidationReport) findings(root string) (findings, specFree []string, err error) {
 	for _, item := range report.ItemFindings {
 		if len(item.Issues) == 0 {
-			return errors.New("unexpected OpenSpec validation report")
+			return nil, nil, errors.New("unexpected OpenSpec validation report")
+		}
+		if item.acknowledgesNoSpecification() && declaresNoSpecification(root, item.ID) {
+			specFree = append(specFree, item.ID)
 		}
 		for _, issue := range item.Issues {
 			switch issue.Level {
 			case "INFO", "WARNING", "ERROR":
 			default:
-				return fmt.Errorf("unknown OpenSpec validation severity %q", issue.Level)
+				return nil, nil, fmt.Errorf("unknown OpenSpec validation severity %q", issue.Level)
 			}
 			findings = append(findings, fmt.Sprintf("%s %s [%s]: %s", item.ID, issue.Path, issue.Level, issue.Message))
 		}
 	}
-	if failed {
-		return fmt.Errorf("OpenSpec validation findings (validator failures: %d, reported findings: %d):\n%s", totals.Failed, len(findings), strings.Join(findings, "\n"))
+	return findings, specFree, nil
+}
+
+// acknowledgesNoSpecification reports whether the validator's only finding for
+// a valid Change is its acknowledgement of a `skip_specs` declaration. The
+// finding alone admits nothing: declaresNoSpecification reads the declaration.
+func (item openSpecItemFindings) acknowledgesNoSpecification() bool {
+	if item.Type != "change" || !item.Valid || len(item.Issues) != 1 {
+		return false
 	}
-	summary := fmt.Sprintf("OpenSpec: %d items, %d findings", header.TotalItems, len(findings))
-	_, err := fmt.Fprintln(stdout, strings.Join(append([]string{summary}, findings...), "\n"))
-	return err
+	issue := item.Issues[0]
+	return issue.Level == "INFO" && issue.Path == "file" && strings.HasPrefix(issue.Message, "skip_specs is set in .openspec.yaml")
+}
+
+// declaresNoSpecification reports whether the active Change id declares
+// `skip_specs: true` in its own metadata under root. A name that is not one
+// directory of openspec/changes, an archive, unreadable metadata and any other
+// value declare nothing.
+func declaresNoSpecification(root, id string) bool {
+	if id == "" || id == "." || id == ".." || id == "archive" || strings.ContainsAny(id, `/\`) {
+		return false
+	}
+	data, err := os.ReadFile(filepath.Join(root, "openspec", "changes", id, ".openspec.yaml"))
+	if err != nil {
+		return false
+	}
+	var metadata map[string]any
+	return yaml.Unmarshal(data, &metadata) == nil && metadata["skip_specs"] == true
 }
 
 // openSpecTransition holds the active Changes and the main specifications whose
