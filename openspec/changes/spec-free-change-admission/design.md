@@ -26,7 +26,7 @@ validation distinguishes advice from failure".
   `file`, and its message begins `skip_specs is set in .openspec.yaml`. A Change without a delta and without
   the declaration is invalid, with an `ERROR` that names the declaration as the way to state the intent; one
   with both is invalid too. The gate's reader took each item's identifier and issues from that report at
-  `9a3cf734` and now also takes its type and validity. Eight archived
+  `9a3cf734` and now also takes its type and validity. Fifteen archived
   Changes carry a `MODIFIED` block of "Latest stable repository-owned supply chain", and that requirement
   holds 17 scenarios at `9a3cf734`.
 - **Considered:** keep the rule, so that every Change writes a delta; admit every `INFO`; admit the
@@ -43,8 +43,11 @@ validation distinguishes advice from failure".
 
 ## Risks / Trade-offs
 
-- [A Change declares `skip_specs` although it changes behavior] → The declaration is in the Change's diff, and
-  the Change's review asks it; the validator refuses the declaration when a delta exists.
+- [A Change declares `skip_specs` although it changes behavior] → No gate can decide that. The declaration
+  is in the Change's diff, and `openspec/config.yaml` requires its proposal to name the accepted requirement
+  and scenario that already state the behavior, or to say that the product's behavior does not change, so
+  the Change's review has a sentence to hold against the diff. The validator refuses the declaration when a
+  delta exists.
 - [OpenSpec rewords the acknowledgement] → The gate then fails a declared Change, which is the safe direction,
   and the test that drives the gate with the validator's report names the cause.
 

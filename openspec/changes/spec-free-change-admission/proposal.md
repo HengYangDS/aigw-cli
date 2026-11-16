@@ -7,12 +7,15 @@ issue at level `INFO`, path `file`, which begins `skip_specs is set in .openspec
 Change declares no change of behavior at the level of a specification. The gate fails on that
 acknowledgement, so every Change of this repository must carry a delta.
 
-A Change that changes no behavior then has to add text. Eight archived Changes modified the requirement
+A Change that changes no behavior then has to add text. Fifteen archived Changes modified the requirement
 "Latest stable repository-owned supply chain", which holds 17 scenarios at `9a3cf734`, and a fix of a defect
 against a scenario that is already accepted has nothing true to add.
 
 ## What Changes
 
+- A Change that declares `skip_specs: true` names, in its proposal, the accepted requirement and scenario
+  that already state its behavior, or says that it changes no behavior of the product; the repository's
+  OpenSpec rules require it.
 - The OpenSpec gate passes an active Change that declares `skip_specs: true`, holds no delta and has the
   validator's acknowledgement of that declaration as its only finding. The gate's summary names each such
   Change.

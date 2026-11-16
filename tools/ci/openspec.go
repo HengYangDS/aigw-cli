@@ -125,21 +125,23 @@ func (report openSpecValidationReport) findings(root string) (findings, specFree
 
 // acknowledgesNoSpecification reports whether the validator's only finding for
 // a valid Change is its acknowledgement of a `skip_specs` declaration. The
-// finding alone admits nothing: declaresNoSpecification reads the declaration.
+// message is matched through its colon, because the validator's refusal of a
+// declaration beside deltas begins with the same words. The finding alone
+// admits nothing: declaresNoSpecification reads the declaration.
 func (item openSpecItemFindings) acknowledgesNoSpecification() bool {
 	if item.Type != "change" || !item.Valid || len(item.Issues) != 1 {
 		return false
 	}
 	issue := item.Issues[0]
-	return issue.Level == "INFO" && issue.Path == "file" && strings.HasPrefix(issue.Message, "skip_specs is set in .openspec.yaml")
+	return issue.Level == "INFO" && issue.Path == "file" && strings.HasPrefix(issue.Message, "skip_specs is set in .openspec.yaml:")
 }
 
 // declaresNoSpecification reports whether the active Change id declares
 // `skip_specs: true` in its own metadata under root. A name that is not one
-// directory of openspec/changes, an archive, unreadable metadata and any other
-// value declare nothing.
+// directory of openspec/changes, the archive in any letter case, unreadable
+// metadata and any other value declare nothing.
 func declaresNoSpecification(root, id string) bool {
-	if id == "" || id == "." || id == ".." || id == "archive" || strings.ContainsAny(id, `/\`) {
+	if id == "" || id == "." || id == ".." || strings.EqualFold(id, "archive") || strings.ContainsAny(id, `/\`) {
 		return false
 	}
 	data, err := os.ReadFile(filepath.Join(root, "openspec", "changes", id, ".openspec.yaml"))

@@ -9,6 +9,8 @@ rules:
       affected capabilities and the impact; mark breaking changes and name the out-of-scope boundary
       without copying implementation or execution history.
     - State the authority boundary, breaking removals, reuse stance, and non-goals.
+    - A Change whose metadata sets `skip_specs` names the accepted requirement and scenario that
+      already state its behavior, or says that it changes no behavior of the product.
   specs:
     - Use the native delta operations ADDED, MODIFIED, REMOVED and RENAMED at exact capability
       paths. A MODIFIED requirement restates its complete block with every retained scenario; main

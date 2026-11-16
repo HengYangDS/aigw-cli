@@ -120,7 +120,10 @@ func TestOpenSpecGateReadsOnlyTheChangesOwnDeclaration(t *testing.T) {
 		"commented/.openspec.yaml": "schema: spec-driven\n# skip_specs: true\n",
 		"malformed/.openspec.yaml": "skip_specs: true\n\t- broken\n",
 		".openspec.yaml":           declaredOpenSpecMetadata,
+		"../.openspec.yaml":        declaredOpenSpecMetadata,
 		"archive/.openspec.yaml":   declaredOpenSpecMetadata,
+		// The same file as the archive's where the file system ignores case.
+		"ARCHIVE/.openspec.yaml": declaredOpenSpecMetadata,
 	}, []openSpecAdmissionCase{
 		{name: "no metadata", items: []string{acknowledgedOpenSpecChange("absent")}, wantErr: "absent" + openSpecAcknowledged},
 		{name: "a refusal", items: []string{acknowledgedOpenSpecChange("refused")}, wantErr: "refused" + openSpecAcknowledged},
@@ -128,7 +131,10 @@ func TestOpenSpecGateReadsOnlyTheChangesOwnDeclaration(t *testing.T) {
 		{name: "a comment", items: []string{acknowledgedOpenSpecChange("commented")}, wantErr: "commented" + openSpecAcknowledged},
 		{name: "unreadable metadata", items: []string{acknowledgedOpenSpecChange("malformed")}, wantErr: "malformed" + openSpecAcknowledged},
 		{name: "the directory of Changes", items: []string{acknowledgedOpenSpecChange(".")}, wantErr: "." + openSpecAcknowledged},
+		{name: "no name", items: []string{acknowledgedOpenSpecChange("")}, wantErr: "reported findings: 1):\n" + openSpecAcknowledged},
+		{name: "the directory above the Changes", items: []string{acknowledgedOpenSpecChange("..")}, wantErr: ".." + openSpecAcknowledged},
 		{name: "the archive", items: []string{acknowledgedOpenSpecChange("archive")}, wantErr: "archive" + openSpecAcknowledged},
+		{name: "the archive in another case", items: []string{acknowledgedOpenSpecChange("ARCHIVE")}, wantErr: "ARCHIVE" + openSpecAcknowledged},
 		{name: "a path to a Change", items: []string{acknowledgedOpenSpecChange("declared/../declared")}, wantErr: "declared/../declared" + openSpecAcknowledged},
 	})
 }
@@ -159,6 +165,12 @@ func TestOpenSpecGateKeepsEveryOtherFindingOfADeclaredChange(t *testing.T) {
 			name:    "another message about the declaration",
 			items:   []string{reworded("skip_specs is set in .openspec.yaml: change declares", "skip_specs is ignored: change declares")},
 			wantErr: "declared file [INFO]: skip_specs is ignored",
+		},
+		{
+			name: "the validator's conflict as information",
+			items: []string{reworded("skip_specs is set in .openspec.yaml: change declares no spec-level behavior changes, zero deltas accepted",
+				"skip_specs is set in .openspec.yaml but spec files exist under specs/. Remove skip_specs or delete the delta spec files")},
+			wantErr: "declared file [INFO]: skip_specs is set in .openspec.yaml but spec files exist under specs/",
 		},
 		{
 			name:    "unknown severity",
