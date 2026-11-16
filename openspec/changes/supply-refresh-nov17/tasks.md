@@ -16,5 +16,5 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `mise run check` and `mise run dependencies:check` pass on the lane head.
-- [ ] 3.2 The hosted graph passes at the proposal head on both forges.
+- [x] 3.1 `mise run check` and `mise run dependencies:check` pass on the lane head.
+- [x] 3.2 The hosted graph passes at the proposal head on both forges.
