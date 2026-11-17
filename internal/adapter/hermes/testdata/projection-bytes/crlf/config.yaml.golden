@@ -1,0 +1,17 @@
+display:
+  theme: dark # chosen by the operator
+terminal:
+  backend: local
+model:
+  provider: aigw
+  default: model-test
+  base_url: https://provider.test/v1
+  api_mode: codex_responses
+providers:
+  aigw:
+    base_url: https://provider.test/v1
+    transport: codex_responses
+    key_cmd: aigw credential hermes projection-test
+    models:
+      - model-test
+    discover_models: false

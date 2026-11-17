@@ -1,0 +1,81 @@
+{
+  "version": 2,
+  "original_model": {
+    "Kind": 4,
+    "Style": 0,
+    "Tag": "!!map",
+    "Value": "",
+    "Anchor": "",
+    "Alias": null,
+    "Content": [
+      {
+        "Kind": 8,
+        "Style": 0,
+        "Tag": "!!str",
+        "Value": "provider",
+        "Anchor": "",
+        "Alias": null,
+        "Content": null,
+        "HeadComment": "",
+        "LineComment": "",
+        "FootComment": "",
+        "Line": 0,
+        "Column": 0
+      },
+      {
+        "Kind": 8,
+        "Style": 0,
+        "Tag": "!!str",
+        "Value": "original",
+        "Anchor": "",
+        "Alias": null,
+        "Content": null,
+        "HeadComment": "",
+        "LineComment": "",
+        "FootComment": "",
+        "Line": 5,
+        "Column": 15
+      },
+      {
+        "Kind": 8,
+        "Style": 0,
+        "Tag": "!!str",
+        "Value": "default",
+        "Anchor": "",
+        "Alias": null,
+        "Content": null,
+        "HeadComment": "",
+        "LineComment": "",
+        "FootComment": "",
+        "Line": 0,
+        "Column": 0
+      },
+      {
+        "Kind": 8,
+        "Style": 0,
+        "Tag": "!!str",
+        "Value": "previous-model",
+        "Anchor": "",
+        "Alias": null,
+        "Content": null,
+        "HeadComment": "",
+        "LineComment": "",
+        "FootComment": "",
+        "Line": 6,
+        "Column": 14
+      }
+    ],
+    "HeadComment": "",
+    "LineComment": "",
+    "FootComment": "",
+    "Line": 0,
+    "Column": 0
+  },
+  "model_present": true,
+  "providers_present": true,
+  "provider_ids": [
+    "aigw"
+  ],
+  "file_present": true,
+  "managed_digest": "87b1ca174564f03f3dd71bbe41e1a8b73860f6d44915d587dba15c439f40af98"
+}

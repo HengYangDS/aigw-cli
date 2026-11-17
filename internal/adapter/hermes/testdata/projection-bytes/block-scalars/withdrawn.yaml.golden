@@ -1,0 +1,10 @@
+agent:
+  system_prompt: |
+    You are a careful assistant.
+    Answer in plain words.
+  signature: |-
+    Sent from Hermes
+    on this workstation
+  summary: >
+    This folded text reads as one line.
+

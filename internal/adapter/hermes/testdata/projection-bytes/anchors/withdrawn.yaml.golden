@@ -1,0 +1,8 @@
+defaults: &defaults
+  timeout: 30
+  retries: 2
+tools:
+  web:
+    <<: *defaults
+    timeout: 60
+  browser: *defaults

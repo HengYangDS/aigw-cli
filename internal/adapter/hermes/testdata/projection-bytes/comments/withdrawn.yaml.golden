@@ -1,0 +1,12 @@
+# Display settings
+display:
+  theme: dark # chosen by the operator
+  # Compact layout saves space.
+  compact: true
+  # The theme follows the terminal.
+# Terminal settings
+terminal:
+  backend: local
+model: # selected in Hermes
+  provider: original
+  default: previous-model

@@ -1,0 +1,7 @@
+display:
+  theme: dark
+  compact: true
+terminal:
+  backend: local
+agent:
+  max_turns: 60

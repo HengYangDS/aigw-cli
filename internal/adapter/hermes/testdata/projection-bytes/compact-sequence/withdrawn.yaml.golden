@@ -1,0 +1,7 @@
+toolsets:
+  - web
+  - terminal
+platform_toolsets:
+  cli:
+    - web
+    - file

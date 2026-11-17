@@ -1,0 +1,9 @@
+display:
+  theme: dark
+  compact: true
+model:
+  provider: original
+  default: previous-model
+providers:
+  personal:
+    base_url: https://personal.test

@@ -1,0 +1,3 @@
+display:
+  banner: This welcome line that the operator wrote is longer than eighty characters on purpose
+toolsets: [web, terminal, file, browser, vision, image_gen, tts, skills, memory, session_search, todo]

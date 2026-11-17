@@ -1,0 +1,4 @@
+display:
+  theme: dark # chosen by the operator
+terminal:
+  backend: local

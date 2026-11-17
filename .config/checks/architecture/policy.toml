@@ -181,6 +181,11 @@ responsibility = "command acceptance scripts that hold the CLI's behavior baseli
 prefixes = ["cmd/aigw/testdata/script"]
 suffixes = [".txtar"]
 
+[tracked_carrier_classes.pinned-bytes]
+responsibility = "expected bytes that a package's tests compare with what the package writes"
+prefixes = ["internal/adapter/hermes/testdata/projection-bytes"]
+suffixes = [".golden"]
+
 [tracked_carrier_classes.native-check-adapters]
 responsibility = "repository adapters for native Node quality libraries"
 prefixes = ["tools/ci"]

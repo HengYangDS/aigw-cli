@@ -1,0 +1,16 @@
+display:
+  banner: This welcome line that the operator wrote is longer than eighty characters on purpose
+toolsets: [web, terminal, file, browser, vision, image_gen, tts, skills, memory, session_search, todo]
+model:
+  provider: aigw
+  default: model-test
+  base_url: https://provider.test/v1
+  api_mode: codex_responses
+providers:
+  aigw:
+    base_url: https://provider.test/v1
+    transport: codex_responses
+    key_cmd: aigw credential hermes projection-test
+    models:
+      - model-test
+    discover_models: false

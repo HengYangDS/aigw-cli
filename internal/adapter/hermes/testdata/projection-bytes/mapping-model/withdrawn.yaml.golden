@@ -1,0 +1,9 @@
+model:
+  provider: original
+  default: previous-model
+  base_url: https://previous.test
+  api_mode: chat_completions
+  temperature: 0.3
+providers:
+  personal:
+    base_url: https://personal.test

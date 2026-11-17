@@ -1,0 +1,7 @@
+display:
+  greeting: 'Hello, operator'
+  farewell: "Goodbye, operator"
+  empty: ''
+  looks_boolean: 'true'
+  looks_number: "123"
+  looks_date: '2026-11-17'
