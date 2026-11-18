@@ -7,7 +7,7 @@
 
 ## 2. The record's own form
 
-- [ ] 2.1 Store the ownership record's original model as a type of this repository with today's fields,
+- [x] 2.1 Store the ownership record's original model as a type of this repository with today's fields,
       converted to and from the library's node. Done when the pinned record bytes are unchanged and a record
       written by 0.8.1 reads.
 

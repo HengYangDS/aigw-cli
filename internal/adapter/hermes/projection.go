@@ -106,13 +106,13 @@ type Receipt struct {
 }
 
 type ownership struct {
-	Version          int        `json:"version"`
-	OriginalModel    *yaml.Node `json:"original_model"`
-	ModelPresent     bool       `json:"model_present"`
-	ProvidersPresent bool       `json:"providers_present"`
-	ProviderIDs      []string   `json:"provider_ids"`
-	FilePresent      bool       `json:"file_present"`
-	ManagedDigest    string     `json:"managed_digest"`
+	Version          int           `json:"version"`
+	OriginalModel    *recordedNode `json:"original_model"`
+	ModelPresent     bool          `json:"model_present"`
+	ProvidersPresent bool          `json:"providers_present"`
+	ProviderIDs      []string      `json:"provider_ids"`
+	FilePresent      bool          `json:"file_present"`
+	ManagedDigest    string        `json:"managed_digest"`
 }
 
 // Prepare validates and prepares one projection or its withdrawal.
@@ -280,23 +280,23 @@ func initialOwnership(root *yaml.Node, desired *Desired, filePresent bool) (owne
 	}
 	current, err := managedBytes(root, providerIDs)
 	return ownership{
-		Version: 2, OriginalModel: selectedModel(root), ModelPresent: field(root, "model") != nil,
+		Version: 2, OriginalModel: recordNode(selectedModel(root)), ModelPresent: field(root, "model") != nil,
 		ProvidersPresent: providers != nil, ProviderIDs: providerIDs, FilePresent: filePresent,
 	}, current, err
 }
 
 func restore(root *yaml.Node, state ownership) error {
-	model := field(root, "model")
-	if state.OriginalModel != nil && state.OriginalModel.Kind == yaml.ScalarNode {
+	model, original := field(root, "model"), state.OriginalModel.node()
+	if original != nil && original.Kind == yaml.ScalarNode {
 		for index := 0; index < len(model.Content); index += 2 {
 			if field(selectedModel(root), model.Content[index].Value) == nil {
 				return errors.New("Hermes model gained independent fields; preserve them before restoring the original scalar model")
 			}
 		}
-		setField(root, "model", state.OriginalModel)
+		setField(root, "model", original)
 	} else {
 		for _, key := range modelKeys {
-			setField(model, key, field(state.OriginalModel, key))
+			setField(model, key, field(original, key))
 		}
 		if !state.ModelPresent && len(model.Content) == 0 {
 			setField(root, "model", nil)
