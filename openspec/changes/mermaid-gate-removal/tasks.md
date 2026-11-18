@@ -10,4 +10,4 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` passes on the lane head with this Change and `yaml-v4-import-path`.
+- [x] 2.1 `mise run check` passes on the lane head with this Change and `yaml-v4-import-path`.
