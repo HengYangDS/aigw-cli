@@ -125,14 +125,16 @@ Only Codex can establish that its projected model catalog actually loaded.
 After a catalog or client-version change, use the tracked verifier:
 
 ```bash
-mise exec --locked -- go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -family gpt-6.1-sol
+mise exec --locked -- go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -family gpt-6.1-sol -name 'GPT-6.1 Sol · cdx'
 ```
 
 The required `-family` must be the model's family, the Codex model whose
 bundled metadata it takes; no part of the model ID stands in for it. The
-verifier uses an isolated client home, makes no inference request, and
-compares the selected entry with the family's bundled metadata apart from
-`slug`. Retain client version, executable checksum and entry digests. Exit 2
+required `-name` is the display name that AIGW gives the alias, the model's
+label without its provider, as `aigw model show` prints it. The verifier
+uses an isolated client home, makes no inference request, compares the
+selected entry with the family's bundled metadata apart from `slug` and
+`display_name`, and fails when another entry shows the alias's name. Retain client version, executable checksum and entry digests. Exit 2
 means a missing client or unproved input, not acceptance.
 
 Live-client model qualification instead uses `aigw check codex --depth client`

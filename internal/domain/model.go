@@ -142,15 +142,18 @@ type Runtime struct {
 	CredentialCommand string           `json:"-"`
 }
 
-// ModelName is the model's label without the provider's name in front, the
-// name a client that already shows the provider gives the model.
+// ModelName is the model's label without the provider's name and its
+// separator in front, compared without regard to case: the name that a
+// client that already shows the provider gives the model. A label that does
+// not begin with the provider's name is the name as it is.
 func (runtime Runtime) ModelName() string {
 	provider := runtime.ProviderLabel
 	if provider == "" {
 		provider = runtime.ProviderID
 	}
-	if name, found := strings.CutPrefix(runtime.ModelLabel, provider+" · "); found && name != "" {
-		return name
+	prefix := provider + " · "
+	if len(runtime.ModelLabel) > len(prefix) && strings.EqualFold(runtime.ModelLabel[:len(prefix)], prefix) {
+		return runtime.ModelLabel[len(prefix):]
 	}
 	return runtime.ModelLabel
 }
@@ -551,17 +554,17 @@ func modelLabel(model Model, provider Provider, family Family) string {
 
 // variantPart is what a model ID adds to its family's ID at either end,
 // without the separators between them, or "" when the ID is the family's or
-// neither begins nor ends with it. The comparison ignores case.
+// neither begins nor ends with it. The comparison ignores case; the part
+// keeps the ID's own spelling.
 func variantPart(id, family string) string {
-	lowerID, lowerFamily := strings.ToLower(id), strings.ToLower(family)
-	if family == "" || lowerID == lowerFamily {
+	if family == "" || len(id) <= len(family) {
 		return ""
 	}
 	const separators = "-_.:/ "
 	switch {
-	case strings.HasPrefix(lowerID, lowerFamily):
+	case strings.EqualFold(id[:len(family)], family):
 		return strings.Trim(id[len(family):], separators)
-	case strings.HasSuffix(lowerID, lowerFamily):
+	case strings.EqualFold(id[len(id)-len(family):], family):
 		return strings.Trim(id[:len(id)-len(family)], separators)
 	}
 	return ""

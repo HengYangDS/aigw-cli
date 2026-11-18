@@ -74,6 +74,9 @@ func runTeamSetup(cmd *cobra.Command, runtime invocation.Context, request setupR
 	}
 	merged, report, err := domain.MergeTeamFile(cfg, file, request.Prune)
 	if err != nil {
+		if shared, ok := errors.AsType[*domain.SharedModelLabelError](err); ok {
+			return sharedLabelRefusal(shared, file, err)
+		}
 		if _, named := domain.EntryOf(err); named {
 			return teamFileRefusal(err)
 		}
@@ -163,10 +166,29 @@ func teamFileRefusal(err error) error {
 		return terminal.ProblemError(err.Error(), "", "Nothing changed.",
 			"Remove the [clients] section from the team file, or write the file again with `aigw config export`, then run the same command again.", err)
 	}
+	if shared, ok := errors.AsType[*domain.SharedModelLabelError](err); ok {
+		return terminal.ProblemError(err.Error(), "", "Nothing changed.",
+			fmt.Sprintf("Give %s or %s a label of its own in the team file, then run the same command again.", shared.Models[0], shared.Models[1]), err)
+	}
 	if entry, ok := domain.EntryOf(err); ok {
 		return terminal.ProblemError(err.Error(), "", "Nothing changed.", "Correct "+entry+" in the team file, then run the same command again.", err)
 	}
 	return err
+}
+
+// sharedLabelRefusal refuses a team file whose model would share a label
+// with another model of its provider, and names where to correct it: a model
+// that only the local configuration holds, as one that a client keeps after
+// the file replaced it, is relabelled or removed by its own command, which
+// loads the configuration as it is.
+func sharedLabelRefusal(shared *domain.SharedModelLabelError, file domain.Config, err error) error {
+	for _, ref := range shared.Models {
+		if _, inFile := file.Models[ref]; !inFile {
+			return terminal.ProblemError(err.Error(), "", "Nothing changed.",
+				fmt.Sprintf("Give %s a label of its own with `aigw model edit %s --label <label>`, or remove it with `aigw model remove %s`, then run the same command again.", ref, ref, ref), err)
+		}
+	}
+	return teamFileRefusal(err)
 }
 
 // apply connects the Tokens and commits the setup.

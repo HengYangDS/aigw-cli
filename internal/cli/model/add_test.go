@@ -163,8 +163,10 @@ func TestAddFollowsTheFamilyRule(t *testing.T) {
 	}
 	// A model whose ID is unrelated to the family's would take the label of
 	// the family's own model, so it joins only under a label of its own.
-	if err := f.run("add", "team/variant-2", "--family", "team-model", "--unlisted"); err == nil || !strings.Contains(err.Error(), "team/variant-2") || !strings.Contains(err.Error(), "team/team-model") {
-		t.Fatalf("a shared label = %v:\n%s", err, f.out)
+	err := f.run("add", "team/variant-2", "--family", "team-model", "--unlisted")
+	if p := problem(err); err == nil || !strings.Contains(err.Error(), "team/variant-2") || !strings.Contains(err.Error(), "team/team-model") ||
+		p.Fix != "Give the model a label of its own with --label, or relabel the other with `aigw model edit team/team-model --label <label>`." {
+		t.Fatalf("a shared label = %v, fix %q:\n%s", err, p.Fix, f.out)
 	}
 	if err := f.run("add", "team/variant-2", "--family", "team-model", "--label", "Team · Variant 2", "--unlisted", "--json"); err != nil || f.document(t).Family != "team-model" || f.document(t).FamilyCreated != "" {
 		t.Fatalf("a known family = %v:\n%s", err, f.out)

@@ -1,8 +1,10 @@
 package domain
 
 import (
+	"errors"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // TestVariantLabelsNameTheirSuffix derives a variant's label from its
@@ -42,7 +44,8 @@ func TestTwoModelsOfOneProviderNeedTwoLabels(t *testing.T) {
 	clash.Family = "opus"
 	cfg.Models[clash.Ref()] = clash
 	err := cfg.Validate()
-	if err == nil || !strings.Contains(err.Error(), "team/opus-cdx") || !strings.Contains(err.Error(), "team/cdx-opus") {
+	shared, isShared := errors.AsType[*SharedModelLabelError](err)
+	if !isShared || shared.Models != [2]ModelRef{NewModelRef("team", "opus-cdx"), NewModelRef("team", "cdx-opus")} {
 		t.Fatalf("a derived label shared with an explicit one in another case = %v", err)
 	}
 	delete(cfg.Models, clash.Ref())
@@ -75,5 +78,41 @@ func TestTwoModelsOfOneProviderNeedTwoLabels(t *testing.T) {
 	cfg.Models[elsewhere.Ref()] = elsewhere
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("one label on two providers = %v", err)
+	}
+}
+
+// TestVariantPartsKeepTheIDsSpellingAndBytes compares an ID with its
+// family's without regard to case, keeps the ID's own spelling of the rest,
+// and never cuts an ID inside a character.
+func TestVariantPartsKeepTheIDsSpellingAndBytes(t *testing.T) {
+	for _, test := range []struct{ id, family, want string }{
+		{"GPT-6.2-Sol-CDX", "gpt-6.2-sol", "CDX"},
+		{"Codex_gpt-6-sol", "gpt-6-sol", "Codex"},
+		{"gpt-6-sol", "gpt-6-sol", ""},
+		{"gpt", "gpt-6-sol", ""},
+		{"Kx", "k", ""},
+		{"xK", "k", ""},
+		{"kx", "", ""},
+	} {
+		if got := variantPart(test.id, test.family); got != test.want || !utf8.ValidString(got) {
+			t.Errorf("variantPart(%q, %q) = %q, want %q", test.id, test.family, got, test.want)
+		}
+	}
+}
+
+// TestModelNameDropsOnlyItsProvider takes the provider's name and separator
+// off the front of a label in any case, and keeps any other label whole.
+func TestModelNameDropsOnlyItsProvider(t *testing.T) {
+	for _, test := range []struct{ label, providerLabel, providerID, want string }{
+		{"DMXAPI · GPT-6.2 Sol · cdx", "DMXAPI", "dmxapi", "GPT-6.2 Sol · cdx"},
+		{"dmxapi · GPT-6.2 Sol · CDX", "DMXAPI", "dmxapi", "GPT-6.2 Sol · CDX"},
+		{"bare · m", "", "bare", "m"},
+		{"DMXAPI GPT-6.1 Sol CDX", "DMXAPI", "dmxapi", "DMXAPI GPT-6.1 Sol CDX"},
+		{"DMXAPI · ", "DMXAPI", "dmxapi", "DMXAPI · "},
+	} {
+		runtime := Runtime{ModelLabel: test.label, ProviderLabel: test.providerLabel, ProviderID: test.providerID}
+		if got := runtime.ModelName(); got != test.want {
+			t.Errorf("ModelName(%q) = %q, want %q", test.label, got, test.want)
+		}
 	}
 }

@@ -97,9 +97,10 @@ protocol evidence, and it SHALL hold no inferred model matrix or proxy endpoint.
   provider's and the family's labels, as `Provider · Family`, or as
   `Provider · model-id` when the model is its own family
 - **AND** a model whose ID differs from its family's and begins or ends with
-  that family's ID SHALL add the rest of its ID as written, as
-  `Provider · Family · cdx` for `gpt-6.2-sol-cdx` or
-  `Provider · Family · claude-code` for `claude-code-opus-5-5`
+  that family's ID, ignoring case, SHALL add the rest of its ID as written
+  without the separators between them, as `Provider · Family · cdx` for
+  `gpt-6.2-sol-cdx` or `Provider · Family · claude-code` for
+  `claude-code-opus-5-5`
 - **AND** an explicit channel or user label SHALL override that derivation
 - **AND** `aigw config export` SHALL omit a stored label equal to the derived
   one while keeping a distinct explicit label.
@@ -108,4 +109,5 @@ protocol evidence, and it SHALL hold no inferred model matrix or proxy endpoint.
 
 - **WHEN** a configuration or team file gives two models of one provider the
   same label, explicit or derived, ignoring case
-- **THEN** AIGW SHALL refuse it and name both models.
+- **THEN** AIGW SHALL refuse it, name both models and the label, and name a
+  fix that does not first load the refused configuration.

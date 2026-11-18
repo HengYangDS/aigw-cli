@@ -115,7 +115,8 @@ func LocalFailure(version string, at platform.PathContext, err error) error {
 		return err
 	case loading:
 		evidence, _ := ConfigurationLoadEvidence("AIGW "+version, err)
-		return ProblemError(configurationLoadTitle(failure.Phase), evidence, "", configurationFix(failure.Phase, path, at), err)
+		fix, _ := typedErrorFix(err, at)
+		return ProblemError(configurationLoadTitle(failure.Phase), evidence, "", fix, err)
 	case path == nil:
 		return err
 	}
@@ -136,7 +137,9 @@ func configurationFix(phase store.LoadPhase, path *platform.PathConditionError, 
 // stopped, with the operation and operating-system error of a read, the
 // position of a parse failure, the name and line of a field that the schema
 // does not define, or the name of one that it requires and the file leaves
-// out. It never includes a path or a value of the document.
+// out, or the two models whose labels clash and that label, which the operator
+// needs to find them. It never includes a path or any other value of the
+// document.
 func ConfigurationLoadEvidence(subject string, err error) (string, bool) {
 	failure, ok := errors.AsType[*store.LoadError](err)
 	if !ok {
@@ -158,6 +161,8 @@ func ConfigurationLoadEvidence(subject string, err error) (string, bool) {
 			detail = ": " + undefined.Error()
 		} else if missing, ok := errors.AsType[*store.MissingFieldError](err); ok {
 			detail = ": " + missing.Error()
+		} else if shared, ok := errors.AsType[*domain.SharedModelLabelError](err); ok {
+			detail = ": " + shared.Error()
 		}
 	}
 	return fmt.Sprintf("%s stopped at the configuration %s stage%s.", subject, failure.Phase, detail), true
@@ -573,6 +578,15 @@ func statedFix(err error, message string) (string, bool) {
 func typedErrorFix(err error, at platform.PathContext) (string, bool) {
 	if unselected, ok := errors.AsType[*domain.RuntimeBindingUnselectedError](err); ok {
 		return fmt.Sprintf("aigw use %s <provider/model>", unselected.Client), true
+	}
+	if shared, ok := errors.AsType[*domain.SharedModelLabelError](err); ok {
+		if _, loading := errors.AsType[*store.LoadError](err); loading {
+			// Every command loads the configuration first, so the fix is the
+			// file's own, not a command that would stop the same way.
+			return fmt.Sprintf("Give %s or %s a `label` of its own in the configuration file, or remove one of them there; `aigw config path` prints its location.", shared.Models[0], shared.Models[1]), true
+		}
+		// A command refused the change; the saved configuration still loads.
+		return fmt.Sprintf("Give the model a label of its own with --label, or relabel the other with `aigw model edit %s --label <label>`.", shared.Models[0]), true
 	}
 	if failure, ok := errors.AsType[*store.LoadError](err); ok {
 		return configurationFix(failure.Phase, pathFailureIn(err), at), true

@@ -174,7 +174,7 @@ func TestCatalogVerificationPreservesProbeAndProjectionCleanupFailures(t *testin
 		directory = path
 		return &os.PathError{Op: "remove", Path: path, Err: os.ErrPermission}
 	}
-	_, err := verifyCatalog(executable, "openai.gpt-5.6-sol", "gpt-5.6-sol")
+	_, err := verifyCatalog(executable, "openai.gpt-5.6-sol", "gpt-5.6-sol", "Alias")
 	var exit *exec.ExitError
 	if directory == "" || !errors.As(err, &exit) || exit.ExitCode() != 7 || !errors.Is(err, os.ErrPermission) || !strings.Contains(err.Error(), directory) {
 		t.Fatalf("verification lost probe or cleanup cause: %v; directory %s", err, directory)
@@ -185,7 +185,7 @@ func TestCatalogVerificationPreservesProbeAndProjectionCleanupFailures(t *testin
 }
 
 func TestVerifyCatalogObservesTheClientsEffectiveCatalog(t *testing.T) {
-	verification, err := verifyCatalog(fakeCodexClient(t, true), "openai.gpt-5.6-sol", "gpt-5.6-sol")
+	verification, err := verifyCatalog(fakeCodexClient(t, true), "openai.gpt-5.6-sol", "gpt-5.6-sol", "Alias")
 	if err != nil {
 		t.Fatalf("verifyCatalog() error = %v", err)
 	}
@@ -211,7 +211,7 @@ func TestVerifyCatalogUsesExactFamilyForWireAlias(t *testing.T) {
 		family = "gpt-6.1-sol"
 		wire   = "gpt-6.1-sol-cdx"
 	)
-	verification, err := verifyCatalog(fakeCodexClient(t, true), wire, family)
+	verification, err := verifyCatalog(fakeCodexClient(t, true), wire, family, "Alias")
 	if err != nil {
 		t.Fatalf("verifyCatalog() error = %v", err)
 	}
@@ -229,7 +229,7 @@ func TestVerifyCatalogUsesExactFamilyForWireAlias(t *testing.T) {
 }
 
 func TestVerifyCatalogRejectsMissingFamily(t *testing.T) {
-	_, err := verifyCatalog(fakeCodexClient(t, true), "gpt-6.1-sol-cdx", "gpt-6.1")
+	_, err := verifyCatalog(fakeCodexClient(t, true), "gpt-6.1-sol-cdx", "gpt-6.1", "Alias")
 	if err == nil || !strings.Contains(err.Error(), `family "gpt-6.1" does not prove`) {
 		t.Fatalf("verifyCatalog() error = %v, want the absent family", err)
 	}
@@ -243,7 +243,7 @@ func TestVerifyCatalogPreservesLargeModelMetadata(t *testing.T) {
 	if err := os.WriteFile(os.Getenv(catalogFixturePath), []byte(catalog), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	verification, err := verifyCatalog(executable, "openai.gpt-5.6-sol", "gpt-5.6-sol")
+	verification, err := verifyCatalog(executable, "openai.gpt-5.6-sol", "gpt-5.6-sol", "Alias")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +253,7 @@ func TestVerifyCatalogPreservesLargeModelMetadata(t *testing.T) {
 }
 
 func TestVerifyCatalogRejectsAClientThatIgnoresTheConfiguredCatalog(t *testing.T) {
-	verification, err := verifyCatalog(fakeCodexClient(t, false), "openai.gpt-5.6-sol", "gpt-5.6-sol")
+	verification, err := verifyCatalog(fakeCodexClient(t, false), "openai.gpt-5.6-sol", "gpt-5.6-sol", "Alias")
 	if err != nil {
 		t.Fatalf("verifyCatalog() error = %v", err)
 	}
@@ -338,7 +338,7 @@ func TestVerifyCatalogReportsWhatItCannotVerify(t *testing.T) {
 		{"model is its own family", executable, "openai.gpt-5.6-sol", "openai.gpt-5.6-sol", "does not prove a Codex catalog entry"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			_, err := verifyCatalog(testCase.executable, testCase.model, testCase.family)
+			_, err := verifyCatalog(testCase.executable, testCase.model, testCase.family, "Alias")
 			if err == nil || !strings.Contains(err.Error(), testCase.wantError) {
 				t.Fatalf("verifyCatalog() error = %v, want %q", err, testCase.wantError)
 			}

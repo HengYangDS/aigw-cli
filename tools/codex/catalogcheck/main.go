@@ -1,15 +1,17 @@
 // Command catalogcheck verifies, against a real installed Codex client, that a
 // selected model is present with metadata copied from its family's bundled
-// entry. A model takes metadata only from its family, never from a prefix or
-// suffix of its ID, so -family is required.
+// entry and is shown under a name that no other entry has. A model takes
+// metadata only from its family, never from a prefix or suffix of its ID, so
+// -family is required; -name is the display name that AIGW gives the alias,
+// the model's label without its provider.
 //
 // It exists because that claim cannot be proven against a fake client: the
 // package tests pin the catalog's content and every decision around it, but only
 // the client itself can show that it loaded the projected catalog. Run it when
 // changing the catalog projection or when qualifying a new client build:
 //
-//	go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -family gpt-6.1-sol
-//	go run ./tools/codex/catalogcheck -model openai.gpt-6.1-sol -family gpt-6.1-sol
+//	go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -family gpt-6.1-sol -name 'GPT-6.1 Sol · cdx'
+//	go run ./tools/codex/catalogcheck -model openai.gpt-6.1-sol -family gpt-6.1-sol -name 'GPT-6.1 Sol · openai'
 //
 // The client renders its effective model catalog through a throwaway client
 // home, so the run makes no model request. Nothing outside a temporary directory
@@ -56,6 +58,7 @@ func run(args []string, out io.Writer) (int, error) {
 	flags.SetOutput(out)
 	model := flags.String("model", "", "exact Codex model id to verify")
 	family := flags.String("family", "", "the model's family: the Codex model whose bundled metadata it takes")
+	name := flags.String("name", "", "the display name that AIGW gives the alias, the model's label without its provider")
 	executable := flags.String("codex", "", "path to the Codex executable (default: codex from PATH)")
 	asJSON := flags.Bool("json", false, "print the measurements as JSON")
 	if err := flags.Parse(args); err != nil {
@@ -67,11 +70,14 @@ func run(args []string, out io.Writer) (int, error) {
 	if *family == "" {
 		return exitPrerequisiteMissing, errors.New("-family is required: a model takes Codex metadata only from its family")
 	}
+	if *name == "" {
+		return exitPrerequisiteMissing, errors.New("-name is required: the display name that AIGW gives the alias, the model's label without its provider")
+	}
 	resolved, err := resolveExecutable(*executable)
 	if err != nil {
 		return exitPrerequisiteMissing, err
 	}
-	verification, err := verifyModelCatalog(resolved, *model, *family)
+	verification, err := verifyModelCatalog(resolved, *model, *family, *name)
 	if err != nil {
 		return exitPrerequisiteMissing, err
 	}

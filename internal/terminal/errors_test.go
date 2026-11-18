@@ -98,6 +98,15 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 			want: []string{"Cannot validate local configuration",
 				"AIGW 9.8.7 stopped at the configuration validate stage: schema 8 requires the field clients.codex.forwarding.endpoint.", "aigw config path"},
 		},
+		// Two models that share a label are named, and the fix is the
+		// file's: a command that loads it would stop the same way.
+		"shared label": {
+			err: &store.LoadError{Phase: store.LoadPhaseValidate, Err: fmt.Errorf("%s: %w", content, domain.NewEntryError("model `team/beta`",
+				&domain.SharedModelLabelError{Label: "Team · Shared", Models: [2]domain.ModelRef{domain.NewModelRef("team", "alpha"), domain.NewModelRef("team", "beta")}}))},
+			want: []string{"Cannot validate local configuration",
+				"stopped at the configuration validate stage: models team/alpha and team/beta of provider team share the label", "Team · Shared",
+				"Give team/alpha or team/beta a `label` of its own in the configuration file", "aigw config path"},
+		},
 		"unknown stage": {
 			err:  &store.LoadError{Phase: "replay", Err: errors.New(content)},
 			want: []string{"Cannot load local configuration", "stopped at the configuration replay stage", "aigw config path"},

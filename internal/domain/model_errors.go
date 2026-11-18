@@ -66,6 +66,19 @@ func ProtocolLabel(protocol EndpointProtocol) string {
 	}
 }
 
+// SharedModelLabelError is two models of one provider whose labels, explicit
+// or derived, are equal ignoring case: a client that lists the provider's
+// models would show both under one name.
+type SharedModelLabelError struct {
+	Label  string
+	Models [2]ModelRef
+}
+
+// Error names both models, their provider and the label.
+func (e *SharedModelLabelError) Error() string {
+	return fmt.Sprintf("models %s and %s of provider %s share the label %q", e.Models[0], e.Models[1], e.Models[0].Provider(), e.Label)
+}
+
 // entryError is a failure at one entry of a configuration or a team file,
 // named as the operator finds it there, such as provider `a`, model `a/m` or
 // the field `providers.bogus`. It reads as the failure it wraps, so only a

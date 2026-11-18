@@ -92,7 +92,7 @@ func (c *Config) validateModelLabels() error {
 	for _, ref := range c.ModelRefs() {
 		key := ref.Provider() + "\x00" + strings.ToLower(c.ModelLabel(ref))
 		if earlier, ok := seen[key]; ok {
-			return NewEntryError("model `"+ref.String()+"`", fmt.Errorf("model %s has the label %q of model %s; give one of them its own label", ref, c.ModelLabel(ref), earlier))
+			return NewEntryError("model `"+ref.String()+"`", &SharedModelLabelError{Label: c.ModelLabel(ref), Models: [2]ModelRef{earlier, ref}})
 		}
 		seen[key] = ref
 	}

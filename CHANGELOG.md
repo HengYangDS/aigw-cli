@@ -30,8 +30,15 @@ signing, and GA status remain separate evidence.
   (`DMXAPI · GPT-6.2 Sol · cdx`) instead of its family's own label. A family
   that `aigw model add|edit --family` creates is labelled with its own ID.
 - **Breaking:** AIGW refuses a configuration or team file in which two models
-  of one provider have one label, derived or explicit, ignoring case; the
-  refusal names both, and `aigw model edit --label` gives one its own.
+  of one provider have one label, derived or explicit, ignoring case. The
+  refusal names both models and the label. For a configuration, give one of
+  them a `label` in the configuration file (`aigw config path` prints its
+  location); for a team file that clashes with a model only the
+  configuration holds, `aigw model edit <model> --label <label>` gives that
+  model its own.
+- A family that `--family` created in 0.7.0 to 0.8.1 keeps the model's ID as its label;
+  applying a team file that names the family, or a `label` in the
+  configuration file, gives it the family's name.
 - The team rollout guide states the daily model and reasoning effort of each
   vendor: GPT-6.2 Sol and Claude Opus 5.5 at `xhigh`, Gemini 4 Argon at
   `high`. The team file sets no effort; each client keeps its own setting.
@@ -54,8 +61,9 @@ signing, and GA status remain separate evidence.
 - Codex's model picker showed a provider's channel, such as DMXAPI's
   `gpt-6.2-sol-cdx`, under its family's name, so two entries read "GPT-6.2
   Sol". AIGW's catalog alias now shows the model's AIGW label without its
-  provider, and the catalog verifier refuses an alias that shares a name with
-  another entry.
+  provider, followed by the model's ID when Codex already shows that name.
+  The catalog verifier takes that name (`-name`) and refuses an alias that
+  shares it with another entry.
 - AIGW no longer changes the value of a folded block scalar in Hermes's
   configuration: it added a line break to one that keeps its final line breaks
   (`>+`), and a blank line inside one with a more-indented line.

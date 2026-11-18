@@ -44,8 +44,10 @@ shows the catalog entry's `display_name`, which AIGW's alias copies from the fam
 
 - **Rests on:** Codex shows `display_name`; the bundled family entry already holds the family's name.
 - **Considered:** keep copying; append the suffix to the bundled name; use AIGW's label without its provider.
-- **Chosen because:** AIGW's label is the one name the operator sees elsewhere for that model. A projection that would
-  still repeat a listed name is refused before writing, by a test of the projected table.
+- **Chosen because:** AIGW's label is the one name the operator sees elsewhere for that model. When the table already
+  shows that name, ignoring case and of any visibility, the model's ID follows it in parentheses; a table that shows
+  that too gets no alias, as a model whose family the table lacks gets none. The verifier takes the name AIGW writes and
+  asks the real client whether another entry shows it.
 - **Applies to:** `Document.Project` takes the display name; `catalogcheck` compares all fields but `slug` and
   `display_name`.
 
@@ -58,7 +60,13 @@ shows the catalog entry's `display_name`, which AIGW's alias copies from the fam
 
 ## Risks / Trade-offs
 
-- **An operator's configuration with two models of one label** fails to load after the upgrade; the refusal names
-  both models and `aigw model edit --label` fixes it. The owner's configuration has none.
+- **An operator's configuration with two models of one label** fails to load after the upgrade. Every command loads
+  the configuration first, so the refusal names both models and the label, and its fix is a `label` in the
+  configuration file. A team file that would clash with a model only the configuration holds names
+  `aigw model edit <model> --label`, which works on the configuration as it is. A copy of the owner's configuration
+  loads under this release.
+- **A family that 0.8.1's `--family` created** keeps the model's ID as its label, and no command relabels a family;
+  applying a team file that names the family, or a `label` in the configuration file, corrects it. The owner's
+  `gpt-6.2-sol` is corrected by the team file.
 - **A team file with one family per line per provider** can show two families of one line in a client that lists
   several providers; each carries its provider's name.

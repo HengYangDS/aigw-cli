@@ -104,6 +104,10 @@ func configurationProblem(version string, err error) error {
 	if failure, ok := errors.AsType[*store.LoadError](err); ok && failure.Phase == store.LoadPhaseRead {
 		fix = "Restore the client's read access to the configuration file; `aigw config path` prints its location."
 	}
+	if shared, ok := errors.AsType[*domain.SharedModelLabelError](err); ok {
+		// `aigw sync` would stop on the same configuration.
+		fix = fmt.Sprintf("Give %s or %s a `label` of its own in the configuration file; `aigw config path` prints its location.", shared.Models[0], shared.Models[1])
+	}
 	return terminal.ProblemError("Cannot read AIGW configuration", evidence, "Credential lookup did not start.", fix, err)
 }
 

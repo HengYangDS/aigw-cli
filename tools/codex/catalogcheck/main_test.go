@@ -15,7 +15,7 @@ import (
 func stubVerifier(t *testing.T, verification verificationResult, err error) {
 	t.Helper()
 	original := verifyModelCatalog
-	verifyModelCatalog = func(string, string, string) (verificationResult, error) {
+	verifyModelCatalog = func(string, string, string, string) (verificationResult, error) {
 		return verification, err
 	}
 	t.Cleanup(func() { verifyModelCatalog = original })
@@ -50,7 +50,7 @@ func TestRunRejectsUnknownFlags(t *testing.T) {
 func TestRunSeparatesAMissingClientFromAFailedCheck(t *testing.T) {
 	out := &bytes.Buffer{}
 	absent := filepath.Join(t.TempDir(), "absent")
-	code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-codex", absent}, out)
+	code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-name", "GPT-5.6 Sol · openai", "-codex", absent}, out)
 	if code != exitPrerequisiteMissing {
 		t.Fatalf("run() = %d, want %d", code, exitPrerequisiteMissing)
 	}
@@ -89,7 +89,7 @@ func TestResolveExecutableReportsMissingPATHClient(t *testing.T) {
 func TestRunReportsSuccessfulVerification(t *testing.T) {
 	stubVerifier(t, sampleVerification(), nil)
 	out := &bytes.Buffer{}
-	code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-codex", writeExecutableForTest(t)}, out)
+	code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-name", "GPT-5.6 Sol · openai", "-codex", writeExecutableForTest(t)}, out)
 	if code != 0 || err != nil || !strings.Contains(out.String(), "model, generated catalog") {
 		t.Fatalf("run() = %d, %v\n%s", code, err, out)
 	}
@@ -98,20 +98,21 @@ func TestRunReportsSuccessfulVerification(t *testing.T) {
 func TestRunPassesFamilyToVerifier(t *testing.T) {
 	original := verifyModelCatalog
 	t.Cleanup(func() { verifyModelCatalog = original })
-	var gotModel, gotFamily string
-	verifyModelCatalog = func(_, model, family string) (verificationResult, error) {
-		gotModel, gotFamily = model, family
+	var gotModel, gotFamily, gotName string
+	verifyModelCatalog = func(_, model, family, name string) (verificationResult, error) {
+		gotModel, gotFamily, gotName = model, family, name
 		return sampleVerification(), nil
 	}
 	code, err := run([]string{
 		"-model", "gpt-6.1-sol-cdx",
 		"-family", "gpt-6.1-sol",
+		"-name", "GPT-6.1 Sol · cdx",
 		"-codex", writeExecutableForTest(t),
 	}, io.Discard)
 	if code != 0 || err != nil {
 		t.Fatalf("run() = %d, %v", code, err)
 	}
-	if gotModel != "gpt-6.1-sol-cdx" || gotFamily != "gpt-6.1-sol" {
+	if gotModel != "gpt-6.1-sol-cdx" || gotFamily != "gpt-6.1-sol" || gotName != "GPT-6.1 Sol · cdx" {
 		t.Fatalf("verifier models = %q / %q, want the model and its family", gotModel, gotFamily)
 	}
 }
@@ -121,6 +122,15 @@ func TestRunPassesFamilyToVerifier(t *testing.T) {
 func TestRunRequiresAFamily(t *testing.T) {
 	code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-codex", filepath.Join(t.TempDir(), "absent")}, io.Discard)
 	if code != exitPrerequisiteMissing || err == nil || !strings.Contains(err.Error(), "-family is required") {
+		t.Fatalf("run() = %d, %v", code, err)
+	}
+}
+
+// TestRunRequiresAName refuses a model without the display name that AIGW
+// gives its alias: the client is asked about that name, not another.
+func TestRunRequiresAName(t *testing.T) {
+	code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-codex", filepath.Join(t.TempDir(), "absent")}, io.Discard)
+	if code != exitPrerequisiteMissing || err == nil || !strings.Contains(err.Error(), "-name is required") {
 		t.Fatalf("run() = %d, %v", code, err)
 	}
 }
@@ -151,7 +161,7 @@ func TestRunSeparatesMeasurementAndVerdictFailures(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			stubVerifier(t, testCase.verification, testCase.verifyError)
-			code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-codex", client}, io.Discard)
+			code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-name", "GPT-5.6 Sol · openai", "-codex", client}, io.Discard)
 			if code == 0 || err == nil || !strings.Contains(err.Error(), testCase.wantError) {
 				t.Fatalf("run() = %d, %v", code, err)
 			}
@@ -167,7 +177,7 @@ func TestRunReportsPresentationFailures(t *testing.T) {
 	}
 	t.Cleanup(func() { writeReport = original })
 	code, err := run(
-		[]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-codex", writeExecutableForTest(t)},
+		[]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-name", "GPT-5.6 Sol · openai", "-codex", writeExecutableForTest(t)},
 		io.Discard,
 	)
 	if code != exitVerificationFailed || err == nil || !strings.Contains(err.Error(), "render failed") {
