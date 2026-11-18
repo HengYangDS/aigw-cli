@@ -1,7 +1,7 @@
 ## Context
 
 The sweep's sources: `mise latest` for every tool of `.config/mise/config.toml` (go, node, cue, GoReleaser,
-apple-codesign, taplo, scc, editorconfig-checker, gitleaks, golangci-lint, ShellCheck, actionlint, Hyperfine,
+apple-codesign, Taplo, scc, editorconfig-checker, gitleaks, golangci-lint, ShellCheck, actionlint, Hyperfine,
 typos, lychee and OSV Scanner are current); `go list -m -u all` (one direct requirement behind; the others are
 indirect); the npm registry for the four direct npm packages (OpenSpec behind); GitHub releases of Renovate,
 `jdx/mise-action`, `actions/checkout` and `actions/upload-artifact` (Renovate behind); the npm registry for Codex
