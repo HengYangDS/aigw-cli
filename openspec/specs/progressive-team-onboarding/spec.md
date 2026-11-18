@@ -38,11 +38,10 @@ outside the transaction.
 
 ### Requirement: The shipped team file keeps one general family per other vendor
 
-The shipped team file SHALL hold one family for each product line of Anthropic, OpenAI and Google, and exactly one
-general family for each other vendor. A curated line's family SHALL be its newest generally available model, and
-another vendor's family its most capable generally available general model, whose provider models qualify. A
-qualified successor SHALL replace its family and models, and applying the file SHALL keep explicit client selections
-of the replaced models.
+The shipped team file SHALL choose models per provider. On each provider it SHALL hold one family for each
+Anthropic, OpenAI and Google product line, its newest generally available model, and one general family for each
+other vendor, its most capable generally available model, among those the provider lists and that qualify there. A
+successor SHALL replace its predecessor on that provider only; explicit client selections SHALL stay.
 
 #### Scenario: A vendor's more capable general model becomes available
 
@@ -72,10 +71,19 @@ of the replaced models.
 #### Scenario: A curated line makes a newer model generally available
 
 - **WHEN** a curated line makes a newer model generally available and its
-  provider models qualify, such as GPT-6.2 Astra after GPT-6 Astra
-- **THEN** the team file SHALL replace that line's family and models with the
-  newer model
-- **AND** the repository's tests SHALL fail while one line holds two families.
+  models qualify on one provider, such as GPT-6.2 Astra after GPT-6 Astra
+- **THEN** the team file SHALL replace that line's model on that provider with
+  the newer model
+- **AND** the repository's tests SHALL fail while one provider holds two
+  families of one line.
+
+#### Scenario: A provider lists a newer model later than another
+
+- **GIVEN** a curated line's newer model qualifies on one provider
+- **WHEN** another provider does not list it yet, or its models there have not
+  qualified
+- **THEN** the team file SHALL keep that line's older model on the other
+  provider until the newer one qualifies there.
 
 ### Requirement: Guided setup reaches a working state and can run again
 
@@ -558,9 +566,21 @@ protocol evidence, and it SHALL hold no inferred model matrix or proxy endpoint.
 - **THEN** human, JSON and client presentation SHALL derive its label from the
   provider's and the family's labels, as `Provider · Family`, or as
   `Provider · model-id` when the model is its own family
+- **AND** a model whose ID differs from its family's and begins or ends with
+  that family's ID, ignoring case, SHALL add the rest of its ID as written
+  without the separators between them, as `Provider · Family · cdx` for
+  `gpt-6.2-sol-cdx` or `Provider · Family · claude-code` for
+  `claude-code-opus-5-5`
 - **AND** an explicit channel or user label SHALL override that derivation
 - **AND** `aigw config export` SHALL omit a stored label equal to the derived
   one while keeping a distinct explicit label.
+
+#### Scenario: Two models of one provider share a label
+
+- **WHEN** a configuration or team file gives two models of one provider the
+  same label, explicit or derived, ignoring case
+- **THEN** AIGW SHALL refuse it, name both models and the label, and name a
+  fix that does not first load the refused configuration.
 
 ### Requirement: Configuration export writes a team file
 
