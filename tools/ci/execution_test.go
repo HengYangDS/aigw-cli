@@ -36,7 +36,7 @@ func TestGateSequenceStopsBeforeExecutionWhenProgressCannotBeWritten(t *testing.
 
 func TestAuthoredChecksRefuseAnUnavailableCheckoutBeforeNativeExecution(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "absent-checkout")
-	for _, gate := range []string{"check-go", "links", "check-format", "check-markdown", "check-mermaid", "check-spelling", "check-toml", "check-secrets", "check-workflows"} {
+	for _, gate := range []string{"check-go", "links", "check-format", "check-markdown", "check-spelling", "check-toml", "check-secrets", "check-workflows"} {
 		calls := 0
 		err := run([]string{gate, root}, &bytes.Buffer{}, func(command) error { calls++; return nil })
 		if err == nil || calls != 0 || !strings.Contains(err.Error(), "list repository") {

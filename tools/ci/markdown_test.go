@@ -23,7 +23,7 @@ func TestDocumentInputsAreIndependentOfCommandLineLength(t *testing.T) {
 	if output, err := exec.Command("git", "-C", root, "add", "--all").CombinedOutput(); err != nil {
 		t.Fatalf("git add: %v\n%s", err, output)
 	}
-	for name, argumentCount := range map[string]int{"check-mermaid": 1, "links": 6} {
+	for name, argumentCount := range map[string]int{"check-format": 1, "links": 6} {
 		t.Run(name, func(t *testing.T) {
 			if name == "links" {
 				requireMiseTool(t, "github:lycheeverse/lychee")

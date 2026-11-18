@@ -49,7 +49,6 @@ mature responsibilities.
 | Source layout           | The locked language formatter   | Canonical whitespace and syntax layout                                                          |
 | Current Markdown layout | Locked Prettier                 | Stable tables, lists, fences and wrapping policy                                                |
 | Markdown structure      | Locked markdownlint             | Heading progression, sibling uniqueness, list structure, language-tagged fences and link syntax |
-| Diagram syntax          | Locked Mermaid validator        | Grammar and diagnostics, not visual quality or hosted rendering                                 |
 | Explicit links          | Locked lychee and Git inventory | Tracked local targets and heading anchors; external reachability requires an online run         |
 | OpenSpec document shape | Locked OpenSpec validator       | Official Change and specification structure                                                     |
 
@@ -97,10 +96,9 @@ so markdownlint does not check them.
 Markdown lint validates its one rule file against schemas shipped with the
 locked package before checking source. It does not discover nested or parent
 configuration, accept inline suppression, or ignore warnings. Current style
-checks exclude only official OpenSpec archive history. Mermaid syntax checks
-still include archived diagrams; that does not make their historical design
-current. Both adapters receive exact file inventories on standard input,
-preserve source bytes and require their checkout-local dependencies.
+checks exclude only official OpenSpec archive history. Its adapter receives the
+exact file inventory on standard input, preserves source bytes and requires its
+checkout-local dependencies.
 
 OpenSpec owns document validation. The CI consumer admits its result only when
 the findings report identifies the requested checkout, covers `all` items in a

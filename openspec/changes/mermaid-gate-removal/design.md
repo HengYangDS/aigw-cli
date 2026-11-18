@@ -22,7 +22,7 @@ Mermaid gate supplies the concerns documentation and schema to the classes `curr
 
 - **Decision:** remove `check-mermaid`, its adapter, its tests and its npm dependency; add no other diagram
   validator.
-- **Reason:** one current diagram does not justify 144 packages, a jsdom override and an advisory without a
+- **Reason:** one current diagram does not justify 142 packages, a jsdom override and an advisory without a
   fix. The owner chose this on 2026-11-18.
 - **Alternatives:** keep the gate and record the advisory as accepted (rejected by the owner); validate with
   Mermaid's own CLI (it brings the same browser stack).

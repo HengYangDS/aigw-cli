@@ -11,6 +11,13 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Removed
+
+- The repository checks no longer validate the syntax of Mermaid diagrams. The
+  validator's 142 development packages leave the npm lock, among them
+  picomatch 2.3.2, which an advisory without a fixed release names. The
+  released program never contained them.
+
 ## [0.8.1] - 2026-11-16
 
 ### Changed

@@ -108,12 +108,8 @@ auto-merge; toolchains, Actions, images, pre-1.0 and major versions need deliber
 admission. Security fixes bypass age/quota, not signing or quality. Renovate's
 direct OSV integration does not replace full-lock scanning.
 
-`@mermaid-lint/core`'s jsdom 26 range retains deprecated `whatwg-encoding`. The
-single jsdom override selects an admitted nondeprecated, fully attestable graph;
-its child ranges remain native. Install, signatures/attestations, vulnerabilities,
-valid/invalid fixtures and all diagrams must pass. Any deprecated npm package
-blocks lock admission. Remove the override when upstream supplies equivalent
-native coverage; do not add other overrides to evade authentication failures.
+Any deprecated npm package blocks lock admission. Do not add npm overrides to
+evade authentication failures.
 
 [Renovate's local platform](https://docs.renovatebot.com/modules/platform/local/) only extracts/looks up. Candidate calculation uses the
 selected Forge's [`dryRun=full`](https://docs.renovatebot.com/self-hosted-configuration/#dryrun) and native policy, retains proposed contents and
@@ -367,11 +363,11 @@ explains member installation.
 
 One [quality graph](../../tools/ci/quality.go) maps every product/tool/test/config/doc
 carrier to required concerns; native configs and executors remain below it. Formatting,
-Go vet/lint/types, race/coverage, SCC, schemas, Markdown/Mermaid/links, secrets and
+Go vet/lint/types, race/coverage, SCC, schemas, Markdown/links, secrets and
 artifact/runtime checks each have one owner. Architecture classification is not check
 effectiveness; add every applicable concern without another registry or generic parser.
 
-[Text policy](text-layout.md) owns exact inventory, Prettier, markdownlint, Mermaid,
+[Text policy](text-layout.md) owns exact inventory, Prettier, markdownlint,
 Taplo and typos. Actionlint checks workflow structure with its ShellCheck integration
 disabled; the workflow owner extracts each embedded Bash or sh fragment and runs
 locked ShellCheck on it with recorded exclusions and retained JSON evidence.

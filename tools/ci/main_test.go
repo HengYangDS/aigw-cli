@@ -47,7 +47,6 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"editorconfig-checker", "-disable-indentation", "-disable-indent-size"},
 		{"go", "run", "./tools/ci", "check-format", "."},
 		{"go", "run", "./tools/ci", "check-markdown", "."},
-		{"go", "run", "./tools/ci", "check-mermaid", "."},
 		{"go", "run", "./tools/ci", "links", "."},
 		{"go", "run", "./tools/ci", "check-spelling", "."},
 		{"go", "run", "./tools/ci", "check-toml", "."},

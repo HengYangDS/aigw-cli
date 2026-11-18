@@ -236,19 +236,6 @@ func checkMarkdown(root string, runner commandRunner) error {
 	return runner(command{Name: "node", Dir: root, Args: []string{checker}, Input: string(input)})
 }
 
-func checkMermaid(root string, runner commandRunner) error {
-	files, err := currentRepositoryFiles(root, "diagram sources", "*.md", "*.mdx", "*.markdown", "*.mmd")
-	if err != nil {
-		return err
-	}
-	input, err := json.Marshal(inCheckout(root, files))
-	if err != nil {
-		return err
-	}
-	checker := filepath.Join(root, "tools", "ci", "markdown", "diagrams.mjs")
-	return runner(command{Name: "node", Dir: root, Args: []string{checker}, Input: string(input)})
-}
-
 func checkSpelling(root string, runner commandRunner) error {
 	files, err := currentRepositoryFiles(root, "authored files")
 	if err != nil {

@@ -351,60 +351,14 @@ test("Markdown rejects warnings and missing native inputs", async (t) => {
   }
 });
 
-test("Mermaid validates requested diagrams without unrelated config overrides", async (t) => {
-  const root = await fixture(t);
-  await fs.writeFile(
-    path.join(root, ".mermaidlintrc.json"),
-    '{"ignore":["**/*"],"rules":{"no-self-loop":"off"}}',
-  );
-  const diagrams = [
-    ["flowchart", "flowchart LR\n  A[Source] --> B[Target]\n", true],
-    ["sequence", "sequenceDiagram\n  A->>B: Failure, no writes\n", true],
-    ["semicolon message", "sequenceDiagram\n  A->>B: Failure; no writes\n", false],
-    ["syntax", "flowchart LR\n  A[Unclosed\n", false],
-  ];
-  const files = [];
-  for (const [name, diagram] of diagrams) {
-    const file = path.join(root, `${name}.md`);
-    await fs.writeFile(file, `# Diagram\n\n\`\`\`mermaid\n${diagram}\`\`\`\n`);
-    files.push(file);
-  }
-  const accepted = run(root, "markdown/diagrams.mjs", files.slice(0, 2));
-  assert.equal(accepted.status, 0, accepted.output);
-  assert.ok(accepted.output.includes("checked 2 diagrams in 2 files"), accepted.output);
-  // Batch invalid input loads the authoritative fallback parser only once.
-  const rejected = run(
-    root,
-    "markdown/diagrams.mjs",
-    files.slice(2),
-    JSON.stringify(files.slice(2)),
-    60_000,
-  );
-  assert.equal(rejected.status, 1, rejected.output);
-  assert.ok(rejected.output.includes("checked 2 diagrams in 2 files"), rejected.output);
-  for (const [index, [name, diagram, valid]] of diagrams.entries()) {
-    await t.test(name, async () => {
-      const result = valid ? accepted : rejected;
-      assert.equal(result.output.includes(`${files[index]}:`), !valid, result.output);
-      assert.equal(
-        await fs.readFile(files[index], "utf8"),
-        `# Diagram\n\n\`\`\`mermaid\n${diagram}\`\`\`\n`,
-      );
-    });
-  }
-  const missing = run(root, path.join(root, "absent-checker.mjs"), []);
-  assert.notEqual(missing.status, 0, missing.output);
-  assert.ok(missing.output.includes("MODULE_NOT_FOUND"), missing.output);
-});
-
 test("native text checkers consume the complete pipe without changing source", async (t) => {
   const root = await fixture(t);
   const file = path.join(root, "document.md");
-  const content = "# Document\n\n```mermaid\nflowchart LR\n  A --> B\n```\n";
+  const content = "# Document\n\n```text\nA --> B\n```\n";
   await fs.writeFile(file, content);
   const encoded = JSON.stringify([file]);
   const input = encoded.slice(0, 1) + " \n".repeat(1 << 19) + encoded.slice(1);
-  for (const module of ["format.mjs", "markdown/lint.mjs", "markdown/diagrams.mjs"]) {
+  for (const module of ["format.mjs", "markdown/lint.mjs"]) {
     await t.test(module, async () => {
       const result = run(root, module, [file], input);
       assert.equal(result.status, 0, result.output);
