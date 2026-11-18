@@ -8,6 +8,8 @@
       validates strictly.
 - [x] 1.4 Advance `golang.org/x/tools` to v0.53.0. Done when `go mod tidy -diff` reports nothing and the coverage
       tool's tests pass.
+- [x] 1.5 Advance the native clients to Codex 0.170.0, Claude Code 2.1.327 and Hermes v0.23.2 in the CUE
+      authority. Done when `tools/ci project --check` reports no drift and the projection tests pass.
 
 ## 2. Verification
 

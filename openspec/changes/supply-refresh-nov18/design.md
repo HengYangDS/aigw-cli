@@ -4,7 +4,10 @@ The sweep's sources: `mise latest` for every tool of `.config/mise/config.toml` 
 apple-codesign, taplo, scc, editorconfig-checker, gitleaks, golangci-lint, ShellCheck, actionlint, Hyperfine,
 typos, lychee and OSV Scanner are current); `go list -m -u all` (one direct requirement behind; the others are
 indirect); the npm registry for the four direct npm packages (OpenSpec behind); GitHub releases of Renovate,
-`jdx/mise-action`, `actions/checkout` and `actions/upload-artifact` (Renovate behind).
+`jdx/mise-action`, `actions/checkout` and `actions/upload-artifact` (Renovate behind); the npm registry for Codex
+and Claude Code and GitHub's releases of Hermes for the native clients (all three behind). Hermes v0.23.2's
+installer digest is the SHA-256 of `scripts/install.sh` at its release commit, read the way that reproduces
+v0.23.1's pinned digest.
 
 ## Goals / Non-Goals
 

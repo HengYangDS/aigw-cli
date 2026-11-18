@@ -375,13 +375,13 @@ macosRunnerMise: #"""
 // native job installs the clients its host declares; a GitLab public input
 // carries the reviewed Windows supplier archive built from the same releases.
 nativeClients: {
-	codex:  "0.169.0"
-	claude: "2.1.325"
+	codex:  "0.170.0"
+	claude: "2.1.327"
 	// The Hermes release commit with its tag, and the SHA-256 of that
 	// release's scripts/install.sh.
 	hermes: {
-		commit:    "3b421578588243f920886e6fe79a6faa87ea026e" // v0.23.1
-		installer: "abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209"
+		commit:    "ae2a81ccc00e9b7c06301523e5bb09608397149c" // v0.23.2
+		installer: "c73dad4dcf7c9ecadb98578e28cc763d23d7be3fa1b513545319038795493214"
 	}
 }
 windowsClientSupplier: "suppliers/windows-codex-\(nativeClients.codex)-claude-\(nativeClients.claude)-native-packages.tar.gz"
