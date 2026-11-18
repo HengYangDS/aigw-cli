@@ -175,9 +175,29 @@ preserves each client's existing selection.
 
 Reasoning effort remains a native client preference, outside the team file's
 version 8 schema. Choose a level supported by the selected model through Codex's
-`model_reasoning_effort` or Claude Code's `effortLevel` in their active settings.
-Merge those fields; do not replace either document. Applying the team file
-does not set these preferences.
+`model_reasoning_effort`, Claude Code's `effortLevel` or Hermes's
+`reasoning_effort` in their active settings. Merge those fields; do not replace
+any document. Applying the team file does not set these preferences.
+
+For daily work the team uses each vendor's main line, the line below its
+flagship. GPT-6.2 Sol and Claude Opus 5.5 run at `xhigh`. Gemini 4 Argon has
+three levels, and its top, `high`, is the closest to `xhigh`, so Argon runs at
+`high`. Every provider of the file serves these lines, so the same choice holds
+for DMXAPI, UCloud and AIHubMix. Set the level explicitly: the defaults differ
+by layer. Anthropic's API runs Opus 5.5 at `medium` when a request names no
+level; OpenAI recommends `medium` to start with GPT-6.2; and Codex's bundled
+catalog makes `low` the default of GPT-6.2 Sol and Astra.
+
+| Vendor    | Flagship | Daily main line | Daily effort | API effort levels                 |
+| --------- | -------- | --------------- | ------------ | --------------------------------- |
+| OpenAI    | Astra    | GPT-6.2 Sol     | `xhigh`      | `low` to `max`                    |
+| Anthropic | Fable    | Claude Opus 5.5 | `xhigh`      | `low` to `max`                    |
+| Google    | Carbon   | Gemini 4 Argon  | `high`       | `low`, `medium`, `high` (its top) |
+
+Every other vendor keeps one family in the team file, its strongest generally
+available model; use it at the level below its top, or at its only level.
+Whether a provider passes an effort level through to the model unchanged is not
+established: the team's qualification runs Hermes at `medium`.
 
 Context capacity and compaction are also client settings. Retain the installed
 client's model metadata unless the selected provider's larger limit has been

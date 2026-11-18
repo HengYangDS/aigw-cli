@@ -41,6 +41,18 @@ two families.
   Codex; Astra as a default stays the owner's decision.
 - **Applies to:** `[recommendations.codex]`, `[recommendations.hermes]`.
 
+### The daily line and effort stay in the guide
+
+- **Rests on:** the owner's rule of 2026-11-18: for daily work each vendor's main line, below its flagship (GPT-6.2
+  Sol, Claude Opus 5.5, Gemini 4 Argon), at `xhigh`, or at Argon's top level `high`; each other vendor's strongest
+  model. The team file's schema 8 holds no effort, and each client owns its own setting. The defaults differ by
+  layer: Anthropic's API runs Opus 5.5 at `medium`, and Codex 0.169.1 and 0.170.0 bundle `low` as the default of
+  GPT-6.2 Sol and Astra (read with `codex debug models --bundled` in a private home).
+- **Considered:** an effort field in the team file that AIGW writes into each client; a rule in the rollout guide.
+- **Chosen because:** the owner chose on 2026-11-18 to document it first; a field would take over three clients'
+  settings, and no provider's pass-through of effort is established.
+- **Applies to:** `docs/guides/team-rollout.md`.
+
 ## Risks / Trade-offs
 
 - **An operator's selection of a replaced model** keeps working: `aigw setup --from` keeps explicit selections, and

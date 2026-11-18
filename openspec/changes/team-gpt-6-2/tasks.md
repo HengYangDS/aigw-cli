@@ -5,6 +5,8 @@
       `TestTeamManifestKeepsOneFamilyPerCuratedLine` and the team-file tests pass.
 - [x] 1.2 Record the qualification in `docs/research/provider-model-qualification.md` and the recommendation in
       the team rollout guide. Done when the text and link checks pass.
+- [x] 1.3 State the owner's daily line and effort rule in the team rollout guide, with each layer's default. Done
+      when the guide's table names Sol, Opus and Argon and the text checks pass.
 
 ## 2. Verification
 
