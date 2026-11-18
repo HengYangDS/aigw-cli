@@ -4,23 +4,22 @@
 
 - [x] 1.1 Publish accepted `dev` and `main` to GitLab through ETHOS; read both
       refs back equal to GitHub's.
-- [ ] 1.2 Publish every attested release tag that GitHub received during the
+- [x] 1.2 Publish every attested release tag that GitHub received during the
       outage, `v0.3.4` and later, to GitLab through ETHOS; read each tag object
       back equal to GitHub's.
   - [x] 1.2.1 Publish `v0.4.0` and `v0.4.1`, whose release commits are in
         accepted history; read back GitHub's objects `6be2e3d3` and `c9f923b9`.
   - [x] 1.2.2 Remove the root `.cbmignore`, which ETHOS's repository paradigm
         rejects.
-  - [ ] 1.2.3 Record native ETHOS receipts for `v0.3.4` and `v0.3.5`, which
-        both peers already name identically. Their sources predate the shared
-        repository paradigm, so the receipt preview still refuses with
-        `proof_attestation_repository_policy_mismatch`, and no native path
-        exists yet. DR-0016 withdrew ETHOS publication-history-repair 13.4.10
-        as in-repo work; ETHOS restores it in its narrow Change
-        `adopter-tag-receipts`, planned for beta.3, which judges each release
-        tag by its own release-bound proof and names this task as its consumer.
-        Owner: a225 (ETHOS product lane); next: rebind aigw-cli to the release
-        that ships it, then preview both receipts again; review 2026-11-06.
+  - [x] 1.2.3 Record native ETHOS receipts for `v0.3.4` and `v0.3.5`, which
+        both peers already name identically. ETHOS `adopter-tag-receipts`
+        (archived 2026-11-05, in the bound beta.10) admits a release tag by its
+        own release-bound proof: on 2026-11-17 the publication of each tag
+        previewed `pass/ready_to_publish` and applied with
+        `remote_push: already_applied` on both peers, which read back
+        `e86777be` and `95132368`
+        (`build/ethos/tagreceipt-<tag>-<peer>-{preview,apply}-20261117.json`
+        of the main checkout).
   - [x] 1.2.4 Publish the maintenance tags `v0.3.4` and `v0.3.5`; read back
         GitHub's objects `e86777be` and `95132368`. Done by the user-authorized
         break glass of 2026-10-15, outside ETHOS publication.
