@@ -22,7 +22,7 @@
 
 - [x] 4.1 The delta of `projection-format` validates strictly, and a simulated archive leaves the main
       specifications valid.
-- [ ] 4.2 `VERSION` and `CHANGELOG.md` name 0.8.2.
+- [x] 4.2 `VERSION` and `CHANGELOG.md` name 0.8.2.
 
 ## 5. Verification
 
