@@ -11,7 +11,8 @@ ETHOS's dependency audit.
 
 - npm 12.2.2 to 12.2.3, uv 0.13.8 to 0.13.9, gh 2.104.0 to 2.105.0, glab 1.130.0 to 1.131.0 and Syft 1.57.1 to
   1.57.2 in the Mise configuration and its lock.
-- The Renovate image 44.242.0 to 44.251.0, pinned to its index digest.
+- The Renovate image 44.242.0 to 44.239.1, pinned to its index digest: the newest release that was 72 hours old
+  on 2026-11-18, by the owner's word of that evening.
 - OpenSpec 2.0.0 to 2.1.0 in the npm lock.
 - `golang.org/x/tools` v0.52.0 to v0.53.0, the one direct Go requirement behind; `go mod tidy` moves what it
   requires.
