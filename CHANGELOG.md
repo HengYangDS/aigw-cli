@@ -13,6 +13,11 @@ signing, and GA status remain separate evidence.
 
 ### Changed
 
+- The team file follows GPT-6.2: GPT-6.2 Astra and GPT-6.2 Sol replace GPT-6
+  Astra and GPT-6.1 Sol on DMXAPI (with their CDX channels), UCloud and
+  AIHubMix, and Codex and Hermes recommend GPT-6.2 Sol. DMXAPI's SSVIP
+  channels of both lines leave the file, since DMXAPI lists no SSVIP model of
+  6.2. Applying the file keeps a client's explicit selection.
 - AIGW reads and writes YAML through `go.yaml.in/yaml/v4`. In Hermes's
   configuration it keeps a literal block (`|`) for text with trailing spaces,
   which it wrote as a quoted string, and writes no blank line after a folded

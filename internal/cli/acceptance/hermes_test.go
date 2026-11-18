@@ -121,7 +121,7 @@ func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
 		t.Fatalf("shipped setup: %v\n%s", err, output.String())
 	}
 	output.Reset()
-	if err := cli.Execute(app, []string{"use", "hermes", "dmxapi/gpt-6.1-sol-cdx", "--protocol", "responses"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "hermes", "dmxapi/gpt-6.2-sol-cdx", "--protocol", "responses"}); err != nil {
 		t.Fatalf("select shipped channel: %v\n%s", err, output.String())
 	}
 	var projected struct {
@@ -136,7 +136,7 @@ func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
 	if err := yaml.Unmarshal(readFile(t, target), &projected); err != nil {
 		t.Fatal(err)
 	}
-	if projected.Model.Default != "gpt-6.1-sol-cdx" || !slices.Contains(projected.Providers[projected.Model.Provider].Models, projected.Model.Default) {
+	if projected.Model.Default != "gpt-6.2-sol-cdx" || !slices.Contains(projected.Providers[projected.Model.Provider].Models, projected.Model.Default) {
 		t.Fatalf("shipped Hermes projection = %#v", projected)
 	}
 	if httpClient.calls != 0 || strings.Contains(string(readFile(t, target)), "fixture-token") {
@@ -157,7 +157,7 @@ func TestHermesExplicitSelectionAdoptsNativeSwitchThenSyncs(t *testing.T) {
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
-	for _, args := range [][]string{{"setup", "--from", manifest}, {"use", "hermes", "ucloud/gpt-6.1-sol", "--protocol", "responses"}} {
+	for _, args := range [][]string{{"setup", "--from", manifest}, {"use", "hermes", "ucloud/gpt-6.2-sol", "--protocol", "responses"}} {
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v: %v", args, err)
 		}
@@ -192,7 +192,7 @@ func TestHermesExplicitSelectionAdoptsNativeSwitchThenSyncs(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Explicit selection still adopts a proved native switch.
-	args := []string{"use", "hermes", "dmxapi/gpt-6.1-sol", "--protocol", "responses"}
+	args := []string{"use", "hermes", "dmxapi/gpt-6.2-sol", "--protocol", "responses"}
 	if err := cli.Execute(app, append(slices.Clone(args), "--dry-run", "--json")); err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +206,7 @@ func TestHermesExplicitSelectionAdoptsNativeSwitchThenSyncs(t *testing.T) {
 		t.Fatalf("sync after explicit adoption: %v", err)
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || cfg.SelectedModel(hermes.ID) != domain.NewModelRef("dmxapi", "gpt-6.1-sol") {
+	if err != nil || cfg.SelectedModel(hermes.ID) != domain.NewModelRef("dmxapi", "gpt-6.2-sol") {
 		t.Fatalf("Hermes binding after adoption: %#v, %v", cfg.Clients, err)
 	}
 	for _, client := range []string{codex.ID, claude.ID, claudedesktop.ID} {
@@ -277,7 +277,7 @@ func shippedHermesAppWith(t *testing.T, reader bool) (*cli.App, *bytes.Buffer, *
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
-	for _, args := range [][]string{{"setup", "--from", manifest}, {"use", "hermes", "dmxapi/gpt-6.1-sol", "--protocol", "responses"}} {
+	for _, args := range [][]string{{"setup", "--from", manifest}, {"use", "hermes", "dmxapi/gpt-6.2-sol", "--protocol", "responses"}} {
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, output)
 		}
@@ -461,17 +461,17 @@ func TestHermesSyncRefusesChangedManagedProvider(t *testing.T) {
 func TestHermesExplicitSelectionOverridesNativeModelChoice(t *testing.T) {
 	app, output, _, target := shippedHermesApp(t)
 	hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-opus-5-5", nil)
-	if err := cli.Execute(app, []string{"use", "hermes", "ucloud/gpt-6.1-sol", "--protocol", "responses"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "hermes", "ucloud/gpt-6.2-sol", "--protocol", "responses"}); err != nil {
 		t.Fatalf("explicit selection after a native choice: %v\n%s", err, output)
 	}
 	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatalf("sync after explicit selection: %v\n%s", err, output)
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || cfg.SelectedModel(hermes.ID) != domain.NewModelRef("ucloud", "gpt-6.1-sol") {
+	if err != nil || cfg.SelectedModel(hermes.ID) != domain.NewModelRef("ucloud", "gpt-6.2-sol") {
 		t.Fatalf("explicit selection lost to the native choice: %#v, %v", cfg.Clients[hermes.ID], err)
 	}
-	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-ucloud-responses" || model != "gpt-6.1-sol" {
+	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-ucloud-responses" || model != "gpt-6.2-sol" {
 		t.Fatalf("Hermes did not receive the explicitly selected model: %s %s", provider, model)
 	}
 }

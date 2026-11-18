@@ -63,37 +63,25 @@ label = 'DMXAPI · Claude Haiku 5.5 · CC'
 protocols = { anthropic = [] }
 
 [[providers.models]]
-id = 'gpt-6-astra'
-family = 'gpt-6-astra'
+id = 'gpt-6.2-astra'
+family = 'gpt-6.2-astra'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'gpt-6-astra-cdx'
-family = 'gpt-6-astra'
-label = 'DMXAPI · GPT-6 Astra · CDX'
+id = 'gpt-6.2-astra-cdx'
+family = 'gpt-6.2-astra'
+label = 'DMXAPI · GPT-6.2 Astra · CDX'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'gpt-6-astra-ssvip'
-family = 'gpt-6-astra'
-label = 'DMXAPI · GPT-6 Astra · SSVIP'
+id = 'gpt-6.2-sol'
+family = 'gpt-6.2-sol'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'gpt-6.1-sol'
-family = 'gpt-6.1-sol'
-protocols = { responses = [] }
-
-[[providers.models]]
-id = 'gpt-6.1-sol-cdx'
-family = 'gpt-6.1-sol'
-label = 'DMXAPI · GPT-6.1 Sol · CDX'
-protocols = { responses = [] }
-
-[[providers.models]]
-id = 'gpt-6.1-sol-ssvip'
-family = 'gpt-6.1-sol'
-label = 'DMXAPI · GPT-6.1 Sol · SSVIP'
+id = 'gpt-6.2-sol-cdx'
+family = 'gpt-6.2-sol'
+label = 'DMXAPI · GPT-6.2 Sol · CDX'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -215,13 +203,13 @@ family = 'claude-haiku-5-5'
 protocols = { anthropic = ['tool_search'] }
 
 [[providers.models]]
-id = 'gpt-6-astra'
-family = 'gpt-6-astra'
+id = 'gpt-6.2-astra'
+family = 'gpt-6.2-astra'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'gpt-6.1-sol'
-family = 'gpt-6.1-sol'
+id = 'gpt-6.2-sol'
+family = 'gpt-6.2-sol'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -310,13 +298,13 @@ family = 'claude-haiku-5-5'
 protocols = { anthropic = [] }
 
 [[providers.models]]
-id = 'gpt-6-astra'
-family = 'gpt-6-astra'
+id = 'gpt-6.2-astra'
+family = 'gpt-6.2-astra'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'gpt-6.1-sol'
-family = 'gpt-6.1-sol'
+id = 'gpt-6.2-sol'
+family = 'gpt-6.2-sol'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -447,12 +435,12 @@ id = 'claude-haiku-5-5'
 label = 'Claude Haiku 5.5'
 
 [[families]]
-id = 'gpt-6-astra'
-label = 'GPT-6 Astra'
+id = 'gpt-6.2-astra'
+label = 'GPT-6.2 Astra'
 
 [[families]]
-id = 'gpt-6.1-sol'
-label = 'GPT-6.1 Sol'
+id = 'gpt-6.2-sol'
+label = 'GPT-6.2 Sol'
 
 [[families]]
 id = 'gpt-6.1-terra'
@@ -563,9 +551,9 @@ primary = { model = 'dmxapi/claude-opus-5-5' }
 alternatives = [{ model = 'ucloud/claude-opus-5-5' }]
 
 [recommendations.codex]
-primary = { model = 'dmxapi/gpt-6.1-sol-cdx' }
-alternatives = [{ model = 'ucloud/gpt-6.1-sol' }]
+primary = { model = 'dmxapi/gpt-6.2-sol-cdx' }
+alternatives = [{ model = 'ucloud/gpt-6.2-sol' }]
 
 [recommendations.hermes]
-primary = { model = 'dmxapi/gpt-6.1-sol', protocol = 'responses' }
-alternatives = [{ model = 'ucloud/gpt-6.1-sol', protocol = 'responses' }]
+primary = { model = 'dmxapi/gpt-6.2-sol', protocol = 'responses' }
+alternatives = [{ model = 'ucloud/gpt-6.2-sol', protocol = 'responses' }]

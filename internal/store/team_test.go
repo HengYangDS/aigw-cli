@@ -48,7 +48,7 @@ func teamModel(t *testing.T, file domain.Config, name string) (domain.Model, boo
 
 func TestTeamFileIsReviewedVersionEight(t *testing.T) {
 	_, parsedManifest := loadTeamManifest(t)
-	if parsedManifest.Version != 8 || len(parsedManifest.Providers) != 3 || len(parsedManifest.Families) == 0 || len(parsedManifest.Models) != 80 {
+	if parsedManifest.Version != 8 || len(parsedManifest.Providers) != 3 || len(parsedManifest.Families) == 0 || len(parsedManifest.Models) != 78 {
 		t.Fatalf("team file = version %d, %d providers, %d families, %d models", parsedManifest.Version, len(parsedManifest.Providers), len(parsedManifest.Families), len(parsedManifest.Models))
 	}
 	if got := parsedManifest.ProviderIDs(); !slices.Equal(got, []string{"dmxapi", "ucloud", "aihubmix"}) {
@@ -60,8 +60,8 @@ func TestTeamFileIsReviewedVersionEight(t *testing.T) {
 	}{
 		ClientClaude:        {model: "claude-opus-5-5"},
 		ClientClaudeDesktop: {model: "claude-opus-5-5"},
-		ClientCodex:         {model: "gpt-6.1-sol"},
-		ClientHermes:        {model: "gpt-6.1-sol", storedProtocol: domain.ProtocolResponses},
+		ClientCodex:         {model: "gpt-6.2-sol"},
+		ClientHermes:        {model: "gpt-6.2-sol", storedProtocol: domain.ProtocolResponses},
 	}
 	if len(parsedManifest.Recommendations) != len(recommendations) {
 		t.Fatalf("team manifest recommended routes = %#v", parsedManifest.Recommendations)
@@ -152,7 +152,7 @@ func TestTeamManifestUsesRequestedFamilies(t *testing.T) {
 		"claude-fable-5-2", "claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5",
 		"cohere-command-a",
 		"deepseek-v4.1-flash-1017", "doubao-seed-2-1-pro-260915", "ernie-5.1", "gemini-4-argon", "gemini-4-carbon",
-		"gemini-4-hydrogen", "glm-5.3", "gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol", "gpt-6.1-terra", "grok-4.7",
+		"gemini-4-hydrogen", "glm-5.3", "gpt-6-luna", "gpt-6.1-terra", "gpt-6.2-astra", "gpt-6.2-sol", "grok-4.7",
 		"hy4", "kimi-k3.1-pro", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.5", "mercury-2.5", "mimo-v2.6-pro",
 		"minimax-m3.1-flash", "mistral-large-3", "muse-wonder", "nemotron-3-ultra-550b-a55b",
 		"qwen3.8-max-0902", "solar-pro4", "step-5-preview",
@@ -162,7 +162,7 @@ func TestTeamManifestUsesRequestedFamilies(t *testing.T) {
 	}
 	order := manifest.FamilyIDs()
 	if !slices.Equal(order[:8], []string{"claude-fable-5-2", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5",
-		"gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna"}) {
+		"gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-terra", "gpt-6-luna"}) {
 		t.Errorf("team families in file order = %v", order)
 	}
 	if manifest.Families["claude-opus-5-5"].Label != "Claude Opus 5.5" {
@@ -322,8 +322,8 @@ func TestTeamManifestModelsUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 		"dmxapi/claude-sonnet-5-5":       {"claude-sonnet-5-5", "claude-sonnet-5-5"},
 		"dmxapi/claude-sonnet-5-5-cc":    {"claude-sonnet-5-5", "claude-sonnet-5-5-cc"},
 		"dmxapi/claude-sonnet-5-5-ssvip": {"claude-sonnet-5-5", "claude-sonnet-5-5-ssvip"},
-		"dmxapi/gpt-6.1-sol-cdx":         {"gpt-6.1-sol", "gpt-6.1-sol-cdx"},
-		"dmxapi/gpt-6.1-sol-ssvip":       {"gpt-6.1-sol", "gpt-6.1-sol-ssvip"},
+		"dmxapi/gpt-6.2-sol-cdx":         {"gpt-6.2-sol", "gpt-6.2-sol-cdx"},
+		"dmxapi/gpt-6.2-astra-cdx":       {"gpt-6.2-astra", "gpt-6.2-astra-cdx"},
 		"dmxapi/gpt-6.1-terra":           {"gpt-6.1-terra", "gpt-6.1-terra"},
 		"dmxapi/gpt-6.1-terra-cdx":       {"gpt-6.1-terra", "gpt-6.1-terra-cdx"},
 		"dmxapi/gpt-6.1-terra-ssvip":     {"gpt-6.1-terra", "gpt-6.1-terra-ssvip"},
@@ -350,7 +350,7 @@ func TestTeamManifestModelsUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 
 func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	sol := "gpt-6.1-sol"
+	sol := "gpt-6.2-sol"
 	for client, want := range map[string][]string{
 		ClientClaude:        {"dmxapi/claude-opus-5-5", "ucloud/claude-opus-5-5"},
 		ClientClaudeDesktop: {"dmxapi/claude-opus-5-5", "ucloud/claude-opus-5-5"},

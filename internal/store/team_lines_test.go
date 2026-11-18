@@ -56,14 +56,16 @@ func TestTeamManifestKeepsOneFamilyPerCuratedLine(t *testing.T) {
 func TestTeamManifestGPTProviderModelsFollowInferenceEvidence(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	want := map[string][]string{
-		"gpt-6.1-sol": {"aihubmix", "dmxapi", "ucloud"},
+		// GPT-6.2 Astra and Sol passed all three Hermes turns on every provider on
+		// 2026-11-18 and replaced GPT-6 Astra and GPT-6.1 Sol.
+		"gpt-6.2-sol": {"aihubmix", "dmxapi", "ucloud"},
 		// DMXAPI's plain Terra passed the resumed tool turn on 2026-11-12; its CDX
 		// and SSVIP channels are separate wire identities.
 		"gpt-6.1-terra": {"aihubmix", "dmxapi", "ucloud"},
-		// GPT-6 Astra and GPT-6 Luna passed all three Hermes turns on every
-		// provider on 2026-11-13.
-		"gpt-6-astra": {"aihubmix", "dmxapi", "ucloud"},
-		"gpt-6-luna":  {"aihubmix", "dmxapi", "ucloud"},
+		"gpt-6.2-astra": {"aihubmix", "dmxapi", "ucloud"},
+		// GPT-6 Luna passed all three Hermes turns on every provider on
+		// 2026-11-13.
+		"gpt-6-luna": {"aihubmix", "dmxapi", "ucloud"},
 	}
 	for model, accounts := range want {
 		for _, account := range accounts {

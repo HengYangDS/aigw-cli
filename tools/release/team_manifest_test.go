@@ -61,21 +61,21 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 
 func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testing.T) {
 	team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
-	sol := "gpt-6.1-sol"
+	sol := "gpt-6.2-sol"
 	manifest, err := store.ParseTeamFile(team, builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, account := range []string{"dmxapi", "aihubmix", "ucloud"} {
 		route, exists := manifest.Models[domain.NewModelRef(account, sol)]
-		if !exists || route.Provider != account || route.Family != "gpt-6.1-sol" || route.ID != "gpt-6.1-sol" {
-			t.Fatalf("%s 6.1 Sol Route = %#v, present=%t", account, route, exists)
+		if !exists || route.Provider != account || route.Family != sol || route.ID != sol {
+			t.Fatalf("%s 6.2 Sol Route = %#v, present=%t", account, route, exists)
 		}
 		if len(route.Protocols) != 1 {
-			t.Fatalf("%s 6.1 Sol protocols = %#v", account, route.Protocols)
+			t.Fatalf("%s 6.2 Sol protocols = %#v", account, route.Protocols)
 		}
 		if _, ok := route.Protocols[domain.ProtocolResponses]; !ok {
-			t.Fatalf("%s 6.1 Sol lacks Responses: %#v", account, route.Protocols)
+			t.Fatalf("%s 6.2 Sol lacks Responses: %#v", account, route.Protocols)
 		}
 	}
 	if got := manifest.Providers["dmxapi"].Endpoints.Responses; got != "https://www.dmxapi.cn/v1" {

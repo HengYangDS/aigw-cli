@@ -54,6 +54,20 @@ Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default models; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
 
+## November 18: GPT-6.2
+
+OpenAI released GPT-6.2 Astra and GPT-6.2 Sol on November 17 for the Responses API and Chat Completions, tool calling
+on Responses; Terra stays at 6.1 and Luna at 6. By the line rule they replace GPT-6 Astra and GPT-6.1 Sol. Each cell
+passed the three turns of November 12 on the stock Hermes v0.23.1 (`3b4215785882`); a control of DMXAPI's GPT-6.1 Sol
+passed in the same run. AIHubMix's Sol 6.2 called `read_file` on its first recall turn and passed its one retry.
+DMXAPI lists no SSVIP model of 6.2, so the SSVIP channels of both lines leave the file. Raw results are in the
+canonical checkout's `build/evidence/team-gpt62-20261118/`.
+
+| Model         | Admitted provider / protocol                     | Vendor basis          |
+| ------------- | ------------------------------------------------ | --------------------- |
+| GPT-6.2 Astra | DMXAPI, DMXAPI CDX, UCloud, AIHubMix / Responses | OpenAI's newest Astra |
+| GPT-6.2 Sol   | DMXAPI, DMXAPI CDX, UCloud, AIHubMix / Responses | OpenAI's newest Sol   |
+
 ## November 13 line refresh
 
 The owner's rule of November 13: every product line of Claude (Fable, Opus, Sonnet, Haiku), GPT (Astra, Sol, Terra,

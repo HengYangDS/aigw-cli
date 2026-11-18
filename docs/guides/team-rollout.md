@@ -133,8 +133,8 @@ IDs, protocol tests, exclusions, and limits. A catalog listing is not a live
 model or native-client availability guarantee.
 
 Claude Code and Claude Desktop recommend DMXAPI Opus 5.5 before UCloud Opus 5.5.
-Codex recommends `dmxapi/gpt-6.1-sol-cdx` before `ucloud/gpt-6.1-sol`; Hermes
-recommends DMXAPI's base `dmxapi/gpt-6.1-sol` before the UCloud base model.
+Codex recommends `dmxapi/gpt-6.2-sol-cdx` before `ucloud/gpt-6.2-sol`; Hermes
+recommends DMXAPI's base `dmxapi/gpt-6.2-sol` before the UCloud base model.
 AIHubMix models remain available but are manual-only, not automatic
 alternatives. The Codex and Hermes DMXAPI models belong to the same family,
 but are distinct models. A shared family does not make every provider and
@@ -319,7 +319,7 @@ explicitly:
 
 ```bash
 aigw provider rotate dmxapi
-aigw use codex dmxapi/gpt-6.1-sol-cdx
+aigw use codex dmxapi/gpt-6.2-sol-cdx
 aigw status
 ```
 
@@ -356,11 +356,11 @@ does not undo the selection. Run `aigw status` before retrying.
 ### Hermes protocol and model selection
 
 With Hermes installed and a connected DMXAPI provider using the team's direct
-Responses endpoint, select and check its GPT-6.1 Sol model without changing
+Responses endpoint, select and check its GPT-6.2 Sol model without changing
 Codex or Claude selections:
 
 ```bash
-aigw use hermes dmxapi/gpt-6.1-sol
+aigw use hermes dmxapi/gpt-6.2-sol
 aigw check hermes --depth client
 ```
 
