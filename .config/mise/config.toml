@@ -25,7 +25,7 @@ NPM_CONFIG_GLOBALCONFIG = "{% if os() == 'windows' %}NUL{% else %}/dev/null{% en
 NPM_CONFIG_CACHE = "{{ config_root }}/build/runtime/tool-cache/npm{% if env.CI_JOB_ID | default(value='') != '' %}/{{ env.CI_JOB_ID }}{% endif %}"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.242.0@sha256:0123dd7efea6978a8347732aac8be14745cebb6b8653e77bc9ee290698d97e89"
+renovate_image = "ghcr.io/renovatebot/renovate:44.251.0@sha256:64adaabe8ee3e34820c2b044b5f87e281aa278bf53e5d76df2ce800f9cc9407a"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.
@@ -35,20 +35,20 @@ npm = "npm:npm"
 # Language runtimes
 go = "1.27.4"
 node = "26.13.1"
-npm = "12.2.2"
+npm = "12.2.3"
 # Native client acceptance only; not an AIGW runtime dependency.
-uv = "0.13.8"
+uv = "0.13.9"
 
 # Specification and CI modeling
 cue = "0.17.1"
 
 # Release transport conformance
-gh = "2.104.0"
-glab = "1.130.0"
+gh = "2.105.0"
+glab = "1.131.0"
 
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.20.2"
-"github:anchore/syft" = "1.57.1"
+"github:anchore/syft" = "1.57.2"
 # Cross-host ad-hoc macOS artifact signing.
 "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]" = "0.29.0"
 

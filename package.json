@@ -2,7 +2,7 @@
   "name": "aigw-repository-tools",
   "private": true,
   "devDependencies": {
-    "@fission-ai/openspec": "2.0.0",
+    "@fission-ai/openspec": "2.1.0",
     "js-yaml": "5.5.0",
     "markdownlint": "0.42.1",
     "prettier": "3.10.1"
