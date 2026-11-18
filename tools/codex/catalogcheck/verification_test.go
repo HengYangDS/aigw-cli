@@ -367,7 +367,7 @@ func TestProbeCodexCatalogCanReadTheClientsDefaultCatalog(t *testing.T) {
 	}
 }
 
-func TestCheckRejectsAnAliasShownUnderAnotherEntrysName(t *testing.T) {
+func TestCheckRejectsAnAliasShownUnderTheNameOfAnotherEntry(t *testing.T) {
 	reference := modelProbe{Model: "gpt-6.2-sol", Present: true, MetadataSHA256: "base"}
 	verification := verificationResult{
 		Model:      "gpt-6.2-sol-cdx",

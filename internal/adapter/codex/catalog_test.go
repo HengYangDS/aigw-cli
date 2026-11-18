@@ -261,14 +261,37 @@ func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 		t.Fatalf("canonical/channel catalog entries are not a metadata-preserving pair: base=%v channel=%v", baseEntry, channelEntry)
 	}
 	for field, want := range baseEntry {
-		if field != "slug" && field != "display_name" && string(channelEntry[field]) != string(want) {
+		if !channelOwnField(field) && string(channelEntry[field]) != string(want) {
 			t.Errorf("channel metadata %q = %s, want canonical value %s", field, channelEntry[field], want)
 		}
 	}
-	// Codex's picker shows the channel by its AIGW label without the
-	// provider, not under its family's name.
-	if string(channelEntry["display_name"]) != `"GPT-6.1 Sol · CDX"` {
-		t.Errorf("channel display name = %s, want the model's label without its provider", channelEntry["display_name"])
+}
+
+// channelOwnField reports a field that a channel's alias does not copy from
+// its family: its slug, and its display name, which the next test pins.
+func channelOwnField(field string) bool { return field == "slug" || field == "display_name" }
+
+// TestCodexCatalogShowsTheChannelByItsOwnName projects a channel's alias
+// under the model's AIGW label without its provider, not under its family's
+// name, which Codex's picker would show twice.
+func TestCodexCatalogShowsTheChannelByItsOwnName(t *testing.T) {
+	bundled := []byte(`{"models":[{"slug":"gpt-6.1-sol","display_name":"GPT-6.1 Sol"}]}`)
+	original := codexBundledCatalog
+	t.Cleanup(func() { codexBundledCatalog = original })
+	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
+		return ExecutableIdentity{Version: "0.160.0", SHA256: "client-catalog"}, bundled, nil
+	}
+	runtime := domain.Runtime{ModelLabel: "DMXAPI · GPT-6.1 Sol · CDX", ProviderLabel: "DMXAPI", ProviderID: "dmxapi"}
+	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
+	plan := codexCatalogProjection(target, "gpt-6.1-sol-cdx", "gpt-6.1-sol", runtime.ModelName(), "", codexState{}, platform.FileSnapshot{})
+	var projected struct {
+		Models []map[string]json.RawMessage `json:"models"`
+	}
+	if err := json.Unmarshal(plan.data, &projected); err != nil || len(projected.Models) != 2 {
+		t.Fatalf("projected catalog = %s, %v", plan.data, err)
+	}
+	if name := string(projected.Models[1]["display_name"]); name != `"GPT-6.1 Sol · CDX"` {
+		t.Fatalf("channel display name = %s, want the model's label without its provider", name)
 	}
 }
 

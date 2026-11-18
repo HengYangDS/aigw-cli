@@ -12,6 +12,7 @@ import (
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/codex/modelcatalog"
 	"aigw-cli/internal/clients"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 
 	"github.com/pelletier/go-toml/v2"
@@ -49,7 +50,9 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalog, _ := document.Project(route.ID, route.Family)
+	// The user's catalog names the model as AIGW's own projection would.
+	name := domain.Runtime{ModelLabel: p.manifest.ModelLabel(selection.Model), ProviderLabel: p.manifest.Providers[route.Provider].Label, ProviderID: route.Provider}.ModelName()
+	catalog, _ := document.Project(route.ID, route.Family, name)
 	if catalog == nil {
 		t.Fatalf("the installed Codex catalog has no entry for %s", route.ID)
 	}
