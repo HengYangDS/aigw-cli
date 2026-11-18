@@ -18,4 +18,4 @@
 
 ## 4. Verification
 
-- [ ] 4.1 `mise run check` passes on the lane head.
+- [x] 4.1 `mise run check` passes on the lane head.
