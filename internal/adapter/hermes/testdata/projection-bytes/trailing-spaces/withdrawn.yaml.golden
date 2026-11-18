@@ -1,0 +1,5 @@
+agent:
+  system_prompt: |
+    Line with two trailing spaces.  
+    Last line.
+  max_turns: 60

@@ -13,9 +13,12 @@ signing, and GA status remain separate evidence.
 
 ### Changed
 
-- AIGW reads and writes YAML through `go.yaml.in/yaml/v4`. A Hermes
-  configuration with a duplicate key is refused as before, with the library's
-  new wording on one line.
+- AIGW reads and writes YAML through `go.yaml.in/yaml/v4`. In Hermes's
+  configuration it keeps a literal block (`|`) for text with trailing spaces,
+  which it wrote as a quoted string, and writes no blank line after a folded
+  block scalar; every value stays the same. Some refusals of an unreadable
+  file change their wording, and a file that holds only `...` or a tab inside a
+  literal block is no longer refused.
 
 ### Removed
 
@@ -26,9 +29,9 @@ signing, and GA status remain separate evidence.
 
 ### Fixed
 
-- AIGW no longer adds a blank line after a folded block scalar (`>`) when it
-  writes Hermes's configuration, and no longer adds a line break to the value
-  of one that keeps its final line breaks (`>+`).
+- AIGW no longer changes the value of a folded block scalar in Hermes's
+  configuration: it added a line break to one that keeps its final line breaks
+  (`>+`), and a blank line inside one with a more-indented line.
 
 ## [0.8.1] - 2026-11-16
 

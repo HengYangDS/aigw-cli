@@ -1,0 +1,8 @@
+agent:
+  summary: >
+    First paragraph.
+
+    Second paragraph,
+      with a more-indented line,
+    and its end.
+  max_turns: 60

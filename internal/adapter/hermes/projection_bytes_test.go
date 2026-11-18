@@ -113,6 +113,23 @@ var pinnedProjections = []pinnedProjection{
 		"",
 		"  max_turns: 60",
 	)},
+	{name: "folded-more-indented", input: lines(
+		"agent:",
+		"  summary: >",
+		"    First paragraph.",
+		"",
+		"    Second paragraph,",
+		"      with a more-indented line,",
+		"    and its end.",
+		"  max_turns: 60",
+	)},
+	{name: "trailing-spaces", input: lines(
+		"agent:",
+		"  system_prompt: |",
+		"    Line with two trailing spaces.  ",
+		"    Last line.",
+		"  max_turns: 60",
+	)},
 	{name: "four-space-indent", input: lines(
 		"display:",
 		"    theme: dark",

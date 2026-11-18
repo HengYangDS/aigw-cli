@@ -20,7 +20,7 @@
 
 ## 4. Specification and release
 
-- [ ] 4.1 The delta of `projection-format` validates strictly, and a simulated archive leaves the main
+- [x] 4.1 The delta of `projection-format` validates strictly, and a simulated archive leaves the main
       specifications valid.
 - [ ] 4.2 `VERSION` and `CHANGELOG.md` name 0.8.2.
 
@@ -28,5 +28,7 @@
 
 - [ ] 5.1 `mise run check` passes on the lane head.
 - [ ] 5.2 The hosted graph passes at the proposal head on both forges.
-- [ ] 5.3 A fresh-context review of the change finds no byte that the move changes, or its findings are
-      answered.
+- [x] 5.3 A fresh-context review of the change finds no byte that the move changes, or its findings are
+      answered. Done when the specification names only what the pinned bytes show, every difference that the
+      review found is pinned or named in the design and the CHANGELOG, and Hermes's own reader reads every v4
+      form to the operator's value.

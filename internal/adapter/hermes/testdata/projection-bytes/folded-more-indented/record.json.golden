@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "original_model": null,
+  "model_present": false,
+  "providers_present": false,
+  "provider_ids": [
+    "aigw"
+  ],
+  "file_present": true,
+  "managed_digest": "87b1ca174564f03f3dd71bbe41e1a8b73860f6d44915d587dba15c439f40af98"
+}
