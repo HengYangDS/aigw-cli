@@ -13,7 +13,7 @@ import (
 	"syscall"
 
 	"github.com/rogpeppe/go-internal/robustio"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // GatewayAbsent reports whether no Hermes gateway runs for the home: no process

@@ -19,7 +19,7 @@ import (
 
 	builtinclients "aigw-cli/internal/clients"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 type teamManifestJourney struct {

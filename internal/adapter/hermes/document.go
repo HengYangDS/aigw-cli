@@ -11,7 +11,7 @@ import (
 
 	"aigw-cli/internal/adapter"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 var modelKeys = []string{"provider", "default", "base_url", "api_mode"}
@@ -112,17 +112,11 @@ func parseDocument(data []byte) (*yaml.Node, error) {
 	return root, nil
 }
 
+// encode writes root as YAML with an indentation of two spaces, sequences
+// indented below their key, and no line folded, whatever the library's
+// defaults are.
 func encode(root *yaml.Node) ([]byte, error) {
-	var buffer bytes.Buffer
-	encoder := yaml.NewEncoder(&buffer)
-	encoder.SetIndent(2)
-	if err := encoder.Encode(root); err != nil {
-		return nil, err
-	}
-	if err := encoder.Close(); err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
+	return yaml.Dump(root, yaml.WithV3Defaults(), yaml.WithIndent(2), yaml.WithCompactSeqIndent(false), yaml.WithLineWidth(-1))
 }
 
 // VerificationGatewayIdleExitSeconds bounds how long the gateway that a

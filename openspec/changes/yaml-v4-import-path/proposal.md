@@ -10,6 +10,9 @@ Its encoder folds a line past column 80, where v3's never folds, and AIGW writes
 encoder. And its node type gains a field, while AIGW stores the model selection that it replaced as that very
 type in its JSON ownership record, which released programs read with unknown fields refused. No test of this
 repository compares a written Hermes file or record byte for byte, so neither change would fail a test.
+Once those bytes were pinned, v4 showed two more differences, and both keep the operator's text: it writes no
+blank line after a folded block scalar, and it keeps the value of a folded scalar that keeps its final line
+breaks (`>+`), to which v3 adds a line break. A duplicate key's refusal also reads differently.
 
 ## What Changes
 
@@ -18,10 +21,12 @@ repository compares a written Hermes file or record byte for byte, so neither ch
 - The ownership record's form becomes AIGW's own: a type of this repository with exactly the fields that
   today's records hold, so its bytes do not follow a library's struct.
 - The repository imports `go.yaml.in/yaml/v4` in place of v3, and AIGW's writer states its line width (no
-  folding) and its indentation. The pinned bytes stay as they are.
+  folding) and its indentation. The pinned bytes stay as they are, except the two differences above and the
+  refusal's wording, which the design takes from v4.
 - `projection-format` states what AIGW keeps of a Hermes configuration outside its own part.
 
-No command, option, output or exit status changes, and no file that AIGW writes changes by a byte.
+No command, option or exit status changes. A Hermes file that AIGW writes changes only where v4 keeps the
+operator's text that v3 changed, and one refusal's wording changes.
 
 ## Capabilities
 

@@ -1,6 +1,6 @@
 package hermes
 
-import "go.yaml.in/yaml/v3"
+import "go.yaml.in/yaml/v4"
 
 // recordedNode is the form in which the ownership record keeps a YAML node.
 // Its fields and their names are those of go.yaml.in/yaml/v3's Node, in that

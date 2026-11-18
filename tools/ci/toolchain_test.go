@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 func miseProbeEnvironment(t *testing.T, root string) []string {

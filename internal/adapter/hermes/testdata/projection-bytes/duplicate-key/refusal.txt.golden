@@ -1,2 +1,1 @@
-ambiguous Hermes configuration: yaml: unmarshal errors:
-  line 3: mapping key "theme" already defined at line 2
+ambiguous Hermes configuration: yaml: construct errors: line 3: mapping key "theme" already defined at line 2

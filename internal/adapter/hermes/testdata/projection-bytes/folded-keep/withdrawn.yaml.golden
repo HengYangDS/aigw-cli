@@ -1,0 +1,5 @@
+agent:
+  summary: >+
+    Kept final line breaks.
+
+  max_turns: 60

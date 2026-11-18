@@ -13,9 +13,10 @@
 
 ## 3. The library
 
-- [ ] 3.1 Import `go.yaml.in/yaml/v4` in place of v3 in every file, with the writer's line width and indentation
-      stated. Done when the pinned bytes are unchanged, a line width of 80 fails them, `go.mod` names v4 alone,
-      and the supply records name it.
+- [x] 3.1 Import `go.yaml.in/yaml/v4` in place of v3 in every file, with the writer's line width and indentation
+      stated. Done when the pinned bytes are unchanged except the cases that the design takes from v4, a line
+      width of 80 and a compact sequence indentation each fail them, and `go.mod` requires v4 directly and v3
+      only indirectly.
 
 ## 4. Specification and release
 

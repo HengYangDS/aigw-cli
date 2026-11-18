@@ -7,7 +7,6 @@ agent:
     on this workstation
   summary: >
     This folded text reads as one line.
-
 model:
   provider: aigw
   default: model-test

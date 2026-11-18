@@ -24,7 +24,7 @@ import (
 	"aigw-cli/internal/clients"
 
 	"github.com/pelletier/go-toml/v2"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 func (j *journeyFixture) retainedCredential(client string) process.Plan {

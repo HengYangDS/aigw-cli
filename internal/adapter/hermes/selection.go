@@ -10,7 +10,7 @@ import (
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/platform"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // Selection is Hermes' own selected provider and model.

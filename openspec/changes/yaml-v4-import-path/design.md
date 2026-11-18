@@ -11,8 +11,8 @@ here.
 
 **Goals:**
 
-- The move to v4 changes no byte that AIGW writes, and a test shows it for each kind of content that an
-  operator's file can hold.
+- The move to v4 changes no byte that AIGW writes, except where v4 keeps the operator's text that v3 changed,
+  and a test shows it for each kind of content that an operator's file can hold.
 - The ownership record's form belongs to this repository.
 
 **Non-Goals:**
@@ -56,7 +56,19 @@ here.
 - **Considered:** keep `NewEncoder`; build the writer with the library's options, width unlimited and
   indentation 2.
 - **Chosen because:** the options say what the writer does, so a later default does not change it.
-- **Applies to:** `document.go` (`encode`) and the two other encoders of the adapter.
+- **Applies to:** `document.go` (`encode`), which every writer of the adapter calls.
+
+### Two differences of v4 are taken, not reproduced
+
+- **Rests on:** the pinned bytes under v4 (2026-11-18). v3 writes a blank line after a folded block scalar and
+  adds a line break to the value of one that keeps its final line breaks (`>+`); v4 does neither. A duplicate
+  key's refusal reads `yaml: construct errors: line 3: …` on one line, where v3 wrote two lines; v4's v3
+  preset keeps the new text.
+- **Considered:** reproduce v3's bytes in AIGW's writer; take v4's.
+- **Chosen because:** v4 writes the operator's own text where v3 did not, and v3 changed a value; reproducing
+  that would be code of AIGW against its library. The refusal is a message, not a file.
+- **Applies to:** the cases `block-scalars`, `folded-keep` and `duplicate-key` of the pinned bytes, and
+  `CHANGELOG.md`.
 
 ## Risks / Trade-offs
 
@@ -69,4 +81,5 @@ here.
 
 ## Migration Plan
 
-None for an operator: the files and the record keep their bytes.
+None for an operator: the record keeps its bytes, and a file changes only where v4 keeps the operator's
+text.

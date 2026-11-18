@@ -14,6 +14,12 @@ library does not alter.
 - **THEN** those keys keep their values, their order, their comments and their quoting
 - **AND** no value is wrapped onto a second line.
 
+#### Scenario: A block scalar keeps its final line breaks
+
+- **WHEN** AIGW projects its providers into a Hermes configuration that holds a folded block scalar which keeps
+  its final line breaks
+- **THEN** the scalar's text and value are unchanged after the projection and after its withdrawal.
+
 #### Scenario: The ownership record is written by a later build
 
 - **WHEN** a build of AIGW with another release of its YAML library writes the record of the model selection

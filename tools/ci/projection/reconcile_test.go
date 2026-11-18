@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 var canonicalProjectionFixture = sync.OnceValues(func() ([]projection, error) {

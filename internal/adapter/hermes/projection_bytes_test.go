@@ -106,6 +106,13 @@ var pinnedProjections = []pinnedProjection{
 		"    This folded text",
 		"    reads as one line.",
 	)},
+	{name: "folded-keep", input: lines(
+		"agent:",
+		"  summary: >+",
+		"    Kept final line breaks.",
+		"",
+		"  max_turns: 60",
+	)},
 	{name: "four-space-indent", input: lines(
 		"display:",
 		"    theme: dark",

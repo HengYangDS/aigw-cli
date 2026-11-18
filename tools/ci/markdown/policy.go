@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // CheckPolicy validates one checkout's policy without fetching schemas or changing files.

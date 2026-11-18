@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 func hermesVerificationFixture(t *testing.T) (domain.Config, domain.Runtime, adapter.Dependencies) {

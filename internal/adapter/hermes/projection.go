@@ -11,7 +11,7 @@ import (
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/platform"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // Provider is one AIGW-owned Hermes provider projection.

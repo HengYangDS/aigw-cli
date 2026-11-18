@@ -9,7 +9,7 @@ import (
 
 	"aigw-cli/internal/adapter"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 func testDesired() Desired {

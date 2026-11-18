@@ -11,12 +11,24 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- AIGW reads and writes YAML through `go.yaml.in/yaml/v4`. A Hermes
+  configuration with a duplicate key is refused as before, with the library's
+  new wording on one line.
+
 ### Removed
 
 - The repository checks no longer validate the syntax of Mermaid diagrams. The
   validator's 142 development packages leave the npm lock, among them
   picomatch 2.3.2, which an advisory without a fixed release names. The
   released program never contained them.
+
+### Fixed
+
+- AIGW no longer adds a blank line after a folded block scalar (`>`) when it
+  writes Hermes's configuration, and no longer adds a line break to the value
+  of one that keeps its final line breaks (`>+`).
 
 ## [0.8.1] - 2026-11-16
 

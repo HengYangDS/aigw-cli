@@ -8,7 +8,7 @@ import (
 	hermesclient "aigw-cli/internal/adapter/hermes"
 	"aigw-cli/tools/release/construction"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {

@@ -18,7 +18,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/domain"
 
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 func TestHermesSetupDeferredSyncCredentialCheckAndWithdrawal(t *testing.T) {
