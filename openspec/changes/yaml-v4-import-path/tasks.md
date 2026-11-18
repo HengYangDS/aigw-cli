@@ -26,8 +26,8 @@
 
 ## 5. Verification
 
-- [ ] 5.1 `mise run check` passes on the lane head.
-- [ ] 5.2 The hosted graph passes at the proposal head on both forges.
+- [x] 5.1 `mise run check` passes on the lane head.
+- [x] 5.2 The hosted graph passes at the proposal head on both forges.
 - [x] 5.3 A fresh-context review of the change finds no byte that the move changes, or its findings are
       answered. Done when the specification names only what the pinned bytes show, every difference that the
       review found is pinned or named in the design and the CHANGELOG, and Hermes's own reader reads every v4
