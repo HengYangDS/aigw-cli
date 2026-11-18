@@ -259,7 +259,9 @@ func addProviderModel(cfg *domain.Config, accountName, label string, endpoints d
 		panic("test fixture cannot resolve a wire interface: " + err.Error())
 	}
 	ref := domain.NewModelRef(accountName, model)
-	cfg.Models[ref] = qualifiedModel(label, accountName, model, protocol)
+	// Each model of a provider has a label of its own, as Config.Validate
+	// requires.
+	cfg.Models[ref] = qualifiedModel(label+" · "+model, accountName, model, protocol)
 	return ref
 }
 

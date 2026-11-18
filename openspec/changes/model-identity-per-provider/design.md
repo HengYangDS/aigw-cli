@@ -26,9 +26,10 @@ shows the catalog entry's `display_name`, which AIGW's alias copies from the fam
   `claude-code-` or `codex-` before it. The team file already labels every DMXAPI channel explicitly
   (`DMXAPI · GPT-6.2 Sol · CDX`).
 - **Considered:** require an explicit label for every variant; derive from the ID's difference to its family.
-- **Chosen because:** the derivation gives a variant that `aigw use` adds a distinct name at once, and it is exactly
-  what the team file writes by hand. A model whose ID neither begins nor ends with its family's keeps the plain
-  derivation; the uniqueness check catches any collision left.
+- **Chosen because:** the derivation gives a variant that `aigw use` adds a distinct name at once. The rest of the ID
+  stays as written (`cdx`): a rule that guesses which suffix is an acronym would be one nobody can predict; the team
+  file's explicit labels keep their own spelling (`CDX`). A model whose ID neither begins nor ends with its family's
+  keeps the plain derivation; the uniqueness check catches any collision left.
 - **Applies to:** `domain.modelLabel`; `ExportTeamFile` omits a stored label equal to the new derivation.
 
 ### Labels are unique per provider
@@ -53,7 +54,7 @@ shows the catalog entry's `display_name`, which AIGW's alias copies from the fam
 - **Rests on:** the owner's words of 2026-11-18: 「模型规则肯定是 by provider 的，因为不同供应商上新速度不一样」.
 - **Considered:** one family per line across the file; one per line on each provider.
 - **Chosen because:** a provider that has not listed a successor keeps a model that works there.
-- **Applies to:** `TestTeamManifestKeepsOneFamilyPerCuratedLine`, the specification, and Qwen's family on UCloud.
+- **Applies to:** `TestTeamManifestKeepsOneFamilyPerCuratedLine` and the specification.
 
 ## Risks / Trade-offs
 

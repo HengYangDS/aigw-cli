@@ -54,6 +54,21 @@ Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default models; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
 
+## November 18: Qwen4-Max, and the line rule per provider
+
+Alibaba's Model Studio page calls `qwen4-max` its latest model and a new-generation flagship, with tool calling on
+Chat Completions, Responses and Anthropic Messages; Qwen4-Max is the general successor of Qwen 3.8 Max. The owner
+stated the same day that the line rule is per provider, since providers list a successor at different times. DMXAPI
+and AIHubMix list `qwen4-max`; UCloud lists only `qwen3.8-max`, which the file has not held since October 27. Each
+cell passed the three turns of November 12 on the stock Hermes v0.23.1 (`3b4215785882`). AIHubMix's Chat Completions
+passed as well; its model keeps Responses alone, as Qwen 3.8 Max did, so a client with both endpoints needs no
+protocol choice. The previews (`qwen4-max-preview`, `coding-qwen4-max-preview`) stay out. Raw results are in the
+canonical checkout's `build/evidence/team-gpt62-20261118/` (run 4).
+
+| Model     | Admitted provider / protocol | Vendor basis                   |
+| --------- | ---------------------------- | ------------------------------ |
+| Qwen4-Max | DMXAPI, AIHubMix / Responses | Alibaba's newest general model |
+
 ## November 18: GPT-6.2
 
 OpenAI released GPT-6.2 Astra and GPT-6.2 Sol on November 17 for the Responses API and Chat Completions, tool calling

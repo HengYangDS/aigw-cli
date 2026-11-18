@@ -202,7 +202,8 @@ func missingEndpoint(cmd *cobra.Command, ref domain.ModelRef, provider domain.Pr
 }
 
 // familyFor is the family of a model that add creates: an explicit family,
-// created labelled from the model when it does not exist, or else the family
+// created labelled with its own ID when it does not exist, so that a variant
+// does not lend the family its name, or else the family
 // that domain.Config.AddedModelFamily gives a model without one. It returns
 // the explicit family that it creates, if any.
 func familyFor(cfg *domain.Config, ref domain.ModelRef, explicit string) (family, created string) {
@@ -210,7 +211,7 @@ func familyFor(cfg *domain.Config, ref domain.ModelRef, explicit string) (family
 		return cfg.AddedModelFamily(ref.ID()), ""
 	}
 	if _, exists := cfg.Families[explicit]; !exists {
-		cfg.Families[explicit] = domain.Family{Label: ref.ID()}
+		cfg.Families[explicit] = domain.Family{Label: explicit}
 		return explicit, explicit
 	}
 	return explicit, ""

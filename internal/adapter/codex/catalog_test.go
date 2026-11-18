@@ -69,7 +69,7 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
 	}
-	plan := codexCatalogProjection(target, "openai.gpt-5.5", "", "", state, before)
+	plan := codexCatalogProjection(target, "openai.gpt-5.5", "", "", "", state, before)
 	if plan.state != catalogStateProjected || string(plan.data) != string(owned) {
 		t.Fatalf("same client: plan = %+v", plan)
 	}
@@ -83,7 +83,7 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 		codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 			return live, nil, fmt.Errorf("dump failed")
 		}
-		plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", state, before)
+		plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", "", state, before)
 		if plan.state != catalogStateStale || plan.data != nil || plan.path != "" {
 			t.Fatalf("changed client %+v: plan = %+v", live, plan)
 		}
@@ -95,12 +95,12 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
 	}
 	edited := platform.FileSnapshot{Exists: true, Data: []byte("{}"), SHA256: platform.SHA256([]byte("{}")), Mode: 0o600}
-	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", state, edited); plan.state != catalogStateStale {
+	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", "", state, edited); plan.state != catalogStateStale {
 		t.Fatalf("edited catalog: plan = %+v", plan)
 	}
 
 	// Never owned a catalog here: nothing was lost, so nothing is reported.
-	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
+	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", "", codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
 		t.Fatalf("never owned: plan = %+v", plan)
 	}
 }
@@ -119,11 +119,11 @@ func TestCodexCatalogProjectionYieldsToUserAuthoredCatalog(t *testing.T) {
 	}
 	base := "model_catalog_json = \"/home/user/own-catalog.json\"\n"
 	for _, model := range []string{"openai.gpt-5.5", "gpt-6.1-sol"} {
-		if plan := codexCatalogProjection(target, model, "", base, codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
+		if plan := codexCatalogProjection(target, model, "", "", base, codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
 			t.Fatalf("user catalog was not respected for %q: plan = %+v", model, plan)
 		}
 	}
-	if plan := codexCatalogProjection(target, "", "", "", codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
+	if plan := codexCatalogProjection(target, "", "", "", "", codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
 		t.Fatalf("empty model produced a catalog: plan = %+v", plan)
 	}
 }
@@ -178,7 +178,7 @@ func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 	}
 	config.Models = map[domain.ModelRef]domain.Model{
 		routeID: {
-			Label:    "DMXAPI GPT-6.1 Sol CDX",
+			Label:    "DMXAPI · GPT-6.1 Sol · CDX",
 			Provider: "dmxapi",
 			Family:   canonicalModel,
 			ID:       upstreamModel,
@@ -261,9 +261,14 @@ func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 		t.Fatalf("canonical/channel catalog entries are not a metadata-preserving pair: base=%v channel=%v", baseEntry, channelEntry)
 	}
 	for field, want := range baseEntry {
-		if field != "slug" && string(channelEntry[field]) != string(want) {
+		if field != "slug" && field != "display_name" && string(channelEntry[field]) != string(want) {
 			t.Errorf("channel metadata %q = %s, want canonical value %s", field, channelEntry[field], want)
 		}
+	}
+	// Codex's picker shows the channel by its AIGW label without the
+	// provider, not under its family's name.
+	if string(channelEntry["display_name"]) != `"GPT-6.1 Sol · CDX"` {
+		t.Errorf("channel display name = %s, want the model's label without its provider", channelEntry["display_name"])
 	}
 }
 
@@ -279,7 +284,7 @@ func TestCodexCatalogProjectionKeepsAnExistingNativeWireModel(t *testing.T) {
 		return ExecutableIdentity{Version: "0.160.0", SHA256: "client-catalog"}, bundled, nil
 	}
 	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
-	plan := codexCatalogProjection(target, wire, canonical, "", codexState{}, platform.FileSnapshot{})
+	plan := codexCatalogProjection(target, wire, canonical, "", "", codexState{}, platform.FileSnapshot{})
 	if plan.state != catalogStateProjected || string(plan.data) != string(bundled) {
 		t.Fatalf("existing native wire model was rewritten: plan = %+v", plan)
 	}
@@ -298,7 +303,7 @@ func TestCodexCatalogGivesAModelThatIsItsOwnFamilyNoAlias(t *testing.T) {
 		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, bundled, nil
 	}
 	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
-	plan := codexCatalogProjection(target, model, model, "", codexState{}, platform.FileSnapshot{})
+	plan := codexCatalogProjection(target, model, model, "", "", codexState{}, platform.FileSnapshot{})
 	if plan.state != catalogStateProjected || string(plan.data) != string(bundled) {
 		t.Fatalf("a model that is its own family got table metadata: plan = %+v", plan)
 	}

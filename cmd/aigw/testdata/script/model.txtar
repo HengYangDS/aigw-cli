@@ -697,7 +697,7 @@ Fix
   "ok": true,
   "id": "mixed/new-model",
   "provider": "mixed",
-  "label": "Mixed · new-model",
+  "label": "Mixed · new-family",
   "family": "new-family",
   "protocols": [
     {
@@ -753,7 +753,7 @@ Fix
   "ok": true,
   "id": "mixed/new-model",
   "provider": "mixed",
-  "label": "Mixed · new-model",
+  "label": "Mixed · new-family",
   "family": "new-family",
   "protocols": [
     {
@@ -782,7 +782,7 @@ Fix
   "ok": true,
   "id": "mixed/new-model",
   "provider": "mixed",
-  "label": "Mixed · new-model",
+  "label": "Mixed · new-family",
   "family": "new-family",
   "protocols": [
     {
@@ -873,7 +873,7 @@ AIGW  Models
 Mixed
   · mixed/twin         Mixed · Twin · Anthropic Messages, OpenAI Chat Completions
   ✓ mixed/chat-only    Mixed · Chat Only · OpenAI Chat Completions · used by Hermes
-  · mixed/new-model    Mixed · new-model · Anthropic Messages, OpenAI Chat Completions
+  · mixed/new-model    Mixed · new-family · Anthropic Messages, OpenAI Chat Completions
 
 Next
   aigw use <client> <provider/model>
@@ -997,7 +997,7 @@ Options
         {
           "id": "mixed/new-model",
           "state": "missing",
-          "label": "Mixed · new-model",
+          "label": "Mixed · new-family",
           "listed_by": []
         },
         {
@@ -1082,7 +1082,7 @@ Fresh
 Mixed
   ! mixed/twin         missing · Mixed · Twin
   ! mixed/chat-only    missing · Mixed · Chat Only
-  ! mixed/new-model    missing · Mixed · new-model
+  ! mixed/new-model    missing · Mixed · new-family
   · mixed/spare-model  available
   · mixed/team-model   available
 

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -211,6 +212,7 @@ func (writer *failAtWriter) Write(data []byte) (int, error) {
 
 func TestReportRendersEveryMeasuredSelection(t *testing.T) {
 	verification := sampleVerification()
+	verification.SharedName = []string{"gpt-5.6-sol"}
 	out := &bytes.Buffer{}
 	if err := report(out, verification, false); err != nil {
 		t.Fatal(err)
@@ -226,6 +228,7 @@ func TestReportRendersEveryMeasuredSelection(t *testing.T) {
 		"unknown model, generated catalog",
 		"present",
 		"134063e133f0b4244fa3b251acf973d4fe4b4aeeacbdc135211bf480f59f1477",
+		"name shared with  gpt-5.6-sol",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("report lacks %q:\n%s", want, text)
@@ -242,7 +245,7 @@ func TestReportEmitsMachineReadableMeasurements(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &decoded); err != nil {
 		t.Fatalf("report emitted invalid JSON: %v\n%s", err, out)
 	}
-	if decoded != sampleVerification() {
+	if !reflect.DeepEqual(decoded, sampleVerification()) {
 		t.Fatalf("decoded = %+v", decoded)
 	}
 }
@@ -277,4 +280,11 @@ func writeExecutableForTest(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func TestReportSaysWhenNoOtherEntrySharesTheName(t *testing.T) {
+	out := &bytes.Buffer{}
+	if err := report(out, sampleVerification(), false); err != nil || !strings.Contains(out.String(), "name shared with  no other entry") {
+		t.Fatalf("report() = %v:\n%s", err, out)
+	}
 }

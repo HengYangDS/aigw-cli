@@ -60,12 +60,12 @@ func TestDocumentProjectionTakesNoMetadataFromAPrefix(t *testing.T) {
 	document := mustParseCatalog(t, testBundledCatalog("gpt-5.6-sol", "gpt-5.5", "codex-auto-review"))
 	for _, model := range []string{"openai.gpt-5.6-sol", "us.openai.gpt-5.5", "anthropic.codex-auto-review"} {
 		for _, family := range []string{"", model} {
-			if projected, base := document.Project(model, family); projected != nil || base != "" {
+			if projected, base := document.Project(model, family, ""); projected != nil || base != "" {
 				t.Fatalf("Project(%q, %q) = %q / %q, want no alias", model, family, projected, base)
 			}
 		}
 	}
-	projected, base := document.Project("openai.gpt-5.6-sol", "gpt-5.6-sol")
+	projected, base := document.Project("openai.gpt-5.6-sol", "gpt-5.6-sol", "")
 	if base != "gpt-5.6-sol" || strings.Join(catalogSlugList(t, projected), ",") != "gpt-5.6-sol,gpt-5.5,codex-auto-review,openai.gpt-5.6-sol" {
 		t.Fatalf("Project() through the family = %q / %q, want one alias", projected, base)
 	}
@@ -76,7 +76,7 @@ func TestDocumentProjectionTakesNoMetadataFromAPrefix(t *testing.T) {
 // only the alias would push every other model onto fallback metadata.
 func TestDocumentProjectionKeepsTheCompleteBundledTable(t *testing.T) {
 	bundled := testBundledCatalog("gpt-5.6-sol", "gpt-5.5")
-	data, _ := mustParseCatalog(t, bundled).Project("gpt-5.6-sol-cdx", "gpt-5.6-sol")
+	data, _ := mustParseCatalog(t, bundled).Project("gpt-5.6-sol-cdx", "gpt-5.6-sol", "")
 	if data == nil {
 		t.Fatal("Document.Project() returned no catalog")
 	}
@@ -101,7 +101,7 @@ func TestDocumentProjectionKeepsTheCompleteBundledTable(t *testing.T) {
 
 func TestDocumentProjectionPreservesDocumentMetadata(t *testing.T) {
 	bundled := []byte(`{"revision":"client-owned","capabilities":{"schema":2,"features":["tools","images"]},"models":[{"slug":"base","instructions":"retain"}]}`)
-	data, _ := mustParseCatalog(t, bundled).Project("provider.base", "base")
+	data, _ := mustParseCatalog(t, bundled).Project("provider.base", "base", "")
 	var source, generated map[string]json.RawMessage
 	if err := json.Unmarshal(bundled, &source); err != nil {
 		t.Fatal(err)
@@ -132,7 +132,7 @@ func TestDocumentProjectionWithholdsWhatItCannotProve(t *testing.T) {
 		"",
 	} {
 		for _, family := range []string{"", model, "no-such-model"} {
-			if data, _ := mustParseCatalog(t, bundled).Project(model, family); data != nil {
+			if data, _ := mustParseCatalog(t, bundled).Project(model, family, ""); data != nil {
 				t.Fatalf("Document.Project(%q, %q) generated a catalog for an id it cannot prove", model, family)
 			}
 		}
@@ -140,7 +140,8 @@ func TestDocumentProjectionWithholdsWhatItCannotProve(t *testing.T) {
 }
 
 // TestDocumentProjectionUsesDeclaredFamily links a variant by its family: it
-// adds only the exact model ID as an alias and copies the family's entry
+// adds only the exact model ID as an alias and copies the family's entry but
+// its display name, which TestDocumentProjectionNamesTheAliasApart pins,
 // without editing the client table.
 func TestDocumentProjectionUsesDeclaredFamily(t *testing.T) {
 	const (
@@ -148,7 +149,7 @@ func TestDocumentProjectionUsesDeclaredFamily(t *testing.T) {
 		wire   = "gpt-6.1-sol-cdx"
 	)
 	document := mustParseCatalog(t, testBundledCatalog(family, "gpt-6-luna"))
-	projected, base := document.Project(wire, family)
+	projected, base := document.Project(wire, family, "")
 	if projected == nil || base != family {
 		t.Fatalf("Project(%q, %q) = %q / %q, want an explicit alias", wire, family, projected, base)
 	}
@@ -161,7 +162,7 @@ func TestDocumentProjectionUsesDeclaredFamily(t *testing.T) {
 		t.Fatalf("alias fields = %v, family fields = %v", aliasEntry, baseEntry)
 	}
 	for field, value := range baseEntry {
-		if field != "slug" && !bytes.Equal(aliasEntry[field], value) {
+		if field != "slug" && field != "display_name" && !bytes.Equal(aliasEntry[field], value) {
 			t.Errorf("alias metadata %q = %s, want the family's value %s", field, aliasEntry[field], value)
 		}
 	}
@@ -177,27 +178,27 @@ func TestDocumentProjectionRejectsUnprovedFamily(t *testing.T) {
 	const wire = "gpt-6.1-sol-cdx"
 	document := mustParseCatalog(t, testBundledCatalog("gpt-6.1-sol", "gpt-6-luna"))
 	for _, family := range []string{"", "gpt-6.1", "missing-model", wire} {
-		projected, base := document.Project(wire, family)
+		projected, base := document.Project(wire, family, "")
 		if projected != nil || base != "" {
 			t.Fatalf("Project(%q, %q) = %q / %q, want no projection", wire, family, projected, base)
 		}
 	}
 	nativeWire := mustParseCatalog(t, testBundledCatalog(wire, "gpt-6.1-sol"))
-	if projected, _ := nativeWire.Project(wire, "gpt-6.1-sol"); projected != nil {
+	if projected, _ := nativeWire.Project(wire, "gpt-6.1-sol", ""); projected != nil {
 		t.Fatalf("Project duplicated already-native wire model %q", wire)
 	}
 }
 
 func TestDocumentProjectionIsDeterministicAndIdempotent(t *testing.T) {
 	bundled := testBundledCatalog("gpt-5.5", "gpt-5.6-sol", "codex-auto-review")
-	first, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "gpt-5.6-sol")
-	second, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "gpt-5.6-sol")
+	first, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "gpt-5.6-sol", "")
+	second, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "gpt-5.6-sol", "")
 	if string(first) != string(second) {
 		t.Fatal("Document.Project() is not byte-deterministic")
 	}
 	// Re-running against a table that already carries the alias must add
 	// nothing, so a converged target keeps producing the same bytes.
-	again, _ := mustParseCatalog(t, first).Project("openai.gpt-5.6-sol", "gpt-5.6-sol")
+	again, _ := mustParseCatalog(t, first).Project("openai.gpt-5.6-sol", "gpt-5.6-sol", "")
 	if again != nil {
 		t.Fatalf("Document.Project() duplicated existing aliases:\n%s", again)
 	}
@@ -227,14 +228,14 @@ func TestParseRejectsUnusableBundledTables(t *testing.T) {
 
 func TestDocumentModelObservationCannotChangeProjection(t *testing.T) {
 	document := mustParseCatalog(t, []byte(`{"models":[{"slug":"base","instructions":"original"}]}`))
-	before, base := document.Project("provider.base", "base")
+	before, base := document.Project("provider.base", "base", "")
 	if base != "base" {
 		t.Fatalf("Project() base = %q", base)
 	}
 	model := document.Model("base")
 	model["instructions"][1] = 'X'
 	delete(model, "slug")
-	after, _ := document.Project("provider.base", "base")
+	after, _ := document.Project("provider.base", "base", "")
 	if !bytes.Equal(before, after) {
 		t.Fatalf("model observation changed projection: %s", after)
 	}
@@ -244,5 +245,48 @@ func TestDocumentModelReportsAbsence(t *testing.T) {
 	document := mustParseCatalog(t, testBundledCatalog("base"))
 	if model := document.Model("unknown"); model != nil {
 		t.Fatalf("unknown model = %v", model)
+	}
+}
+
+// TestDocumentProjectionNamesTheAliasApart shows the alias by the name it is
+// given, keeps the family's name when it is given none, and never lists two
+// entries under one display name: Codex's picker would show both alike.
+func TestDocumentProjectionNamesTheAliasApart(t *testing.T) {
+	document := mustParseCatalog(t, []byte(`{"models":[{"slug":"gpt-6.2-sol","display_name":"GPT-6.2-Sol"},{"slug":"gpt-6.2-astra","display_name":"GPT-6.2-Astra"}]}`))
+	displayName := func(data []byte, slug string) string {
+		t.Helper()
+		var parsed catalogDocument
+		if err := json.Unmarshal(data, &parsed); err != nil {
+			t.Fatal(err)
+		}
+		for _, entry := range parsed.Models {
+			var entrySlug, name string
+			_ = json.Unmarshal(entry["slug"], &entrySlug)
+			if entrySlug == slug {
+				_ = json.Unmarshal(entry["display_name"], &name)
+				return name
+			}
+		}
+		t.Fatalf("no entry %q", slug)
+		return ""
+	}
+	for _, testCase := range []struct{ name, want string }{
+		{"GPT-6.2 Sol · cdx", "GPT-6.2 Sol · cdx"},
+		{"", "GPT-6.2-Sol (gpt-6.2-sol-cdx)"},
+		{"gpt-6.2-astra", "gpt-6.2-astra (gpt-6.2-sol-cdx)"},
+	} {
+		data, base := document.Project("gpt-6.2-sol-cdx", "gpt-6.2-sol", testCase.name)
+		if base != "gpt-6.2-sol" || displayName(data, "gpt-6.2-sol-cdx") != testCase.want {
+			t.Fatalf("Project(name %q) shows %q, want %q", testCase.name, displayName(data, "gpt-6.2-sol-cdx"), testCase.want)
+		}
+		if displayName(data, "gpt-6.2-sol") != "GPT-6.2-Sol" {
+			t.Fatal("the family's own entry changed its name")
+		}
+	}
+	// A table that already shows the name with the model ID in it leaves no
+	// name to give, so nothing is projected.
+	taken := mustParseCatalog(t, []byte(`{"models":[{"slug":"gpt-6.2-sol","display_name":"GPT-6.2-Sol"},{"slug":"other","display_name":"GPT-6.2-Sol (gpt-6.2-sol-cdx)"}]}`))
+	if data, base := taken.Project("gpt-6.2-sol-cdx", "gpt-6.2-sol", ""); data != nil || base != "" {
+		t.Fatalf("a name the table already shows twice = %q / %q", data, base)
 	}
 }

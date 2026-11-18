@@ -18,13 +18,13 @@ qualified, under the per-provider rule.
 ## What Changes
 
 - A model whose ID differs from its family's and begins or ends with the family's ID derives its label with the rest
-  of its ID (`DMXAPI · GPT-6.2 Sol · CDX`); two models of one provider with one label are refused.
+  of its ID as written (`DMXAPI · GPT-6.2 Sol · cdx`); two models of one provider with one label are refused.
 - A family that `--family` creates is labelled with its own ID.
 - The Codex catalog alias carries the model's label without its provider as its display name, and no two listed
   entries of the projected table share one; the catalog verifier compares every field but `slug` and `display_name`.
 - The team file's line rule and its test work per provider.
-- Qwen4-Max replaces Qwen 3.8 Max 0902 on DMXAPI (Responses) and AIHubMix (Responses and Chat); UCloud keeps Qwen 3.8
-  Max 0902 until it lists Qwen4-Max. The Codex and Hermes recommendations are unchanged.
+- Qwen4-Max replaces Qwen 3.8 Max 0902 on DMXAPI and AIHubMix, on Responses as before; UCloud, which holds no Qwen
+  model in the file, does not list Qwen4-Max. The Codex and Hermes recommendations are unchanged.
 
 ## Capabilities
 

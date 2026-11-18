@@ -24,7 +24,7 @@ func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 	model := cfg.Models[domain.NewModelRef("gateway", "gpt-test")]
-	model.Family, model.ID = "other-model", "other-model"
+	model.Family, model.ID, model.Label = "other-model", "other-model", "Other model"
 	cfg.Models[model.Ref()] = model
 	cfg.Families["other-model"] = domain.Family{Label: "Other model"}
 	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Responses: "https://other.test/v1"}}

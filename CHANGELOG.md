@@ -20,6 +20,18 @@ signing, and GA status remain separate evidence.
   AIHubMix, and Codex and Hermes recommend GPT-6.2 Sol. DMXAPI's SSVIP
   channels of both lines leave the file, since DMXAPI lists no SSVIP model of
   6.2. Applying the file keeps a client's explicit selection.
+- The team file chooses models per provider: each provider keeps, for each
+  Anthropic, OpenAI and Google product line and for each other vendor, the
+  newest model that it lists and that qualifies there, so a provider that has
+  not listed a successor keeps a model that works on it. Qwen4-Max replaces
+  Qwen 3.8 Max 0902 on DMXAPI and AIHubMix.
+- A model whose ID begins or ends with its family's ID and adds more, such as
+  a provider's channel, derives a label with the rest of its ID
+  (`DMXAPI · GPT-6.2 Sol · cdx`) instead of its family's own label. A family
+  that `aigw model add|edit --family` creates is labelled with its own ID.
+- **Breaking:** AIGW refuses a configuration or team file in which two models
+  of one provider have one label, derived or explicit, ignoring case; the
+  refusal names both, and `aigw model edit --label` gives one its own.
 - The team rollout guide states the daily model and reasoning effort of each
   vendor: GPT-6.2 Sol and Claude Opus 5.5 at `xhigh`, Gemini 4 Argon at
   `high`. The team file sets no effort; each client keeps its own setting.
@@ -39,6 +51,11 @@ signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- Codex's model picker showed a provider's channel, such as DMXAPI's
+  `gpt-6.2-sol-cdx`, under its family's name, so two entries read "GPT-6.2
+  Sol". AIGW's catalog alias now shows the model's AIGW label without its
+  provider, and the catalog verifier refuses an alias that shares a name with
+  another entry.
 - AIGW no longer changes the value of a folded block scalar in Hermes's
   configuration: it added a line break to one that keeps its final line breaks
   (`>+`), and a blank line inside one with a more-indented line.

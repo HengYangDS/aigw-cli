@@ -1074,6 +1074,7 @@ protocols = {anthropic = []}
 [[providers.models]]
 id = "native-model"
 family = "team-model"
+label = "Team Gateway · Team Model · native"
 protocols = {responses = []}
 
 [[families]]

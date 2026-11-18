@@ -16,7 +16,7 @@ func teamFileConfig(t *testing.T) Config {
 		t.Fatal(err)
 	}
 	derived := anthropicModel("team", "opus-1")
-	derived.Family, derived.Label = "opus", "Team · Opus"
+	derived.Family, derived.Label = "opus", "Team · Opus · 1"
 	explicit := anthropicModel("team", "opus-cdx")
 	explicit.Family, explicit.Label = "opus", "Team · Opus · CDX"
 	for _, model := range []Model{derived, explicit} {
@@ -44,7 +44,7 @@ func TestExportTeamFileKeepsTheTeamsChoicesOnly(t *testing.T) {
 		exported.RecommendedModel(ClientClaude) != explicit || !slices.Equal(exported.ModelRefs(), []ModelRef{derived, explicit}) {
 		t.Fatalf("exported = %+v", exported)
 	}
-	if cfg.SelectedModel(ClientClaude) != derived || cfg.Models[derived].Label != "Team · Opus" {
+	if cfg.SelectedModel(ClientClaude) != derived || cfg.Models[derived].Label != "Team · Opus · 1" {
 		t.Fatal("the export changed the configuration")
 	}
 	broken := cfg.Clone()
@@ -112,7 +112,7 @@ func TestModelLabelsAndProtocolClients(t *testing.T) {
 	bare := anthropicModel("bare", "m")
 	cfg.Models[bare.Ref()] = bare
 	for ref, want := range map[ModelRef]string{
-		NewModelRef("team", "opus-1"):   "Team · Opus",
+		NewModelRef("team", "opus-1"):   "Team · Opus · 1",
 		NewModelRef("team", "opus-cdx"): "Team · Opus · CDX",
 		own.Ref():                       "Team · own-model",
 		bare.Ref():                      "bare · m",

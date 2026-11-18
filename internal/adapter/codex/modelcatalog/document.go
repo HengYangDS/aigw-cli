@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 )
 
 // Document is a validated client catalog, including fields AIGW does not own.
@@ -67,8 +68,11 @@ func (d Document) Model(slug string) map[string]json.RawMessage {
 // only from the model's family, never from a prefix or suffix of the model ID:
 // a model that the table already holds, a model without a family, and a model
 // whose family the table does not hold get nothing, so the client keeps its
-// own behavior for them.
-func (d Document) Project(model, family string) ([]byte, string) {
+// own behavior for them. The alias is shown as name, or as the family's name
+// when name is empty; a name that another entry already shows, ignoring case,
+// is followed by the model ID in parentheses, so that no two entries of the
+// table share a display name.
+func (d Document) Project(model, family, name string) ([]byte, string) {
 	if model == "" || family == "" {
 		return nil, ""
 	}
@@ -79,8 +83,50 @@ func (d Document) Project(model, family string) ([]byte, string) {
 	if entry == nil {
 		return nil, ""
 	}
+	if name == "" {
+		_ = json.Unmarshal(entry["display_name"], &name)
+	}
+	if name != "" {
+		if d.shows(name) {
+			name += " (" + model + ")"
+		}
+		if d.shows(name) {
+			return nil, ""
+		}
+		entry["display_name"], _ = json.Marshal(name)
+	}
 	entry["slug"], _ = json.Marshal(model)
 	return d.withModels(append(slices.Clone(d.models), entry)), family
+}
+
+// shows reports whether an entry of the table has name as its display name,
+// ignoring case.
+func (d Document) shows(name string) bool {
+	return len(d.showing(name, "")) > 0
+}
+
+// SharingDisplayName returns the slugs of the other entries whose display
+// name is slug's, ignoring case, in table order.
+func (d Document) SharingDisplayName(slug string) []string {
+	var name string
+	if index, present := d.slugs[slug]; !present || json.Unmarshal(d.models[index]["display_name"], &name) != nil || name == "" {
+		return nil
+	}
+	return d.showing(name, slug)
+}
+
+// showing returns the slugs of the entries but except whose display name is
+// name, ignoring case.
+func (d Document) showing(name, except string) []string {
+	var slugs []string
+	for _, entry := range d.models {
+		var shown, slug string
+		_ = json.Unmarshal(entry["slug"], &slug)
+		if slug != except && json.Unmarshal(entry["display_name"], &shown) == nil && strings.EqualFold(shown, name) {
+			slugs = append(slugs, slug)
+		}
+	}
+	return slugs
 }
 
 // withModels serializes the original document with its model table replaced.

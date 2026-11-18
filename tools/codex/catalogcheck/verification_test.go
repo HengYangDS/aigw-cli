@@ -366,3 +366,20 @@ func TestProbeCodexCatalogCanReadTheClientsDefaultCatalog(t *testing.T) {
 		t.Fatalf("catalogProbe() = %+v", probe)
 	}
 }
+
+func TestCheckRejectsAnAliasShownUnderAnotherEntrysName(t *testing.T) {
+	reference := modelProbe{Model: "gpt-6.2-sol", Present: true, MetadataSHA256: "base"}
+	verification := verificationResult{
+		Model:      "gpt-6.2-sol-cdx",
+		BaseSlug:   "gpt-6.2-sol",
+		Reference:  reference,
+		Unadapted:  modelProbe{Model: "gpt-6.2-sol-cdx"},
+		Adapted:    modelProbe{Model: "gpt-6.2-sol-cdx", Present: true, MetadataSHA256: "base"},
+		Unknown:    modelProbe{Model: unknownProbeModel},
+		SharedName: []string{"gpt-6.2-sol"},
+	}
+	err := verification.Check()
+	if err == nil || !strings.Contains(err.Error(), "under the name of gpt-6.2-sol") {
+		t.Fatalf("Check() error = %v", err)
+	}
+}

@@ -13,27 +13,44 @@ func TestTeamManifestKeepsOneFamilyPerCuratedLine(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	// The owner's rule of 2026-11-13: each Anthropic, OpenAI and Google product
 	// line keeps only its newest model, so a successor such as GPT-6.2 Astra
-	// replaces GPT-6 Astra instead of joining it.
+	// replaces GPT-6 Astra instead of joining it. The owner's word of
+	// 2026-11-18 makes the rule per provider, since providers list a successor
+	// at different times: a provider keeps a line's older model until the
+	// newer one qualifies there.
 	// A family of those vendors that names no line fails too: skipping it would
 	// let gpt-7, or a dated gpt-6.2-astra-1120, stand beside the line it replaces.
 	line := regexp.MustCompile(`^(?:(claude)-([a-z]+)-\d|(gpt)-\d[\d.]*-([a-z]+)(?:-|$)|(gemini)-\d[\d.]*-([a-z]+)(?:-|$))`)
 	// The vendor word counts wherever it stands and however it is spelled, so
 	// GPT-6.2-astra, gpt_6.2-astra or openai-gpt-6.2-astra cannot slip past.
 	curated := regexp.MustCompile(`(?i)claude|gpt|gemini`)
-	lines := map[string]string{}
-	for family := range manifest.Families {
+	lineOf := func(family string) (string, bool) {
 		match := line.FindStringSubmatch(family)
 		if match == nil {
 			if curated.MatchString(family) {
 				t.Errorf("family %s of a curated vendor names no product line", family)
 			}
+			return "", false
+		}
+		return match[1] + match[3] + match[5] + "/" + match[2] + match[4] + match[6], true
+	}
+	lines := map[string]string{}
+	for family := range manifest.Families {
+		if key, curatedLine := lineOf(family); curatedLine {
+			lines[key] = family
+		}
+	}
+	// Each provider holds one family per line.
+	held := map[string]string{}
+	for routeID, route := range manifest.Models {
+		key, curatedLine := lineOf(route.Family)
+		if !curatedLine {
 			continue
 		}
-		key := match[1] + match[3] + match[5] + "/" + match[2] + match[4] + match[6]
-		if previous, held := lines[key]; held {
-			t.Errorf("line %s holds both %s and %s", key, previous, family)
+		slot := route.Provider + " " + key
+		if previous, taken := held[slot]; taken && previous != route.Family {
+			t.Errorf("provider %s holds both %s and %s of line %s (%s)", route.Provider, previous, route.Family, key, routeID)
 		}
-		lines[key] = family
+		held[slot] = route.Family
 	}
 	want := []string{
 		"claude/fable", "claude/haiku", "claude/opus", "claude/sonnet",

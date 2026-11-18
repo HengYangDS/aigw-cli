@@ -145,7 +145,7 @@ func validateCodexCatalogPreflight(target codexReconciliationTarget, config, sta
 // standard /models response as its private metadata format. A model whose
 // family the table holds gets an alias of the family's entry; any other model
 // keeps the client's fallback rather than a guessed entry.
-func codexCatalogProjection(target TargetRef, model, family, base string, state codexState, before platform.FileSnapshot) codexCatalogPlan {
+func codexCatalogProjection(target TargetRef, model, family, name, base string, state codexState, before platform.FileSnapshot) codexCatalogPlan {
 	// A user-authored model_catalog_json is the user's own client policy. AIGW
 	// replaces the bundled table wholesale, so adopting that key here would
 	// silently drop models the user added.
@@ -156,7 +156,7 @@ func codexCatalogProjection(target TargetRef, model, family, base string, state 
 	live, bundled, err := codexBundledCatalog(target.Executable)
 	document, parseErr := modelcatalog.Parse(bundled)
 	if err == nil && parseErr == nil {
-		data, _ := document.Project(model, family)
+		data, _ := document.Project(model, family, name)
 		if data == nil {
 			// Preserve Codex's native table for a model that the table holds or
 			// whose family it does not hold. Never invent metadata or leave

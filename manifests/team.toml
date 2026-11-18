@@ -168,8 +168,8 @@ family = 'muse-wonder'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'qwen3.8-max-0902'
-family = 'qwen3.8-max-0902'
+id = 'qwen4-max'
+family = 'qwen4-max'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -363,8 +363,8 @@ family = 'muse-wonder'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'qwen3.8-max-2026-09-02'
-family = 'qwen3.8-max-0902'
+id = 'qwen4-max'
+family = 'qwen4-max'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -531,8 +531,8 @@ id = 'nemotron-3-ultra-550b-a55b'
 label = 'NVIDIA Nemotron 3 Ultra'
 
 [[families]]
-id = 'qwen3.8-max-0902'
-label = 'Qwen 3.8 Max 0902'
+id = 'qwen4-max'
+label = 'Qwen4-Max'
 
 [[families]]
 id = 'solar-pro4'

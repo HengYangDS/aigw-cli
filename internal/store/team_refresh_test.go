@@ -15,18 +15,16 @@ func TestTeamManifestKeepsOnlyQualifiedRefreshModels(t *testing.T) {
 		model, wire string
 		protocol    domain.EndpointProtocol
 	}{
-		"aihubmix/kimi-k3.1-pro":          {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolChat},
-		"dmxapi/kimi-k3.1-pro":            {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolResponses},
-		"ucloud/kimi-k3.1-pro":            {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolResponses},
-		"aihubmix/minimax-m3.1-flash":     {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolResponses},
-		"dmxapi/MiniMax-M3.1-Flash":       {"minimax-m3.1-flash", "MiniMax-M3.1-Flash", domain.ProtocolResponses},
-		"ucloud/minimax-m3.1-flash":       {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolResponses},
-		"aihubmix/muse-wonder":            {"muse-wonder", "muse-wonder", domain.ProtocolResponses},
-		"dmxapi/muse-wonder":              {"muse-wonder", "muse-wonder", domain.ProtocolResponses},
-		"ucloud/muse-wonder-1.0":          {"muse-wonder", "muse-wonder-1.0", domain.ProtocolResponses},
-		"aihubmix/qwen3.8-max-2026-09-02": {"qwen3.8-max-0902", "qwen3.8-max-2026-09-02", domain.ProtocolResponses},
-		"dmxapi/qwen3.8-max-0902":         {"qwen3.8-max-0902", "qwen3.8-max-0902", domain.ProtocolResponses},
-		"aihubmix/solar-pro4":             {"solar-pro4", "solar-pro4", domain.ProtocolChat},
+		"aihubmix/kimi-k3.1-pro":      {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolChat},
+		"dmxapi/kimi-k3.1-pro":        {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolResponses},
+		"ucloud/kimi-k3.1-pro":        {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolResponses},
+		"aihubmix/minimax-m3.1-flash": {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolResponses},
+		"dmxapi/MiniMax-M3.1-Flash":   {"minimax-m3.1-flash", "MiniMax-M3.1-Flash", domain.ProtocolResponses},
+		"ucloud/minimax-m3.1-flash":   {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolResponses},
+		"aihubmix/muse-wonder":        {"muse-wonder", "muse-wonder", domain.ProtocolResponses},
+		"dmxapi/muse-wonder":          {"muse-wonder", "muse-wonder", domain.ProtocolResponses},
+		"ucloud/muse-wonder-1.0":      {"muse-wonder", "muse-wonder-1.0", domain.ProtocolResponses},
+		"aihubmix/solar-pro4":         {"solar-pro4", "solar-pro4", domain.ProtocolChat},
 	} {
 		route, ok := teamModel(t, manifest, id)
 		if !ok || route.Family != expected.model || route.ID != expected.wire ||
@@ -42,7 +40,7 @@ func TestTeamManifestKeepsOnlyQualifiedRefreshModels(t *testing.T) {
 			t.Errorf("unqualified Route %q was admitted", id)
 		}
 	}
-	for _, retired := range []string{"deepseek-v4.1-flash", "kimi-k3", "minimax-m3", "muse-spark-1.3", "qwen3.8-max"} {
+	for _, retired := range []string{"deepseek-v4.1-flash", "kimi-k3", "minimax-m3", "muse-spark-1.3", "qwen3.8-max", "qwen3.8-max-0902"} {
 		if _, present := manifest.Families[retired]; present {
 			t.Errorf("superseded Model %q remains a logical Model", retired)
 		}

@@ -81,6 +81,21 @@ func (c *Config) validateCollections() error {
 			return NewEntryError("model `"+ref.String()+"`", err)
 		}
 	}
+	return c.validateModelLabels()
+}
+
+// validateModelLabels refuses two models of one provider whose labels,
+// explicit or derived, differ at most in case: a client that lists one
+// provider's models would show both under one name.
+func (c *Config) validateModelLabels() error {
+	seen := map[string]ModelRef{}
+	for _, ref := range c.ModelRefs() {
+		key := ref.Provider() + "\x00" + strings.ToLower(c.ModelLabel(ref))
+		if earlier, ok := seen[key]; ok {
+			return NewEntryError("model `"+ref.String()+"`", fmt.Errorf("model %s has the label %q of model %s; give one of them its own label", ref, c.ModelLabel(ref), earlier))
+		}
+		seen[key] = ref
+	}
 	return nil
 }
 

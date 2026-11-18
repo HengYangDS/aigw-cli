@@ -154,14 +154,19 @@ func TestAddFollowsTheFamilyRule(t *testing.T) {
 	if err := f.run("add", "team/team-model-cdx", "--unlisted", "--json"); err != nil || f.document(t).Family != "team-model-cdx" {
 		t.Fatalf("a variant = %v:\n%s", err, f.out)
 	}
-	// An unknown --family is created, labelled from the model; a known one is joined.
+	// An unknown --family is created, labelled with its own ID; a known one is joined.
 	if err := f.run("add", "team/variant", "--family", "team-family", "--unlisted", "--json"); err != nil || f.document(t).FamilyCreated != "team-family" {
 		t.Fatalf("an unknown family = %v:\n%s", err, f.out)
 	}
-	if family := f.load(t).Families["team-family"]; family.Label != "variant" {
+	if family := f.load(t).Families["team-family"]; family.Label != "team-family" {
 		t.Fatalf("created family = %#v", family)
 	}
-	if err := f.run("add", "team/variant-2", "--family", "team-model", "--unlisted", "--json"); err != nil || f.document(t).Family != "team-model" || f.document(t).FamilyCreated != "" {
+	// A model whose ID is unrelated to the family's would take the label of
+	// the family's own model, so it joins only under a label of its own.
+	if err := f.run("add", "team/variant-2", "--family", "team-model", "--unlisted"); err == nil || !strings.Contains(err.Error(), "team/variant-2") || !strings.Contains(err.Error(), "team/team-model") {
+		t.Fatalf("a shared label = %v:\n%s", err, f.out)
+	}
+	if err := f.run("add", "team/variant-2", "--family", "team-model", "--label", "Team · Variant 2", "--unlisted", "--json"); err != nil || f.document(t).Family != "team-model" || f.document(t).FamilyCreated != "" {
 		t.Fatalf("a known family = %v:\n%s", err, f.out)
 	}
 }

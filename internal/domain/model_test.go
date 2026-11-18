@@ -366,7 +366,7 @@ func TestValidateTreatsModelIDAsTransparentConfiguration(t *testing.T) {
 	cfg.Families["upstream-model"] = Family{Label: "Upstream Model"}
 	for _, id := range []string{"gpt-5.6-terra-cdx", "openai/gpt-oss", "MiniMax-M3.1 Flash"} {
 		ref := NewModelRef("dmx", id)
-		cfg.Models[ref] = Model{Provider: "dmx", ID: id, Family: "upstream-model", Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}}}
+		cfg.Models[ref] = Model{Provider: "dmx", ID: id, Family: "upstream-model", Label: "DMXAPI · " + id, Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}}}
 		cfg.SetSelectedModel(ClientCodex, ref, "")
 		if err := cfg.Validate(); err != nil {
 			t.Fatalf("model ID %q must not be rejected by product-specific naming policy: %v", id, err)

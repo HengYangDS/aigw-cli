@@ -25,6 +25,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"text/tabwriter"
 )
 
@@ -130,6 +131,13 @@ func report(out io.Writer, verification verificationResult, asJSON bool) error {
 		_, _ = fmt.Fprintf(table, "%s\t%s\t%s\t%s\n", row.label, row.probe.Model, state, row.probe.MetadataSHA256)
 	}
 	_ = table.Flush()
-	_, err := rendered.WriteTo(out)
+	if _, err := rendered.WriteTo(out); err != nil {
+		return err
+	}
+	shared := "no other entry"
+	if len(verification.SharedName) > 0 {
+		shared = strings.Join(verification.SharedName, ", ")
+	}
+	_, err := fmt.Fprintf(out, "\nname shared with  %s\n", shared)
 	return err
 }

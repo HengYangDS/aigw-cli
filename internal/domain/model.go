@@ -142,6 +142,19 @@ type Runtime struct {
 	CredentialCommand string           `json:"-"`
 }
 
+// ModelName is the model's label without the provider's name in front, the
+// name a client that already shows the provider gives the model.
+func (runtime Runtime) ModelName() string {
+	provider := runtime.ProviderLabel
+	if provider == "" {
+		provider = runtime.ProviderID
+	}
+	if name, found := strings.CutPrefix(runtime.ModelLabel, provider+" · "); found && name != "" {
+		return name
+	}
+	return runtime.ModelLabel
+}
+
 // RequiresProviderToken reports whether the selection sends the provider's
 // Token. A selection that names no authentication sends it.
 func (runtime Runtime) RequiresProviderToken() bool {
@@ -514,7 +527,9 @@ func (c *Config) forwardingFor(client, providerID, upstream string, protocol End
 }
 
 // modelLabel is the model's explicit label, or `Provider · Family`, or
-// `Provider · model-id` for a model that is its own family.
+// `Provider · model-id` for a model that is its own family. A variant, a
+// model whose ID begins or ends with its family's ID and has more, adds the
+// rest of its ID as written, so it is not named like its family's own model.
 func modelLabel(model Model, provider Provider, family Family) string {
 	if model.Label != "" {
 		return model.Label
@@ -527,7 +542,29 @@ func modelLabel(model Model, provider Provider, family Family) string {
 	if model.Family == "" || familyLabel == "" {
 		familyLabel = model.FamilyID()
 	}
-	return providerLabel + " · " + familyLabel
+	label := providerLabel + " · " + familyLabel
+	if rest := variantPart(model.ID, model.FamilyID()); rest != "" {
+		label += " · " + rest
+	}
+	return label
+}
+
+// variantPart is what a model ID adds to its family's ID at either end,
+// without the separators between them, or "" when the ID is the family's or
+// neither begins nor ends with it. The comparison ignores case.
+func variantPart(id, family string) string {
+	lowerID, lowerFamily := strings.ToLower(id), strings.ToLower(family)
+	if family == "" || lowerID == lowerFamily {
+		return ""
+	}
+	const separators = "-_.:/ "
+	switch {
+	case strings.HasPrefix(lowerID, lowerFamily):
+		return strings.Trim(id[len(family):], separators)
+	case strings.HasSuffix(lowerID, lowerFamily):
+		return strings.Trim(id[:len(id)-len(family)], separators)
+	}
+	return ""
 }
 
 func selectedModelProvider(spec ClientSpec, selection ClientSelection) string {

@@ -155,7 +155,7 @@ func TestTeamManifestUsesRequestedFamilies(t *testing.T) {
 		"gemini-4-hydrogen", "glm-5.3", "gpt-6-luna", "gpt-6.1-terra", "gpt-6.2-astra", "gpt-6.2-sol", "grok-4.7",
 		"hy4", "kimi-k3.1-pro", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.5", "mercury-2.5", "mimo-v2.6-pro",
 		"minimax-m3.1-flash", "mistral-large-3", "muse-wonder", "nemotron-3-ultra-550b-a55b",
-		"qwen3.8-max-0902", "solar-pro4", "step-5-preview",
+		"qwen4-max", "solar-pro4", "step-5-preview",
 	}
 	if got := slices.Sorted(maps.Keys(manifest.Families)); !slices.Equal(got, want) {
 		t.Fatalf("team logical Models = %v, want %v", got, want)
@@ -275,7 +275,9 @@ func TestTeamManifestRefreshPreservesExplicitSupersededModels(t *testing.T) {
 			cfg.Providers["aihubmix"] = manifest.Providers["aihubmix"]
 			cfg.Families[selected.model] = domain.Family{Label: selected.label}
 			ref := domain.NewModelRef("aihubmix", selected.wire)
-			cfg.Models[ref] = domain.Model{Provider: "aihubmix", Family: selected.model, ID: selected.wire,
+			// The superseded model keeps the label it was selected under, which
+			// the team file's model of the same name no longer derives.
+			cfg.Models[ref] = domain.Model{Provider: "aihubmix", Family: selected.model, ID: selected.wire, Label: "AIHubMix · " + selected.wire,
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
 			cfg.SetSelectedModel(ClientHermes, ref, "")
 			merged, _, err := domain.MergeTeamFile(cfg, manifest, false)
@@ -418,8 +420,14 @@ func TestTeamManifestDerivesPlainModelLabelsAndKeepsChannelOverrides(t *testing.
 	for routeID, route := range manifest.Models {
 		base := manifest.Providers[route.Provider].Label + " · " + manifest.Families[route.Family].Label
 		if route.Label == "" {
-			if got := cfg.ModelLabel(routeID); got != base {
-				t.Errorf("plain Route %q label = %q, want %q", routeID, got, base)
+			// A variant of its family, such as UCloud's muse-wonder-1.0,
+			// adds the rest of its ID.
+			want := base
+			if rest, variant := strings.CutPrefix(route.ID, route.Family+"-"); variant {
+				want += " · " + rest
+			}
+			if got := cfg.ModelLabel(routeID); got != want {
+				t.Errorf("plain Route %q label = %q, want %q", routeID, got, want)
 			}
 			continue
 		}

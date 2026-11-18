@@ -95,8 +95,13 @@ func TestTeamFileExportOmitsDerivedLabelsAndRoundTrips(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(exported)
-	if strings.Contains(text, "label = 'DMXAPI · GPT-6 Astra'\n") || !strings.Contains(text, "label = 'DMXAPI · GPT-6 Astra · CDX'") {
-		t.Fatalf("export kept a derived label or lost a channel label:\n%s", text)
+	// GPT-6-Astra-CDX derives "DMXAPI · GPT-6 Astra · CDX" from its ID as
+	// written, so that stored label is derived too and is not kept.
+	if strings.Contains(text, "label = 'DMXAPI · GPT-6 Astra") {
+		t.Fatalf("export kept a derived label:\n%s", text)
+	}
+	if label := cfg.ModelLabel(dmxapiModel("GPT-6-Astra-CDX")); label != "DMXAPI · GPT-6 Astra · CDX" {
+		t.Fatalf("channel label = %q", label)
 	}
 	if strings.Contains(text, "[clients") || !strings.HasPrefix(text, "version = 8\n") {
 		t.Fatalf("export is not a version 8 team file without clients:\n%s", text)

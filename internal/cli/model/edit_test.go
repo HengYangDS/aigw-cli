@@ -95,7 +95,7 @@ func TestEditLinksAFamilyAndCreatesAnUnknownOne(t *testing.T) {
 	if err := f.run("edit", "mixed/Chat-Only", "--family", "chat-family"); err != nil || !strings.Contains(f.text(), "New family chat-family") {
 		t.Fatalf("an unknown family = %v:\n%s", err, f.out)
 	}
-	if family := f.load(t).Families["chat-family"]; family.Label != "Chat-Only" {
+	if family := f.load(t).Families["chat-family"]; family.Label != "chat-family" {
 		t.Fatalf("created family = %#v", family)
 	}
 }

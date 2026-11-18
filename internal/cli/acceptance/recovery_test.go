@@ -39,6 +39,7 @@ func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
 			route := cfg.Models[domain.NewModelRef("one", "claude-test")]
 			route.Family = "claude-next"
 			route.ID = "claude-next"
+			route.Label = "One · claude-next"
 			cfg.Models[route.Ref()] = route
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)

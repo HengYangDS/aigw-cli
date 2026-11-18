@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/codex/modelcatalog"
@@ -15,7 +16,9 @@ import (
 )
 
 // modelProbe records direct evidence from a Codex model catalog. The
-// digest covers the complete model entry after removing only its slug, so an
+// digest covers the complete model entry after removing its slug and its
+// display name, which AIGW gives the alias so that it is not shown under its
+// family's name, so an
 // alias proves semantic identity without depending on a private config export,
 // prompt layout, or a hand-maintained list of model fields.
 type modelProbe struct {
@@ -24,9 +27,10 @@ type modelProbe struct {
 	MetadataSHA256 string `json:"metadata_sha256,omitempty"`
 }
 
-// verificationResult separates four claims: the installed client knows
+// verificationResult separates five claims: the installed client knows
 // the model's family, does not already know the model, loads the generated
-// catalog, and leaves an unrelated unknown id absent.
+// catalog, shows the model under a name no other entry has, and leaves an
+// unrelated unknown id absent.
 type verificationResult struct {
 	ClientVersion string     `json:"client_version"`
 	ClientSHA256  string     `json:"client_sha256"`
@@ -36,6 +40,9 @@ type verificationResult struct {
 	Unadapted     modelProbe `json:"unadapted"`
 	Adapted       modelProbe `json:"adapted"`
 	Unknown       modelProbe `json:"unknown"`
+	// SharedName lists the entries of the effective catalog that the client
+	// shows under the model's name.
+	SharedName []string `json:"shared_name"`
 }
 
 const unknownProbeModel = "aigw-model-catalog-verification-no-such-model"
@@ -53,6 +60,9 @@ func (v verificationResult) Check() error {
 	}
 	if v.Adapted.MetadataSHA256 != v.Reference.MetadataSHA256 {
 		return fmt.Errorf("%q metadata digest %s differs from %q metadata digest %s", v.Model, v.Adapted.MetadataSHA256, v.BaseSlug, v.Reference.MetadataSHA256)
+	}
+	if len(v.SharedName) > 0 {
+		return fmt.Errorf("the effective catalog shows %q under the name of %s", v.Model, strings.Join(v.SharedName, ", "))
 	}
 	if v.Unknown.Present {
 		return fmt.Errorf("%q unexpectedly exists in the effective catalog", unknownProbeModel)
@@ -80,7 +90,7 @@ func verifyCatalog(executable, model, family string) (verification verificationR
 	if err != nil {
 		return verification, err
 	}
-	projected, base := bundledDocument.Project(model, family)
+	projected, base := bundledDocument.Project(model, family, "")
 	if projected == nil {
 		return verification, fmt.Errorf("family %q does not prove a Codex catalog entry for %q, so AIGW projects no alias for it", family, model)
 	}
@@ -105,6 +115,7 @@ func verifyCatalog(executable, model, family string) (verification verificationR
 	verification.Reference = catalogProbe(bundledDocument, verification.BaseSlug)
 	verification.Unadapted = catalogProbe(bundledDocument, model)
 	verification.Adapted = catalogProbe(effectiveDocument, model)
+	verification.SharedName = effectiveDocument.SharingDisplayName(model)
 	verification.Unknown = catalogProbe(effectiveDocument, unknownProbeModel)
 	return verification, nil
 }
@@ -128,6 +139,7 @@ func catalogProbe(document modelcatalog.Document, model string) modelProbe {
 		return probe
 	}
 	delete(metadata, "slug")
+	delete(metadata, "display_name")
 	canonical, _ := json.Marshal(metadata)
 	probe.Present = true
 	probe.MetadataSHA256 = platform.SHA256(canonical)
