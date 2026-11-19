@@ -15,7 +15,7 @@ behavior = "go-behavior"
 static-analysis = "go-static-analysis"
 
 # The one Go test attempt writes its JUnit and LCOV reports for ETHOS to judge,
-# so no other gate runs the Go tests.
+# so no other gate runs that attempt's tests again.
 [[proof.gates]]
 id = "go-behavior"
 kind = "test"

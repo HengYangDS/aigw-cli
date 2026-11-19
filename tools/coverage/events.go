@@ -104,12 +104,7 @@ func (r *eventRecorder) record(line []byte) {
 	}
 	pkg := r.packageResult(event.Package)
 	if event.Test == "" {
-		if event.Action == "output" {
-			pkg.output.WriteString(event.Output)
-			r.show(event.Output)
-		} else if event.Action != "run" {
-			pkg.action, pkg.elapsed = event.Action, event.Elapsed
-		}
+		r.recordPackage(pkg, event)
 		return
 	}
 	test := pkg.test(event.Test)
@@ -122,6 +117,37 @@ func (r *eventRecorder) record(line []byte) {
 	case "fail", "skip":
 		test.action, test.elapsed = event.Action, event.Elapsed
 		if event.Action == "fail" {
+			r.show(test.output.String())
+		}
+	}
+}
+
+// recordPackage records an event of the package itself rather than of one of
+// its tests.
+func (r *eventRecorder) recordPackage(pkg *packageResult, event testEvent) {
+	switch event.Action {
+	case "output":
+		pkg.output.WriteString(event.Output)
+		r.show(event.Output)
+	case "pass", "skip":
+		pkg.action, pkg.elapsed = event.Action, event.Elapsed
+	case "fail":
+		pkg.action, pkg.elapsed = event.Action, event.Elapsed
+		r.showUnreported(pkg)
+	}
+}
+
+// showUnreported shows, when a package fails, the output that no failed test
+// has shown: that of a test without a result, as a timeout or a panic during
+// it leaves it, and that of a passed test received after its result, which
+// also joins the package's own output for its failure case.
+func (r *eventRecorder) showUnreported(pkg *packageResult) {
+	for _, test := range pkg.tests {
+		switch test.action {
+		case "":
+			r.show(test.output.String())
+		case "pass":
+			pkg.output.Write(test.output.Bytes())
 			r.show(test.output.String())
 		}
 	}

@@ -13,10 +13,12 @@ signing, and GA status remain separate evidence.
 
 ### Changed
 
-- The repository's ETHOS proof runs the Go tests once instead of twice. The
-  coverage command can write JUnit and LCOV reports from its one test run
+- The repository's ETHOS proof runs its Go test suite once instead of twice.
+  The coverage command can write JUnit and LCOV reports from its one test run
   (`--junit-output`, `--lcov-output`), and ETHOS judges those reports instead of
-  running the tests again. The released program is unchanged.
+  running the suite again. Without `--json`, the command now also shows the
+  output of a test that never reported a result, such as one that timed out.
+  The released program is unchanged.
 
 ## [0.8.3] - 2026-11-19
 

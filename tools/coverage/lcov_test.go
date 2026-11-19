@@ -195,6 +195,15 @@ func TestRealMainWritesBothReportsFromTheSingleAttempt(t *testing.T) {
 			if !slices.Contains(runner.args, "-json") || runner.args[len(runner.args)-1] != "./..." {
 				t.Fatalf("the one attempt must stream events: %q", runner.args)
 			}
+			attempts := 0
+			for _, call := range runner.calls {
+				if call[0] == "test" {
+					attempts++
+				}
+			}
+			if attempts != 1 {
+				t.Fatalf("reports must come from one test attempt, got %d: %q", attempts, runner.calls)
+			}
 			junit, err := os.ReadFile(filepath.Join(reports, "go.xml"))
 			if err != nil || !strings.Contains(string(junit), `name="TestValue"`) {
 				t.Fatalf("JUnit report = %q, %v", junit, err)

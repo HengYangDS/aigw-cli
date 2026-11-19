@@ -124,7 +124,7 @@ func requireTestOutcomes(t *testing.T, a junitSuite) {
 // failures, but not a passing test's output.
 func requirePlainView(t *testing.T, shown string) {
 	t.Helper()
-	for _, want := range []string{"wrong value", "FAIL\texample/a", "syntax error", "ok  \texample/ok", "[no test files]"} {
+	for _, want := range []string{"wrong value", "test timed out", "FAIL\texample/a", "syntax error", "ok  \texample/ok", "[no test files]"} {
 		if !strings.Contains(shown, want) {
 			t.Fatalf("plain view lacks %q:\n%s", want, shown)
 		}

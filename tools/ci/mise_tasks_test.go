@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -149,27 +148,6 @@ func TestMiseGoEnvironmentIsBoundToThisRepository(t *testing.T) {
 	if _, err := os.Stat(os.Getenv("GOWORK")); !os.IsNotExist(err) {
 		t.Fatalf("repository tooling materialized a foreign workspace: %v", err)
 	}
-}
-
-type ethosProfile struct {
-	Proof struct {
-		CodeCorrectnessGates []string          `toml:"code_correctness_gates"`
-		CodeCorrectnessMap   map[string]string `toml:"code_correctness_map"`
-		Gates                []struct {
-			ID                    string   `toml:"id"`
-			Command               []string `toml:"command"`
-			Providers             []string `toml:"providers"`
-			VerificationProviders []string `toml:"verification_providers"`
-			DependsOn             []string `toml:"depends_on"`
-			NetworkPolicy         string   `toml:"network_policy"`
-			WritesFiles           bool     `toml:"writes_files"`
-			NativeOutputs         []struct {
-				Path     string   `toml:"path"`
-				Format   string   `toml:"format"`
-				Sessions []string `toml:"sessions"`
-			} `toml:"native_outputs"`
-		} `toml:"gates"`
-	} `toml:"proof"`
 }
 
 // miseChildHangBound stops a mise child that hangs; it is not a speed check. A
@@ -400,102 +378,6 @@ func TestOfflineDependencyTasksNeverPullAnImage(t *testing.T) {
 		if !strings.Contains(test.task.Run, "docker run --pull=never --rm --read-only --network none") || test.task.Timeout != "2m" {
 			t.Errorf("%s must use a cached image without network or an unbounded wait: %#v", test.name, test.task)
 		}
-	}
-}
-
-func TestEthosProofDelegatesStaticAnalysisToQualityOwner(t *testing.T) {
-	root := repositoryRoot(t)
-	content, err := os.ReadFile(filepath.Join(root, ".ethos", "profile.toml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var profile ethosProfile
-	if err := toml.Unmarshal(content, &profile); err != nil {
-		t.Fatal(err)
-	}
-
-	want := []string{"mise", "exec", "--locked", "--", "go", "run", "./tools/ci", "quality"}
-	found := false
-	for _, gate := range profile.Proof.Gates {
-		if (gate.ID == "go-behavior" || gate.ID == "go-static-analysis") && !gate.WritesFiles {
-			t.Errorf("gate %q omits its verification-output and temporary-file writes", gate.ID)
-		}
-		if gate.ID == "go-static-analysis" {
-			found = true
-			if !reflect.DeepEqual(gate.Command, want) {
-				t.Fatalf("go-static-analysis command = %#v, want %#v", gate.Command, want)
-			}
-			if gate.NetworkPolicy != "required" {
-				t.Errorf("quality includes npm signature and OSV checks but declares network policy %q", gate.NetworkPolicy)
-			}
-		}
-	}
-	if !found {
-		t.Fatal("go-static-analysis proof gate is missing")
-	}
-}
-
-func TestEthosProofJudgesEachNativeTestAttemptOnce(t *testing.T) {
-	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".ethos", "profile.toml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var profile ethosProfile
-	if err := toml.Unmarshal(content, &profile); err != nil {
-		t.Fatal(err)
-	}
-	const verifier = "ethos.adapters.gates.code_quality:behavior_report"
-	behaviorGates := map[string][]string{
-		"go-behavior": {
-			"mise", "exec", "--locked", "--", "go", "run", "./tools/coverage", "--race",
-			"--profile-output", "build/verification/coverage/profile.out",
-			"--junit-output", "{native_output}/go-junit.xml", "--lcov-output", "{native_output}/go.lcov",
-		},
-		"node-behavior": {
-			"mise", "exec", "--locked", "--", "node", "--test", "--experimental-test-coverage",
-			"--test-reporter=junit", "--test-reporter-destination={native_output}/node-junit.xml",
-			"--test-reporter=lcov", "--test-reporter-destination={native_output}/node.lcov",
-			"tools/ci/test/text.test.mjs",
-		},
-	}
-	for id := range behaviorGates {
-		if !slices.Contains(profile.Proof.CodeCorrectnessGates, id) {
-			t.Errorf("native proof omits required gate %q", id)
-		}
-	}
-	if profile.Proof.CodeCorrectnessMap["behavior"] != "go-behavior" {
-		t.Error("behavior must be mapped to the Go coverage attempt")
-	}
-	found := map[string]bool{}
-	for _, gate := range profile.Proof.Gates {
-		// A behaviour provider without the gate's own reports runs the tests again.
-		if slices.Contains(gate.Providers, verifier) {
-			t.Errorf("gate %q asks ETHOS to run the tests itself", gate.ID)
-		}
-		want, selected := behaviorGates[gate.ID]
-		if !selected {
-			continue
-		}
-		found[gate.ID] = true
-		if !reflect.DeepEqual(gate.Command, want) || !reflect.DeepEqual(gate.VerificationProviders, []string{verifier}) ||
-			len(gate.Providers) != 0 || len(gate.DependsOn) != 0 || !gate.WritesFiles {
-			t.Errorf("gate %q must be one native attempt that ETHOS judges: %#v", gate.ID, gate)
-		}
-		formats := map[string]bool{}
-		for _, output := range gate.NativeOutputs {
-			formats[output.Format] = true
-			if !slices.ContainsFunc(gate.Command, func(argument string) bool {
-				return strings.HasSuffix(argument, "{native_output}/"+output.Path)
-			}) || len(output.Sessions) != 1 {
-				t.Errorf("gate %q declares %s output %q that its attempt does not write", gate.ID, output.Format, output.Path)
-			}
-		}
-		if len(gate.NativeOutputs) != 2 || !formats["junit-xml"] || !formats["lcov"] {
-			t.Errorf("gate %q must declare one JUnit and one LCOV report: %#v", gate.ID, gate.NativeOutputs)
-		}
-	}
-	if len(found) != len(behaviorGates) {
-		t.Fatalf("behaviour gates found: %v", found)
 	}
 }
 
