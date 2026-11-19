@@ -32,6 +32,7 @@ type Preview struct {
 	Files                []ClientFile                  `json:"client_files,omitempty"`
 	CredentialEntrypoint *app.CredentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
 	plans                []adapter.ProjectionPlan
+	followed             []synchronization.Followed
 }
 
 // Plans returns the projection plans of the client files that the preview
@@ -75,40 +76,79 @@ type ClientFile struct {
 	Client string `json:"client"`
 	File   string `json:"file,omitempty"`
 	Action string `json:"action"`
+	// Followed is the model that the client's own file selects and that the
+	// change records as the client's selection, and Returns the command that
+	// selects the client's earlier model again.
+	Followed string `json:"followed_selection,omitempty"`
+	Returns  string `json:"returns_with,omitempty"`
 }
 
 // ClientFiles names the client files of a preview as change documents do.
 func ClientFiles(runtime Context, preview Preview) []ClientFile {
-	return clientFiles(runtime, preview.plans)
+	return clientFiles(runtime, preview.plans, preview.followed)
 }
 
 // clientFiles names the client files of plans as documents do, relative to
-// Home.
-func clientFiles(runtime Context, plans []adapter.ProjectionPlan) []ClientFile {
+// Home, each with the model that the change follows for its client.
+func clientFiles(runtime Context, plans []adapter.ProjectionPlan, followed []synchronization.Followed) []ClientFile {
 	home := Home(runtime.Dependencies)
 	files := make([]ClientFile, 0, len(plans))
 	for _, plan := range plans {
 		file, _ := platform.HomeTarget(plan.Target, home)
-		files = append(files, ClientFile{Client: plan.Client, File: file, Action: terminal.SnakeValue(plan.Action)})
+		row := ClientFile{Client: plan.Client, File: file, Action: terminal.SnakeValue(plan.Action)}
+		if index := slices.IndexFunc(followed, func(choice synchronization.Followed) bool { return choice.Client == plan.Client }); index >= 0 {
+			row.Followed, row.Returns = followed[index].Model.String(), followed[index].Returns
+		}
+		files = append(files, row)
 	}
 	return files
 }
 
+// FollowedSelection says that a change follows the model that a client's own
+// file selects, and names the command that returns to the earlier model.
+func FollowedSelection(choice synchronization.Followed) string {
+	return followedSentence(choice.Model.String(), choice.Product, choice.Returns)
+}
+
+// followedSentence is the one wording of a followed choice.
+func followedSentence(model, product, returns string) string {
+	return "Follows " + model + ", chosen in " + product + "; `" + returns + "` returns to the earlier model"
+}
+
+// followedDetails is the sentence for client under its first file's row, and
+// nothing under its further files or for a client that was not followed.
+func followedDetails(followed []synchronization.Followed, client string, said map[string]bool) []string {
+	index := slices.IndexFunc(followed, func(choice synchronization.Followed) bool { return choice.Client == client })
+	if index < 0 || said[client] {
+		return nil
+	}
+	said[client] = true
+	return []string{FollowedSelection(followed[index])}
+}
+
 // RenderClientFiles names the client files that a change writes, each by its
 // client's label and the file, under one section; it writes nothing without
-// any.
+// any. A client whose own choice the change follows gets the sentence that
+// says so under its first file.
 func RenderClientFiles(r *terminal.Renderer, runtime Context, files []ClientFile) {
 	if len(files) == 0 {
 		return
 	}
 	r.Section("Client files")
 	rows := make([]terminal.Field, 0, len(files))
+	said := map[string]bool{}
 	for _, file := range files {
-		label := runtime.Clients.Admission().Label(file.Client)
+		product := runtime.Clients.Admission().Label(file.Client)
+		label := product
 		if file.File != "" {
 			label += " " + file.File
 		}
-		rows = append(rows, terminal.Field{Label: label, Value: file.Action})
+		row := terminal.Field{Label: label, Value: file.Action}
+		if file.Followed != "" && !said[file.Client] {
+			said[file.Client] = true
+			row.Details = []string{followedSentence(file.Followed, product, file.Returns)}
+		}
+		rows = append(rows, row)
 	}
 	r.Rows(rows...)
 }
@@ -135,9 +175,9 @@ func PreviewProjection(runtime Context, before, after domain.Config, clientIDs .
 // Planned is a projection's client files alone, without the credential
 // reader: what a commit, which prepares the reader itself, writes.
 func Planned(runtime Context, projection synchronization.Projection) Preview {
-	preview := Preview{plans: projection.Targets}
+	preview := Preview{plans: projection.Targets, followed: projection.Followed}
 	if len(projection.Targets) > 0 {
-		preview.Files = clientFiles(runtime, projection.Targets)
+		preview.Files = clientFiles(runtime, projection.Targets, projection.Followed)
 	}
 	return preview
 }
@@ -259,8 +299,9 @@ func RenderPreview(r *terminal.Renderer, preview Preview, apply string) {
 		r.Text("No client file needs changing")
 	} else {
 		rows := make([]terminal.Field, 0, len(preview.plans))
+		said := map[string]bool{}
 		for _, plan := range preview.plans {
-			rows = append(rows, terminal.Field{Label: plan.Target, Value: plan.Action})
+			rows = append(rows, terminal.Field{Label: plan.Target, Value: plan.Action, Details: followedDetails(preview.followed, plan.Client, said)})
 		}
 		r.Rows(rows...)
 	}

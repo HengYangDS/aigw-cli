@@ -149,6 +149,11 @@ func (clientAdapter removedEntrypointAdapter) Spec() domain.ClientSpec {
 	return domain.ClientSpec{ID: codex.ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses}}
 }
 
+// AdoptSelection follows nothing: the fixture's client chose no model of its own.
+func (removedEntrypointAdapter) AdoptSelection(adapter.Dependencies, *domain.Config) (domain.ModelRef, error) {
+	return domain.ModelRef{}, nil
+}
+
 func (clientAdapter removedEntrypointAdapter) Plan(adapter.Dependencies, domain.Config, domain.Config) ([]adapter.ProjectionPlan, error) {
 	return []adapter.ProjectionPlan{{Client: codex.ID, Target: clientAdapter.target, Action: "update", ChangesState: true}}, nil
 }

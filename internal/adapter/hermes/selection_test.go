@@ -1,6 +1,7 @@
 package hermes
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -68,9 +69,16 @@ func TestObserveSelectionReportsOnlyAProvedNativeChoice(t *testing.T) {
 	if err != nil || !changed || selection != (Selection{Provider: "other", Model: "other-model"}) {
 		t.Fatalf("native choice = %+v, %v, %v", selection, changed, err)
 	}
+	// A model that the entry does not list is no choice to follow, and it is
+	// told apart from an edit to another owned setting.
 	foreign := projectedSelection(t, desired, "other", "unlisted-model")
-	if _, _, err := ObserveSelection(foreign, desired); err == nil {
-		t.Fatal("a model outside the projected catalog was observed as a choice")
+	_, changed, err = ObserveSelection(foreign, desired)
+	if unlisted, typed := errors.AsType[*unlistedSelectionError](err); !typed || changed || unlisted.Selection != (Selection{Provider: "other", Model: "unlisted-model"}) {
+		t.Fatalf("a model outside the projected catalog = %v, %v", changed, err)
+	}
+	edited := editedProvider(t, projectedSelection(t, desired, "other", "unlisted-model"), "other")
+	if _, _, err := ObserveSelection(edited, desired); !errors.Is(err, errExternalEdit) {
+		t.Fatalf("an unlisted model beside an edited provider entry = %v, want the outside edit", err)
 	}
 	invalid := desired
 	invalid.SelectedModel = ""
@@ -109,5 +117,55 @@ func TestAdoptedSelectionNeverReplacesTheNativeChoice(t *testing.T) {
 	invalid.SelectedModel = ""
 	if _, err := PrepareAdoptedSelection(chosen, adopted, invalid); err == nil {
 		t.Fatal("adoption accepted an invalid previous projection")
+	}
+}
+
+// editedProvider changes the credential command of an owned provider entry
+// in the file at path, an edit outside the selection, and returns path.
+func editedProvider(t *testing.T, path, provider string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	setString(field(field(root, "providers"), provider), "key_cmd", "foreign-reader")
+	edited, err := encode(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, edited, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// An explicit selection needs only that nothing but the selection changed: it
+// replaces a selection that names an unlisted model, which following refuses.
+func TestExplicitSelectionReplacesAnUnlistedModel(t *testing.T) {
+	previous := twoProviders()
+	unlisted := projectedSelection(t, previous, "other", "unlisted-model")
+	if _, err := Prepare(unlisted, &previous); !errors.Is(err, errExternalEdit) {
+		t.Fatalf("ordinary synchronization over an unlisted model = %v", err)
+	}
+	if _, err := PrepareAdoptedSelection(unlisted, previous, previous); err == nil {
+		t.Fatal("following replaced an unlisted model")
+	}
+	plan, err := PrepareAuthorizedSelection(unlisted, previous, previous)
+	if err != nil || plan.Action != "write" {
+		t.Fatalf("explicit selection over an unlisted model = %s, %v", plan.Action, err)
+	}
+	if _, err := plan.Apply(); err != nil {
+		t.Fatal(err)
+	}
+	if restored, err := Prepare(unlisted, &previous); err != nil || restored.Action != "unchanged" {
+		t.Fatalf("the explicit selection was not written: %s, %v", restored.Action, err)
+	}
+	edited := editedProvider(t, projectedSelection(t, previous, "other", "unlisted-model"), "other")
+	if _, err := PrepareAuthorizedSelection(edited, previous, previous); !errors.Is(err, errExternalEdit) {
+		t.Fatalf("explicit selection beside an edited provider entry = %v, want the outside edit", err)
 	}
 }

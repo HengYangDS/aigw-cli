@@ -55,7 +55,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 	}
 	var projectable []string
 	if reconcileProjection {
-		projectable, err = s.credentialReadyClients(after, clientIDs...)
+		after, projectable, _, err = s.followedTransition(before, after, clientIDs...)
 		if err != nil {
 			return false, fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)
 		}

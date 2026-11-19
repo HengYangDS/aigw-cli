@@ -1,6 +1,6 @@
 // Package sync implements `aigw sync`, which makes the enabled clients' files
-// match the configuration: it discovers the clients, adopts a selection that
-// a client made itself, and writes each client's files for its model. It never
+// match the configuration: it discovers the clients, follows a model that
+// was chosen in a client, and writes each client's files for its model. It never
 // changes client conversation history or model metadata.
 package sync
 
@@ -22,7 +22,7 @@ import (
 const schemaVersion = 3
 
 // syncResult is `aigw sync`'s JSON document: each client's model as
-// provider/model, any selection adopted from a client, and in a preview the
+// provider/model, any selection followed from a client's own file, and in a preview the
 // client files that it would write and the credential reader that it would
 // install. Its next step is a command that a script can run, or guidance.
 type syncResult struct {
@@ -59,11 +59,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return terminal.ProblemError("Not configured", "No provider has been added.", "", "aigw setup", fmt.Errorf("not configured"))
 			}
 			synchronizer := runtime.Synchronizer()
-			adoptedConfig, adopted, err := synchronizer.AdoptNativeSelections(before)
+			followedConfig, followed, err := synchronizer.Follow(before)
 			if err != nil {
 				return fmt.Errorf("sync synchronization preflight failed; configuration and client files were unchanged: %w", err)
 			}
-			after, _, err := synchronizer.DesiredSyncConfiguration(adoptedConfig)
+			after, _, err := synchronizer.DesiredSyncConfiguration(followedConfig)
 			// A blocked Token folder states its own fix, which the command's
 			// presentation renders.
 			if _, blocked := platform.BlockedPath(err); blocked {
@@ -87,10 +87,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					result.Selections[client] = selected.String()
 				}
 			}
-			if len(adopted) > 0 {
+			if len(followed) > 0 {
 				result.AdoptedSelections = map[string]string{}
-				for client, ref := range adopted {
-					result.AdoptedSelections[client] = ref.String()
+				for _, choice := range followed {
+					result.AdoptedSelections[choice.Client] = choice.Model.String()
 				}
 			}
 			if dryRun {
@@ -111,13 +111,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				r.ProductTitle("Synchronization completed")
 			}
 			outcome := []terminal.Field{}
-			for _, client := range runtime.Clients.Admission().IDs() {
-				if model, ok := result.AdoptedSelections[client]; ok {
-					outcome = append(outcome, terminal.Field{
-						State: terminal.Info, Label: "Adopted selection",
-						Value: runtime.Clients.Admission().Label(client) + " now uses " + model + ", chosen in " + runtime.Clients.Admission().Label(client),
-					})
-				}
+			for _, choice := range followed {
+				outcome = append(outcome, terminal.Field{
+					State: terminal.Info, Label: "Followed selection",
+					Value: invocation.FollowedSelection(choice),
+				})
 			}
 			switch {
 			case result.EnabledClients == 0:

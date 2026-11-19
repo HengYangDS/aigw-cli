@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 
@@ -53,11 +54,33 @@ func ObserveSelection(path string, current Desired) (Selection, bool, error) {
 	if platform.SHA256(owned) == state.ManagedDigest {
 		return Selection{}, false, nil
 	}
-	if !selectionOnlyDrift(root, state, &current) {
+	model := field(root, "model")
+	native := Selection{Provider: scalar(field(model, "provider")), Model: scalar(field(model, "default"))}
+	switch {
+	case selectionOnlyDrift(root, state, &current):
+		return native, true, nil
+	case onlySelectionDiffers(root, state):
+		return Selection{}, false, &unlistedSelectionError{native}
+	default:
 		return Selection{}, false, errExternalEdit
 	}
-	model := field(root, "model")
-	return Selection{Provider: field(model, "provider").Value, Model: field(model, "default").Value}, true, nil
+}
+
+// unlistedSelectionError reports that Hermes' own selection is the only owned
+// value that differs from the record, and that it names no listed model of a
+// provider entry that AIGW wrote, so there is no choice to follow.
+type unlistedSelectionError struct{ Selection }
+
+func (e *unlistedSelectionError) Error() string {
+	return fmt.Sprintf("Hermes selects model %q of provider %q, which AIGW's catalog does not list", e.Model, e.Provider)
+}
+
+// scalar is a node's value, or "" for an absent node.
+func scalar(node *yaml.Node) string {
+	if node == nil {
+		return ""
+	}
+	return node.Value
 }
 
 var errExternalEdit = adapter.NewConflictError(
@@ -92,15 +115,18 @@ func decodeOwnership(data []byte) (ownership, error) {
 	return state, nil
 }
 
-// selectionOnlyDrift proves that Hermes' selection names a model of an
-// AIGW-owned provider and that replacing it with some owned provider and model
-// reproduces the recorded owned settings, so only the selection moved. The
-// proof does not depend on the current binding, which may already name the
-// native choice. previous only authorizes the proof.
+// selectionOnlyDrift proves that Hermes' selection names a listed model of an
+// AIGW-owned provider entry and that only the selection moved. The proof does
+// not depend on the current binding, which may already name the native
+// choice. previous only authorizes the proof.
 func selectionOnlyDrift(root *yaml.Node, state ownership, previous *Desired) bool {
-	if previous == nil {
-		return false
-	}
+	return previous != nil && selectsListed(root, state) && onlySelectionDiffers(root, state)
+}
+
+// selectsListed reports whether Hermes' selection names an AIGW-owned
+// provider entry with that entry's address and mode, and a model that the
+// entry lists.
+func selectsListed(root *yaml.Node, state ownership) bool {
 	model := field(root, "model")
 	selected := field(model, "provider")
 	if selected == nil || !slices.Contains(state.ProviderIDs, selected.Value) {
@@ -114,7 +140,16 @@ func selectionOnlyDrift(root *yaml.Node, state ownership, previous *Desired) boo
 		}
 	}
 	defaultModel, models := field(model, "default"), field(provider, "models")
-	if defaultModel == nil || models == nil || !slices.ContainsFunc(models.Content, func(node *yaml.Node) bool { return node.Value == defaultModel.Value }) {
+	return defaultModel != nil && models != nil && slices.ContainsFunc(models.Content, func(node *yaml.Node) bool { return node.Value == defaultModel.Value })
+}
+
+// onlySelectionDiffers proves that nothing but Hermes' selection differs from
+// the record: replacing the selection with some owned provider and model
+// reproduces the recorded owned settings. It says nothing about what the
+// selection itself names, which an explicit selection replaces anyway.
+func onlySelectionDiffers(root *yaml.Node, state ownership) bool {
+	model := field(root, "model")
+	if model == nil {
 		return false
 	}
 	defer setField(root, "model", model)

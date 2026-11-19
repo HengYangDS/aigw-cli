@@ -120,23 +120,6 @@ func (s Synchronizer) DesiredClientConfiguration(before domain.Config, clientIDs
 	return after, discovered, err
 }
 
-// AdoptNativeSelections returns before with each client's own selection inside
-// AIGW's projected catalog recorded as its Client Binding, and the adopted
-// Route per client. Only synchronization adopts: an explicit selection names
-// the Route that wins.
-func (s Synchronizer) AdoptNativeSelections(before domain.Config) (domain.Config, map[string]domain.ModelRef, error) {
-	after := before.Clone()
-	dependencies, err := s.clientDependencies(nil)
-	if err != nil {
-		return domain.Config{}, nil, err
-	}
-	adopted, err := s.registry().AdoptSelections(dependencies, &after)
-	if err != nil {
-		return domain.Config{}, nil, err
-	}
-	return after, adopted, nil
-}
-
 // DesiredSyncConfiguration activates unselected recommendations when a
 // read-only credential source gains an Account Token after catalog import.
 // Writable native stores are not searched for unselected credentials.

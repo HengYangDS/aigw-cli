@@ -328,20 +328,25 @@ func (registry Registry) Withdraw(cfg *domain.Config, clientID string) error {
 	return nil
 }
 
-// AdoptSelections records each admitted client's own selection as its Client
-// Binding in admission order, and returns the adopted model per client.
-func (registry Registry) AdoptSelections(deps Dependencies, cfg *domain.Config) (map[string]domain.ModelRef, error) {
-	adopted := map[string]domain.ModelRef{}
-	for _, id := range registry.ids {
-		ref, err := registry.byID[id].AdoptSelection(deps, cfg)
-		if err != nil {
-			return nil, namedTarget(registry.byID[id].Spec(), deps.Host.Home, err)
-		}
-		if !ref.IsZero() {
-			adopted[id] = ref
-		}
+// Follow records the named client's own selection as its Client Binding. It
+// returns the followed model, or the zero reference when the client shows its
+// bound selection, and the selection that the client had before, whose
+// Restore selects the earlier model again.
+func (registry Registry) Follow(deps Dependencies, cfg *domain.Config, clientID string) (domain.ModelRef, RecordedSelection, error) {
+	client, err := registry.adapter(clientID)
+	if err != nil {
+		return domain.ModelRef{}, RecordedSelection{}, err
 	}
-	return adopted, nil
+	// A client without a resolvable selection has nothing to follow from.
+	earlier := RecordedSelection{Client: clientID, Product: client.Spec().Label}
+	if runtime, err := cfg.ResolveRuntime(clientID, domain.ModelRef{}); err == nil {
+		earlier = Recorded(client.Spec(), runtime)
+	}
+	ref, err := client.AdoptSelection(deps, cfg)
+	if err != nil {
+		return domain.ModelRef{}, RecordedSelection{}, namedTarget(client.Spec(), deps.Host.Home, err)
+	}
+	return ref, earlier, nil
 }
 
 // ValidatesTargets reports whether the client's adapter validates explicit

@@ -237,39 +237,64 @@ func (hermesAdapter) AdoptSelection(deps adapter.Dependencies, cfg *domain.Confi
 	if err != nil {
 		return domain.ModelRef{}, err
 	}
+	recorded := adapter.Recorded(hermesAdapter{}.Spec(), selected)
 	native, changed, err := ObserveSelection(binding.Targets[0], current)
+	if unlisted, refused := errors.AsType[*unlistedSelectionError](err); refused {
+		return domain.ModelRef{}, hermesChoiceOf(*cfg, unlisted.Selection).refusal(recorded, unlisted.Selection)
+	}
 	if err != nil || !changed {
 		return domain.ModelRef{}, err
 	}
-	ref, protocol, err := hermesModelFor(*cfg, native)
-	if err != nil {
-		return domain.ModelRef{}, err
+	choice := hermesChoiceOf(*cfg, native)
+	if !choice.listed {
+		return domain.ModelRef{}, choice.refusal(recorded, native)
 	}
-	if ref == binding.Model && protocol == selected.Protocol {
+	if choice.ref == binding.Model && choice.protocol == selected.Protocol {
 		// The binding already names the native choice; only the record is stale.
 		return domain.ModelRef{}, nil
 	}
-	cfg.SetSelectedModel(ID, ref, protocol)
-	return ref, nil
+	cfg.SetSelectedModel(ID, choice.ref, choice.protocol)
+	return choice.ref, nil
 }
 
-// hermesModelFor maps a projected provider and model to the model of that
-// provider with that ID, on the projected provider's protocol.
-func hermesModelFor(cfg domain.Config, native Selection) (domain.ModelRef, domain.EndpointProtocol, error) {
+// hermesChoice is what a selection in Hermes' file names in a configuration:
+// the provider and protocol of its provider entry, when AIGW writes that
+// entry, and whether the entry lists the selected model.
+type hermesChoice struct {
+	ref      domain.ModelRef
+	protocol domain.EndpointProtocol
+	written  bool
+	listed   bool
+}
+
+// hermesChoiceOf maps a provider entry and model to the model of that entry's
+// provider with that ID, on the entry's protocol.
+func hermesChoiceOf(cfg domain.Config, native Selection) hermesChoice {
 	catalog, err := hermesCatalog(cfg)
 	if err != nil {
-		return domain.ModelRef{}, "", err
+		return hermesChoice{}
 	}
 	index := slices.IndexFunc(catalog, func(item hermesCatalogProvider) bool { return item.ID == native.Provider })
 	if index < 0 {
-		return domain.ModelRef{}, "", fmt.Errorf("Hermes selects provider %q, which AIGW no longer projects; run `aigw use hermes <provider/model>`", native.Provider)
+		return hermesChoice{}
 	}
-	provider := catalog[index]
-	if !slices.Contains(provider.Models, native.Model) {
-		return domain.ModelRef{}, "", fmt.Errorf("Hermes selects model %q, which provider %q has not added; run `aigw use hermes %s/%s --protocol %s`",
-			native.Model, provider.Provider, provider.Provider, native.Model, provider.Protocol.Name())
+	entry := catalog[index]
+	return hermesChoice{
+		ref: domain.NewModelRef(entry.Provider, native.Model), protocol: entry.Protocol,
+		written: true, listed: slices.Contains(entry.Models, native.Model),
 	}
-	return domain.NewModelRef(provider.Provider, native.Model), provider.Protocol, nil
+}
+
+// refusal refuses a selection that AIGW does not follow, with the command
+// that restores recorded. It names the command that adds and selects the
+// model only for a provider entry that AIGW writes.
+func (choice hermesChoice) refusal(recorded adapter.RecordedSelection, native Selection) *adapter.SelectionError {
+	if !choice.written {
+		return adapter.RefusedSelection(recorded, fmt.Sprintf("selects provider %q, which AIGW does not write", native.Provider), "")
+	}
+	return adapter.RefusedSelection(recorded,
+		fmt.Sprintf("selects model %q, which provider %q has not added on %s", native.Model, choice.ref.Provider(), choice.protocol.Name()),
+		fmt.Sprintf("aigw use hermes %s --protocol %s", choice.ref, choice.protocol.Name()))
 }
 
 func (hermesAdapter) Plan(deps adapter.Dependencies, before, after domain.Config) ([]adapter.ProjectionPlan, error) {

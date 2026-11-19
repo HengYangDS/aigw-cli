@@ -121,7 +121,8 @@ func Prepare(path string, desired *Desired) (Plan, error) {
 }
 
 // PrepareAuthorizedSelection admits an explicit selection only when replacing
-// the selected tuple with the prior tuple proves all other managed state.
+// the selected tuple proves all other managed state, whatever model the file
+// selects.
 func PrepareAuthorizedSelection(path string, desired, previous Desired) (Plan, error) {
 	return prepareSelection(path, desired, previous, false)
 }
@@ -169,7 +170,7 @@ func prepareObserved(path string, desired, previous *Desired, adopted bool) (Pla
 	if adopted && !desired.selects(root) {
 		return Plan{}, errExternalEdit
 	}
-	state, before, err := plan.readOwnership(root, desired, previous)
+	state, before, err := plan.readOwnership(root, desired, previous, previous != nil && !adopted)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -246,7 +247,11 @@ func (plan *Plan) prepareDesired(root *yaml.Node, desired Desired, state ownersh
 	return nil
 }
 
-func (plan *Plan) readOwnership(root *yaml.Node, desired, previous *Desired) (ownership, []byte, error) {
+// readOwnership reads AIGW's record and the owned settings as they stand. A
+// file whose owned settings differ from the record is admitted when only the
+// selection moved: to a listed model for a followed choice, and to any value
+// for an explicit selection, which replaces it.
+func (plan *Plan) readOwnership(root *yaml.Node, desired, previous *Desired, explicit bool) (ownership, []byte, error) {
 	if !plan.stateBefore.Exists {
 		return initialOwnership(root, desired, plan.configBefore.Exists)
 	}
@@ -258,8 +263,14 @@ func (plan *Plan) readOwnership(root *yaml.Node, desired, previous *Desired) (ow
 	if err != nil {
 		return state, nil, err
 	}
-	if platform.SHA256(current) != state.ManagedDigest && !selectionOnlyDrift(root, state, previous) {
-		return state, nil, errExternalEdit
+	if platform.SHA256(current) != state.ManagedDigest {
+		proved := selectionOnlyDrift(root, state, previous)
+		if explicit {
+			proved = onlySelectionDiffers(root, state)
+		}
+		if !proved {
+			return state, nil, errExternalEdit
+		}
 	}
 	return state, current, nil
 }

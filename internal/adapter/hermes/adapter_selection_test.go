@@ -44,22 +44,46 @@ func TestHermesModelForAdoptsOnlyOneExactModel(t *testing.T) {
 	cfg.Models[domain.NewModelRef("gateway", "gpt-6.1-sol")] = qualifiedModel("Sol", "gateway", "gpt-6.1-sol", domain.ProtocolResponses)
 	cfg.Normalize()
 
-	routeID, protocol, err := hermesModelFor(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "claude-opus-5-5"})
-	if err != nil || routeID != domain.NewModelRef("gateway", "claude-opus-5-5") || protocol != domain.ProtocolAnthropic {
-		t.Fatalf("adopted Route = %q %q, %v", routeID, protocol, err)
+	choice := hermesChoiceOf(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "claude-opus-5-5"})
+	if !choice.listed || choice.ref != domain.NewModelRef("gateway", "claude-opus-5-5") || choice.protocol != domain.ProtocolAnthropic {
+		t.Fatalf("followed choice = %+v", choice)
 	}
-	// The model must belong to the selected provider's protocol, not any protocol.
-	if _, _, err := hermesModelFor(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "gpt-6.1-sol"}); err == nil {
-		t.Fatal("a model of another protocol was adopted")
-	}
-	if _, _, err := hermesModelFor(cfg, Selection{Provider: "aigw-other-anthropic", Model: "claude-opus-5-5"}); err == nil || !strings.Contains(err.Error(), "aigw use hermes <provider/model>") {
-		t.Fatalf("an unprojected provider was not refused with a selection command: %v", err)
-	}
-
-	// A choice that no added model carries names the selection with a
-	// placeholder for the model.
-	_, _, err = hermesModelFor(cfg, Selection{Provider: "aigw-gateway-responses", Model: "gpt-unadded"})
-	if err == nil || !strings.Contains(err.Error(), "which provider \"gateway\" has not added; run `aigw use hermes gateway/gpt-unadded --protocol responses`") {
-		t.Fatalf("an unadded choice = %v", err)
+	recorded := adapter.RecordedSelection{Client: ID, Product: "Hermes", Model: domain.NewModelRef("gateway", "claude-opus-5-5"), Protocol: "anthropic"}
+	for _, test := range []struct {
+		name      string
+		selection Selection
+		want      []string
+	}{
+		// The model must belong to the selected provider's protocol, not any protocol.
+		{"a model of another protocol", Selection{Provider: "aigw-gateway-anthropic", Model: "gpt-6.1-sol"}, []string{
+			`Hermes selects model "gpt-6.1-sol", which provider "gateway" has not added on anthropic`,
+			"`aigw use hermes gateway/gpt-6.1-sol --protocol anthropic` adds and selects the model that Hermes names",
+		}},
+		{"a model that no one added", Selection{Provider: "aigw-gateway-responses", Model: "gpt-unadded"}, []string{
+			`Hermes selects model "gpt-unadded", which provider "gateway" has not added on responses`,
+			"`aigw use hermes gateway/gpt-unadded --protocol responses` adds and selects the model that Hermes names",
+		}},
+		{"a provider entry that AIGW does not write", Selection{Provider: "aigw-other-anthropic", Model: "claude-opus-5-5"}, []string{
+			`Hermes selects provider "aigw-other-anthropic", which AIGW does not write`,
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			choice := hermesChoiceOf(cfg, test.selection)
+			if choice.listed {
+				t.Fatalf("followed %+v", choice)
+			}
+			refusal := choice.refusal(recorded, test.selection)
+			if refusal.NextAction() != "aigw use hermes gateway/claude-opus-5-5 --protocol anthropic" {
+				t.Fatalf("next action = %q, want the restoring command", refusal.NextAction())
+			}
+			for _, want := range test.want {
+				if !strings.Contains(refusal.Error(), want) {
+					t.Fatalf("refusal = %v, want %s", refusal, want)
+				}
+			}
+			if len(test.want) == 1 && strings.Contains(refusal.Error(), "adds and selects") {
+				t.Fatalf("refusal names an adding command for an entry that AIGW does not write: %v", refusal)
+			}
+		})
 	}
 }
