@@ -19,11 +19,12 @@ did, or reports it otherwise than the specification says:
 
 - A provider keeps the last verdict on its Token however the person then leaves its prompt: by choosing to skip, by
   Enter alone, or, in accessible mode, by answers that name no choice, which now skip the provider and no longer end
-  setup.
+  setup; setup says that it skipped.
 - A prompt that the person cancels after this run accepted a Token says that no such Token was stored.
 - A provider named more than once is asked once. A named provider skipped with Enter is reported with its next step.
 - A preview in a terminal says that the run asks for Tokens, which the preview never does.
-- Tests: `OptionalSecret` in both forms; each client's recommendations name at most one model of a provider, in the
+- Tests: `OptionalSecret` in each of its forms; a script that drives the real prompts through a terminal; each
+  client's recommendations name at most one model of a provider, in the
   file's provider order; a model that a client can use under any of its protocols counts as serving the family; the
   release test reads the family that Codex is recommended from the file.
 - Records: the rollout guide, the route evidence, `README.md`, the qualification record and `CHANGELOG.md` say what
@@ -31,8 +32,10 @@ did, or reports it otherwise than the specification says:
   its Token proved by setup, `provider add`, `provider rotate` or `use`.
 
 Out of scope: a validation that proves a Token on such a provider, which changes five commands and `secret-storage`
-and is the next Change; wiring an interrupt signal to the command's context, which no command does today; and the
-store's older team tests that list the file's families and hosts, which need a Change of their own to read structure.
+and is the next Change; a preview without a terminal that names a provider without a Token, whose next step the run
+refuses; wiring an interrupt signal to the command's context, which no command does today; and the tests that still
+repeat the file's values (the store's lists of families and hosts, the release test's protocol), which need a Change
+of their own to read structure.
 
 ## Capabilities
 

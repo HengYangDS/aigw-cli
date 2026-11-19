@@ -290,6 +290,28 @@ stdout '"family": "team-model",\n\s+"local": "Families Label"'
 exec aigw setup --from team.toml --dry-run --json
 ! stdout 'changed_labels'
 
+# In a terminal, team setup asks which providers' Tokens the person holds and
+# then for each chosen one. A Token that its provider refuses, left with
+# answers that name no choice, skips that provider, which setup says; the next
+# provider's Token is stored, and the team file is applied.
+mkdir $WORK/asked
+env HOME=$WORK/asked USERPROFILE=$WORK/asked XDG_CONFIG_HOME=$WORK/asked XDG_DATA_HOME=$WORK/asked APPDATA=$WORK/asked LOCALAPPDATA=$WORK/asked
+envsubst team.in asked.toml
+[!windows] ttyin -stdin asked.txt
+[!windows] exec aigw setup --from asked.toml
+[!windows] stdout '^Which providers. Tokens do you have\? Choose none to skip them all\.\n  1\. Spare Gateway\n  2\. Team Gateway\n'
+[!windows] stdout 'Spare Gateway did not accept the Token \(HTTP 401\)\. What now\?\n  1\. Enter the Spare Gateway Token again\n  2\. Skip Spare Gateway\n'
+[!windows] stdout 'Choose a number from 1 to 2\.'
+[!windows] stdout 'No answer named a choice, so Spare Gateway was skipped\.'
+[!windows] stdout 'spare +Not accepted: Spare Gateway did not accept the Token \(HTTP 401\)'
+[!windows] stdout 'team +Accepted by the provider and stored'
+[!windows] stdout 'Team file applied'
+[!windows] ! stdout 'sk-'
+[!windows] [darwin] exists $HOME/'Library/Application Support/aigw/secrets/tokens/team'
+[!windows] [darwin] ! exists $HOME/'Library/Application Support/aigw/secrets/tokens/spare'
+[!windows] [!darwin] exists $HOME/aigw/secrets/tokens/team
+[!windows] [!darwin] ! exists $HOME/aigw/secrets/tokens/spare
+
 
 -- families.toml --
 version = 8
@@ -297,6 +319,13 @@ version = 8
 [[families]]
 id = "team-model"
 label = "Families Label"
+-- asked.txt --
+1 2
+sk-rejected-token
+again
+skip
+neither
+sk-team-token-0001
 -- rejected.txt --
 sk-rejected-token
 -- token.txt --

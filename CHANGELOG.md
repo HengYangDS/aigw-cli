@@ -21,7 +21,8 @@ signing, and GA status remain separate evidence.
   asks only for those Tokens. A Token that its provider does not accept can be
   entered again or its provider skipped; the provider is reported as not
   accepted, with the reason and `aigw provider rotate <provider>`, however its
-  prompt is then left, and every other provider and client is set up. A prompt
+  prompt is then left, and every other provider and client is set up. Answers
+  that name no choice skip the provider, which setup says. A prompt
   that you cancel ends setup before any write, and says so when a Token that
   the run had accepted was not stored. A piped Token
   (`--provider <id> --token-stdin`) that is not accepted no longer prevents the
@@ -53,9 +54,10 @@ signing, and GA status remain separate evidence.
   provider whose catalog answers any Token cannot refuse a wrong one there. On
   2026-11-19 AIHubMix's answered 200 to a made-up Token, while DMXAPI's,
   UCloud's and Suhe.AI's answered 401. `aigw setup`, `aigw provider add`,
-  `aigw provider rotate` and `aigw use` report such a Token as accepted;
-  `aigw check` sends an inference request and shows a wrong one, so run it
-  after connecting AIHubMix.
+  `aigw provider rotate` and `aigw use` report such a Token as accepted.
+  `aigw check` sends an inference request for each client's selected model, so
+  it shows a wrong Token once a client selects a model of that provider; for
+  any other provider, run `aigw check <client> --model <provider/model>`.
 
 ## [0.8.2] - 2026-11-18
 

@@ -42,18 +42,20 @@ provider and name its fix. It SHALL store a Token only after the validation that
 
 #### Scenario: Token input names more than one provider
 
-- **WHEN** `--token-stdin` comes with more than one `--provider`
+- **WHEN** `--token-stdin` comes with `--provider` flags that name more than
+  one provider
 - **THEN** setup SHALL refuse before reading the file or standard input.
 
 #### Scenario: A named provider's Token is requested in a terminal
 
 - **WHEN** `aigw setup --from <file> --provider dmxapi` runs in a terminal
-  and no `dmxapi` Token is stored
-- **THEN** setup SHALL prompt only for the `dmxapi` Token, without echoing it,
-  once however often the command names the provider
-- **AND** Enter alone SHALL skip the provider, which SHALL be reported without
-  a Token and with its next step
-- **AND** a stored `dmxapi` Token SHALL be used without a prompt.
+- **THEN** setup SHALL use a stored `dmxapi` Token without a prompt, and
+  otherwise prompt only for the `dmxapi` Token, without echoing it, once
+  however often the command names the provider
+- **AND** Enter alone at that prompt SHALL skip the provider, which SHALL be
+  reported without a Token and with its next step
+- **AND** a preview SHALL ask nothing, take the Token that the run would ask
+  for as accepted, and say so.
 
 #### Scenario: A provider is named without a terminal or Token input
 
@@ -75,9 +77,8 @@ provider and name its fix. It SHALL store a Token only after the validation that
   and not be listed
 - **AND** a `--json` or non-terminal run SHALL defer those providers, because
   `command-line` lets neither prompt
-- **AND** a preview SHALL ask nothing, plan with the Tokens that are present
-  and with a named provider's as accepted, and say in a terminal that the run
-  asks.
+- **AND** a preview SHALL ask nothing, plan with the Tokens that are present,
+  and say that the run asks.
 
 #### Scenario: A Token typed in a terminal is not accepted
 
@@ -91,7 +92,7 @@ provider and name its fix. It SHALL store a Token only after the validation that
   while setup applies the team file, stores the other accepted Tokens and exits 0
 - **AND** the provider SHALL keep that last verdict however the person then
   leaves its prompt: by choosing to skip, by Enter alone, or by answers that
-  name no choice, which skip the provider
+  name no choice, which skip the provider and which setup SHALL say
 - **AND** text that is not one Token SHALL leave no verdict of its own
 - **AND** a prompt that the person cancels SHALL end setup before any write and
   say that no Token accepted in this run was stored, when one was.

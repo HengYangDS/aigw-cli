@@ -201,26 +201,33 @@ func TestTheShippedTeamFileServesAPersonWithOneProvidersToken(t *testing.T) {
 }
 
 // Enter alone at a chosen provider's prompt skips it, as does an accessible
-// question whose answers name no choice; text that is not a Token offers to
-// enter it again or skip, and a skip after it leaves the provider without one.
+// question whose answers name no choice, which setup says; text that is not a
+// Token offers to enter it again or skip, and a skip after it, chosen or by
+// answers that name no choice, leaves the provider without one.
 func TestTeamSetupSkipsWithoutAWrongToken(t *testing.T) {
 	path := writeTeamFile(t, teamFileText)
 	for _, test := range []struct {
 		name   string
 		prompt func() *guidedPrompt
+		said   string
 	}{
-		{"Enter alone", func() *guidedPrompt { return &guidedPrompt{multi: [][]string{{"team"}}, secrets: []string{""}} }},
-		{"no choice named", func() *guidedPrompt { return &guidedPrompt{multiErr: terminal.ErrNoChoice} }},
+		{"Enter alone", func() *guidedPrompt { return &guidedPrompt{multi: [][]string{{"team"}}, secrets: []string{""}} }, ""},
+		{"no provider named", func() *guidedPrompt { return &guidedPrompt{multiErr: terminal.ErrNoChoice} },
+			"No answer named a provider, so setup asks for no Token."},
 		{"not a Token, then skipped", func() *guidedPrompt {
 			return &guidedPrompt{multi: [][]string{{"team"}}, secrets: []string{"two words"}, selections: []string{"skip"}}
-		}},
+		}, ""},
+		{"not a Token, then no choice named", func() *guidedPrompt {
+			return &guidedPrompt{multi: [][]string{{"team"}}, secrets: []string{"two words"}, selectErr: terminal.ErrNoChoice}
+		}, "No answer named a choice, so Team Gateway Again was skipped."},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			home := newGuidedHome(t, claude.ID)
 			if err := home.run(t, test.prompt(), "--from", path); err != nil {
 				t.Fatalf("setup: %v\n%s", err, home.out)
 			}
-			if !strings.Contains(home.out.String(), "Team file applied") || !strings.Contains(home.out.String(), "None; aigw provider rotate team") {
+			if !strings.Contains(home.out.String(), "Team file applied") || !strings.Contains(home.out.String(), "None; aigw provider rotate team") ||
+				!strings.Contains(strings.Join(strings.Fields(home.out.String()), " "), test.said) {
 				t.Fatalf("report:\n%s", home.out)
 			}
 			if _, err := home.secrets.Get("team"); err == nil {

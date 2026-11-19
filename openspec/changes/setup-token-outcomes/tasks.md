@@ -10,7 +10,8 @@
       Enter with the step that stores its Token; tests cover both, and a preview's row stays without a step.
 - [x] 1.5 Say in a terminal preview that the run asks which providers' Tokens the person holds, when it would; a test
       covers a preview that would ask, one that names a provider and one without a terminal.
-- [x] 1.6 Test `Prompt.OptionalSecret` in both forms: a value, Enter alone, input that ends, and a terminal read.
+- [x] 1.6 Test `Prompt.OptionalSecret` in each of its forms: a value, Enter alone, input that ends, and a terminal
+      read.
 
 ## 2. Shipped Team File
 
@@ -27,3 +28,14 @@
 - [x] 3.2 State in `CHANGELOG.md` and the rollout guide that a provider whose model catalog answers any Token cannot
       have its Token proved by a validation, with the measurement of 2026-11-19 and the check that shows a wrong one.
 - [ ] 3.3 Pass `mise run check` on the lane head.
+
+## 4. Review Of The Token Flow
+
+- [x] 4.1 Say what setup made of answers that named no choice, at the provider question and at "What now?"; a script
+      drives the real prompts through a terminal: a refused Token left with such answers, then an accepted one.
+- [x] 4.2 Cover the paths that the review traced without a test: the later of two verdicts, a cancel at the question
+      after an accepted Token, text that is not a Token left with no choice, a preview with nothing to ask and with
+      two named providers, and one provider named twice with piped input.
+- [x] 4.3 Name in the records the check that shows a wrong Token (`aigw check` for a client that selects the
+      provider's model, `aigw check <client> --model <provider/model>` otherwise), and state each scenario's
+      precondition once.

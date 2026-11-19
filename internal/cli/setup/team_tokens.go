@@ -59,7 +59,7 @@ func (t teamSetup) acquire(ctx context.Context, states map[string]string) (map[s
 
 // chooseProviders asks which of the askable providers the person holds a
 // Token for, and accepts none: an answer that names no choice in accessible
-// mode chooses none too.
+// mode chooses none too, which setup says.
 func (t teamSetup) chooseProviders(states map[string]string) ([]string, error) {
 	choices := t.askable(states)
 	if len(choices) == 0 {
@@ -67,7 +67,7 @@ func (t teamSetup) chooseProviders(states map[string]string) ([]string, error) {
 	}
 	chosen, err := t.runtime.Prompt.MultiSelect(providerQuestion, choices)
 	if errors.Is(err, terminal.ErrNoChoice) {
-		return nil, nil
+		return nil, t.say("No answer named a provider, so setup asks for no Token.")
 	}
 	if err != nil {
 		return nil, invocation.Prompted("The provider question", err)
@@ -76,6 +76,14 @@ func (t teamSetup) chooseProviders(states map[string]string) ([]string, error) {
 		states[id] = tokenMissing
 	}
 	return chosen, nil
+}
+
+// say tells the person, between prompts, what setup made of answers that
+// named no choice.
+func (t teamSetup) say(line string) error {
+	r := invocation.Renderer(t.runtime)
+	r.Text(line)
+	return r.Err()
 }
 
 // askable are the team file's providers without a Token, in the file's order,
@@ -108,7 +116,7 @@ func (t teamSetup) askable(states map[string]string) []terminal.Choice {
 // hold, of which the preview assumes none, or the Token of each named
 // provider without one, which the preview takes as accepted. Without a
 // terminal, with standard input or with the read-only environment backend the
-// run asks nothing.
+// run asks nothing, and so does a run whose providers all have a Token.
 func (t teamSetup) previewAsks(states map[string]string) string {
 	if !t.runtime.Interactive || t.request.TokenStdin || secret.IsReadOnly(t.runtime.Secrets) {
 		return ""
@@ -121,17 +129,20 @@ func (t teamSetup) previewAsks(states map[string]string) string {
 		if len(labels) == 0 {
 			return ""
 		}
-		return "The run asks which Tokens you hold of: " + strings.Join(labels, ", ") + ". This preview assumes none."
+		return "The run asks which providers' Tokens you hold (" + strings.Join(labels, ", ") + "); this preview assumes none."
 	}
 	for _, id := range t.request.Providers {
 		if states[id] == tokenMissing {
 			labels = append(labels, t.providerLabel(id))
 		}
 	}
-	if len(labels) == 0 {
+	switch len(labels) {
+	case 0:
 		return ""
+	case 1:
+		return "The run asks for the " + labels[0] + " Token; this preview takes it as accepted."
 	}
-	return "The run asks for the Token of: " + strings.Join(labels, ", ") + ". This preview takes it as accepted."
+	return "The run asks for the Tokens of " + strings.Join(labels, ", ") + "; this preview takes them as accepted."
 }
 
 // tokenOutcome is what became of one provider's Token that setup asked for:
@@ -151,7 +162,7 @@ type tokenOutcome struct {
 // or, when the validation got no verdict that a later request may give, to try
 // the same Token again. The provider keeps the last validation's verdict
 // however the person then leaves its prompt: by skipping, by Enter alone, or
-// by answers that name no choice, which skip it.
+// by answers that name no choice, which skip it and which setup says.
 func (t teamSetup) readToken(ctx context.Context, id string) (tokenOutcome, error) {
 	if t.request.TokenStdin {
 		token, err := invocation.ReadToken(t.runtime, true, false)
@@ -197,7 +208,7 @@ func (t teamSetup) readToken(ctx context.Context, id string) (tokenOutcome, erro
 		}
 		next, err := t.runtime.Prompt.Select(question, failureChoices(label, failure))
 		if errors.Is(err, terminal.ErrNoChoice) {
-			next, err = "skip", nil
+			next, err = "skip", t.say("No answer named a choice, so "+label+" was skipped.")
 		}
 		if err != nil {
 			return tokenOutcome{}, invocation.Prompted("The choice for provider "+id, err)

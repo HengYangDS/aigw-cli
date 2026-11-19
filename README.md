@@ -132,7 +132,7 @@ aigw setup --from team.toml
 
 Applying the team file requires neither every provider Token nor an installed
 client. In a terminal, setup first asks which of the file's providers without
-a stored Token you hold one for; choose any, or none. It then asks only for those.
+a stored Token you hold one for; choose any, or none. It asks only for those.
 Enter alone skips a provider, and a Token that its provider does not accept can
 be entered again or skipped; the team file is applied either way, and each
 client gets a model of a provider whose Token was accepted. To connect one

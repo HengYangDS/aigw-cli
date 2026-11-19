@@ -414,5 +414,9 @@ which is the request that validates a Token:
 | Suhe.AI  | 401                          | 401           |
 
 AIHubMix's catalog therefore cannot refuse a wrong Token, and a validation
-accepts any Token for it; an inference request, which `aigw check` sends,
-shows a wrong one.
+accepts any Token for it. An inference request shows a wrong one: `aigw check`
+sends one for each client's selected model, and
+`aigw check <client> --model <provider/model>` for a model that no client
+selects. At 20:50 the same made-up Token got 401 from every provider,
+AIHubMix included, on `/v1/responses`, `/v1/chat/completions` and `/v1/messages`
+with an empty JSON body. What a valid Token gets there was not measured.

@@ -295,8 +295,8 @@ Setup:
 
 - validates all public metadata first;
 - keeps every reviewed provider and model;
-- in a terminal, asks which providers' Tokens the user holds, none allowed, and
-  connects those that the providers accept;
+- in a terminal, asks which providers without a stored Token the user holds
+  one for, none allowed, and connects those that the providers accept;
 - applies the file whatever becomes of each Token, reporting each Token that it
   did not store with its reason and next step;
 - configures only installed supported clients;
@@ -409,9 +409,9 @@ selection validate the selected protocol and endpoint before activation.
 Team-file setup validates each Token that it reads with one request that names
 no model, and uses a stored Token without a request. A provider whose model
 catalog answers any Token, as AIHubMix's did on November 19, 2026, cannot
-refuse a wrong one there, and no validation proves inference. Run `aigw check`
-afterwards; it reports unreachable endpoints and rejected Tokens without
-exposing credential values.
+refuse a wrong one there, and no validation proves inference. `aigw check`
+sends an inference request for each client's selected model; for a provider
+that no client selects, run `aigw check <client> --model <provider/model>`.
 
 Rotation validates and replaces only the named provider's Token. It does not
 select a model, rewrite client configuration or invoke a native client. The

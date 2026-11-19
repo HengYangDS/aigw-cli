@@ -20,6 +20,10 @@ request that validates a Token:
 | AIHubMix | 200                     | 200                          | 200           |
 | Suhe.AI  | 401                     | 401                          | 401           |
 
+At 20:50 the same made-up Token got 401 from all four, AIHubMix included, on `/v1/responses`, `/v1/chat/completions`
+and `/v1/messages` with an empty JSON body; what a valid Token gets there was not measured. The readings are in the
+canonical checkout's `build/evidence/token-proof-20261119/`.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -32,6 +36,9 @@ request that validates a Token:
 - Proving a Token on a provider whose catalog answers any Token; the next Change does that.
 - Handling an interrupt signal during a validation: no command wires one to its context, and nothing is written
   before the transaction.
+- A preview without a terminal that names a provider without a Token: it plans as if the Token were accepted and
+  names the run without `--token-stdin`, which that run refuses. This predates the lane and changes a JSON preview's
+  `next_action`, so the next Change takes it.
 
 ## Decisions
 
@@ -45,6 +52,8 @@ request that validates a Token:
 - **Chosen because:** the accessible selection already bounds its unmatched answers, and the provider question takes
   the same ending as no choice; a skip loses nothing, since the fix of a provider without a Token is printed. Text
   that is not one Token says nothing about the provider, so it leaves the verdict that an earlier Token got, or none.
+  Setup says what it made of such answers, at this question and at the provider question, because the next prompt
+  would otherwise follow three refusals of an answer without a word.
 - **Applies to:** `readToken` in `internal/cli/setup/team_tokens.go`.
 
 ### A cancelled prompt says that no accepted Token was stored
@@ -98,7 +107,9 @@ request that validates a Token:
 - **Chosen because:** without the recommendation a person who holds only an AIHubMix Token gets no client
   configured, which is the report this lane answers. A validation that tells a proved Token from an unproved one
   changes five commands and `secret-storage`, and deserves its own design and review, not the tail of a release. A
-  wrong AIHubMix Token fails at the first request, and `aigw check <client> --depth model` shows it.
+  wrong AIHubMix Token fails at the first request. `aigw check` shows it once a client selects an AIHubMix model,
+  since it sends an inference request for each client's selected model alone; for any other case the records name
+  `aigw check <client> --model <provider/model>`.
 - **Applies to:** `CHANGELOG.md`, the rollout guide and the route evidence, which also records that the 0.8.3 file
   supersedes the order of 2026-10-02.
 

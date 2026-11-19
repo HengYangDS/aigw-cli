@@ -204,7 +204,6 @@ func sharedLabelRefusal(shared *domain.SharedModelLabelError, file domain.Config
 	return teamFileRefusal(err)
 }
 
-// apply connects the Tokens and commits the setup.
 // apply writes the team file, the Tokens that their providers accepted and the
 // client files in one transaction, whatever became of the other Tokens: a
 // provider that did not accept its Token is reported with its reason and fix.
