@@ -59,7 +59,7 @@ func TestRunnerRunCaptureExecutesDiscoveredBatchClient(t *testing.T) {
 }
 
 func TestStartCapturedProcessReportsMissingExecutable(t *testing.T) {
-	cleanup, err := startCapturedProcess(exec.Command("aigw-definitely-not-a-real-binary"))
+	cleanup, err := startCapturedProcess(exec.Command("aigw-definitely-not-a-real-binary"), nil)
 	if err == nil || cleanup != nil {
 		t.Fatalf("cleanup_present=%t error=%v", cleanup != nil, err)
 	}

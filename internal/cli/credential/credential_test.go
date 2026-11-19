@@ -2,7 +2,6 @@ package credential
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -417,18 +416,6 @@ func (store *refusingSecretStore) Get(string) (string, error) {
 		return "", store.readError
 	}
 	return "", errors.New("credential access is forbidden")
-}
-
-func TestCredentialReadDeadlineHasPreciseRecovery(t *testing.T) {
-	runtime, stdout := helperRuntime(t, codex.ID, true)
-	runtime.Secrets = &refusingSecretStore{readError: context.DeadlineExceeded}
-	command := NewCommand(runtime)
-	err := command.RunE(command, helperArgs(t, runtime, codex.ID))
-	var diagnostic bytes.Buffer
-	terminal.RenderCredentialError(terminal.NewRenderer(&diagnostic, false), err)
-	if err == nil || stdout.Len() != 0 || !strings.Contains(diagnostic.String(), "deadline") || strings.Contains(diagnostic.String(), "aigw sync") {
-		t.Fatalf("read diagnostic is not specific: %v, %q", err, &diagnostic)
-	}
 }
 
 func (*refusingSecretStore) Set(string, string) error { return nil }

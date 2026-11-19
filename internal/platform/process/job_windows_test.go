@@ -82,7 +82,7 @@ func TestStartCapturedWindowsProcessOwnsEveryFailureBoundary(t *testing.T) {
 				stopCommand: func(*exec.Cmd) error { stopped = true; return nil },
 			}
 
-			cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api)
+			cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api, nil)
 			if err == nil || cleanup != nil || !errors.Is(err, failure) {
 				t.Fatalf("cleanup_present=%t error=%v", cleanup != nil, err)
 			}
@@ -112,7 +112,7 @@ func TestStartCapturedWindowsProcessReturnsIdempotentCleanup(t *testing.T) {
 		stopCommand: func(*exec.Cmd) error { return nil },
 	}
 
-	cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api)
+	cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestStartCapturedWindowsProcessReturnsIdempotentCleanup(t *testing.T) {
 		return nil
 	}
 	closed = 0
-	cleanup, err = startCapturedWindowsProcess(exec.Command("fixture"), api)
+	cleanup, err = startCapturedWindowsProcess(exec.Command("fixture"), api, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestStartCapturedWindowsProcessRetainsCleanupFailures(t *testing.T) {
 		},
 		closeHandle: func(windows.Handle) error { return closeFailure },
 	}
-	cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api)
+	cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api, nil)
 	if cleanup != nil || !errors.Is(err, configureFailure) || !errors.Is(err, closeFailure) {
 		t.Fatalf("cleanup_present=%t error=%v", cleanup != nil, err)
 	}
@@ -188,7 +188,7 @@ func TestStartCapturedWindowsProcessReclaimsRejectedDebuggee(t *testing.T) {
 			command.Env = append(os.Environ(), "AIGW_TEST_DEBUG_START_REFUSAL=1")
 			command.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.DEBUG_PROCESS}
 			started := time.Now()
-			cleanup, err := startCapturedWindowsProcess(command, api)
+			cleanup, err := startCapturedWindowsProcess(command, api, nil)
 			if cleanup != nil || !errors.Is(err, failure) {
 				t.Fatalf("native startup refusal was not preserved: cleanup=%t error=%v", cleanup != nil, err)
 			}
@@ -228,7 +228,7 @@ func TestStartCapturedWindowsProcessContainsAnImmediatelyExitingChild(t *testing
 		exitedBeforeAssign = event == windows.WAIT_OBJECT_0
 		return assign(job, child)
 	}
-	cleanup, err := startCapturedWindowsProcess(command, api)
+	cleanup, err := startCapturedWindowsProcess(command, api, nil)
 	if err != nil {
 		t.Fatalf("an immediately exiting child failed to start: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestStartCapturedWindowsProcessRetainsStopFailure(t *testing.T) {
 		closeHandle:   func(windows.Handle) error { return nil },
 		stopCommand:   func(*exec.Cmd) error { return stopFailure },
 	}
-	cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api)
+	cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api, nil)
 	if cleanup != nil || !errors.Is(err, refused) || !errors.Is(err, stopFailure) {
 		t.Fatalf("startup lost exact owned cleanup failure: cleanup=%t error=%v", cleanup != nil, err)
 	}
@@ -296,7 +296,7 @@ func TestStartCapturedWindowsProcessAssignsBeforeTheChildRuns(t *testing.T) {
 	}
 	command := exec.Command("fixture")
 	command.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.DEBUG_PROCESS}
-	cleanup, err := startCapturedWindowsProcess(command, api)
+	cleanup, err := startCapturedWindowsProcess(command, api, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,5 +308,51 @@ func TestStartCapturedWindowsProcessAssignsBeforeTheChildRuns(t *testing.T) {
 	}
 	if command.SysProcAttr.CreationFlags&windows.DEBUG_PROCESS == 0 {
 		t.Fatal("suspended start dropped the caller's creation flags")
+	}
+}
+
+func TestStartCapturedWindowsProcessReportsCreationBeforeItOwnsTheChild(t *testing.T) {
+	failure := errors.New("failure")
+	for _, fail := range []bool{false, true} {
+		var order []string
+		api := windowsProcessAPI{
+			createJob:    func(*windows.SecurityAttributes, *uint16) (windows.Handle, error) { return 10, nil },
+			configureJob: func(windows.Handle, uint32, uintptr, uint32) (int, error) { return 1, nil },
+			startCommand: func(command *exec.Cmd) error {
+				order = append(order, "start")
+				if fail {
+					return failure
+				}
+				command.Process = &os.Process{Pid: 42}
+				return nil
+			},
+			openProcess: func(uint32, bool, uint32) (windows.Handle, error) {
+				order = append(order, "open")
+				return 20, nil
+			},
+			assignProcess: func(windows.Handle, windows.Handle) error {
+				order = append(order, "assign")
+				return nil
+			},
+			resumeProcess: func(uint32) error {
+				order = append(order, "resume")
+				return nil
+			},
+			closeHandle: func(windows.Handle) error { return nil },
+			stopCommand: func(*exec.Cmd) error { return nil },
+		}
+		cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api, func() { order = append(order, "created") })
+		want := []string{"start", "created", "open", "assign", "resume"}
+		if fail {
+			want = []string{"start"}
+		}
+		if fail != errors.Is(err, failure) || fail == (cleanup != nil) || !slices.Equal(order, want) {
+			t.Fatalf("fail=%t: order=%v error=%v, want %v", fail, order, err, want)
+		}
+		if cleanup != nil {
+			if err := cleanup(); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 }

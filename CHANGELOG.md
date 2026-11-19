@@ -19,6 +19,13 @@ signing, and GA status remain separate evidence.
   running the suite again. Without `--json`, the command now also shows the
   output of a test that never reported a result, such as one that timed out.
   The released program is unchanged.
+- An operation on a Token in the operating system's credential store that
+  reaches its five-second deadline now says where it stood: its subprocess was
+  not created in time, was created and not started in time, or was started and
+  did not answer in time, with the time of each step. `aigw credential` shows
+  that as the evidence of "Token read exceeded its deadline", and its fix names
+  the credential service only when the subprocess was started. The deadline
+  itself is unchanged.
 
 ## [0.8.3] - 2026-11-19
 

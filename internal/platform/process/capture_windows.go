@@ -112,15 +112,15 @@ func stopCapturedCommand(command *exec.Cmd) (result error) {
 // startCapturedProcess puts an AIGW-owned non-interactive child into a Job
 // Object. Closing the Job after Wait returns terminates only this invocation's
 // remaining descendants, including wrappers that inherited stdout/stderr.
-func startCapturedProcess(cmd *exec.Cmd) (func() error, error) {
-	cleanup, err := startCapturedWindowsProcess(cmd, nativeWindowsProcessAPI)
+func startCapturedProcess(cmd *exec.Cmd, created func()) (func() error, error) {
+	cleanup, err := startCapturedWindowsProcess(cmd, nativeWindowsProcessAPI, created)
 	if err != nil {
 		return nil, fmt.Errorf("start captured child: %w", err)
 	}
 	return cleanup, nil
 }
 
-func startCapturedWindowsProcess(command *exec.Cmd, api windowsProcessAPI) (cleanup func() error, err error) {
+func startCapturedWindowsProcess(command *exec.Cmd, api windowsProcessAPI, created func()) (cleanup func() error, err error) {
 	job, err := api.createJob(nil, nil)
 	if err != nil {
 		return nil, err
@@ -156,6 +156,11 @@ func startCapturedWindowsProcess(command *exec.Cmd, api windowsProcessAPI) (clea
 	command.SysProcAttr.CreationFlags |= windows.CREATE_SUSPENDED
 	if err := api.startCommand(command); err != nil {
 		return nil, err
+	}
+	// The child exists and is suspended; the caller hears of it before the
+	// Job assignment and the resume, which can each take time of their own.
+	if created != nil {
+		created()
 	}
 	defer func() {
 		if err != nil {
