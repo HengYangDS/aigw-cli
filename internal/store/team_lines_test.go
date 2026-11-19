@@ -61,10 +61,20 @@ func TestTeamManifestKeepsOneFamilyPerCuratedLine(t *testing.T) {
 		t.Errorf("curated lines = %v, want %v", got, want)
 	}
 	// A successor filed as a model of the family it replaces would join the
-	// line unseen: a curated family's wire identity is its own id, with at
-	// most a channel suffix.
+	// line unseen: a curated family's wire identity holds every word of the
+	// family's own id in order, with at most a channel's words added (DMXAPI's
+	// -cdx, Suhe.AI's codex- or claude-code-), so a changed version fails.
+	carries := func(id, family string) bool {
+		words := strings.Split(family, "-")
+		for _, word := range strings.Split(id, "-") {
+			if len(words) > 0 && word == words[0] {
+				words = words[1:]
+			}
+		}
+		return len(words) == 0
+	}
 	for routeID, route := range manifest.Models {
-		if line.MatchString(route.Family) && !strings.HasPrefix(route.ID, route.Family) {
+		if line.MatchString(route.Family) && !carries(route.ID, route.Family) {
 			t.Errorf("model %s of curated family %s carries another identity", routeID, route.Family)
 		}
 	}

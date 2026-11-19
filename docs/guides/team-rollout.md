@@ -78,7 +78,7 @@ model label when it equals the derived one. Tests check the display behavior
 and byte-identical native export without another formatter or model-name
 registry.
 
-Array order is display order: the file lists DMXAPI, UCloud, then AIHubMix, and
+Array order is display order: the file lists DMXAPI, UCloud, AIHubMix, then Suhe.AI, and
 within each provider the Claude series order is Fable, Opus, Sonnet, Haiku and
 the GPT order is Astra, Sol, Terra, Luna. Only identities that passed
 qualification appear, the newest of each line. Missing successors are not
@@ -132,15 +132,16 @@ evidence](../research/provider-model-qualification.md) explains the observed
 IDs, protocol tests, exclusions, and limits. A catalog listing is not a live
 model or native-client availability guarantee.
 
-Claude Code and Claude Desktop recommend DMXAPI Opus 5.5 before UCloud Opus 5.5.
-Codex recommends `dmxapi/gpt-6.2-sol-cdx` before `ucloud/gpt-6.2-sol`; Hermes
-recommends DMXAPI's base `dmxapi/gpt-6.2-sol` before the UCloud base model.
-AIHubMix models remain available but are manual-only, not automatic
-alternatives. The Codex and Hermes DMXAPI models belong to the same family,
-but are distinct models. A shared family does not make every provider and
-client pair interchangeable. A sole DMXAPI or UCloud provider is enough for the declared
-recommendation; select an AIHubMix model explicitly with `aigw use`.
-Display order never creates automatic recovery when the selected provider fails.
+Claude Code and Claude Desktop recommend Opus 5.5 on DMXAPI, then UCloud,
+AIHubMix and Suhe.AI. Codex recommends `dmxapi/gpt-6.2-sol-cdx`, then
+`ucloud/gpt-6.2-sol`, `aihubmix/gpt-6.2-sol` and `suheai/codex-gpt-6.2-sol`;
+Hermes recommends the base `gpt-6.2-sol` of DMXAPI, UCloud, AIHubMix and Suhe.AI,
+in that order. Every provider that serves a client's recommended family is among
+its recommendations, so a Token of any one of them configures every client. The
+Codex and Hermes DMXAPI models belong to the same family, but are distinct
+models. A shared family does not make every provider and client pair
+interchangeable. Display order never creates automatic recovery when the
+selected provider fails.
 
 A local provider endpoint override is not silently replaced by the team's
 direct endpoint. Applying the team file again with `aigw setup --from` keeps
@@ -165,8 +166,11 @@ Recommendations apply only to unselected clients at setup or sync; they do not
 switch a running request or replace a client's explicit selection. AIHubMix uses the
 [documented API endpoint](https://docs.aihubmix.com/en/quick-start),
 `api.inferera.com`: `/v1` is the Responses and Chat Completions base path; the
-Anthropic base is the domain root. A successful minimal request remains narrower than full real-client
-tool, continuation, streaming, and long-context acceptance.
+Anthropic base is the domain root. Suhe.AI uses `suheai.cn` the same way. Its
+client-prefixed models (`claude-code-…`, `codex-…`) are reverse models, priced
+apart from its direct ones; they carry the channel labels CC and CDX, as
+DMXAPI's channels do. A successful minimal request remains narrower than full
+real-client tool, continuation, streaming, and long-context acceptance.
 
 Setup selects only a usable declared primary model or ordered alternative.
 Other models remain available for explicit use, not automatic fallback by

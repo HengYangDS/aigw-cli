@@ -40,9 +40,24 @@ func TestTeamManifestKeepsOnlyQualifiedRefreshModels(t *testing.T) {
 			t.Errorf("unqualified Route %q was admitted", id)
 		}
 	}
-	for _, retired := range []string{"deepseek-v4.1-flash", "kimi-k3", "minimax-m3", "muse-spark-1.3", "qwen3.8-max", "qwen3.8-max-0902"} {
-		if _, present := manifest.Families[retired]; present {
-			t.Errorf("superseded Model %q remains a logical Model", retired)
+	// A superseded family stays only on a provider that holds no model of its
+	// successor, by the owner's per-provider rule of 2026-11-18: a provider
+	// that does not list the successor keeps the model that works on it.
+	for retired, successor := range map[string]string{
+		"deepseek-v4.1-flash": "deepseek-v4.1-flash-1017", "kimi-k3": "kimi-k3.1-pro", "minimax-m3": "minimax-m3.1-flash",
+		"muse-spark-1.3": "muse-wonder", "qwen3.8-max": "qwen4-max", "qwen3.8-max-0902": "qwen4-max",
+	} {
+		families := map[string]map[string]bool{}
+		for _, model := range manifest.Models {
+			if families[model.Provider] == nil {
+				families[model.Provider] = map[string]bool{}
+			}
+			families[model.Provider][model.Family] = true
+		}
+		for provider, held := range families {
+			if held[retired] && held[successor] {
+				t.Errorf("provider %s keeps superseded %q beside %q", provider, retired, successor)
+			}
 		}
 	}
 }

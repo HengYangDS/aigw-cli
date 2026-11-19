@@ -36,6 +36,13 @@ signing, and GA status remain separate evidence.
   serves the client's recommended model, so a Token of AIHubMix alone now
   configures every client. `aigw config export` writes a team file array
   wider than 100 columns one element to a line, as taplo does.
+- The team file adds Suhe.AI: Claude Fable 5.2, Opus 5.5, Sonnet 5.5 and
+  Haiku 5.5 on Anthropic Messages and GPT-6.2 Astra, GPT-6.2 Sol, GPT-6.1 Terra
+  and GPT-6 Luna on Responses, each with its client-prefixed reverse model
+  (labelled CC or CDX) where Suhe.AI serves one; Kimi K3.1 Pro on Responses;
+  and Qwen4-Max, DeepSeek V4.1 Flash, MiniMax M2.5 and GLM 5.2 on Chat
+  Completions, which Suhe.AI serves for them in place of Responses. Every
+  client recommends a Suhe.AI model after its other choices.
 
 ## [0.8.2] - 2026-11-18
 

@@ -418,6 +418,119 @@ id = 'step-5-preview'
 family = 'step-5-preview'
 protocols = { chat = [] }
 
+[[providers]]
+id = 'suheai'
+label = 'Suhe.AI'
+endpoints = { anthropic = 'https://suheai.cn', responses = 'https://suheai.cn/v1', chat = 'https://suheai.cn/v1' }
+
+[[providers.models]]
+id = 'claude-code-fable-5-2'
+family = 'claude-fable-5-2'
+label = 'Suhe.AI · Claude Fable 5.2 · CC'
+protocols = { anthropic = [] }
+
+[[providers.models]]
+id = 'claude-opus-5-5'
+family = 'claude-opus-5-5'
+protocols = { anthropic = [] }
+
+[[providers.models]]
+id = 'claude-code-opus-5-5'
+family = 'claude-opus-5-5'
+label = 'Suhe.AI · Claude Opus 5.5 · CC'
+protocols = { anthropic = [] }
+
+[[providers.models]]
+id = 'claude-sonnet-5-5'
+family = 'claude-sonnet-5-5'
+protocols = { anthropic = [] }
+
+[[providers.models]]
+id = 'claude-code-sonnet-5-5'
+family = 'claude-sonnet-5-5'
+label = 'Suhe.AI · Claude Sonnet 5.5 · CC'
+protocols = { anthropic = [] }
+
+[[providers.models]]
+id = 'claude-haiku-5-5'
+family = 'claude-haiku-5-5'
+protocols = { anthropic = [] }
+
+[[providers.models]]
+id = 'claude-code-haiku-5-5'
+family = 'claude-haiku-5-5'
+label = 'Suhe.AI · Claude Haiku 5.5 · CC'
+protocols = { anthropic = [] }
+
+[[providers.models]]
+id = 'gpt-6.2-astra'
+family = 'gpt-6.2-astra'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'codex-gpt-6.2-astra'
+family = 'gpt-6.2-astra'
+label = 'Suhe.AI · GPT-6.2 Astra · CDX'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gpt-6.2-sol'
+family = 'gpt-6.2-sol'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'codex-gpt-6.2-sol'
+family = 'gpt-6.2-sol'
+label = 'Suhe.AI · GPT-6.2 Sol · CDX'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gpt-6.1-terra'
+family = 'gpt-6.1-terra'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'codex-gpt-6.1-terra'
+family = 'gpt-6.1-terra'
+label = 'Suhe.AI · GPT-6.1 Terra · CDX'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gpt-6-luna'
+family = 'gpt-6-luna'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'codex-gpt-6-luna'
+family = 'gpt-6-luna'
+label = 'Suhe.AI · GPT-6 Luna · CDX'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'kimi-k3.1-pro'
+family = 'kimi-k3.1-pro'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'qwen4-max'
+family = 'qwen4-max'
+protocols = { chat = [] }
+
+[[providers.models]]
+id = 'deepseek-v4.1-flash'
+family = 'deepseek-v4.1-flash'
+protocols = { chat = [] }
+
+[[providers.models]]
+id = 'Minimax-M2.5'
+family = 'minimax-m2.5'
+protocols = { chat = [] }
+
+[[providers.models]]
+id = 'GLM-5.2'
+family = 'glm-5.2'
+protocols = { chat = [] }
+
 [[families]]
 id = 'claude-fable-5-2'
 label = 'Claude Fable 5.2'
@@ -542,21 +655,46 @@ label = 'Solar Pro 4'
 id = 'step-5-preview'
 label = 'Step 5 Preview'
 
+[[families]]
+id = 'deepseek-v4.1-flash'
+label = 'DeepSeek V4.1 Flash'
+
+[[families]]
+id = 'glm-5.2'
+label = 'GLM 5.2'
+
+[[families]]
+id = 'minimax-m2.5'
+label = 'MiniMax M2.5'
+
 [recommendations.claude]
 primary = { model = 'dmxapi/claude-opus-5-5' }
-alternatives = [{ model = 'ucloud/claude-opus-5-5' }, { model = 'aihubmix/claude-opus-5-5' }]
+alternatives = [
+  { model = 'ucloud/claude-opus-5-5' },
+  { model = 'aihubmix/claude-opus-5-5' },
+  { model = 'suheai/claude-opus-5-5' },
+]
 
 [recommendations.claude-desktop]
 primary = { model = 'dmxapi/claude-opus-5-5' }
-alternatives = [{ model = 'ucloud/claude-opus-5-5' }, { model = 'aihubmix/claude-opus-5-5' }]
+alternatives = [
+  { model = 'ucloud/claude-opus-5-5' },
+  { model = 'aihubmix/claude-opus-5-5' },
+  { model = 'suheai/claude-opus-5-5' },
+]
 
 [recommendations.codex]
 primary = { model = 'dmxapi/gpt-6.2-sol-cdx' }
-alternatives = [{ model = 'ucloud/gpt-6.2-sol' }, { model = 'aihubmix/gpt-6.2-sol' }]
+alternatives = [
+  { model = 'ucloud/gpt-6.2-sol' },
+  { model = 'aihubmix/gpt-6.2-sol' },
+  { model = 'suheai/codex-gpt-6.2-sol' },
+]
 
 [recommendations.hermes]
 primary = { model = 'dmxapi/gpt-6.2-sol', protocol = 'responses' }
 alternatives = [
   { model = 'ucloud/gpt-6.2-sol', protocol = 'responses' },
   { model = 'aihubmix/gpt-6.2-sol', protocol = 'responses' },
+  { model = 'suheai/gpt-6.2-sol', protocol = 'responses' },
 ]
