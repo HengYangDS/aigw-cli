@@ -219,7 +219,7 @@ comparison semantics, review condition, and remediation path.
 The coverage command SHALL optionally emit original Go test JSON on stdout and summaries on stderr, and
 write JUnit XML and LCOV reports. Events, retained counters and reports SHALL come from one native
 invocation with the selected inventory, tags, race option, atomic instrumentation and threshold policy
-unchanged; the exact-HEAD proof SHALL NOT run the Go tests again.
+unchanged; no other exact-HEAD proof gate SHALL run that attempt's tests again.
 
 #### Scenario: Machine-readable coverage succeeds
 
@@ -248,8 +248,15 @@ unchanged; the exact-HEAD proof SHALL NOT run the Go tests again.
 - **AND** a profile file outside the selected inventory SHALL fail the command
 - **AND** a reader SHALL never observe a partially written report.
 
+#### Scenario: A test of a failed package reports no result
+
+- **WHEN** coverage writes a JUnit report without `--json`, and a package fails while one of its tests has
+  output but no result, as a timeout or a panic during that test leaves it
+- **THEN** the command's output SHALL show that test's output
+- **AND** the JUnit report SHALL hold that test as a test case with an error and that output.
+
 #### Scenario: The exact-HEAD proof judges Go behavior
 
 - **WHEN** the exact-HEAD proof evaluates the behavior of the Go sources
 - **THEN** it SHALL read the reports written by the coverage gate's own attempt
-- **AND** no other proof gate SHALL run the Go tests.
+- **AND** no other proof gate SHALL run that attempt's tests a second time.
