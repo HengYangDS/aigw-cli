@@ -132,16 +132,12 @@ evidence](../research/provider-model-qualification.md) explains the observed
 IDs, protocol tests, exclusions, and limits. A catalog listing is not a live
 model or native-client availability guarantee.
 
-Claude Code and Claude Desktop recommend Opus 5.5 on DMXAPI, then UCloud,
-AIHubMix and Suhe.AI. Codex recommends `dmxapi/gpt-6.2-sol-cdx`, then
-`ucloud/gpt-6.2-sol`, `aihubmix/gpt-6.2-sol` and `suheai/codex-gpt-6.2-sol`;
-Hermes recommends the base `gpt-6.2-sol` of DMXAPI, UCloud, AIHubMix and Suhe.AI,
-in that order. Every provider that serves a client's recommended family is among
-its recommendations, so a Token of any one of them configures every client. The
-Codex and Hermes DMXAPI models belong to the same family, but are distinct
-models. A shared family does not make every provider and client pair
-interchangeable. Display order never creates automatic recovery when the
-selected provider fails.
+Each client recommends one model on every provider that serves its family, in
+the file's provider order: Claude Code and Claude Desktop Opus 5.5, Codex and
+Hermes GPT-6.2 Sol (Codex DMXAPI's CDX and Suhe.AI's `codex-` model). A Token of
+any one provider configures every client. A shared family does not make every
+provider and client pair interchangeable. Display order never creates automatic
+recovery when the selected provider fails.
 
 A local provider endpoint override is not silently replaced by the team's
 direct endpoint. Applying the team file again with `aigw setup --from` keeps
@@ -166,11 +162,9 @@ Recommendations apply only to unselected clients at setup or sync; they do not
 switch a running request or replace a client's explicit selection. AIHubMix uses the
 [documented API endpoint](https://docs.aihubmix.com/en/quick-start),
 `api.inferera.com`: `/v1` is the Responses and Chat Completions base path; the
-Anthropic base is the domain root. Suhe.AI uses `suheai.cn` the same way. Its
-client-prefixed models (`claude-code-…`, `codex-…`) are reverse models, priced
-apart from its direct ones; they carry the channel labels CC and CDX, as
-DMXAPI's channels do. A successful minimal request remains narrower than full
-real-client tool, continuation, streaming, and long-context acceptance.
+Anthropic base is the domain root; Suhe.AI's `suheai.cn` is laid out the same way, and its
+[prefixed models](../research/provider-model-qualification.md#november-19-suheai) are priced apart. A successful
+minimal request remains narrower than full real-client tool, continuation, streaming, and long-context acceptance.
 
 Setup selects only a usable declared primary model or ordered alternative.
 Other models remain available for explicit use, not automatic fallback by
@@ -301,12 +295,10 @@ Setup:
 
 - validates all public metadata first;
 - keeps every reviewed provider and model;
-- in a terminal, asks which of the file's providers the user holds a Token
-  for, accepts none, and connects only the chosen providers whose Tokens they
-  accept; Enter alone skips a provider, and a Token that is not accepted can be
-  entered again or its provider skipped;
-- applies the team file whatever becomes of each Token, and reports each
-  provider whose Token was not stored with its reason and next step;
+- in a terminal, asks which providers' Tokens the user holds, none allowed, and
+  connects those that the providers accept;
+- applies the file whatever becomes of each Token, reporting each Token that it
+  did not store with its reason and next step;
 - configures only installed supported clients;
 - compensates failed client-file writes only where its owned writes remain
   unchanged, preserving newer external edits and reporting recovery conflicts.
