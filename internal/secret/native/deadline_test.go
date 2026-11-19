@@ -26,6 +26,7 @@ func TestADeadlineNamesTheStepThatMissedItAndEachTime(t *testing.T) {
 		{"started at the limit", 1200 * time.Millisecond, limit, false, "native credential subprocess was created after 1.2s and was not started within 5s; its start ended after 5s"},
 		{"no answer", 200 * time.Millisecond, 4800 * time.Millisecond, true, "native credential subprocess was created after 200ms, was started after 4.8s and did not answer within 5s"},
 		{"no answer, at once", 0, 0, true, "native credential subprocess was created after 1ms, was started after 1ms and did not answer within 5s"},
+		{"just below the limit", 4999600 * time.Microsecond, 4999900 * time.Microsecond, true, "native credential subprocess was created after 4.999s, was started after 4.999s and did not answer within 5s"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			stood := &DeadlineError{Limit: limit, Created: test.created, Started: test.started}
@@ -92,7 +93,9 @@ func TestADeadlineCarriesTheStepsThatTheRunnerReported(t *testing.T) {
 			if test.runner.started && stood.Started < stood.Created {
 				t.Fatalf("started %v before created %v", stood.Started, stood.Created)
 			}
-			if stood.Limit <= 0 || stood.Limit > 20*time.Millisecond {
+			// The limit is the caller's earlier deadline, counted from the
+			// operation's start, however late that start was.
+			if stood.Limit == 0 || stood.Limit > 20*time.Millisecond {
 				t.Fatalf("limit = %v, want the caller's earlier deadline of at most 20ms", stood.Limit)
 			}
 			if test.runner.late && (stood.Created < stood.Limit || stood.Answering() || !strings.Contains(err.Error(), "was not created within")) {

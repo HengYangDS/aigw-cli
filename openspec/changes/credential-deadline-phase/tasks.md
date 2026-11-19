@@ -20,7 +20,7 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Compile and vet both packages and their tests for Windows on the lane head, since their Windows tests run
-      only on the forges.
+- [x] 4.1 Compile and vet the three changed packages and their tests for Windows on the lane head, since their
+      Windows tests run only on the forges.
 - [ ] 4.2 Pass `mise run check` on the lane head.
 - [ ] 4.3 Pass the proposal's hosted checks on both forges, the Windows jobs included.

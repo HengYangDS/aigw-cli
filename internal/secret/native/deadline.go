@@ -11,9 +11,10 @@ import (
 type DeadlineError struct {
 	// Limit is the deadline, counted from the operation's start.
 	Limit time.Duration
-	// Created is when the operating system had created the subprocess, and
-	// Started when the runner had started it inside the process group or Job
-	// that owns it, each counted from the operation's start. Each is negative
+	// Created is when the runner saw that the operating system had created
+	// the subprocess, and Started when the runner had started it inside the
+	// process group or Job that owns it, each counted from the operation's
+	// start. Each is negative
 	// when the operation returned before the step ended; a time of Limit or
 	// later says that the step ended only once the deadline had passed.
 	Created, Started time.Duration
@@ -50,7 +51,8 @@ func (failure *DeadlineError) Evidence() string { return "The " + failure.Error(
 // Unwrap keeps the failure a deadline for every caller that tests for one.
 func (*DeadlineError) Unwrap() error { return context.DeadlineExceeded }
 
-// rounded prints a time to the millisecond, and a shorter one as one millisecond.
+// rounded prints a time cut to the millisecond, so that a time just below the
+// limit never prints as the limit, and a shorter one as one millisecond.
 func rounded(elapsed time.Duration) string {
-	return max(elapsed.Round(time.Millisecond), time.Millisecond).String()
+	return max(elapsed.Truncate(time.Millisecond), time.Millisecond).String()
 }

@@ -24,8 +24,9 @@ signing, and GA status remain separate evidence.
   not created in time, was created and not started in time, or was started and
   did not answer in time, with the time of each step. `aigw credential` shows
   that as the evidence of "Token read exceeded its deadline", and its fix names
-  the credential service only when the subprocess was started. The deadline
-  itself is unchanged.
+  the credential service only when the subprocess was started; otherwise it
+  says that the subprocess was not started in time. The deadline itself is
+  unchanged.
 
 ## [0.8.3] - 2026-11-19
 

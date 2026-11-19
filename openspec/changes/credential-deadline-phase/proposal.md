@@ -15,7 +15,8 @@ step. A person whose `aigw` reports the deadline on a slow machine reads the sam
 - The process runner tells a plan's caller when the operating system has created the child, before the runner owns the
   child and reports it started.
 - `aigw credential` shows where the operation stood as the evidence of "Token read exceeded its deadline", and its fix
-  names the credential service only when the subprocess was started, since a slower start never reached the service.
+  names the credential service only when the subprocess was started; otherwise it says that the subprocess was not
+  started in time.
 
 The deadline stays five seconds, the failure stays a deadline for every caller that tests for one, and nothing is
 retried. No behavior is removed.

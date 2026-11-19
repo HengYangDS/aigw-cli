@@ -16,9 +16,10 @@ Read from the code and from the tests that the repository has, not measured on a
 
 - `os/exec` looks at the context before it creates the child and not while the operating system creates it, on every
   platform, so a slow creation ends after the deadline and is reported then.
-- On Windows a context that ends between the creation and the resume fails the start:
-  `TestRunStreamReportsTheCancellationThatEndsItsStart` forces that order. The start observation then never runs,
-  while the creation was observed.
+- On Windows a context that ends between the creation and the resume can fail the start:
+  `TestRunStreamReportsTheCancellationThatEndsItsStart` forces the order in which the child has ended before the
+  resume, and the start observation then never runs while the creation was observed. When the resume comes first,
+  the start succeeds and its observation runs. The message covers both.
 - On Unix the start observation follows the creation at once, so the two times differ only on Windows.
 
 The present error tells none of these from a subprocess that ran and did not answer.
@@ -73,10 +74,11 @@ neither rests on a measurement. This Change makes the next failure say which.
 - **Applies to:** `Plan.OnCreated`, `RunStream` and both platforms' `startCapturedProcess` in
   `internal/platform/process`.
 
-### The failure stays a deadline, and a cancellation stays a cancellation
+### The failure stays a deadline
 
 - **Rests on:** `aigw credential` and the tests of this package select the deadline with
-  `errors.Is(err, context.DeadlineExceeded)`; a test cancels the caller's context and reads a cancellation.
+  `errors.Is(err, context.DeadlineExceeded)`. No product caller cancels the operation: each passes a background
+  context; a test cancels the caller's context all the same and reads a cancellation.
 - **Considered:** a new sentinel error; an error that wraps the context's deadline.
 - **Chosen because:** every caller that tells a deadline from another failure keeps working unchanged, and only a
   context that ended by its deadline is described as one.
@@ -85,15 +87,16 @@ neither rests on a measurement. This Change makes the next failure say which.
 ### The credential command shows the step, and its fix follows it
 
 - **Rests on:** the command's deadline problem has a title, an impact and a fix, and an empty evidence line; its
-  impact says that the credential subprocess was stopped and its fix says to check the credential service, which a
-  subprocess that was never started did not reach. A client shows that problem in its own log, which is where a
-  person meets this failure. A test renders the problem for a subprocess that was never started and for one that did
-  not answer.
+  impact says that the credential subprocess was stopped and its fix says to check the credential service. A client
+  shows that problem in its own log, which is where a person meets this failure. A test renders the problem for a
+  subprocess that was not started in time and for one that did not answer.
 - **Considered:** leave the problem as it is and keep the step for tests; add the evidence alone; add the evidence
   and let the fix follow it.
-- **Chosen because:** the evidence carries no Token, item or path, and a fix that names the credential service above
-  evidence that the service was never reached would send the person to the wrong place. The impact says that the read
-  was stopped, which holds for every step.
+- **Chosen because:** the evidence carries no Token, item or path, and a fix that sends the person to the credential
+  service above evidence that the time went into starting the subprocess would send them to the wrong place. That
+  fix says what the marks show, that the subprocess was not started in time, and claims nothing about the service:
+  on Unix the creation mark is the parent's clock, so a starved parent can see a late creation of a child that
+  already ran. The impact says that the read was stopped, which holds for every step.
 - **Applies to:** the deadline branch of `internal/cli/credential`, and `DeadlineError.Answering`.
 
 ## Risks / Trade-offs

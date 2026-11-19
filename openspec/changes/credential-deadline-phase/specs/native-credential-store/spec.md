@@ -27,13 +27,9 @@ that tests for one.
 - **THEN** the failure SHALL give the times at which it was created and started
 - **AND** it SHALL say that the subprocess did not answer within the deadline.
 
-#### Scenario: The caller ends the operation
-
-- **WHEN** the operation's caller cancels it before its deadline
-- **THEN** the failure SHALL be the cancellation and SHALL NOT be reported as a deadline.
-
 #### Scenario: The credential command shows where its read stood
 
 - **WHEN** a client's credential command reaches the deadline of its Token read
 - **THEN** its problem SHALL show where the operation stood as its evidence
-- **AND** its Fix SHALL name the credential service only when the subprocess was started within the deadline.
+- **AND** its Fix SHALL name the credential service only when the subprocess was started within the deadline, and
+  otherwise SHALL say that the subprocess was not started in time.

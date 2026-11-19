@@ -45,7 +45,7 @@ func TestCredentialReadDeadlineShowsWhereTheOperationStood(t *testing.T) {
 	}{
 		{"never started", 1200 * time.Millisecond, -1,
 			"The native credential subprocess was created after 1.2s and was not started within 5s.",
-			"Retry once this machine is less busy: the credential service was not reached", "Check the selected credential service"},
+			"Retry once this machine is less busy: the credential subprocess was not started in time", "credential service"},
 		{"no answer", 200 * time.Millisecond, 300 * time.Millisecond,
 			"The native credential subprocess was created after 200ms, was started after 300ms and did not answer within 5s.",
 			"Check the selected credential service", "less busy"},

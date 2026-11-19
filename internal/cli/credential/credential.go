@@ -63,7 +63,7 @@ func unreadProblem(client string, err error) error {
 		if stood, typed := errors.AsType[*native.DeadlineError](err); typed {
 			evidence = stood.Evidence()
 			if !stood.Answering() {
-				fix = "Retry once this machine is less busy: the credential service was not reached; configuration synchronization cannot repair a slow start."
+				fix = "Retry once this machine is less busy: the credential subprocess was not started in time; configuration synchronization cannot repair a slow start."
 			}
 		}
 		return terminal.ProblemError("Token read exceeded its deadline", evidence, "The read was stopped; no Token was returned.", fix, err)
