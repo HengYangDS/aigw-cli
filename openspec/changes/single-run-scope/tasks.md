@@ -16,4 +16,4 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Full exact-HEAD proof of the lane head passes.
+- [x] 3.1 Full exact-HEAD proof of the lane head passes. Proof of `8a0ed60e8`: 11 gates, 222 s.
