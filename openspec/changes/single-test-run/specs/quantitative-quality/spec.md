@@ -2,11 +2,10 @@
 
 ### Requirement: Native Go events retain one coverage attempt
 
-The existing coverage command SHALL optionally emit original Go test JSON on stdout and coverage summaries on
-stderr, and SHALL optionally write a JUnit XML test report and an LCOV line report. Tests, retained coverage
-counters and both reports SHALL originate from one native invocation with the selected package inventory,
-tags, race option, atomic instrumentation and threshold policy unchanged. The exact-HEAD proof SHALL judge
-Go behavior from those reports and SHALL NOT run the Go tests a second time.
+The coverage command SHALL optionally emit original Go test JSON on stdout and summaries on stderr, and
+write JUnit XML and LCOV reports. Events, retained counters and reports SHALL come from one native
+invocation with the selected inventory, tags, race option, atomic instrumentation and threshold policy
+unchanged; the exact-HEAD proof SHALL NOT run the Go tests again.
 
 #### Scenario: Machine-readable coverage succeeds
 
