@@ -35,7 +35,7 @@ signing, and GA status remain separate evidence.
 - The team file recommends, for each client, a model on every provider that
   serves the client's recommended model, so a Token of AIHubMix alone now
   configures every client. `aigw config export` writes a team file array
-  wider than 100 columns one element to a line, as taplo does.
+  wider than 100 columns one element to a line, as Taplo does.
 - The team file adds Suhe.AI: Claude Fable 5.2, Opus 5.5, Sonnet 5.5 and
   Haiku 5.5 on Anthropic Messages and GPT-6.2 Astra, GPT-6.2 Sol, GPT-6.1 Terra
   and GPT-6 Luna on Responses, each with its client-prefixed reverse model

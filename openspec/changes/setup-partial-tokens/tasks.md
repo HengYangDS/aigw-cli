@@ -27,9 +27,9 @@
 
 - [x] 3.1 Recommend, for each client, a model on every provider that serves the client's first recommended family; a
       store test reads that coverage from the file's structure.
-- [x] 3.2 Write a team file export's array wider than 100 columns one element to a line, as taplo does; an encoder test
+- [x] 3.2 Write a team file export's array wider than 100 columns one element to a line, as Taplo does; an encoder test
       covers a wide, a narrow, a quoted and an unbalanced value, and the shipped file passes both the export layout and
-      taplo.
+      Taplo.
 
 ## 4. Records And Verification
 

@@ -109,17 +109,17 @@ with "Token validation failed: Codex authentication was rejected (HTTP 401)" and
   `progressive-team-onboarding` that claimed `claude-code-opus-5-5` derives `· claude-code` from the family
   `claude-opus-5-5` is corrected: that ID neither begins nor ends with that family's ID.
 
-### An exported team file keeps taplo's layout
+### An exported team file keeps Taplo's layout
 
 - **Rests on:** `TestTeamManifestUsesNativeExportLayout` requires the shipped file to equal `aigw config export`'s
-  bytes, and the repository's taplo check (`column_width = 100`) expands an array that passes 100 columns. A third
+  bytes, and the repository's Taplo check (`column_width = 100`) expands an array that passes 100 columns. A third
   Hermes recommendation made one line 138 columns wide, which no file could satisfy for both.
 - **Considered:** shorten the line by dropping the recommendations' protocol; expand wide arrays in every encoded file;
   expand them in a team file export only.
 - **Chosen because:** the protocol carries meaning, and every further provider widens the line again. A team file is
   the one encoded file that a repository formats; `aigw.toml` keeps one line per value, so no user's configuration is
   rewritten. The export writes each element of a wider array on its own line, indented two spaces with a trailing
-  comma, as taplo does.
+  comma, as Taplo does.
 - **Applies to:** `store.ExportTeamFile`. A test of the shipped recommendations that listed their models is replaced by
   one that checks every choice resolves for its client and never replaces an explicit selection.
 
