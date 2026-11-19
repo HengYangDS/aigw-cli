@@ -319,30 +319,43 @@ provider and name its fix. It SHALL store a Token only after the validation that
 
 #### Scenario: Token input names more than one provider
 
-- **WHEN** `--token-stdin` comes with more than one `--provider`
+- **WHEN** `--token-stdin` comes with `--provider` flags that name more than
+  one provider
 - **THEN** setup SHALL refuse before reading the file or standard input.
 
 #### Scenario: A named provider's Token is requested in a terminal
 
 - **WHEN** `aigw setup --from <file> --provider dmxapi` runs in a terminal
-- **THEN** setup SHALL prompt only for the `dmxapi` Token, without echoing it.
+- **THEN** setup SHALL use a stored `dmxapi` Token without a prompt, and
+  otherwise prompt only for the `dmxapi` Token, without echoing it, once
+  however often the command names the provider
+- **AND** Enter alone at that prompt SHALL skip the provider, which SHALL be
+  reported without a Token and with its next step
+- **AND** a preview SHALL ask nothing, take the Token that the run would ask
+  for as accepted, and say so.
 
 #### Scenario: A provider is named without a terminal or Token input
 
 - **WHEN** `aigw setup --from <file> --provider dmxapi` runs without a terminal
-  or with `--json`, and without `--token-stdin`
+  or with `--json`, and without `--token-stdin`, and no `dmxapi` Token is
+  stored
 - **THEN** setup SHALL refuse before any write and name `--token-stdin`.
 
 #### Scenario: A terminal asks for a needed Token
 
 - **WHEN** `aigw setup --from <file>` runs in a terminal without `--provider`,
-  and one or more of the file's providers have no Token
+  and a writable credential store holds no Token for one or more of the file's
+  providers
 - **THEN** setup SHALL first ask which of those providers the person has a
   Token for, listing each by its label and accepting no choice
 - **AND** SHALL prompt, without echoing, only for the chosen providers' Tokens,
   where Enter alone skips that provider
+- **AND** a provider whose Token the store cannot tell SHALL keep its own fix
+  and not be listed
 - **AND** a `--json` or non-terminal run SHALL defer those providers, because
-  `command-line` lets neither prompt.
+  `command-line` lets neither prompt
+- **AND** a preview SHALL ask nothing, plan with the Tokens that are present,
+  and say that the run asks.
 
 #### Scenario: A Token typed in a terminal is not accepted
 
@@ -353,7 +366,13 @@ provider and name its fix. It SHALL store a Token only after the validation that
   give
 - **AND** a provider skipped after a refusal SHALL be reported as not
   accepted, and after no verdict as not verified, each with its next step,
-  while setup applies the team file, stores the other accepted Tokens and exits 0.
+  while setup applies the team file, stores the other accepted Tokens and exits 0
+- **AND** the provider SHALL keep that last verdict however the person then
+  leaves its prompt: by choosing to skip, by Enter alone, or by answers that
+  name no choice, which skip the provider and which setup SHALL say
+- **AND** text that is not one Token SHALL leave no verdict of its own
+- **AND** a prompt that the person cancels SHALL end setup before any write and
+  say that no Token accepted in this run was stored, when one was.
 
 #### Scenario: Tokens come from the environment
 
@@ -582,7 +601,9 @@ protocol evidence, and it SHALL hold no inferred model matrix or proxy endpoint.
   client's first recommendation names, and the client can use that model
 - **THEN** that client's recommendations SHALL name a model of that provider
 - **AND** a team member holding only that provider's Token SHALL get that
-  client configured by applying the file.
+  client configured by applying the file
+- **AND** each client's recommendations SHALL name at most one model of a
+  provider, in the order in which the file declares its providers.
 
 #### Scenario: A provider uses a channel-specific model ID
 
