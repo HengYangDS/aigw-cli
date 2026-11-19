@@ -11,6 +11,8 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-11-19
+
 ### Changed
 
 - **Breaking:** `aigw setup --from` applies the team file whatever becomes of
