@@ -163,6 +163,11 @@ type ethosProfile struct {
 			DependsOn             []string `toml:"depends_on"`
 			NetworkPolicy         string   `toml:"network_policy"`
 			WritesFiles           bool     `toml:"writes_files"`
+			NativeOutputs         []struct {
+				Path     string   `toml:"path"`
+				Format   string   `toml:"format"`
+				Sessions []string `toml:"sessions"`
+			} `toml:"native_outputs"`
 		} `toml:"gates"`
 	} `toml:"proof"`
 }
@@ -430,7 +435,7 @@ func TestEthosProofDelegatesStaticAnalysisToQualityOwner(t *testing.T) {
 	}
 }
 
-func TestEthosProofSeparatesNativeCoverageFromMixedLanguageEvidence(t *testing.T) {
+func TestEthosProofJudgesEachNativeTestAttemptOnce(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".ethos", "profile.toml"))
 	if err != nil {
 		t.Fatal(err)
@@ -439,34 +444,58 @@ func TestEthosProofSeparatesNativeCoverageFromMixedLanguageEvidence(t *testing.T
 	if err := toml.Unmarshal(content, &profile); err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{"go-behavior", "code-behavior"} {
+	const verifier = "ethos.adapters.gates.code_quality:behavior_report"
+	behaviorGates := map[string][]string{
+		"go-behavior": {
+			"mise", "exec", "--locked", "--", "go", "run", "./tools/coverage", "--race",
+			"--profile-output", "build/verification/coverage/profile.out",
+			"--junit-output", "{native_output}/go-junit.xml", "--lcov-output", "{native_output}/go.lcov",
+		},
+		"node-behavior": {
+			"mise", "exec", "--locked", "--", "node", "--test", "--experimental-test-coverage",
+			"--test-reporter=junit", "--test-reporter-destination={native_output}/node-junit.xml",
+			"--test-reporter=lcov", "--test-reporter-destination={native_output}/node.lcov",
+			"tools/ci/test/text.test.mjs",
+		},
+	}
+	for id := range behaviorGates {
 		if !slices.Contains(profile.Proof.CodeCorrectnessGates, id) {
 			t.Errorf("native proof omits required gate %q", id)
 		}
 	}
-	if profile.Proof.CodeCorrectnessMap["behavior"] != "code-behavior" {
-		t.Error("mixed-language behavior must be mapped to its native provider")
+	if profile.Proof.CodeCorrectnessMap["behavior"] != "go-behavior" {
+		t.Error("behavior must be mapped to the Go coverage attempt")
 	}
-	coverage, behavior := false, false
+	found := map[string]bool{}
 	for _, gate := range profile.Proof.Gates {
-		switch gate.ID {
-		case "go-behavior":
-			coverage = true
-			want := []string{"mise", "exec", "--locked", "--", "go", "run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"}
-			if !reflect.DeepEqual(gate.Command, want) || len(gate.Providers) != 0 || len(gate.VerificationProviders) != 0 {
-				t.Errorf("Go race and coverage must retain their native owner, not provide JavaScript custody: %#v", gate)
-			}
-		case "code-behavior":
-			behavior = true
-			if len(gate.Command) != 0 || len(gate.VerificationProviders) != 0 ||
-				!reflect.DeepEqual(gate.Providers, []string{"ethos.adapters.gates.code_quality:behavior_report"}) ||
-				!reflect.DeepEqual(gate.DependsOn, []string{"go-behavior"}) || !gate.WritesFiles {
-				t.Errorf("mixed-language evidence must use its owned native attempt after the Go coverage gate: %#v", gate)
+		// A behaviour provider without the gate's own reports runs the tests again.
+		if slices.Contains(gate.Providers, verifier) {
+			t.Errorf("gate %q asks ETHOS to run the tests itself", gate.ID)
+		}
+		want, selected := behaviorGates[gate.ID]
+		if !selected {
+			continue
+		}
+		found[gate.ID] = true
+		if !reflect.DeepEqual(gate.Command, want) || !reflect.DeepEqual(gate.VerificationProviders, []string{verifier}) ||
+			len(gate.Providers) != 0 || len(gate.DependsOn) != 0 || !gate.WritesFiles {
+			t.Errorf("gate %q must be one native attempt that ETHOS judges: %#v", gate.ID, gate)
+		}
+		formats := map[string]bool{}
+		for _, output := range gate.NativeOutputs {
+			formats[output.Format] = true
+			if !slices.ContainsFunc(gate.Command, func(argument string) bool {
+				return strings.HasSuffix(argument, "{native_output}/"+output.Path)
+			}) || len(output.Sessions) != 1 {
+				t.Errorf("gate %q declares %s output %q that its attempt does not write", gate.ID, output.Format, output.Path)
 			}
 		}
+		if len(gate.NativeOutputs) != 2 || !formats["junit-xml"] || !formats["lcov"] {
+			t.Errorf("gate %q must declare one JUnit and one LCOV report: %#v", gate.ID, gate.NativeOutputs)
+		}
 	}
-	if !coverage || !behavior {
-		t.Fatal("native coverage and mixed-language evidence must both be declared")
+	if len(found) != len(behaviorGates) {
+		t.Fatalf("behaviour gates found: %v", found)
 	}
 }
 

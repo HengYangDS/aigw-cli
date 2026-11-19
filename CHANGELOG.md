@@ -11,6 +11,13 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- The repository's ETHOS proof runs the Go tests once instead of twice. The
+  coverage command can write JUnit and LCOV reports from its one test run
+  (`--junit-output`, `--lcov-output`), and ETHOS judges those reports instead of
+  running the tests again. The released program is unchanged.
+
 ## [0.8.3] - 2026-11-19
 
 ### Changed

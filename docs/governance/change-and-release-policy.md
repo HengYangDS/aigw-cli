@@ -414,6 +414,11 @@ to stdout and sends package and aggregate summaries to stderr. It runs tests onc
 `--profile-output` retains that attempt's counters, including diagnostic counters
 after failure. Event output alone does not qualify receiver custody or per-file
 execution. Human output and the selected inventory, flags and thresholds remain unchanged.
+`--junit-output` and `--lcov-output` write a JUnit test report and an LCOV line
+report from the same attempt; the exact-HEAD proof judges Go behavior from them
+and runs the Go tests nowhere else. LCOV lines come from the statement blocks
+and carry no branch figure; a production file that the build did not
+instrument has an empty record.
 Windows omits the race detector because the native graph includes ARM64 with
 CGO disabled; that limit does not remove coverage or package observation.
 

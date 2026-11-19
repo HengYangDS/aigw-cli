@@ -6,14 +6,16 @@ material_paths = ["**"]
 [proof]
 code_correctness_gates = [
   "go-behavior",
-  "code-behavior",
+  "node-behavior",
   "go-static-analysis",
 ]
 
 [proof.code_correctness_map]
-behavior = "code-behavior"
+behavior = "go-behavior"
 static-analysis = "go-static-analysis"
 
+# The one Go test attempt writes its JUnit and LCOV reports for ETHOS to judge,
+# so no other gate runs the Go tests.
 [[proof.gates]]
 id = "go-behavior"
 kind = "test"
@@ -28,23 +30,62 @@ command = [
   "--race",
   "--profile-output",
   "build/verification/coverage/profile.out",
+  "--junit-output",
+  "{native_output}/go-junit.xml",
+  "--lcov-output",
+  "{native_output}/go.lcov",
 ]
-dimensions = ["test", "coverage"]
-evidence_class = "proof"
-trust_bearing = true
-writes_files = true
-network_policy = "offline"
-
-[[proof.gates]]
-id = "code-behavior"
-kind = "test"
-providers = ["ethos.adapters.gates.code_quality:behavior_report"]
-depends_on = ["go-behavior"]
+verification_providers = ["ethos.adapters.gates.code_quality:behavior_report"]
 dimensions = ["behavior", "test", "coverage"]
 evidence_class = "proof"
 trust_bearing = true
 writes_files = true
 network_policy = "offline"
+
+[[proof.gates.native_outputs]]
+path = "go-junit.xml"
+format = "junit-xml"
+sessions = ["go"]
+
+[[proof.gates.native_outputs]]
+path = "go.lcov"
+format = "lcov"
+sessions = ["go"]
+
+# The repository's Node adapters, judged from Node's own reports.
+[[proof.gates]]
+id = "node-behavior"
+kind = "test"
+command = [
+  "mise",
+  "exec",
+  "--locked",
+  "--",
+  "node",
+  "--test",
+  "--experimental-test-coverage",
+  "--test-reporter=junit",
+  "--test-reporter-destination={native_output}/node-junit.xml",
+  "--test-reporter=lcov",
+  "--test-reporter-destination={native_output}/node.lcov",
+  "tools/ci/test/text.test.mjs",
+]
+verification_providers = ["ethos.adapters.gates.code_quality:behavior_report"]
+dimensions = ["behavior", "test", "coverage"]
+evidence_class = "proof"
+trust_bearing = true
+writes_files = true
+network_policy = "offline"
+
+[[proof.gates.native_outputs]]
+path = "node-junit.xml"
+format = "junit-xml"
+sessions = ["node"]
+
+[[proof.gates.native_outputs]]
+path = "node.lcov"
+format = "lcov"
+sessions = ["node"]
 
 [[proof.gates]]
 id = "go-static-analysis"

@@ -92,6 +92,8 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 	jsonOutput := flags.Bool("json", false, "preserve native Go test JSON on stdout; coverage reports use stderr")
 	tags := flags.String("tags", "", "Go build tags for package observation and tests")
 	profileOutput := flags.String("profile-output", "", "retain the Go coverage profile at this path")
+	junitOutput := flags.String("junit-output", "", "write a JUnit XML report of the native tests at this path")
+	lcovOutput := flags.String("lcov-output", "", "write an LCOV line report of the same attempt's counters at this path")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
@@ -147,13 +149,13 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 	}
 	reportOutput := stdout
 	if *jsonOutput {
-		goArgs = append(goArgs, "-json")
 		reportOutput = stderr
 	}
-	goArgs = append(goArgs, policy.Packages...)
-	testErr := runner.Run("go", goArgs, stdout, stderr)
-	retainErr := retainCoverageProfile(profilePath, *profileOutput)
-	if err := errors.Join(testErr, retainErr); err != nil {
+	attempt := nativeAttempt{
+		json: *jsonOutput, profile: *profileOutput, junit: *junitOutput, lcov: *lcovOutput,
+		selection: []string{"-tags=" + *tags}, packages: policy.Packages,
+	}
+	if err := attempt.run(runner, goArgs, profilePath, stdout, stderr); err != nil {
 		_, _ = fmt.Fprintf(stderr, "native coverage attempt failed: %v\n", err)
 		return 1
 	}
@@ -258,6 +260,60 @@ func declarationOnlyPackage(name string, runner commandRunner, selection ...stri
 		}
 	}
 	return true, nil
+}
+
+// nativeAttempt is the one `go test` invocation and the outputs it retains.
+type nativeAttempt struct {
+	json      bool
+	profile   string
+	junit     string
+	lcov      string
+	selection []string
+	packages  []string
+}
+
+// run executes the attempt once. Every requested output comes from it and is
+// written even when the tests fail, as diagnostic evidence; the run still fails.
+func (attempt nativeAttempt) run(runner commandRunner, goArgs []string, profilePath string, stdout, stderr io.Writer) error {
+	testOutput := stdout
+	var events *eventRecorder
+	if attempt.json || attempt.junit != "" {
+		goArgs = append(goArgs, "-json")
+	}
+	if attempt.junit != "" {
+		events = newEventRecorder(nil, stdout)
+		if attempt.json {
+			events = newEventRecorder(stdout, nil)
+		}
+		testOutput = events
+	}
+	failures := []error{
+		runner.Run("go", slices.Concat(goArgs, attempt.packages), testOutput, stderr),
+		retainCoverageProfile(profilePath, attempt.profile),
+	}
+	if events != nil {
+		failures = append(failures, events.finish(), writeReport(attempt.junit, events.writeJUnit))
+	}
+	if attempt.lcov != "" {
+		failures = append(failures, attempt.writeLCOV(runner, profilePath))
+	}
+	return errors.Join(failures...)
+}
+
+func (attempt nativeAttempt) writeLCOV(runner commandRunner, profilePath string) error {
+	root, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	inventory, err := listSources(runner, root, attempt.selection, attempt.packages)
+	if err != nil {
+		return err
+	}
+	records, err := lineCounts(profilePath, inventory)
+	if err != nil {
+		return err
+	}
+	return writeReport(attempt.lcov, func(writer io.Writer) error { return writeLCOV(writer, records) })
 }
 
 func retainCoverageProfile(source, target string) error {
