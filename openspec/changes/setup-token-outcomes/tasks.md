@@ -27,7 +27,7 @@
       Suhe.AI lists no dated DeepSeek ID).
 - [x] 3.2 State in `CHANGELOG.md` and the rollout guide that a provider whose model catalog answers any Token cannot
       have its Token proved by a validation, with the measurement of 2026-11-19 and the check that shows a wrong one.
-- [ ] 3.3 Pass `mise run check` on the lane head.
+- [x] 3.3 Pass `mise run check` on the lane head.
 
 ## 4. Review Of The Token Flow
 
