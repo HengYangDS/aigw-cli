@@ -17,8 +17,10 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run `go-behavior` and `node-behavior` alone on the committed lane head under a host ticket. Done
-      when ETHOS reports both gates passing and the behaviour obligation proved.
-- [ ] 3.2 Full exact-HEAD proof of the lane head passes, with no Go test run outside `go-behavior`. Record its
+- [x] 3.1 ETHOS judges `go-behavior` and `node-behavior` from their own reports on the committed lane head.
+      Done when both gates pass and the behaviour obligation is proved. Proof of `08c8dbcd6` under a host
+      ticket: 6290 Go and 54 Node test cases, every behaviour subject claimed, same attempt.
+- [x] 3.2 Full exact-HEAD proof of the lane head passes, with no Go test run outside `go-behavior`. Record its
       total and per-gate times beside the base proof of `fbec6f90d` (346 s; `go-behavior` 111 s,
-      `code-behavior` 102 s).
+      `code-behavior` 102 s). Proof of `08c8dbcd6`: 216 s; `go-behavior` 104 s, `node-behavior` 7 s after
+      it; `go-static-analysis` 43 s against 80 s, a load difference outside this Change.

@@ -20,7 +20,7 @@ native outputs has its JUnit XML and LCOV or Cobertura reports checked, and ETHO
 - The `go-behavior` proof gate writes both reports into ETHOS's output directory and becomes the behaviour
   gate: ETHOS judges its reports instead of running the Go tests again. The `code-behavior` gate is removed.
 - A `node-behavior` proof gate runs the Node tests of the two repository `.mjs` adapters with Node's own
-  JUnit and LCOV reporters, beside the Go gate, so the behaviour obligation still covers them.
+  JUnit and LCOV reporters, so the behaviour obligation still covers them.
 - The test that pins the proof gates' shape expects the new shape.
 
 ## Capabilities

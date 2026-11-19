@@ -75,8 +75,9 @@ Alternatives considered:
 The quality graph's `node-source` gate already runs `node --test tools/ci/test/text.test.mjs` inside
 `go-static-analysis`. Making that gate `SourceOnly` would remove the Node tests from CI's quality job, which
 runs `tools/ci quality` and not `source`, so it stays. A `node-behavior` proof gate runs the same test file
-with `--experimental-test-coverage` and Node's `junit` and `lcov` reporters. It has no dependency, so it runs
-beside the Go gate. On 2026-11-19 this command took 9.8 s on the lane. ETHOS's parsers read its reports as
+with `--experimental-test-coverage` and Node's `junit` and `lcov` reporters. It declares no dependency, but
+the full proof of `08c8dbcd6` ran it after the Go gate, in 7.2 s. On 2026-11-19 the command took 9.8 s
+alone on the lane. ETHOS's parsers read its reports as
 54 passing test cases, and its coverage as `tools/ci/format.mjs` (51 of 53 lines) and
 `tools/ci/markdown/lint.mjs` (32 of 34 lines). It runs through `mise exec --locked`, so ETHOS applies no
 Node custody of its own.
@@ -90,7 +91,7 @@ Node custody of its own.
 - **LCOV lines are derived from statement blocks.** A block's span can include comment lines, so ETHOS's
   informational line percentage differs from the statement percentage. No threshold reads it.
 - **The Node tests still run twice per proof** (in `go-static-analysis` and in `node-behavior`), as they do
-  today. The two runs take about 9 s together and run beside the Go gate.
+  today. In the full proof of `08c8dbcd6` the `node-behavior` run added 7.2 s after the Go gate.
 
 ## Migration Plan
 
