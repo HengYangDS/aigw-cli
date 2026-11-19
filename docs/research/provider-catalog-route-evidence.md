@@ -89,11 +89,11 @@ A source-built AIGW 0.3.3 in an isolated installation completed bounded
 Codex CLI 0.159.2 and Hermes Agent v0.21.5. That supersedes the earlier
 UCloud exclusion for bounded direct and native-client inference, not sustained
 availability, final release bytes, or this host's optional Proxy path. The
-team now declares DMXAPI first and UCloud as its sole automatic alternative;
-AIHubMix Routes are manual-only. The October 2 correction supersedes the older
-recommendation order without changing the dated inference observations or
-silently rewriting explicit local selections. Final-artifact
-admission remains open.
+team then declared DMXAPI first and UCloud as its sole automatic alternative;
+AIHubMix Routes were manual-only, until the November 19 order below. The
+October 2 correction supersedes the older recommendation order without changing
+the dated inference observations or silently rewriting explicit local
+selections. Final-artifact admission remains open.
 
 On October 1, 2026, DMXAPI's official
 [Claude Code guide](https://doc.dmxapi.cn/claude-code-new.html) described `-cc`
@@ -118,7 +118,8 @@ tool-context replay. Unmodified official Hermes `f97608f` separately passed
 public setup/use/check/verify on that Route. The shipped manifest therefore
 adds `dmxapi-gpt-6.1-sol-cdx` under the existing logical `gpt-6.1-sol` Model
 and recommends it to unselected Codex clients, with UCloud as the sole
-automatic alternative. AIHubMix remains an explicit manual choice.
+automatic alternative. AIHubMix remained an explicit manual choice until
+November 19.
 Existing explicit selections remain unchanged. Native external-provider
 Linux/Windows, final-artifact and installed-host acceptance remain separate;
 the Hermes run conserved eleven original protected inputs and preserved one
@@ -394,3 +395,24 @@ The public UCloud response is not a complete substitute for the earlier
 authenticated GPT and Claude observations. Admit any new Route only after a
 bounded noninteractive call to its exact Account, protocol, and wire model
 succeeds.
+
+On November 19, 2026, the team file of release 0.8.3 superseded the October 2
+order: each client recommends one model on every provider that serves its
+recommended family, in the file's provider order (DMXAPI, UCloud, AIHubMix,
+Suhe.AI), so that a Token of any one provider configures every client.
+AIHubMix is an automatic choice again. No record of the October 2 correction
+gives its reason.
+
+The same day, one model-catalog request per provider carried a made-up Token,
+which is the request that validates a Token:
+
+| Provider | Made-up Token, either header | No credential |
+| -------- | ---------------------------- | ------------- |
+| DMXAPI   | 401                          | 401           |
+| UCloud   | 401                          | 200           |
+| AIHubMix | 200                          | 200           |
+| Suhe.AI  | 401                          | 401           |
+
+AIHubMix's catalog therefore cannot refuse a wrong Token, and a validation
+accepts any Token for it; an inference request, which `aigw check` sends,
+shows a wrong one.

@@ -16,15 +16,18 @@ signing, and GA status remain separate evidence.
 ### Changed
 
 - **Breaking:** `aigw setup --from` applies the team file whatever becomes of
-  each Token. In a terminal it first asks which of the file's providers you
-  hold a Token for, and you may choose none; it then asks only for those
-  Tokens. A Token that its provider does not accept can be entered again or
-  its provider skipped; the provider is reported as not accepted, with the
-  reason and `aigw provider rotate <provider>`, and every other provider and
-  client is set up. A piped Token (`--provider <id> --token-stdin`) that is not
-  accepted no longer prevents the write and keeps a Token that its provider
-  held; the command still exits 1 and shows the problem in place of its
-  success line.
+  each Token. In a terminal it first asks which of the file's providers
+  without a stored Token you hold one for, and you may choose none; it then
+  asks only for those Tokens. A Token that its provider does not accept can be
+  entered again or its provider skipped; the provider is reported as not
+  accepted, with the reason and `aigw provider rotate <provider>`, however its
+  prompt is then left, and every other provider and client is set up. A prompt
+  that you cancel ends setup before any write, and says so when a Token that
+  the run had accepted was not stored. A piped Token
+  (`--provider <id> --token-stdin`) that is not accepted no longer prevents the
+  write and keeps a Token that its provider held; the command still exits 1 and
+  shows the problem in place of its success line. A preview in a terminal says
+  what the run asks for.
 - **Breaking:** `aigw setup --from --json` writes schema version 4. A Token's
   `state` may be `rejected` (the provider refused it) or `unverified` (its
   validation got no verdict), with a `reason`; the document carries `error`
@@ -43,8 +46,16 @@ signing, and GA status remain separate evidence.
   and GPT-6 Luna on Responses, each with its client-prefixed reverse model
   (labelled CC or CDX) where Suhe.AI serves one; Kimi K3.1 Pro on Responses;
   and Qwen4-Max, DeepSeek V4.1 Flash, MiniMax M2.5 and GLM 5.2 on Chat
-  Completions, which Suhe.AI serves for them in place of Responses. Every
-  client recommends a Suhe.AI model after its other choices.
+  Completions. Every client recommends a Suhe.AI model after its other
+  choices.
+- Known limit, which recommending AIHubMix for every client gives more weight:
+  a Token is validated with one request to the provider's model catalog, and a
+  provider whose catalog answers any Token cannot refuse a wrong one there. On
+  2026-11-19 AIHubMix's answered 200 to a made-up Token, while DMXAPI's,
+  UCloud's and Suhe.AI's answered 401. `aigw setup`, `aigw provider add`,
+  `aigw provider rotate` and `aigw use` report such a Token as accepted;
+  `aigw check` sends an inference request and shows a wrong one, so run it
+  after connecting AIHubMix.
 
 ## [0.8.2] - 2026-11-18
 

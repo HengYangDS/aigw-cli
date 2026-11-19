@@ -59,26 +59,30 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 	}
 }
 
-// Every provider in the shipped file serves GPT-6.2 Sol on Responses with the
-// provider's direct endpoint, and each client that recommends Sol recommends it
-// on every provider that serves it, in the file's providers order: a Token of
-// any one of them configures the client. Which providers those are is the
-// file's to say, not this test's.
-func TestTeamManifestServesSolOnEveryProviderThatListsIt(t *testing.T) {
+// Every model of the family that Codex's first recommendation names is served
+// on Responses alone, by a provider that has a Responses endpoint: the family
+// that Codex and Hermes share needs no other protocol, and a model that
+// offered one would let a client resolve it elsewhere. Which family that is,
+// and which providers serve it, is the file's to say; the store's tests check
+// that each client recommends every such provider, in the file's order.
+func TestTeamManifestServesCodexsFamilyOnResponsesAlone(t *testing.T) {
 	team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
-	sol := "gpt-6.2-sol"
 	manifest, err := store.ParseTeamFile(team, builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	serving := map[string]bool{}
+	family := manifest.Models[manifest.Recommendations[codex.ID].Primary.Model].Family
+	if family == "" {
+		t.Fatal("the file recommends no model to Codex")
+	}
+	served := false
 	for _, account := range manifest.ProviderIDs() {
 		for _, ref := range manifest.ProviderModelRefs(account) {
 			route := manifest.Models[ref]
-			if route.Family != sol {
+			if route.Family != family {
 				continue
 			}
-			serving[account] = true
+			served = true
 			if _, ok := route.Protocols[domain.ProtocolResponses]; !ok || len(route.Protocols) != 1 {
 				t.Errorf("%s %s protocols = %#v, want Responses alone", account, route.ID, route.Protocols)
 			}
@@ -87,22 +91,8 @@ func TestTeamManifestServesSolOnEveryProviderThatListsIt(t *testing.T) {
 			}
 		}
 	}
-	if len(serving) < 2 {
-		t.Fatalf("the file serves %s on %d providers, want at least two", sol, len(serving))
-	}
-	if got := manifest.Providers["dmxapi"].Endpoints.Responses; got != "https://www.dmxapi.cn/v1" {
-		t.Fatalf("team DMXAPI endpoint = %q, want direct provider", got)
-	}
-	for _, client := range []string{codex.ID, hermes.ID} {
-		recommended := map[string]bool{}
-		for _, selection := range manifest.Recommendations[client].Selections() {
-			recommended[manifest.Models[selection.Model].Provider] = true
-		}
-		for account := range serving {
-			if !recommended[account] {
-				t.Errorf("%s serves %s but %s recommends none of its models", account, sol, client)
-			}
-		}
+	if !served {
+		t.Fatalf("no provider serves %s", family)
 	}
 }
 

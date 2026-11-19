@@ -52,6 +52,8 @@ type teamDocument struct {
 	Impact     string `json:"impact,omitempty"`
 	NextAction string `json:"next_action,omitempty"`
 	NextDetail string `json:"next_detail,omitempty"`
+	// asks says in a terminal preview what the run asks a person for.
+	asks string
 }
 
 // teamEntries are providers, models, families and recommendations, each
@@ -193,9 +195,9 @@ func (t teamSetup) document(after domain.Config, states map[string]string, conne
 		if failure, failed := t.failed[id]; failed {
 			item.Reason = failure.Error()
 		}
-		// A named provider's Token is the command's own input, unless this
-		// run did not store it.
-		if !slices.Contains(t.request.Providers, id) || item.Reason != "" {
+		// In a preview a named provider's Token is the run's own input; a run
+		// that asked for it and stored none names the step that stores one.
+		if !t.request.DryRun || !slices.Contains(t.request.Providers, id) {
 			item.NextAction, item.NextDetail = terminal.NextSteps(t.tokenStep(id, item.State))
 		}
 		document.Tokens = append(document.Tokens, item)
@@ -319,6 +321,9 @@ func (t teamSetup) write(document teamDocument, ok bool) error {
 		}
 	case document.DryRun:
 		r.Success("Nothing was written: configuration, credentials and client files are unchanged")
+		if document.asks != "" {
+			r.Text(document.asks)
+		}
 	default:
 		r.Success("Saved; no client was run, so whether each one works is unchecked")
 	}

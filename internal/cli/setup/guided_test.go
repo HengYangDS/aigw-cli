@@ -34,9 +34,12 @@ type guidedPrompt struct {
 	// answer chooses none, as Enter alone does, unless multiErr ends it.
 	multi    [][]string
 	multiErr error
-	asked    []string
-	choices  [][]terminal.Choice
-	fail     string
+	// selectErr ends each bounded-choice prompt, as answers that name no
+	// choice end an accessible one.
+	selectErr error
+	asked     []string
+	choices   [][]terminal.Choice
+	fail      string
 }
 
 func (p *guidedPrompt) answer(label string, answers *[]string) (string, error) {
@@ -62,6 +65,10 @@ func (p *guidedPrompt) OptionalSecret(label string) (string, error) {
 }
 func (p *guidedPrompt) Select(label string, choices []terminal.Choice) (string, error) {
 	p.choices = append(p.choices, slices.Clone(choices))
+	if p.selectErr != nil {
+		p.asked = append(p.asked, label)
+		return "", p.selectErr
+	}
 	return p.answer(label, &p.selections)
 }
 func (p *guidedPrompt) MultiSelect(label string, choices []terminal.Choice) ([]string, error) {

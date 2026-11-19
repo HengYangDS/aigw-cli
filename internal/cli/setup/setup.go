@@ -6,6 +6,7 @@ package setup
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"aigw-cli/internal/adapter"
@@ -45,6 +46,14 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			"aigw setup --from team.toml --provider dmxapi --token-stdin",
 		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
 			request.From = strings.TrimSpace(request.From)
+			// A provider that the command names again asks for nothing new.
+			var named []string
+			for _, id := range request.Providers {
+				if !slices.Contains(named, id) {
+					named = append(named, id)
+				}
+			}
+			request.Providers = named
 			if cmd.Flags().Changed("from") {
 				return admitTeamRequest(cmd, runtime, request)
 			}

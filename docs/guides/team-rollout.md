@@ -406,11 +406,12 @@ model name. A script that adds a provider for Hermes's chat protocol names
 `aigw provider add <provider> --endpoint chat=<url> --token-stdin`, and the
 protocol is stored in the client's selection. Guided setup and interactive
 selection validate the selected protocol and endpoint before activation.
-Team-file setup is declarative: it applies the file and writes the files of
-installed clients with a locally available Token without contacting the
-provider. This does not prove that the Token is accepted or that inference
-works. Run `aigw check` afterwards; it reports unreachable endpoints and
-rejected Tokens without exposing credential values.
+Team-file setup validates each Token that it reads with one request that names
+no model, and uses a stored Token without a request. A provider whose model
+catalog answers any Token, as AIHubMix's did on November 19, 2026, cannot
+refuse a wrong one there, and no validation proves inference. Run `aigw check`
+afterwards; it reports unreachable endpoints and rejected Tokens without
+exposing credential values.
 
 Rotation validates and replaces only the named provider's Token. It does not
 select a model, rewrite client configuration or invoke a native client. The

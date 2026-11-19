@@ -62,15 +62,19 @@ catalog listed 125 models on all three protocols. Candidates followed the per-pr
 three turns of November 12 on the stock Hermes v0.23.2 (`ae2a81ccc00e`, clean), with a control of DMXAPI's GPT-6.2 Sol
 in the same run. Suhe.AI refused the other vendors' models on Responses ("not supported for path: /v1/responses") but
 Kimi K3.1 Pro, so they enter on Chat Completions. Gemini 4 Carbon and Argon answered "Model not found" though listed,
-and GLM-5.3-Flash was refused upstream, so GLM 5.2 enters. Raw results are in the canonical checkout's
-`build/evidence/suheai-20261119/`.
+and GLM-5.3-Flash was refused upstream, so GLM 5.2 enters, tried on Chat Completions alone. Suhe.AI lists
+`deepseek-v4.1-flash` under no dated ID, so that family stays there beside the other providers' `-1017` family; which
+build it serves cannot be read from outside. On their Suhe.AI recommendation, Claude Code, Codex and Hermes passed
+`aigw check --depth client`, and Claude Desktop the `model` depth, the deepest that the check runs for it. Raw results
+are in the canonical checkout's `build/evidence/suheai-20261119/` and `setup-partial-tokens-20261119/`.
 
 | Model                                                        | Admitted protocol | Note                         |
 | ------------------------------------------------------------ | ----------------- | ---------------------------- |
 | Claude Fable 5.2 (prefixed only), Opus, Sonnet and Haiku 5.5 | Anthropic         | Plain and `claude-code-` IDs |
 | GPT-6.2 Astra, GPT-6.2 Sol, GPT-6.1 Terra, GPT-6 Luna        | Responses         | Plain and `codex-` IDs       |
 | Kimi K3.1 Pro                                                | Responses         |                              |
-| Qwen4-Max, DeepSeek V4.1 Flash, MiniMax M2.5, GLM 5.2        | Chat Completions  | Refused on Responses         |
+| Qwen4-Max, DeepSeek V4.1 Flash, MiniMax M2.5                 | Chat Completions  | Refused on Responses         |
+| GLM 5.2                                                      | Chat Completions  | Responses not tried          |
 
 ## November 18: Qwen4-Max, and the line rule per provider
 

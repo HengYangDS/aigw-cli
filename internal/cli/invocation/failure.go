@@ -41,9 +41,11 @@ func Retry(cmd *cobra.Command, args []string) string {
 	return sameCommand
 }
 
-// promptError is the failure of one prompt, with the prompt's name.
+// promptError is the failure of one prompt, with the prompt's name, and with
+// what the command had obtained before it and did not keep, if anything.
 type promptError struct {
 	prompt string
+	lost   string
 	err    error
 }
 
@@ -60,12 +62,26 @@ func Prompted(prompt string, err error) error {
 	return promptError{prompt: prompt, err: err}
 }
 
+// PromptLost adds to the failure of a prompt, named by Prompted, the sentence
+// that says what the command had obtained before that prompt and did not
+// keep, which CancelledPrompt states after "Nothing changed". Every other
+// error returns unchanged.
+func PromptLost(err error, lost string) error {
+	failed, prompted := errors.AsType[promptError](err)
+	if !prompted {
+		return err
+	}
+	failed.lost = lost
+	return failed
+}
+
 // CancelledPrompt explains a prompt, named by Prompted, that ended without an
 // answer before the command changed anything: cancelled, at the end of its
 // input, or with answers that named no choice. It names the prompt, says
-// that nothing changed, and names cmd again as it was given, which asks
-// again, as its fix. Every other error, a prompt that could not be shown or
-// read included, returns unchanged.
+// that nothing changed and what PromptLost says the command did not keep, and
+// names cmd again as it was given, which asks again, as its fix. Every other
+// error, a prompt that could not be shown or read included, returns
+// unchanged.
 func CancelledPrompt(cmd *cobra.Command, args []string, err error) error {
 	failed, prompted := errors.AsType[promptError](err)
 	if !prompted || !errors.Is(err, terminal.ErrInputCancelled) {
@@ -75,7 +91,7 @@ func CancelledPrompt(cmd *cobra.Command, args []string, err error) error {
 	if errors.Is(err, terminal.ErrNoChoice) {
 		title = failed.prompt + " ended without a choice"
 	}
-	return terminal.ProblemError(title, "", "Nothing changed.", Retry(cmd, args), err)
+	return terminal.ProblemError(title, "", strings.TrimSpace("Nothing changed. "+failed.lost), Retry(cmd, args), err)
 }
 
 // ConfigurationBusy is the problem of a command that another AIGW command kept

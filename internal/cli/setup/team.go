@@ -279,11 +279,12 @@ func (t teamSetup) pipedFailure() error {
 	return nil
 }
 
-// preview reports what apply would do without reading, validating or
-// storing a Token: it observes, from the credential store's metadata alone,
-// which Tokens are present, and plans the providers that have one, and the
-// named ones, whose Tokens apply reads; every other provider waits for its
-// Token with its fix, as apply leaves it.
+// preview reports what apply would do without asking for, reading,
+// validating or storing a Token: it observes, from the credential store's
+// metadata alone, which Tokens are present, and plans the providers that have
+// one, and the named ones, whose Tokens it takes as accepted; every other
+// provider waits for its Token with its fix, as an apply that is given no
+// Token leaves it. In a terminal it says what the run asks for.
 func (t teamSetup) preview() error {
 	states, err := t.tokenStates()
 	if err != nil {
@@ -312,7 +313,7 @@ func (t teamSetup) preview() error {
 		return err
 	}
 	document := t.document(planned, states, presumed)
-	document.DryRun = true
+	document.DryRun, document.asks = true, t.previewAsks(states)
 	document.ClientFiles = invocation.ClientFiles(t.runtime, preview)
 	document.CredentialReader = preview.CredentialEntrypoint
 	document.NextAction = t.request.apply
