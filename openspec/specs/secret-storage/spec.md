@@ -300,7 +300,9 @@ Every command that stores a Token, including `aigw provider add`,
 `aigw provider rotate`, `aigw setup` and `aigw use`, SHALL store it only after
 one authenticated model-free request to that provider accepts it. When the
 provider rejects the Token or the request cannot complete, the command SHALL
-refuse and store nothing. Output SHALL NOT contain the Token.
+store nothing for that provider and refuse, except where
+`progressive-team-onboarding` lets `aigw setup --from` apply the rest. Output
+SHALL NOT contain the Token.
 
 #### Scenario: A provider is added with its Token
 
@@ -315,9 +317,10 @@ refuse and store nothing. Output SHALL NOT contain the Token.
 
 - **WHEN** the provider rejects a Token that a command validates, or the
   request cannot complete
-- **THEN** the command SHALL refuse and store nothing
-- **AND** `aigw provider add` SHALL leave the provider unconfigured, and
-  `aigw provider rotate` SHALL keep the previous Token.
+- **THEN** the command SHALL store nothing for that provider
+- **AND** `aigw provider add` SHALL refuse and leave the provider unconfigured,
+  `aigw provider rotate` SHALL refuse and keep the previous Token, and
+  `aigw setup --from` SHALL keep a previous Token of that provider.
 
 #### Scenario: A Token is requested without a terminal
 

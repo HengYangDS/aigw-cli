@@ -280,11 +280,11 @@ name that file's conversion path.
 ### Requirement: Team setup connects Tokens without requiring them
 
 `aigw setup --from` SHALL require no particular provider's Token, client or
-external service. It SHALL prompt for a missing Token only in a terminal, take
-one provider's Token from standard input when `--token-stdin` comes with
-`--provider <id>`, and otherwise defer that provider and name its fix. A
-deferred Token SHALL NOT fail setup. A Token that it stores SHALL first pass the
-validation that `secret-storage` defines.
+external service, and SHALL apply the team file whatever becomes of each Token.
+It SHALL prompt only in a terminal, take one provider's Token from standard
+input when `--token-stdin` comes with `--provider <id>`, and otherwise defer a
+provider and name its fix. It SHALL store a Token only after the validation that
+`secret-storage` defines, and a failed one SHALL leave a held Token in place.
 
 #### Scenario: No Token or client is present
 
@@ -304,9 +304,18 @@ validation that `secret-storage` defines.
 
 #### Scenario: The provider does not accept a supplied Token
 
-- **WHEN** a prompted or piped Token fails that validation
-- **THEN** setup SHALL refuse, and neither that Token nor the team file's
-  changes SHALL be stored.
+- **WHEN** a piped Token fails that validation
+- **THEN** setup SHALL apply the team file, store no Token for that provider and
+  set up the clients that the other Tokens serve
+- **AND** a Token that the provider held SHALL stay and serve its clients
+- **AND** SHALL report the provider's reason and next step, in human output in
+  place of its success line and in JSON as the document's `error` and `impact`
+- **AND** SHALL exit 1, so that the script sees that its Token was not stored.
+
+#### Scenario: Piped input holds no Token
+
+- **WHEN** `--token-stdin` reads input that is empty or not one Token
+- **THEN** setup SHALL refuse before any write.
 
 #### Scenario: Token input names more than one provider
 
@@ -327,11 +336,24 @@ validation that `secret-storage` defines.
 #### Scenario: A terminal asks for a needed Token
 
 - **WHEN** `aigw setup --from <file>` runs in a terminal without `--provider`,
-  and a provider whose recommended model setup would select has no Token
-- **THEN** setup SHALL prompt for that Token, and for no other provider's,
-  without echoing it
-- **AND** a `--json` or non-terminal run SHALL defer that provider, because
+  and one or more of the file's providers have no Token
+- **THEN** setup SHALL first ask which of those providers the person has a
+  Token for, listing each by its label and accepting no choice
+- **AND** SHALL prompt, without echoing, only for the chosen providers' Tokens,
+  where Enter alone skips that provider
+- **AND** a `--json` or non-terminal run SHALL defer those providers, because
   `command-line` lets neither prompt.
+
+#### Scenario: A Token typed in a terminal is not accepted
+
+- **WHEN** text entered at a prompt is not one Token or fails that validation
+- **THEN** setup SHALL name the reason, and the provider when it answered, and
+  offer to enter the Token again or to skip that provider, and first to try the
+  same Token again when the validation got no verdict that a later request may
+  give
+- **AND** a provider skipped after a refusal SHALL be reported as not
+  accepted, and after no verdict as not verified, each with its next step,
+  while setup applies the team file, stores the other accepted Tokens and exits 0.
 
 #### Scenario: Tokens come from the environment
 
@@ -554,6 +576,14 @@ protocol evidence, and it SHALL hold no inferred model matrix or proxy endpoint.
   serve
 - **AND** SHALL keep explicit selections and defer the other capabilities.
 
+#### Scenario: Every provider that serves a recommended family is recommended
+
+- **WHEN** a provider in the shipped team file has a model of the family that a
+  client's first recommendation names, and the client can use that model
+- **THEN** that client's recommendations SHALL name a model of that provider
+- **AND** a team member holding only that provider's Token SHALL get that
+  client configured by applying the file.
+
 #### Scenario: A provider uses a channel-specific model ID
 
 - **WHEN** DMXAPI serves a CC, SSVIP or CDX channel variant of one vendor model
@@ -569,8 +599,7 @@ protocol evidence, and it SHALL hold no inferred model matrix or proxy endpoint.
 - **AND** a model whose ID differs from its family's and begins or ends with
   that family's ID, ignoring case, SHALL add the rest of its ID as written
   without the separators between them, as `Provider · Family · cdx` for
-  `gpt-6.2-sol-cdx` or `Provider · Family · claude-code` for
-  `claude-code-opus-5-5`
+  `gpt-6.2-sol-cdx` or `Provider · Family · codex` for `codex-gpt-6.2-sol`
 - **AND** an explicit channel or user label SHALL override that derivation
 - **AND** `aigw config export` SHALL omit a stored label equal to the derived
   one while keeping a distinct explicit label.
