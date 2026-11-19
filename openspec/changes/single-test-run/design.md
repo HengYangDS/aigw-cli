@@ -64,7 +64,7 @@ applicable: those 19 and 7 compiled files without statements.
 Alternatives considered:
 
 - **Keep ETHOS's second run.** Rejected: it costs about 100 s per proof and proves the same tests.
-- **gotestsum, go-junit-report v2, gcov2lcov, gocover-cobertura.** Each would add a dependency or a tool to
+- **`gotestsum`, `go-junit-report` v2, `gcov2lcov`, `gocover-cobertura`.** Each would add a dependency or a tool to
   the lock, through the dependency policy's age admission and audit, to produce two formats. The mapping
   needs `encoding/xml` and the profile parser that the command already uses.
 - **Cobertura instead of LCOV.** Either is accepted. LCOV is line-oriented and needs no package or class
