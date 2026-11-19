@@ -36,4 +36,4 @@
 - [x] 4.1 Record the breaking changes and the fix in `CHANGELOG.md`, naming every new JSON field and state.
 - [x] 4.2 Describe the provider question, skipping and a piped Token that is not accepted in `README.md` and the team
       rollout guide.
-- [ ] 4.3 Pass `mise run check` on the lane head.
+- [x] 4.3 Pass `mise run check` on the lane head.
