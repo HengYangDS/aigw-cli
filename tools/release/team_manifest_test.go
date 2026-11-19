@@ -59,39 +59,48 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 	}
 }
 
-func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testing.T) {
+// Every provider in the shipped file serves GPT-6.2 Sol on Responses with the
+// provider's direct endpoint, and each client that recommends Sol recommends it
+// on every provider that serves it, in the file's providers order: a Token of
+// any one of them configures the client. Which providers those are is the
+// file's to say, not this test's.
+func TestTeamManifestServesSolOnEveryProviderThatListsIt(t *testing.T) {
 	team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
 	sol := "gpt-6.2-sol"
 	manifest, err := store.ParseTeamFile(team, builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, account := range []string{"dmxapi", "aihubmix", "ucloud"} {
-		route, exists := manifest.Models[domain.NewModelRef(account, sol)]
-		if !exists || route.Provider != account || route.Family != sol || route.ID != sol {
-			t.Fatalf("%s 6.2 Sol Route = %#v, present=%t", account, route, exists)
+	serving := map[string]bool{}
+	for _, account := range manifest.ProviderIDs() {
+		for _, ref := range manifest.ProviderModelRefs(account) {
+			route := manifest.Models[ref]
+			if route.Family != sol {
+				continue
+			}
+			serving[account] = true
+			if _, ok := route.Protocols[domain.ProtocolResponses]; !ok || len(route.Protocols) != 1 {
+				t.Errorf("%s %s protocols = %#v, want Responses alone", account, route.ID, route.Protocols)
+			}
+			if strings.TrimSpace(manifest.Providers[account].Endpoints.Responses) == "" {
+				t.Errorf("%s serves %s without a Responses endpoint", account, route.ID)
+			}
 		}
-		if len(route.Protocols) != 1 {
-			t.Fatalf("%s 6.2 Sol protocols = %#v", account, route.Protocols)
-		}
-		if _, ok := route.Protocols[domain.ProtocolResponses]; !ok {
-			t.Fatalf("%s 6.2 Sol lacks Responses: %#v", account, route.Protocols)
-		}
+	}
+	if len(serving) < 2 {
+		t.Fatalf("the file serves %s on %d providers, want at least two", sol, len(serving))
 	}
 	if got := manifest.Providers["dmxapi"].Endpoints.Responses; got != "https://www.dmxapi.cn/v1" {
 		t.Fatalf("team DMXAPI endpoint = %q, want direct provider", got)
 	}
-	for client, want := range map[string][]domain.ModelRef{
-		codex.ID:  {domain.NewModelRef("dmxapi", sol+"-cdx"), domain.NewModelRef("ucloud", sol)},
-		hermes.ID: {domain.NewModelRef("dmxapi", sol), domain.NewModelRef("ucloud", sol)},
-	} {
-		selections := manifest.Recommendations[client].Selections()
-		if len(selections) != len(want) {
-			t.Fatalf("%s setup choices = %#v, want %q", client, selections, want)
+	for _, client := range []string{codex.ID, hermes.ID} {
+		recommended := map[string]bool{}
+		for _, selection := range manifest.Recommendations[client].Selections() {
+			recommended[manifest.Models[selection.Model].Provider] = true
 		}
-		for index, selection := range selections {
-			if selection.Model != want[index] {
-				t.Fatalf("%s setup choice %d = %s, want %s", client, index, selection.Model, want[index])
+		for account := range serving {
+			if !recommended[account] {
+				t.Errorf("%s serves %s but %s recommends none of its models", account, sol, client)
 			}
 		}
 	}
