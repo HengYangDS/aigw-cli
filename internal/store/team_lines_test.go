@@ -66,7 +66,7 @@ func TestTeamManifestKeepsOneFamilyPerCuratedLine(t *testing.T) {
 	// -cdx, Suhe.AI's codex- or claude-code-), so a changed version fails.
 	carries := func(id, family string) bool {
 		words := strings.Split(family, "-")
-		for _, word := range strings.Split(id, "-") {
+		for word := range strings.SplitSeq(id, "-") {
 			if len(words) > 0 && word == words[0] {
 				words = words[1:]
 			}
