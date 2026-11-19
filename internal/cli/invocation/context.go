@@ -13,11 +13,15 @@ import (
 	"aigw-cli/internal/terminal"
 )
 
-// Prompter supplies interactive secret, text, and bounded-choice input.
+// Prompter supplies interactive secret, text, bounded-choice and
+// multiple-choice input. OptionalSecret returns "" for Enter alone, where
+// Secret requires a value.
 type Prompter interface {
 	Secret(label string) (string, error)
+	OptionalSecret(label string) (string, error)
 	Text(label string) (string, error)
 	Select(label string, choices []terminal.Choice) (string, error)
+	MultiSelect(label string, choices []terminal.Choice) ([]string, error)
 }
 
 // Context carries capabilities for one command execution without

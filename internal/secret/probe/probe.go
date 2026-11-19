@@ -50,7 +50,7 @@ func Validate(ctx context.Context, httpClient HTTPDoer, admission domain.Admissi
 		if err != nil {
 			return err
 		}
-		if err := probeEndpoint(ctx, httpClient, admission, client, endpoint, protocol, token); err != nil {
+		if err := probeEndpoint(ctx, httpClient, admission, target{client: client, provider: providerName(account.Label, account.ID), endpoint: endpoint, protocol: protocol}, token); err != nil {
 			return err
 		}
 	}
@@ -88,19 +88,38 @@ func defaultValidationClient(admission domain.Admission, account domain.Provider
 // ValidateRuntime verifies one fully resolved client endpoint without
 // re-selecting or guessing its protocol; admission names its client.
 func ValidateRuntime(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, runtime domain.Runtime, token string) error {
-	return probeEndpoint(ctx, httpClient, admission, runtime.Client, runtime.Endpoint, runtime.Protocol, token)
+	return probeEndpoint(ctx, httpClient, admission, target{client: runtime.Client, provider: providerName(runtime.ProviderLabel, runtime.ProviderID), endpoint: runtime.Endpoint, protocol: runtime.Protocol}, token)
 }
 
-func probeEndpoint(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, client, endpoint string, protocol domain.EndpointProtocol, token string) error {
-	status, err := endpointStatus(ctx, httpClient, admission, client, endpoint, token, protocol)
+// providerName is the name by which a probe's failure names the provider:
+// its label, or its ID when it has none.
+func providerName(label, id string) string {
+	if label != "" {
+		return label
+	}
+	return id
+}
+
+// target is the endpoint that a probe sends one client's request to over one
+// protocol, and the provider whose Token the request carries.
+type target struct {
+	client, provider, endpoint string
+	protocol                   domain.EndpointProtocol
+}
+
+// probeEndpoint sends the target's request and turns its status into a
+// verdict on the Token, which names the provider: the provider accepts or
+// refuses the Token, whichever client's protocol carries it.
+func probeEndpoint(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, to target, token string) error {
+	status, err := endpointStatus(ctx, httpClient, admission, to, token)
 	if err != nil {
 		return err
 	}
 	if status == http.StatusUnauthorized || status == http.StatusForbidden {
-		return &TokenRejectedError{Label: admission.Label(client), Status: status}
+		return &TokenRejectedError{Provider: to.provider, Status: status}
 	}
 	if status < http.StatusOK || status >= http.StatusMultipleChoices {
-		return &EndpointStatusError{Label: admission.Label(client), Protocol: protocol, Status: status}
+		return &EndpointStatusError{Provider: to.provider, Protocol: to.protocol, Status: status}
 	}
 	return nil
 }
@@ -108,37 +127,38 @@ func probeEndpoint(ctx context.Context, httpClient HTTPDoer, admission domain.Ad
 // TokenRejectedError reports that the provider refused the Token with HTTP
 // 401 or 403.
 type TokenRejectedError struct {
-	Label  string
-	Status int
+	Provider string
+	Status   int
 }
 
-// Error names the client whose request the provider refused, and the status.
+// Error names the provider that refused the Token, and the status.
 func (e *TokenRejectedError) Error() string {
-	return fmt.Sprintf("%s authentication was rejected (HTTP %d)", e.Label, e.Status)
+	return fmt.Sprintf("%s did not accept the Token (HTTP %d)", e.Provider, e.Status)
 }
 
 // EndpointStatusError reports a status of the endpoint that neither accepts
 // nor rejects the Token, such as 404 from a wrong endpoint URL.
 type EndpointStatusError struct {
-	Label    string
+	Provider string
 	Protocol domain.EndpointProtocol
 	Status   int
 }
 
-// Error names the client whose endpoint answered, and the status.
+// Error names the provider's endpoint that answered, and the status.
 func (e *EndpointStatusError) Error() string {
-	return fmt.Sprintf("%s endpoint returned HTTP %d", e.Label, e.Status)
+	return fmt.Sprintf("the %s endpoint of %s returned HTTP %d", domain.ProtocolLabel(e.Protocol), e.Provider, e.Status)
 }
 
 // UnreachableError reports an endpoint that sent no response.
 type UnreachableError struct {
-	Label string
-	Err   error
+	Provider string
+	Protocol domain.EndpointProtocol
+	Err      error
 }
 
-// Error names the client whose endpoint did not answer, and why.
+// Error names the provider's endpoint that did not answer, and why.
 func (e *UnreachableError) Error() string {
-	return fmt.Sprintf("%s endpoint is unreachable: %v", e.Label, e.Err)
+	return fmt.Sprintf("the %s endpoint of %s is unreachable: %v", domain.ProtocolLabel(e.Protocol), e.Provider, e.Err)
 }
 
 // Unwrap returns the transport failure.
@@ -147,23 +167,23 @@ func (e *UnreachableError) Unwrap() error { return e.Err }
 // endpointStatus executes one bounded authenticated endpoint request and
 // closes its response before returning the status. A status is transport
 // evidence; its callers interpret it as credential validation.
-func endpointStatus(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, client, endpoint, token string, protocols ...domain.EndpointProtocol) (int, error) {
+func endpointStatus(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, to target, token string) (int, error) {
 	ctx, cancel := context.WithTimeout(ctx, validationTimeout)
 	defer cancel()
-	request, err := domain.ProbeRequest(ctx, admission, client, endpoint, token, protocols...)
+	request, err := domain.ProbeRequest(ctx, admission, to.client, to.endpoint, token, to.protocol)
 	if err != nil {
 		return 0, err
 	}
 	response, err := Send(httpClient, request)
 	if err != nil {
-		return 0, &UnreachableError{Label: admission.Label(client), Err: err}
+		return 0, &UnreachableError{Provider: to.provider, Protocol: to.protocol, Err: err}
 	}
 	if _, err := io.Copy(io.Discard, response.Body); err != nil {
 		_ = response.Body.Close()
-		return 0, fmt.Errorf("read %s endpoint response: %w", admission.Label(client), err)
+		return 0, fmt.Errorf("read the %s endpoint response of %s: %w", domain.ProtocolLabel(to.protocol), to.provider, err)
 	}
 	if err := response.Body.Close(); err != nil {
-		return 0, fmt.Errorf("close %s endpoint response: %w", admission.Label(client), err)
+		return 0, fmt.Errorf("close the %s endpoint response of %s: %w", domain.ProtocolLabel(to.protocol), to.provider, err)
 	}
 	return response.StatusCode, nil
 }

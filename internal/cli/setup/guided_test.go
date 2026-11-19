@@ -30,9 +30,13 @@ import (
 // starts with fail.
 type guidedPrompt struct {
 	texts, selections, secrets []string
-	asked                      []string
-	choices                    [][]terminal.Choice
-	fail                       string
+	// multi answers each multiple-choice prompt in turn; one without an
+	// answer chooses none, as Enter alone does, unless multiErr ends it.
+	multi    [][]string
+	multiErr error
+	asked    []string
+	choices  [][]terminal.Choice
+	fail     string
 }
 
 func (p *guidedPrompt) answer(label string, answers *[]string) (string, error) {
@@ -50,9 +54,31 @@ func (p *guidedPrompt) answer(label string, answers *[]string) (string, error) {
 
 func (p *guidedPrompt) Secret(label string) (string, error) { return p.answer(label, &p.secrets) }
 func (p *guidedPrompt) Text(label string) (string, error)   { return p.answer(label, &p.texts) }
+
+// OptionalSecret answers from the secrets as Secret does; an empty scripted
+// answer is Enter alone.
+func (p *guidedPrompt) OptionalSecret(label string) (string, error) {
+	return p.answer(label, &p.secrets)
+}
 func (p *guidedPrompt) Select(label string, choices []terminal.Choice) (string, error) {
 	p.choices = append(p.choices, slices.Clone(choices))
 	return p.answer(label, &p.selections)
+}
+func (p *guidedPrompt) MultiSelect(label string, choices []terminal.Choice) ([]string, error) {
+	p.asked = append(p.asked, label)
+	p.choices = append(p.choices, slices.Clone(choices))
+	if p.fail != "" && strings.HasPrefix(label, p.fail) {
+		return nil, fmt.Errorf("%w: no input received", terminal.ErrInputCancelled)
+	}
+	if p.multiErr != nil {
+		return nil, p.multiErr
+	}
+	if len(p.multi) == 0 {
+		return nil, nil
+	}
+	answer := p.multi[0]
+	p.multi = p.multi[1:]
+	return answer, nil
 }
 
 // guidedHome is a home for guided setup: its configuration, Tokens, the

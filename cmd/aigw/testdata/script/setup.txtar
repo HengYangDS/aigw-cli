@@ -132,14 +132,15 @@ normalize stdout prune-alone.out
 cmp prune-alone.out prune-alone.json
 fixloop -input stdout aigw setup --prune --json
 
-# A Token that the provider rejects refuses the whole apply.
+# A Token that the provider rejects leaves its provider without a Token: the
+# team file is applied, and the command fails so that the script sees it.
 stdin rejected.txt
 exitcode 1 aigw setup --from team.toml --provider team --token-stdin --json
 normalize stdout team-rejected.out
 cmp team-rejected.out team-rejected.json
-[darwin] ! exists $HOME/'Library/Application Support/aigw/aigw.toml'
+[darwin] exists $HOME/'Library/Application Support/aigw/aigw.toml'
 [darwin] ! exists $HOME/'Library/Application Support/aigw/secrets/tokens/team'
-[!darwin] ! exists $HOME/aigw/aigw.toml
+[!darwin] exists $HOME/aigw/aigw.toml
 [!darwin] ! exists $HOME/aigw/secrets/tokens/team
 stdin token.txt
 fixloop -did 'piped a Token that the provider accepts' stdout aigw setup --from team.toml --provider team --token-stdin --json
@@ -445,7 +446,7 @@ anthropic = "https://team.invalid"
 -- empty-file --
 -- team-preview.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "dry_run": true,
   "added": {
@@ -534,16 +535,8 @@ Next
 }
 -- team-rejected.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": false,
-  "error": "Token validation failed: Claude authentication was rejected (HTTP 401)",
-  "impact": "No Token was stored. The team file was not applied.",
-  "next_detail": "Pipe a Token that provider team accepts into `aigw setup --from team.toml --json --provider team --token-stdin`."
-}
--- team-connected.json --
-{
-  "schema_version": 3,
-  "ok": true,
   "added": {
     "providers": [
       "spare",
@@ -559,6 +552,50 @@ Next
     "recommendations": [
       "claude"
     ]
+  },
+  "changed": {
+    "providers": [],
+    "models": [],
+    "families": []
+  },
+  "tokens": [
+    {
+      "provider": "team",
+      "state": "rejected",
+      "reason": "Team Gateway did not accept the Token (HTTP 401)",
+      "next_detail": "aigw provider rotate team"
+    }
+  ],
+  "clients": [
+    {
+      "id": "claude",
+      "state": "not_selected"
+    },
+    {
+      "id": "claude-desktop",
+      "state": "not_selected"
+    },
+    {
+      "id": "codex",
+      "state": "not_selected"
+    },
+    {
+      "id": "hermes",
+      "state": "not_selected"
+    }
+  ],
+  "error": "Token validation failed: Team Gateway did not accept the Token (HTTP 401)",
+  "impact": "No Token was stored. The team file and every other Token were applied.",
+  "next_detail": "Pipe a Token that provider team accepts into `aigw setup --from team.toml --json --provider team --token-stdin`."
+}
+-- team-connected.json --
+{
+  "schema_version": 4,
+  "ok": true,
+  "added": {
+    "providers": [],
+    "models": [],
+    "families": []
   },
   "changed": {
     "providers": [],
@@ -601,7 +638,7 @@ Next
 }
 -- again-preview.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "dry_run": true,
   "added": {
@@ -705,7 +742,7 @@ Next
 }
 -- again.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "added": {
     "providers": [],
@@ -827,7 +864,7 @@ Next
   aigw check
 -- pruned.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "added": {
     "providers": [],
@@ -909,7 +946,7 @@ Next
 }
 -- deferred.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "added": {
     "providers": [
@@ -961,7 +998,7 @@ Next
 }
 -- deferred-empty.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "added": {
     "providers": [],
@@ -1002,7 +1039,7 @@ Next
 }
 -- away.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "added": {
     "providers": [],

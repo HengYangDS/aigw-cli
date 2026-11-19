@@ -87,6 +87,7 @@ func ExportTeamFile(cfg domain.Config) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	data = expandWideArrays(data)
 	if _, err := ParseTeamFile(data, cfg.Admission()); err != nil {
 		return nil, fmt.Errorf("export the team file: %w", err)
 	}

@@ -544,16 +544,19 @@ label = 'Step 5 Preview'
 
 [recommendations.claude]
 primary = { model = 'dmxapi/claude-opus-5-5' }
-alternatives = [{ model = 'ucloud/claude-opus-5-5' }]
+alternatives = [{ model = 'ucloud/claude-opus-5-5' }, { model = 'aihubmix/claude-opus-5-5' }]
 
 [recommendations.claude-desktop]
 primary = { model = 'dmxapi/claude-opus-5-5' }
-alternatives = [{ model = 'ucloud/claude-opus-5-5' }]
+alternatives = [{ model = 'ucloud/claude-opus-5-5' }, { model = 'aihubmix/claude-opus-5-5' }]
 
 [recommendations.codex]
 primary = { model = 'dmxapi/gpt-6.2-sol-cdx' }
-alternatives = [{ model = 'ucloud/gpt-6.2-sol' }]
+alternatives = [{ model = 'ucloud/gpt-6.2-sol' }, { model = 'aihubmix/gpt-6.2-sol' }]
 
 [recommendations.hermes]
 primary = { model = 'dmxapi/gpt-6.2-sol', protocol = 'responses' }
-alternatives = [{ model = 'ucloud/gpt-6.2-sol', protocol = 'responses' }]
+alternatives = [
+  { model = 'ucloud/gpt-6.2-sol', protocol = 'responses' },
+  { model = 'aihubmix/gpt-6.2-sol', protocol = 'responses' },
+]

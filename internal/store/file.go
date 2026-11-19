@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"aigw-cli/internal/domain"
 
@@ -307,6 +308,83 @@ func encodeDocument(described document) ([]byte, error) {
 		lines[index] = spaceInlineTables(line)
 	}
 	return []byte(strings.Join(lines, "\n")), nil
+}
+
+// columnWidth is the widest line that a team file export writes on purpose:
+// the width past which taplo, the formatter of the repository that ships the
+// team file, expands an array.
+const columnWidth = 100
+
+// expandWideArrays expands each array of data, a team file, whose line is
+// wider than columnWidth, so that an exported team file is the one that taplo
+// keeps. aigw.toml keeps one line for each value.
+func expandWideArrays(data []byte) []byte {
+	lines := strings.Split(string(data), "\n")
+	for index, line := range lines {
+		lines[index] = expandWideArray(line)
+	}
+	return []byte(strings.Join(lines, "\n"))
+}
+
+// expandWideArray writes the array value of a line wider than columnWidth
+// with one element on each line, indented two spaces and followed by a comma,
+// as taplo expands one. A narrower line, a line whose value is no array, and
+// an inline table, which TOML keeps on one line, stay as they are.
+func expandWideArray(line string) string {
+	if utf8.RuneCountInString(line) <= columnWidth {
+		return line
+	}
+	key, value, found := strings.Cut(line, " = [")
+	if !found || !strings.HasSuffix(value, "]") || strings.TrimLeft(key, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != "" {
+		return line
+	}
+	elements := arrayElements(strings.TrimSuffix(value, "]"))
+	if len(elements) == 0 {
+		return line
+	}
+	var expanded strings.Builder
+	expanded.WriteString(key + " = [\n")
+	for _, element := range elements {
+		expanded.WriteString("  " + element + ",\n")
+	}
+	expanded.WriteString("]")
+	return expanded.String()
+}
+
+// arrayElements splits the inside of a one-line array at the commas outside
+// strings, inline tables and nested arrays, or returns nothing for brackets
+// that do not balance.
+func arrayElements(inside string) []string {
+	var elements []string
+	var quote byte
+	depth, start := 0, 0
+	for index := 0; index < len(inside); index++ {
+		char := inside[index]
+		switch {
+		case quote == '"' && char == '\\':
+			index++
+		case quote != 0:
+			if char == quote {
+				quote = 0
+			}
+		case char == '"' || char == '\'':
+			quote = char
+		case char == '{' || char == '[':
+			depth++
+		case char == '}' || char == ']':
+			depth--
+		case char == ',' && depth == 0:
+			elements = append(elements, strings.TrimSpace(inside[start:index]))
+			start = index + 1
+		}
+	}
+	if depth != 0 || quote != 0 {
+		return nil
+	}
+	if last := strings.TrimSpace(inside[start:]); last != "" {
+		elements = append(elements, last)
+	}
+	return elements
 }
 
 // spaceInlineTables writes one space inside the braces of each inline table

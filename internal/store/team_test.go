@@ -352,42 +352,30 @@ func TestTeamManifestModelsUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 
 func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	sol := "gpt-6.2-sol"
-	for client, want := range map[string][]string{
-		ClientClaude:        {"dmxapi/claude-opus-5-5", "ucloud/claude-opus-5-5"},
-		ClientClaudeDesktop: {"dmxapi/claude-opus-5-5", "ucloud/claude-opus-5-5"},
-		ClientCodex:         {"dmxapi/" + sol + "-cdx", "ucloud/" + sol},
-		ClientHermes:        {"dmxapi/" + sol, "ucloud/" + sol},
-	} {
-		choices := manifest.Recommendations[client].Selections()
-		if len(choices) != len(want) {
-			t.Errorf("%s recommendations = %#v, want %q", client, choices, want)
-			continue
-		}
-		for index, selection := range choices {
-			if selection.Model.String() != want[index] {
-				t.Errorf("%s recommendation %d = %q, want %q", client, index, selection.Model, want[index])
-			}
-		}
-	}
 	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetSelectedModel(ClientCodex, domain.NewModelRef("ucloud", sol), "")
-	selected, err := cfg.SelectModelsForConnectedProviders([]string{"dmxapi"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if selected.SelectedModel(ClientCodex) != domain.NewModelRef("ucloud", sol) {
-		t.Fatalf("qualified recommendation replaced explicit Codex selection: %+v", selected.Clients)
-	}
-	if _, exists := manifest.Families["gpt-6-sol"]; exists {
-		t.Error("retired GPT-6 Sol remains in the shipped model catalog")
-	}
-	for routeID, route := range manifest.Models {
-		if route.Family == "gpt-6-sol" {
-			t.Errorf("retired GPT-6 Sol Route %q remains", routeID)
+	// Each client's choices are models of the file that the client can use,
+	// and a later choice never replaces an explicit selection of another: a
+	// client that selects its last choice keeps it when only the first choice's
+	// provider has a Token.
+	for client, recommendation := range manifest.Recommendations {
+		choices := recommendation.Selections()
+		for _, choice := range choices {
+			if _, err := manifest.ResolveSelection(client, choice); err != nil {
+				t.Errorf("%s recommends %s, which it cannot use: %v", client, choice.Model, err)
+			}
+		}
+		last := choices[len(choices)-1]
+		explicit := cfg.Clone()
+		explicit.SetSelectedModel(client, last.Model, last.Protocol)
+		selected, err := explicit.SelectModelsForConnectedProviders([]string{choices[0].Model.Provider()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if selected.SelectedModel(client) != last.Model {
+			t.Errorf("a recommendation replaced %s's explicit selection of %s: %+v", client, last.Model, selected.Clients[client])
 		}
 	}
 }

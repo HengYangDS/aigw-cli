@@ -34,7 +34,7 @@ func TestTokenValidationProblemNamesAFixThatRuns(t *testing.T) {
 		}
 		return ""
 	})
-	rejected := &probe.TokenRejectedError{Label: "Claude", Status: http.StatusUnauthorized}
+	rejected := &probe.TokenRejectedError{Provider: "Team", Status: http.StatusUnauthorized}
 	endpoint := func(protocol domain.EndpointProtocol) string { return "edit " + protocol.Name() }
 	for _, test := range []struct {
 		name    string

@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/probe"
 	"aigw-cli/internal/terminal"
 )
 
@@ -44,8 +46,12 @@ type teamDocument struct {
 	Clients             []clientItem                  `json:"clients"`
 	ClientFiles         []invocation.ClientFile       `json:"client_files,omitempty"`
 	CredentialReader    *app.CredentialEntrypointPlan `json:"credential_reader,omitempty"`
-	NextAction          string                        `json:"next_action,omitempty"`
-	NextDetail          string                        `json:"next_detail,omitempty"`
+	// Error and Impact name the problem of a piped Token that its provider
+	// did not accept, after a write that applied everything else.
+	Error      string `json:"error,omitempty"`
+	Impact     string `json:"impact,omitempty"`
+	NextAction string `json:"next_action,omitempty"`
+	NextDetail string `json:"next_detail,omitempty"`
 }
 
 // teamEntries are providers, models, families and recommendations, each
@@ -114,11 +120,13 @@ type unusableProtocol struct {
 	NextDetail string `json:"next_detail"`
 }
 
-// tokenItem is one provider's Token state, and the step that stores a missing
-// one that a recommendation needs.
+// tokenItem is one provider's Token state, why the provider did not accept a
+// Token that this run read, and the step that stores a missing or rejected one
+// that a recommendation needs.
 type tokenItem struct {
 	Provider   string `json:"provider"`
 	State      string `json:"state"`
+	Reason     string `json:"reason,omitempty"`
 	NextAction string `json:"next_action,omitempty"`
 	NextDetail string `json:"next_detail,omitempty"`
 	// problem is the title of the Keychain item that macOS refuses AIGW, for
@@ -182,8 +190,12 @@ func (t teamSetup) document(after domain.Config, states map[string]string, conne
 	}
 	for _, id := range slices.Sorted(maps.Keys(states)) {
 		item := tokenItem{Provider: id, State: states[id], problem: t.tokenProblem(id)}
-		// A named provider's Token is the command's own input.
-		if !slices.Contains(t.request.Providers, id) {
+		if failure, failed := t.failed[id]; failed {
+			item.Reason = failure.Error()
+		}
+		// A named provider's Token is the command's own input, unless this
+		// run did not store it.
+		if !slices.Contains(t.request.Providers, id) || item.Reason != "" {
 			item.NextAction, item.NextDetail = terminal.NextSteps(t.tokenStep(id, item.State))
 		}
 		document.Tokens = append(document.Tokens, item)
@@ -229,6 +241,12 @@ func (t teamSetup) tokenStep(id, state string) string {
 			return refusal.Fix()
 		}
 		return domainreadiness.CredentialBackendRecovery
+	case tokenRejected, tokenUnverified:
+		// An endpoint that answered neither yes nor no, nor a status that a
+		// later request may not repeat, is the endpoint's to correct.
+		if status, answered := errors.AsType[*probe.EndpointStatusError](t.failed[id]); answered && !invocation.TransientStatus(status.Status) {
+			return "aigw provider edit " + id + " --endpoint " + status.Protocol.Name() + "=<url>"
+		}
 	}
 	return tokenFix(t.runtime.Secrets, id)
 }
@@ -251,11 +269,12 @@ func tokenFix(store secret.Store, id string) string {
 	return "aigw provider rotate " + id
 }
 
-// write writes the document, or the same report for a person.
-func (t teamSetup) write(document teamDocument) error {
+// write writes the document, which ok says met the command's request, or the
+// same report for a person.
+func (t teamSetup) write(document teamDocument, ok bool) error {
 	if t.request.JSON {
 		document.NextAction, document.NextDetail = terminal.NextSteps(document.NextAction)
-		return terminal.WriteDocument(t.runtime.Out, teamSchemaVersion, true, document)
+		return terminal.WriteDocument(t.runtime.Out, teamSchemaVersion, ok, document)
 	}
 	r := invocation.Renderer(t.runtime)
 	if document.DryRun {
@@ -288,9 +307,19 @@ func (t teamSetup) write(document teamDocument) error {
 	r.Rows(clients...)
 	invocation.RenderClientFiles(r, t.runtime, document.ClientFiles)
 	invocation.RenderCredentialReader(r, t.runtime, document.CredentialReader)
-	if document.DryRun {
+	switch {
+	case !ok:
+		// The write went ahead, and the Token that the command was asked to
+		// store did not: its problem replaces the success line.
+		r.Section("Problem")
+		r.Text(document.Error)
+		if document.Impact != "" {
+			r.Section("Impact")
+			r.Text(document.Impact)
+		}
+	case document.DryRun:
 		r.Success("Nothing was written: configuration, credentials and client files are unchanged")
-	} else {
+	default:
 		r.Success("Saved; no client was run, so whether each one works is unchecked")
 	}
 	r.Next(document.NextAction)
@@ -406,8 +435,15 @@ func tokenField(token tokenItem) terminal.Field {
 		field.Value = "Accepted by the provider and stored"
 	case tokenPresent:
 		field.Value = storedTokenUsed
+		if token.Reason != "" {
+			field.State, field.Value = terminal.Warn, "Kept the stored Token; the new one was not stored: "+token.Reason
+		}
 	case tokenEnvironment:
 		field.Value = "Supplied by " + secret.EnvironmentKey(token.Provider)
+	case tokenRejected:
+		field.State, field.Value = terminal.Warn, "Not accepted: "+token.Reason+"; "+token.NextAction+token.NextDetail
+	case tokenUnverified:
+		field.State, field.Value = terminal.Warn, "Not verified: "+token.Reason+"; "+token.NextAction+token.NextDetail
 	case tokenUnobserved:
 		field.State, field.Value = terminal.Warn, "The credential store cannot tell; "+token.NextAction+token.NextDetail
 		if token.problem != "" {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -117,12 +118,15 @@ func TestTeamSetupReadsTheTokensThatItNeeds(t *testing.T) {
 	path := writeTeamFile(t, teamFileText)
 	// In a terminal it asks for the Token that the recommendation needs.
 	home := newGuidedHome(t, claude.ID)
-	prompt := &guidedPrompt{secrets: []string{"sk-team"}}
+	prompt := &guidedPrompt{multi: [][]string{{"team"}}, secrets: []string{"sk-team"}}
 	if err := home.run(t, prompt, "--from", path); err != nil {
 		t.Fatalf("terminal setup: %v\n%s", err, home.out)
 	}
-	if len(prompt.asked) != 1 || prompt.asked[0] != "Paste the Team Gateway Again Token: " || !strings.Contains(home.out.String(), "Accepted by the provider and stored") {
+	if !slices.Equal(prompt.asked, []string{providerQuestion, tokenPrompt("Team Gateway Again")}) || !strings.Contains(home.out.String(), "Accepted by the provider and stored") {
 		t.Fatalf("asked %q:\n%s", prompt.asked, home.out)
+	}
+	if offered := prompt.choices[0]; len(offered) != 2 || offered[0].Value != "spare" || offered[1].Value != "team" {
+		t.Fatalf("offered %+v, want the file's providers without a Token in its order", offered)
 	}
 	// The read-only environment backend supplies a Token, or refuses a named
 	// provider whose variable is not set.
@@ -226,7 +230,7 @@ func TestTeamSetupRendersEveryRow(t *testing.T) {
 		Clients:    []clientItem{{ID: claude.ID, State: clientWaitsForToken, Model: "team/one", NextDetail: "aigw provider rotate team"}},
 		NextAction: "aigw check",
 	}
-	if err := team.write(document); err != nil {
+	if err := team.write(document, true); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{

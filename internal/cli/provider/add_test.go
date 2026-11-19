@@ -75,10 +75,10 @@ func TestAddStoresNothingThatTheProviderDoesNotAccept(t *testing.T) {
 		status           int
 		failure          error
 	}{
-		{name: "rejected", status: http.StatusUnauthorized, title: "Token validation failed: Claude authentication was rejected (HTTP 401)", fix: accepted},
-		{name: "server error", status: http.StatusServiceUnavailable, title: "Token validation failed: Claude endpoint returned HTTP 503", fix: retry},
-		{name: "unreachable", failure: errors.New("offline"), title: "Token validation failed: Claude endpoint is unreachable: offline", fix: retry},
-		{name: "wrong endpoint", status: http.StatusNotFound, title: "Token validation failed: Claude endpoint returned HTTP 404",
+		{name: "rejected", status: http.StatusUnauthorized, title: "Token validation failed: fresh did not accept the Token (HTTP 401)", fix: accepted},
+		{name: "server error", status: http.StatusServiceUnavailable, title: "Token validation failed: the Anthropic Messages endpoint of fresh returned HTTP 503", fix: retry},
+		{name: "unreachable", failure: errors.New("offline"), title: "Token validation failed: the Anthropic Messages endpoint of fresh is unreachable: offline", fix: retry},
+		{name: "wrong endpoint", status: http.StatusNotFound, title: "Token validation failed: the Anthropic Messages endpoint of fresh returned HTTP 404",
 			fix: "aigw provider add fresh --token-stdin --endpoint anthropic=<url>"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

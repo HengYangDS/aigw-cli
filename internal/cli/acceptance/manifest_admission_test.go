@@ -65,12 +65,13 @@ func TestSetupAdmitsArgumentsBeforeCreatingConfiguration(t *testing.T) {
 	}
 }
 
-// A Token that setup reads is validated as `aigw provider add` validates one,
-// and one that the provider rejects refuses the whole apply.
+// A Token that setup reads is validated as `aigw provider add` validates one;
+// one that the provider rejects, the person skips, and the team file applies.
 func TestSetupFromATeamFileValidatesAPromptedToken(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
-	app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-dmxapi-token"}}
+	prompt := &scriptedPrompt{secrets: []string{"aigw-test-dmxapi-token"}, selections: []string{"skip"}}
+	app.Prompt = prompt
 	requests := 0
 	app.HTTP = &fakeHTTP{handler: func(req *http.Request) (*http.Response, error) {
 		requests++
@@ -78,34 +79,35 @@ func TestSetupFromATeamFileValidatesAPromptedToken(t *testing.T) {
 	}}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
-	err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--provider", "dmxapi"})
-	if err == nil || !strings.Contains(err.Error(), "Token validation failed") {
-		t.Fatalf("a rejected Token = %v\n%s", err, out)
+	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--provider", "dmxapi"}); err != nil {
+		t.Fatalf("a skipped provider failed setup: %v\n%s", err, out)
 	}
-	if requests == 0 || strings.Contains(out.String(), "aigw-test-dmxapi-token") {
+	if requests == 0 || prompt.selectCalls != 1 || strings.Contains(out.String(), "aigw-test-dmxapi-token") || !strings.Contains(out.String(), "Not accepted:") {
 		t.Fatalf("setup did not validate the Token safely: requests=%d output=%s", requests, out)
 	}
 	if secretExists(t, secretStore, "dmxapi") || secretExists(t, secretStore, "aihubmix") {
 		t.Fatal("a rejected Token was stored")
 	}
-	assertManifestSetupLeavesNoConfig(t, app)
+	if cfg, err := app.Config.Load(); err != nil || len(cfg.Providers) == 0 {
+		t.Fatalf("the team file was not applied: %+v, %v", cfg, err)
+	}
 }
 
 // Setup stores only the named provider's Token once the provider accepts it,
-// and an endpoint that does not answer as one refuses it.
+// and the person skips one that an endpoint does not answer as one.
 func TestSetupFromATeamFileStoresOnlyTheNamedProvidersAcceptedToken(t *testing.T) {
 	for _, status := range []int{http.StatusOK, http.StatusFound, http.StatusNotFound} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			app, _, secretStore, _, _ := testApp(t, "")
 			app.Interactive = true
-			app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-aihubmix-token"}}
+			app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-aihubmix-token"}, selections: []string{"skip"}}
 			app.HTTP = &fakeHTTP{handler: func(req *http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader("{}")), Request: req}, nil
 			}}
 			manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
 			err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--provider", "aihubmix"})
-			if accepted := status == http.StatusOK; accepted != (err == nil) || accepted != secretExists(t, secretStore, "aihubmix") {
+			if accepted := status == http.StatusOK; err != nil || accepted != secretExists(t, secretStore, "aihubmix") {
 				t.Fatalf("status %d: error = %v", status, err)
 			}
 			if secretExists(t, secretStore, "dmxapi") {
@@ -115,12 +117,12 @@ func TestSetupFromATeamFileStoresOnlyTheNamedProvidersAcceptedToken(t *testing.T
 	}
 }
 
-// In a terminal, setup asks only for the Tokens that the recommended setup
-// would select, and a provider that no model names is added without one.
-func TestSetupFromATeamFilePromptsOnlyForTheRecommendedProvider(t *testing.T) {
+// In a terminal, setup asks which providers' Tokens the person holds and asks
+// only for those, and a provider that they do not choose is added without one.
+func TestSetupFromATeamFilePromptsOnlyForTheChosenProviders(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
-	prompt := &scriptedPrompt{secrets: []string{"aigw-test-used-token"}}
+	prompt := &scriptedPrompt{multi: [][]string{{"used"}}, secrets: []string{"aigw-test-used-token"}}
 	app.Prompt = prompt
 	manifestPath := writeConfigurationManifest(t, `version = 8
 
@@ -151,7 +153,7 @@ primary = {model = "used/claude-test"}
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath}); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(prompt.secretCalls, []string{"Paste the Used Token: "}) || !secretExists(t, secretStore, "used") || secretExists(t, secretStore, "unused") {
+	if len(prompt.multiCalls) != 1 || !slices.Equal(prompt.secretCalls, []string{"Paste the Used Token, or press Enter to skip Used: "}) || !secretExists(t, secretStore, "used") || secretExists(t, secretStore, "unused") {
 		t.Fatalf("prompts=%#v", prompt.secretCalls)
 	}
 	cfg, err := app.Config.Load()

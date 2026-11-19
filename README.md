@@ -131,9 +131,14 @@ aigw setup --from team.toml
 ```
 
 Applying the team file requires neither every provider Token nor an installed
-client. To connect one provider during setup, name it. Its Token must be
-available: a writable backend prompts for it, while `env` mode reads
-`AIGW_TOKEN_DMXAPI` from the invoking process:
+client. In a terminal, setup first asks which of the file's providers you hold
+a Token for; choose any of them, or none. It then asks only for those Tokens.
+Enter alone skips a provider, and a Token that its provider does not accept can
+be entered again or skipped; the team file is applied either way, and each
+client gets a model of a provider whose Token was accepted. To connect one
+provider without the question, name it. Its Token must be available: a writable
+backend prompts for it, while `env` mode reads `AIGW_TOKEN_DMXAPI` from the
+invoking process:
 
 ```bash
 aigw setup --from team.toml --provider dmxapi

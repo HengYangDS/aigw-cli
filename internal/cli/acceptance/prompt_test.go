@@ -19,9 +19,13 @@ import (
 )
 
 type scriptedPrompt struct {
-	secrets     []string
-	texts       []string
-	selections  []string
+	secrets    []string
+	texts      []string
+	selections []string
+	// multi answers each multiple-choice prompt in turn; one without an
+	// answer chooses none, as Enter alone does.
+	multi       [][]string
+	multiCalls  []string
 	secretErr   error
 	selectErr   error
 	secretCalls []string
@@ -38,6 +42,11 @@ func (p *scriptedPrompt) Secret(label string) (string, error) {
 	return consumeAnswer(&p.secrets, "secret")
 }
 
+// OptionalSecret answers as Secret does; an empty scripted answer skips.
+func (p *scriptedPrompt) OptionalSecret(label string) (string, error) {
+	return p.Secret(label)
+}
+
 func (p *scriptedPrompt) Text(string) (string, error) {
 	p.textCalls++
 	return consumeAnswer(&p.texts, "text")
@@ -52,8 +61,18 @@ func (p *scriptedPrompt) Select(_ string, choices []terminal.Choice) (string, er
 	return consumeAnswer(&p.selections, "selection")
 }
 
+func (p *scriptedPrompt) MultiSelect(label string, _ []terminal.Choice) ([]string, error) {
+	p.multiCalls = append(p.multiCalls, label)
+	if len(p.multi) == 0 {
+		return nil, nil
+	}
+	answer := p.multi[0]
+	p.multi = p.multi[1:]
+	return answer, nil
+}
+
 func (p *scriptedPrompt) callCount() int {
-	return len(p.secretCalls) + p.textCalls + p.selectCalls
+	return len(p.secretCalls) + p.textCalls + p.selectCalls + len(p.multiCalls)
 }
 
 func consumeAnswer(answers *[]string, kind string) (string, error) {

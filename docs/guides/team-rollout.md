@@ -297,7 +297,12 @@ Setup:
 
 - validates all public metadata first;
 - keeps every reviewed provider and model;
-- connects no provider unless a Token already exists or the user names one;
+- in a terminal, asks which of the file's providers the user holds a Token
+  for, accepts none, and connects only the chosen providers whose Tokens they
+  accept; Enter alone skips a provider, and a Token that is not accepted can be
+  entered again or its provider skipped;
+- applies the team file whatever becomes of each Token, and reports each
+  provider whose Token was not stored with its reason and next step;
 - configures only installed supported clients;
 - compensates failed client-file writes only where its owned writes remain
   unchanged, preserving newer external edits and reporting recovery conflicts.
@@ -317,7 +322,9 @@ automation may pipe exactly one Token by adding `--token-stdin`; it must keep
 `--provider` so the Token's provider is explicit. The input is read through EOF
 and is limited to 64 KiB, including an optional terminal LF or CRLF. A Token
 contains only visible ASCII characters; embedded whitespace, extra lines and
-control characters fail before validation or storage.
+control characters fail before validation or storage. A piped Token that its
+provider does not accept leaves the rest of the team file applied and a Token
+that the provider held in place, and the command exits 1.
 
 For a one-time endpoint check,
 `aigw check <client> --model <provider/model> --depth endpoint --token-stdin`

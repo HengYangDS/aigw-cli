@@ -11,6 +11,32 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `aigw setup --from` applies the team file whatever becomes of
+  each Token. In a terminal it first asks which of the file's providers you
+  hold a Token for, and you may choose none; it then asks only for those
+  Tokens. A Token that its provider does not accept can be entered again or
+  its provider skipped; the provider is reported as not accepted, with the
+  reason and `aigw provider rotate <provider>`, and every other provider and
+  client is set up. A piped Token (`--provider <id> --token-stdin`) that is not
+  accepted no longer prevents the write and keeps a Token that its provider
+  held; the command still exits 1 and shows the problem in place of its
+  success line.
+- **Breaking:** `aigw setup --from --json` writes schema version 4. A Token's
+  `state` may be `rejected` (the provider refused it) or `unverified` (its
+  validation got no verdict), with a `reason`; the document carries `error`
+  and `impact` when a piped Token was not stored. In a terminal, a validation
+  that got no verdict offers to try the same Token again.
+- A Token that a provider does not accept is reported as that provider's
+  refusal (`DMXAPI did not accept the Token (HTTP 401)`), not as a client's
+  authentication; an endpoint that answers otherwise, or not at all, is named
+  by its protocol and provider.
+- The team file recommends, for each client, a model on every provider that
+  serves the client's recommended model, so a Token of AIHubMix alone now
+  configures every client. `aigw config export` writes a team file array
+  wider than 100 columns one element to a line, as taplo does.
+
 ## [0.8.2] - 2026-11-18
 
 ### Changed

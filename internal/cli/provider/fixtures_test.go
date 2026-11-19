@@ -101,6 +101,14 @@ func (*prompter) Select(string, []terminal.Choice) (string, error) {
 	return "", errors.New("no choice prompt")
 }
 
+func (*prompter) OptionalSecret(string) (string, error) {
+	return "", errors.New("no optional secret prompt")
+}
+
+func (*prompter) MultiSelect(string, []terminal.Choice) ([]string, error) {
+	return nil, errors.New("no multiple-choice prompt")
+}
+
 // fixture is a configuration with two providers. team has an Anthropic and a
 // Responses endpoint, a DMXAPI balance probe, a Token and balance credentials;
 // Claude selects its team-model, whose Anthropic protocol declares tool

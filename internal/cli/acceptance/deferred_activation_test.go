@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/store"
 )
 
 type deferredActivationDocument struct {
@@ -44,6 +46,37 @@ func shippedTeamManifest(t *testing.T) string {
 		t.Fatalf("locate shipped manifest: %v", err)
 	}
 	return manifest
+}
+
+// shippedRecommendedProviders are the providers that the shipped team file's
+// recommendations name, in ID order: a Token of any one of them lets setup
+// fill the clients that it serves.
+func shippedRecommendedProviders(t *testing.T) []string {
+	t.Helper()
+	data, err := os.ReadFile(shippedTeamManifest(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := store.ParseTeamFile(data, clients.Admission())
+	if err != nil {
+		t.Fatal(err)
+	}
+	providers := map[string]bool{}
+	for _, recommendation := range file.Recommendations {
+		for _, choice := range recommendation.Selections() {
+			providers[choice.Model.Provider()] = true
+		}
+	}
+	return slices.Sorted(maps.Keys(providers))
+}
+
+// eachProvider joins one phrase for each of providers with " or ".
+func eachProvider(providers []string, phrase func(string) string) string {
+	phrases := make([]string, 0, len(providers))
+	for _, provider := range providers {
+		phrases = append(phrases, phrase(provider))
+	}
+	return strings.Join(phrases, " or ")
 }
 
 func assertDeferredJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer, command, wantAction string) {
@@ -114,7 +147,7 @@ func TestShippedTeamManifestWithoutProviderOrClientIsDeferred(t *testing.T) {
 			t.Fatalf("setup activation = %+v", setup)
 		}
 	}
-	wantAction := "Set one compatible provider's variable: " + secret.EnvironmentKey("dmxapi") + " or " + secret.EnvironmentKey("ucloud") + ", then run `aigw sync`"
+	wantAction := "Set one compatible provider's variable: " + eachProvider(shippedRecommendedProviders(t), secret.EnvironmentKey) + ", then run `aigw sync`"
 	if !wantNext(setup.NextAction, setup.NextDetail, wantAction) {
 		t.Fatalf("setup next action %q differs from prerequisite %q", (setup.NextAction + setup.NextDetail), wantAction)
 	}
@@ -202,7 +235,7 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneProviderChoice(t *testin
 			t.Fatalf("setup activation = %+v", setup)
 		}
 	}
-	wantAction := "Choose one compatible provider: aigw provider rotate dmxapi or aigw provider rotate ucloud"
+	wantAction := "Choose one compatible provider: " + eachProvider(shippedRecommendedProviders(t), func(provider string) string { return "aigw provider rotate " + provider })
 	if !wantNext(setup.NextAction, setup.NextDetail, wantAction) {
 		t.Fatalf("setup Account choices = %q, want %q", (setup.NextAction + setup.NextDetail), wantAction)
 	}

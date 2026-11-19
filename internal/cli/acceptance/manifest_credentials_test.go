@@ -84,19 +84,53 @@ func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice
 	}
 }
 
+// A provider that no recommendation names, whose Token the environment
+// supplies, is connected without selecting or configuring any client.
 func TestSetupFromTeamManifestConnectsExplicitManualProviderFromEnvironment(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	const token = "aigw-test-aihubmix-token"
+	const token = "aigw-test-manual-token"
 	app.Secrets = environmentBackend(func(key string) string {
-		if key == secret.EnvironmentKey("aihubmix") {
+		if key == secret.EnvironmentKey("manual") {
 			return token
 		}
 		return ""
 	})
 	app.Discovery = fakeDiscovery{}
-	manifestPath := filepath.Join("..", "..", "..", "manifests", "team.toml")
+	manifestPath := writeConfigurationManifest(t, `version = 8
 
-	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--provider", "aihubmix", "--json"}); err != nil {
+[[providers]]
+id = "used"
+label = "Used"
+endpoints = {anthropic = "https://used.test"}
+
+[[providers.models]]
+id = "claude-test"
+family = "claude-test"
+protocols = {anthropic = ["text"]}
+
+[[providers]]
+id = "manual"
+label = "Manual"
+endpoints = {anthropic = "https://manual.test"}
+
+[[providers.models]]
+id = "claude-other"
+family = "claude-other"
+protocols = {anthropic = ["text"]}
+
+[[families]]
+id = "claude-test"
+label = "Claude Test"
+
+[[families]]
+id = "claude-other"
+label = "Claude Other"
+
+[recommendations.claude]
+primary = {model = "used/claude-test"}
+`)
+
+	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--provider", "manual", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 	var result struct {
@@ -118,9 +152,9 @@ func TestSetupFromTeamManifestConnectsExplicitManualProviderFromEnvironment(t *t
 		Provider string `json:"provider"`
 		State    string `json:"state"`
 	}) bool {
-		return token.Provider == "aihubmix"
+		return token.Provider == "manual"
 	}); index < 0 || result.Tokens[index].State != "environment" {
-		t.Fatalf("tokens = %#v, want aihubmix's from the environment", result.Tokens)
+		t.Fatalf("tokens = %#v, want manual's from the environment", result.Tokens)
 	}
 	for _, client := range result.Clients {
 		if client.State != "not_selected" || len(result.ClientFiles) != 0 {

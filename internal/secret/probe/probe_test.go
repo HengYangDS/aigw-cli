@@ -92,38 +92,45 @@ func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 	}
 }
 
-// TestValidateNamesTheDefaultProbeClient shows that a default probe's error
-// names the first admitted client that speaks only the provider's protocol, or
-// else the first that speaks it, and that an admission without one refuses
-// instead of probing.
-func TestValidateNamesTheDefaultProbeClient(t *testing.T) {
+// TestValidateProbesTheDefaultClientsProtocol shows that a default probe uses
+// the protocol of the first admitted client that speaks only the provider's
+// preferred protocol, or else of the first that speaks it, that its refusal
+// names the provider whichever client carried it, and that an admission
+// without such a client refuses instead of probing.
+func TestValidateProbesTheDefaultClientsProtocol(t *testing.T) {
 	t.Parallel()
 
 	anthropic := domain.Endpoints{Anthropic: "https://anthropic.test"}
 	for name, test := range map[string]struct {
 		endpoints domain.Endpoints
 		admission domain.Admission
+		probed    string
 		want      string
 	}{
-		"Anthropic Messages": {endpoints: anthropic, admission: clients.Admission(), want: "Claude authentication was rejected (HTTP 401)"},
+		"Anthropic Messages": {endpoints: anthropic, admission: clients.Admission(), probed: "https://anthropic.test/v1/models", want: "Team did not accept the Token (HTTP 401)"},
 		"OpenAI Responses": {
 			endpoints: domain.Endpoints{Anthropic: anthropic.Anthropic, Responses: "https://responses.test/v1"},
-			admission: clients.Admission(), want: "Codex authentication was rejected (HTTP 401)",
+			admission: clients.Admission(), probed: "https://responses.test/v1/models", want: "Team did not accept the Token (HTTP 401)",
 		},
 		// No admitted client speaks only Chat Completions; Hermes speaks it
 		// among others and reaches the provider's only endpoint.
 		"OpenAI Chat Completions": {
 			endpoints: domain.Endpoints{Chat: "https://chat.test/v1"},
-			admission: clients.Admission(), want: "Hermes authentication was rejected (HTTP 401)",
+			admission: clients.Admission(), probed: "https://chat.test/v1/models", want: "Team did not accept the Token (HTTP 401)",
 		},
 		"no probing client": {endpoints: anthropic, admission: domain.NewAdmission(), want: "no admitted client probes a Token over Anthropic Messages"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			account := domain.Provider{ID: "team", Endpoints: test.endpoints}
-			err := probe.Validate(context.Background(), staticResponse(http.StatusUnauthorized, http.NoBody), test.admission, account, "secret")
-			if err == nil || err.Error() != test.want {
-				t.Fatalf("Validate() = %v, want %q", err, test.want)
+			account := domain.Provider{ID: "team", Label: "Team", Endpoints: test.endpoints}
+			var probed string
+			doer := doerFunc(func(request *http.Request) (*http.Response, error) {
+				probed = request.URL.String()
+				return &http.Response{StatusCode: http.StatusUnauthorized, Body: http.NoBody, Request: request}, nil
+			})
+			err := probe.Validate(context.Background(), doer, test.admission, account, "secret")
+			if err == nil || err.Error() != test.want || probed != test.probed {
+				t.Fatalf("Validate() = %v after probing %q, want %q after %q", err, probed, test.want, test.probed)
 			}
 		})
 	}
@@ -170,13 +177,13 @@ func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 		{name: "unknown client", account: account, client: "unknown", want: `unsupported credential validation client "unknown"`},
 		{name: "missing endpoint", account: account, client: claude.ID, want: "no Anthropic Messages endpoint"},
 		{name: "invalid URL", account: domain.Provider{ID: "team", Endpoints: domain.Endpoints{Responses: "://bad"}}, client: codex.ID, want: "missing protocol scheme"},
-		{name: "unreachable", account: account, client: codex.ID, doer: doerFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") }), want: "Codex endpoint is unreachable: offline"},
-		{name: "read body", account: account, client: codex.ID, doer: staticResponse(http.StatusOK, responseBody{Reader: failingReader{err: errors.New("broken body")}}), want: "read Codex endpoint response: broken body"},
-		{name: "close body", account: account, client: codex.ID, doer: staticResponse(http.StatusOK, responseBody{Reader: strings.NewReader("ok"), closeErr: errors.New("broken close")}), want: "close Codex endpoint response: broken close"},
-		{name: "unauthorized", account: account, client: codex.ID, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Codex authentication was rejected (HTTP 401)"},
-		{name: "forbidden", account: account, client: codex.ID, doer: staticResponse(http.StatusForbidden, http.NoBody), want: "Codex authentication was rejected (HTTP 403)"},
-		{name: "unexpected status", account: account, client: codex.ID, doer: staticResponse(http.StatusBadGateway, http.NoBody), want: "Codex endpoint returned HTTP 502"},
-		{name: "multi-word client label", account: domain.Provider{ID: "team", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}, client: claudedesktop.ID, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Claude Desktop authentication was rejected (HTTP 401)"},
+		{name: "unreachable", account: account, client: codex.ID, doer: doerFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") }), want: "the OpenAI Responses endpoint of team is unreachable: offline"},
+		{name: "read body", account: account, client: codex.ID, doer: staticResponse(http.StatusOK, responseBody{Reader: failingReader{err: errors.New("broken body")}}), want: "read the OpenAI Responses endpoint response of team: broken body"},
+		{name: "close body", account: account, client: codex.ID, doer: staticResponse(http.StatusOK, responseBody{Reader: strings.NewReader("ok"), closeErr: errors.New("broken close")}), want: "close the OpenAI Responses endpoint response of team: broken close"},
+		{name: "unauthorized", account: account, client: codex.ID, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "team did not accept the Token (HTTP 401)"},
+		{name: "forbidden", account: account, client: codex.ID, doer: staticResponse(http.StatusForbidden, http.NoBody), want: "team did not accept the Token (HTTP 403)"},
+		{name: "unexpected status", account: account, client: codex.ID, doer: staticResponse(http.StatusBadGateway, http.NoBody), want: "the OpenAI Responses endpoint of team returned HTTP 502"},
+		{name: "a provider label", account: domain.Provider{ID: "team", Label: "Team Gateway", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}, client: claudedesktop.ID, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Team Gateway did not accept the Token (HTTP 401)"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

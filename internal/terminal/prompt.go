@@ -71,6 +71,27 @@ func (p Prompt) Secret(label string) (string, error) {
 	return strings.TrimSpace(value), nil
 }
 
+// OptionalSecret reads a value that a terminal never echoes, without
+// persisting it, and returns "" when the person presses Enter alone.
+func (p Prompt) OptionalSecret(label string) (string, error) {
+	if p.accessible {
+		if !p.hidden.isTerminal() {
+			return p.plainInput(label, true)
+		}
+		return readHiddenLine(p.out, label, "input", p.hidden)
+	}
+	var value string
+	field := huh.NewInput().
+		Title(label).
+		EchoMode(huh.EchoModePassword).
+		CharLimit(4096).
+		Value(&value)
+	if err := run(p.form(false, field)); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(value), nil
+}
+
 // Text reads and trims one required text value.
 func (p Prompt) Text(label string) (string, error) {
 	if p.accessible {
@@ -167,6 +188,82 @@ func (p Prompt) accessibleSelect(label string, choices []Choice) (string, error)
 		}
 	}
 	return "", ErrNoChoice
+}
+
+// MultiSelect reads any number of choices, none included, and returns them in
+// the order of choices. The list marks a choice with Space and confirms with
+// Enter, which its visible keys say. In accessible mode it numbers the choices
+// and reads one line: numbers separated by spaces or commas select those
+// choices, and Enter alone selects none. An answer that is not such numbers is
+// said and asked again, up to maximumUnmatched answers, after which the
+// selection ends without a choice; the end of input before an answer cancels
+// it.
+func (p Prompt) MultiSelect(label string, choices []Choice) ([]string, error) {
+	if len(choices) == 0 {
+		return nil, nil
+	}
+	if p.accessible {
+		return p.accessibleMultiSelect(label, choices)
+	}
+	options := make([]huh.Option[string], 0, len(choices))
+	for _, choice := range choices {
+		options = append(options, huh.NewOption(choice.Label, choice.Value))
+	}
+	var selected []string
+	if err := run(p.form(true, huh.NewMultiSelect[string]().Title(label).Options(options...).Value(&selected))); err != nil {
+		return nil, err
+	}
+	var values []string
+	for _, choice := range choices {
+		if slices.Contains(selected, choice.Value) {
+			values = append(values, choice.Value)
+		}
+	}
+	return values, nil
+}
+
+// accessibleMultiSelect reads the numbers of the chosen choices as one plain
+// line from the numbered list.
+func (p Prompt) accessibleMultiSelect(label string, choices []Choice) ([]string, error) {
+	if _, err := fmt.Fprintln(p.out, label); err != nil {
+		return nil, fmt.Errorf("render selection prompt: %w", err)
+	}
+	if err := p.number(choices); err != nil {
+		return nil, err
+	}
+	for range maximumUnmatched {
+		answer, err := p.plainInput("Select numbers separated by spaces, or press Enter for none: ", true)
+		if err != nil {
+			return nil, err
+		}
+		if values, named := numberedChoices(choices, answer); named {
+			return values, nil
+		}
+		if _, err := fmt.Fprintf(p.out, "Choose numbers from 1 to %d, or press Enter for none.\n", len(choices)); err != nil {
+			return nil, fmt.Errorf("render selection prompt: %w", err)
+		}
+	}
+	return nil, ErrNoChoice
+}
+
+// numberedChoices returns the values of the choices that answer numbers, in
+// the order of choices, and whether every word of answer is such a number.
+func numberedChoices(choices []Choice, answer string) ([]string, bool) {
+	picked := make([]bool, len(choices))
+	for _, word := range strings.FieldsFunc(answer, func(r rune) bool { return r == ',' || r == ' ' || r == '\t' }) {
+		number, err := strconv.Atoi(word)
+		if err != nil || number < 1 || number > len(choices) {
+			return nil, false
+		}
+		picked[number-1] = true
+	}
+	var values []string
+	for index, choice := range choices {
+		if picked[index] {
+			values = append(values, choice.Value)
+		}
+	}
+	return values, true
 }
 
 // number writes choices as a numbered list.

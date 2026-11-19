@@ -482,8 +482,12 @@ type promptStub struct {
 	err      error
 }
 
-func (stub *promptStub) Secret(string) (string, error) { return stub.secret, stub.err }
-func (stub *promptStub) Text(string) (string, error)   { return "", stub.err }
+func (stub *promptStub) Secret(string) (string, error)         { return stub.secret, stub.err }
+func (stub *promptStub) Text(string) (string, error)           { return "", stub.err }
+func (stub *promptStub) OptionalSecret(string) (string, error) { return stub.secret, stub.err }
+func (stub *promptStub) MultiSelect(string, []terminal.Choice) ([]string, error) {
+	return nil, errors.New("no multiple-choice prompt")
+}
 func (stub *promptStub) Select(_ string, choices []terminal.Choice) (string, error) {
 	stub.choices = append([]terminal.Choice(nil), choices...)
 	if len(stub.answers) > 0 {

@@ -20,22 +20,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// teamSchemaVersion is the version of `aigw setup --from`'s JSON document,
-// which replaced version 2, shared with flag-driven setup, and `aigw config
-// import`'s.
-const teamSchemaVersion = 3
+// teamSchemaVersion is the version of `aigw setup --from`'s JSON document.
+// Version 4 adds the Token states rejected and unverified, a Token's reason,
+// and the document's error and impact; version 3 replaced version 2, shared
+// with flag-driven setup, and `aigw config import`'s.
+const teamSchemaVersion = 4
 
 // The states of a provider's Token after team setup, which it observes
 // without reading a Token: this run validated and stored it, the store held
 // one already, the read-only environment backend supplies one, there is none,
-// or the credential store cannot tell.
+// or the credential store cannot tell; or this run read one and did not store
+// it, because the provider refused it, or because its validation got no
+// verdict.
 const (
 	tokenStored      = "stored"
 	tokenPresent     = "present"
 	tokenEnvironment = "environment"
 	tokenMissing     = "missing"
 	tokenUnobserved  = "unobserved"
+	tokenRejected    = "rejected"
+	tokenUnverified  = "unverified"
 )
+
+// providerQuestion asks which providers' Tokens a person holds before setup
+// asks for any.
+const providerQuestion = "Which providers' Tokens do you have? Choose none to skip them all."
 
 // storedTokenUsed says that setup used a Token that the store held already,
 // which it never prints.
@@ -55,6 +64,9 @@ type teamSetup struct {
 	// refused are the refusals of the Keychain items of the providers that
 	// wait for their Token because macOS refuses AIGW the item, by provider.
 	refused map[string]*secret.KeychainItemRefusedError
+	// failed are the validation failures of the Tokens that this run read and
+	// did not store, by provider.
+	failed map[string]error
 }
 
 // runTeamSetup applies a team file in one transaction: it merges the file
@@ -92,7 +104,8 @@ func runTeamSetup(cmd *cobra.Command, runtime invocation.Context, request setupR
 		return err
 	}
 	team := teamSetup{cmd: cmd, runtime: runtime, request: request, file: file, before: cfg, merged: merged, report: report,
-		installed: manifestSetupAvailableClients(cfg.Admission(), discovered.Executables), refused: map[string]*secret.KeychainItemRefusedError{}}
+		installed: manifestSetupAvailableClients(cfg.Admission(), discovered.Executables), refused: map[string]*secret.KeychainItemRefusedError{},
+		failed: map[string]error{}}
 	if request.DryRun {
 		return team.afterDeletion(team.preview())
 	}
@@ -192,20 +205,28 @@ func sharedLabelRefusal(shared *domain.SharedModelLabelError, file domain.Config
 }
 
 // apply connects the Tokens and commits the setup.
+// apply writes the team file, the Tokens that their providers accepted and the
+// client files in one transaction, whatever became of the other Tokens: a
+// provider that did not accept its Token is reported with its reason and fix.
+// A piped Token that was not accepted fails the command after the write, so
+// a script sees that its Token was not stored.
 func (t teamSetup) apply(ctx context.Context) error {
 	states, err := t.tokenStates()
 	if err != nil {
 		return err
 	}
-	tokens, err := t.acquire(states)
+	tokens, err := t.acquire(ctx, states)
 	if err != nil {
 		return err
 	}
-	for _, id := range slices.Sorted(maps.Keys(tokens)) {
-		if err := t.validate(ctx, id, tokens[id]); err != nil {
-			return err
-		}
+	for id := range tokens {
 		states[id] = tokenStored
+	}
+	for id, failure := range t.failed {
+		// A Token that the store held stays and keeps serving its clients.
+		if states[id] != tokenPresent {
+			states[id] = failureState(failure)
+		}
 	}
 	connected := connectedProviders(states)
 	selected, err := t.merged.SelectModelsForConnectedProviders(connected)
@@ -223,7 +244,39 @@ func (t teamSetup) apply(ctx context.Context) error {
 	if len(t.request.Providers) == 1 && slices.Contains(connected, t.request.Providers[0]) {
 		document.NextAction = clientactivation.NextActionAfterProviderConnection(after, t.request.Providers[0])
 	}
-	return t.write(document)
+	failure := t.pipedFailure()
+	if failure != nil {
+		problem := terminal.ProblemFor(failure)
+		document.Error, document.Impact, document.NextAction = problem.Title, problem.Impact, problem.Fix
+	}
+	if err := t.write(document, failure == nil); err != nil {
+		return err
+	}
+	if failure != nil {
+		return terminal.Presented(failure)
+	}
+	return nil
+}
+
+// pipedFailure is the problem of the Token that standard input supplied,
+// which the command was asked to store, when its validation failed: the
+// provider's fix, after a write that applied everything else.
+func (t teamSetup) pipedFailure() error {
+	if !t.request.TokenStdin {
+		return nil
+	}
+	for _, id := range t.request.Providers {
+		failure, failed := t.failed[id]
+		if !failed {
+			continue
+		}
+		endpointFix := func(protocol domain.EndpointProtocol) string {
+			return "aigw provider edit " + id + " --endpoint " + protocol.Name() + "=<url>"
+		}
+		return invocation.WithImpact(invocation.TokenValidationProblem(t.cmd, nil, t.runtime.Secrets, id, endpointFix, failure),
+			"The team file and every other Token were applied.")
+	}
+	return nil
 }
 
 // preview reports what apply would do without reading, validating or
@@ -263,7 +316,7 @@ func (t teamSetup) preview() error {
 	document.ClientFiles = invocation.ClientFiles(t.runtime, preview)
 	document.CredentialReader = preview.CredentialEntrypoint
 	document.NextAction = t.request.apply
-	return t.write(document)
+	return t.write(document, true)
 }
 
 // tokenProviders are the providers whose Tokens setup observes and reports:
@@ -320,53 +373,6 @@ func (t teamSetup) tokenStates() (map[string]string, error) {
 	return states, nil
 }
 
-// acquire reads the Tokens that setup asks for: the named provider's from
-// standard input, each named provider's at a prompt, or, in a terminal
-// without a named provider, at a prompt each missing Token that the
-// recommended setup would select. A named provider whose Token is stored
-// already uses it without a prompt, unless standard input replaces it; one
-// without a Token needs a terminal or standard input. Without a terminal it
-// reads none, and the read-only environment backend supplies every Token.
-func (t teamSetup) acquire(states map[string]string) (map[string]string, error) {
-	tokens := map[string]string{}
-	asked := t.request.Providers
-	if secret.IsReadOnly(t.runtime.Secrets) {
-		return tokens, t.admitEnvironmentTokens(states)
-	}
-	if len(asked) == 0 {
-		if !t.runtime.Interactive {
-			return tokens, nil
-		}
-		for _, id := range recommendedProviders(t.merged) {
-			if states[id] == tokenMissing {
-				asked = append(asked, id)
-			}
-		}
-	}
-	for _, id := range asked {
-		if states[id] == tokenPresent && !t.request.TokenStdin {
-			continue
-		}
-		if !t.request.TokenStdin && !t.runtime.Interactive {
-			return nil, t.promptRefusal()
-		}
-		var token string
-		var err error
-		if t.request.TokenStdin {
-			token, err = invocation.ReadToken(t.runtime, true, false)
-		} else if token, err = t.runtime.Prompt.Secret("Paste the " + t.merged.Providers[id].Label + " Token: "); err != nil {
-			err = invocation.Prompted("The Token prompt for provider "+id, err)
-		} else {
-			err = invocation.ValidateToken(token)
-		}
-		if err != nil {
-			return nil, err
-		}
-		tokens[id] = token
-	}
-	return tokens, nil
-}
-
 // promptRefusal refuses a named provider without a stored Token where no
 // prompt may appear, without a terminal or with --json, naming the standard
 // input that gives it.
@@ -395,24 +401,11 @@ func (t teamSetup) admitEnvironmentTokens(states map[string]string) error {
 }
 
 // validate sends the one authenticated request that names no model, as
-// `aigw provider add` does, and refuses the whole setup when the provider
-// does not accept the Token.
+// `aigw provider add` does, and returns the provider's verdict on the Token.
 func (t teamSetup) validate(ctx context.Context, id, token string) error {
 	provider := t.merged.Providers[id]
 	provider.ID = id
-	err := probe.Validate(ctx, t.runtime.HTTP, t.runtime.Clients.Admission(), provider, token)
-	if err == nil {
-		return ctx.Err()
-	}
-	_, existing := t.before.Providers[id]
-	endpointFix := func(protocol domain.EndpointProtocol) string {
-		if existing {
-			return "aigw provider edit " + id + " --endpoint " + protocol.Name() + "=<url>"
-		}
-		return "Correct the " + protocol.Name() + " endpoint of provider " + id + " in the team file, then run the same command again."
-	}
-	return invocation.WithImpact(invocation.TokenValidationProblem(t.cmd, nil, t.runtime.Secrets, id, endpointFix, err),
-		"The team file was not applied.")
+	return probe.Validate(ctx, t.runtime.HTTP, t.runtime.Clients.Admission(), provider, token)
 }
 
 // connectedProviders are the providers with a Token.
@@ -424,28 +417,6 @@ func connectedProviders(states map[string]string) []string {
 		}
 	}
 	return connected
-}
-
-// recommendedProviders are the providers whose models the recommendations
-// would select for the clients without a selection, were every Token
-// stored, in the order of the clients.
-func recommendedProviders(cfg domain.Config) []string {
-	selected, err := cfg.SelectModelsForConnectedProviders(slices.Sorted(maps.Keys(cfg.Providers)))
-	if err != nil {
-		return nil
-	}
-	var providers []string
-	for _, client := range cfg.Admission().IDs() {
-		if !cfg.SelectedModel(client).IsZero() {
-			continue
-		}
-		runtime, err := selected.ResolveRuntime(client, domain.ModelRef{})
-		if err != nil || !runtime.RequiresProviderToken() || slices.Contains(providers, runtime.ProviderID) {
-			continue
-		}
-		providers = append(providers, runtime.ProviderID)
-	}
-	return providers
 }
 
 // recommendedChoiceProviders are the providers of every recommended choice

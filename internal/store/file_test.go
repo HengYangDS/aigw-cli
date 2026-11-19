@@ -303,6 +303,24 @@ func TestSchemaEightRefusesAForwardingTableWithoutAnEndpoint(t *testing.T) {
 	}
 }
 
+// An array on a line wider than taplo's column width is written one element
+// to a line, as taplo writes it; a narrower one, an inline table and an
+// unbalanced value stay, and commas inside strings and tables split nothing.
+func TestEncoderExpandsAWideArrayAsTaploDoes(t *testing.T) {
+	wide := "alternatives = [{ model = 'ucloud/gpt-6.2-sol', protocol = 'responses' }, { model = 'aihubmix/gpt-6.2-sol', label = 'a, b' }]"
+	for line, want := range map[string]string{
+		wide: "alternatives = [\n  { model = 'ucloud/gpt-6.2-sol', protocol = 'responses' },\n  { model = 'aihubmix/gpt-6.2-sol', label = 'a, b' },\n]",
+		"alternatives = [{ model = 'ucloud/gpt-6.2-sol' }]":                              "alternatives = [{ model = 'ucloud/gpt-6.2-sol' }]",
+		"endpoints = { anthropic = '" + strings.Repeat("x", 90) + "', responses = 'y' }": "endpoints = { anthropic = '" + strings.Repeat("x", 90) + "', responses = 'y' }",
+		"capabilities = ['" + strings.Repeat("x", 90) + "', '[', \"]\"]":                 "capabilities = [\n  '" + strings.Repeat("x", 90) + "',\n  '[',\n  \"]\",\n]",
+		"broken = [{ a = '" + strings.Repeat("x", 90) + "' ]":                            "broken = [{ a = '" + strings.Repeat("x", 90) + "' ]",
+	} {
+		if got := expandWideArray(line); got != want {
+			t.Errorf("expandWideArray(%q) =\n%s\nwant\n%s", line, got, want)
+		}
+	}
+}
+
 // The encoder spaces the braces of each inline table as taplo does, and
 // leaves braces and quotes inside strings alone, so a label keeps its text.
 func TestSchemaEightSpacesInlineTablesOutsideStrings(t *testing.T) {
