@@ -14,6 +14,10 @@
       statement that nothing changed, from a command and from its preview alike, and let `aigw config rollback`
       pass such a refusal on with its Fix; tests read the three parts from `sync`, its preview, another command
       and a rollback.
+- [ ] 1.6 Give one owner to how Codex's files stand against the selection, read by following, by the inspection and
+      by the check that runs the client, and let an outside edit in any file decide the client's next step; tests
+      run `aigw check codex --depth client` after a choice, the two files in both orders, and one choice among two
+      files.
 
 ## 2. Every Command Works From The Client's Choice
 
@@ -21,9 +25,9 @@
       the transaction's preimage to it; tests cover a command that changes the client's own settings, one that
       writes none of its files, an explicit selection and a withdrawal, and one test refuses a direct read of the
       stored configuration in the command tree.
-- [x] 2.2 Report what an invocation followed once, as the last section of human output and as
-      `followed_selections`, for saving commands, previews, `status` and `check`; tests read each, and `aigw sync`
-      writes no `adopted_selections`.
+- [x] 2.2 Report what an invocation followed once, as a section of human output and as `followed_selections`,
+      for saving commands, previews, `status` and `check`; tests read each, and `aigw sync` writes no
+      `adopted_selections`. Task 2.5 sets the section's place.
 - [x] 2.3 Drive the built program through a choice made in Codex in an acceptance script: the reports, a writing
       command, and a model that was not added with its Fix.
 - [ ] 2.4 Record a followed selection together with AIGW's record of the client's file, in a command and in its
@@ -35,6 +39,15 @@
       `aigw use` reports whether the stored configuration changes in preview and result.
 - [ ] 2.6 Name the selections that `aigw config rollback` restores, with what each replaces, in its preview and its
       result; tests read both and the client's file.
+- [ ] 2.7 Save a choice only in the transition that writes AIGW's record of the client's file, and leave it in the
+      file alone where that transition does not write the file; tests choose a model of a provider without a
+      Token, save, choose the earlier model again, store the Token and synchronize, and run a command about
+      something else while another file of the client is missing.
+- [ ] 2.8 Compare the verified snapshot's configuration through the same view as the transaction; a test runs a
+      check of every client at the client depth after a choice and reads the snapshot.
+- [ ] 2.9 Let a command that fails name no followed selection, and a report that fails name what it follows; drive
+      a table of commands after a choice and without one, for Codex and for Hermes, and require each pair to end
+      alike.
 
 ## 3. Claude Code
 

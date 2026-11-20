@@ -1,6 +1,7 @@
 package synchronization
 
 import (
+	"reflect"
 	"slices"
 
 	"aigw-cli/internal/adapter"
@@ -25,19 +26,13 @@ type Followed struct {
 	protocol domain.EndpointProtocol
 }
 
-// Follows is what one invocation made of the clients' own choices, for the
-// invocation's report: the choices that its working configuration follows
-// and, once a transition or its preview ran, those that the transition
-// keeps. The zero value is ready; a nil Follows records nothing.
+// Follows is what one invocation made of the clients' own choices: the
+// choices that its working configuration follows and, once a transition or
+// its preview ran, those that the transition records. The zero value is
+// ready; a nil Follows records nothing.
 type Follows struct {
-	// Reports marks an invocation that saves nothing and reports the
-	// working configuration, so that it names every choice that it follows.
-	Reports bool
-	// Reported says that the invocation's output has named the choices.
-	Reported bool
-
 	observed, kept []Followed
-	decided        bool
+	settled        bool
 }
 
 // Observe records the choices that the invocation's working configuration
@@ -48,26 +43,30 @@ func (follows *Follows) Observe(followed []Followed) {
 	}
 }
 
-func (follows *Follows) decide(kept []Followed) {
+// settle records the choices that a transition, or the preview of one,
+// records as the clients' selections. A later transition of the same
+// invocation, such as the run after its own preview, replaces it.
+func (follows *Follows) settle(kept []Followed) {
 	if follows != nil {
-		follows.kept, follows.decided = kept, true
+		follows.kept, follows.settled = kept, true
 	}
 }
 
-// Selections are the followed choices that the invocation reports: those
-// that its transition, or the preview of it, keeps as the clients'
-// selections; without a transition, every choice of a reporting invocation;
-// and none for an invocation that neither saved, previewed nor reports.
-func (follows *Follows) Selections() []Followed {
-	switch {
-	case follows == nil:
+// Observed are the choices that the working configuration follows.
+func (follows *Follows) Observed() []Followed {
+	if follows == nil {
 		return nil
-	case follows.decided:
-		return follows.kept
-	case follows.Reports:
-		return follows.observed
 	}
-	return nil
+	return follows.observed
+}
+
+// Recorded are the choices that the invocation's last transition, or the
+// preview of it, records, and whether one ran.
+func (follows *Follows) Recorded() ([]Followed, bool) {
+	if follows == nil {
+		return nil, false
+	}
+	return follows.kept, follows.settled
 }
 
 // Working returns the configuration that every command works from: stored
@@ -106,35 +105,125 @@ func (s Synchronizer) Working(stored domain.Config) (domain.Config, []Followed) 
 }
 
 // preimage binds before, the working configuration that a command read, to
-// the stored configuration in snapshot, and returns the choices that it
-// follows. matched is false when what is stored, or a client's file, changed
-// since the command read it.
-func (s Synchronizer) preimage(snapshot store.Snapshot, before domain.Config) (followed []Followed, matched bool, err error) {
-	matched, err = snapshot.MatchesConfiguration(before, func(stored domain.Config) domain.Config {
-		working, choices := s.Working(stored)
+// the stored configuration in snapshot, and returns that stored
+// configuration and the choices that before follows. matched is false when
+// what is stored, or a client's file, changed since the command read it.
+func (s Synchronizer) preimage(snapshot store.Snapshot, before domain.Config) (stored domain.Config, followed []Followed, matched bool, err error) {
+	matched, err = snapshot.MatchesConfiguration(before, func(current domain.Config) domain.Config {
+		stored = current
+		working, choices := s.Working(current)
 		followed = choices
 		return working
 	})
-	return followed, matched, err
+	return stored, followed, matched, err
 }
 
-// reconciled returns the clients whose files a transition reconciles, and
-// whether it reconciles any: the named ones, or every client when none is
-// named and reconcile is set, and with them every client whose own choice
-// the transition records. A choice is never recorded without AIGW's record
-// of the client's file: a record that stayed behind would read the client's
-// next choice of the earlier model as no choice at all.
-func (s Synchronizer) reconciled(followed []Followed, reconcile bool, clientIDs []string) ([]string, bool) {
-	if len(followed) == 0 || reconcile && len(clientIDs) == 0 {
-		return clientIDs, reconcile
+// transition is one configuration transition as a commit, or the preview of
+// one, settles it against what is stored: the configuration that it saves,
+// the clients whose files it reconciles, the choices that the command's
+// configuration follows, whether what is stored and the clients' files still
+// give that configuration, and whether the stored configuration changes.
+type transition struct {
+	after     domain.Config
+	clients   []string
+	reconcile bool
+	followed  []Followed
+	matched   bool
+	saves     bool
+}
+
+// settle settles the transition from before to after against snapshot. A
+// transition whose preimage no longer matches is returned as the command
+// gave it: a commit refuses it, and a preview plans it as it stands.
+func (s Synchronizer) settle(snapshot store.Snapshot, before, after domain.Config, reconcile bool, clientIDs []string) (transition, error) {
+	settled := transition{after: after, clients: clientIDs, reconcile: reconcile, saves: !reflect.DeepEqual(before, after)}
+	stored, followed, matched, err := s.preimage(snapshot, before)
+	if err != nil || !matched {
+		return settled, err
 	}
-	clients := make([]string, 0, len(clientIDs)+len(followed))
-	for _, id := range s.ClientIDs() {
-		if slices.Contains(clientIDs, id) || slices.ContainsFunc(followed, func(choice Followed) bool { return choice.Now.Client == id }) {
-			clients = append(clients, id)
+	settled.followed, settled.matched = followed, true
+	if settled.after, settled.clients, settled.reconcile, err = s.recorded(before, after, stored, followed, reconcile, clientIDs); err != nil {
+		return settled, err
+	}
+	same, err := snapshot.MatchesConfiguration(settled.after, nil)
+	settled.saves = !same
+	return settled, err
+}
+
+// recorded settles what a transition from before to after does with the
+// choices that before follows, and returns the configuration that it saves
+// and the clients whose files it reconciles.
+//
+// A choice is saved only in the transition that also writes AIGW's record of
+// the client's file: a record that stayed behind would read the client's
+// next choice of the earlier model as no choice at all, and the next
+// synchronization would write the saved one over it. So a client whose
+// choice the command does not touch joins the reconciled clients when its
+// files can be planned. A followed client whose files the transition cannot
+// write with the choice, because it waits for the chosen model's Token or a
+// file of it is refused, is left out of the transition altogether: its files
+// are not written, what is saved holds it as stored, and the choice stays in
+// its file, which the next command follows again. Only a command that itself
+// changes such a client's settings saves them as it wrote them, the choice
+// included.
+func (s Synchronizer) recorded(before, after, stored domain.Config, followed []Followed, reconcile bool, clientIDs []string) (domain.Config, []string, bool, error) {
+	if len(followed) == 0 {
+		return after, clientIDs, reconcile, nil
+	}
+	named := slices.Clone(clientIDs)
+	if reconcile && len(named) == 0 {
+		named = slices.Clone(s.ClientIDs())
+	}
+	settled := after.Clone()
+	for _, choice := range followed {
+		client := choice.Now.Client
+		written := slices.Contains(named, client)
+		untouched := reflect.DeepEqual(before.Clients[client], settled.Clients[client])
+		switch {
+		case !written && untouched && s.plans(before, settled, client):
+			named = append(named, client)
+			continue
+		case written:
+			ready, err := s.credentialReadyClients(settled, client)
+			if err != nil {
+				return domain.Config{}, nil, false, &PreflightError{Err: err}
+			}
+			if len(ready) > 0 || !untouched {
+				continue
+			}
+		}
+		if untouched {
+			settled.Clients[client] = stored.Clients[client]
+			named = slices.DeleteFunc(named, func(id string) bool { return id == client })
 		}
 	}
-	return clients, true
+	// What is saved may hold a client as stored beside the command's own
+	// change, such as the removal of the model that the stored selection names.
+	if err := validateTransition(settled); err != nil {
+		return domain.Config{}, nil, false, &PreflightError{Err: err}
+	}
+	return settled, s.inAdmissionOrder(named), len(named) > 0, nil
+}
+
+// plans reports whether the named client's files can be written for the
+// transition: it has the Token that it needs, and its plan is not refused.
+func (s Synchronizer) plans(before, after domain.Config, client string) bool {
+	projection, err := planned(s, before, after, true, []string{client})
+	return err == nil && slices.Contains(projection.Clients, client)
+}
+
+// inAdmissionOrder returns the named clients in admission order.
+func (s Synchronizer) inAdmissionOrder(named []string) []string {
+	if len(named) == 0 {
+		return nil
+	}
+	ordered := make([]string, 0, len(named))
+	for _, id := range s.ClientIDs() {
+		if slices.Contains(named, id) {
+			ordered = append(ordered, id)
+		}
+	}
+	return ordered
 }
 
 // keeps returns the followed choices that a transition to after keeps as the

@@ -26,7 +26,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 // RunStatus observes each client's model and readiness without reading
 // secret values or changing state.
 func RunStatus(runtime invocation.Context, jsonMode bool) error {
-	cfg, err := runtime.LoadConfiguration()
+	cfg, err := runtime.ReportedConfiguration()
 	if err != nil {
 		return err
 	}

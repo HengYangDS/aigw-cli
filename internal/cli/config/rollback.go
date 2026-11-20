@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"slices"
 
 	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/app/synchronization"
@@ -44,20 +45,37 @@ type restoredSelection struct {
 }
 
 // restoredSelections lists, in admission order, the clients whose selection
-// differs between the configuration in use and the restored one.
-func restoredSelections(runtime invocation.Context, current, restored domain.Config) []restoredSelection {
+// the rollback restores to another model. written are the clients whose
+// files it writes. A client that it does not write, such as one that waits
+// for its Token, keeps a model chosen in it in its file, so for that client
+// the rollback restores the stored selection, and names it only when that
+// differs.
+func restoredSelections(runtime invocation.Context, current, restored domain.Config, written []string) []restoredSelection {
+	stored := map[string]domain.ModelRef{}
+	for _, choice := range runtime.Follows.Observed() {
+		if !slices.Contains(written, choice.Now.Client) {
+			stored[choice.Now.Client] = choice.Earlier.Model
+		}
+	}
 	var selections []restoredSelection
 	for _, client := range runtime.Clients.Admission().IDs() {
 		now, then := current.Clients[client], restored.Clients[client]
-		if now.Model == then.Model && now.Protocol == then.Protocol {
+		replaces, kept := stored[client]
+		switch {
+		case kept && replaces == then.Model:
 			continue
+		case !kept:
+			if now.Model == then.Model && now.Protocol == then.Protocol {
+				continue
+			}
+			replaces = now.Model
 		}
 		selection := restoredSelection{Client: client}
 		if !then.Model.IsZero() {
 			selection.Model = then.Model.String()
 		}
-		if !now.Model.IsZero() {
-			selection.Replaces = now.Model.String()
+		if !replaces.IsZero() {
+			selection.Replaces = replaces.String()
 		}
 		selections = append(selections, selection)
 	}
@@ -176,10 +194,16 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			// A rollback restores each client's selection as it was, a model
-			// chosen in the client since then included, and names each one.
-			selections := restoredSelections(runtime, current, restored)
+			// chosen in the client since then included, and names each one
+			// that it restores. A refusal of its plan changed nothing and
+			// passes on as it is.
+			projection, err := runtime.Synchronizer().Preview(current, restored)
+			if err != nil {
+				return err
+			}
+			selections := restoredSelections(runtime, current, restored, projection.Clients)
 			if dryRun {
-				preview, err := invocation.PreviewChange(runtime, current, restored)
+				preview, err := invocation.WithEntrypoint(runtime, restored, projection)
 				if err != nil {
 					return err
 				}

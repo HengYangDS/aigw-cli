@@ -144,16 +144,21 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 		return adapter.Status{Issue: "Codex configuration target is missing", RepairAction: "aigw sync"}
 	}
 	status := adapter.Status{Ready: true, Checks: make([]adapter.Check, 0, len(binding.Targets))}
+	// Synchronization refuses while any file holds an outside edit, so the
+	// first such file decides the client's step, whichever file comes last.
+	edited := false
 	for index, target := range binding.Targets {
 		check := adapter.Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "model " + runtime.Model.String(), Target: target}
-		issue, detail, repair := inspectTarget(deps, cfg, runtime, target)
+		issue, detail, repair, conflict := inspectTarget(deps, cfg, runtime, target)
 		if detail != "" {
 			check.Ready = false
 			check.Detail = detail
 			check.RepairAction = repair
 			status.Ready = false
-			status.Issue = issue + detail
-			status.RepairAction = repair
+			if !edited {
+				status.Issue, status.RepairAction = issue+detail, repair
+			}
+			edited = edited || conflict
 		}
 		status.Checks = append(status.Checks, check)
 	}
@@ -163,72 +168,46 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 
 // inspectTarget inspects one configured Codex file: what does not match the
 // selection, with its issue and repair, or no detail when it matches.
-func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, target string) (issue, detail, repair string) {
+func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, target string) (issue, detail, repair string, conflict bool) {
 	issue, repair = "Codex configuration drift: ", "aigw sync"
 	// A missing file, or a path that a file in the way or a link that leads
 	// nowhere blocks, which Windows reports as missing, is found before the
 	// credential reader that it names is read through it, which would only fail.
 	if _, err := os.Stat(target); err != nil {
 		if failure := platform.ClassifyPath(target, platform.FileExpected, err); failure.Absent() || failure.Blocked() {
-			return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, failure)
+			return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, failure), false
 		}
 	}
 	if _, err := adapter.CaptureTarget(target, true); err != nil {
 		if status, unreadable := adapter.UnreadableStatus(err, target, deps.Host.Home); unreadable {
-			return "", status.Issue, status.RepairAction
+			return "", status.Issue, status.RepairAction, false
 		}
 	}
 	if _, err := adapter.CaptureTarget(codexRecordPath(target), true); err != nil {
 		if status, unreadable := adapter.UnreadableStatus(err, codexRecordPath(target), deps.Host.Home); unreadable {
-			return "", status.Issue, status.RepairAction
+			return "", status.Issue, status.RepairAction, false
 		}
 	}
 	observed, readerErr := retainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
-	err := ValidateConfig(target, observed)
-	if conflict, ok := errors.AsType[*adapter.ConflictError](err); ok {
+	err := showsSelection(cfg, observed, target)
+	if refused, ok := errors.AsType[*adapter.ConflictError](err); ok {
 		// Synchronization refuses an outside edit, so advising it alone would
 		// send the operator back to the same refusal. A credential command
 		// that AIGW did not write also fails the reader's inspection, so this
 		// comes first.
-		return "", conflict.Error(), conflict.NextAction()
+		return "", refused.Error(), refused.NextAction(), true
 	}
 	if readerErr != nil {
-		return issue, "Codex credential reader cannot be inspected", repair
+		return issue, "Codex credential reader cannot be inspected", repair, false
 	}
 	switch {
-	case err == nil:
-		return issue, "", repair
+	case err == nil, awaitsRecord(cfg, observed, target):
+		return issue, "", repair, false
 	case errors.Is(err, os.ErrNotExist):
-		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, platform.ClassifyPath(target, platform.FileExpected, err))
+		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, platform.ClassifyPath(target, platform.FileExpected, err)), false
 	default:
-		if showsFollowedChoice(cfg, observed, target) {
-			return issue, "", repair
-		}
-		return issue, "Codex configuration target does not match the selected model", repair
+		return issue, "Codex configuration target does not match the selected model", repair, false
 	}
-}
-
-// showsFollowedChoice reports whether target is what AIGW last wrote with
-// Codex's own choice in place of the recorded model, and nothing else is
-// pending: the root model is the file's only owned difference from the
-// record, it is the selection, and the configuration with the recorded model
-// in the selection's place projects what the file holds. Only AIGW's record
-// of the file is then behind, which the next write of the file brings up.
-// selected is the selection's Route with the credential reader that the file
-// retains, which does not depend on the model.
-func showsFollowedChoice(cfg domain.Config, selected domain.Runtime, target string) bool {
-	observed, err := observeSelection(target)
-	if err != nil || observed.state != selectionChosen || observed.model != selected.UpstreamModel {
-		return false
-	}
-	earlier := cfg.Clone()
-	earlier.SetSelectedModel(ID, domain.NewModelRef(selected.ProviderID, observed.recorded), "")
-	recorded, err := earlier.ResolveRuntime(ID, domain.ModelRef{})
-	if err != nil {
-		return false
-	}
-	recorded.CredentialCommand = selected.CredentialCommand
-	return validateConfig(target, recorded, observed.model) == nil
 }
 
 // missingTargetRepair is the step, for a check, of a configured Codex file that

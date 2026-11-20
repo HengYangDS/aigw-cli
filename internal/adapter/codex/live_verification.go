@@ -43,8 +43,19 @@ func VerifyInvocation(ctx context.Context, runner process.VerificationRunner, cf
 	}
 	targets := append([]string(nil), binding.Targets...)
 	sort.Strings(targets)
+	// The client runs on a copy of the first file. After Codex's own choice
+	// in another file, that is the first file that shows the choice; a file
+	// that still holds what AIGW last wrote is passed over.
 	target := targets[0]
-	if err := ValidateConfig(target, clientRuntime); err != nil {
+	err := showsSelection(cfg, clientRuntime, target)
+	for _, candidate := range targets[1:] {
+		if err == nil || !awaitsRecord(cfg, clientRuntime, target) {
+			break
+		}
+		target = candidate
+		err = showsSelection(cfg, clientRuntime, target)
+	}
+	if err != nil {
 		return ExecutableIdentity{}, fmt.Errorf("Codex configuration target is not synchronized: %w; run `aigw sync`", err)
 	}
 	if runner == nil {

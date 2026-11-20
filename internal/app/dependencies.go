@@ -64,24 +64,28 @@ type Dependencies struct {
 	Follows *synchronization.Follows
 }
 
-// WorkingConfiguration reads the configuration that every command works
-// from: the stored one with the model that each enabled client chose in its
-// own file recorded as that client's selection, and those choices, which the
-// stored configuration does not record yet.
-func (d Dependencies) WorkingConfiguration() (domain.Config, []synchronization.Followed, error) {
+// LoadConfiguration reads the configuration that every command works from:
+// the stored one with the model that each enabled client chose in its own
+// file recorded as that client's selection. The invocation's record keeps
+// those choices, which the stored configuration does not hold yet.
+func (d Dependencies) LoadConfiguration() (domain.Config, error) {
 	stored, err := d.Config.Load()
 	if err != nil {
-		return domain.Config{}, nil, err
+		return domain.Config{}, err
 	}
 	working, followed := d.Synchronizer().Working(stored)
 	d.Follows.Observe(followed)
-	return working, followed, nil
+	return working, nil
 }
 
-// LoadConfiguration reads the configuration that every command works from.
-func (d Dependencies) LoadConfiguration() (domain.Config, error) {
-	working, _, err := d.WorkingConfiguration()
-	return working, err
+// SaveVerifiedSnapshot records a completed check of cfg, the configuration
+// that the check read, while the stored configuration and the clients' own
+// files still give it.
+func (d Dependencies) SaveVerifiedSnapshot(ctx context.Context, cfg domain.Config, clients []store.VerifiedClient) error {
+	return d.Config.SaveVerifiedCheckpoint(ctx, cfg, clients, func(stored domain.Config) domain.Config {
+		working, _ := d.Synchronizer().Working(stored)
+		return working
+	})
 }
 
 // InspectClient observes one client's projection without changing it.

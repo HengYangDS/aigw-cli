@@ -138,7 +138,7 @@ func admitModel(args []string, opts options, requested depth) error {
 func run(cmd *cobra.Command, runtime invocation.Context, args []string, opts options) error {
 	// Args admitted the arguments, so they plan.
 	planned, _ := admit(runtime.Clients.Admission(), args, opts)
-	cfg, err := runtime.LoadConfiguration()
+	cfg, err := runtime.ReportedConfiguration()
 	if err != nil {
 		return err
 	}

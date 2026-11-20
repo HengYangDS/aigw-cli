@@ -1,7 +1,11 @@
 package codex
 
 import (
+	"errors"
+	"slices"
+
 	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 )
 
@@ -29,8 +33,89 @@ type observation struct {
 	state           selectionState
 }
 
+// choice is how Codex's files stand together against AIGW's records of them:
+// the distinct models that files select in place of the recorded one, the
+// recorded model, and whether a file was edited outside.
+type choice struct {
+	models   []string
+	recorded string
+	drifted  bool
+}
+
+// observeChoice reads every target against AIGW's record of it. With
+// observeSelection it is the one owner of what counts as Codex's own choice,
+// for following it, for inspecting a file and for running the client on it.
+func observeChoice(targets []string) (choice, error) {
+	var observed choice
+	for _, target := range targets {
+		file, err := observeSelection(target)
+		if err != nil {
+			return choice{}, err
+		}
+		if observed.recorded == "" {
+			observed.recorded = file.recorded
+		}
+		switch file.state {
+		case selectionDrifted:
+			observed.drifted = true
+		case selectionChosen:
+			if !slices.Contains(observed.models, file.model) {
+				observed.models = append(observed.models, file.model)
+			}
+		case selectionRecorded:
+		}
+	}
+	return observed, nil
+}
+
+// followedChoice returns the Route that AIGW last wrote for Codex, when
+// Codex's own files select the model that selected names in its place: one
+// or more files chose it, none chose another, and none was edited outside.
+// selected carries the credential reader that the files retain, which does
+// not depend on the model.
+func followedChoice(cfg domain.Config, selected domain.Runtime) (domain.Runtime, bool) {
+	observed, err := observeChoice(cfg.Clients[ID].Targets)
+	if err != nil || observed.drifted || len(observed.models) != 1 || observed.models[0] != selected.UpstreamModel {
+		return domain.Runtime{}, false
+	}
+	earlier := cfg.Clone()
+	earlier.SetSelectedModel(ID, domain.NewModelRef(selected.ProviderID, observed.recorded), "")
+	recorded, err := earlier.ResolveRuntime(ID, domain.ModelRef{})
+	if err != nil {
+		return domain.Runtime{}, false
+	}
+	recorded.CredentialCommand = selected.CredentialCommand
+	return recorded, true
+}
+
+// showsSelection reports whether target holds AIGW's projection of selected:
+// what AIGW writes for it, or, after Codex's own choice of that model, what
+// AIGW last wrote with that one value exchanged, so that nothing else waits
+// for a write. A conflict is returned as it is.
+func showsSelection(cfg domain.Config, selected domain.Runtime, target string) error {
+	err := ValidateConfig(target, selected)
+	if err == nil {
+		return nil
+	}
+	if _, conflict := errors.AsType[*adapter.ConflictError](err); conflict {
+		return err
+	}
+	if recorded, followed := followedChoice(cfg, selected); followed && validateConfig(target, recorded, selected.UpstreamModel) == nil {
+		return nil
+	}
+	return err
+}
+
+// awaitsRecord reports whether target still holds what AIGW last wrote
+// while another of Codex's files selects the model that the configuration
+// follows: the command that records the choice writes it here too.
+func awaitsRecord(cfg domain.Config, selected domain.Runtime, target string) bool {
+	recorded, followed := followedChoice(cfg, selected)
+	return followed && ValidateConfig(target, recorded) == nil
+}
+
 // observeSelection reads how the target at path stands against AIGW's record
-// of it. It is the one owner of what counts as Codex's own choice.
+// of it.
 func observeSelection(path string) (observation, error) {
 	config, err := adapter.CaptureTarget(path, true)
 	if err != nil || !config.Exists {

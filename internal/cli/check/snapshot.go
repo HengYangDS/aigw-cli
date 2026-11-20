@@ -40,7 +40,7 @@ func (c *checker) saveSnapshot(ctx context.Context, o *outcome) {
 	for _, client := range o.clients {
 		clients = append(clients, store.VerifiedClient{Client: client.spec.ID, Depth: string(client.reached)})
 	}
-	err := c.deps.Config.SaveVerifiedCheckpoint(ctx, c.cfg, clients)
+	err := c.deps.SaveVerifiedSnapshot(ctx, c.cfg, clients)
 	o.snapshot = &snapshot{written: err == nil, cause: err}
 	if err != nil {
 		problem := terminal.ProblemFor(err)

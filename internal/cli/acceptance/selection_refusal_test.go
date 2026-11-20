@@ -186,35 +186,42 @@ func TestARefusedSelectionReadsTheSameOnEverySurface(t *testing.T) {
 
 // Codex has two files: one names a model that was not added, the other holds
 // an outside edit of the settings that AIGW manages. The restoring command
-// would be refused for that edit, so no surface names it: each one says to
-// undo the edit. With the edit undone, the restoring command is named, and
-// it runs.
+// would be refused for that edit, so no surface names it, in either order of
+// the files: each one says to undo the edit. With the edit undone, the
+// restoring command is named, and it runs.
 func TestCodexFilesWithAnOutsideEditAreToldToUndoItFirst(t *testing.T) {
-	app, output, targets := codexChoiceAppWith(t, "gpt-sol", 2)
-	projected := string(readFile(t, targets[1]))
-	chooseInCodex(t, targets[0], "gpt-sol", "gpt-ghost")
-	writeFile(t, targets[1], []byte(strings.Replace(projected, `base_url = "https://gateway.test/v1"`, `base_url = "https://drift.test/v1"`, 1)), 0o600)
 	const undo = "Undo the outside edit to the AIGW-managed Codex settings, then run `aigw sync`"
-	for _, command := range [][]string{
-		{"sync", "--json"},
-		{"sync", "--dry-run", "--json"},
-		{"use", codex.ID, "gateway/gpt-sol", "--json"},
-		{"status", "--json"},
-		{"check", codex.ID, "--depth", "local", "--json"},
-	} {
-		output.Reset()
-		_ = cli.Execute(app, command)
-		var result struct {
-			NextAction string `json:"next_action"`
-			NextDetail string `json:"next_detail"`
-		}
-		if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.NextAction != "" || result.NextDetail != undo {
-			t.Errorf("%v names %q and %q, want the undoing of the outside edit: %v\n%s", command, result.NextAction, result.NextDetail, err, output)
-		}
+	for _, order := range []struct {
+		name          string
+		model, edited int
+	}{{"the edit in the second file", 0, 1}, {"the edit in the first file", 1, 0}} {
+		t.Run(order.name, func(t *testing.T) {
+			app, output, targets := codexChoiceAppWith(t, "gpt-sol", 2)
+			projected := string(readFile(t, targets[order.edited]))
+			chooseInCodex(t, targets[order.model], "gpt-sol", "gpt-ghost")
+			writeFile(t, targets[order.edited], []byte(strings.Replace(projected, `base_url = "https://gateway.test/v1"`, `base_url = "https://drift.test/v1"`, 1)), 0o600)
+			for _, command := range [][]string{
+				{"sync", "--json"},
+				{"sync", "--dry-run", "--json"},
+				{"use", codex.ID, "gateway/gpt-sol", "--json"},
+				{"status", "--json"},
+				{"check", codex.ID, "--depth", "local", "--json"},
+			} {
+				output.Reset()
+				_ = cli.Execute(app, command)
+				var result struct {
+					NextAction string `json:"next_action"`
+					NextDetail string `json:"next_detail"`
+				}
+				if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.NextAction != "" || result.NextDetail != undo {
+					t.Errorf("%v names %q and %q, want the undoing of the outside edit: %v\n%s", command, result.NextAction, result.NextDetail, err, output)
+				}
+			}
+			writeFile(t, targets[order.edited], []byte(projected), 0o600)
+			refusedWithRestoringCommand(t, app, output, codex.ID, filepath.Dir(targets[order.model]), "aigw use codex gateway/gpt-sol", [][]string{{"sync", "--json"}})
+			syncAndCheckPass(t, app, output, codex.ID)
+		})
 	}
-	writeFile(t, targets[1], []byte(projected), 0o600)
-	refusedWithRestoringCommand(t, app, output, codex.ID, filepath.Dir(targets[0]), "aigw use codex gateway/gpt-sol", [][]string{{"sync", "--json"}})
-	syncAndCheckPass(t, app, output, codex.ID)
 }
 
 // Two Codex files that name one added model are one choice, and a command
@@ -223,6 +230,19 @@ func TestCodexFilesWithAnOutsideEditAreToldToUndoItFirst(t *testing.T) {
 func TestCodexFilesAreFollowedOnlyWhenTheyAgree(t *testing.T) {
 	app, output, targets := codexChoiceAppWith(t, "gpt-sol", 2)
 	chooseInCodex(t, targets[0], "gpt-sol", "gpt-terra")
+	// Until a command records the choice, the file that still holds what
+	// AIGW last wrote is no fault: the reports say configured.
+	for _, command := range [][]string{{"status", "--json"}, {"check", codex.ID, "--depth", "local", "--json"}} {
+		if got := followedIn(t, app, output, command...); !slices.Equal(got, codexChoice) {
+			t.Fatalf("%v follows %+v\n%s", command, got, output)
+		}
+		var report struct {
+			Clients clientStates `json:"clients"`
+		}
+		if err := json.Unmarshal(output.Bytes(), &report); err != nil || report.Clients[codex.ID].State != "configured" && report.Clients[codex.ID].State != "passed" {
+			t.Fatalf("%v reports Codex as %q: %v\n%s", command, report.Clients[codex.ID].State, err, output)
+		}
+	}
 	if got := followedIn(t, app, output, "sync", "--json"); !slices.Equal(got, codexChoice) {
 		t.Fatalf("one file's choice follows %+v", got)
 	}

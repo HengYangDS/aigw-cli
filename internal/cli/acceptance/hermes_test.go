@@ -365,7 +365,11 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 	}
 }
 
-func TestHermesSyncAdoptsAChoiceWhoseTokenReturnsLater(t *testing.T) {
+// A choice whose provider has no Token stays in Hermes' file: no command
+// saves it, and AIGW's record of the file stays as it is. The first
+// synchronization after the Token returns records it, and the next finds
+// nothing to do; Hermes' file keeps its bytes throughout.
+func TestHermesSyncRecordsAChoiceOnceItsTokenReturns(t *testing.T) {
 	app, output, httpClient, target := shippedHermesAppWith(t, true)
 	drifted := hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
 	stateBefore := readFile(t, target+".aigw-state.json")
@@ -388,21 +392,25 @@ func TestHermesSyncAdoptsAChoiceWhoseTokenReturnsLater(t *testing.T) {
 		if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 			t.Fatalf("%s sync result: %v\n%s", step, err, output)
 		}
-		wantAdopted := map[string]string{}
-		if step == "token-missing" {
+		wantAdopted, wantSelected := map[string]string{}, domain.NewModelRef("ucloud", "claude-opus-5-5")
+		switch step {
+		case "token-missing":
+			wantSelected = domain.NewModelRef("dmxapi", "gpt-6.2-sol")
+		case "token-restored":
 			wantAdopted[hermes.ID] = "ucloud/claude-opus-5-5"
 		}
 		if len(result.Adopted) != len(wantAdopted) || result.Adopted[hermes.ID] != wantAdopted[hermes.ID] {
-			t.Fatalf("%s adopted selections = %v, want %v", step, result.Adopted, wantAdopted)
+			t.Fatalf("%s followed selections = %v, want %v", step, result.Adopted, wantAdopted)
 		}
 		cfg, err := app.Config.Load()
-		if err != nil || cfg.SelectedModel(hermes.ID) != domain.NewModelRef("ucloud", "claude-opus-5-5") {
+		if err != nil || cfg.SelectedModel(hermes.ID) != wantSelected {
 			t.Fatalf("%s Hermes binding = %#v, %v", step, cfg.Clients[hermes.ID], err)
 		}
 		if !bytes.Equal(readFile(t, target), drifted) {
 			t.Fatalf("%s sync rewrote Hermes' own selection", step)
 		}
-		// A missing Token defers Hermes, so its ownership record stays stale.
+		// A missing Token defers Hermes: neither its file nor AIGW's record
+		// of it is written, and the choice is not saved without them.
 		if step == "token-missing" && !bytes.Equal(readFile(t, target+".aigw-state.json"), stateBefore) {
 			t.Fatal("a deferred Hermes projection changed its ownership record")
 		}

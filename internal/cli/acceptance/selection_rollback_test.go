@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"path/filepath"
 	"slices"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/domain"
 )
@@ -81,4 +83,36 @@ func TestRollbackPassesOnTheStepOfASelectionThatIsNotFollowed(t *testing.T) {
 		{"config", "rollback", "--last-change", "--dry-run", "--json"},
 		{"config", "rollback", "--last-change", "--json"},
 	})
+}
+
+// A rollback does not write the file of a client that waits for its Token,
+// so a model chosen in that client stays in its file, and the rollback names
+// for that client only a stored selection that it changes: here none.
+func TestRollbackLeavesAChoiceOfAClientThatWaitsForItsToken(t *testing.T) {
+	app, output, _, target := shippedHermesAppWith(t, true)
+	if err := cli.Execute(app, []string{"provider", "edit", "ucloud", "--label", "Other"}); err != nil {
+		t.Fatalf("change the configuration: %v\n%s", err, output)
+	}
+	if err := app.Secrets.Delete("dmxapi"); err != nil {
+		t.Fatal(err)
+	}
+	chosen := hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-opus-5-5", nil)
+	for _, command := range [][]string{
+		{"config", "rollback", "--last-change", "--dry-run", "--json"},
+		{"config", "rollback", "--last-change", "--json"},
+	} {
+		output.Reset()
+		if err := cli.Execute(app, command); err != nil {
+			t.Fatalf("%v: %v\n%s", command, err, output)
+		}
+		var result struct {
+			Selections []restoredSelection `json:"selections"`
+		}
+		if err := json.Unmarshal(output.Bytes(), &result); err != nil || slices.ContainsFunc(result.Selections, func(entry restoredSelection) bool { return entry.Client == hermes.ID }) {
+			t.Fatalf("%v names a selection of Hermes that it does not restore: %+v, %v\n%s", command, result.Selections, err, output)
+		}
+	}
+	if !bytes.Equal(readFile(t, target), chosen) {
+		t.Fatal("the rollback wrote the file of a client that waits for its Token")
+	}
 }

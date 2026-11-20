@@ -35,6 +35,9 @@ type Context struct {
 	Width       int
 	Interactive bool
 	Prompt      Prompter
+	// Followed is the invocation's report of the clients' own choices; nil
+	// reports none.
+	Followed *FollowedReport
 }
 
 // ReadToken reads an explicitly requested token source without consulting
@@ -89,6 +92,6 @@ func Renderer(runtime Context) *terminal.Renderer {
 	}
 	renderer := terminal.NewRendererWithWidth(out, runtime.Color, runtime.Width)
 	// What the invocation followed stands ahead of the command's follow-up.
-	renderer.BeforeNext(func(r *terminal.Renderer) { RenderFollowed(r, runtime.Follows) })
+	renderer.BeforeNext(runtime.Followed.Render)
 	return renderer
 }

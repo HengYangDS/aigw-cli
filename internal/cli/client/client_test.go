@@ -345,7 +345,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runtime.Config.SaveVerifiedCheckpoint(t.Context(), verified, sessions(claude.ID)); err != nil {
+	if err := runtime.Config.SaveVerifiedCheckpoint(t.Context(), verified, sessions(claude.ID), nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := executeAdapter(t, runtime, "disable", claude.ID); err != nil {

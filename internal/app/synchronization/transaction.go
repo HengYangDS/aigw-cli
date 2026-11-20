@@ -75,11 +75,14 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 	}
 	// before is the working configuration that the command read: the stored
 	// one with the clients' own choices followed.
-	followed, matched, err := s.preimage(configBefore, before)
-	if err != nil || !matched {
+	settled, err := s.settle(configBefore, before, after, reconcileProjection, clientIDs)
+	if !settled.matched {
 		return committed{}, errors.Join(errors.New("configuration preimage changed; refusing to overwrite newer state"), err)
 	}
-	clientIDs, reconcileProjection = s.reconciled(followed, reconcileProjection, clientIDs)
+	if err != nil {
+		return committed{}, err
+	}
+	after, clientIDs, reconcileProjection, followed := settled.after, settled.clients, settled.reconcile, settled.followed
 	projection, err := planned(s, before, after, reconcileProjection, clientIDs)
 	if err != nil {
 		return committed{}, err
@@ -105,7 +108,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 	}
 	result := committed{configuration: !configAfter.Config.Equal(configBefore.Config)}
 	if len(projectable) == 0 {
-		s.Follows.decide(s.keeps(followed, after))
+		s.Follows.settle(s.keeps(followed, after))
 		return result, nil
 	}
 	receipt, projectionChanged, err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, projectable...)
@@ -134,7 +137,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 		}
 	}
 	result.projection = projectionChanged
-	s.Follows.decide(s.keeps(followed, after))
+	s.Follows.settle(s.keeps(followed, after))
 	return result, nil
 }
 

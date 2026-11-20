@@ -287,6 +287,9 @@ AIGW  Rollback preview
 Restore source
   Configuration        Previous configuration
 
+Selections
+  Claude               No model, in place of team/team-model
+
 Client files
   $HOME\.claude\settings.json  restore
   ✓ Preview did not write configuration, credentials or client files

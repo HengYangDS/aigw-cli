@@ -73,8 +73,10 @@ type App struct {
 	Clients adapter.Registry
 	Updater app.Updater
 	output  *commandOutput
-	// follows is the running invocation's record of the clients' choices.
-	follows *synchronization.Follows
+	// follows is the running invocation's record of the clients' choices,
+	// and followed its report of them.
+	follows  *synchronization.Follows
+	followed *invocation.FollowedReport
 }
 
 // commandOutput owns write progress and the first failure for one invocation,
@@ -127,10 +129,10 @@ func Execute(app *App, args []string) error {
 	var unlock func() error
 	// What the invocation makes of the clients' own choices: its command's
 	// document carries it, and its human output names it once.
-	follows := &synchronization.Follows{}
-	app.follows = follows
-	defer func() { app.follows = nil }()
-	output.fields = func() []terminal.DocumentField { return invocation.FollowedDocument(follows) }
+	app.follows = &synchronization.Follows{}
+	app.followed = invocation.NewFollowedReport(app.follows)
+	defer func() { app.follows, app.followed = nil, nil }()
+	output.fields = app.followed.Document
 	root := NewRoot(app)
 	root.PersistentPreRunE = func(command *cobra.Command, positional []string) error {
 		// Cobra normally validates flag relationships after this mutation boundary.
@@ -140,7 +142,6 @@ func Execute(app *App, args []string) error {
 		if err := command.ValidateFlagGroups(); err != nil {
 			return refusedFlag(command, err)
 		}
-		follows.Reports = reports(command)
 		if !requiresConfigurationLock(command) {
 			return nil
 		}
@@ -189,11 +190,12 @@ func Execute(app *App, args []string) error {
 	// never the process's.
 	at := platform.PathContext{Home: invocation.Home(app.invocationContext().Dependencies), Configuration: app.Config.Path(),
 		Rollback: command.CommandPath() == command.Root().Name()+" config rollback"}
+	// A command that failed recorded no choice; a report that failed still
+	// names what its configuration follows.
+	app.followed.Failed()
 	terminal.RenderError(renderer, terminal.LocalFailure(Version, at, invocation.TokenRejection(command, err)), jsonMode)
 	if !jsonMode {
-		// A failure after a save, and a failed report, still say what the
-		// invocation followed.
-		invocation.RenderFollowed(renderer, app.follows)
+		app.followed.Render(renderer)
 	}
 	return terminal.Presented(errors.Join(err, renderer.Err()))
 }
@@ -205,7 +207,7 @@ func (a *App) renderFollowed(started bool) {
 	if started {
 		renderer.Continue()
 	}
-	invocation.RenderFollowed(renderer, a.follows)
+	a.followed.Render(renderer)
 }
 
 // refusedFlag marks a flag that command refused as a usage error, naming the
@@ -390,7 +392,7 @@ func (a *App) invocationContext() invocation.Context {
 		Color: a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
 		Discovery: a.Discovery, Clients: a.Clients, Updater: a.Updater,
-		Follows: a.follows,
+		Follows: a.follows, Followed: a.followed,
 	}
 }
 

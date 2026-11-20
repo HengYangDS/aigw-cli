@@ -35,7 +35,7 @@ func TestRollbackFailureReportsVerifiedConfigurationRecovery(t *testing.T) {
 	}{
 		{name: "restored", err: fmt.Errorf("rollback %w", verifiedRecoveryError{restored: true}), want: "Configuration was restored"},
 		{name: "incomplete", err: verifiedRecoveryError{}, want: "Configuration restoration was incomplete"},
-		{name: "unverified", err: errors.New("rollback synchronization preflight failed"), want: "may have changed; inspect them"},
+		{name: "unverified", err: errors.New("the credential reader could not be prepared"), want: "may have changed; inspect them"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if got := rollbackFailureImpact(test.err); !strings.Contains(got, test.want) {
@@ -164,7 +164,7 @@ func TestRollbackPrefersTheVerifiedSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runtime.Config.SaveVerifiedCheckpoint(t.Context(), current, []store.VerifiedClient{{Client: codex.ID, Depth: "client"}}); err != nil {
+	if err := runtime.Config.SaveVerifiedCheckpoint(t.Context(), current, []store.VerifiedClient{{Client: codex.ID, Depth: "client"}}, nil); err != nil {
 		t.Fatal(err)
 	}
 	for args, want := range map[string]string{"": "verified_checkpoint", "--last-change": "previous_backup"} {

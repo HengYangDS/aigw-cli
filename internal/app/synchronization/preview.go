@@ -95,33 +95,25 @@ func (s Synchronizer) PreviewSelection(before, after domain.Config, client strin
 // reconcile is set, with every client whose own choice the commit would
 // record, and their projections.
 func project(planner Synchronizer, before, after domain.Config, reconcile bool, clientIDs ...string) (Projection, error) {
-	var followed []Followed
-	// A commit saves after over what is stored, which a client's own choice
-	// makes differ from before, the configuration that the command read.
-	saves := !reflect.DeepEqual(before, after)
+	// Without a store, as in a plan that nothing saves, the transition is
+	// what the command gave.
+	settled := transition{after: after, clients: clientIDs, reconcile: reconcile, saves: !reflect.DeepEqual(before, after)}
 	if planner.Config != nil {
 		snapshot, err := planner.Config.CaptureSnapshot()
+		if err == nil {
+			settled, err = planner.settle(snapshot, before, after, reconcile, clientIDs)
+		}
 		if err != nil {
 			return Projection{}, err
 		}
-		// A preview does not refuse a preimage that changed; its run does.
-		if followed, _, err = planner.preimage(snapshot, before); err != nil {
-			return Projection{}, err
-		}
-		stored, err := snapshot.MatchesConfiguration(after, nil)
-		if err != nil {
-			return Projection{}, err
-		}
-		saves = !stored
 	}
-	clientIDs, reconcile = planner.reconciled(followed, reconcile, clientIDs)
-	projection, err := planned(planner, before, after, reconcile, clientIDs)
+	projection, err := planned(planner, before, settled.after, settled.reconcile, settled.clients)
 	if err != nil {
 		return Projection{}, err
 	}
-	// Only a preview that the run would not refuse says what it keeps.
-	planner.Follows.decide(planner.keeps(followed, after))
-	projection.Configuration = saves
+	// Only a preview that the run would not refuse says what it records.
+	planner.Follows.settle(planner.keeps(settled.followed, settled.after))
+	projection.Configuration = settled.saves
 	return projection, nil
 }
 

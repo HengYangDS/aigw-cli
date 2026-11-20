@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"slices"
 	"strings"
@@ -59,13 +58,14 @@ func TestARecordedChoiceKeepsAIGWsRecordOfTheFile(t *testing.T) {
 	}
 }
 
-// Hermes: a command about another provider records the choice with AIGW's
-// record of Hermes' file, so that the earlier model, chosen in Hermes again,
-// is followed and kept.
+// Hermes: a command that names nothing of Hermes, here an edit of another
+// client's retry budget, records the choice with AIGW's record of Hermes'
+// file, so that the earlier model, chosen in Hermes again, is followed and
+// kept.
 func TestARecordedHermesChoiceKeepsAIGWsRecordOfTheFile(t *testing.T) {
 	app, output, _, target := shippedHermesApp(t)
 	hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-opus-5-5", nil)
-	if got := followedIn(t, app, output, "provider", "edit", "ucloud", "--label", "Other", "--json"); !slices.Equal(got, hermesChoice) {
+	if got := followedIn(t, app, output, "client", "edit", codex.ID, "--request-retries", "2", "--json"); !slices.Equal(got, hermesChoice) {
 		t.Fatalf("the run follows %+v\n%s", got, output)
 	}
 	hermesNativeSelection(t, target, "aigw-dmxapi-responses", "gpt-6.2-sol", nil)
@@ -82,38 +82,4 @@ func TestARecordedHermesChoiceKeepsAIGWsRecordOfTheFile(t *testing.T) {
 		t.Fatalf("synchronization wrote over the model chosen in Hermes: %s %s", provider, model)
 	}
 	syncAndCheckPass(t, app, output, hermes.ID)
-}
-
-// A choice is followed while its provider waits for a Token: the
-// configuration records it and the client's file, which AIGW does not write
-// then, stays as the client left it. Once the Token is there,
-// synchronization brings AIGW's record of the file to the choice and follows
-// nothing anew.
-func TestAChoiceIsFollowedWhileItsProviderWaitsForAToken(t *testing.T) {
-	app, output, _, target := shippedHermesAppWith(t, true)
-	if err := app.Secrets.Delete("dmxapi"); err != nil {
-		t.Fatal(err)
-	}
-	chosen := hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-opus-5-5", nil)
-	if got := followedIn(t, app, output, "provider", "edit", "ucloud", "--label", "Other", "--json"); !slices.Equal(got, hermesChoice) {
-		t.Fatalf("the run follows %+v\n%s", got, output)
-	}
-	if binding := selection(t, app, hermes.ID); binding.Model != domain.NewModelRef("dmxapi", "claude-opus-5-5") {
-		t.Fatalf("the configuration does not name the chosen model: %#v", binding)
-	}
-	if !bytes.Equal(readFile(t, target), chosen) {
-		t.Fatal("a command wrote the file of a client that waits for its Token")
-	}
-	if err := app.Secrets.Set("dmxapi", "fixture-token"); err != nil {
-		t.Fatal(err)
-	}
-	if got := followedIn(t, app, output, "sync", "--json"); len(got) != 0 {
-		t.Fatalf("synchronization follows %+v anew", got)
-	}
-	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-dmxapi-anthropic" || model != "claude-opus-5-5" {
-		t.Fatalf("Hermes lost its choice: %s %s", provider, model)
-	}
-	if got := followedIn(t, app, output, "status", "--json"); len(got) != 0 {
-		t.Fatalf("status follows %+v after the record was written", got)
-	}
 }

@@ -44,10 +44,12 @@ type VerifiedClient struct {
 // verifiedDepths are the depths of `aigw check` that a snapshot records.
 var verifiedDepths = []string{"local", "endpoint", "model", "client"}
 
-// SaveVerifiedCheckpoint records a completed check only while its
-// configuration remains current. It serializes with AIGW mutations, preserves
-// newer checkpoints, and compensates observed external configuration changes.
-func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, clients []VerifiedClient) (resultErr error) {
+// SaveVerifiedCheckpoint records a completed check of cfg only while cfg
+// remains current: view derives the configuration that the check worked from
+// out of the stored one, as MatchesConfiguration takes it, and a nil view is
+// the stored one itself. It serializes with AIGW mutations, preserves newer
+// checkpoints, and compensates observed external configuration changes.
+func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, clients []VerifiedClient, view func(domain.Config) domain.Config) (resultErr error) {
 	if err := validateCheckpointClients(s.admission, clients); err != nil {
 		return err
 	}
@@ -74,6 +76,9 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, cl
 	current, err := decodeTOMLConfig(before.Data, s.admission)
 	if err != nil {
 		return err
+	}
+	if view != nil {
+		current = view(current)
 	}
 	equal, err := configurationsEqual(cfg, current)
 	if err != nil {

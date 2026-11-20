@@ -29,7 +29,9 @@ func (s Synchronizer) Setup(ctx context.Context, before, after domain.Config, to
 		return domain.Config{}, err
 	}
 	defer func() {
-		if resultErr == nil {
+		// A setup that stored no Token has none to take back, so its failure
+		// reads as itself, as its preview's does.
+		if resultErr == nil || len(tokens) == 0 {
 			return
 		}
 		if rollbackErr := rollback(); rollbackErr != nil {

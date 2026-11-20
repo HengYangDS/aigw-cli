@@ -18,13 +18,16 @@ signing, and GA status remain separate evidence.
   it; a command that saves the configuration records it, together with AIGW's
   record of the client's file, and keeps its own change; and
   `aigw client disable` and `aigw self uninstall` withdraw after such a
-  choice. `aigw status` and `aigw check` report the chosen model as
+  choice. Where a command does not write that client's file, as for a client
+  that waits for its Token, the choice stays in the client's file and is not
+  saved. `aigw status` and `aigw check` report the chosen model as
   configured, where they reported drift. A command that records a choice, its
   preview, `aigw status`, `aigw check` and bare `aigw` name what they follow:
   a section "Followed selection" ahead of the next step in text and
   `followed_selections` in JSON. An entry has `client`, `model` and `earlier`;
   for Hermes also `protocol` and `earlier_protocol`; `returns_with`, the
-  command that selects the earlier model again, while that command can run;
+  command that selects the earlier model again, while the configuration holds
+  that model;
   and `forwarding_cleared` or `retries_cleared` when the client's forwarding
   or retry budgets ended with the earlier provider. `aigw sync --json` no
   longer writes `adopted_selections`.
@@ -40,7 +43,7 @@ signing, and GA status remain separate evidence.
   model that it replaces: a section "Selections" in text and `selections` in
   JSON, with `client`, `model` and `replaces`, in its preview and its result.
   A model chosen in the client since the restored configuration is replaced
-  too, and named.
+  too, and named, where the rollback writes that client's file.
 - A change that is refused before anything was written says so. Its problem
   is the refusal's own text, without the words "synchronization preflight
   failed"; its impact is "Configuration and client files are unchanged."; and

@@ -23,11 +23,58 @@ type followedSelection struct {
 	RetriesCleared    bool   `json:"retries_cleared,omitempty"`
 }
 
-// FollowedDocument is the field that an invocation adds to its command's
-// document for the clients' own choices that it followed, and no field when
-// it followed none.
-func FollowedDocument(follows *synchronization.Follows) []terminal.DocumentField {
-	selections := follows.Selections()
+// FollowedReport is one invocation's report of the clients' own choices: its
+// command's document carries them, and its human output names them once.
+type FollowedReport struct {
+	follows         *synchronization.Follows
+	reports, failed bool
+	written         bool
+}
+
+// NewFollowedReport reports what follows records for one invocation.
+func NewFollowedReport(follows *synchronization.Follows) *FollowedReport {
+	return &FollowedReport{follows: follows}
+}
+
+// ReportedConfiguration reads the working configuration for a command that
+// saves nothing and reports it, such as status and check: the invocation's
+// output then names every choice of a client that the configuration follows.
+func (runtime Context) ReportedConfiguration() (domain.Config, error) {
+	if runtime.Followed != nil {
+		runtime.Followed.reports = true
+	}
+	return runtime.LoadConfiguration()
+}
+
+// Failed marks an invocation whose command failed: it recorded no choice, so
+// only a report still names what its configuration follows.
+func (report *FollowedReport) Failed() {
+	if report != nil {
+		report.failed = true
+	}
+}
+
+// selections are the choices that the invocation names: every choice that a
+// report's configuration follows, and for any other command those that its
+// transition, or the preview of it, records. A command that neither reports
+// nor ran a transition, and one that failed, names none.
+func (report *FollowedReport) selections() []synchronization.Followed {
+	switch {
+	case report == nil:
+		return nil
+	case report.reports:
+		return report.follows.Observed()
+	case report.failed:
+		return nil
+	}
+	recorded, _ := report.follows.Recorded()
+	return recorded
+}
+
+// Document is the field that the invocation adds to its command's document
+// for the choices that it names, and no field when it names none.
+func (report *FollowedReport) Document() []terminal.DocumentField {
+	selections := report.selections()
 	if len(selections) == 0 {
 		return nil
 	}
@@ -44,15 +91,15 @@ func FollowedDocument(follows *synchronization.Follows) []terminal.DocumentField
 	return []terminal.DocumentField{{Name: "followed_selections", Value: document}}
 }
 
-// RenderFollowed names, once per invocation, the clients' own choices that it
-// followed: each as a sentence, with the command that returns to the earlier
-// selection on a line of its own, as a command to copy.
-func RenderFollowed(r *terminal.Renderer, follows *synchronization.Follows) {
-	if follows == nil || follows.Reported {
+// Render names the choices once in the invocation's human output: each as a
+// sentence, with the command that returns to the earlier selection on a line
+// of its own, as a command to copy.
+func (report *FollowedReport) Render(r *terminal.Renderer) {
+	if report == nil || report.written {
 		return
 	}
-	follows.Reported = true
-	selections := follows.Selections()
+	report.written = true
+	selections := report.selections()
 	if len(selections) == 0 {
 		return
 	}

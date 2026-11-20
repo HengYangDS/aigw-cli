@@ -2,10 +2,10 @@
 # Codex's own picker rewrites the root model of its file, which the script
 # does here. The reports name the choice and write nothing; a command that
 # writes Codex's file keeps the choice and its own edit; a command about
-# something else records the choice with AIGW's record of the file, so that
-# the earlier model, chosen in Codex again, is a choice too; a model that the
-# provider has not added is refused with the command that restores the
-# recorded selection, which runs as printed.
+# something else, here another provider, records the choice with AIGW's
+# record of the file, so that the earlier model, chosen in Codex again, is a
+# choice too; a model that the provider has not added is refused with the
+# command that restores the recorded selection, which runs as printed.
 stdin token.txt
 exec aigw provider add team --endpoint responses=$UPSTREAM/v1 --token-stdin
 exec aigw model add team/team-model
@@ -37,7 +37,8 @@ stdout '"model": "team/spare-model"'
 ! stdout 'followed_selections'
 
 replace $HOME/.codex/config.toml 'model = "spare-model" # managed by AIGW' 'model = "team-model"'
-exec aigw provider edit team --label Team --json
+stdin token.txt
+exec aigw provider add other --endpoint responses=$UPSTREAM/v1 --token-stdin --json
 stdout '"model": "team/team-model",\n\s+"earlier": "team/spare-model",\n\s+"returns_with": "aigw use codex team/spare-model"\n'
 grep '^model = "team-model" # managed by AIGW$' $HOME/.codex/config.toml
 exec aigw sync --json

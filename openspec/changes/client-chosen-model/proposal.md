@@ -16,7 +16,7 @@ writes imitated, showed what a person meets after choosing a model in Codex or H
 
 - Every command works from the configuration that follows a model chosen in Codex or Hermes. A command that saves
   the configuration records the choice together with AIGW's record of the client's file, keeps the client's value
-  and keeps its own change; `aigw status` and `aigw check` report the chosen model as the selection;
+  and keeps its own change, and leaves the choice in the client's file alone where it does not write that file; `aigw status` and `aigw check` report the chosen model as the selection;
   `aigw client disable` and `aigw self uninstall` withdraw after a choice.
 - A command that records a choice, its preview, `aigw status`, `aigw check` and bare `aigw` name each followed
   selection, the earlier one and the command that returns to it: a section ahead of the next step in text,
