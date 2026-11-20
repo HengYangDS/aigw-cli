@@ -17,8 +17,8 @@ import (
 func overridesRuntime() domain.Runtime {
 	return domain.Runtime{
 		Model: domain.NewModelRef("suhe", "claude-code-opus-5-5"), ProviderID: "suhe", Endpoint: "https://suhe.test",
-		UpstreamModel:   "claude-code-opus-5-5",
-		AnthropicModels: map[string]string{"claude-opus-5-5": "claude-code-opus-5-5", "claude-fable-5-2": "claude-code-fable-5-2"},
+		UpstreamModel:  "claude-code-opus-5-5",
+		FamilyVariants: map[string]string{"claude-opus-5-5": "claude-code-opus-5-5", "claude-fable-5-2": "claude-code-fable-5-2", "gpt-6.2-sol": "codex-gpt-6.2-sol"},
 	}
 }
 
@@ -46,8 +46,9 @@ func TestSettingsProjectTheProvidersModelOverrides(t *testing.T) {
 	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
 		t.Fatal(err)
 	}
-	if got, present := writtenOverrides(t, path); !present || !maps.Equal(got, runtime.AnthropicModels) {
-		t.Fatalf("modelOverrides = %v (present %t), want %v", got, present, runtime.AnthropicModels)
+	want := map[string]string{"claude-opus-5-5": "claude-code-opus-5-5", "claude-fable-5-2": "claude-code-fable-5-2"}
+	if got, present := writtenOverrides(t, path); !present || !maps.Equal(got, want) {
+		t.Fatalf("modelOverrides = %v (present %t), want %v: a family that is no Anthropic model ID stays out", got, present, want)
 	}
 	plan, err := PlanSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel)
 	if err != nil || plan.Action != SettingsActionAlreadyConverged {
@@ -58,7 +59,7 @@ func TestSettingsProjectTheProvidersModelOverrides(t *testing.T) {
 	}
 
 	without := runtime
-	without.AnthropicModels = nil
+	without.FamilyVariants = map[string]string{"gpt-6.2-sol": "codex-gpt-6.2-sol"}
 	if _, err := ReconcileSettings(path, false, without, testExecutable(), runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}

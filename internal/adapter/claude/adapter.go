@@ -93,7 +93,7 @@ func (claudeAdapter) ProjectionChanged(before, after domain.Config) bool {
 		return true
 	}
 	return !beforeRuntime.SameUpstream(afterRuntime) || beforeRuntime.Endpoint != afterRuntime.Endpoint || beforeRuntime.UpstreamModel != afterRuntime.UpstreamModel ||
-		!maps.Equal(beforeRuntime.AnthropicModels, afterRuntime.AnthropicModels)
+		!maps.Equal(modelOverrides(beforeRuntime), modelOverrides(afterRuntime))
 }
 
 func (claudeAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime) adapter.Status {

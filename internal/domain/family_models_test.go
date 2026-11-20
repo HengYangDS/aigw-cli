@@ -6,10 +6,9 @@ import (
 	"testing"
 )
 
-// A model serves the Anthropic model ID that is its family when that family
-// begins with claude- and is not the model's own ID; any other model serves
-// none.
-func TestAnthropicModelIsTheFamilyOfAClaudeChannel(t *testing.T) {
+// A model that serves its family under another ID is a variant of that
+// family; one that is its own family, or names it, is none.
+func TestVariantOfIsTheFamilyOfAProvidersChannel(t *testing.T) {
 	for _, test := range []struct {
 		name, id, family, want string
 	}{
@@ -18,23 +17,22 @@ func TestAnthropicModelIsTheFamilyOfAClaudeChannel(t *testing.T) {
 		{"a channel of another spelling", "Claude-Code-Haiku-5-5", "claude-haiku-5-5", "claude-haiku-5-5"},
 		{"a model that names its family", "claude-opus-5-5", "claude-opus-5-5", ""},
 		{"a model that is its own family", "claude-sonnet-5-5", "", ""},
-		{"a model of another vendor", "codex-gpt-6.2-sol", "gpt-6.2-sol", ""},
-		{"a family that only looks like one", "my-claude-opus", "my-claude", ""},
+		{"a channel of another vendor", "codex-gpt-6.2-sol", "gpt-6.2-sol", "gpt-6.2-sol"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := (Model{ID: test.id, Family: test.family}).AnthropicModel(); got != test.want {
-				t.Fatalf("AnthropicModel() of %s in family %q = %q, want %q", test.id, test.family, got, test.want)
+			if got := (Model{ID: test.id, Family: test.family}).VariantOf(); got != test.want {
+				t.Fatalf("VariantOf() of %s in family %q = %q, want %q", test.id, test.family, got, test.want)
 			}
 		})
 	}
 }
 
-// A client's map sends each Anthropic model ID that a model of the selected
-// provider serves on the selected protocol to one ID of that provider: the
-// selected model's own ID for its family, the first in configuration order
-// for any other. A model of another provider or protocol, and one that
-// serves no Anthropic model ID, stays out.
-func TestAnthropicModelsMapsEachFamilyOfTheSelectedProviderOnce(t *testing.T) {
+// A runtime's map sends each family that a model of the selected provider
+// serves under another ID on the selected protocol to one ID of that
+// provider: the selected model's own ID for its family, the first in
+// configuration order for any other. A model of another provider or
+// protocol, and one that is its own family, stays out.
+func TestFamilyVariantsMapEachFamilyOfTheSelectedProviderOnce(t *testing.T) {
 	cfg := NewConfig(testAdmission())
 	for _, provider := range []string{"suhe", "other"} {
 		if err := cfg.AppendProvider(provider, Provider{Label: provider, Endpoints: Endpoints{Anthropic: "https://" + provider + ".test", Responses: "https://" + provider + ".test/v1"}}); err != nil {
@@ -61,8 +59,8 @@ func TestAnthropicModelsMapsEachFamilyOfTheSelectedProviderOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]string{"claude-fable-5-2": "claude-code-fable-5-2", "claude-opus-5-5": "claude-code-opus-5-5"}
-	if got := runtime.AnthropicModels; !maps.Equal(got, want) {
-		t.Fatalf("AnthropicModels = %v, want %v", got, want)
+	if got := runtime.FamilyVariants; !maps.Equal(got, want) {
+		t.Fatalf("FamilyVariants = %v, want %v", got, want)
 	}
 
 	// The selected model names its family: no other model takes the family.
@@ -70,8 +68,8 @@ func TestAnthropicModelsMapsEachFamilyOfTheSelectedProviderOnce(t *testing.T) {
 	if runtime, err = cfg.ResolveRuntime(ClientClaude, ModelRef{}); err != nil {
 		t.Fatal(err)
 	}
-	if got := runtime.AnthropicModels; !maps.Equal(got, map[string]string{"claude-fable-5-2": "claude-code-fable-5-2"}) {
-		t.Fatalf("with a selection that names its family, AnthropicModels = %v", got)
+	if got := runtime.FamilyVariants; !maps.Equal(got, map[string]string{"claude-fable-5-2": "claude-code-fable-5-2"}) {
+		t.Fatalf("with a selection that names its family, FamilyVariants = %v", got)
 	}
 }
 
@@ -80,7 +78,7 @@ func TestAnthropicModelsMapsEachFamilyOfTheSelectedProviderOnce(t *testing.T) {
 // order; the map covers exactly those. So a family whose first model is its
 // own ID has no entry, although a channel of it follows, and of two channels
 // of one family the first is taken.
-func TestAnthropicModelsCoverTheListedModelOfEachFamily(t *testing.T) {
+func TestFamilyVariantsCoverTheListedModelOfEachFamily(t *testing.T) {
 	cfg := NewConfig(testAdmission())
 	if err := cfg.AppendProvider("suhe", Provider{Label: "Suhe", Endpoints: Endpoints{Anthropic: "https://suhe.test"}}); err != nil {
 		t.Fatal(err)
@@ -109,7 +107,7 @@ func TestAnthropicModelsCoverTheListedModelOfEachFamily(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]string{"claude-opus-5-5": "claude-code-opus-5-5", "claude-sonnet-5-5": "claude-sonnet-5-5-cc"}
-	if !maps.Equal(runtime.AnthropicModels, want) {
-		t.Fatalf("AnthropicModels = %v, want %v", runtime.AnthropicModels, want)
+	if !maps.Equal(runtime.FamilyVariants, want) {
+		t.Fatalf("FamilyVariants = %v, want %v", runtime.FamilyVariants, want)
 	}
 }

@@ -1,9 +1,9 @@
 ## 1. The Anthropic model behind an ID
 
-- [x] 1.1 Add the domain function that returns, for a model, the Anthropic model ID that it serves: its family when
-      that family begins with `claude-` and is not the model's own ID, or nothing. Done when its table test (a
-      channel by prefix and by suffix, a model that is its own family, a non-Claude family, an empty family) passes.
-      Done in `23187c51b`.
+- [x] 1.1 Add the domain function that returns the family that a model serves under another ID, or nothing, and let
+      each Claude adapter take the families that begin with `claude-`. Done when the domain's table test (a channel
+      by prefix and by suffix, a model that is its own family, another vendor's channel) and the adapters' tests
+      pass and the architecture gate reports no client's name outside its adapter.
 
 ## 2. Claude Code
 

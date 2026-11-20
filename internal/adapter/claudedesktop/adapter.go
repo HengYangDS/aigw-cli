@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
@@ -251,11 +252,26 @@ func claudeDesktopModelRefs(cfg domain.Config, selected domain.Runtime) []domain
 	return cfg.FamilyModels(selected.Model, selected.Protocol)
 }
 
+// anthropicModelPrefix begins every Anthropic model ID that Claude Desktop
+// knows.
+const anthropicModelPrefix = "claude-"
+
+// behavesAs is the Anthropic model that an entry's model serves under another
+// ID of its provider, which Desktop's sessions then run at that model's
+// window, or "" for a model that is its own family, names it, or serves a
+// family that is no Anthropic model ID.
+func behavesAs(model domain.Model) string {
+	if family := model.VariantOf(); strings.HasPrefix(family, anthropicModelPrefix) {
+		return family
+	}
+	return ""
+}
+
 func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {
 	refs := claudeDesktopModelRefs(cfg, selected)
-	models := []Model{{Name: selected.UpstreamModel, Label: selected.ModelLabel, BehavesAs: cfg.Models[selected.Model].AnthropicModel()}}
+	models := []Model{{Name: selected.UpstreamModel, Label: selected.ModelLabel, BehavesAs: behavesAs(cfg.Models[selected.Model])}}
 	for _, ref := range refs[1:] {
-		models = append(models, Model{Name: ref.ID(), Label: cfg.ModelLabel(ref), BehavesAs: cfg.Models[ref].AnthropicModel()})
+		models = append(models, Model{Name: ref.ID(), Label: cfg.ModelLabel(ref), BehavesAs: behavesAs(cfg.Models[ref])})
 	}
 	return models
 }

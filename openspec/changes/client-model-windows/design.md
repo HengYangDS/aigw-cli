@@ -43,7 +43,10 @@ each request (no Token, no network; `build/runtime/work/cc-model-overrides/` in 
   Anthropic model IDs in AIGW; use the family when it begins with `claude-`.
 - **Chosen because:** the family already says which model an ID is, and a table would repeat it. A family that does
   not begin with `claude-` is not an Anthropic model ID, and Claude Code ignores an unknown key.
-- **Applies to:** one domain function that returns, for a model, the Anthropic model ID that it serves, or nothing.
+- **Applies to:** the domain says only which family a model serves under another ID (`Model.VariantOf`), for any
+  vendor. Each Claude adapter decides that a family beginning with `claude-` is an Anthropic model ID: the
+  repository's architecture rule keeps a client's knowledge in its adapter, and the first check of this lane
+  stopped on a client's name in the domain package.
 
 ### One owner lists a provider's models for a client
 
@@ -52,7 +55,7 @@ each request (no Token, no network; `build/runtime/work/cc-model-overrides/` in 
   specification.
 - **Considered:** keep the list in the Desktop adapter and repeat it for the map; one function in the domain.
 - **Chosen because:** the map must name exactly what a picker row can select, so both read one list.
-- **Applies to:** `Config.FamilyModels`, read by `Runtime.AnthropicModels` and by Desktop's profile.
+- **Applies to:** `Config.FamilyModels`, read by `Runtime.FamilyVariants` and by Desktop's profile.
 
 ### Claude Code: one `modelOverrides` map for the selected provider
 

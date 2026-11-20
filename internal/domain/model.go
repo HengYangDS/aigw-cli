@@ -114,17 +114,14 @@ func (model Model) FamilyID() string {
 	return model.ID
 }
 
-// AnthropicModel returns the Anthropic model ID that the model serves under
-// its provider's own ID: its family, when that family is an Anthropic model ID
-// (it begins with claude-) and not the model's own ID. A model that names its
-// family, or whose family is no Anthropic model ID, serves none, and the
-// result is "".
-func (model Model) AnthropicModel() string {
-	family := model.Family
-	if !strings.HasPrefix(family, "claude-") || strings.EqualFold(model.ID, family) {
+// VariantOf returns the family that the model serves under another ID of its
+// provider, such as a provider's channel of a vendor's model, or "" for a
+// model that is its own family or names it.
+func (model Model) VariantOf() string {
+	if model.Family == "" || strings.EqualFold(model.ID, model.Family) {
 		return ""
 	}
-	return family
+	return model.Family
 }
 
 // Declares reports whether the model qualified capability on protocol.
@@ -154,12 +151,12 @@ type Runtime struct {
 	ModelProvider     string           `json:"model_provider"`
 	Authentication    Authentication   `json:"authentication"`
 	CredentialCommand string           `json:"-"`
-	// AnthropicModels maps each Anthropic model ID that a model of the
-	// selected provider serves on the selected protocol to one ID of that
-	// provider: the selected model's own ID for its family, and the first in
-	// configuration order for any other. A client that knows Anthropic model
-	// IDs learns from it which of them the provider serves, and as what.
-	AnthropicModels map[string]string `json:"-"`
+	// FamilyVariants maps the family of each of the selection's FamilyModels
+	// that serves its family under another ID to that model's ID: the
+	// selected model's own ID for its family, and the first in configuration
+	// order for any other. A client that knows a vendor's model IDs learns
+	// from it which of them the provider serves, and as what.
+	FamilyVariants map[string]string `json:"-"`
 }
 
 // ModelName is the model's label without the provider's name and its
@@ -540,7 +537,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		ModelProvider:     selectedModelProvider(spec, selection),
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
-		AnthropicModels:   c.anthropicModels(ref, protocol),
+		FamilyVariants:    c.familyVariants(ref, protocol),
 	}, nil
 }
 
@@ -567,17 +564,17 @@ func (c *Config) FamilyModels(selected ModelRef, protocol EndpointProtocol) []Mo
 	return refs
 }
 
-// anthropicModels maps the Anthropic model ID that each of selected's
-// FamilyModels serves to that model's ID. It is nil when none serves one.
-func (c *Config) anthropicModels(selected ModelRef, protocol EndpointProtocol) map[string]string {
+// familyVariants maps the family that each of selected's FamilyModels serves
+// under another ID to that model's ID. It is nil when none is a variant.
+func (c *Config) familyVariants(selected ModelRef, protocol EndpointProtocol) map[string]string {
 	var mapped map[string]string
 	for _, ref := range c.FamilyModels(selected, protocol) {
 		model := c.Models[ref]
-		if anthropic := model.AnthropicModel(); anthropic != "" {
+		if family := model.VariantOf(); family != "" {
 			if mapped == nil {
 				mapped = map[string]string{}
 			}
-			mapped[anthropic] = model.ID
+			mapped[family] = model.ID
 		}
 	}
 	return mapped

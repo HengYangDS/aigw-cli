@@ -407,10 +407,10 @@ func projectSettings(document settingsDocument, runtime domain.Runtime, executab
 	}
 	// Claude Code sends the provider's ID for every picker row and alias of an
 	// Anthropic model that the map names, and gives it that model's window.
-	if len(runtime.AnthropicModels) == 0 {
+	if overrides := modelOverrides(runtime); len(overrides) == 0 {
 		delete(document, "modelOverrides")
 	} else {
-		document["modelOverrides"] = adapter.RawJSON(runtime.AnthropicModels)
+		document["modelOverrides"] = adapter.RawJSON(overrides)
 	}
 	document["apiKeyHelper"] = adapter.RawJSON(credentialHelper(executable, runtime.CredentialProjectionFingerprint(ID)))
 }
