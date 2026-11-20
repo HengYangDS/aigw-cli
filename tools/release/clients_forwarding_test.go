@@ -60,7 +60,7 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	resolved, err := cfg.ResolveRuntime(client, domain.ModelRef{})
 	expected := direct
 	expected.Endpoint = endpoint
-	if err != nil || resolved != expected {
+	if err != nil || !resolved.Equal(expected) {
 		j.testing.Fatalf("native forwarding changed Account, model or protocol ownership: %v", err)
 	}
 	j.requireCredential(retained, token)

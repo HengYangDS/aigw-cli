@@ -382,7 +382,7 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 	for _, name := range performance.WorkloadNames(scope) {
 		workload := commands[name]
 		workload.Name, workload.Budget, workload.Runtime = name, performance.Budget(name), binding
-		if binding != (domain.Runtime{}) {
+		if !binding.Equal(domain.Runtime{}) {
 			workload.Mode = "direct"
 		}
 		if scope == "forwarding-performance" {
@@ -390,7 +390,7 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 			// a model of the same provider keeps it.
 			workload.Mode = "forwarding"
 		}
-		if workload.Name == "projection" && binding != (domain.Runtime{}) {
+		if workload.Name == "projection" && !binding.Equal(domain.Runtime{}) {
 			workload.Runtime.Model, workload.Runtime.ModelLabel = domain.NewModelRef(binding.ProviderID, "claude-second"), "Performance Second"
 			workload.Runtime.UpstreamModel, workload.Runtime.FamilyID = "claude-second", "claude-second"
 		}
@@ -406,7 +406,7 @@ func (j *journeyFixture) reviewPerformanceBinding(expected domain.Runtime) error
 	}
 	actual, err := config.ResolveRuntime(claude.ID, domain.ModelRef{})
 	actual.CredentialCommand = ""
-	if err != nil || actual != expected {
+	if err != nil || !actual.Equal(expected) {
 		return errors.Join(err, errors.New("measured forwarding differs from its selected native binding"))
 	}
 	reader, err := claude.ObservedCredentialExecutable(j.settings, actual)
