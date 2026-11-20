@@ -2,6 +2,7 @@ package domain
 
 import (
 	"maps"
+	"slices"
 	"testing"
 )
 
@@ -71,5 +72,44 @@ func TestAnthropicModelsMapsEachFamilyOfTheSelectedProviderOnce(t *testing.T) {
 	}
 	if got := runtime.AnthropicModels; !maps.Equal(got, map[string]string{"claude-fable-5-2": "claude-code-fable-5-2"}) {
 		t.Fatalf("with a selection that names its family, AnthropicModels = %v", got)
+	}
+}
+
+// The models that a client lists for a provider are the selected one and the
+// first model of each other family on the selected protocol, in configuration
+// order; the map covers exactly those. So a family whose first model is its
+// own ID has no entry, although a channel of it follows, and of two channels
+// of one family the first is taken.
+func TestAnthropicModelsCoverTheListedModelOfEachFamily(t *testing.T) {
+	cfg := NewConfig(testAdmission())
+	if err := cfg.AppendProvider("suhe", Provider{Label: "Suhe", Endpoints: Endpoints{Anthropic: "https://suhe.test"}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, model := range []Model{
+		{ID: "claude-code-opus-5-5", Family: "claude-opus-5-5"},
+		{ID: "claude-fable-5-2", Family: "claude-fable-5-2"},
+		{ID: "claude-code-fable-5-2", Family: "claude-fable-5-2"},
+		{ID: "claude-sonnet-5-5-cc", Family: "claude-sonnet-5-5"},
+		{ID: "claude-code-sonnet-5-5", Family: "claude-sonnet-5-5"},
+	} {
+		model.Provider, model.Protocols = "suhe", map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}
+		if err := cfg.AppendModel(model); err != nil {
+			t.Fatal(err)
+		}
+	}
+	selected := NewModelRef("suhe", "claude-code-opus-5-5")
+	cfg.SetSelectedModel(ClientClaude, selected, ProtocolAnthropic)
+	listed := cfg.FamilyModels(selected, ProtocolAnthropic)
+	wantListed := []ModelRef{selected, NewModelRef("suhe", "claude-fable-5-2"), NewModelRef("suhe", "claude-sonnet-5-5-cc")}
+	if !slices.Equal(listed, wantListed) {
+		t.Fatalf("FamilyModels = %v, want %v", listed, wantListed)
+	}
+	runtime, err := cfg.ResolveRuntime(ClientClaude, ModelRef{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"claude-opus-5-5": "claude-code-opus-5-5", "claude-sonnet-5-5": "claude-sonnet-5-5-cc"}
+	if !maps.Equal(runtime.AnthropicModels, want) {
+		t.Fatalf("AnthropicModels = %v, want %v", runtime.AnthropicModels, want)
 	}
 }

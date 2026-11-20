@@ -2,10 +2,10 @@
 
 ### Requirement: Claude Code maps Anthropic model IDs to the provider's
 
-AIGW SHALL write into Claude Code's settings one map from each Anthropic model ID that a Claude model of the selected
-provider serves to one ID of that provider. A model serves the Anthropic model ID that is its family, when that
-family begins with `claude-` and is not the model's own ID. The selected model's ID SHALL win its family; another
-family SHALL take its first such model in configuration order. The map SHALL be a value that AIGW owns, records and
+AIGW SHALL write into Claude Code's settings one map from each Anthropic model ID that a listed model serves to that
+model's ID. A model serves the Anthropic model ID that is its family, when that family begins with `claude-` and is
+not the model's own ID. The listed models are the selected model and the first model of each other family of its
+provider on the selected protocol, in configuration order. The map SHALL be a value that AIGW owns, records and
 withdraws.
 
 #### Scenario: Claude Code's picker rows reach the provider's channel
@@ -22,6 +22,17 @@ withdraws.
 
 - **WHEN** the selected model and another model of the selected provider share the family `claude-opus-5-5`
 - **THEN** the map SHALL send `claude-opus-5-5` to the selected model's ID.
+
+#### Scenario: A family's first model names its family
+
+- **WHEN** the provider lists `claude-fable-5-2` before `claude-code-fable-5-2`, both in the family
+  `claude-fable-5-2`, and neither is selected
+- **THEN** the map SHALL hold no entry for `claude-fable-5-2`, since the listed model is the Anthropic ID itself.
+
+#### Scenario: Only the map changes
+
+- **WHEN** a command changes which models the provider lists, and nothing else of Claude Code's selection
+- **THEN** that command SHALL rewrite Claude Code's settings with the new map.
 
 #### Scenario: The map is withdrawn with Claude Code's projection
 

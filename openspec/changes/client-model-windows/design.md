@@ -45,6 +45,15 @@ each request (no Token, no network; `build/runtime/work/cc-model-overrides/` in 
   not begin with `claude-` is not an Anthropic model ID, and Claude Code ignores an unknown key.
 - **Applies to:** one domain function that returns, for a model, the Anthropic model ID that it serves, or nothing.
 
+### One owner lists a provider's models for a client
+
+- **Rests on:** Desktop's profile already listed "the selected model, then the first model of each other family";
+  the map needed the same list, and the first review found the two written twice and one differing from the
+  specification.
+- **Considered:** keep the list in the Desktop adapter and repeat it for the map; one function in the domain.
+- **Chosen because:** the map must name exactly what a picker row can select, so both read one list.
+- **Applies to:** `Config.FamilyModels`, read by `Runtime.AnthropicModels` and by Desktop's profile.
+
 ### Claude Code: one `modelOverrides` map for the selected provider
 
 - **Rests on:** the measurement above, and Claude Code's documentation: "Keys must be Anthropic model IDs ... Unknown
@@ -73,6 +82,14 @@ each request (no Token, no network; `build/runtime/work/cc-model-overrides/` in 
 - A provider whose channel is not the Anthropic model it names would get that model's window; AIGW already treats a
   family as that claim.
 - A client release could drop either field; the real-client check of each release covers both.
+- Claude Desktop passes its sessions an exact list of available models as a managed setting, and with it a
+  `modelOverrides` map in the user's settings is not applied: its Claude Code 2.1.328 sent `claude-opus-5-5`
+  unmapped with that setting and `claude-code-opus-5-5` without it (measured 2026-11-21). So Claude Code's map
+  reaches the terminal client only; a Desktop session uses the IDs of Desktop's own profile, which `behavesAs`
+  covers. A Desktop session whose profile names another provider than Claude Code's selection is not rewritten.
+- A person who wrote a `modelOverrides` into the settings while 0.8.3 owned them gets "changed outside AIGW" from
+  the first projection of this release, since the earlier record did not cover the key; removing the key by hand
+  resolves it, and `aigw sync --dry-run --json` shows it before anything is written.
 - AIGW's record of Claude Code's settings gains the field `model_overrides`, and 0.8.3 refuses a record with a field
   that it does not know. A person who rolls the program back to 0.8.3 after this release first runs the command
   `aigw client disable claude` with the newer program. The owner's standing word allows breaking changes without

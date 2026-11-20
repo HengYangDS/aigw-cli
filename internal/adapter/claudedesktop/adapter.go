@@ -245,26 +245,10 @@ func claudeDesktopDesired(deps adapter.Dependencies, cfg domain.Config, selected
 }
 
 // claudeDesktopModelRefs lists the models the profile exposes: the selected
-// model, then, in configuration order, the first compatible model of its
-// provider of each other family. A model that is its own family counts as one
-// family.
+// model and the first model of each other family of its provider on its
+// protocol, as the configuration lists a provider's models for a client.
 func claudeDesktopModelRefs(cfg domain.Config, selected domain.Runtime) []domain.ModelRef {
-	refs := []domain.ModelRef{selected.Model}
-	seen := map[string]bool{cfg.Models[selected.Model].FamilyID(): true}
-	spec := claudeDesktopAdapter{}.Spec()
-	for _, ref := range cfg.ProviderModelRefs(selected.ProviderID) {
-		model := cfg.Models[ref]
-		if ref == selected.Model || seen[model.FamilyID()] {
-			continue
-		}
-		provider := cfg.Providers[model.Provider]
-		if !slices.Contains(spec.CompatibleModelProtocols(provider, model), selected.Protocol) {
-			continue
-		}
-		refs = append(refs, ref)
-		seen[model.FamilyID()] = true
-	}
-	return refs
+	return cfg.FamilyModels(selected.Model, selected.Protocol)
 }
 
 func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {

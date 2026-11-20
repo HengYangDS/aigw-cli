@@ -540,34 +540,45 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		ModelProvider:     selectedModelProvider(spec, selection),
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
-		AnthropicModels:   c.anthropicModels(model, protocol),
+		AnthropicModels:   c.anthropicModels(ref, protocol),
 	}, nil
 }
 
-// anthropicModels maps each Anthropic model ID that a model of selected's
-// provider serves on protocol to one ID of that provider: selected's own ID
-// for its family, which no other model then takes, and the first in
-// configuration order for any other family. It is nil when no model serves
-// one.
-func (c *Config) anthropicModels(selected Model, protocol EndpointProtocol) map[string]string {
+// FamilyModels lists the models that a client shows for the provider of
+// selected on protocol: selected first, then, in configuration order, the
+// first model of each other family that the provider serves on that
+// protocol. A model that is its own family counts as one family. Every
+// client that offers the provider's other models offers these.
+func (c *Config) FamilyModels(selected ModelRef, protocol EndpointProtocol) []ModelRef {
+	chosen := c.Models[selected]
+	if protocol == "" || c.Providers[chosen.Provider].Endpoints.For(protocol) == "" {
+		return []ModelRef{selected}
+	}
+	refs := []ModelRef{selected}
+	taken := map[string]bool{chosen.FamilyID(): true}
+	for _, ref := range c.ProviderModelRefs(chosen.Provider) {
+		model := c.Models[ref]
+		if ref == selected || taken[model.FamilyID()] || !modelAdmitsProtocol(model, protocol) {
+			continue
+		}
+		taken[model.FamilyID()] = true
+		refs = append(refs, ref)
+	}
+	return refs
+}
+
+// anthropicModels maps the Anthropic model ID that each of selected's
+// FamilyModels serves to that model's ID. It is nil when none serves one.
+func (c *Config) anthropicModels(selected ModelRef, protocol EndpointProtocol) map[string]string {
 	var mapped map[string]string
-	taken := map[string]bool{selected.FamilyID(): true}
-	add := func(model Model) {
+	for _, ref := range c.FamilyModels(selected, protocol) {
+		model := c.Models[ref]
 		if anthropic := model.AnthropicModel(); anthropic != "" {
 			if mapped == nil {
 				mapped = map[string]string{}
 			}
 			mapped[anthropic] = model.ID
 		}
-	}
-	add(selected)
-	for _, ref := range c.ProviderModelRefs(selected.Provider) {
-		model := c.Models[ref]
-		if taken[model.FamilyID()] || !modelAdmitsProtocol(model, protocol) {
-			continue
-		}
-		taken[model.FamilyID()] = true
-		add(model)
 	}
 	return mapped
 }

@@ -13,6 +13,17 @@ signing, and GA status remain separate evidence.
 
 ### Changed
 
+- Claude Code and Claude Desktop now learn which Anthropic model a provider's
+  own model ID serves, such as a provider's Claude Code channel of Claude Opus
+  5.5. AIGW writes Claude Code's `modelOverrides`, so each model row and alias
+  in Claude Code sends the ID that the selected provider serves and runs at
+  that model's context window, and writes `behavesAs` on Claude Desktop's model
+  entries, so a Desktop session no longer holds such a model to 200,000 tokens.
+  Both are values that AIGW owns. Breaking: AIGW's record of Claude Code's
+  settings gains a field that 0.8.3 refuses, so before rolling the program
+  back to 0.8.3 run `aigw client disable claude`; and a `modelOverrides` that
+  you added by hand to settings that AIGW already owned is reported as changed
+  outside AIGW until you remove it.
 - The repository's ETHOS proof runs its Go test suite once instead of twice.
   The coverage command can write JUnit and LCOV reports from its one test run
   (`--junit-output`, `--lcov-output`), and ETHOS judges those reports instead of

@@ -125,3 +125,25 @@ func TestSettingsRefuseAModelOverridesEditOutsideAIGW(t *testing.T) {
 		t.Fatalf("the refused projection wrote the settings: %v", readErr)
 	}
 }
+
+// A change of the map alone, here a channel that the provider gains, changes
+// Claude Code's projection, so the command that makes it rewrites the
+// settings.
+func TestClaudeProjectionChangesWhenOnlyTheModelOverridesChange(t *testing.T) {
+	before := domain.NewConfig(testAdmission())
+	before.Providers["suhe"] = domain.Provider{Label: "Suhe", Endpoints: domain.Endpoints{Anthropic: "https://suhe.test"}}
+	opus := qualifiedModel("", "suhe", "claude-code-opus-5-5", domain.ProtocolAnthropic)
+	opus.Family = "claude-opus-5-5"
+	before.Models[opus.Ref()] = opus
+	before.Clients[ID] = domain.ClientBinding{Model: opus.Ref(), Enabled: true, Executable: "/usr/bin/claude"}
+	if (claudeAdapter{}).ProjectionChanged(before, before.Clone()) {
+		t.Fatal("an unchanged configuration changes the projection")
+	}
+	after := before.Clone()
+	fable := qualifiedModel("", "suhe", "claude-code-fable-5-2", domain.ProtocolAnthropic)
+	fable.Family = "claude-fable-5-2"
+	after.Models[fable.Ref()] = fable
+	if !(claudeAdapter{}).ProjectionChanged(before, after) {
+		t.Fatal("a channel that the provider gained did not change Claude Code's projection")
+	}
+}
