@@ -28,5 +28,7 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Run the changed packages' tests, the linter and the secret scan in the lane. Done when each passes.
-- [ ] 4.2 Full exact-HEAD proof of the lane head passes.
+- [x] 4.1 Run the changed packages' tests, the linter and the secret scan in the lane. Done when each passes.
+      `mise run check` passed on `96cec084` under one host ticket.
+- [x] 4.2 Pass the proposal's hosted checks on both forges, the Windows jobs included. GitHub's five required
+      checks and GitLab pipeline 17040 passed on `96cec084`.
