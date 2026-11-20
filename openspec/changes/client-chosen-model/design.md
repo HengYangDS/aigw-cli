@@ -123,10 +123,27 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
   records it. A refusal would stop a command about something else for a file that it does not name.
 - **Applies to:** `recorded` in `internal/app/synchronization`, which `commit` and the previews share. A client
   whose choice the command does not touch joins the reconciled clients when its files can be planned; the result
-  then names its files. Where the transition does not write the client's files, because the client waits for a
-  Token or one of its files is refused, what is saved holds that client's selection as stored. A command that
-  changes such a client's other settings, such as `aigw client edit` of its forwarding, saves that change beside
-  the stored selection: the stored model, protocol and retry budgets, and its forwarding to the stored upstream.
+  then names its files. Where one of its files is refused, what is saved holds that client as stored.
+
+### A choice that waits for its Token is reported and not worked from
+
+- **Rests on:** the fourth and fifth reviews' runs. While Hermes's chosen model waited for its Token, the command
+  `aigw client edit hermes --via <address>` saved the choice without its record; the fix that put the stored
+  selection back after the command then dropped `--direct`, which the follow had already cleared, and saved a
+  forwarding to an upstream that the client no longer used. A test edits a waiting Hermes with `--direct` and
+  `--via`, then stores the Token and synchronizes.
+- **Considered:** repair what the command saved, field by field, after it ran; refuse an edit of a waiting client;
+  work from the stored selection for a client whose chosen model waits for its Token.
+- **Chosen because:** a command's intent is whole only in the configuration that it starts from, so the repair
+  after it cannot tell an explicit `--direct` from a forwarding that the choice ended. Working from the stored
+  selection gives every command the configuration that it saves, and the choice loses nothing: it stays in the
+  client's file, and the first command after the Token is stored records it. A refusal would break the owner's rule
+  that no command fails because of a model chosen in a client.
+- **Applies to:** `Synchronizer.Working`, which leaves such a choice out and marks it as waiting, and
+  `Synchronizer.Reported`, which `status` and `check` read, so that they name the model that the client uses. The
+  preimage keeps the waiting state that the command read, so a command that stores the Token itself, such as
+  `aigw use --token-stdin`, compares like with like. Once the Token is stored, the recorded choice ends a forwarding
+  that reaches another upstream, as any choice does, and the result says so.
 
 ### An adapter admits a file that shows the selection the transition starts from
 
@@ -251,10 +268,10 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
 
 - A stale write of a running client is followed as a choice. The followed model, the earlier one and the returning
   command are printed, and the next Change words what a running client needs.
-- A command that changes the settings of a client that waits for its Token saves its change and not the choice,
-  so the client's binding differs from its file until the Token is stored. The fourth fresh review found the
-  previous version saving the choice there; a test now edits such a client and requires the choice to stay in its
-  file.
+- While a client's chosen model waits for its Token, a command that changes the client's settings changes them on
+  the stored selection, so a forwarding set then reaches the stored model's upstream, and the choice, recorded once
+  the Token is stored, ends it if its upstream differs. The edit's result names the stored model, and the recording
+  names the forwarding that ended.
 - A command about something else now writes the file of a client whose choice it records: for Codex it puts AIGW's
   comment back on the model line and the chosen model's label into the provider's name. The result names the
   client's files.

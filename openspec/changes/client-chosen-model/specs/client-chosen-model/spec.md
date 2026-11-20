@@ -57,6 +57,15 @@ change of selection.
 - **AND** `aigw status` SHALL name the chosen model for that client, as waiting for the Token
 - **AND** the first command that saves after the Token is stored SHALL record the model that the file selects then.
 
+#### Scenario: A command changes the settings of a client that waits for a Token
+
+- **GIVEN** the operator selected in Hermes a model whose provider has no Token that AIGW can use
+- **WHEN** a command changes another setting of that client, such as `aigw client edit hermes --direct` or `--via`
+- **THEN** the command SHALL save its change on the stored selection and name that selection in its result
+- **AND** it SHALL leave the client's file as it is
+- **AND** the first command that saves after the Token is stored SHALL record the choice and name a forwarding that
+  the choice's upstream ends.
+
 #### Scenario: Another file of the client cannot be written
 
 - **WHEN** a command that names nothing of the client saves while another of that client's files is missing or

@@ -218,6 +218,78 @@ func TestAnEditOfAClientThatWaitsForATokenSavesTheEditAlone(t *testing.T) {
 	}
 }
 
+// While a client's chosen model waits for its Token, an edit of the client's
+// forwarding acts on the stored selection, which is what it saves: `--direct`
+// ends the stored forwarding and `--via` forwards the stored selection, and
+// the client's file keeps the choice. Once the Token is stored, the choice is
+// recorded, and its upstream ends that forwarding as any choice's does, which
+// the recording says.
+func TestAForwardingEditOfAClientThatWaitsForATokenActsOnTheStoredSelection(t *testing.T) {
+	app, output, _, target := shippedHermesAppWith(t, true)
+	if err := cli.Execute(app, []string{"client", "edit", "hermes", "--via", "http://127.0.0.1:9000"}); err != nil {
+		t.Fatalf("forward Hermes: %v\n%s", err, output)
+	}
+	if err := app.Secrets.Delete("ucloud"); err != nil {
+		t.Fatal(err)
+	}
+	chosen := hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
+	if got := followedIn(t, app, output, "client", "edit", "hermes", "--direct", "--json"); len(got) != 0 {
+		t.Fatalf("--direct names %+v as recorded while the client waits for its Token", got)
+	}
+	if binding := selection(t, app, hermes.ID); binding.ForwardingEndpoint != "" || binding.Model != domain.NewModelRef("dmxapi", "gpt-6.2-sol") {
+		t.Fatalf("--direct did not reach what is saved: %#v", binding)
+	}
+	if got := followedIn(t, app, output, "client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json"); len(got) != 0 {
+		t.Fatalf("--via names %+v as recorded while the client waits for its Token", got)
+	}
+	var edited struct {
+		Model      string `json:"model"`
+		Forwarding string `json:"forwarding"`
+	}
+	if err := json.Unmarshal(output.Bytes(), &edited); err != nil || edited.Model != "dmxapi/gpt-6.2-sol" || edited.Forwarding != "http://127.0.0.1:8792" {
+		t.Fatalf("the edit's result does not name what it saved: %+v, %v\n%s", edited, err, output)
+	}
+	if binding := selection(t, app, hermes.ID); binding.ForwardingEndpoint != "http://127.0.0.1:8792" || binding.Model != domain.NewModelRef("dmxapi", "gpt-6.2-sol") {
+		t.Fatalf("--via did not reach what is saved: %#v", binding)
+	}
+	if !bytes.Equal(readFile(t, target), chosen) {
+		t.Fatal("an edit wrote the file of a client that waits for its Token")
+	}
+
+	if err := app.Secrets.Set("ucloud", "fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	if got := followedIn(t, app, output, "sync", "--json"); len(got) != 1 || !got[0].ForwardingCleared {
+		t.Fatalf("synchronization after the Token follows %+v; want the choice, its forwarding ended", got)
+	}
+	if binding := selection(t, app, hermes.ID); binding.Model != domain.NewModelRef("ucloud", "claude-opus-5-5") || binding.ForwardingEndpoint != "" {
+		t.Fatalf("the choice was not recorded with its own upstream: %#v", binding)
+	}
+}
+
+// The command that stores a waiting client's Token itself, `aigw use` in a
+// terminal, compares what is stored with the configuration that it read, in
+// which the choice waited: the Token that it stores is not a change that
+// refuses it, and it records the model that it selects.
+func TestAUseThatStoresTheTokenOfAWaitingChoiceIsNotRefused(t *testing.T) {
+	app, output, _, target := shippedHermesAppWith(t, true)
+	if err := app.Secrets.Delete("ucloud"); err != nil {
+		t.Fatal(err)
+	}
+	hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
+	app.Interactive, app.Prompt = true, &scriptedPrompt{secrets: []string{"fixture-token"}}
+	output.Reset()
+	if err := cli.Execute(app, []string{"use", "hermes", "ucloud/claude-sonnet-5-5", "--protocol", "anthropic"}); err != nil {
+		t.Fatalf("use that stores the Token: %v\n%s", err, output)
+	}
+	if binding := selection(t, app, hermes.ID); binding.Model != domain.NewModelRef("ucloud", "claude-sonnet-5-5") {
+		t.Fatalf("use did not record its selection: %#v", binding)
+	}
+	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-ucloud-anthropic" || model != "claude-sonnet-5-5" {
+		t.Fatalf("use did not write Hermes's file: %s %s", provider, model)
+	}
+}
+
 // A command about something else is not stopped by another file of the
 // client whose model was chosen: where that file is missing, the choice
 // stays in the file that shows it and the command succeeds as it does

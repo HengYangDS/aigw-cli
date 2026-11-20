@@ -36,14 +36,15 @@ func NewFollowedReport(follows *synchronization.Follows) *FollowedReport {
 	return &FollowedReport{follows: follows}
 }
 
-// ReportedConfiguration reads the working configuration for a command that
-// saves nothing and reports it, such as status and check: the invocation's
-// output then names every choice of a client that the configuration follows.
+// ReportedConfiguration reads the configuration that a command that saves
+// nothing reports, such as status and check: a choice that waits for its
+// Token is recorded too, and the invocation's output names every choice of a
+// client that the configuration follows.
 func (runtime Context) ReportedConfiguration() (domain.Config, error) {
 	if runtime.Followed != nil {
 		runtime.Followed.reports = true
 	}
-	return runtime.LoadConfiguration()
+	return runtime.LoadReportedConfiguration()
 }
 
 // Failed marks an invocation whose command failed: it recorded no choice, so
