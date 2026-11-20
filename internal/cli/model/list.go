@@ -39,7 +39,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 		},
 		ValidArgsFunction: invocation.CompleteNothing,
 		RunE: func(_ *cobra.Command, args []string) error {
-			cfg, err := runtime.LoadConfiguration()
+			cfg, err := runtime.LoadReportedConfiguration()
 			if err != nil {
 				return err
 			}
@@ -139,7 +139,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 		Args:              modelArgument,
 		ValidArgsFunction: invocation.CompleteModels(runtime),
 		RunE: func(_ *cobra.Command, args []string) error {
-			cfg, model, err := loadModel(runtime, args[0], "")
+			cfg, model, err := loadModel(runtime.LoadReportedConfiguration, args[0], "")
 			if err != nil {
 				return err
 			}

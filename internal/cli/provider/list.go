@@ -20,7 +20,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 		Example: "aigw provider list\naigw provider list --json",
 		Args:    cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
-			cfg, err := runtime.LoadConfiguration()
+			cfg, err := runtime.LoadReportedConfiguration()
 			if err != nil {
 				return err
 			}
@@ -74,7 +74,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 		Args:              providerArgument,
 		ValidArgsFunction: completeProvider(runtime),
 		RunE: func(_ *cobra.Command, args []string) error {
-			cfg, provider, err := loadProvider(runtime, args[0])
+			cfg, provider, err := loadProvider(runtime.LoadReportedConfiguration, args[0])
 			if err != nil {
 				return err
 			}

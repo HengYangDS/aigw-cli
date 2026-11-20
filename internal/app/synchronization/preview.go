@@ -97,7 +97,7 @@ func (s Synchronizer) PreviewSelection(before, after domain.Config, client strin
 func project(planner Synchronizer, before, after domain.Config, reconcile bool, clientIDs ...string) (Projection, error) {
 	// Without a store, as in a plan that nothing saves, the transition is
 	// what the command gave.
-	settled := transition{after: after, clients: clientIDs, reconcile: reconcile, saves: !reflect.DeepEqual(before, after)}
+	settled := transition{shown: before, after: after, clients: clientIDs, reconcile: reconcile, saves: !reflect.DeepEqual(before, after)}
 	if planner.Config != nil {
 		snapshot, err := planner.Config.CaptureSnapshot()
 		if err == nil {
@@ -107,7 +107,7 @@ func project(planner Synchronizer, before, after domain.Config, reconcile bool, 
 			return Projection{}, err
 		}
 	}
-	projection, err := planned(planner, before, settled.after, settled.reconcile, settled.clients)
+	projection, err := planned(planner, settled.shown, settled.after, settled.reconcile, settled.clients)
 	if err != nil {
 		return Projection{}, err
 	}

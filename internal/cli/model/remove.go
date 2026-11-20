@@ -19,7 +19,7 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 		Args:              modelArgument,
 		ValidArgsFunction: invocation.CompleteModels(runtime),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, model, err := loadModel(runtime, args[0], "")
+			cfg, model, err := loadModel(runtime.LoadConfiguration, args[0], "")
 			if err != nil {
 				return err
 			}

@@ -57,6 +57,22 @@ change of selection.
 - **AND** `aigw status` SHALL name the chosen model for that client, as waiting for the Token
 - **AND** the first command that saves after the Token is stored SHALL record the model that the file selects then.
 
+#### Scenario: Every list and view names the model that a waiting client uses
+
+- **GIVEN** a client whose file selects a model whose provider has no Token that AIGW can use
+- **WHEN** `aigw client list`, `aigw model list`, `aigw model show`, `aigw provider list` or `aigw provider show` runs
+- **THEN** it SHALL name the chosen model as that client's, as `aigw status` does, and not the stored selection
+- **AND** it SHALL save nothing and write no client file.
+
+#### Scenario: A model of a client that waits for a Token is not taken away
+
+- **GIVEN** a client whose file selects a model whose provider has no Token that AIGW can use
+- **WHEN** a command would remove the chosen model, its provider, or the protocol or endpoint that the choice runs
+  on, or would remove the stored selection or its provider, with or without `--dry-run`
+- **THEN** it SHALL be refused with the client and the model named and a step that selects a model for the client
+- **AND** configuration and client files SHALL remain unchanged
+- **AND** a withdrawal of that client and an explicit selection for it SHALL NOT be refused for the choice.
+
 #### Scenario: A command changes the settings of a client that waits for a Token
 
 - **GIVEN** the operator selected in Hermes a model whose provider has no Token that AIGW can use
@@ -84,7 +100,9 @@ change of selection.
 
 - **WHEN** the operator runs `aigw client disable` for that client, or `aigw self uninstall`
 - **THEN** AIGW SHALL withdraw its settings from the client's file, the selection included, as from a file that shows
-  the recorded model.
+  the recorded model
+- **AND** it SHALL do so whether or not the chosen model's provider has a Token that AIGW can use, and remove its
+  record of the file.
 
 #### Scenario: Other managed settings changed
 
@@ -257,7 +275,9 @@ on the refusal's Fix.
 
 - **WHEN** a client whose file selects a model of its own waits for a Token and a rollback runs
 - **THEN** the model chosen in the client SHALL stay in its file
-- **AND** the rollback SHALL name for that client only a stored selection that it changes.
+- **AND** the rollback SHALL name for that client only a stored selection that it changes
+- **AND** it SHALL NOT save the chosen model as that client's selection or name it as followed, also when the
+  restored configuration holds that model for the client.
 
 #### Scenario: A rollback restores a client without a selection
 

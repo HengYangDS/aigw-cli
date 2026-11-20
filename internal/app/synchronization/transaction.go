@@ -82,7 +82,8 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 	if err != nil {
 		return committed{}, err
 	}
-	after, clientIDs, reconcileProjection, followed := settled.after, settled.clients, settled.reconcile, settled.followed
+	// The clients' adapters plan and write from what the clients' files show.
+	before, after, clientIDs, reconcileProjection, followed := settled.shown, settled.after, settled.clients, settled.reconcile, settled.followed
 	projection, err := planned(s, before, after, reconcileProjection, clientIDs)
 	if err != nil {
 		return committed{}, err

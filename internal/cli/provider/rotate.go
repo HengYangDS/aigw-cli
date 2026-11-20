@@ -27,7 +27,7 @@ func newRotateCommand(runtime invocation.Context) *cobra.Command {
 		},
 		ValidArgsFunction: completeProvider(runtime),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, provider, err := loadProvider(runtime, args[0])
+			cfg, provider, err := loadProvider(runtime.LoadConfiguration, args[0])
 			if err != nil {
 				return err
 			}

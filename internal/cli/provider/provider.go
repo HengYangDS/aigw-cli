@@ -51,10 +51,11 @@ func completeProvider(runtime invocation.Context) cobra.CompletionFunc {
 	}
 }
 
-// loadProvider loads the configuration and resolves the provider that id
-// names.
-func loadProvider(runtime invocation.Context, id string) (domain.Config, domain.Provider, error) {
-	cfg, err := runtime.LoadConfiguration()
+// loadProvider loads the configuration with load, the working one for a
+// command that saves and the reported one for a command that only shows, and
+// resolves the provider that id names.
+func loadProvider(load func() (domain.Config, error), id string) (domain.Config, domain.Provider, error) {
+	cfg, err := load()
 	if err != nil {
 		return domain.Config{}, domain.Provider{}, err
 	}

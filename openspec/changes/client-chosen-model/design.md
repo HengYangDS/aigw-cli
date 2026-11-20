@@ -145,6 +145,30 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
   `aigw use --token-stdin`, compares like with like. Once the Token is stored, the recorded choice ends a forwarding
   that reaches another upstream, as any choice does, and the result says so.
 
+### A waiting client has one answer per question, read from one place
+
+- **Rests on:** the sixth review's four runs against a Hermes whose chosen model waited for its Token:
+  `aigw client list` named the stored selection while `aigw status` named the file's model; `aigw model remove`
+  removed the model that the file selects, and the next synchronization failed on the file; `aigw client disable`
+  left AIGW's entries and record in the file; a rollback saved the chosen model without its record and named it
+  followed. Each is a cell of one table, the lane's state table, and five tests now hold its row "chosen, waiting".
+- **Considered:** repair each of the four commands where the review found it, with a guard in `model remove` and
+  another in `provider remove`; make the working configuration follow a waiting choice after all; answer each
+  question once, where every command already passes.
+- **Chosen because:** six versions each repaired the path that a review named, and the next review found the same
+  state on another path. The state has three questions, and each now has one owner. Which model does the client
+  use: the reported configuration, read by every command that saves nothing. What may not be taken away: the
+  transaction refuses a transition that leaves a waiting choice without its model, protocol or endpoint, so a
+  removal, an edit of the model's protocols, a pruning team file and a rollback meet one guard, where a guard per
+  command would have left the next command out. What do the client's files show: the transition's `shown`
+  configuration, the working one with each waiting choice followed, from which the adapters plan and write.
+  Following a waiting choice in the working configuration would bring back the fifth review's finding.
+- **Applies to:** `Dependencies.LoadReportedConfiguration` in `client list`, `model list`, `model show`,
+  `provider list` and `provider show`, which name no followed selection; `servesChoice`, `shownBy` and `recorded`
+  in the synchronizer, where a withdrawal names a waiting client for its adapter and any other transition keeps it
+  out and puts its stored selection back when the transition would save the choice; `keeps`, which reports no
+  waiting choice as recorded.
+
 ### An adapter admits a file that shows the selection the transition starts from
 
 - **Rests on:** a transition now starts from a configuration that names the client's choice while AIGW's record of

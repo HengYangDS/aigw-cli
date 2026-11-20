@@ -221,13 +221,18 @@ func TestCodexInspectionOfAFollowedChoiceIsExact(t *testing.T) {
 		t.Fatalf("the followed choice: %+v", status)
 	}
 	// A retry budget that the configuration holds and the file lacks waits
-	// for a write, with the choice as without it.
-	for name, pending := range map[string]domain.Config{"recorded": cfg.Clone(), "followed": followed.Clone()} {
-		binding := pending.Clients[ID]
+	// for a write, with the choice as without it. The two cases share the
+	// file, which shows the choice here, so they run in this order: the
+	// recorded model is chosen back first, then the other model again.
+	for _, test := range []struct {
+		name    string
+		pending domain.Config
+	}{{"recorded", cfg.Clone()}, {"followed", followed.Clone()}} {
+		binding := test.pending.Clients[ID]
 		retries := uint64(2)
 		binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &retries}
-		pending.Clients[ID] = binding
-		if name == "recorded" {
+		test.pending.Clients[ID] = binding
+		if test.name == "recorded" {
 			chooseBack := strings.Replace(mustRead(t, targets[0]), `model = "gpt-terra"`, `model = "gpt-sol" # managed by AIGW`, 1)
 			if err := os.WriteFile(targets[0], []byte(chooseBack), 0o600); err != nil {
 				t.Fatal(err)
@@ -235,8 +240,8 @@ func TestCodexInspectionOfAFollowedChoiceIsExact(t *testing.T) {
 		} else {
 			chooseCodexModel(t, targets[0], "gpt-terra")
 		}
-		if status := inspect(pending, command); status.Ready || status.RepairAction != "aigw sync" {
-			t.Errorf("%s selection with a pending retry budget: %+v", name, status)
+		if status := inspect(test.pending, command); status.Ready || status.RepairAction != "aigw sync" {
+			t.Errorf("%s selection with a pending retry budget: %+v", test.name, status)
 		}
 	}
 }
