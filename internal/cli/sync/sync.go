@@ -69,7 +69,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return terminal.ProblemError(
 					"Synchronization prerequisites are unavailable",
 					"AIGW could not determine which clients' files it can write with the clients and credentials available now.",
-					"Configuration and client files are unchanged.",
+					terminal.UnchangedImpact,
 					"aigw check --depth local",
 					err,
 				)

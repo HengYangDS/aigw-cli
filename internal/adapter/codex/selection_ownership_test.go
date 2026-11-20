@@ -186,3 +186,63 @@ func TestReconcileConfigsAuthorizedTransitionReplacesChangedRootSelections(t *te
 		}
 	}
 }
+
+// A transition admits a root model that is the selection it starts from: a
+// configuration that names it has followed Codex's own choice. It replaces
+// that model with another selection, withdraws it, and still refuses a model
+// that is neither recorded, starting nor about to be written.
+func TestReconcileConfigsTransitionAdmitsTheModelItStartsFrom(t *testing.T) {
+	project := func(t *testing.T) (string, domain.Runtime) {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "configuration.toml")
+		recorded := ownershipTestRuntime()
+		if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, recorded, recorded, false); err != nil {
+			t.Fatal(err)
+		}
+		projected, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		chosen := strings.Replace(string(projected), `model = "gpt-test" # managed by AIGW`, `model = "gpt-chosen"`, 1)
+		if err := os.WriteFile(path, []byte(chosen), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return path, recorded
+	}
+	follows := func(recorded domain.Runtime) domain.Runtime {
+		followed := recorded
+		followed.Model, followed.UpstreamModel = domain.NewModelRef("gateway", "chosen"), "gpt-chosen"
+		return followed
+	}
+	t.Run("to another selection", func(t *testing.T) {
+		path, recorded := project(t)
+		next := recorded
+		next.Model, next.UpstreamModel = domain.NewModelRef("gateway", "next"), "gpt-next"
+		target := []TargetRef{HomeTarget(path)}
+		if _, err := ReconcileConfigs(target, target, recorded, next, false); err == nil || !strings.Contains(err.Error(), "model selection changed") {
+			t.Fatalf("a transition from the recorded model replaced Codex's choice: %v", err)
+		}
+		if _, err := ReconcileConfigs(target, target, follows(recorded), next, false); err != nil {
+			t.Fatalf("a transition from the followed model: %v", err)
+		}
+		if after, err := os.ReadFile(path); err != nil || !strings.Contains(string(after), `model = "gpt-next" # managed by AIGW`) {
+			t.Fatalf("the next selection was not written: %v\n%s", err, after)
+		}
+	})
+	t.Run("withdrawal", func(t *testing.T) {
+		path, recorded := project(t)
+		target := []TargetRef{HomeTarget(path)}
+		if _, err := ReconcileConfigs(target, nil, recorded, domain.Runtime{}, false); err == nil || !strings.Contains(err.Error(), "model selection changed") {
+			t.Fatalf("a withdrawal from the recorded model removed Codex's choice: %v", err)
+		}
+		if _, err := ReconcileConfigs(target, nil, follows(recorded), domain.Runtime{}, false); err != nil {
+			t.Fatalf("a withdrawal from the followed model: %v", err)
+		}
+		if after, err := os.ReadFile(path); err != nil || !strings.Contains(string(after), `model = "gpt-original"`) || strings.Contains(string(after), "gpt-chosen") {
+			t.Fatalf("the withdrawal did not restore the original selection: %v\n%s", err, after)
+		}
+	})
+}

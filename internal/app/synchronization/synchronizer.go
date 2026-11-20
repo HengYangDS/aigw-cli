@@ -102,6 +102,9 @@ type Synchronizer struct {
 	ResolveProgram            func() (secret.Program, error)
 	Files                     secret.Files
 	AuthorizedSelectionClient string
+	// Follows receives what a transition, or its preview, keeps of the
+	// clients' own choices, for the invocation's report.
+	Follows *Follows
 }
 
 // DesiredClientConfiguration discovers the requested clients and derives the

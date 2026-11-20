@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"aigw-cli/internal/platform"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/platform"
 )
 
 // spareTeamFile is the gateway team file with a second provider, spare, whose

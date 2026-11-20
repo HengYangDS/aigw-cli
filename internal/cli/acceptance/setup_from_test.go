@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -398,7 +399,7 @@ func TestSetupFromConfigurationManifestProjectionFailureRestoresOwnedFiles(t *te
 	}}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 	err = cli.Execute(app, []string{"setup", "--from", manifestPath, "--provider", "dmxapi"})
-	if err == nil || !strings.Contains(err.Error(), "preflight failed") || strings.Contains(err.Error(), "configuration was rolled back") {
+	if _, refused := errors.AsType[*synchronization.PreflightError](err); !refused || strings.Contains(err.Error(), "configuration was rolled back") {
 		t.Fatalf("setup error = %v, want rejection before configuration commit", err)
 	}
 	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {

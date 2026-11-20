@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -453,8 +454,8 @@ func TestWizardFailureLeavesNoModelSecretOrClientProjection(t *testing.T) {
 	codexTarget := guidedCodexTarget(t, app)
 	original := string(readFile(t, codexTarget))
 	err := cli.Execute(app, []string{"setup"})
-	if err == nil || !strings.Contains(err.Error(), "preflight failed") || strings.Contains(err.Error(), "configuration was rolled back") {
-		t.Fatalf("error = %v", err)
+	if _, refused := errors.AsType[*synchronization.PreflightError](err); !refused || strings.Contains(err.Error(), "configuration was rolled back") {
+		t.Fatalf("error = %v, want a refusal before the configuration was written", err)
 	}
 	if secretExists(t, secretStore, "team-gateway") {
 		t.Fatal("failed guided setup left a Token")

@@ -1,13 +1,13 @@
 package invocation
 
 import (
-	"aigw-cli/internal/platform"
 	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 )
 
 // refusal is an unknown name or a malformed argument that a command refuses

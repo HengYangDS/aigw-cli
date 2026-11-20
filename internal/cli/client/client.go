@@ -3,7 +3,6 @@
 package client
 
 import (
-	"aigw-cli/internal/platform"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -11,6 +10,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 

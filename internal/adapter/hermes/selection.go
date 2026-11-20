@@ -103,7 +103,7 @@ func ObserveSelection(path string) (Selection, bool, error) {
 	case kindListed:
 		return selection, true, nil
 	case kindUnlisted, kindForeign:
-		return Selection{}, false, &unfollowedSelectionError{Selection: selection, owned: kind == kindUnlisted}
+		return Selection{}, false, &unfollowedSelectionError{Selection: selection}
 	case kindEdited:
 	}
 	return Selection{}, false, errExternalEdit
@@ -111,11 +111,10 @@ func ObserveSelection(path string) (Selection, bool, error) {
 
 // unfollowedSelectionError reports that Hermes' own selection is the only
 // owned value that differs from the record, and that AIGW cannot follow it:
-// owned says that it names a provider entry that AIGW owns and a model that
-// the entry does not list; otherwise it names no such entry.
+// it names a model that its provider entry does not list, or a provider
+// entry that AIGW does not own.
 type unfollowedSelectionError struct {
 	Selection
-	owned bool
 }
 
 func (e *unfollowedSelectionError) Error() string {

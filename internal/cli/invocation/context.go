@@ -87,5 +87,8 @@ func Renderer(runtime Context) *terminal.Renderer {
 	if out == nil {
 		out = io.Discard
 	}
-	return terminal.NewRendererWithWidth(out, runtime.Color, runtime.Width)
+	renderer := terminal.NewRendererWithWidth(out, runtime.Color, runtime.Width)
+	// What the invocation followed stands ahead of the command's follow-up.
+	renderer.BeforeNext(func(r *terminal.Renderer) { RenderFollowed(r, runtime.Follows) })
+	return renderer
 }

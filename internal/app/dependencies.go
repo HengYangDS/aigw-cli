@@ -59,6 +59,9 @@ type Dependencies struct {
 	// operation of this invocation goes through it.
 	Clients adapter.Registry
 	Updater Updater
+	// Follows collects what this invocation made of the clients' own
+	// choices, for the invocation's report; nil records nothing.
+	Follows *synchronization.Follows
 }
 
 // WorkingConfiguration reads the configuration that every command works
@@ -71,6 +74,7 @@ func (d Dependencies) WorkingConfiguration() (domain.Config, []synchronization.F
 		return domain.Config{}, nil, err
 	}
 	working, followed := d.Synchronizer().Working(stored)
+	d.Follows.Observe(followed)
 	return working, followed, nil
 }
 
@@ -107,5 +111,6 @@ func (d Dependencies) Synchronizer() synchronization.Synchronizer {
 		ResolveCredentialPath: d.ResolveCredentialPath,
 		ResolveProgram:        d.ResolveProgram,
 		Files:                 d.Files,
+		Follows:               d.Follows,
 	}
 }

@@ -7,6 +7,13 @@
       unlisted model while an edited address stays refused; a table test covers every state of the block.
 - [x] 1.3 Report that refusal from `sync`, another writing command, a withdrawal, `status` and `check`, with one
       step; tests and a script run each, and the script runs the step as printed.
+- [ ] 1.4 Observe each Codex file as recorded, chosen or edited outside, so that an outside edit in any file is
+      refused under its own recovery and the inspection of a followed choice is exact; tests cover a file with a
+      model that was not added beside a file with an outside edit, files that agree and files that disagree.
+- [ ] 1.5 Present a change that was refused before anything was written in the refusal's own words, with the
+      statement that nothing changed, from a command and from its preview alike, and let `aigw config rollback`
+      pass such a refusal on with its Fix; tests read the three parts from `sync`, its preview, another command
+      and a rollback.
 
 ## 2. Every Command Works From The Client's Choice
 
@@ -19,6 +26,15 @@
       writes no `adopted_selections`.
 - [x] 2.3 Drive the built program through a choice made in Codex in an acceptance script: the reports, a writing
       command, and a model that was not added with its Fix.
+- [ ] 2.4 Record a followed selection together with AIGW's record of the client's file, in a command and in its
+      preview; tests choose the earlier model in the client again after a command about something else, for Codex
+      and for Hermes, cover a provider that waits for a Token, and the script does the same with the built program.
+- [ ] 2.5 Keep one record per invocation of what was followed and report it ahead of the next step, with the
+      returning command on a line of its own, the entry's protocol and ended-setting fields, no entry for the
+      client that an explicit selection names, and no returning command that cannot run; tests read each, and
+      `aigw use` reports whether the stored configuration changes in preview and result.
+- [ ] 2.6 Name the selections that `aigw config rollback` restores, with what each replaces, in its preview and its
+      result; tests read both and the client's file.
 
 ## 3. Claude Code
 
@@ -30,6 +46,8 @@
 - [x] 4.1 Say in `docs/concepts/product-concepts.md` what a model chosen in a client means, and state the changes
       under Unreleased in `CHANGELOG.md`: the two breaking changes and each document's new `schema_version` with
       its fields.
+- [ ] 4.2 Bring the proposal, the design, the specification deltas, the concept document and the CHANGELOG to the
+      behavior of tasks 1.4, 1.5 and 2.4 to 2.6, and name in the design what stays open.
 
 ## 5. Verification
 

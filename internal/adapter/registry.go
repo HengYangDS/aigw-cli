@@ -379,24 +379,27 @@ func (registry Registry) Withdraw(cfg *domain.Config, clientID string) error {
 }
 
 // Follow records the named client's own selection as its Client Binding. It
-// returns the followed model, or the zero reference when the client shows its
-// bound selection, and the selection that the client had before, whose
-// Restore selects the earlier model again.
-func (registry Registry) Follow(deps Dependencies, cfg *domain.Config, clientID string) (domain.ModelRef, RecordedSelection, error) {
+// returns the selection that the client had before and the followed one;
+// followed is false when the client shows its bound selection.
+func (registry Registry) Follow(deps Dependencies, cfg *domain.Config, clientID string) (earlier, now RecordedSelection, followed bool, err error) {
 	client, err := registry.adapter(clientID)
 	if err != nil {
-		return domain.ModelRef{}, RecordedSelection{}, err
+		return RecordedSelection{}, RecordedSelection{}, false, err
 	}
-	// A client without a resolvable selection has nothing to follow from.
-	earlier := RecordedSelection{Client: clientID, Product: client.Spec().Label}
-	if runtime, err := cfg.ResolveRuntime(clientID, domain.ModelRef{}); err == nil {
-		earlier = Recorded(client.Spec(), runtime)
+	before, err := cfg.ResolveRuntime(clientID, domain.ModelRef{})
+	if err != nil {
+		// A client without a selection has nothing to follow from.
+		return RecordedSelection{}, RecordedSelection{}, false, nil
 	}
 	ref, err := client.AdoptSelection(deps, cfg)
 	if err != nil {
-		return domain.ModelRef{}, RecordedSelection{}, namedTarget(client.Spec(), deps.Host.Home, err)
+		return RecordedSelection{}, RecordedSelection{}, false, namedTarget(client.Spec(), deps.Host.Home, err)
 	}
-	return ref, earlier, nil
+	after, err := cfg.ResolveRuntime(clientID, domain.ModelRef{})
+	if ref.IsZero() || err != nil {
+		return RecordedSelection{}, RecordedSelection{}, false, err
+	}
+	return Recorded(client.Spec(), before), Recorded(client.Spec(), after), true, nil
 }
 
 // ValidatesTargets reports whether the client's adapter validates explicit

@@ -364,7 +364,7 @@ terminal:
 		return err
 	}
 	if client == hermes.ID {
-		plan, err := hermes.Prepare(path, nil)
+		plan, err := hermes.PrepareTransition(path, nil, nil, false)
 		if err != nil {
 			return err
 		}

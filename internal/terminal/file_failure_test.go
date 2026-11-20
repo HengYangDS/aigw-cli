@@ -244,3 +244,32 @@ func TestGivenPathFailureNamesAPathUnderHome(t *testing.T) {
 		t.Fatalf("a file outside home = %+v", problem)
 	}
 }
+
+// unwritten is a change that was refused before anything was written.
+type unwritten struct{ refusal error }
+
+func (e unwritten) Error() string { return e.refusal.Error() }
+func (e unwritten) Unwrap() error { return e.refusal }
+func (unwritten) Unchanged() bool { return true }
+
+// A change that was refused before anything was written is presented in the
+// refusal's own words, with the fix that the outermost error states, and
+// says that nothing changed. A refusal that states its own impact keeps it,
+// and a problem that a command states around the refusal is the command's.
+func TestARefusalBeforeAnythingWasWrittenSaysThatNothingChanged(t *testing.T) {
+	want := Problem{Title: "a directory is in the way", Impact: UnchangedImpact, Fix: "Move the directory, then run the command again."}
+	if problem := ProblemFor(unwritten{refusal: nextActionError{}}); problem != want {
+		t.Fatalf("a refusal before anything was written = %#v", problem)
+	}
+	if problem := ProblemFor(nextActionError{}); problem.Impact != "" {
+		t.Fatalf("a refusal that says nothing of what changed = %#v", problem)
+	}
+	restored := presentationProjectionError{restored: true, cause: &adapter.TargetError{Client: "Codex", Path: "/elsewhere/config.toml", Err: nextActionError{}}}
+	if problem := ProblemFor(unwritten{refusal: restored}); problem.Impact != "The configuration was restored." {
+		t.Fatalf("a refusal that states its own impact = %#v", problem)
+	}
+	stated := ProblemError("Rollback did not complete", "", "", "aigw check --depth local", unwritten{refusal: nextActionError{}})
+	if problem := ProblemFor(stated); problem.Title != "Rollback did not complete" || problem.Impact != "" {
+		t.Fatalf("a problem stated around the refusal = %#v", problem)
+	}
+}

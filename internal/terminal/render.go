@@ -37,6 +37,8 @@ type Renderer struct {
 	width      int
 	hasContent bool
 	styles     styles
+	// beforeNext is written once ahead of the follow-up command.
+	beforeNext func(*Renderer)
 }
 
 // Field is one row of an aligned group: a label, its value, an optional state
@@ -271,9 +273,22 @@ func (r *Renderer) Success(value string) {
 	r.hasContent = true
 }
 
+// BeforeNext registers what the renderer writes once, ahead of the follow-up
+// command: what an invocation has to say beside its command's own result. The
+// follow-up command stays the last thing that a result shows.
+func (r *Renderer) BeforeNext(write func(*Renderer)) { r.beforeNext = write }
+
+// Continue marks output that follows what the invocation already wrote, so
+// that the next section keeps its spacing.
+func (r *Renderer) Continue() { r.hasContent = true }
+
 // Next renders the single recommended follow-up command, and nothing when
 // there is none.
 func (r *Renderer) Next(command string) {
+	if write := r.beforeNext; write != nil {
+		r.beforeNext = nil
+		write(r)
+	}
 	if command == "" {
 		return
 	}

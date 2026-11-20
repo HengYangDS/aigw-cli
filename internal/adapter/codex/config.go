@@ -115,6 +115,13 @@ func ObservedCredentialCommand(path string, runtime domain.Runtime) (string, err
 // AIGW Route. It never changes the target; callers can safely use it for
 // diagnostics before offering an explicit sync.
 func ValidateConfig(path string, runtime domain.Runtime) error {
+	return validateConfig(path, runtime, runtime.UpstreamModel)
+}
+
+// validateConfig verifies a Codex target against runtime, with shown as the
+// root model that the file is to hold: runtime's own model, or Codex's own
+// choice when the rest of the file is checked against the recorded Route.
+func validateConfig(path string, runtime domain.Runtime, shown string) error {
 	if runtime.RequiresProviderToken() && runtime.CredentialCommand == "" {
 		executable, err := os.Executable()
 		if err != nil {
@@ -169,7 +176,7 @@ func ValidateConfig(path string, runtime domain.Runtime) error {
 	if err := validateCodexSchedulerOwnership(state, text); err != nil {
 		return err
 	}
-	if model := runtime.UpstreamModel; model != "" {
+	if model := shown; model != "" {
 		modelLine, err := codexSelectionLine(text, "model")
 		if err != nil {
 			return err

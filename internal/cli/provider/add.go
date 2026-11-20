@@ -1,12 +1,12 @@
 package provider
 
 import (
-	"aigw-cli/internal/platform"
 	"fmt"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
 	"aigw-cli/internal/terminal"

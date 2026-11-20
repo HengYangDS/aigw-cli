@@ -19,6 +19,7 @@ import (
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/app"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/check"
 	clientcli "aigw-cli/internal/cli/client"
 	completioncli "aigw-cli/internal/cli/completion"
@@ -72,6 +73,8 @@ type App struct {
 	Clients adapter.Registry
 	Updater app.Updater
 	output  *commandOutput
+	// follows is the running invocation's record of the clients' choices.
+	follows *synchronization.Follows
 }
 
 // commandOutput owns write progress and the first failure for one invocation,
@@ -122,8 +125,12 @@ func Execute(app *App, args []string) error {
 	app.output = output
 	defer func() { app.output = nil }()
 	var unlock func() error
-	followed := &followedReport{app: app}
-	output.fields = followed.DocumentFields
+	// What the invocation makes of the clients' own choices: its command's
+	// document carries it, and its human output names it once.
+	follows := &synchronization.Follows{}
+	app.follows = follows
+	defer func() { app.follows = nil }()
+	output.fields = func() []terminal.DocumentField { return invocation.FollowedDocument(follows) }
 	root := NewRoot(app)
 	root.PersistentPreRunE = func(command *cobra.Command, positional []string) error {
 		// Cobra normally validates flag relationships after this mutation boundary.
@@ -133,8 +140,8 @@ func Execute(app *App, args []string) error {
 		if err := command.ValidateFlagGroups(); err != nil {
 			return refusedFlag(command, err)
 		}
+		follows.Reports = reports(command)
 		if !requiresConfigurationLock(command) {
-			followed.observe(command)
 			return nil
 		}
 		locked, err := app.Config.Lock(command.Context())
@@ -145,7 +152,6 @@ func Execute(app *App, args []string) error {
 			return err
 		}
 		unlock = locked
-		followed.observe(command)
 		return nil
 	}
 	root.SetArgs(args)
@@ -153,13 +159,11 @@ func Execute(app *App, args []string) error {
 	if err == nil {
 		command, err = root.ExecuteC()
 		err = refusal(root, command, args, err)
-		// A command's document carries what the invocation followed; its
-		// human output ends with it. A failure that the root renders
-		// carries only itself.
+		// A command that named no follow-up has not said what the
+		// invocation followed; its human output ends with it.
 		if jsonMode, _ := command.Flags().GetBool("json"); err == nil && !jsonMode && output.err == nil {
-			followed.render(app.Renderer())
+			app.renderFollowed(output.started)
 		}
-		output.fields = nil
 	}
 	if output.err != nil && !errors.Is(err, output.err) {
 		err = errors.Join(err, output.err)
@@ -186,7 +190,22 @@ func Execute(app *App, args []string) error {
 	at := platform.PathContext{Home: invocation.Home(app.invocationContext().Dependencies), Configuration: app.Config.Path(),
 		Rollback: command.CommandPath() == command.Root().Name()+" config rollback"}
 	terminal.RenderError(renderer, terminal.LocalFailure(Version, at, invocation.TokenRejection(command, err)), jsonMode)
+	if !jsonMode {
+		// A failure after a save, and a failed report, still say what the
+		// invocation followed.
+		invocation.RenderFollowed(renderer, app.follows)
+	}
 	return terminal.Presented(errors.Join(err, renderer.Err()))
+}
+
+// renderFollowed ends the invocation's human output with what it followed,
+// unless the command's own output has said it ahead of its follow-up.
+func (a *App) renderFollowed(started bool) {
+	renderer := a.Renderer()
+	if started {
+		renderer.Continue()
+	}
+	invocation.RenderFollowed(renderer, a.follows)
 }
 
 // refusedFlag marks a flag that command refused as a usage error, naming the
@@ -241,6 +260,25 @@ func finishExecution(commandErr error, unlock func() error) error {
 
 func credentialInvocation(args []string) bool {
 	return len(args) > 0 && args[0] == "credential"
+}
+
+func requiresConfigurationLock(command *cobra.Command) bool {
+	// Bare aigw is aigw status, which writes nothing; self install writes the
+	// program file, never the configuration.
+	path := strings.TrimPrefix(command.CommandPath(), command.Root().Name()+" ")
+	switch path {
+	case "provider rotate":
+		return true
+	case "setup",
+		"model add", "model edit", "model remove", "client enable", "client disable", "client edit",
+		"provider add", "provider edit", "provider remove",
+		"use", "sync",
+		"config rollback", "self update", "self rollback", "self uninstall":
+		dryRun, err := command.Flags().GetBool("dry-run")
+		return err != nil || !dryRun
+	default:
+		return false
+	}
 }
 
 // NewDefault constructs an App from the current platform, environment, configuration, and credential backend,
@@ -352,6 +390,7 @@ func (a *App) invocationContext() invocation.Context {
 		Color: a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
 		Discovery: a.Discovery, Clients: a.Clients, Updater: a.Updater,
+		Follows: a.follows,
 	}
 }
 

@@ -115,12 +115,6 @@ type ownership struct {
 	ManagedDigest    string        `json:"managed_digest"`
 }
 
-// Prepare validates and prepares one projection or its withdrawal from a file
-// that matches AIGW's record.
-func Prepare(path string, desired *Desired) (Plan, error) {
-	return PrepareTransition(path, desired, nil, false)
-}
-
 // PrepareTransition prepares one projection or its withdrawal from a file
 // whose own selection may differ from AIGW's record while everything else
 // that AIGW owns matches it. shown is the selection that the transition

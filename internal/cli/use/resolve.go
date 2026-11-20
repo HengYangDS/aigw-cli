@@ -1,13 +1,13 @@
 package use
 
 import (
-	"aigw-cli/internal/platform"
 	"fmt"
 	"slices"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/terminal"
 )
 

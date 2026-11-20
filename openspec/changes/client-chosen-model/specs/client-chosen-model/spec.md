@@ -3,9 +3,10 @@
 ### Requirement: A model chosen in Codex or Hermes is that client's selection
 
 When Codex's or Hermes's own selection names another added model, and nothing else that AIGW owns in that client's
-file changed, every command SHALL work from that model as the client's selection. A command that saves the
-configuration SHALL record it and keep the client's value. The match SHALL use the model's exact ID and the provider
-and protocol of the Hermes provider entry, or those of Codex's selection.
+file changed, every command SHALL work from that model as the client's selection, matched by its exact ID with the
+provider and protocol of Hermes's provider entry or of Codex's selection. A command that saves the configuration
+SHALL record it together with AIGW's record of the client's file; under every other requirement that is no change of
+selection.
 
 #### Scenario: The operator picks another listed model in Hermes
 
@@ -32,11 +33,27 @@ and protocol of the Hermes provider entry, or those of Codex's selection.
 - **THEN** the command SHALL succeed with its own change
 - **AND** the client SHALL keep the operator's model, and the client's selection SHALL name it.
 
-#### Scenario: A command writes none of the client's files
+#### Scenario: A command about something else records the choice
 
-- **WHEN** a command saves a change that touches nothing in the files of the client whose model the operator chose
+- **WHEN** a command saves a change that names nothing of the client whose model the operator chose
 - **THEN** it SHALL record the choice as that client's selection
-- **AND** it SHALL leave that client's file as it is.
+- **AND** it SHALL bring AIGW's record of that client's file to the chosen model, which the file keeps, and name
+  the client among those whose files it wrote
+- **AND** the earlier model, selected in the client again afterwards, SHALL be followed as any other choice.
+
+#### Scenario: Codex has several files
+
+- **WHEN** one or more of Codex's files name the same other added model and the others show the recorded one
+- **THEN** that model SHALL be Codex's selection, and a command that records it SHALL write it to every file
+- **AND** files that name different models SHALL be followed by no command; a command that writes them SHALL fail
+  with the step that restores the recorded selection.
+
+#### Scenario: The chosen model's provider waits for a Token
+
+- **WHEN** the provider of the chosen model has no Token that AIGW can use and a command saves the configuration
+- **THEN** it SHALL record the choice and leave the client's file as the client wrote it, as for every client that
+  waits for its Token
+- **AND** synchronization after the Token is stored SHALL keep the chosen model.
 
 #### Scenario: A client is withdrawn after a choice
 
@@ -49,15 +66,16 @@ and protocol of the Hermes provider entry, or those of Codex's selection.
 - **WHEN** a managed Hermes provider entry, endpoint or credential command, the address or mode of Hermes's own
   selection, or Codex's provider selection, provider table, scheduler, catalog or credential command changed outside
   AIGW, with or without a model change
-- **THEN** a command that would write that client's files SHALL refuse without changing configuration or client
+- **THEN** no command SHALL follow that client's model
+- **AND** a command that would write that client's files SHALL refuse without changing configuration or client
   files.
 
 ### Requirement: Commands and reports name a followed selection
 
-A command that saves the configuration, its preview, `aigw status` and `aigw check` SHALL name each model that they
-follow from a client's own file, with the selection that AIGW held before and the command that selects that one
-again. JSON documents SHALL carry them as `followed_selections`, with `client`, `model`, `earlier` and
-`returns_with`; human output SHALL end with them. A report SHALL write nothing.
+A command that records a followed selection, its preview, `aigw status`, `aigw check` and bare `aigw` SHALL name each
+model that they follow from a client's own file, the selection that AIGW held before, and the command that selects
+that one again while it can run. JSON documents SHALL carry them as `followed_selections`; human output SHALL name
+them in a section ahead of the next step. A report SHALL write nothing, and any other command SHALL name none.
 
 #### Scenario: A saving command names what it recorded
 
@@ -78,14 +96,31 @@ again. JSON documents SHALL carry them as `followed_selections`, with `client`, 
 - **GIVEN** the operator selected another added model in Codex or Hermes
 - **WHEN** `aigw status` or `aigw check <client> --depth local` runs
 - **THEN** the client's row SHALL name that model, and the check SHALL pass for it
-- **AND** the output SHALL name the followed selection
+- **AND** the output SHALL name the followed selection, also when the check fails for another reason
 - **AND** configuration and client files SHALL remain unchanged.
+
+#### Scenario: The fields of an entry
+
+- **WHEN** a JSON document names a followed selection
+- **THEN** its entry SHALL carry `client`, `model` and `earlier`, and for a client that speaks several protocols
+  `protocol` and `earlier_protocol`
+- **AND** it SHALL carry `returns_with`, the command that selects the earlier model again, while that command can
+  run
+- **AND** `forwarding_cleared` or `retries_cleared` SHALL be true when the client's forwarding or its retry budgets
+  ended with the earlier upstream endpoint or provider, and human output SHALL say so.
 
 #### Scenario: An explicit selection replaced the choice
 
 - **WHEN** `aigw use <client> <provider/model>` runs for the client whose model the operator chose
-- **THEN** its preview SHALL name the choice that it would replace
-- **AND** its result SHALL name no followed selection for that client.
+- **THEN** neither its preview nor its result SHALL name a followed selection for that client
+- **AND** when it names the chosen model itself, it SHALL record that model and report, in preview and result, that
+  the configuration changes.
+
+#### Scenario: The command removes the earlier model
+
+- **WHEN** the command that records the choice removes the earlier selection's model
+- **THEN** the entry SHALL omit `returns_with`
+- **AND** human output SHALL say that the configuration no longer holds that model.
 
 #### Scenario: The earlier model cannot be named in a shell
 
@@ -123,11 +158,24 @@ when AIGW wrote that model's provider.
   names such a model
 - **THEN** it SHALL fail with the same Fix and change nothing.
 
+#### Scenario: A preview is refused in the same words
+
+- **WHEN** the preview of such a command meets the same file
+- **THEN** it SHALL fail with the problem and the Fix that the command itself gives
+- **AND** both SHALL say that configuration and client files are unchanged.
+
 #### Scenario: Status names the same Fix
 
 - **WHEN** `aigw status` or `aigw check` runs while a client's selection names such a model
 - **THEN** the client's row SHALL name the model that the client's file selects and the recorded selection
 - **AND** its next action SHALL be the same Fix.
+
+#### Scenario: Another Codex file holds an outside edit
+
+- **WHEN** one Codex file names such a model and another holds an outside edit of the settings that AIGW manages
+- **THEN** every surface SHALL give the recovery of the outside edit and SHALL NOT name the restoring command, which
+  that edit would refuse
+- **AND** once the edit is undone, the restoring command SHALL be the Fix and SHALL run as printed.
 
 #### Scenario: The recorded model cannot be named in a shell
 
@@ -157,6 +205,31 @@ changed.
 - **WHEN** the address or mode of Hermes's own selection differs from its provider entry and the operator runs
   `aigw use hermes <provider/model>`
 - **THEN** AIGW SHALL refuse as for any other managed setting changed outside AIGW.
+
+### Requirement: A rollback names the selections that it restores
+
+`aigw config rollback` SHALL restore each client's selection as the restored configuration holds it, a model chosen
+in the client since then included, and SHALL name each one with the model that it replaces: `selections` in JSON,
+with `client`, `model` and `replaces`, and a section in human output, in its preview and in its result. It SHALL name
+no followed selection for such a client. A rollback that is refused before it writes SHALL pass on the refusal's Fix.
+
+#### Scenario: A rollback over a model chosen in Codex
+
+- **GIVEN** the operator chose another added model in Codex after the configuration that a rollback restores
+- **WHEN** `aigw config rollback` runs, or its preview
+- **THEN** it SHALL name Codex, the selection that it restores and the chosen model that this replaces
+- **AND** the run SHALL write the restored selection to Codex's file, and the preview SHALL write nothing.
+
+#### Scenario: A rollback restores a client without a selection
+
+- **WHEN** the restored configuration selects no model for a client that has one now
+- **THEN** the entry SHALL carry `client` and `replaces` and omit `model`.
+
+#### Scenario: A rollback meets a model that AIGW has not added
+
+- **WHEN** a rollback would write a client's file whose selection names a model that AIGW has not added
+- **THEN** the rollback and its preview SHALL fail with the Fix that restores the recorded selection
+- **AND** configuration and client files SHALL remain unchanged.
 
 ### Requirement: Claude Code's own model is reported as it stands
 

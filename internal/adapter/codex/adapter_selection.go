@@ -24,22 +24,38 @@ func (codexAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) (
 		return domain.ModelRef{}, nil
 	}
 	recorded := adapter.Recorded(codexAdapter{}.Spec(), selected)
-	chosen := ""
+	var chosen []string
 	for _, target := range binding.Targets {
-		model, changed, err := ObserveSelection(target)
+		observed, err := observeSelection(target)
 		if err != nil {
 			return domain.ModelRef{}, err
 		}
-		if changed && chosen != "" && model != chosen {
-			return domain.ModelRef{}, adapter.RefusedSelection(recorded, fmt.Sprintf("has files that select different models, %q and %q", chosen, model), "")
-		}
-		if changed {
-			chosen = model
+		switch observed.state {
+		case selectionDrifted:
+			// An outside edit in any target is refused by the plan under
+			// its own name; nothing is followed or refused past it here.
+			return domain.ModelRef{}, nil
+		case selectionChosen:
+			if !slices.Contains(chosen, observed.model) {
+				chosen = append(chosen, observed.model)
+			}
+		case selectionRecorded:
 		}
 	}
-	if chosen == "" {
+	switch len(chosen) {
+	case 0:
 		return domain.ModelRef{}, nil
+	case 1:
+	default:
+		return domain.ModelRef{}, adapter.RefusedSelection(recorded, fmt.Sprintf("has files that select different models, %q and %q", chosen[0], chosen[1]), "")
 	}
+	return followChosen(cfg, selected, recorded, chosen[0])
+}
+
+// followChosen records chosen, the model that Codex's files select, as its
+// selection, or refuses a model that the selected provider has not added on
+// the selected protocol.
+func followChosen(cfg *domain.Config, selected domain.Runtime, recorded adapter.RecordedSelection, chosen string) (domain.ModelRef, error) {
 	ref, added := modelFor(*cfg, selected, chosen)
 	if !added {
 		return domain.ModelRef{}, adapter.RefusedSelection(recorded,

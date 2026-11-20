@@ -1,11 +1,11 @@
 package check
 
 import (
-	"aigw-cli/internal/platform"
 	"fmt"
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/terminal"
 )
 

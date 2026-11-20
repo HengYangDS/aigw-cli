@@ -201,14 +201,34 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 	case errors.Is(err, os.ErrNotExist):
 		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, platform.ClassifyPath(target, platform.FileExpected, err))
 	default:
-		// The file shows Codex's own choice, which the configuration follows.
-		// Only AIGW's record of the file is behind, and the next write of the
-		// file brings it up.
-		if model, changed, observeErr := ObserveSelection(target); observeErr == nil && changed && model == runtime.UpstreamModel {
+		if showsFollowedChoice(cfg, observed, target) {
 			return issue, "", repair
 		}
 		return issue, "Codex configuration target does not match the selected model", repair
 	}
+}
+
+// showsFollowedChoice reports whether target is what AIGW last wrote with
+// Codex's own choice in place of the recorded model, and nothing else is
+// pending: the root model is the file's only owned difference from the
+// record, it is the selection, and the configuration with the recorded model
+// in the selection's place projects what the file holds. Only AIGW's record
+// of the file is then behind, which the next write of the file brings up.
+// selected is the selection's Route with the credential reader that the file
+// retains, which does not depend on the model.
+func showsFollowedChoice(cfg domain.Config, selected domain.Runtime, target string) bool {
+	observed, err := observeSelection(target)
+	if err != nil || observed.state != selectionChosen || observed.model != selected.UpstreamModel {
+		return false
+	}
+	earlier := cfg.Clone()
+	earlier.SetSelectedModel(ID, domain.NewModelRef(selected.ProviderID, observed.recorded), "")
+	recorded, err := earlier.ResolveRuntime(ID, domain.ModelRef{})
+	if err != nil {
+		return false
+	}
+	recorded.CredentialCommand = selected.CredentialCommand
+	return validateConfig(target, recorded, observed.model) == nil
 }
 
 // missingTargetRepair is the step, for a check, of a configured Codex file that

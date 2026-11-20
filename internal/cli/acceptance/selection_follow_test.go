@@ -20,17 +20,32 @@ import (
 // gpt-terra, which Codex can choose, and a second provider serves no client.
 func codexChoiceApp(t *testing.T) (*cli.App, *bytes.Buffer, string) {
 	t.Helper()
+	app, output, targets := codexChoiceAppWith(t, "gpt-sol", 1)
+	return app, output, targets[0]
+}
+
+// codexChoiceAppWith projects the gateway's model selected for Codex into
+// count Codex files.
+func codexChoiceAppWith(t *testing.T, selected string, count int) (*cli.App, *bytes.Buffer, []string) {
+	t.Helper()
 	app, output, secretStore, _, _ := testApp(t, "")
-	target := filepath.Join(t.TempDir(), "config.toml")
-	writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)
+	targets := make([]string, 0, count)
+	for range count {
+		target := filepath.Join(t.TempDir(), "config.toml")
+		writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)
+		targets = append(targets, target)
+	}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
 	cfg.Providers["spare"] = domain.Provider{Label: "Spare", Endpoints: domain.Endpoints{Responses: "https://spare.test/v1"}}
-	cfg.Models[domain.NewModelRef("gateway", "gpt-sol")] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolResponses)
+	// The selected model's ID may need quoting in a shell; its family never does.
+	sol := qualifiedModel("Sol", "gateway", selected, domain.ProtocolResponses)
+	sol.Family = "gpt-sol"
+	cfg.Models[sol.Ref()] = sol
 	cfg.Models[domain.NewModelRef("gateway", "gpt-terra")] = qualifiedModel("Terra", "gateway", "gpt-terra", domain.ProtocolResponses)
 	cfg.Models[domain.NewModelRef("spare", "gpt-spare")] = qualifiedModel("Spare", "spare", "gpt-spare", domain.ProtocolResponses)
-	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-sol"), "")
-	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
+	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", selected), "")
+	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), targets)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +57,7 @@ func codexChoiceApp(t *testing.T) (*cli.App, *bytes.Buffer, string) {
 	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatalf("project the Codex selection: %v\n%s", err, output)
 	}
-	return app, output, target
+	return app, output, targets
 }
 
 // chooseInCodex rewrites Codex's root model as Codex's own picker does: the
@@ -59,10 +74,14 @@ func chooseInCodex(t *testing.T, target, from, to string) string {
 
 // followed is one entry of a document's followed_selections.
 type followed struct {
-	Client      string `json:"client"`
-	Model       string `json:"model"`
-	Earlier     string `json:"earlier"`
-	ReturnsWith string `json:"returns_with"`
+	Client            string `json:"client"`
+	Model             string `json:"model"`
+	Protocol          string `json:"protocol"`
+	Earlier           string `json:"earlier"`
+	EarlierProtocol   string `json:"earlier_protocol"`
+	ReturnsWith       string `json:"returns_with"`
+	ForwardingCleared bool   `json:"forwarding_cleared"`
+	RetriesCleared    bool   `json:"retries_cleared"`
 }
 
 // followedModels decodes a document's followed_selections as the model that
@@ -100,8 +119,30 @@ func followedIn(t *testing.T, app *cli.App, output *bytes.Buffer, command ...str
 
 var (
 	codexChoice  = []followed{{Client: "codex", Model: "gateway/gpt-terra", Earlier: "gateway/gpt-sol", ReturnsWith: "aigw use codex gateway/gpt-sol"}}
-	hermesChoice = []followed{{Client: "hermes", Model: "dmxapi/claude-opus-5-5", Earlier: "dmxapi/gpt-6.2-sol", ReturnsWith: "aigw use hermes dmxapi/gpt-6.2-sol --protocol responses"}}
+	hermesChoice = []followed{{
+		Client: "hermes", Model: "dmxapi/claude-opus-5-5", Protocol: "anthropic", Earlier: "dmxapi/gpt-6.2-sol", EarlierProtocol: "responses",
+		ReturnsWith: "aigw use hermes dmxapi/gpt-6.2-sol --protocol responses",
+	}}
 )
+
+// codexChoiceText is the human section for codexChoice: a sentence, then the
+// returning command on a line of its own.
+const codexChoiceText = "Followed selection\n" +
+	"  Codex uses gateway/gpt-terra, chosen in Codex; AIGW held gateway/gpt-sol. To return to it:\n" +
+	"  aigw use codex gateway/gpt-sol\n"
+
+// saysCodexChoice requires human output to name codexChoice once, set off by
+// a blank line, and ahead of the follow-up command when there is one.
+func saysCodexChoice(t *testing.T, command []string, output string) {
+	t.Helper()
+	at := strings.Index(output, "\n\n"+codexChoiceText)
+	if at < 0 || strings.Count(output, "Followed selection") != 1 {
+		t.Fatalf("%v does not name the followed selection once, after a blank line:\n%s", command, output)
+	}
+	if next := strings.Index(output, "\nNext\n"); next >= 0 && next < at {
+		t.Fatalf("%v names the followed selection after its follow-up command:\n%s", command, output)
+	}
+}
 
 func selection(t *testing.T, app *cli.App, client string) domain.ClientBinding {
 	t.Helper()
@@ -115,7 +156,7 @@ func selection(t *testing.T, app *cli.App, client string) domain.ClientBinding {
 // A command other than sync that writes Codex's files, here an edit of its
 // retry budget, works from the model that was chosen in Codex: it succeeds
 // with its own edit, Codex keeps the model, the configuration names it, and
-// the document says so with the command that returns.
+// the result says so with the command that returns.
 func TestACommandThatWritesCodexFilesFollowsAModelChosenInCodex(t *testing.T) {
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
@@ -123,18 +164,15 @@ func TestACommandThatWritesCodexFilesFollowsAModelChosenInCodex(t *testing.T) {
 
 	// A preview names the followed model and writes nothing.
 	before := ownedFileSnapshot(t, directory, app.Config.Path())
-	if got := followedIn(t, app, output, "client", "edit", "codex", "--request-retries", "2", "--dry-run", "--json"); !slices.Equal(got, codexChoice) {
+	preview := []string{"client", "edit", "codex", "--request-retries", "2", "--dry-run"}
+	if got := followedIn(t, app, output, append(preview, "--json")...); !slices.Equal(got, codexChoice) {
 		t.Fatalf("preview follows %+v", got)
 	}
 	output.Reset()
-	if err := cli.Execute(app, []string{"client", "edit", "codex", "--request-retries", "2", "--dry-run"}); err != nil {
+	if err := cli.Execute(app, preview); err != nil {
 		t.Fatalf("text preview: %v\n%s", err, output)
 	}
-	for _, want := range []string{"Followed selection", "gateway/gpt-terra, chosen in Codex", "`aigw use codex gateway/gpt-sol` returns to gateway/gpt-sol"} {
-		if !strings.Contains(output.String(), want) {
-			t.Fatalf("the text preview lacks %q:\n%s", want, output)
-		}
-	}
+	saysCodexChoice(t, preview, output.String())
 	if after := ownedFileSnapshot(t, directory, app.Config.Path()); !equalSnapshots(after, before) {
 		t.Fatal("the preview changed client files or the configuration")
 	}
@@ -166,42 +204,41 @@ func TestACommandThatWritesCodexFilesFollowsAModelChosenInCodex(t *testing.T) {
 	}
 }
 
-// A command that changes nothing in Codex's files records the choice, says
-// so, and leaves Codex's file as it is; the checks pass on that state.
-func TestACommandThatWritesNoneOfCodexFilesRecordsItsChoice(t *testing.T) {
-	app, output, target := codexChoiceApp(t)
-	chosen := chooseInCodex(t, target, "gpt-sol", "gpt-terra")
-	if got := followedIn(t, app, output, "provider", "edit", "spare", "--label", "Other", "--json"); !slices.Equal(got, codexChoice) {
-		t.Fatalf("the run follows %+v", got)
-	}
-	if string(readFile(t, target)) != chosen {
-		t.Fatal("the command rewrote Codex's file")
-	}
-	if binding := selection(t, app, codex.ID); binding.Model != domain.NewModelRef("gateway", "gpt-terra") {
-		t.Fatalf("the configuration does not name the chosen model: %#v", binding)
-	}
-	for _, command := range [][]string{{"check", codex.ID, "--depth", "local", "--json"}, {"status", "--json"}} {
-		output.Reset()
-		if err := cli.Execute(app, command); err != nil || strings.Contains(output.String(), "drift") {
-			t.Fatalf("%v after a recorded choice: %v\n%s", command, err, output)
-		}
-	}
-}
-
 // An explicit selection is not followed away: it writes the named model over
-// the one that was chosen in Codex, and its document follows nothing; its
-// preview names the choice that it would replace.
+// the one that was chosen in Codex, and neither its preview nor its result
+// names a followed selection. Naming the chosen model itself records it, and
+// says that the configuration changed.
 func TestAnExplicitSelectionWinsOverAModelChosenInCodex(t *testing.T) {
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
-	if got := followedIn(t, app, output, "use", "codex", "gateway/gpt-sol", "--dry-run", "--json"); !slices.Equal(got, codexChoice) {
-		t.Fatalf("the preview follows %+v", got)
-	}
-	if got := followedIn(t, app, output, "use", "codex", "gateway/gpt-sol", "--json"); len(got) != 0 {
-		t.Fatalf("an explicit selection follows %+v", got)
+	for _, command := range [][]string{
+		{"use", "codex", "gateway/gpt-sol", "--dry-run", "--json"},
+		{"use", "codex", "gateway/gpt-sol", "--json"},
+	} {
+		if got := followedIn(t, app, output, command...); len(got) != 0 {
+			t.Fatalf("%v follows %+v", command, got)
+		}
 	}
 	if written := string(readFile(t, target)); !strings.Contains(written, `model = "gpt-sol" # managed by AIGW`) {
 		t.Fatalf("the explicit selection was not written:\n%s", written)
+	}
+	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
+	for _, command := range [][]string{
+		{"use", "codex", "gateway/gpt-terra", "--dry-run", "--json"},
+		{"use", "codex", "gateway/gpt-terra", "--json"},
+	} {
+		if got := followedIn(t, app, output, command...); len(got) != 0 {
+			t.Fatalf("%v, naming the chosen model, follows %+v", command, got)
+		}
+		var result struct {
+			Changed bool `json:"changed"`
+		}
+		if err := json.Unmarshal(output.Bytes(), &result); err != nil || !result.Changed {
+			t.Fatalf("%v saves the named model without saying that the configuration changes: %v\n%s", command, err, output)
+		}
+	}
+	if binding := selection(t, app, codex.ID); binding.Model != domain.NewModelRef("gateway", "gpt-terra") {
+		t.Fatalf("the named model was not recorded: %#v", binding)
 	}
 }
 
@@ -223,7 +260,42 @@ func TestACommandThatWritesHermesFilesFollowsAModelChosenInHermes(t *testing.T) 
 	syncAndCheckPass(t, app, output, hermes.ID)
 }
 
-// Synchronization says what it followed in the same words, text and JSON.
+// A choice of another provider's model in Hermes ends the forwarding that
+// belonged to the earlier upstream endpoint, and the result says so.
+func TestAFollowedChoiceSaysThatForwardingEnded(t *testing.T) {
+	app, output, _, target := shippedHermesApp(t)
+	if err := cli.Execute(app, []string{"client", "edit", hermes.ID, "--via", "http://127.0.0.1:8792"}); err != nil {
+		t.Fatalf("forward Hermes: %v\n%s", err, output)
+	}
+	hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
+	want := []followed{{
+		Client: "hermes", Model: "ucloud/claude-opus-5-5", Protocol: "anthropic", Earlier: "dmxapi/gpt-6.2-sol", EarlierProtocol: "responses",
+		ReturnsWith: "aigw use hermes dmxapi/gpt-6.2-sol --protocol responses", ForwardingCleared: true,
+	}}
+	if got := followedIn(t, app, output, "status", "--json"); !slices.Equal(got, want) {
+		t.Fatalf("status follows %+v", got)
+	}
+	output.Reset()
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatalf("sync: %v\n%s", err, output)
+	}
+	for _, text := range []string{
+		"Hermes uses ucloud/claude-opus-5-5 on Anthropic Messages, chosen in Hermes; AIGW held dmxapi/gpt-6.2-sol on OpenAI Responses.",
+		"Its forwarding ended, because the client's upstream endpoint changed.",
+		"  aigw use hermes dmxapi/gpt-6.2-sol --protocol responses\n",
+	} {
+		if !strings.Contains(output.String(), text) {
+			t.Fatalf("sync lacks %q:\n%s", text, output)
+		}
+	}
+	if binding := selection(t, app, hermes.ID); binding.Model != domain.NewModelRef("ucloud", "claude-opus-5-5") || binding.ForwardingEndpoint != "" {
+		t.Fatalf("the saved binding: %#v", binding)
+	}
+	syncAndCheckPass(t, app, output, hermes.ID)
+}
+
+// Synchronization says what it followed in the same words, ahead of its
+// follow-up command, and nothing once the choice is recorded.
 func TestSyncSaysWhatItFollowedAndHowToReturn(t *testing.T) {
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
@@ -232,11 +304,7 @@ func TestSyncSaysWhatItFollowedAndHowToReturn(t *testing.T) {
 		if err := cli.Execute(app, command); err != nil {
 			t.Fatalf("%v: %v\n%s", command, err, output)
 		}
-		for _, want := range []string{"Followed selection", "gateway/gpt-terra, chosen in Codex", "`aigw use codex gateway/gpt-sol` returns to gateway/gpt-sol"} {
-			if !strings.Contains(output.String(), want) {
-				t.Fatalf("%v lacks %q:\n%s", command, want, output)
-			}
-		}
+		saysCodexChoice(t, command, output.String())
 	}
 	output.Reset()
 	if err := cli.Execute(app, []string{"sync"}); err != nil || strings.Contains(output.String(), "Followed selection") {
@@ -245,11 +313,16 @@ func TestSyncSaysWhatItFollowedAndHowToReturn(t *testing.T) {
 }
 
 // Disabling a client after a model was chosen in it withdraws what AIGW
-// wrote: the choice is no outside edit to undo.
-func TestAClientIsDisabledAfterAModelWasChosenInIt(t *testing.T) {
+// wrote, and so does the preview of an uninstall: the choice is no outside
+// edit to undo.
+func TestAClientIsWithdrawnAfterAModelWasChosenInIt(t *testing.T) {
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
-	for _, command := range [][]string{{"client", "disable", codex.ID, "--dry-run", "--json"}, {"client", "disable", codex.ID, "--json"}} {
+	for _, command := range [][]string{
+		{"self", "uninstall", "--dry-run", "--json"},
+		{"client", "disable", codex.ID, "--dry-run", "--json"},
+		{"client", "disable", codex.ID, "--json"},
+	} {
 		output.Reset()
 		if err := cli.Execute(app, command); err != nil {
 			t.Fatalf("%v: %v\n%s", command, err, output)
@@ -267,7 +340,7 @@ func TestAClientIsDisabledAfterAModelWasChosenInIt(t *testing.T) {
 
 // Status and check report a model chosen in a client as that client's
 // selection, name it as followed with the earlier selection and the command
-// that returns, and write nothing.
+// that returns, and write nothing; a check that fails says it too.
 func TestStatusAndCheckReportAModelChosenInTheClient(t *testing.T) {
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
@@ -299,19 +372,55 @@ func TestStatusAndCheckReportAModelChosenInTheClient(t *testing.T) {
 		if err := cli.Execute(app, command); err != nil {
 			t.Fatalf("%v: %v\n%s", command, err, output)
 		}
-		for _, want := range []string{"Followed selection", "gateway/gpt-terra, chosen in Codex", "`aigw use codex gateway/gpt-sol` returns to gateway/gpt-sol"} {
-			if !strings.Contains(output.String(), want) {
-				t.Errorf("%v lacks %q:\n%s", command, want, output)
-			}
-		}
-	}
-	if after := ownedFileSnapshot(t, filepath.Dir(target), app.Config.Path()); !equalSnapshots(after, before) {
-		t.Fatal("a report changed client files or the configuration")
+		saysCodexChoice(t, command, output.String())
 	}
 	// A command that neither saves nor reports selections says nothing of it.
 	output.Reset()
 	if err := cli.Execute(app, []string{"model", "list", "--json"}); err != nil || strings.Contains(output.String(), "followed_selections") {
 		t.Fatalf("model list names followed selections: %v\n%s", err, output)
+	}
+	// A check that fails, here for a Token that is gone, names the choice in
+	// text as its document does.
+	if err := app.Secrets.Delete("gateway"); err != nil {
+		t.Fatal(err)
+	}
+	failing := []string{"check", codex.ID, "--depth", "local"}
+	output.Reset()
+	if err := cli.Execute(app, failing); err == nil || strings.Count(output.String(), codexChoiceText) != 1 {
+		t.Fatalf("a failing check: %v\n%s", err, output)
+	}
+	if after := ownedFileSnapshot(t, filepath.Dir(target), app.Config.Path()); !equalSnapshots(after, before) {
+		t.Fatal("a report changed client files or the configuration")
+	}
+}
+
+// The command that returns to the earlier model is named only while it can
+// run: not when the command itself removed that model, and as prose when the
+// model would need quoting in a shell.
+func TestTheReturningCommandIsNamedOnlyWhileItRuns(t *testing.T) {
+	app, output, target := codexChoiceApp(t)
+	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
+	removed := []followed{{Client: "codex", Model: "gateway/gpt-terra", Earlier: "gateway/gpt-sol"}}
+	if got := followedIn(t, app, output, "model", "remove", "gateway/gpt-sol", "--dry-run", "--json"); !slices.Equal(got, removed) {
+		t.Fatalf("removing the earlier model, previewed, follows %+v", got)
+	}
+	output.Reset()
+	if err := cli.Execute(app, []string{"model", "remove", "gateway/gpt-sol"}); err != nil ||
+		!strings.Contains(output.String(), "AIGW held gateway/gpt-sol. The configuration no longer holds that model.") || strings.Contains(output.String(), "aigw use codex") {
+		t.Fatalf("removing the earlier model: %v\n%s", err, output)
+	}
+
+	quoted, quotedOutput, targets := codexChoiceAppWith(t, "gpt-sol[1m]", 1)
+	chosen := strings.Replace(string(readFile(t, targets[0])), `model = "gpt-sol[1m]" # managed by AIGW`, `model = "gpt-terra"`, 1)
+	writeFile(t, targets[0], []byte(chosen), 0o600)
+	prose := []followed{{Client: "codex", Model: "gateway/gpt-terra", Earlier: "gateway/gpt-sol[1m]"}}
+	if got := followedIn(t, quoted, quotedOutput, "status", "--json"); !slices.Equal(got, prose) {
+		t.Fatalf("an earlier model that needs quoting follows %+v\n%s", got, quotedOutput)
+	}
+	quotedOutput.Reset()
+	if err := cli.Execute(quoted, []string{"status"}); err != nil ||
+		!strings.Contains(quotedOutput.String(), "AIGW held gateway/gpt-sol[1m]. Select gateway/gpt-sol[1m] for Codex again with `aigw use`, quoting the model for your shell.") {
+		t.Fatalf("status with an earlier model that needs quoting: %v\n%s", err, quotedOutput)
 	}
 }
 

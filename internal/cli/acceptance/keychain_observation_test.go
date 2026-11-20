@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"aigw-cli/internal/platform"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -15,6 +14,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 )
 
 // claudeOverAnItemOfAnotherProgram configures Claude Code on provider one,

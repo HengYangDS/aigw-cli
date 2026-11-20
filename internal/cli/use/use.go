@@ -3,16 +3,15 @@
 package use
 
 import (
-	"aigw-cli/internal/platform"
 	"errors"
 	"fmt"
 	"maps"
-	"reflect"
 	"slices"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 
 	"github.com/spf13/cobra"
@@ -193,7 +192,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 		if outcome.preview, err = invocation.WithEntrypoint(operation, desired, projection); err != nil {
 			return err
 		}
-		outcome.changed = !reflect.DeepEqual(cfg, desired)
+		outcome.changed = projection.Configuration
 		return outcome.report(runtime, options)
 	}
 	token := ""

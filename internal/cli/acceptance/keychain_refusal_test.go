@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"aigw-cli/internal/platform"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -15,6 +14,7 @@ import (
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/native"
 )

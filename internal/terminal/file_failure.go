@@ -54,7 +54,7 @@ func targetProblem(failure *adapter.TargetError, err error) Problem {
 	name := fileName(failure.Path, failure.Home)
 	problem := Problem{
 		Title:  failure.Client + " cannot use " + name + ": " + targetReason(failure.Err),
-		Impact: "Configuration and client files are unchanged.",
+		Impact: UnchangedImpact,
 	}
 	problem.Fix = targetFix(err, failure)
 	if recovery, ok := errors.AsType[configurationRecovery](err); ok {

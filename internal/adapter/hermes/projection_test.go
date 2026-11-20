@@ -12,6 +12,12 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// prepare prepares one projection or its withdrawal from a file that matches
+// AIGW's record: a transition that starts from no selection of the file's own.
+func prepare(path string, desired *Desired) (Plan, error) {
+	return PrepareTransition(path, desired, nil, false)
+}
+
 func testDesired() Desired {
 	return Desired{
 		SelectedProvider: "aigw",
@@ -43,7 +49,7 @@ func TestProjectionPreservesUnownedConfigurationAndWithdraws(t *testing.T) {
 		t.Fatal(err)
 	}
 	desired := testDesired()
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,14 +88,14 @@ func TestProjectionPreservesUnownedConfigurationAndWithdraws(t *testing.T) {
 	if _, err := os.Stat(path + ".aigw-state.json"); !os.IsNotExist(err) {
 		t.Fatal("compensation left an ownership record")
 	}
-	plan, err = Prepare(path, &desired)
+	plan, err = prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := plan.Apply(); err != nil {
 		t.Fatal(err)
 	}
-	plan, err = Prepare(path, nil)
+	plan, err = prepare(path, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +121,7 @@ func TestProjectionReconcilesOrderOnlyChangesAndPreservesNativeExtras(t *testing
 	second := desired.Providers[0]
 	second.ID = "other"
 	desired.Providers = append(desired.Providers, second)
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +130,7 @@ func TestProjectionReconcilesOrderOnlyChangesAndPreservesNativeExtras(t *testing
 	}
 	before, _ := os.ReadFile(path)
 	desired.Providers[0], desired.Providers[1] = desired.Providers[1], desired.Providers[0]
-	plan, err = Prepare(path, &desired)
+	plan, err = prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +148,7 @@ func TestProjectionReconcilesOrderOnlyChangesAndPreservesNativeExtras(t *testing
 	if configMap(t, readConfig(t, path), "terminal")["backend"] != "local" {
 		t.Fatal("native settings changed")
 	}
-	plan, err = Prepare(path, &desired)
+	plan, err = prepare(path, &desired)
 	if err != nil || plan.ChangesState() {
 		t.Fatalf("second pass = %s, %v", plan.Action, err)
 	}
@@ -161,7 +167,7 @@ func TestExplicitSelectionReconcilesOnlyProvedSelectionDrift(t *testing.T) {
 	other := previous.Providers[0]
 	other.ID, other.Endpoint = "other", "https://other.test/v1"
 	previous.Providers = append(previous.Providers, other)
-	plan, err := Prepare(path, &previous)
+	plan, err := prepare(path, &previous)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +190,7 @@ func TestExplicitSelectionReconcilesOnlyProvedSelectionDrift(t *testing.T) {
 	if err := os.WriteFile(path, drifted, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Prepare(path, &desired); err == nil {
+	if _, err := prepare(path, &desired); err == nil {
 		t.Fatal("ordinary synchronization authorized native selection drift")
 	}
 	stateBefore, err := os.ReadFile(path + adapter.StateSuffix)
@@ -199,7 +205,7 @@ func TestExplicitSelectionReconcilesOnlyProvedSelectionDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	synchronized, err := Prepare(path, &desired)
+	synchronized, err := prepare(path, &desired)
 	if err != nil || synchronized.Action != "unchanged" {
 		t.Fatalf("authorized selection was not adopted: action=%s error=%v", synchronized.Action, err)
 	}
@@ -233,7 +239,7 @@ func TestProjectionPublishesTheCuratedModelsForEachOwnedProvider(t *testing.T) {
 			{ID: "aigw-ucloud-chat", Name: "UCloud · OpenAI Chat Completions", Endpoint: "https://chat.test/v1", Protocol: "chat", CredentialCommand: "aigw credential hermes chat", Models: []string{"gemini-3.8-flash"}},
 		},
 	}
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +259,7 @@ func TestProjectionPublishesTheCuratedModelsForEachOwnedProvider(t *testing.T) {
 			t.Fatalf("provider %s projection = %#v", provider.ID, projected)
 		}
 	}
-	if _, err := Prepare(path, nil); err != nil {
+	if _, err := prepare(path, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -261,7 +267,7 @@ func TestProjectionPublishesTheCuratedModelsForEachOwnedProvider(t *testing.T) {
 func TestProjectionNoopPreservesBytesAndUnownedEdits(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	desired := testDesired()
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +279,7 @@ func TestProjectionNoopPreservesBytesAndUnownedEdits(t *testing.T) {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	plan, err = Prepare(path, &desired)
+	plan, err = prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +293,7 @@ func TestProjectionNoopPreservesBytesAndUnownedEdits(t *testing.T) {
 	if !bytes.Equal(data, after) {
 		t.Fatal("no-op rewrote user bytes")
 	}
-	plan, err = Prepare(path, nil)
+	plan, err = prepare(path, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -312,14 +318,14 @@ func TestProjectionProtectsForeignProviderAndManagedEdits(t *testing.T) {
 				t.Fatal(err)
 			}
 			desired := testDesired()
-			if _, err := Prepare(path, &desired); err == nil {
+			if _, err := prepare(path, &desired); err == nil {
 				t.Fatal("accepted ambiguous or foreign-owned configuration")
 			}
 		})
 	}
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	desired := testDesired()
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +338,7 @@ func TestProjectionProtectsForeignProviderAndManagedEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, desired := range []*Desired{&desired, nil} {
-		if _, err := Prepare(path, desired); err == nil {
+		if _, err := prepare(path, desired); err == nil {
 			t.Fatal("managed user edit was not protected")
 		}
 	}
@@ -341,7 +347,7 @@ func TestProjectionProtectsForeignProviderAndManagedEdits(t *testing.T) {
 func TestPreparedProjectionAndRollbackProtectConcurrentEdits(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	desired := testDesired()
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,7 +357,7 @@ func TestPreparedProjectionAndRollbackProtectConcurrentEdits(t *testing.T) {
 	if _, err := plan.Apply(); err == nil {
 		t.Fatal("prepared write overwrote concurrent edit")
 	}
-	plan, err = Prepare(path, &desired)
+	plan, err = prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +380,7 @@ func TestProjectionCompensatesConfigWhenStateWriteConflicts(t *testing.T) {
 		t.Fatal(err)
 	}
 	desired := testDesired()
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -403,7 +409,7 @@ func TestProjectionSupportsEveryHermesWireAndScalarModel(t *testing.T) {
 			}
 			desired := testDesired()
 			desired.Providers[0].Protocol = protocol
-			plan, err := Prepare(path, &desired)
+			plan, err := prepare(path, &desired)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -414,7 +420,7 @@ func TestProjectionSupportsEveryHermesWireAndScalarModel(t *testing.T) {
 			if model["api_mode"] != native {
 				t.Fatalf("native protocol = %#v", model)
 			}
-			plan, err = Prepare(path, nil)
+			plan, err = prepare(path, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -428,7 +434,7 @@ func TestProjectionSupportsEveryHermesWireAndScalarModel(t *testing.T) {
 	}
 	desired := testDesired()
 	desired.Providers[0].Protocol = "unrecognized"
-	if _, err := Prepare(filepath.Join(t.TempDir(), "config.yaml"), &desired); err == nil || !strings.Contains(err.Error(), "protocol") {
+	if _, err := prepare(filepath.Join(t.TempDir(), "config.yaml"), &desired); err == nil || !strings.Contains(err.Error(), "protocol") {
 		t.Fatalf("protocol validation = %v", err)
 	}
 }

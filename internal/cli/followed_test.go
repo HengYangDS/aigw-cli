@@ -23,8 +23,7 @@ func TestEveryCommandReadsTheWorkingConfiguration(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		// The invocation's own report compares with what was saved.
-		if direct.Match(data) && path != "followed.go" {
+		if direct.Match(data) {
 			t.Errorf("%s reads the stored configuration with Config.Load(); a command reads runtime.LoadConfiguration()", path)
 		}
 		loads += strings.Count(string(data), "runtime.LoadConfiguration()")

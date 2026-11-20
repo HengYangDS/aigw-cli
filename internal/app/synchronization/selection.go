@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 
 	"aigw-cli/internal/domain"
@@ -86,11 +85,13 @@ func (s Synchronizer) selectModel(ctx context.Context, before, after domain.Conf
 	binding = after.Clients[client]
 	selector := s
 	selector.AuthorizedSelectionClient = client
-	projectionChanged, err = selector.commit(ctx, before, after, "client selection", true, selector.selectionClients(before, after, client)...)
+	result, err := selector.commit(ctx, before, after, "client selection", true, selector.selectionClients(before, after, client)...)
 	if err != nil {
 		return false, false, domain.ClientBinding{}, err
 	}
-	return !reflect.DeepEqual(before, after), projectionChanged, binding, nil
+	// The stored configuration also changes when the selection names the
+	// model that the client had chosen itself, which nothing had recorded.
+	return result.configuration, result.projection, binding, nil
 }
 
 // selectionClients returns the clients whose files a selection for client

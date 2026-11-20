@@ -1,13 +1,13 @@
 package invocation
 
 import (
-	"aigw-cli/internal/platform"
 	"slices"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/terminal"
 )
 

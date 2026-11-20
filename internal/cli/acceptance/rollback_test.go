@@ -135,7 +135,10 @@ func TestRollbackUsesPreviousConfigurationWhenVerifiedRecoveryIsInvalid(t *testi
 	}
 }
 
-func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
+// A rollback that is refused before it writes anything, here because Codex's
+// file is a directory, says what refused it and that nothing changed, as
+// every other command does, and the configuration stays as it was.
+func TestRollbackRefusedBeforeItWritesSaysThatNothingChanged(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	target := t.TempDir()
 	verified := domain.NewConfig(clients.Admission())
@@ -154,25 +157,26 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
 	}
+	before := readFile(t, app.Config.Path())
 
-	err := cli.Execute(app, []string{"config", "rollback"})
-	if err == nil || err.Error() != "Configuration rollback did not complete" {
-		t.Fatalf("error = %v", err)
+	if err := cli.Execute(app, []string{"config", "rollback"}); err == nil {
+		t.Fatalf("a rollback onto a directory succeeded:\n%s", out)
 	}
 	for _, want := range []string{
-		"Configuration rollback did not complete",
-		"One rollback step failed; the cause identifies the affected boundary.",
-		"The configuration or client files may have changed; inspect them before you run it again.",
-		"aigw check --depth local",
+		"Codex cannot use " + target + ": ",
+		"Configuration and client files are unchanged.",
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("output missing %q:\n%s", want, out.String())
 		}
 	}
-	for _, internalTerm := range []string{"snapshot", "postimage", target} {
-		if strings.Contains(out.String(), internalTerm) {
-			t.Fatalf("output exposes internal detail %q:\n%s", internalTerm, out.String())
+	for _, unwanted := range []string{"snapshot", "postimage", "may have changed"} {
+		if strings.Contains(out.String(), unwanted) {
+			t.Fatalf("output says %q:\n%s", unwanted, out.String())
 		}
+	}
+	if !bytes.Equal(readFile(t, app.Config.Path()), before) {
+		t.Fatal("the refused rollback changed the configuration")
 	}
 }
 

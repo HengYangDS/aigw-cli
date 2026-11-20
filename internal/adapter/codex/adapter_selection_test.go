@@ -79,6 +79,30 @@ func TestAdoptCodexSelectionRefusesDisagreeingTargets(t *testing.T) {
 	}
 }
 
+// An outside edit in any target is the plan's to refuse under its own name:
+// nothing is followed past it, and a model that was not added in another
+// target is not refused in its place.
+func TestAdoptCodexSelectionLeavesAnOutsideEditToThePlan(t *testing.T) {
+	for _, model := range []string{"gpt-terra", "gpt-luna"} {
+		cfg, targets := codexAdoptionFixture(t, 2)
+		chooseCodexModel(t, targets[0], model)
+		edited, err := os.ReadFile(targets[1])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(targets[1], []byte(strings.Replace(string(edited), `base_url = "https://gateway.test/v1"`, `base_url = "https://drift.test/v1"`, 1)), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if observed, err := observeSelection(targets[1]); err != nil || observed.state != selectionDrifted {
+			t.Fatalf("the edited target = %+v, %v", observed, err)
+		}
+		ref, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg)
+		if err != nil || !ref.IsZero() || cfg.SelectedModel(ID) != domain.NewModelRef("gateway", "gpt-sol") {
+			t.Fatalf("%s beside an outside edit: followed %q, %v", model, ref, err)
+		}
+	}
+}
+
 func TestAdoptCodexSelectionLeavesUnchangedBindings(t *testing.T) {
 	for name, prepare := range map[string]func(*domain.Config, string){
 		"unchanged": func(*domain.Config, string) {},
@@ -158,4 +182,70 @@ func chooseCodexModel(t *testing.T, target, model string) string {
 		t.Fatal(err)
 	}
 	return native
+}
+
+// Inspection accepts a file that shows the followed choice only when nothing
+// else waits for a write: the configuration with the recorded model in the
+// selection's place must project what the file holds.
+func TestCodexInspectionOfAFollowedChoiceIsExact(t *testing.T) {
+	inspect := func(cfg domain.Config, reader string) adapter.Status {
+		runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		runtime.CredentialCommand = reader
+		return (codexAdapter{}).Inspect(t.Context(), adapter.Dependencies{}, cfg, runtime)
+	}
+	cfg, targets := codexAdoptionFixture(t, 1)
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The reader that the fixture projected, as the file names it.
+	command, err := ObservedCredentialCommand(targets[0], selected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status := inspect(cfg, command); !status.Ready {
+		t.Fatalf("the projected file: %+v", status)
+	}
+	chooseCodexModel(t, targets[0], "gpt-terra")
+	if status := inspect(cfg, command); status.Ready {
+		t.Fatalf("the recorded selection over a file that shows another model is ready: %+v", status)
+	}
+	followed := cfg.Clone()
+	if ref, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &followed); err != nil || ref != domain.NewModelRef("gateway", "gpt-terra") {
+		t.Fatalf("follow = %q, %v", ref, err)
+	}
+	if status := inspect(followed, command); !status.Ready {
+		t.Fatalf("the followed choice: %+v", status)
+	}
+	// A retry budget that the configuration holds and the file lacks waits
+	// for a write, with the choice as without it.
+	for name, pending := range map[string]domain.Config{"recorded": cfg.Clone(), "followed": followed.Clone()} {
+		binding := pending.Clients[ID]
+		retries := uint64(2)
+		binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &retries}
+		pending.Clients[ID] = binding
+		if name == "recorded" {
+			chooseBack := strings.Replace(mustRead(t, targets[0]), `model = "gpt-terra"`, `model = "gpt-sol" # managed by AIGW`, 1)
+			if err := os.WriteFile(targets[0], []byte(chooseBack), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			chooseCodexModel(t, targets[0], "gpt-terra")
+		}
+		if status := inspect(pending, command); status.Ready || status.RepairAction != "aigw sync" {
+			t.Errorf("%s selection with a pending retry budget: %+v", name, status)
+		}
+	}
+}
+
+func mustRead(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }

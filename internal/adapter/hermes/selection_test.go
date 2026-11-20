@@ -16,7 +16,7 @@ import (
 func projectedSelection(t *testing.T, desired Desired, provider, model string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,13 +123,12 @@ func TestTheModelBlockDecidesWhatFollowingAndAnExplicitSelectionDo(t *testing.T)
 		file            func(t *testing.T) string
 		followed        Selection
 		unfollowed      *Selection
-		owned           bool
 		explicit, shown bool
 	}{
 		{name: "a listed model of another owned entry", file: func(t *testing.T) string { return projectedSelection(t, desired, "other", "other-model") },
 			followed: Selection{Provider: "other", Model: "other-model"}, explicit: true, shown: true},
 		{name: "a model that the entry does not list", file: func(t *testing.T) string { return projectedSelection(t, desired, "other", "unlisted-model") },
-			unfollowed: &Selection{Provider: "other", Model: "unlisted-model"}, owned: true, explicit: true},
+			unfollowed: &Selection{Provider: "other", Model: "unlisted-model"}, explicit: true},
 		{name: "another entry's model with the earlier address", file: func(t *testing.T) string {
 			return editModel(t, editModel(t, projectedSelection(t, desired, "", ""), set("provider", "other")), set("default", "other-model"))
 		}},
@@ -164,8 +163,8 @@ func TestTheModelBlockDecidesWhatFollowingAndAnExplicitSelectionDo(t *testing.T)
 					t.Fatalf("following = %+v, %t, %v; want %+v", selection, changed, err, test.followed)
 				}
 			case test.unfollowed != nil:
-				if !refused || changed || unfollowed.Selection != *test.unfollowed || unfollowed.owned != test.owned {
-					t.Fatalf("following = %t, %v; want the unfollowed selection %+v (owned %t)", changed, err, *test.unfollowed, test.owned)
+				if !refused || changed || unfollowed.Selection != *test.unfollowed {
+					t.Fatalf("following = %t, %v; want the unfollowed selection %+v", changed, err, *test.unfollowed)
 				}
 			default:
 				if !errors.Is(err, errExternalEdit) || changed {
@@ -177,7 +176,7 @@ func TestTheModelBlockDecidesWhatFollowingAndAnExplicitSelectionDo(t *testing.T)
 				t.Fatal(readErr)
 			}
 			// Synchronization that does not start from the file's selection refuses every such file.
-			if _, err := Prepare(path, &desired); !errors.Is(err, errExternalEdit) {
+			if _, err := prepare(path, &desired); !errors.Is(err, errExternalEdit) {
 				t.Fatalf("a transition from the record = %v, want the outside edit", err)
 			}
 			_, err = PrepareTransition(path, &desired, nil, true)
@@ -248,7 +247,7 @@ func TestATransitionFromTheFilesChoiceKeepsOrReplacesIt(t *testing.T) {
 	if _, err := plan.Apply(); err != nil {
 		t.Fatal(err)
 	}
-	if settled, err := Prepare(chosen, &previous); err != nil || settled.Action != "unchanged" {
+	if settled, err := prepare(chosen, &previous); err != nil || settled.Action != "unchanged" {
 		t.Fatalf("the written selection did not settle: %s, %v", settled.Action, err)
 	}
 }
@@ -288,7 +287,7 @@ func TestExplicitSelectionReplacesAnUnlistedModel(t *testing.T) {
 	if _, err := plan.Apply(); err != nil {
 		t.Fatal(err)
 	}
-	if restored, err := Prepare(unlisted, &previous); err != nil || restored.Action != "unchanged" {
+	if restored, err := prepare(unlisted, &previous); err != nil || restored.Action != "unchanged" {
 		t.Fatalf("the explicit selection was not written: %s, %v", restored.Action, err)
 	}
 }

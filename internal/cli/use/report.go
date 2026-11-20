@@ -1,7 +1,6 @@
 package use
 
 import (
-	"aigw-cli/internal/platform"
 	"fmt"
 	"slices"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 )

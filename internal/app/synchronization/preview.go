@@ -2,6 +2,7 @@ package synchronization
 
 import (
 	"errors"
+	"reflect"
 	"slices"
 
 	"aigw-cli/internal/adapter"
@@ -10,11 +11,13 @@ import (
 )
 
 // Projection is what a commit would project: the clients whose projections it
-// would reconcile, for which it prepares the credential reader, and the client
-// files that it would change.
+// would reconcile, for which it prepares the credential reader, the client
+// files that it would change, and whether it would change the stored
+// configuration.
 type Projection struct {
-	Clients []string
-	Targets []adapter.ProjectionPlan
+	Clients       []string
+	Targets       []adapter.ProjectionPlan
+	Configuration bool
 }
 
 // Preview reports what Commit would project for one configuration transition.
@@ -25,10 +28,7 @@ func (s Synchronizer) Preview(before, after domain.Config) (Projection, error) {
 		return Projection{}, err
 	}
 	clients := s.registry().ChangedClients(before, after)
-	if len(clients) == 0 {
-		return Projection{}, nil
-	}
-	return project(s, before, after, clients...)
+	return project(s, before, after, len(clients) > 0, clients...)
 }
 
 // PreviewProjection reports what CommitProjection would project for the named
@@ -37,7 +37,7 @@ func (s Synchronizer) PreviewProjection(before, after domain.Config, clientIDs .
 	if err := validateTransition(after); err != nil {
 		return Projection{}, err
 	}
-	return project(s, before, after, clientIDs...)
+	return project(s, before, after, true, clientIDs...)
 }
 
 // PreviewSetup reports what Setup would write for the named clients, as if the
@@ -61,10 +61,7 @@ func (s Synchronizer) PreviewSetup(before, after domain.Config, providers []stri
 		return domain.Config{}, Projection{}, err
 	}
 	reconciled := planner.setupClients(before, after, clients)
-	if len(reconciled) == 0 {
-		return after, Projection{}, nil
-	}
-	projection, err := project(planner, before, after, reconciled...)
+	projection, err := project(planner, before, after, len(reconciled) > 0, reconciled...)
 	return after, projection, err
 }
 
@@ -89,17 +86,59 @@ func (s Synchronizer) PreviewSelection(before, after domain.Config, client strin
 	if err := validateTransition(after); err != nil {
 		return domain.Config{}, Projection{}, err
 	}
-	projection, err := project(selector, before, after, selector.selectionClients(before, after, client)...)
+	projection, err := project(selector, before, after, true, selector.selectionClients(before, after, client)...)
 	return after, projection, err
 }
 
 // project plans what a commit would reconcile: the credential-ready clients
-// among the named ones, or among every client when none is named, and their
-// projections.
-func project(planner Synchronizer, before, after domain.Config, clientIDs ...string) (Projection, error) {
-	clients, err := planner.credentialReadyClients(after, clientIDs...)
-	if err != nil || len(clients) == 0 {
+// among the named ones, or among every client when none is named and
+// reconcile is set, with every client whose own choice the commit would
+// record, and their projections.
+func project(planner Synchronizer, before, after domain.Config, reconcile bool, clientIDs ...string) (Projection, error) {
+	var followed []Followed
+	// A commit saves after over what is stored, which a client's own choice
+	// makes differ from before, the configuration that the command read.
+	saves := !reflect.DeepEqual(before, after)
+	if planner.Config != nil {
+		snapshot, err := planner.Config.CaptureSnapshot()
+		if err != nil {
+			return Projection{}, err
+		}
+		// A preview does not refuse a preimage that changed; its run does.
+		if followed, _, err = planner.preimage(snapshot, before); err != nil {
+			return Projection{}, err
+		}
+		stored, err := snapshot.MatchesConfiguration(after, nil)
+		if err != nil {
+			return Projection{}, err
+		}
+		saves = !stored
+	}
+	clientIDs, reconcile = planner.reconciled(followed, reconcile, clientIDs)
+	projection, err := planned(planner, before, after, reconcile, clientIDs)
+	if err != nil {
 		return Projection{}, err
+	}
+	// Only a preview that the run would not refuse says what it keeps.
+	planner.Follows.decide(planner.keeps(followed, after))
+	projection.Configuration = saves
+	return projection, nil
+}
+
+// planned plans the projections of the credential-ready clients among
+// clientIDs, or among every client when none is named, and of none unless
+// reconcile is set. It writes nothing, so a plan that is refused is a
+// PreflightError, for a command and for its preview alike.
+func planned(planner Synchronizer, before, after domain.Config, reconcile bool, clientIDs []string) (Projection, error) {
+	if !reconcile {
+		return Projection{}, nil
+	}
+	clients, err := planner.credentialReadyClients(after, clientIDs...)
+	if err != nil {
+		return Projection{}, &PreflightError{Err: err}
+	}
+	if len(clients) == 0 {
+		return Projection{}, nil
 	}
 	dependencies, err := planner.clientDependencies(clients, before, after)
 	if err != nil {
@@ -107,7 +146,7 @@ func project(planner Synchronizer, before, after domain.Config, clientIDs ...str
 	}
 	targets, err := planner.registry().Plan(dependencies, before, after, clients...)
 	if err != nil {
-		return Projection{}, err
+		return Projection{}, &PreflightError{Err: err}
 	}
 	return Projection{Clients: clients, Targets: targets}, nil
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	clientactivation "aigw-cli/internal/app/activation"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
@@ -24,9 +25,63 @@ const rollbackSchemaVersion = 3
 type rollbackDocument struct {
 	DryRun bool   `json:"dry_run,omitempty"`
 	Source string `json:"source"`
+	// Selections names each client whose selection the rollback restores to
+	// another model than the one it uses now.
+	Selections []restoredSelection `json:"selections,omitempty"`
 	invocation.Preview
 	NextAction string `json:"next_action,omitempty"`
 	NextDetail string `json:"next_detail,omitempty"`
+}
+
+// restoredSelection is one client whose selection a rollback changes: the
+// model that the restored configuration selects, absent when it selects
+// none, and the model that the client uses now, a model chosen in the client
+// included.
+type restoredSelection struct {
+	Client   string `json:"client"`
+	Model    string `json:"model,omitempty"`
+	Replaces string `json:"replaces,omitempty"`
+}
+
+// restoredSelections lists, in admission order, the clients whose selection
+// differs between the configuration in use and the restored one.
+func restoredSelections(runtime invocation.Context, current, restored domain.Config) []restoredSelection {
+	var selections []restoredSelection
+	for _, client := range runtime.Clients.Admission().IDs() {
+		now, then := current.Clients[client], restored.Clients[client]
+		if now.Model == then.Model && now.Protocol == then.Protocol {
+			continue
+		}
+		selection := restoredSelection{Client: client}
+		if !then.Model.IsZero() {
+			selection.Model = then.Model.String()
+		}
+		if !now.Model.IsZero() {
+			selection.Replaces = now.Model.String()
+		}
+		selections = append(selections, selection)
+	}
+	return selections
+}
+
+// renderRestoredSelections names the selections that a rollback restores.
+func renderRestoredSelections(r *terminal.Renderer, runtime invocation.Context, selections []restoredSelection) {
+	if len(selections) == 0 {
+		return
+	}
+	rows := make([]terminal.Field, 0, len(selections))
+	for _, selection := range selections {
+		value := selection.Model
+		switch {
+		case value == "":
+			value = "No model, in place of " + selection.Replaces
+		case selection.Replaces != "":
+			value += ", in place of " + selection.Replaces
+		}
+		rows = append(rows, terminal.Field{Label: runtime.Clients.Admission().Label(selection.Client), Value: value})
+	}
+	r.Section("Selections")
+	r.Rows(rows...)
 }
 
 // rollbackFailureImpact reports the configuration outcome that a failed
@@ -120,6 +175,9 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// A rollback restores each client's selection as it was, a model
+			// chosen in the client since then included, and names each one.
+			selections := restoredSelections(runtime, current, restored)
 			if dryRun {
 				preview, err := invocation.PreviewChange(runtime, current, restored)
 				if err != nil {
@@ -127,7 +185,7 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 				}
 				apply := invocation.ApplyCommand(cmd, nil)
 				if jsonMode {
-					document := rollbackDocument{DryRun: true, Source: sourceID, Preview: preview}
+					document := rollbackDocument{DryRun: true, Source: sourceID, Selections: selections, Preview: preview}
 					document.NextAction, document.NextDetail = terminal.NextSteps(apply)
 					return terminal.WriteDocument(runtime.Out, rollbackSchemaVersion, true, document)
 				}
@@ -135,10 +193,15 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 				r.ProductTitle("Rollback preview")
 				r.Section("Restore source")
 				r.Rows(terminal.Field{Label: "Configuration", Value: source})
+				renderRestoredSelections(r, runtime, selections)
 				invocation.RenderPreview(r, preview, apply)
 				return nil
 			}
 			if err := runtime.Synchronizer().Commit(cmd.Context(), current, restored, "rollback"); err != nil {
+				// A refusal before anything was written names its own step.
+				if _, refused := errors.AsType[*synchronization.PreflightError](err); refused {
+					return err
+				}
 				return terminal.ProblemError(
 					"Configuration rollback did not complete",
 					"One rollback step failed; the cause identifies the affected boundary.",
@@ -149,7 +212,7 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 			}
 			next := nextAfterRollback(restored, runtime.Secrets)
 			if jsonMode {
-				document := rollbackDocument{Source: sourceID}
+				document := rollbackDocument{Source: sourceID, Selections: selections}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)
 				return terminal.WriteDocument(runtime.Out, rollbackSchemaVersion, true, document)
 			}
@@ -157,6 +220,7 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 			r.ProductTitle("Rolled back safely")
 			r.Section("Restore source")
 			r.Rows(terminal.Field{Label: "Configuration", Value: source})
+			renderRestoredSelections(r, runtime, selections)
 			r.Success("Client selections and files were restored; clients were not restarted.")
 			r.Next(next)
 			return nil

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -159,4 +160,82 @@ func TestHermesEditedSelectionAddressStaysAnOutsideEdit(t *testing.T) {
 		{"check", hermes.ID, "--depth", "local", "--json"},
 		{"status", "--json"},
 	})
+}
+
+// A selection that AIGW does not follow reads the same wherever it is
+// refused: the problem in the refusal's own words, that nothing changed, and
+// the restoring command as the fix; status shows it on the client's row.
+func TestARefusedSelectionReadsTheSameOnEverySurface(t *testing.T) {
+	app, output, target := codexChoiceApp(t)
+	chooseInCodex(t, target, "gpt-sol", "gpt-ghost")
+	const refusal = `Codex selects model "gpt-ghost", which provider "gateway" has not added on OpenAI Responses; ` +
+		"AIGW's selection for Codex is gateway/gpt-sol; `aigw use codex gateway/gpt-ghost` adds and selects the model that Codex names"
+	problem := "Problem\n  " + refusal + "\n\nImpact\n  Configuration and client files are unchanged.\n\nFix\n  aigw use codex gateway/gpt-sol\n"
+	for _, command := range [][]string{{"sync"}, {"sync", "--dry-run"}, {"client", "edit", codex.ID, "--request-retries", "2"}} {
+		output.Reset()
+		if err := cli.Execute(app, command); err == nil || !strings.Contains(strings.Join(strings.Fields(output.String()), " "), strings.Join(strings.Fields(problem), " ")) {
+			t.Errorf("%v: %v\n%s", command, err, output)
+		}
+	}
+	output.Reset()
+	if err := cli.Execute(app, []string{"status"}); err != nil ||
+		!strings.Contains(output.String(), "gateway/gpt-sol · Invalid · "+refusal) || !strings.Contains(output.String(), "Next\n  aigw use codex gateway/gpt-sol\n") {
+		t.Errorf("status: %v\n%s", err, output)
+	}
+}
+
+// Codex has two files: one names a model that was not added, the other holds
+// an outside edit of the settings that AIGW manages. The restoring command
+// would be refused for that edit, so no surface names it: each one says to
+// undo the edit. With the edit undone, the restoring command is named, and
+// it runs.
+func TestCodexFilesWithAnOutsideEditAreToldToUndoItFirst(t *testing.T) {
+	app, output, targets := codexChoiceAppWith(t, "gpt-sol", 2)
+	projected := string(readFile(t, targets[1]))
+	chooseInCodex(t, targets[0], "gpt-sol", "gpt-ghost")
+	writeFile(t, targets[1], []byte(strings.Replace(projected, `base_url = "https://gateway.test/v1"`, `base_url = "https://drift.test/v1"`, 1)), 0o600)
+	const undo = "Undo the outside edit to the AIGW-managed Codex settings, then run `aigw sync`"
+	for _, command := range [][]string{
+		{"sync", "--json"},
+		{"sync", "--dry-run", "--json"},
+		{"use", codex.ID, "gateway/gpt-sol", "--json"},
+		{"status", "--json"},
+		{"check", codex.ID, "--depth", "local", "--json"},
+	} {
+		output.Reset()
+		_ = cli.Execute(app, command)
+		var result struct {
+			NextAction string `json:"next_action"`
+			NextDetail string `json:"next_detail"`
+		}
+		if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.NextAction != "" || result.NextDetail != undo {
+			t.Errorf("%v names %q and %q, want the undoing of the outside edit: %v\n%s", command, result.NextAction, result.NextDetail, err, output)
+		}
+	}
+	writeFile(t, targets[1], []byte(projected), 0o600)
+	refusedWithRestoringCommand(t, app, output, codex.ID, filepath.Dir(targets[0]), "aigw use codex gateway/gpt-sol", [][]string{{"sync", "--json"}})
+	syncAndCheckPass(t, app, output, codex.ID)
+}
+
+// Two Codex files that name one added model are one choice, and a command
+// that records it writes both files; two that name different added models
+// are no choice that AIGW can follow.
+func TestCodexFilesAreFollowedOnlyWhenTheyAgree(t *testing.T) {
+	app, output, targets := codexChoiceAppWith(t, "gpt-sol", 2)
+	chooseInCodex(t, targets[0], "gpt-sol", "gpt-terra")
+	if got := followedIn(t, app, output, "sync", "--json"); !slices.Equal(got, codexChoice) {
+		t.Fatalf("one file's choice follows %+v", got)
+	}
+	for _, target := range targets {
+		if written := string(readFile(t, target)); !strings.Contains(written, `model = "gpt-terra" # managed by AIGW`) {
+			t.Fatalf("%s does not hold the followed model:\n%s", target, written)
+		}
+	}
+	chooseInCodex(t, targets[0], "gpt-terra", "gpt-sol")
+	chooseInCodex(t, targets[1], "gpt-terra", "gpt-spare")
+	output.Reset()
+	err := cli.Execute(app, []string{"sync", "--json"})
+	if err == nil || !strings.Contains(output.String(), "has files that select different models") {
+		t.Fatalf("files that disagree: %v\n%s", err, output)
+	}
 }

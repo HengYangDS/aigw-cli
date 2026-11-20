@@ -1,7 +1,6 @@
 package check
 
 import (
-	"aigw-cli/internal/platform"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 )

@@ -123,13 +123,16 @@ clients remain untouched.
 A model chosen in Hermes or Codex is that client's selection for every
 command, when it is an added model within the client's reach and nothing else
 that AIGW owns in that client changed. Commands work from it, a command that
-saves the configuration records it, and commands and reports name what they
-follow, with the earlier selection and the command that returns to it. A model
-that AIGW has not added is not followed and not overwritten: the command names
-the `aigw use` that restores the recorded selection. Explicit `use` replaces a
-client's own choice only after proving that the owned providers and credential
-commands are intact. Selection is not permission to overwrite a changed
-provider definition. Claude Code's own model preference stays in Claude Code;
+saves the configuration records it together with AIGW's record of the client's
+file, and commands and reports name what they follow, with the earlier
+selection and the command that returns to it. A model that AIGW has not added
+is not followed and not overwritten: the command names the `aigw use` that
+restores the recorded selection. Two commands replace a client's own choice,
+and each names what it replaces: an explicit `use`, only after proving that
+the owned providers and credential commands are intact, and
+`aigw config rollback`, which restores the selections of the configuration
+that it restores. Selection is not permission to overwrite a changed provider
+definition. Claude Code's own model preference stays in Claude Code;
 `aigw status` shows it.
 
 ## Endpoint
