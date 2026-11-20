@@ -311,7 +311,7 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 		t.Fatalf("sync after a native Hermes model choice: %v\n%s", err, output)
 	}
 	var result struct {
-		Adopted map[string]string `json:"adopted_selections"`
+		Adopted followedModels `json:"followed_selections"`
 	}
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatalf("sync result: %v\n%s", err, output)
@@ -343,7 +343,7 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 		t.Fatalf("second sync: %v\n%s", err, output)
 	}
 	var preview struct {
-		Adopted map[string]string `json:"adopted_selections"`
+		Adopted followedModels `json:"followed_selections"`
 		Targets []struct {
 			Client string `json:"client"`
 			Action string `json:"action"`
@@ -383,7 +383,7 @@ func TestHermesSyncAdoptsAChoiceWhoseTokenReturnsLater(t *testing.T) {
 			t.Fatalf("%s sync: %v\n%s", step, err, output)
 		}
 		var result struct {
-			Adopted map[string]string `json:"adopted_selections"`
+			Adopted followedModels `json:"followed_selections"`
 		}
 		if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 			t.Fatalf("%s sync result: %v\n%s", step, err, output)

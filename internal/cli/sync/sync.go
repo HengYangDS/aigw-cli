@@ -1,6 +1,7 @@
 // Package sync implements `aigw sync`, which makes the enabled clients' files
-// match the configuration: it discovers the clients, follows a model that
-// was chosen in a client, and writes each client's files for its model. It never
+// match the configuration: it discovers the clients and writes each client's
+// files for its model. Like every command it works from the configuration
+// that follows a model chosen in a client. It never
 // changes client conversation history or model metadata.
 package sync
 
@@ -19,16 +20,15 @@ import (
 
 // schemaVersion is the version of `aigw sync`'s JSON document, which also
 // replaces `aigw repair`'s: both were at 2.
-const schemaVersion = 3
+const schemaVersion = 4
 
 // syncResult is `aigw sync`'s JSON document: each client's model as
-// provider/model, any selection followed from a client's own file, and in a preview the
+// provider/model, and in a preview the
 // client files that it would write and the credential reader that it would
 // install. Its next step is a command that a script can run, or guidance.
 type syncResult struct {
-	DryRun            bool              `json:"dry_run,omitempty"`
-	Selections        map[string]string `json:"selections"`
-	AdoptedSelections map[string]string `json:"adopted_selections,omitempty"`
+	DryRun     bool              `json:"dry_run,omitempty"`
+	Selections map[string]string `json:"selections"`
 	invocation.Preview
 	EnabledClients int    `json:"enabled_clients"`
 	State          string `json:"state,omitempty"`
@@ -49,7 +49,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Example: "aigw sync\naigw sync --dry-run\naigw sync --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			before, err := runtime.Config.Load()
+			before, err := runtime.LoadConfiguration()
 			if err != nil {
 				return err
 			}
@@ -59,11 +59,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return terminal.ProblemError("Not configured", "No provider has been added.", "", "aigw setup", fmt.Errorf("not configured"))
 			}
 			synchronizer := runtime.Synchronizer()
-			followedConfig, followed, err := synchronizer.Follow(before)
-			if err != nil {
-				return fmt.Errorf("sync synchronization preflight failed; configuration and client files were unchanged: %w", err)
-			}
-			after, _, err := synchronizer.DesiredSyncConfiguration(followedConfig)
+			after, _, err := synchronizer.DesiredSyncConfiguration(before)
 			// A blocked Token folder states its own fix, which the command's
 			// presentation renders.
 			if _, blocked := platform.BlockedPath(err); blocked {
@@ -87,12 +83,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					result.Selections[client] = selected.String()
 				}
 			}
-			if len(followed) > 0 {
-				result.AdoptedSelections = map[string]string{}
-				for _, choice := range followed {
-					result.AdoptedSelections[choice.Client] = choice.Model.String()
-				}
-			}
 			if dryRun {
 				if err := prepareSyncPreview(runtime, before, after, &result); err != nil {
 					return err
@@ -111,12 +101,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				r.ProductTitle("Synchronization completed")
 			}
 			outcome := []terminal.Field{}
-			for _, choice := range followed {
-				outcome = append(outcome, terminal.Field{
-					State: terminal.Info, Label: "Followed selection",
-					Value: invocation.FollowedSelection(choice),
-				})
-			}
 			switch {
 			case result.EnabledClients == 0:
 				// The activation decision names the continuation for the current backend.

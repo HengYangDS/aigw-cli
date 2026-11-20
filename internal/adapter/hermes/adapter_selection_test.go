@@ -56,11 +56,11 @@ func TestHermesModelForAdoptsOnlyOneExactModel(t *testing.T) {
 	}{
 		// The model must belong to the selected provider's protocol, not any protocol.
 		{"a model of another protocol", Selection{Provider: "aigw-gateway-anthropic", Model: "gpt-6.1-sol"}, []string{
-			`Hermes selects model "gpt-6.1-sol", which provider "gateway" has not added on anthropic`,
+			`Hermes selects model "gpt-6.1-sol", which provider "gateway" has not added on Anthropic Messages`,
 			"`aigw use hermes gateway/gpt-6.1-sol --protocol anthropic` adds and selects the model that Hermes names",
 		}},
 		{"a model that no one added", Selection{Provider: "aigw-gateway-responses", Model: "gpt-unadded"}, []string{
-			`Hermes selects model "gpt-unadded", which provider "gateway" has not added on responses`,
+			`Hermes selects model "gpt-unadded", which provider "gateway" has not added on OpenAI Responses`,
 			"`aigw use hermes gateway/gpt-unadded --protocol responses` adds and selects the model that Hermes names",
 		}},
 		{"a provider entry that AIGW does not write", Selection{Provider: "aigw-other-anthropic", Model: "claude-opus-5-5"}, []string{

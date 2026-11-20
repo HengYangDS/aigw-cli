@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/platform"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -12,7 +13,6 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 )
@@ -327,7 +327,7 @@ func TestTheFixOfASetupForTheProviderThatItNamesRunsAsPrinted(t *testing.T) {
 					writeFile(t, teamFile, readFile(t, gatewayTeamFile(t)), 0o600)
 				}
 				last := strings.Replace(test.last, "<file>", teamFile, 1)
-				if invocation.Command(teamFile) == "" {
+				if platform.AIGWCommand(teamFile) == "" {
 					last = test.quoted
 				}
 				args := append([]string{"setup", "--from", teamFile, "--provider", "gateway"}, test.flags...)

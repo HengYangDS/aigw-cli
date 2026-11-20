@@ -121,7 +121,7 @@ func (claudeAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg d
 	if err != nil {
 		return unsynchronized("Claude settings are not synchronized with the selected model", settings, deps.Host.Home, runtime)
 	}
-	return adapter.Status{Ready: true, NativeModelOverride: inspection.NativeModelOverride}
+	return adapter.Status{Ready: true, NativeModelOverride: inspection.NativeModelOverride, NativeModel: inspection.NativeModel}
 }
 
 // AdoptSelection adopts nothing: Claude Code has no native selection that AIGW

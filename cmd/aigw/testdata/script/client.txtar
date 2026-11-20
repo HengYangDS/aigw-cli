@@ -198,7 +198,7 @@ exec aigw use hermes team/team-model --protocol responses
 fixloop -did 'selected team/team-model for Hermes' edit-no-model.json aigw client edit hermes --via http://127.0.0.1:8792/v1 --json
 -- disable-preview.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "dry_run": true,
   "client": "claude",
@@ -296,7 +296,7 @@ Fix
   aigw client list
 -- disabled.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "client": "claude",
   "state": "disabled",
@@ -304,7 +304,7 @@ Fix
 }
 -- already-disabled.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "client": "claude",
   "state": "already_disabled",
@@ -312,7 +312,7 @@ Fix
 }
 -- enabled.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "client": "claude",
   "state": "enabled",
@@ -362,7 +362,7 @@ Next
 }
 -- edit-via-preview.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
   "client": "codex",
@@ -389,7 +389,7 @@ Next
   aigw client edit codex --request-retries 0 --stream-retries 2
 -- edit-forwarded.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "client": "codex",
   "changed": true,
@@ -406,7 +406,7 @@ Next
 }
 -- edit-direct.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "client": "codex",
   "changed": true,
@@ -422,7 +422,7 @@ Next
 }
 -- edit-unchanged.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "client": "codex",
   "changed": false,
@@ -535,7 +535,7 @@ Next
   aigw client edit codex --native-retries
 -- edit-native.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "client": "codex",
   "changed": true,

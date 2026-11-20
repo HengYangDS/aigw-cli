@@ -203,7 +203,7 @@ func programFileFix(cmd *cobra.Command, runtime invocation.Context, directory st
 	if info, err := os.Stat(file); err == nil && info.IsDir() {
 		return "Run the same command with --path naming a program file; " + file + " is a directory too."
 	}
-	if line := invocation.Rerun(cmd, nil, []string{"path"}, "--path", file); line != "" && invocation.Command(file) != "" {
+	if line := invocation.Rerun(cmd, nil, []string{"path"}, "--path", file); line != "" && platform.AIGWCommand(file) != "" {
 		return "Run `" + line + "` with this same program; `aigw` on PATH may be another program."
 	}
 	return "Run the same command with --path naming the program file " + file + "."

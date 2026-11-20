@@ -12,9 +12,9 @@ import (
 const (
 	listSchemaVersion   = 2
 	showSchemaVersion   = 2
-	addSchemaVersion    = 2
-	editSchemaVersion   = 2
-	removeSchemaVersion = 2
+	addSchemaVersion    = 3
+	editSchemaVersion   = 3
+	removeSchemaVersion = 3
 	searchSchemaVersion = 2
 )
 

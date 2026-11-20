@@ -2,6 +2,7 @@ package status
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -53,7 +54,7 @@ func TestStatusNamesEachModelProviderModel(t *testing.T) {
 	if err := json.Unmarshal(document["clients"], &clientsDocument); err != nil {
 		t.Fatal(err)
 	}
-	if string(document["schema_version"]) != "3" || string(document["models"]) != "2" || document["routes"] != nil {
+	if string(document["schema_version"]) != strconv.Itoa(schemaVersion) || string(document["models"]) != "2" || document["routes"] != nil {
 		t.Fatalf("document header = %s", out)
 	}
 	if model, provider := string(clientsDocument[claude.ID]["model"]), string(clientsDocument[claude.ID]["provider"]); model != `"one/claude-test"` || provider != `"one"` {

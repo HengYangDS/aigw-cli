@@ -62,6 +62,9 @@ type Client struct {
 	NextDetail          string `json:"next_detail,omitempty"`
 	ProjectionDeferred  bool   `json:"client_files_deferred,omitempty"`
 	NativeModelOverride bool   `json:"native_model_override,omitempty"`
+	// NativeModel is the model that the client's own settings name in place
+	// of the selection.
+	NativeModel string `json:"client_model,omitempty"`
 }
 
 // ClientFacts are the local observations that determine one client's state.

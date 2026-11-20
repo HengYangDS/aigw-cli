@@ -16,7 +16,7 @@ import (
 
 // uninstallSchemaVersion is the version of `aigw self uninstall`'s JSON
 // document, which continues from `aigw uninstall`'s 1.
-const uninstallSchemaVersion = 2
+const uninstallSchemaVersion = 3
 
 // uninstallDocument is `aigw self uninstall`'s JSON document: the program
 // path, whether a program was there, and the clients whose AIGW settings were
@@ -100,7 +100,7 @@ func newUninstallCommand(runtime invocation.Context) *cobra.Command {
 			}
 			withdrawn := []string{}
 			if statErr == nil {
-				before, err := runtime.Config.Load()
+				before, err := runtime.LoadConfiguration()
 				if err != nil {
 					return err
 				}
@@ -164,7 +164,7 @@ func previewUninstall(cmd *cobra.Command, runtime invocation.Context, target str
 	document := uninstallDocument{DryRun: true, Path: target, WithdrawnClients: []string{}, Removed: removed}
 	document.ProgramFound = len(removed) > 0 && removed[0] == target
 	if configured {
-		before, err := runtime.Config.Load()
+		before, err := runtime.LoadConfiguration()
 		if err != nil {
 			return err
 		}

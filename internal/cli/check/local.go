@@ -251,8 +251,8 @@ func (c *checker) fileChecks(ctx context.Context, r *result, selected domain.Run
 	status := c.deps.InspectClient(ctx, c.cfg, r.spec.ID, selected)
 	check := passedCheck(name, label, "Match the selection")
 	if status.NativeModelOverride {
-		r.native = true
-		check.Detail = "Match the selection; " + c.admission().ProductName(r.spec.ID) + " keeps its own model preference"
+		r.native, r.nativeModel = true, status.NativeModel
+		check.Detail = "Match the selection; " + c.admission().ProductName(r.spec.ID) + " " + status.NativeModelNote("keeps its own")
 	}
 	if !status.Ready {
 		check = failedCheck(name, label, status.Issue, status.RepairAction, domainreadiness.Invalid)

@@ -1,6 +1,7 @@
 package use
 
 import (
+	"aigw-cli/internal/platform"
 	"fmt"
 	"slices"
 	"strconv"
@@ -145,7 +146,7 @@ func toolSearchFix(model domain.Model, capabilities []domain.Capability) string 
 		flags = append(flags, "--capability", string(capability))
 	}
 	name := model.Ref().String()
-	if line := invocation.Command("model", "edit", name); line != "" {
+	if line := platform.AIGWCommand("model", "edit", name); line != "" {
 		return line + " " + strings.Join(flags, " ")
 	}
 	return "Run aigw model edit for " + name + " with " + strings.Join(flags, " ") + "."

@@ -201,6 +201,12 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 	case errors.Is(err, os.ErrNotExist):
 		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, platform.ClassifyPath(target, platform.FileExpected, err))
 	default:
+		// The file shows Codex's own choice, which the configuration follows.
+		// Only AIGW's record of the file is behind, and the next write of the
+		// file brings it up.
+		if model, changed, observeErr := ObserveSelection(target); observeErr == nil && changed && model == runtime.UpstreamModel {
+			return issue, "", repair
+		}
 		return issue, "Codex configuration target does not match the selected model", repair
 	}
 }

@@ -13,6 +13,33 @@ signing, and GA status remain separate evidence.
 
 ### Changed
 
+- **Breaking:** a model chosen inside Codex or Hermes is that client's
+  selection for every command, not for `aigw sync` alone. Commands work from
+  it, a command that saves the configuration records it and keeps its own
+  change, and `aigw client disable` and `aigw self uninstall` withdraw after
+  such a choice. `aigw status` and `aigw check` report the chosen model as
+  configured, where they reported drift. Each saving command, its preview,
+  `aigw status` and `aigw check` name what they follow: a last section
+  "Followed selection" in text and `followed_selections` in JSON, with
+  `client`, `model`, `earlier` and `returns_with`, the command that selects
+  the earlier model again. `aigw sync --json` no longer writes
+  `adopted_selections`.
+- **Breaking:** when a client's file names a model that AIGW has not added,
+  the Fix restores the recorded selection, from `aigw sync`, any command that
+  writes that client's files, `aigw status` and `aigw check`:
+  `aigw use <client> <provider/model>`. The failure's text names the command
+  that adds and selects the named model. The Fix was the adding command for
+  Codex and "Undo the outside edit" for Hermes, where no command restored the
+  selection. `aigw use hermes` now replaces a selection that names such a
+  model.
+- `aigw status` and `aigw check` name the model that Claude Code's own
+  settings select, in text and as `client_model`.
+- These documents move up one `schema_version` for the fields above:
+  `aigw status` 4, `aigw check` 5, `aigw sync` 4, `aigw use` 4,
+  `aigw setup --from` 5, `aigw config rollback` 3, `aigw self uninstall` 3,
+  `aigw provider add` and `edit` 3, `aigw provider remove` 2, `aigw model add`,
+  `edit` and `remove` 3, `aigw client enable` and `disable` 3, and
+  `aigw client edit` 2.
 - The repository's ETHOS proof runs its Go test suite once instead of twice.
   The coverage command can write JUnit and LCOV reports from its one test run
   (`--junit-output`, `--lcov-output`), and ETHOS judges those reports instead of

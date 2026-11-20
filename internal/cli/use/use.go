@@ -3,6 +3,7 @@
 package use
 
 import (
+	"aigw-cli/internal/platform"
 	"errors"
 	"fmt"
 	"maps"
@@ -18,7 +19,7 @@ import (
 )
 
 // schemaVersion is the version of `aigw use`'s JSON document.
-const schemaVersion = 3
+const schemaVersion = 4
 
 // options are the flags of `aigw use`.
 type options struct {
@@ -155,7 +156,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	}
 	// Args checked the arguments, so they parse.
 	given, _ := parseArguments(runtime.Clients.Admission(), args)
-	cfg, err := runtime.Config.Load()
+	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return err
 	}
@@ -256,6 +257,6 @@ func checkCatalog(cmd *cobra.Command, runtime invocation.Context, cfg domain.Con
 		Rerun: func(model string, added ...string) string {
 			return invocation.Rerun(cmd, []string{chosen.client.ID, model}, nil, added...)
 		},
-		Added: func(model string) string { return invocation.Command("use", chosen.client.ID, model) },
+		Added: func(model string) string { return platform.AIGWCommand("use", chosen.client.ID, model) },
 	})
 }

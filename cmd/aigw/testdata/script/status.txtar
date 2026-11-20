@@ -97,7 +97,7 @@ Next
   aigw setup
 -- empty.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -151,7 +151,7 @@ Next
 }
 -- connected.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -233,7 +233,7 @@ Next
   Install Codex if needed, then run `aigw sync`
 -- disabled.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -361,7 +361,7 @@ Next
   Install Claude if needed, then run `aigw sync`
 -- installed.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "credential_backend": {
     "kind": "file",

@@ -96,6 +96,7 @@ func TestScripts(t *testing.T) {
 			"fixloop":      fixLoop,
 			"jsonset":      jsonSet,
 			"normalize":    normalize,
+			"replace":      replaceText,
 			"snapshot":     snapshot,
 		},
 	})
@@ -133,6 +134,21 @@ func jsonSet(ts *testscript.TestScript, neg bool, args []string) {
 		ts.Fatalf("%v", err)
 	}
 	if err := os.WriteFile(ts.MkAbs(args[0]), append(data, '\n'), 0o600); err != nil {
+		ts.Fatalf("%v", err)
+	}
+}
+
+// replaceText replaces the one occurrence of a text in a file, as a client
+// that rewrites one value of its own configuration file does.
+func replaceText(ts *testscript.TestScript, neg bool, args []string) {
+	if neg || len(args) != 3 {
+		ts.Fatalf("usage: replace <file> <old> <new>")
+	}
+	text := ts.ReadFile(args[0])
+	if found := strings.Count(text, args[1]); found != 1 {
+		ts.Fatalf("%s holds %q %d times, want once", args[0], args[1], found)
+	}
+	if err := os.WriteFile(ts.MkAbs(args[0]), []byte(strings.Replace(text, args[1], args[2], 1)), 0o600); err != nil {
 		ts.Fatalf("%v", err)
 	}
 }

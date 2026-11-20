@@ -480,11 +480,11 @@ func TestSnapshotMatchesOnlyItsOwnConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if matches, err := absent.MatchesConfiguration(domain.NewConfig(store.Admission())); err != nil || !matches {
+	if matches, err := absent.MatchesConfiguration(domain.NewConfig(store.Admission()), nil); err != nil || !matches {
 		t.Fatalf("an absent file does not match the empty configuration: %v", err)
 	}
 	cfg := validConfig()
-	if matches, err := absent.MatchesConfiguration(cfg); err != nil || matches {
+	if matches, err := absent.MatchesConfiguration(cfg, nil); err != nil || matches {
 		t.Fatalf("an absent file matches a configuration: %v", err)
 	}
 	if err := store.Save(cfg); err != nil {
@@ -494,18 +494,18 @@ func TestSnapshotMatchesOnlyItsOwnConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if matches, err := saved.MatchesConfiguration(cfg); err != nil || !matches {
+	if matches, err := saved.MatchesConfiguration(cfg, nil); err != nil || !matches {
 		t.Fatalf("a saved file does not match its configuration: %v", err)
 	}
 	changed := cfg.Clone()
 	provider := changed.Providers["dmx"]
 	provider.Label = "Changed"
 	changed.Providers["dmx"] = provider
-	if matches, err := saved.MatchesConfiguration(changed); err != nil || matches {
+	if matches, err := saved.MatchesConfiguration(changed, nil); err != nil || matches {
 		t.Fatalf("a saved file matches a changed configuration: %v", err)
 	}
 	saved.Config.Data = []byte("version = 8\n[[providers]\n")
-	if _, err := saved.MatchesConfiguration(cfg); err == nil {
+	if _, err := saved.MatchesConfiguration(cfg, nil); err == nil {
 		t.Fatal("a file that does not parse matched")
 	}
 }

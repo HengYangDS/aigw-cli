@@ -74,11 +74,21 @@ type App struct {
 	output  *commandOutput
 }
 
-// commandOutput owns write progress and the first failure for one invocation.
+// commandOutput owns write progress and the first failure for one invocation,
+// and the fields that the invocation adds to its command's document.
 type commandOutput struct {
 	writer  io.Writer
 	err     error
 	started bool
+	fields  func() []terminal.DocumentField
+}
+
+// DocumentFields are the invocation's own fields of the command's document.
+func (w *commandOutput) DocumentFields() []terminal.DocumentField {
+	if w.fields == nil {
+		return nil
+	}
+	return w.fields()
 }
 
 func (w *commandOutput) Write(data []byte) (int, error) {
@@ -112,6 +122,8 @@ func Execute(app *App, args []string) error {
 	app.output = output
 	defer func() { app.output = nil }()
 	var unlock func() error
+	followed := &followedReport{app: app}
+	output.fields = followed.DocumentFields
 	root := NewRoot(app)
 	root.PersistentPreRunE = func(command *cobra.Command, positional []string) error {
 		// Cobra normally validates flag relationships after this mutation boundary.
@@ -122,6 +134,7 @@ func Execute(app *App, args []string) error {
 			return refusedFlag(command, err)
 		}
 		if !requiresConfigurationLock(command) {
+			followed.observe(command)
 			return nil
 		}
 		locked, err := app.Config.Lock(command.Context())
@@ -132,6 +145,7 @@ func Execute(app *App, args []string) error {
 			return err
 		}
 		unlock = locked
+		followed.observe(command)
 		return nil
 	}
 	root.SetArgs(args)
@@ -139,6 +153,13 @@ func Execute(app *App, args []string) error {
 	if err == nil {
 		command, err = root.ExecuteC()
 		err = refusal(root, command, args, err)
+		// A command's document carries what the invocation followed; its
+		// human output ends with it. A failure that the root renders
+		// carries only itself.
+		if jsonMode, _ := command.Flags().GetBool("json"); err == nil && !jsonMode && output.err == nil {
+			followed.render(app.Renderer())
+		}
+		output.fields = nil
 	}
 	if output.err != nil && !errors.Is(err, output.err) {
 		err = errors.Join(err, output.err)
@@ -220,25 +241,6 @@ func finishExecution(commandErr error, unlock func() error) error {
 
 func credentialInvocation(args []string) bool {
 	return len(args) > 0 && args[0] == "credential"
-}
-
-func requiresConfigurationLock(command *cobra.Command) bool {
-	// Bare aigw is aigw status, which writes nothing; self install writes the
-	// program file, never the configuration.
-	path := strings.TrimPrefix(command.CommandPath(), command.Root().Name()+" ")
-	switch path {
-	case "provider rotate":
-		return true
-	case "setup",
-		"model add", "model edit", "model remove", "client enable", "client disable", "client edit",
-		"provider add", "provider edit", "provider remove",
-		"use", "sync",
-		"config rollback", "self update", "self rollback", "self uninstall":
-		dryRun, err := command.Flags().GetBool("dry-run")
-		return err != nil || !dryRun
-	default:
-		return false
-	}
 }
 
 // NewDefault constructs an App from the current platform, environment, configuration, and credential backend,

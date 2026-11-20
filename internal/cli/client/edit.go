@@ -204,7 +204,7 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 	if options.executable != "" {
 		options.executable, _ = filepath.Abs(options.executable)
 	}
-	cfg, err := runtime.Config.Load()
+	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return err
 	}

@@ -61,6 +61,25 @@ type Dependencies struct {
 	Updater Updater
 }
 
+// WorkingConfiguration reads the configuration that every command works
+// from: the stored one with the model that each enabled client chose in its
+// own file recorded as that client's selection, and those choices, which the
+// stored configuration does not record yet.
+func (d Dependencies) WorkingConfiguration() (domain.Config, []synchronization.Followed, error) {
+	stored, err := d.Config.Load()
+	if err != nil {
+		return domain.Config{}, nil, err
+	}
+	working, followed := d.Synchronizer().Working(stored)
+	return working, followed, nil
+}
+
+// LoadConfiguration reads the configuration that every command works from.
+func (d Dependencies) LoadConfiguration() (domain.Config, error) {
+	working, _, err := d.WorkingConfiguration()
+	return working, err
+}
+
 // InspectClient observes one client's projection without changing it.
 func (d Dependencies) InspectClient(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) adapter.Status {
 	return d.Synchronizer().Inspect(ctx, cfg, clientID, runtime)

@@ -12,12 +12,14 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+
+	"go.yaml.in/yaml/v4"
 )
 
 // refusedWithRestoringCommand runs each command, which must fail without
 // changing a file in directory or the configuration, and requires its next
 // action to be restore, a command that then runs as printed.
-func refusedWithRestoringCommand(t *testing.T, app *cli.App, output *bytes.Buffer, directory, restore string, commands [][]string) {
+func refusedWithRestoringCommand(t *testing.T, app *cli.App, output *bytes.Buffer, client, directory, restore string, commands [][]string) {
 	t.Helper()
 	refused := ownedFileSnapshot(t, directory, app.Config.Path())
 	for _, command := range commands {
@@ -35,6 +37,24 @@ func refusedWithRestoringCommand(t *testing.T, app *cli.App, output *bytes.Buffe
 		}
 		if after := ownedFileSnapshot(t, directory, app.Config.Path()); !equalSnapshots(after, refused) {
 			t.Fatalf("%v changed client files or owned state while refusing", command)
+		}
+	}
+	// The reports name the same step, and write nothing.
+	for _, command := range [][]string{{"check", client, "--depth", "local", "--json"}, {"status", "--json"}} {
+		output.Reset()
+		_ = cli.Execute(app, command)
+		var report struct {
+			NextAction string       `json:"next_action"`
+			Clients    clientStates `json:"clients"`
+		}
+		if err := json.Unmarshal(output.Bytes(), &report); err != nil {
+			t.Fatalf("%v: %v\n%s", command, err, output)
+		}
+		if entry := report.Clients[client]; entry.NextAction != restore {
+			t.Errorf("%v names %q for %s, want the restoring command %q\n%s", command, entry.NextAction, client, restore, output)
+		}
+		if after := ownedFileSnapshot(t, directory, app.Config.Path()); !equalSnapshots(after, refused) {
+			t.Fatalf("%v changed client files or owned state", command)
 		}
 	}
 	output.Reset()
@@ -67,9 +87,11 @@ func TestCodexModelThatWasNotAddedIsRefusedWithTheRestoringCommand(t *testing.T)
 	projected := string(readFile(t, target))
 	writeFile(t, target, []byte(strings.Replace(projected, `model = "gpt-sol" # managed by AIGW`, `model = "gpt-ghost"`, 1)), 0o600)
 
-	refusedWithRestoringCommand(t, app, output, filepath.Dir(target), "aigw use codex gateway/gpt-sol", [][]string{
+	refusedWithRestoringCommand(t, app, output, codex.ID, filepath.Dir(target), "aigw use codex gateway/gpt-sol", [][]string{
 		{"sync", "--dry-run", "--json"},
 		{"sync", "--json"},
+		{"client", "edit", codex.ID, "--request-retries", "2", "--json"},
+		{"client", "disable", codex.ID, "--json"},
 	})
 	if string(readFile(t, target)) != projected {
 		t.Fatalf("the restoring command did not write the recorded model:\n%s", readFile(t, target))
@@ -77,7 +99,8 @@ func TestCodexModelThatWasNotAddedIsRefusedWithTheRestoringCommand(t *testing.T)
 	output.Reset()
 	writeFile(t, target, []byte(strings.Replace(projected, `model = "gpt-sol" # managed by AIGW`, `model = "gpt-ghost"`, 1)), 0o600)
 	err := cli.Execute(app, []string{"sync"})
-	if err == nil || !strings.Contains(err.Error(), "`aigw use codex gateway/gpt-ghost` adds and selects the model that Codex names") {
+	if err == nil || !strings.Contains(err.Error(), `Codex selects model "gpt-ghost", which provider "gateway" has not added on OpenAI Responses`) ||
+		!strings.Contains(err.Error(), "`aigw use codex gateway/gpt-ghost` adds and selects the model that Codex names") {
 		t.Fatalf("the refusal does not name the adding command: %v", err)
 	}
 	if err := cli.Execute(app, []string{"use", "codex", "gateway/gpt-sol"}); err != nil {
@@ -94,9 +117,11 @@ func TestHermesModelThatIsNotListedIsRefusedWithTheRestoringCommand(t *testing.T
 	projected := readFile(t, target)
 	hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-unadded", nil)
 
-	refusedWithRestoringCommand(t, app, output, filepath.Dir(target), "aigw use hermes dmxapi/gpt-6.2-sol --protocol responses", [][]string{
+	refusedWithRestoringCommand(t, app, output, hermes.ID, filepath.Dir(target), "aigw use hermes dmxapi/gpt-6.2-sol --protocol responses", [][]string{
 		{"sync", "--dry-run", "--json"},
 		{"sync", "--json"},
+		{"provider", "edit", "dmxapi", "--label", "Renamed", "--json"},
+		{"client", "disable", hermes.ID, "--json"},
 	})
 	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-dmxapi-responses" || model != "gpt-6.2-sol" {
 		t.Fatalf("the restoring command wrote %s %s", provider, model)
@@ -105,4 +130,33 @@ func TestHermesModelThatIsNotListedIsRefusedWithTheRestoringCommand(t *testing.T
 		t.Fatal("the restored Hermes file differs from the one that AIGW wrote")
 	}
 	syncAndCheckPass(t, app, output, hermes.ID)
+}
+
+// An edited address of Hermes' own selection is an edit of an endpoint, not
+// a choice of a model: nothing follows it, and an explicit selection does not
+// write over it either.
+func TestHermesEditedSelectionAddressStaysAnOutsideEdit(t *testing.T) {
+	const recovery = "Undo the outside edit to the AIGW-managed Hermes settings, then run `aigw sync`"
+	app, output, _, target := shippedHermesApp(t)
+	var document yaml.Node
+	if err := yaml.Unmarshal(readFile(t, target), &document); err != nil {
+		t.Fatal(err)
+	}
+	model := document.Content[0].Content[1]
+	for index := 0; index+1 < len(model.Content); index += 2 {
+		if model.Content[index].Value == "base_url" {
+			model.Content[index+1].Value = "http://127.0.0.1:8792/v1"
+		}
+	}
+	edited, err := yaml.Marshal(&document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, target, edited, 0o600)
+	assertRecoveryOnEverySurface(t, app, output, hermes.ID, recovery, filepath.Dir(target), [][]string{
+		{"sync", "--json"},
+		{"use", hermes.ID, "dmxapi/gpt-6.2-sol", "--protocol", "responses", "--json"},
+		{"check", hermes.ID, "--depth", "local", "--json"},
+		{"status", "--json"},
+	})
 }

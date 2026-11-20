@@ -68,9 +68,22 @@ var ErrProjectionRollbackFailed = errors.New("client file rollback failed")
 type Status struct {
 	Ready               bool
 	NativeModelOverride bool
-	Issue               string
-	RepairAction        string
-	Checks              []Check
+	// NativeModel is the model that the client's own settings name in place
+	// of AIGW's selection, when NativeModelOverride holds and they name one.
+	NativeModel  string
+	Issue        string
+	RepairAction string
+	Checks       []Check
+}
+
+// NativeModelNote says, after product's name, that the client keeps a model
+// preference of its own, with the model that its settings name.
+func (status Status) NativeModelNote(verb string) string {
+	note := verb + " model preference"
+	if status.NativeModel != "" {
+		note += ", " + status.NativeModel
+	}
+	return note
 }
 
 // Check is one adapter-owned, read-only diagnostic observation. Target names
@@ -218,7 +231,7 @@ func (registry Registry) Plan(deps Dependencies, before, after domain.Config, cl
 	for _, adapter := range adapters {
 		adapterPlans, err := adapter.Plan(deps, before, after)
 		if err != nil {
-			return nil, namedTarget(adapter.Spec(), deps.Host.Home, err)
+			return nil, namedTarget(adapter.Spec(), deps.Host.Home, unfollowed(deps, before, adapter, err))
 		}
 		plans = append(plans, adapterPlans...)
 	}
@@ -305,7 +318,44 @@ func (registry Registry) Inspect(ctx context.Context, deps Dependencies, cfg dom
 	if !ok {
 		return Status{Issue: fmt.Sprintf("client %q has no admitted operational adapter", clientID), RepairAction: "aigw sync"}
 	}
-	return adapter.Inspect(ctx, deps, cfg, runtime)
+	status := adapter.Inspect(ctx, deps, cfg, runtime)
+	if status.Ready {
+		return status
+	}
+	// A file whose own selection AIGW does not follow is reported as that,
+	// with the step that restores the recorded selection.
+	if refusal := unfollowedSelection(deps, cfg, adapter); refusal != nil {
+		status.Issue, status.RepairAction = refusal.Error(), refusal.NextAction()
+		for index := range status.Checks {
+			if !status.Checks[index].Ready {
+				status.Checks[index].Detail, status.Checks[index].RepairAction = refusal.Error(), refusal.NextAction()
+			}
+		}
+	}
+	return status
+}
+
+// unfollowedSelection is the refusal of the client's own selection in cfg,
+// when its file's only difference from AIGW's record is a selection that AIGW
+// does not follow. The configuration is not changed.
+func unfollowedSelection(deps Dependencies, cfg domain.Config, client Adapter) *SelectionError {
+	probe := cfg.Clone()
+	_, err := client.AdoptSelection(deps, &probe)
+	refusal, _ := errors.AsType[*SelectionError](err)
+	return refusal
+}
+
+// unfollowed returns, in place of a conflict that it explains, the refusal of
+// the client's own selection: such a file is refused with the step that
+// restores the recorded selection, not as an outside edit to undo.
+func unfollowed(deps Dependencies, cfg domain.Config, client Adapter, err error) error {
+	if _, conflict := errors.AsType[*ConflictError](err); !conflict {
+		return err
+	}
+	if refusal := unfollowedSelection(deps, cfg, client); refusal != nil {
+		return refusal
+	}
+	return err
 }
 
 // Verify runs one explicit live verification through the admitted adapter.

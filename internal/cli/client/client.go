@@ -3,6 +3,7 @@
 package client
 
 import (
+	"aigw-cli/internal/platform"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -111,7 +112,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		// names them absolute, so that they mean the same from any directory.
 		targets, _ = absoluteTargets(cmd, targets)
 		executable, _ = filepath.Abs(executable)
-		cfg, err := runtime.Config.Load()
+		cfg, err := runtime.LoadConfiguration()
 		if err != nil {
 			return err
 		}
@@ -243,7 +244,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 	}, RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
 		spec, _ := runtime.Clients.Admission().Spec(client)
-		cfg, err := runtime.Config.Load()
+		cfg, err := runtime.LoadConfiguration()
 		if err != nil {
 			return err
 		}
@@ -358,7 +359,7 @@ func renderDisabled(r *terminal.Renderer, spec domain.ClientSpec) {
 // targets for a client that reads none, so the edit names none for it.
 func editInstead(spec domain.ClientSpec, executable string, targets []string) string {
 	// Command accepts the values only when each runs as written.
-	if invocation.Command(append([]string{"client", "edit", spec.ID, executable}, targets...)...) == "" {
+	if platform.AIGWCommand(append([]string{"client", "edit", spec.ID, executable}, targets...)...) == "" {
 		return "aigw client edit " + spec.ID + " --executable <path>"
 	}
 	words := []string{"aigw client edit " + spec.ID, "--executable", executable}

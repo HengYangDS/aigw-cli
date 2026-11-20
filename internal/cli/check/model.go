@@ -1,6 +1,7 @@
 package check
 
 import (
+	"aigw-cli/internal/platform"
 	"fmt"
 
 	"aigw-cli/internal/cli/invocation"
@@ -35,7 +36,7 @@ func resolveNamed(cfg domain.Config, client, text string) (named, error) {
 	if _, err := cfg.ResolveRuntime(client, ref); err != nil {
 		spec, _ := cfg.Admission().Spec(client)
 		return named{}, terminal.ProblemError(fmt.Sprintf("%s cannot use %s: it declares no protocol that %s speaks and its provider serves", spec.Label, ref, spec.Label),
-			"", "", invocation.Command("model", "show", ref.String()), err)
+			"", "", platform.AIGWCommand("model", "show", ref.String()), err)
 	}
 	return named{ref: ref}, nil
 }

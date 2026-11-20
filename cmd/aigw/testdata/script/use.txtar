@@ -242,7 +242,7 @@ Options
       --unlisted[=true|false]   Add a model that the provider's catalog does not list, without reading the catalog
 -- preview.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "dry_run": true,
   "changed": true,
@@ -265,7 +265,7 @@ Options
 }
 -- spare.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "changed": true,
   "client": "claude",

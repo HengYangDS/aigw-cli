@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/platform"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -13,7 +14,6 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/cli/invocation"
 )
 
 // spareTeamFile is the gateway team file with a second provider, spare, whose
@@ -238,7 +238,7 @@ func TestTheFixOfASetupPreviewForAProviderThatOnlyTheTeamFileHoldsRunsAsPrinted(
 					writeFile(t, teamFile, readFile(t, gatewayTeamFile(t)), 0o600)
 				}
 				last := test.last
-				if invocation.Command(teamFile) != "" {
+				if platform.AIGWCommand(teamFile) != "" {
 					last = strings.Replace(last, "<file>", teamFile, 1)
 				}
 				fix := refusalFix("gateway", last)

@@ -36,7 +36,7 @@ func CompleteClients(runtime Context) cobra.CompletionFunc {
 // CompleteProviders completes a provider ID from the configuration.
 func CompleteProviders(runtime Context) cobra.CompletionFunc {
 	return func(*cobra.Command, []string, string) ([]cobra.Completion, cobra.ShellCompDirective) {
-		cfg, err := runtime.Config.Load()
+		cfg, err := runtime.LoadConfiguration()
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
@@ -98,7 +98,7 @@ func CompleteClientModel(runtime Context) cobra.CompletionFunc {
 // modelCompletions offers each added model's name once, with its label, in
 // display order, and only those that client can use when client names one.
 func modelCompletions(runtime Context, client string) ([]cobra.Completion, cobra.ShellCompDirective) {
-	cfg, err := runtime.Config.Load()
+	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -120,7 +120,7 @@ func modelCompletions(runtime Context, client string) ([]cobra.Completion, cobra
 // CompleteFamilies completes a family ID from the configuration's families.
 func CompleteFamilies(runtime Context) cobra.CompletionFunc {
 	return func(*cobra.Command, []string, string) ([]cobra.Completion, cobra.ShellCompDirective) {
-		cfg, err := runtime.Config.Load()
+		cfg, err := runtime.LoadConfiguration()
 		if err != nil {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}

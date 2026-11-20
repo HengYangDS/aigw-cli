@@ -1,6 +1,9 @@
 package adapter
 
-import "aigw-cli/internal/domain"
+import (
+	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
+)
 
 // RecordedSelection is the selection that AIGW recorded for a client, as the
 // command that restores it names it.
@@ -25,20 +28,31 @@ func Recorded(spec domain.ClientSpec, runtime domain.Runtime) RecordedSelection 
 	return recorded
 }
 
-// Restore is the command that writes the recorded selection to the client.
-func (recorded RecordedSelection) Restore() string {
-	command := "aigw use " + recorded.Client + " " + recorded.Model.String()
-	if recorded.Protocol != "" {
-		command += " --protocol " + recorded.Protocol
+// SelectCommand is the command that selects model for client, with protocol
+// as its --protocol word for a client that needs one, or "" when the model
+// would need quoting in the platform's shells.
+func SelectCommand(client string, model domain.ModelRef, protocol string) string {
+	command := platform.AIGWCommand("use", client, model.String())
+	if command != "" && protocol != "" {
+		command += " --protocol " + protocol
 	}
 	return command
 }
 
+// Restore is the command that writes the recorded selection to the client,
+// or, for a model that would need quoting, the step in prose.
+func (recorded RecordedSelection) Restore() string {
+	if command := SelectCommand(recorded.Client, recorded.Model, recorded.Protocol); command != "" {
+		return command
+	}
+	return "Select " + recorded.Model.String() + " for " + recorded.Product + " again with `aigw use`, quoting the model for your shell."
+}
+
 // SelectionError refuses a client's own model selection that AIGW does not
 // follow, such as a model that AIGW has not added within the client's reach.
-// Its next action restores the recorded selection, the one command that runs
-// on every such state; its message also names the command that adds and
-// selects the model that the client names, when there is one.
+// Its next action restores the recorded selection, the one step that works on
+// every such state; its message also names the command that adds and selects
+// the model that the client names, when there is one.
 type SelectionError struct {
 	message string
 	restore string
@@ -60,5 +74,5 @@ func RefusedSelection(recorded RecordedSelection, what, adds string) *SelectionE
 // recorded selection.
 func (e *SelectionError) Error() string { return e.message }
 
-// NextAction is the command that restores the recorded selection.
+// NextAction is the step that restores the recorded selection.
 func (e *SelectionError) NextAction() string { return e.restore }

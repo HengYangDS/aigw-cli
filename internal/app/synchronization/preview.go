@@ -15,9 +15,6 @@ import (
 type Projection struct {
 	Clients []string
 	Targets []adapter.ProjectionPlan
-	// Followed names the models that the clients chose in their own files and
-	// that the commit records as their selections.
-	Followed []Followed
 }
 
 // Preview reports what Commit would project for one configuration transition.
@@ -100,7 +97,7 @@ func (s Synchronizer) PreviewSelection(before, after domain.Config, client strin
 // among the named ones, or among every client when none is named, and their
 // projections.
 func project(planner Synchronizer, before, after domain.Config, clientIDs ...string) (Projection, error) {
-	after, clients, followed, err := planner.followedTransition(before, after, clientIDs...)
+	clients, err := planner.credentialReadyClients(after, clientIDs...)
 	if err != nil || len(clients) == 0 {
 		return Projection{}, err
 	}
@@ -112,7 +109,7 @@ func project(planner Synchronizer, before, after domain.Config, clientIDs ...str
 	if err != nil {
 		return Projection{}, err
 	}
-	return Projection{Clients: clients, Targets: targets, Followed: followed}, nil
+	return Projection{Clients: clients, Targets: targets}, nil
 }
 
 // errPresumedToken refuses a Token read or write during a preview.

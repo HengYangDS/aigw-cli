@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/platform"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -13,7 +14,6 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/native"
@@ -130,7 +130,7 @@ func TestAKeychainItemOfAnotherProgramNamesItsFixWhereATokenIsStored(t *testing.
 // gateway provider: its own line, or the same command where the host's
 // temporary folder makes the path need quoting.
 func setupLine(teamFile string) string {
-	if invocation.Command(teamFile) == "" {
+	if platform.AIGWCommand(teamFile) == "" {
 		return "the same command again"
 	}
 	return "`aigw setup --from " + teamFile + " --provider gateway --token-stdin`"

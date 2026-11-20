@@ -43,8 +43,13 @@ func (codexAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) (
 	ref, added := modelFor(*cfg, selected, chosen)
 	if !added {
 		return domain.ModelRef{}, adapter.RefusedSelection(recorded,
-			fmt.Sprintf("selects model %q, which provider %q has not added", chosen, selected.ProviderID),
-			"aigw use codex "+ref.String())
+			fmt.Sprintf("selects model %q, which provider %q has not added on %s", chosen, selected.ProviderID, domain.ProtocolLabel(selected.Protocol)),
+			adapter.SelectCommand(ID, ref, ""))
+	}
+	if ref == selected.Model {
+		// The binding already names Codex's choice; only AIGW's record of
+		// the file is behind, which the next write of the file brings up.
+		return domain.ModelRef{}, nil
 	}
 	cfg.SetSelectedModel(ID, ref, "")
 	return ref, nil

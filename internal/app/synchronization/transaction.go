@@ -49,13 +49,15 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 	if err != nil {
 		return false, err
 	}
-	matched, err := configBefore.MatchesConfiguration(before)
+	// before is the working configuration that the command read: the stored
+	// one with the clients' own choices followed.
+	matched, err := configBefore.MatchesConfiguration(before, s.working)
 	if err != nil || !matched {
 		return false, errors.Join(errors.New("configuration preimage changed; refusing to overwrite newer state"), err)
 	}
 	var projectable []string
 	if reconcileProjection {
-		after, projectable, _, err = s.followedTransition(before, after, clientIDs...)
+		projectable, err = s.credentialReadyClients(after, clientIDs...)
 		if err != nil {
 			return false, fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)
 		}

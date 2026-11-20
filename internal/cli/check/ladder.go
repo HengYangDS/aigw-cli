@@ -1,6 +1,7 @@
 package check
 
 import (
+	"aigw-cli/internal/platform"
 	"context"
 	"errors"
 	"fmt"
@@ -208,7 +209,7 @@ func checkCommand(client string, model named, d depth) string {
 	if name := model.name(); name != "" {
 		words = append(words, name)
 	}
-	command := invocation.Command(words...)
+	command := platform.AIGWCommand(words...)
 	if command == "" {
 		return "Run the same check again with --depth " + string(d) + "."
 	}

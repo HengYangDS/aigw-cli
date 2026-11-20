@@ -45,7 +45,7 @@ func newPathCommand(runtime invocation.Context) *cobra.Command {
 func newExportCommand(runtime invocation.Context) *cobra.Command {
 	return &cobra.Command{Use: "export", Short: "Write the configuration as a secret-free team file, without clients", Args: cobra.NoArgs,
 		Example: "aigw config export\naigw config export > team.toml", RunE: func(_ *cobra.Command, _ []string) error {
-			cfg, err := runtime.Config.Load()
+			cfg, err := runtime.LoadConfiguration()
 			if err != nil {
 				return err
 			}

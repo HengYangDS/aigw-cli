@@ -50,7 +50,7 @@ type guidedProvider struct {
 
 // runGuided runs guided setup.
 func runGuided(cmd *cobra.Command, runtime invocation.Context) error {
-	cfg, err := runtime.Config.Load()
+	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return err
 	}

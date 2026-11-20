@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"aigw-cli/internal/platform"
 	"fmt"
 	"strings"
 
@@ -52,7 +53,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 		},
 		ValidArgsFunction: invocation.CompleteNothing,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			before, err := runtime.Config.Load()
+			before, err := runtime.LoadConfiguration()
 			if err != nil {
 				return err
 			}
@@ -199,7 +200,7 @@ func correctEndpoint(cmd *cobra.Command, args, values []string, protocol domain.
 		name, _, _ := strings.Cut(value, "=")
 		if name == protocol.Name() {
 			value = name + "=<url>"
-		} else if invocation.Command(value) == "" {
+		} else if platform.AIGWCommand(value) == "" {
 			return "Run the same command with a corrected --endpoint " + protocol.Name() + "=<url>."
 		}
 		words = append(words, "--endpoint", value)

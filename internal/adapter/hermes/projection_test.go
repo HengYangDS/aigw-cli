@@ -191,7 +191,7 @@ func TestExplicitSelectionReconcilesOnlyProvedSelectionDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err = PrepareAuthorizedSelection(path, desired, previous)
+	plan, err = PrepareTransition(path, &desired, nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +217,7 @@ func TestExplicitSelectionReconcilesOnlyProvedSelectionDrift(t *testing.T) {
 	if err := os.WriteFile(path, tampered, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := PrepareAuthorizedSelection(path, desired, previous); err == nil {
+	if _, err := PrepareTransition(path, &desired, nil, true); err == nil {
 		t.Fatal("explicit selection authorized an unproved provider change")
 	}
 }

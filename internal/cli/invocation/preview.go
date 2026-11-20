@@ -1,8 +1,6 @@
 package invocation
 
 import (
-	"regexp"
-	"runtime"
 	"slices"
 	"strings"
 
@@ -32,7 +30,6 @@ type Preview struct {
 	Files                []ClientFile                  `json:"client_files,omitempty"`
 	CredentialEntrypoint *app.CredentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
 	plans                []adapter.ProjectionPlan
-	followed             []synchronization.Followed
 }
 
 // Plans returns the projection plans of the client files that the preview
@@ -76,79 +73,40 @@ type ClientFile struct {
 	Client string `json:"client"`
 	File   string `json:"file,omitempty"`
 	Action string `json:"action"`
-	// Followed is the model that the client's own file selects and that the
-	// change records as the client's selection, and Returns the command that
-	// selects the client's earlier model again.
-	Followed string `json:"followed_selection,omitempty"`
-	Returns  string `json:"returns_with,omitempty"`
 }
 
 // ClientFiles names the client files of a preview as change documents do.
 func ClientFiles(runtime Context, preview Preview) []ClientFile {
-	return clientFiles(runtime, preview.plans, preview.followed)
+	return clientFiles(runtime, preview.plans)
 }
 
 // clientFiles names the client files of plans as documents do, relative to
-// Home, each with the model that the change follows for its client.
-func clientFiles(runtime Context, plans []adapter.ProjectionPlan, followed []synchronization.Followed) []ClientFile {
+// Home.
+func clientFiles(runtime Context, plans []adapter.ProjectionPlan) []ClientFile {
 	home := Home(runtime.Dependencies)
 	files := make([]ClientFile, 0, len(plans))
 	for _, plan := range plans {
 		file, _ := platform.HomeTarget(plan.Target, home)
-		row := ClientFile{Client: plan.Client, File: file, Action: terminal.SnakeValue(plan.Action)}
-		if index := slices.IndexFunc(followed, func(choice synchronization.Followed) bool { return choice.Client == plan.Client }); index >= 0 {
-			row.Followed, row.Returns = followed[index].Model.String(), followed[index].Returns
-		}
-		files = append(files, row)
+		files = append(files, ClientFile{Client: plan.Client, File: file, Action: terminal.SnakeValue(plan.Action)})
 	}
 	return files
 }
 
-// FollowedSelection says that a change follows the model that a client's own
-// file selects, and names the command that returns to the earlier model.
-func FollowedSelection(choice synchronization.Followed) string {
-	return followedSentence(choice.Model.String(), choice.Product, choice.Returns)
-}
-
-// followedSentence is the one wording of a followed choice.
-func followedSentence(model, product, returns string) string {
-	return "Follows " + model + ", chosen in " + product + "; `" + returns + "` returns to the earlier model"
-}
-
-// followedDetails is the sentence for client under its first file's row, and
-// nothing under its further files or for a client that was not followed.
-func followedDetails(followed []synchronization.Followed, client string, said map[string]bool) []string {
-	index := slices.IndexFunc(followed, func(choice synchronization.Followed) bool { return choice.Client == client })
-	if index < 0 || said[client] {
-		return nil
-	}
-	said[client] = true
-	return []string{FollowedSelection(followed[index])}
-}
-
 // RenderClientFiles names the client files that a change writes, each by its
 // client's label and the file, under one section; it writes nothing without
-// any. A client whose own choice the change follows gets the sentence that
-// says so under its first file.
+// any.
 func RenderClientFiles(r *terminal.Renderer, runtime Context, files []ClientFile) {
 	if len(files) == 0 {
 		return
 	}
 	r.Section("Client files")
 	rows := make([]terminal.Field, 0, len(files))
-	said := map[string]bool{}
 	for _, file := range files {
-		product := runtime.Clients.Admission().Label(file.Client)
-		label := product
+		label := runtime.Clients.Admission().Label(file.Client)
 		if file.File != "" {
 			label += " " + file.File
 		}
-		row := terminal.Field{Label: label, Value: file.Action}
-		if file.Followed != "" && !said[file.Client] {
-			said[file.Client] = true
-			row.Details = []string{followedSentence(file.Followed, product, file.Returns)}
-		}
-		rows = append(rows, row)
+		rows = append(rows, terminal.Field{Label: label, Value: file.Action})
 	}
 	r.Rows(rows...)
 }
@@ -175,9 +133,9 @@ func PreviewProjection(runtime Context, before, after domain.Config, clientIDs .
 // Planned is a projection's client files alone, without the credential
 // reader: what a commit, which prepares the reader itself, writes.
 func Planned(runtime Context, projection synchronization.Projection) Preview {
-	preview := Preview{plans: projection.Targets, followed: projection.Followed}
+	preview := Preview{plans: projection.Targets}
 	if len(projection.Targets) > 0 {
-		preview.Files = clientFiles(runtime, projection.Targets, projection.Followed)
+		preview.Files = clientFiles(runtime, projection.Targets)
 	}
 	return preview
 }
@@ -192,37 +150,6 @@ func WithEntrypoint(runtime Context, after domain.Config, projection synchroniza
 	entrypoint, err := app.PlanCredentialEntrypoint(runtime.Synchronizer(), after, projection.Clients...)
 	preview.CredentialEntrypoint = entrypoint
 	return preview, err
-}
-
-// plainWord matches a word that the platform's shells pass through
-// unchanged, so a command line of such words runs as written: it starts with
-// a letter, digit, dot or slash. Windows shells also pass a backslash
-// through, which a path holds there, and expand a percent sign.
-var plainWord = func() *regexp.Regexp {
-	first, rest := `A-Za-z0-9._/`, `A-Za-z0-9._/:@+=~`
-	if runtime.GOOS == "windows" {
-		first, rest = first+`\\`, rest+`\\`
-	} else {
-		rest += `%`
-	}
-	return regexp.MustCompile(`^[` + first + `][` + rest + `-]*$`)
-}()
-
-// shellTilde finds a tilde that a shell would expand after an equals sign or
-// a colon.
-var shellTilde = regexp.MustCompile(`[=:]~`)
-
-func plain(word string) bool {
-	return plainWord.MatchString(word) && !shellTilde.MatchString(word)
-}
-
-// Command returns the aigw command line of words, or "" when a word would
-// need quoting in the platform's shells.
-func Command(words ...string) string {
-	if !slices.ContainsFunc(words, func(word string) bool { return !plain(word) }) {
-		return strings.Join(append([]string{"aigw"}, words...), " ")
-	}
-	return ""
 }
 
 // ApplyCommand returns the continuation of a preview: the same command line
@@ -254,7 +181,7 @@ func commandLine(cmd *cobra.Command, args []string, omitted ...string) (string, 
 	words := append(strings.Fields(cmd.CommandPath()), args...)
 	isPlain := true
 	for _, arg := range args {
-		isPlain = isPlain && plain(arg)
+		isPlain = isPlain && platform.PlainWord(arg)
 	}
 	cmd.Flags().Visit(func(flag *pflag.Flag) {
 		if slices.Contains(omitted, flag.Name) {
@@ -275,7 +202,7 @@ func commandLine(cmd *cobra.Command, args []string, omitted ...string) (string, 
 		}
 		for _, value := range values {
 			words = append(words, "--"+name, value)
-			isPlain = isPlain && plain(value)
+			isPlain = isPlain && platform.PlainWord(value)
 		}
 	})
 	return strings.Join(words, " "), isPlain
@@ -299,9 +226,8 @@ func RenderPreview(r *terminal.Renderer, preview Preview, apply string) {
 		r.Text("No client file needs changing")
 	} else {
 		rows := make([]terminal.Field, 0, len(preview.plans))
-		said := map[string]bool{}
 		for _, plan := range preview.plans {
-			rows = append(rows, terminal.Field{Label: plan.Target, Value: plan.Action, Details: followedDetails(preview.followed, plan.Client, said)})
+			rows = append(rows, terminal.Field{Label: plan.Target, Value: plan.Action})
 		}
 		r.Rows(rows...)
 	}

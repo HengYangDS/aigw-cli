@@ -24,7 +24,7 @@ import (
 // Version 4 adds the Token states rejected and unverified, a Token's reason,
 // and the document's error and impact; version 3 replaced version 2, shared
 // with flag-driven setup, and `aigw config import`'s.
-const teamSchemaVersion = 4
+const teamSchemaVersion = 5
 
 // The states of a provider's Token after team setup, which it observes
 // without reading a Token: this run validated and stored it, the store held
@@ -80,7 +80,7 @@ func runTeamSetup(cmd *cobra.Command, runtime invocation.Context, request setupR
 	if err != nil {
 		return err
 	}
-	cfg, err := runtime.Config.Load()
+	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return err
 	}

@@ -14,10 +14,15 @@ A client's model can differ from AIGW's record in these ways, which the owner an
 The last row cannot be told from the first by reading the file, so it is followed as the first is; the owner accepted
 that cost on 2026-11-20.
 
-Release 0.8.3 follows the first row in `aigw sync` alone (`Registry.AdoptSelections`, called from the sync command).
-Every command that writes client files ends in one transaction (`Synchronizer.commit`), and every preview in one
-planner (`project`); each adapter's plan refuses a file whose model equals neither AIGW's record nor the new
-configuration's model. So a command other than sync refuses until sync has run.
+Release 0.8.3 follows the first row in `aigw sync` alone. Every command that writes client files ends in one
+transaction (`Synchronizer.commit`) and every preview in one planner; each adapter's plan refuses a file whose model
+equals neither AIGW's record nor the new configuration's model. So a command other than sync refuses until sync has
+run.
+
+A first version of this Change followed the choice inside the transaction. A fresh review ran it and showed that the
+transaction then saves a configuration that the command never saw: `aigw client edit hermes --via` lost its own edit
+to the follow, results printed the unfollowed configuration, and a follow could be saved without a line anywhere.
+The decisions below replace that version.
 
 Measured on 2026-11-20 with the installed 0.8.3 in an isolated home, the clients' writes imitated by changing the one
 value in each file: the behaviors that the proposal lists. Not measured: what a real Codex or Hermes writes when a
@@ -29,8 +34,9 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
 **Goals:**
 
 - A model chosen in Codex or Hermes survives every AIGW command and is reported as the client's selection.
-- A value that AIGW cannot follow always has one command that runs and restores a working state.
-- One owner decides what a client's own selection means; commands do not each decide.
+- A value that AIGW cannot follow always has one step that restores a working state.
+- One owner decides what a client's own selection means, one owner reads the configuration for commands, and one
+  owner reports what was followed.
 
 **Non-Goals:**
 
@@ -41,98 +47,102 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
 
 ## Decisions
 
-### The transaction and the planner follow a client's choice, not each command
+### Commands read a working configuration that follows the clients
 
-- **Rests on:** every writer ends in `Synchronizer.commit` and every preview in `project`; a test for each of the
-  commands that write client files runs it after a model was chosen in the client and reads the client's file, the
-  configuration and the result.
-- **Considered:** follow when a command loads the configuration; follow inside each adapter's plan; follow in the
-  transaction and the planner.
-- **Chosen because:** a command keeps one configuration value for "before" and "after" today, and following at load
-  would make every command carry two; an adapter's plan cannot change the configuration. The transaction already
-  holds both values and the set of clients that it writes, so one step there serves every command, and the planner
-  shares the step so that a preview shows what the run does.
-- **Applies to:** `commit` and `project` in `internal/app/synchronization`, through one function that both call.
+- **Rests on:** every command loaded the stored configuration itself, at 26 places, and built its change and its
+  result from it. Tests run a command that changes the client's own settings, one that writes none of its files, an
+  explicit selection and a withdrawal after a choice, and read the client's file, the saved configuration and the
+  result; one test refuses a direct read of the stored configuration anywhere in the command tree.
+- **Considered:** follow inside the transaction, after the command built its change; follow inside each adapter's
+  plan; follow where the configuration is read.
+- **Chosen because:** only a follow before the command's own change lets that change, its validation and its result
+  see one configuration. The transaction cannot be the place, as the first version showed, and an adapter's plan
+  cannot change the configuration.
+- **Applies to:** `Dependencies.WorkingConfiguration` and `LoadConfiguration` in `internal/app`, and
+  `Synchronizer.Working` in `internal/app/synchronization`. A choice that AIGW does not follow, a file that it cannot
+  read, or a followed selection that would not validate leaves that client as stored, so a command about something
+  else is not stopped by a client's file.
 
-### Only the clients that the transition writes are followed, and never the client that it selects for
+### The transaction's preimage is the working configuration
 
-- **Rests on:** `Commit` reconciles the clients whose configuration changed; a test shows a command that changes
-  nothing of Codex leaving Codex's file and record alone, and `aigw use` keeping its named model.
-- **Considered:** follow every enabled client in every command; follow only the clients that the transition writes.
-- **Chosen because:** following a client makes the transition write that client's files, so following all of them
-  would let a command about one provider fail on another client's file. `aigw status` reports the chosen model from
-  the file, so the record's delay until the next write is not visible to the person. A transition that itself
-  changes the client's selection is an explicit choice and wins.
-- **Applies to:** the step above; a client whose binding the transition changed, or for which the selection is
-  authorized, is skipped.
+- **Rests on:** `commit` refuses when the stored configuration no longer matches what the command read; a command
+  now reads the working configuration, which differs from the stored one after a choice.
+- **Considered:** pass the stored configuration beside the working one through every command; compare the
+  transaction's preimage with the same view of the stored configuration.
+- **Chosen because:** the view is one function, and a client's file that changes between the read and the commit
+  then fails the same guard as a configuration that changed.
+- **Applies to:** `store.Snapshot.MatchesConfiguration`, which takes the view, and `commit`.
 
-### A model that AIGW has not added is a typed refusal with a Fix that runs
+### An adapter admits a file that shows the selection the transition starts from
+
+- **Rests on:** a transition now starts from a configuration that names the client's choice while AIGW's record of
+  the file still names the earlier model. A table test runs every state of Hermes's model block (a listed model, an
+  unlisted one, another entry's model with the earlier address, an edited address, a removed mode or model, a
+  provider that AIGW does not own, no block, a block that is one word, a listed model beside an edited entry)
+  against following, an explicit selection, a transition and a withdrawal; Codex's ownership tests run the root
+  model against the recorded, the new and the starting model.
+- **Considered:** rewrite AIGW's record of the file when the choice is observed; admit the starting selection in the
+  ownership guard.
+- **Chosen because:** observation writes nothing, so that reports stay read-only; the guard already admits the model
+  about to be written, and the starting model is the same kind of proof. Hermes's block is classified once: a listed
+  model of an owned entry is a choice; an unlisted model or a provider that AIGW does not own is a selection that
+  AIGW does not follow; an address or mode that differs from the entry is an edit of an endpoint and stays an
+  outside edit, for an explicit selection too.
+- **Applies to:** `removeCodexProjectionTransition` and Codex's inspection; `classifySelection`,
+  `ObserveSelection` and `PrepareTransition` in `internal/adapter/hermes`, which replace the adopted and authorized
+  variants.
+
+### A selection that AIGW does not follow is a typed refusal with a step that works
 
 - **Rests on:** the run of 2026-11-20: for Codex the Fix, parsed from the error's text, was
   `aigw use codex team/<the unknown ID>`, which fails when the provider does not serve it and which followed the
-  foreign value on 2026-11-19; for Hermes the Fix was "Undo the outside edit", and `aigw use hermes` refused too.
+  foreign value on 2026-11-19; for Hermes the Fix was "Undo the outside edit", and `aigw use hermes` refused too. A
+  script runs the Fix as printed and then `aigw sync`.
 - **Considered:** keep the Fix that adds the named model; overwrite the value with the recorded model; refuse with
   both commands, the restoring one as the Fix.
 - **Chosen because:** only the restoring command runs in every case, and a Fix must run; overwriting would discard a
-  model that the person typed on purpose. The adding command is named beside it, because that is the other thing the
-  person may have meant.
-- **Applies to:** one error type in `internal/adapter`, which carries the client, the named model, the recorded
-  selection and the adding command, and which `terminal` reads for its next action; `modelFor` and `hermesModelFor`
-  return it, and Hermes's observation returns it when only the selection block differs from the record.
+  model that the person typed on purpose. A model ID that a shell would not pass through unchanged gives the step in
+  prose, by the rule that every other command line follows.
+- **Applies to:** `SelectionError`, `RecordedSelection` and `SelectCommand` in `internal/adapter`; the registry
+  replaces a plan's conflict, and an inspection's issue, by that refusal when the file's only difference is such a
+  selection, so that `sync`, another command, a withdrawal, `status` and `check` name one step. The shell-word rule
+  moves from the command layer to `internal/platform`, where the adapters can reach it.
 
-### An explicit selection for Hermes needs only that nothing else changed
+### The invocation reports what it followed, once
 
-- **Rests on:** `selectionOnlyDrift` proves that only the selection moved by replacing it with an owned provider and
-  model and comparing the digest, and before that it requires the file's own selection to be a listed model. A test
-  writes an unlisted model into the file and runs `aigw use hermes`.
-- **Considered:** leave the requirement; drop it for an authorized selection.
-- **Chosen because:** the replacement proof alone shows that nothing else changed, which is all that an explicit
-  selection needs before it writes the block; the listed-model requirement is what following needs.
-- **Applies to:** `PrepareAuthorizedSelection` and `selectionOnlyDrift` in `internal/adapter/hermes`.
-
-### Status and check read the file's choice through the same observation
-
-- **Rests on:** Codex's inspection compares the file with the configuration's model and calls every difference
-  drift; Hermes's inspection already asks whether synchronization would adopt. A test for each client reads the row
-  after a choice.
-- **Considered:** a second classifier in the status code; the adapters' own observation, applied to a copy of the
-  configuration before inspection.
-- **Chosen because:** one observation decides what counts as a choice for the transaction and for the reports, so
-  the two cannot disagree. The reports write nothing.
-- **Applies to:** `internal/app/status.go` and the local check, which inspect against the followed configuration and
-  mark the row; a refusal of the observation becomes the row's issue and next action.
-
-### The followed model is reported in the client-file row
-
-- **Rests on:** every command that writes client files names them through `invocation.ClientFiles` and
-  `RenderClientFiles`; `aigw sync` has its own "Adopted selection" line.
-- **Considered:** a field in each command's document; a line that the common output adds; the client-file row.
-- **Chosen because:** the row exists in every such result and preview and names the client's file, where the model
-  was chosen; one renderer words it once. `aigw sync` keeps its `adopted_selections` field, which scripts read, and
-  takes its line from the same source.
-- **Applies to:** `Projection` in `internal/app/synchronization`, `invocation.ClientFile` and its renderer, and the
-  sync command.
+- **Rests on:** the first version put the report into the client-file rows, and the review listed the commands
+  whose results never pass through those rows (setup, rollback, enable, sync's applied result) or state the opposite
+  beside them. Tests read the report of a saving command, a preview, an explicit selection, `status`, `check` and
+  bare `aigw`, and of a command that reads without reporting selections.
+- **Considered:** a field and a line in each command's own result; the client-file rows; one report by the owner of
+  the invocation's output.
+- **Chosen because:** what was followed is a fact of the invocation, not of one command's result, and the root
+  already owns the output of every command. It reads the choices before the command runs and reports, after a
+  success, those that the saved configuration then records; a preview and a report name all of them.
+- **Applies to:** `followedReport` in `internal/cli`, which declares the saving and the reporting commands once (the
+  configuration lock reads the same declaration), and `terminal.WriteDocument`, which adds the fields that the
+  invocation's output owns. `aigw sync` loses `adopted_selections`.
 
 ### Claude Code's own model is shown, not recorded
 
 - **Rests on:** `InspectSettings` already recognises a settings file whose only difference is its `model`, and
-  returns a boolean; the value is in scope there. A test reads the status row and document.
+  returned a boolean; the value is in scope there. Tests read the status row and both documents.
 - **Considered:** record the value as the selection; show it beside AIGW's selection.
 - **Chosen because:** the value may be an alias that names no model of a provider, so it cannot be a selection;
   showing it tells the person which model Claude Code sends.
-- **Applies to:** `internal/adapter/claude` (the inspection returns the value), `adapter.Status`, the status row and
-  the check's detail.
+- **Applies to:** `internal/adapter/claude`, `adapter.Status` with the one wording of the note, the status row and
+  the check's detail, and `client_model` in both documents.
 
 ## Risks / Trade-offs
 
-- A stale write of a running client is followed as a choice. The followed model and the returning command are
-  printed, and the next Change words what a running client needs.
-- The record in `aigw.toml` follows only when a command writes that client's files; a reader of the file itself, not
-  of `aigw status`, sees the earlier model until then.
+- A stale write of a running client is followed as a choice. The followed model, the earlier one and the returning
+  command are printed, and the next Change words what a running client needs.
+- Every command now reads the enabled clients' files before it runs. A file that cannot be read leaves its client as
+  stored and costs one read.
 - The clients' writes are imitated in every test of this Change; the next Change's measurement with the real
   clients may change the conditions of following.
 
 ## Migration Plan
 
-No data changes. A script that ran the Fix of a synchronization that found no added model receives the restoring
-command from the next release on.
+No data changes. A script reads `followed_selections` where it read `adopted_selections`, and receives the restoring
+command as the Fix of a selection that AIGW does not follow.

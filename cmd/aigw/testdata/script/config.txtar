@@ -236,7 +236,7 @@ Next
   aigw config rollback --last-change
 -- rollback-preview.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "dry_run": true,
   "source": "previous_backup",
@@ -251,7 +251,7 @@ Next
 }
 -- rollback-restored.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "source": "previous_backup",
   "next_action": "aigw check --depth local"

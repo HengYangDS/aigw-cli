@@ -1,6 +1,7 @@
 package use
 
 import (
+	"aigw-cli/internal/platform"
 	"fmt"
 	"slices"
 	"strings"
@@ -31,7 +32,7 @@ type choice struct {
 // flag that changes its effect, or "" when a word would need quoting. A
 // protocol name never does.
 func (c choice) command() string {
-	line := invocation.Command("use", c.client.ID, c.ref.String())
+	line := platform.AIGWCommand("use", c.client.ID, c.ref.String())
 	if line == "" {
 		return ""
 	}

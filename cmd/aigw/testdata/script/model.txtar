@@ -574,7 +574,7 @@ Next
   aigw model add team/spare-model
 -- add-preview.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "dry_run": true,
   "id": "team/spare-model",
@@ -599,7 +599,7 @@ Next
 }
 -- edit-preview.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "dry_run": true,
   "id": "team/team-model",
@@ -625,7 +625,7 @@ Next
 }
 -- remove-preview.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "dry_run": true,
   "id": "mixed/chat-only",
@@ -650,7 +650,7 @@ Next
 }
 -- added.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "id": "team/spare-model",
   "provider": "team",
@@ -693,7 +693,7 @@ Fix
 }
 -- add-forced.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "id": "mixed/new-model",
   "provider": "mixed",
@@ -749,7 +749,7 @@ Fix
 }
 -- edited.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "id": "mixed/new-model",
   "provider": "mixed",
@@ -778,7 +778,7 @@ Fix
 }
 -- cleared.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "id": "mixed/new-model",
   "provider": "mixed",
@@ -844,7 +844,7 @@ Fix
   aigw use hermes <provider/model>
 -- removed.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "id": "mixed/spare-chat",
   "provider": "mixed",

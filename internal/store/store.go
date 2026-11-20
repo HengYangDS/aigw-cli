@@ -124,8 +124,10 @@ func (snapshot Snapshot) equal(other Snapshot) bool {
 }
 
 // MatchesConfiguration binds an earlier assembled selection to this exact
-// configuration preimage, including the empty pre-setup state.
-func (snapshot Snapshot) MatchesConfiguration(expected domain.Config) (bool, error) {
+// configuration preimage, including the empty pre-setup state. view derives
+// the configuration that commands work from out of the stored one, and
+// expected is compared with that; a nil view compares the stored one itself.
+func (snapshot Snapshot) MatchesConfiguration(expected domain.Config, view func(domain.Config) domain.Config) (bool, error) {
 	if !snapshot.Config.Exists {
 		expected = expected.Clone()
 		expected.Normalize()
@@ -134,6 +136,9 @@ func (snapshot Snapshot) MatchesConfiguration(expected domain.Config) (bool, err
 	current, err := decodeTOMLConfig(snapshot.Config.Data, expected.Admission())
 	if err != nil {
 		return false, err
+	}
+	if view != nil {
+		current = view(current)
 	}
 	return configurationsEqual(current, expected)
 }

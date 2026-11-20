@@ -85,8 +85,8 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 		applyCredentialFacts(&facts, activation, runtime.Secrets, clientID, clientRuntime.ProviderID, runtime.Host.Home)
 		state := domainreadiness.ClassifyClient(facts)
 		if adapterStatus.NativeModelOverride && state.State == domainreadiness.Configured {
-			state.NativeModelOverride = true
-			state.Detail = runtime.Clients.Admission().ProductName(clientID) + " uses a native model preference; its AIGW endpoint and credential helper remain configured"
+			state.NativeModelOverride, state.NativeModel = true, adapterStatus.NativeModel
+			state.Detail = runtime.Clients.Admission().ProductName(clientID) + " " + adapterStatus.NativeModelNote("uses a native") + "; its AIGW endpoint and credential helper remain configured"
 			state.NextAction = "aigw check " + clientID + " --depth client"
 		}
 		client := ClientStatus{

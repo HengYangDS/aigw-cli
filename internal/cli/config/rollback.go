@@ -16,7 +16,7 @@ import (
 
 // rollbackSchemaVersion is the version of `aigw config rollback`'s JSON
 // document, which continues from `aigw rollback`'s 1.
-const rollbackSchemaVersion = 2
+const rollbackSchemaVersion = 3
 
 // rollbackDocument is `aigw config rollback`'s JSON document: the source that
 // the configuration was restored from. A preview names the source that it
@@ -112,7 +112,7 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 		Example: "aigw config rollback --dry-run\naigw config rollback\naigw config rollback --last-change --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			current, err := runtime.Config.Load()
+			current, err := runtime.LoadConfiguration()
 			if err != nil {
 				return err
 			}

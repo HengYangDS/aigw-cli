@@ -120,13 +120,17 @@ An admitted client adapter writes and withdraws only AIGW's settings in its
 client's files; it does not own provider behavior. Missing and unselected
 clients remain untouched.
 
-`aigw sync` adopts a model chosen in Hermes or Codex when it names exactly one
-model of the selected provider and protocol and nothing else that AIGW owns in
-that client changed; the result reports the adopted model, and an unknown or
-ambiguous choice names `aigw use` commands instead. Explicit `use` replaces a
-native choice only after proving that the owned providers and credential
+A model chosen in Hermes or Codex is that client's selection for every
+command, when it is an added model within the client's reach and nothing else
+that AIGW owns in that client changed. Commands work from it, a command that
+saves the configuration records it, and commands and reports name what they
+follow, with the earlier selection and the command that returns to it. A model
+that AIGW has not added is not followed and not overwritten: the command names
+the `aigw use` that restores the recorded selection. Explicit `use` replaces a
+client's own choice only after proving that the owned providers and credential
 commands are intact. Selection is not permission to overwrite a changed
-provider definition.
+provider definition. Claude Code's own model preference stays in Claude Code;
+`aigw status` shows it.
 
 ## Endpoint
 

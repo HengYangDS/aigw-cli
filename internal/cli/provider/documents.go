@@ -13,11 +13,11 @@ import (
 const (
 	listSchemaVersion    = 2
 	showSchemaVersion    = 1
-	addSchemaVersion     = 2
-	editSchemaVersion    = 2
+	addSchemaVersion     = 3
+	editSchemaVersion    = 3
 	rotateSchemaVersion  = 2
 	balanceSchemaVersion = 2
-	removeSchemaVersion  = 1
+	removeSchemaVersion  = 2
 )
 
 // The states of a credential slot, which a command observes without reading

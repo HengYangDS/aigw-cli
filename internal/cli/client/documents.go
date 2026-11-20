@@ -13,9 +13,9 @@ import (
 // at 2; edit has no predecessor.
 const (
 	listSchemaVersion    = 2
-	enableSchemaVersion  = 2
-	disableSchemaVersion = 2
-	editSchemaVersion    = 1
+	enableSchemaVersion  = 3
+	disableSchemaVersion = 3
+	editSchemaVersion    = 2
 )
 
 // editDocument is `aigw client edit`'s JSON document: the client's settings

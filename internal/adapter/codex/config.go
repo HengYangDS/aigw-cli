@@ -365,9 +365,21 @@ func codexManagedBlock(runtime domain.Runtime, endpoint string) string {
 	return projection.render(provider)
 }
 
+// rootModelAdmitted reports whether Codex's root model line holds one of the
+// models that a transition may replace: the recorded one, the one about to be
+// projected, or the one that the transition starts from. An empty candidate
+// admits nothing.
+func rootModelAdmitted(modelLine string, candidates ...string) bool {
+	return slices.ContainsFunc(candidates, func(model string) bool {
+		return model != "" && selectionHasValue(modelLine, "model", model)
+	})
+}
+
 // removeCodexProjectionTransition refuses a changed root model unless it already
 // holds chosen, the model about to be projected, because writing that value
-// cannot lose an edit.
+// cannot lose an edit, or the model of previous, the selection that the
+// transition starts from: a configuration that names it has followed Codex's
+// own choice, so the value is the selection and not an outside edit.
 func removeCodexProjectionTransition(current string, state codexState, previous domain.Runtime, chosen string, replaceRootSelections bool) (string, error) {
 	provider := codexStateProvider(state)
 	block, err := codexManagedBlockForProviderIn(current, provider)
@@ -399,7 +411,7 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 		if !isManagedSelection(modelLine, "model", selectionStringValue(modelLine)) {
 			return "", newConflictError("Codex config conflict: AIGW-managed model selection cannot be attributed; refusing to overwrite user edits", nil)
 		}
-	} else if !selectionHasValue(modelLine, "model", projectedModel) && (chosen == "" || !selectionHasValue(modelLine, "model", chosen)) {
+	} else if !rootModelAdmitted(modelLine, projectedModel, chosen, previous.UpstreamModel) {
 		return "", newConflictError("Codex config conflict: AIGW-managed model selection changed; refusing to overwrite user edits", nil)
 	}
 	if err := validateCodexSchedulerOwnership(state, current); err != nil {

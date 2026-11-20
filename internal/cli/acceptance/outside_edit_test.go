@@ -89,10 +89,10 @@ func TestHermesOutsideEditRecoveryDoesNotLoop(t *testing.T) {
 	output.Reset()
 	err := cli.Execute(app, []string{"check", hermes.ID, "--depth", "local", "--json"})
 	var checked struct {
-		NextAction string `json:"next_action"`
+		Followed followedModels `json:"followed_selections"`
 	}
-	if decodeErr := json.Unmarshal(output.Bytes(), &checked); decodeErr != nil || checked.NextAction != "aigw sync" {
-		t.Fatalf("a model chosen in Hermes: next step %q, %v (command error %v)\n%s", checked.NextAction, decodeErr, err, output)
+	if decodeErr := json.Unmarshal(output.Bytes(), &checked); err != nil || decodeErr != nil || checked.Followed[hermes.ID] != "dmxapi/claude-opus-5-5" {
+		t.Fatalf("a model chosen in Hermes: check follows %v, %v (command error %v)\n%s", checked.Followed, decodeErr, err, output)
 	}
 	if err := cli.Execute(app, []string{"sync", "--json"}); err != nil {
 		t.Fatalf("sync of a model chosen in Hermes: %v\n%s", err, output)
