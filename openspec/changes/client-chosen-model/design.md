@@ -124,8 +124,9 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
 - **Applies to:** `recorded` in `internal/app/synchronization`, which `commit` and the previews share. A client
   whose choice the command does not touch joins the reconciled clients when its files can be planned; the result
   then names its files. Where the transition does not write the client's files, because the client waits for a
-  Token or one of its files is refused, what is saved holds that client as stored. One case saves a choice without
-  its record: a command that itself changes the settings of a client that waits for its Token; see Risks.
+  Token or one of its files is refused, what is saved holds that client's selection as stored. A command that
+  changes such a client's other settings, such as `aigw client edit` of its forwarding, saves that change beside
+  the stored selection: the stored model, protocol and retry budgets, and its forwarding to the stored upstream.
 
 ### An adapter admits a file that shows the selection the transition starts from
 
@@ -250,11 +251,10 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
 
 - A stale write of a running client is followed as a choice. The followed model, the earlier one and the returning
   command are printed, and the next Change words what a running client needs.
-- One case still saves a choice without AIGW's record of the client's file: a command that itself changes the
-  settings of a client that waits for its Token, such as `aigw client edit` of its retry budget, while that
-  client's file shows a choice. What it saves is what it wrote, the choice included. If the person then chooses the
-  earlier model in the client again before the Token is stored, synchronization writes the saved choice over it.
-  Undoing the choice in what such a command saves would need each of its changes taken apart from the choice.
+- A command that changes the settings of a client that waits for its Token saves its change and not the choice,
+  so the client's binding differs from its file until the Token is stored. The fourth fresh review found the
+  previous version saving the choice there; a test now edits such a client and requires the choice to stay in its
+  file.
 - A command about something else now writes the file of a client whose choice it records: for Codex it puts AIGW's
   comment back on the model line and the chosen model's label into the provider's name. The result names the
   client's files.

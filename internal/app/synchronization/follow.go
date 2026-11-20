@@ -162,10 +162,10 @@ func (s Synchronizer) settle(snapshot store.Snapshot, before, after domain.Confi
 // files can be planned. A followed client whose files the transition cannot
 // write with the choice, because it waits for the chosen model's Token or a
 // file of it is refused, is left out of the transition altogether: its files
-// are not written, what is saved holds it as stored, and the choice stays in
-// its file, which the next command follows again. Only a command that itself
-// changes such a client's settings saves them as it wrote them, the choice
-// included.
+// are not written, what is saved holds its selection as stored, and the
+// choice stays in its file, which the next command follows again. A command
+// that changes such a client's other settings saves that change alone, beside
+// the stored selection; one that selects a model for it saves that model.
 func (s Synchronizer) recorded(before, after, stored domain.Config, followed []Followed, reconcile bool, clientIDs []string) (domain.Config, []string, bool, error) {
 	if len(followed) == 0 {
 		return after, clientIDs, reconcile, nil
@@ -178,7 +178,8 @@ func (s Synchronizer) recorded(before, after, stored domain.Config, followed []F
 	for _, choice := range followed {
 		client := choice.Now.Client
 		written := slices.Contains(named, client)
-		untouched := reflect.DeepEqual(before.Clients[client], settled.Clients[client])
+		was, is := before.Clients[client], settled.Clients[client]
+		untouched := reflect.DeepEqual(was, is)
 		switch {
 		case !written && untouched && s.plans(before, settled, client):
 			named = append(named, client)
@@ -188,14 +189,16 @@ func (s Synchronizer) recorded(before, after, stored domain.Config, followed []F
 			if err != nil {
 				return domain.Config{}, nil, false, &PreflightError{Err: err}
 			}
-			if len(ready) > 0 || !untouched {
+			if len(ready) > 0 || was.Model != is.Model || was.Protocol != is.Protocol {
 				continue
 			}
 		}
-		if untouched {
-			settled.Clients[client] = stored.Clients[client]
-			named = slices.DeleteFunc(named, func(id string) bool { return id == client })
+		binding, err := withStoredSelection(settled, was, is, stored.Clients[client], client)
+		if err != nil {
+			return domain.Config{}, nil, false, &PreflightError{Err: err}
 		}
+		settled.Clients[client] = binding
+		named = slices.DeleteFunc(named, func(id string) bool { return id == client })
 	}
 	// What is saved may hold a client as stored beside the command's own
 	// change, such as the removal of the model that the stored selection names.
@@ -203,6 +206,31 @@ func (s Synchronizer) recorded(before, after, stored domain.Config, followed []F
 		return domain.Config{}, nil, false, &PreflightError{Err: err}
 	}
 	return settled, s.inAdmissionOrder(named), len(named) > 0, nil
+}
+
+// withStoredSelection returns the client's binding is, which a command made
+// from the binding was that follows a choice, with the selection that kept,
+// the stored binding, holds: the stored model and protocol, and the retry
+// budgets and forwarding that the choice ended. What the command itself
+// changed stays; a forwarding that it set reaches the stored selection's
+// upstream.
+func withStoredSelection(cfg domain.Config, was, is, kept domain.ClientBinding, client string) (domain.ClientBinding, error) {
+	binding := is
+	binding.Model, binding.Protocol = kept.Model, kept.Protocol
+	if reflect.DeepEqual(was.RetryPolicy, is.RetryPolicy) {
+		binding.RetryPolicy = kept.RetryPolicy
+	}
+	binding.ForwardingEndpoint = kept.ForwardingEndpoint
+	binding.ForwardingUpstreamIdentity, binding.ForwardingProtocol = kept.ForwardingUpstreamIdentity, kept.ForwardingProtocol
+	if was.ForwardingEndpoint == is.ForwardingEndpoint {
+		return binding, nil
+	}
+	working := cfg.Clone()
+	working.Clients[client] = binding
+	if err := working.SetForwardingEndpoint(client, is.ForwardingEndpoint); err != nil {
+		return domain.ClientBinding{}, err
+	}
+	return working.Clients[client], nil
 }
 
 // plans reports whether the named client's files can be written for the

@@ -180,6 +180,44 @@ func TestAChoiceIsNotSavedWhileItsProviderWaitsForAToken(t *testing.T) {
 	syncAndCheckPass(t, app, output, hermes.ID)
 }
 
+// A command that changes the settings of a client whose chosen model waits
+// for its Token saves its own change and not the choice: the client's file
+// keeps the choice, the stored selection stays the earlier model, and once
+// the person goes back to that model and the Token is stored, synchronization
+// keeps it.
+func TestAnEditOfAClientThatWaitsForATokenSavesTheEditAlone(t *testing.T) {
+	app, output, _, target := shippedHermesAppWith(t, true)
+	if err := app.Secrets.Delete("ucloud"); err != nil {
+		t.Fatal(err)
+	}
+	chosen := hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
+	edit := []string{"client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json"}
+	if got := followedIn(t, app, output, edit...); len(got) != 0 {
+		t.Fatalf("%v names %+v as recorded while the client waits for its Token", edit, got)
+	}
+	binding := selection(t, app, hermes.ID)
+	if binding.Model != domain.NewModelRef("dmxapi", "gpt-6.2-sol") || binding.Protocol != domain.ProtocolResponses {
+		t.Fatalf("an edit saved the choice of a client that waits for its Token: %#v", binding)
+	}
+	if binding.ForwardingEndpoint != "http://127.0.0.1:8792" {
+		t.Fatalf("the edit's own change was not saved: %#v", binding)
+	}
+	if !bytes.Equal(readFile(t, target), chosen) {
+		t.Fatal("the edit wrote the file of a client that waits for its Token")
+	}
+
+	hermesNativeSelection(t, target, "aigw-dmxapi-responses", "gpt-6.2-sol", nil)
+	if err := app.Secrets.Set("ucloud", "fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	if got := followedIn(t, app, output, "sync", "--json"); len(got) != 0 {
+		t.Fatalf("synchronization follows %+v", got)
+	}
+	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-dmxapi-responses" || model != "gpt-6.2-sol" {
+		t.Fatalf("synchronization wrote over the model chosen last: %s %s", provider, model)
+	}
+}
+
 // A command about something else is not stopped by another file of the
 // client whose model was chosen: where that file is missing, the choice
 // stays in the file that shows it and the command succeeds as it does
