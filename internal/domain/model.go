@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"maps"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -113,6 +114,19 @@ func (model Model) FamilyID() string {
 	return model.ID
 }
 
+// AnthropicModel returns the Anthropic model ID that the model serves under
+// its provider's own ID: its family, when that family is an Anthropic model ID
+// (it begins with claude-) and not the model's own ID. A model that names its
+// family, or whose family is no Anthropic model ID, serves none, and the
+// result is "".
+func (model Model) AnthropicModel() string {
+	family := model.Family
+	if !strings.HasPrefix(family, "claude-") || strings.EqualFold(model.ID, family) {
+		return ""
+	}
+	return family
+}
+
 // Declares reports whether the model qualified capability on protocol.
 func (model Model) Declares(protocol EndpointProtocol, capability Capability) bool {
 	return slices.Contains(model.Protocols[protocol], capability)
@@ -140,6 +154,12 @@ type Runtime struct {
 	ModelProvider     string           `json:"model_provider"`
 	Authentication    Authentication   `json:"authentication"`
 	CredentialCommand string           `json:"-"`
+	// AnthropicModels maps each Anthropic model ID that a model of the
+	// selected provider serves on the selected protocol to one ID of that
+	// provider: the selected model's own ID for its family, and the first in
+	// configuration order for any other. A client that knows Anthropic model
+	// IDs learns from it which of them the provider serves, and as what.
+	AnthropicModels map[string]string `json:"-"`
 }
 
 // ModelName is the model's label without the provider's name and its
@@ -185,6 +205,11 @@ func upstreamIdentity(client, providerID, endpoint string) string {
 func (runtime Runtime) SameUpstream(other Runtime) bool {
 	return runtime.Client == other.Client && runtime.Protocol == other.Protocol &&
 		runtime.CredentialProjectionFingerprint(runtime.Client) == other.CredentialProjectionFingerprint(other.Client)
+}
+
+// Equal reports whether two runtimes resolve the same binding in every field.
+func (runtime Runtime) Equal(other Runtime) bool {
+	return reflect.DeepEqual(runtime, other)
 }
 
 // BalanceProbe declares an optional provider-owned diagnostic API independently from inference traffic.
@@ -515,7 +540,36 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		ModelProvider:     selectedModelProvider(spec, selection),
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
+		AnthropicModels:   c.anthropicModels(model, protocol),
 	}, nil
+}
+
+// anthropicModels maps each Anthropic model ID that a model of selected's
+// provider serves on protocol to one ID of that provider: selected's own ID
+// for its family, which no other model then takes, and the first in
+// configuration order for any other family. It is nil when no model serves
+// one.
+func (c *Config) anthropicModels(selected Model, protocol EndpointProtocol) map[string]string {
+	var mapped map[string]string
+	taken := map[string]bool{selected.FamilyID(): true}
+	add := func(model Model) {
+		if anthropic := model.AnthropicModel(); anthropic != "" {
+			if mapped == nil {
+				mapped = map[string]string{}
+			}
+			mapped[anthropic] = model.ID
+		}
+	}
+	add(selected)
+	for _, ref := range c.ProviderModelRefs(selected.Provider) {
+		model := c.Models[ref]
+		if taken[model.FamilyID()] || !modelAdmitsProtocol(model, protocol) {
+			continue
+		}
+		taken[model.FamilyID()] = true
+		add(model)
+	}
+	return mapped
 }
 
 // forwardingFor returns a client's forwarding destination for a selection that

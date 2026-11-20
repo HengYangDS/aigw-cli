@@ -49,8 +49,9 @@ func readManagedProfile(profile document) (Desired, []string) {
 	}
 	var request Desired
 	var models []struct {
-		Name  string `json:"name"`
-		Label string `json:"labelOverride"`
+		Name      string `json:"name"`
+		Label     string `json:"labelOverride"`
+		BehavesAs string `json:"behavesAs"`
 	}
 	for _, field := range []struct {
 		key, label string
@@ -71,7 +72,7 @@ func readManagedProfile(profile document) (Desired, []string) {
 		}
 	}
 	for _, model := range models {
-		request.Models = append(request.Models, Model{Name: model.Name, Label: model.Label})
+		request.Models = append(request.Models, Model{Name: model.Name, Label: model.Label, BehavesAs: model.BehavesAs})
 	}
 	return request, changed
 }

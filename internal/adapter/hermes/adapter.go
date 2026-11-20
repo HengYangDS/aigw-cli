@@ -313,7 +313,7 @@ func (hermesAdapter) ProjectionChanged(before, after domain.Config) bool {
 	}
 	left, leftErr := before.ResolveRuntime(ID, domain.ModelRef{})
 	right, rightErr := after.ResolveRuntime(ID, domain.ModelRef{})
-	if leftErr != nil || rightErr != nil || left != right {
+	if leftErr != nil || rightErr != nil || !left.Equal(right) {
 		return true
 	}
 	oldCatalog, oldErr := hermesCatalog(before)

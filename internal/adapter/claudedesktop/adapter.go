@@ -111,7 +111,7 @@ func (claudeDesktopAdapter) ProjectionChanged(before, after domain.Config) bool 
 	}
 	left, leftErr := before.ResolveRuntime(ID, domain.ModelRef{})
 	right, rightErr := after.ResolveRuntime(ID, domain.ModelRef{})
-	if leftErr != nil || rightErr != nil || left != right {
+	if leftErr != nil || rightErr != nil || !left.Equal(right) {
 		return true
 	}
 	return !slices.Equal(claudeDesktopModels(before, left), claudeDesktopModels(after, right)) ||
@@ -269,9 +269,9 @@ func claudeDesktopModelRefs(cfg domain.Config, selected domain.Runtime) []domain
 
 func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {
 	refs := claudeDesktopModelRefs(cfg, selected)
-	models := []Model{{Name: selected.UpstreamModel, Label: selected.ModelLabel}}
+	models := []Model{{Name: selected.UpstreamModel, Label: selected.ModelLabel, BehavesAs: cfg.Models[selected.Model].AnthropicModel()}}
 	for _, ref := range refs[1:] {
-		models = append(models, Model{Name: ref.ID(), Label: cfg.ModelLabel(ref)})
+		models = append(models, Model{Name: ref.ID(), Label: cfg.ModelLabel(ref), BehavesAs: cfg.Models[ref].AnthropicModel()})
 	}
 	return models
 }

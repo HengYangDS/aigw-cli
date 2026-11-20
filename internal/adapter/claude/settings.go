@@ -38,10 +38,11 @@ type optionalValue struct {
 }
 
 type originalSettings struct {
-	FileExisted  bool                     `json:"file_existed"`
-	APIKeyHelper optionalValue            `json:"api_key_helper"`
-	Model        optionalValue            `json:"model"`
-	Environment  map[string]optionalValue `json:"environment,omitempty"`
+	FileExisted    bool                     `json:"file_existed"`
+	APIKeyHelper   optionalValue            `json:"api_key_helper"`
+	Model          optionalValue            `json:"model"`
+	ModelOverrides optionalValue            `json:"model_overrides"`
+	Environment    map[string]optionalValue `json:"environment,omitempty"`
 }
 
 type settingsState struct {
@@ -404,6 +405,13 @@ func projectSettings(document settingsDocument, runtime domain.Runtime, executab
 	} else {
 		document["model"] = adapter.RawJSON(runtime.UpstreamModel)
 	}
+	// Claude Code sends the provider's ID for every picker row and alias of an
+	// Anthropic model that the map names, and gives it that model's window.
+	if len(runtime.AnthropicModels) == 0 {
+		delete(document, "modelOverrides")
+	} else {
+		document["modelOverrides"] = adapter.RawJSON(runtime.AnthropicModels)
+	}
 	document["apiKeyHelper"] = adapter.RawJSON(credentialHelper(executable, runtime.CredentialProjectionFingerprint(ID)))
 }
 
@@ -429,10 +437,11 @@ func credentialHelper(executable, scope string) string {
 func captureOriginalSettings(document settingsDocument, fileExisted bool) originalSettings {
 	environment, _ := decodeEnvironment(document)
 	original := originalSettings{
-		FileExisted:  fileExisted,
-		APIKeyHelper: captureOptional(document, "apiKeyHelper"),
-		Model:        captureOptional(document, "model"),
-		Environment:  map[string]optionalValue{},
+		FileExisted:    fileExisted,
+		APIKeyHelper:   captureOptional(document, "apiKeyHelper"),
+		Model:          captureOptional(document, "model"),
+		ModelOverrides: captureOptional(document, "modelOverrides"),
+		Environment:    map[string]optionalValue{},
 	}
 	for _, key := range managedEnvironmentKeys {
 		if value, ok := environment[key]; ok {
@@ -447,6 +456,7 @@ func captureOriginalSettings(document settingsDocument, fileExisted bool) origin
 func restoreOriginalSettings(document settingsDocument, original originalSettings) {
 	restoreOptional(document, "apiKeyHelper", original.APIKeyHelper)
 	restoreOptional(document, "model", original.Model)
+	restoreOptional(document, "modelOverrides", original.ModelOverrides)
 	environment, _ := decodeEnvironment(document)
 	for _, key := range managedEnvironmentKeys {
 		value := original.Environment[key]
@@ -503,8 +513,10 @@ func managedSettingsHash(document settingsDocument) string {
 	if value, ok := document["apiKeyHelper"]; ok {
 		managed["apiKeyHelper"] = value
 	}
-	if value, ok := document["model"]; ok {
-		managed["model"] = value
+	for _, key := range []string{"model", "modelOverrides"} {
+		if value, ok := document[key]; ok {
+			managed[key] = value
+		}
 	}
 	for key, raw := range managed {
 		var value string

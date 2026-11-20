@@ -86,7 +86,7 @@ func TestFirstSetupProjectsTheModelForAnotherProviderOrEndpoint(t *testing.T) {
 				t.Fatalf("the first setup refused: %v", err)
 			}
 			got, present := readSettingsFile(t, path)["model"]
-			if kept := selected == earlier; kept == present || (present && string(got) != `"claude-team"`) {
+			if kept := selected.Equal(earlier); kept == present || (present && string(got) != `"claude-team"`) {
 				t.Fatalf("model = %s (present %t), want the preference kept %t", got, present, kept)
 			}
 		})
