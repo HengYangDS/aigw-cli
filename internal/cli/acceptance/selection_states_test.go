@@ -13,11 +13,11 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-// The tests of this file cover the row "chosen, waiting" of the lane's state
-// table: Hermes's file selects another added model whose provider has no
-// Token that AIGW can use. In that state the model that the client uses is
-// the file's, the stored selection stays, and the choice is recorded only
-// with AIGW's record of the file.
+// The tests of this file cover the row "chosen" of the lane's state table
+// where the provider of the model that Hermes's file selects has no Token
+// that AIGW can use. The model that the client uses is the file's for every
+// command, a saving command records it with AIGW's record of the file, and
+// the file is left until the Token is stored.
 
 // waitingHermes sets the state up: the stored selection is
 // dmxapi/gpt-6.2-sol, Hermes's file selects ucloud/claude-opus-5-5, and
@@ -45,9 +45,10 @@ func runDocument(t *testing.T, app *cli.App, output *bytes.Buffer, document any,
 	return err
 }
 
-// Every reader names the model that the client uses, the file's, while it
-// waits: status, the client list, and the lists and views of models and
-// providers agree, and none names the stored selection as Hermes's.
+// Every reader names the model that the client uses, the file's: status, the
+// client list, and the lists and views of models and providers read one
+// configuration, and none names the stored selection as Hermes's. A reader
+// saves nothing. Holds the cell chosen/reports.
 func TestEveryReaderNamesTheModelOfAClientThatWaitsForItsToken(t *testing.T) {
 	app, output, target, chosen := waitingHermes(t)
 	const uses, stored = "ucloud/claude-opus-5-5", "dmxapi/gpt-6.2-sol"
@@ -109,43 +110,51 @@ func TestEveryReaderNamesTheModelOfAClientThatWaitsForItsToken(t *testing.T) {
 	}
 }
 
-// Neither model of a client that waits is taken from under it: the model that
-// its file selects, which it runs on and which no command's own guard sees,
-// and the stored selection, which is all that AIGW holds for it until the
-// choice is recorded. A removal of the model or of its provider is refused
-// with the client and the model named, and the configuration and the file
-// stay. The synchronizer's own test covers a protocol that the choice runs on.
-func TestTheModelsOfAClientThatWaitsForItsTokenAreNotTakenAway(t *testing.T) {
+// The model that a client's file selects is the client's selection for the
+// commands' own guards: its removal, or its provider's, is refused with the
+// client and the model named, and nothing changes. The model that was stored
+// before is free to go: removing it records the choice in the same
+// transaction, with no command that returns to a model that is gone, and the
+// file is left. Holds the cell chosen/removes.
+func TestTheChosenModelIsNotTakenAwayAndTheEarlierOneIsFreeToGo(t *testing.T) {
 	const chosenModel, storedModel = "ucloud/claude-opus-5-5", "dmxapi/gpt-6.2-sol"
-	for _, test := range []struct {
-		model, refusal string
-		command        []string
-	}{
-		{chosenModel, "take that model away", []string{"model", "remove", chosenModel}},
-		{chosenModel, "take that model away", []string{"model", "remove", chosenModel, "--dry-run"}},
-		{chosenModel, "take that model away", []string{"provider", "remove", "ucloud"}},
-		{chosenModel, "take that model away", []string{"provider", "remove", "ucloud", "--dry-run"}},
-		{storedModel, "cannot be removed", []string{"model", "remove", storedModel}},
-		{storedModel, "cannot be removed", []string{"provider", "remove", "dmxapi"}},
+	for _, command := range [][]string{
+		{"model", "remove", chosenModel},
+		{"model", "remove", chosenModel, "--dry-run"},
+		{"provider", "remove", "ucloud"},
+		{"provider", "remove", "ucloud", "--dry-run"},
 	} {
 		app, output, target, chosen := waitingHermes(t)
 		before := readFile(t, app.Config.Path())
 		output.Reset()
-		err := cli.Execute(app, test.command)
-		if err == nil || !strings.Contains(err.Error(), "Hermes") || !strings.Contains(err.Error(), test.model) || !strings.Contains(err.Error(), test.refusal) {
-			t.Fatalf("%v = %v; want the refusal that Hermes uses %s\n%s", test.command, err, test.model, output)
+		err := cli.Execute(app, command)
+		if err == nil || !strings.Contains(err.Error(), "Hermes") || !strings.Contains(err.Error(), chosenModel) || !strings.Contains(err.Error(), "cannot be removed") {
+			t.Fatalf("%v = %v; want the refusal that Hermes uses %s\n%s", command, err, chosenModel, output)
 		}
 		if !bytes.Equal(readFile(t, app.Config.Path()), before) {
-			t.Fatalf("%v changed the stored configuration", test.command)
+			t.Fatalf("%v changed the stored configuration", command)
 		}
 		if !bytes.Equal(readFile(t, target), chosen) {
-			t.Fatalf("%v wrote Hermes's file", test.command)
+			t.Fatalf("%v wrote Hermes's file", command)
 		}
+	}
+	app, output, target, chosen := waitingHermes(t)
+	got := followedIn(t, app, output, "model", "remove", storedModel, "--json")
+	if len(got) != 1 || got[0].Client != hermes.ID || got[0].Model != chosenModel || got[0].Earlier != storedModel || got[0].ReturnsWith != "" {
+		t.Fatalf("removing the earlier model follows %+v; want Hermes's choice, with no command back to a model that is gone", got)
+	}
+	stored := mustLoad(t, app)
+	if _, held := stored.Models[domain.NewModelRef("dmxapi", "gpt-6.2-sol")]; held || stored.Clients[hermes.ID].Model.String() != chosenModel {
+		t.Fatalf("after the removal the configuration holds the earlier model (%t) and selects %s for Hermes", held, stored.Clients[hermes.ID].Model)
+	}
+	if !bytes.Equal(readFile(t, target), chosen) {
+		t.Fatal("the removal wrote the file of a client whose provider has no Token")
 	}
 }
 
 // A withdrawal removes AIGW's part of the client's file and its record,
 // whatever the file selects and whether or not its provider has a Token.
+// Holds the cell chosen/withdraws.
 func TestAWithdrawalOfAClientThatWaitsForItsTokenRemovesAIGWsPart(t *testing.T) {
 	app, output, target, _ := waitingHermes(t)
 	if err := runDocument(t, app, output, nil, "client", "disable", "hermes", "--json"); err != nil {
@@ -160,7 +169,8 @@ func TestAWithdrawalOfAClientThatWaitsForItsTokenRemovesAIGWsPart(t *testing.T) 
 }
 
 // An uninstall plans the same withdrawal: its preview names Hermes among the
-// clients whose files it changes, and writes nothing.
+// clients whose files it changes, and writes nothing. Holds the cell
+// chosen/withdraws.
 func TestAnUninstallPlansTheFileOfAClientThatWaitsForItsToken(t *testing.T) {
 	app, output, target, chosen := waitingHermes(t)
 	var preview struct {
@@ -183,14 +193,17 @@ func TestAnUninstallPlansTheFileOfAClientThatWaitsForItsToken(t *testing.T) {
 	}
 }
 
-// A rollback does not record the choice of a client whose file it does not
-// write: the stored selection is what the restored configuration holds for a
-// client with AIGW's record, never the file's model, and the result names no
-// followed selection.
-func TestARollbackDoesNotRecordTheChoiceOfAClientThatWaits(t *testing.T) {
+// A rollback to a configuration that selects the model that Hermes's file
+// already shows records that choice: the stored selection and AIGW's record
+// of the file move to it, the result names it as followed, and the file is
+// left while its provider has no Token. So the earlier model, chosen in
+// Hermes again before the Token arrives, is a choice that synchronization
+// keeps. Holds the cell chosen/restores.
+func TestARollbackToTheChosenModelRecordsItAndKeepsTheNextChoice(t *testing.T) {
+	const chosenModel = "ucloud/claude-opus-5-5"
 	app, output, _, target := shippedHermesAppWith(t, true)
 	for _, args := range [][]string{
-		{"use", "hermes", "ucloud/claude-opus-5-5", "--protocol", "anthropic"},
+		{"use", "hermes", chosenModel, "--protocol", "anthropic"},
 		{"use", "hermes", "dmxapi/gpt-6.2-sol", "--protocol", "responses"},
 	} {
 		if err := cli.Execute(app, args); err != nil {
@@ -201,17 +214,17 @@ func TestARollbackDoesNotRecordTheChoiceOfAClientThatWaits(t *testing.T) {
 		t.Fatal(err)
 	}
 	chosen := hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
-	var result struct {
-		Followed []followed `json:"followed_selections"`
-	}
-	if err := runDocument(t, app, output, &result, "config", "rollback", "--last-change", "--json"); err != nil {
-		t.Fatalf("rollback: %v\n%s", err, output)
-	}
-	if len(result.Followed) != 0 {
-		t.Fatalf("the rollback names %+v as followed although it did not write Hermes's file", result.Followed)
+	if got := followedIn(t, app, output, "config", "rollback", "--last-change", "--json"); len(got) != 1 || got[0].Client != hermes.ID || got[0].Model != chosenModel {
+		t.Fatalf("the rollback follows %+v; want Hermes's choice of %s", got, chosenModel)
 	}
 	if !bytes.Equal(readFile(t, target), chosen) {
 		t.Fatal("the rollback wrote the file of a client that waits for its Token")
+	}
+	if stored := mustLoad(t, app).Clients[hermes.ID].Model.String(); stored != chosenModel {
+		t.Fatalf("the rollback saved %s as Hermes's selection", stored)
+	}
+	if got := followedIn(t, app, output, "status", "--json"); len(got) != 0 {
+		t.Fatalf("AIGW's record of the file stayed behind: status still follows %+v", got)
 	}
 	// The person goes back to the earlier model before the Token arrives.
 	hermesNativeSelection(t, target, "aigw-dmxapi-responses", "gpt-6.2-sol", nil)

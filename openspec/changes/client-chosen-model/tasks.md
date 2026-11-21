@@ -33,6 +33,10 @@
 - [ ] 2.4 Record a followed selection together with AIGW's record of the client's file, in a command and in its
       preview; tests choose the earlier model in the client again after a command about something else, for Codex
       and for Hermes, cover a provider that waits for a Token, and the script does the same with the built program.
+- [ ] 2.10 Record every choice with or without its Token by a write of AIGW's record alone when the client's files
+      cannot be written, and delete the waiting state it replaces (`Followed.Waiting`, the reported configuration,
+      the transition's `shown` and `servesChoice`); the seventh review's eight runs pass as regression tests, and a
+      record-only write leaves the client's file's identity and bytes as they were.
 - [ ] 2.5 Keep one record per invocation of what was followed and report it ahead of the next step, with the
       returning command on a line of its own, the entry's protocol and ended-setting fields, no entry for the
       client that an explicit selection names, and no returning command that cannot run; tests read each, and

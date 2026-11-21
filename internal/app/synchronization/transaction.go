@@ -82,12 +82,13 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 	if err != nil {
 		return committed{}, err
 	}
-	// The clients' adapters plan and write from what the clients' files show.
-	before, after, clientIDs, reconcileProjection, followed := settled.shown, settled.after, settled.clients, settled.reconcile, settled.followed
-	projection, err := planned(s, before, after, reconcileProjection, clientIDs)
+	after, followed := settled.after, settled.followed
+	projection, err := planned(s, before, after, settled.reconcile, settled.clients, followed)
 	if err != nil {
 		return committed{}, err
 	}
+	// The credential reader is prepared for the clients whose files are
+	// written; a client of which only AIGW's record is written reads none.
 	projectable := projection.Clients
 	if err := ctx.Err(); err != nil {
 		return committed{}, err
@@ -108,11 +109,11 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 		return committed{}, errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 	}
 	result := committed{configuration: !configAfter.Config.Equal(configBefore.Config)}
-	if len(projectable) == 0 {
-		s.Follows.settle(s.keeps(followed, after))
+	if len(s.reconciled(projection)) == 0 {
+		s.Follows.settle(s.keeps(followed, before, after))
 		return result, nil
 	}
-	receipt, projectionChanged, err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, projectable...)
+	receipt, projectionChanged, err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, projection)
 	if err != nil {
 		return committed{}, fmt.Errorf("%s %w", subject, err)
 	}
@@ -138,7 +139,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 		}
 	}
 	result.projection = projectionChanged
-	s.Follows.settle(s.keeps(followed, after))
+	s.Follows.settle(s.keeps(followed, before, after))
 	return result, nil
 }
 
@@ -156,13 +157,13 @@ func (s Synchronizer) applyProjection(
 	before, after domain.Config,
 	configBefore, configAfter store.Snapshot,
 	undoEntrypoint func() error,
-	clientIDs ...string,
+	projection Projection,
 ) (adapter.ProjectionReceipt, bool, error) {
-	dependencies, err := s.clientDependencies(clientIDs, before, after)
+	dependencies, err := s.projectionDependencies(projection, before, after)
 	var receipt adapter.ProjectionReceipt
 	var changed bool
 	if err == nil {
-		receipt, changed, err = s.registry().Apply(ctx, dependencies, before, after, clientIDs...)
+		receipt, changed, err = s.registry().Apply(ctx, dependencies, before, after, s.reconciled(projection)...)
 	}
 	if err != nil {
 		if rollbackErr := s.Config.RestoreSnapshot(configBefore, configAfter); rollbackErr != nil {

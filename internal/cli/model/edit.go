@@ -64,7 +64,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, options editOptions) error {
-	cfg, model, err := loadModel(runtime.LoadConfiguration, args[0], "")
+	cfg, model, err := loadModel(runtime, args[0], "")
 	if err != nil {
 		return err
 	}

@@ -21,7 +21,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 		Example: "aigw client list\naigw client list --json",
 		Args:    cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
-			cfg, err := runtime.LoadReportedConfiguration()
+			cfg, err := runtime.LoadConfiguration()
 			if err != nil {
 				return err
 			}

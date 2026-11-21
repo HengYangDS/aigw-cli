@@ -70,43 +70,61 @@ func classifySelection(root *yaml.Node, state ownership) (Selection, selectionKi
 // cannot follow is an unfollowedSelectionError; any other difference, an
 // edited address or mode of the selection included, is an outside edit.
 func ObserveSelection(path string) (Selection, bool, error) {
+	file, err := observe(path)
+	return file.selection, file.changed, err
+}
+
+// observed is one reading of Hermes' file and of AIGW's record of it: the
+// choice that ObserveSelection reports, and for a write of the record alone
+// the file as parsed, the record, and the record's file as it was read.
+type observed struct {
+	selection Selection
+	changed   bool
+	root      *yaml.Node
+	state     ownership
+	record    platform.FileSnapshot
+}
+
+// observe reads Hermes' file at path and AIGW's record of it once, as
+// ObserveSelection reports them.
+func observe(path string) (observed, error) {
 	config, err := adapter.CaptureTarget(path, true)
 	if err != nil {
-		return Selection{}, false, err
+		return observed{}, err
 	}
-	stateSnapshot, err := adapter.CaptureTarget(path+adapter.StateSuffix, true)
-	if err != nil || !stateSnapshot.Exists {
-		return Selection{}, false, err
+	record, err := adapter.CaptureTarget(path+adapter.StateSuffix, true)
+	if err != nil || !record.Exists {
+		return observed{}, err
 	}
 	if !config.Exists {
-		return Selection{}, false, missingWithRecord(path)
+		return observed{}, missingWithRecord(path)
 	}
 	root, err := parse(config.Data)
 	if err != nil {
-		return Selection{}, false, err
+		return observed{}, err
 	}
-	state, err := readOwnershipRecord(path, stateSnapshot.Data)
+	state, err := readOwnershipRecord(path, record.Data)
 	if err != nil {
-		return Selection{}, false, err
+		return observed{}, err
 	}
 	owned, err := managedBytes(root, state.ProviderIDs)
 	if err != nil {
-		return Selection{}, false, err
+		return observed{}, err
 	}
 	if platform.SHA256(owned) == state.ManagedDigest {
-		return Selection{}, false, nil
+		return observed{}, nil
 	}
 	if !onlySelectionDiffers(root, state) {
-		return Selection{}, false, errExternalEdit
+		return observed{}, errExternalEdit
 	}
 	switch selection, kind := classifySelection(root, state); kind {
 	case kindListed:
-		return selection, true, nil
+		return observed{selection: selection, changed: true, root: root, state: state, record: record}, nil
 	case kindUnlisted, kindForeign:
-		return Selection{}, false, &unfollowedSelectionError{Selection: selection}
+		return observed{}, &unfollowedSelectionError{Selection: selection}
 	case kindEdited:
 	}
-	return Selection{}, false, errExternalEdit
+	return observed{}, errExternalEdit
 }
 
 // unfollowedSelectionError reports that Hermes' own selection is the only

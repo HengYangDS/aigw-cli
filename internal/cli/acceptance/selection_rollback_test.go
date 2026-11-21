@@ -85,10 +85,15 @@ func TestRollbackPassesOnTheStepOfASelectionThatIsNotFollowed(t *testing.T) {
 	})
 }
 
-// A rollback does not write the file of a client that waits for its Token,
-// so a model chosen in that client stays in its file, and the rollback names
-// for that client only a stored selection that it changes: here none.
-func TestRollbackLeavesAChoiceOfAClientThatWaitsForItsToken(t *testing.T) {
+// A rollback to another model than the one that the client's file shows,
+// while that model's provider has no Token, cannot write the file: it saves
+// the restored selection, which waits for the Token as any selection does,
+// names it with the chosen model that it replaces, and brings AIGW's record
+// of the file to what the file shows. So the model that the record named
+// before, chosen in the client again, is kept by the synchronization after
+// the Token is stored. Holds the cell chosen/restores of the lane's state
+// table.
+func TestRollbackOverAChoiceWithoutATokenSavesTheSelectionAndRecordsTheFile(t *testing.T) {
 	app, output, _, target := shippedHermesAppWith(t, true)
 	if err := cli.Execute(app, []string{"provider", "edit", "ucloud", "--label", "Other"}); err != nil {
 		t.Fatalf("change the configuration: %v\n%s", err, output)
@@ -97,6 +102,8 @@ func TestRollbackLeavesAChoiceOfAClientThatWaitsForItsToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	chosen := hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-opus-5-5", nil)
+	record := readFile(t, target+".aigw-state.json")
+	want := []restoredSelection{{Client: "hermes", Model: "dmxapi/gpt-6.2-sol", Replaces: "dmxapi/claude-opus-5-5"}}
 	for _, command := range [][]string{
 		{"config", "rollback", "--last-change", "--dry-run", "--json"},
 		{"config", "rollback", "--last-change", "--json"},
@@ -107,12 +114,34 @@ func TestRollbackLeavesAChoiceOfAClientThatWaitsForItsToken(t *testing.T) {
 		}
 		var result struct {
 			Selections []restoredSelection `json:"selections"`
+			Followed   []followed          `json:"followed_selections"`
 		}
-		if err := json.Unmarshal(output.Bytes(), &result); err != nil || slices.ContainsFunc(result.Selections, func(entry restoredSelection) bool { return entry.Client == hermes.ID }) {
-			t.Fatalf("%v names a selection of Hermes that it does not restore: %+v, %v\n%s", command, result.Selections, err, output)
+		if err := json.Unmarshal(output.Bytes(), &result); err != nil || len(result.Followed) != 0 {
+			t.Fatalf("%v follows %+v: %v\n%s", command, result.Followed, err, output)
+		}
+		if named := slices.DeleteFunc(result.Selections, func(entry restoredSelection) bool { return entry.Client != hermes.ID }); !slices.Equal(named, want) {
+			t.Fatalf("%v restores %+v for Hermes, want %+v\n%s", command, named, want, output)
+		}
+		if slices.Contains(command, "--dry-run") && !bytes.Equal(readFile(t, target+".aigw-state.json"), record) {
+			t.Fatal("the rollback's preview wrote AIGW's record of Hermes's file")
 		}
 	}
 	if !bytes.Equal(readFile(t, target), chosen) {
 		t.Fatal("the rollback wrote the file of a client that waits for its Token")
+	}
+	if binding := selection(t, app, hermes.ID); binding.Model != domain.NewModelRef("dmxapi", "gpt-6.2-sol") {
+		t.Fatalf("the rollback saved %s, not the selection that it names as restored", binding.Model)
+	}
+	if bytes.Equal(readFile(t, target+".aigw-state.json"), record) {
+		t.Fatal("AIGW's record of Hermes's file stayed behind the model that the file shows")
+	}
+	// The person picks the model that the record named before the rollback.
+	hermesNativeSelection(t, target, "aigw-dmxapi-responses", "gpt-6.2-sol", nil)
+	if err := app.Secrets.Set("dmxapi", "fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	syncAndCheckPass(t, app, output, hermes.ID)
+	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-dmxapi-responses" || model != "gpt-6.2-sol" {
+		t.Fatalf("synchronization wrote %s %s over the model chosen last", provider, model)
 	}
 }

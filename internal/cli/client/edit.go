@@ -230,14 +230,14 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 		}
 	}
 	document.ClientFiles, document.CredentialReader = invocation.ClientFiles(runtime, preview), preview.CredentialEntrypoint
-	document.RestartRequired = spec.RestartAfterProjection && len(document.ClientFiles) > 0
+	document.RestartRequired = spec.RestartAfterProjection && preview.Projects(spec.ID)
 	if !options.dryRun && document.Changed {
 		if err := runtime.Synchronizer().CommitProjection(cmd.Context(), before, cfg, "client edit", spec.ID); err != nil {
 			return targetFailure(spec.ID, targets, err)
 		}
 	}
 	pending := ""
-	if document.Changed && !options.dryRun {
+	if document.Changed && !options.dryRun && !preview.Projects(spec.ID) {
 		pending = pendingStep(runtime, cfg, document)
 	}
 	return writeEdit(cmd, runtime, spec, document, options, pending)
@@ -247,7 +247,7 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 // none of its files, as status names it: aigw sync for an installed client,
 // installing it first otherwise, or storing its provider's Token.
 func pendingStep(runtime invocation.Context, cfg domain.Config, document editDocument) string {
-	if !document.Enabled || len(document.ClientFiles) > 0 {
+	if !document.Enabled {
 		return ""
 	}
 	return app.InspectStatusClients(runtime.Dependencies, cfg, nil, document.Client)[document.Client].NextAction

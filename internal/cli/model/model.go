@@ -40,12 +40,11 @@ func modelArgument(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// loadModel loads the configuration with load, the working one for a command
-// that saves and the reported one for a command that only shows, and
-// resolves the command's model argument to the configured model. A given
-// protocol must be one that the model declares.
-func loadModel(load func() (domain.Config, error), text string, protocol domain.EndpointProtocol) (domain.Config, domain.Model, error) {
-	cfg, err := load()
+// loadModel loads the configuration and resolves the command's model
+// argument to the configured model. A given protocol must be one that the
+// model declares.
+func loadModel(runtime invocation.Context, text string, protocol domain.EndpointProtocol) (domain.Config, domain.Model, error) {
+	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return domain.Config{}, domain.Model{}, err
 	}

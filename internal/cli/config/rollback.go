@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"os"
-	"slices"
 
 	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/app/synchronization"
@@ -44,38 +43,24 @@ type restoredSelection struct {
 	Replaces string `json:"replaces,omitempty"`
 }
 
-// restoredSelections lists, in admission order, the clients whose selection
-// the rollback restores to another model. written are the clients whose
-// files it writes. A client that it does not write, such as one that waits
-// for its Token, keeps a model chosen in it in its file, so for that client
-// the rollback restores the stored selection, and names it only when that
-// differs.
-func restoredSelections(runtime invocation.Context, current, restored domain.Config, written []string) []restoredSelection {
-	stored := map[string]domain.ModelRef{}
-	for _, choice := range runtime.Follows.Observed() {
-		if !slices.Contains(written, choice.Now.Client) {
-			stored[choice.Now.Client] = choice.Earlier.Model
-		}
-	}
+// restoredSelections lists, in admission order, the clients for which the
+// restored configuration selects another model than current, the working
+// configuration, which follows a model chosen in a client. A restored
+// selection of the model that the client's file already shows is that
+// choice, which the invocation's report names as followed, and no entry
+// here.
+func restoredSelections(runtime invocation.Context, current, restored domain.Config) []restoredSelection {
 	var selections []restoredSelection
 	for _, client := range runtime.Clients.Admission().IDs() {
-		now, then := current.Clients[client], restored.Clients[client]
-		replaces, kept := stored[client]
-		switch {
-		case kept && replaces == then.Model:
+		if synchronization.SameSelection(current, restored, client) {
 			continue
-		case !kept:
-			if now.Model == then.Model && now.Protocol == then.Protocol {
-				continue
-			}
-			replaces = now.Model
 		}
 		selection := restoredSelection{Client: client}
-		if !then.Model.IsZero() {
-			selection.Model = then.Model.String()
+		if then := restored.Clients[client].Model; !then.IsZero() {
+			selection.Model = then.String()
 		}
-		if !replaces.IsZero() {
-			selection.Replaces = replaces.String()
+		if now := current.Clients[client].Model; !now.IsZero() {
+			selection.Replaces = now.String()
 		}
 		selections = append(selections, selection)
 	}
@@ -201,7 +186,7 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			selections := restoredSelections(runtime, current, restored, projection.Clients)
+			selections := restoredSelections(runtime, current, restored)
 			if dryRun {
 				preview, err := invocation.WithEntrypoint(runtime, restored, projection)
 				if err != nil {

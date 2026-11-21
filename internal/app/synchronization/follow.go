@@ -1,7 +1,6 @@
 package synchronization
 
 import (
-	"fmt"
 	"reflect"
 	"slices"
 
@@ -11,8 +10,7 @@ import (
 )
 
 // Followed is a model that a client's own file selects and that the working
-// configuration records as that client's selection, or, while the model's
-// provider has no Token that AIGW can use, that it waits to record.
+// configuration records as that client's selection.
 type Followed struct {
 	// Now is the followed selection and Earlier the one that the stored
 	// configuration holds.
@@ -23,13 +21,6 @@ type Followed struct {
 	// ForwardingCleared and RetriesCleared say that the earlier selection's
 	// forwarding or retry budgets ended with its upstream or its provider.
 	ForwardingCleared, RetriesCleared bool
-	// Waiting says that the chosen model's provider has no Token that AIGW
-	// can use: a saving command starts from the stored selection and leaves
-	// the client's files as they are, and a report names the choice.
-	Waiting bool
-	// binding is the client's binding with the choice followed, as the
-	// configuration records it.
-	binding domain.ClientBinding
 }
 
 // Follows is what one invocation made of the clients' own choices: the
@@ -38,30 +29,15 @@ type Followed struct {
 // ready; a nil Follows records nothing.
 type Follows struct {
 	observed, kept []Followed
-	read, settled  bool
+	settled        bool
 }
 
 // Observe records the choices that the invocation's working configuration
-// follows or waits to record.
+// follows.
 func (follows *Follows) Observe(followed []Followed) {
 	if follows != nil {
-		follows.observed, follows.read = followed, true
+		follows.observed = followed
 	}
-}
-
-// waiting returns the clients whose choice waited for a Token when the
-// invocation read its configuration, and whether it read one.
-func (follows *Follows) waiting() ([]string, bool) {
-	if follows == nil || !follows.read {
-		return nil, false
-	}
-	var clients []string
-	for _, choice := range follows.observed {
-		if choice.Waiting {
-			clients = append(clients, choice.Now.Client)
-		}
-	}
-	return clients, true
 }
 
 // settle records the choices that a transition, or the preview of one,
@@ -90,15 +66,13 @@ func (follows *Follows) Recorded() ([]Followed, bool) {
 	return follows.kept, follows.settled
 }
 
-// Working returns the configuration that every saving command works from:
-// stored with the model that each enabled client chose in its own file
-// recorded as that client's selection, and what it followed or waits to
-// record, in admission order. A command's own change is made on top of it,
-// so an explicit selection wins and no other change is lost to a choice. A
-// choice whose model's provider has no Token that AIGW can use is not
-// recorded there: the client keeps its stored selection, which a command
-// changes as it would without the choice, and the transaction leaves the
-// client's files as they are.
+// Working returns the configuration that every command works from: stored
+// with the model that each enabled client chose in its own file recorded as
+// that client's selection, and what it followed, in admission order. A
+// command's own change is made on top of it, so an explicit selection wins
+// and no other change is lost to a choice. Following reads the client's file
+// and AIGW's record of it, and no Token: a choice is followed whether or not
+// its provider has one.
 //
 // A choice that AIGW does not follow, a file that it cannot read, or a
 // followed selection that would not validate leaves that client as stored:
@@ -106,28 +80,6 @@ func (follows *Follows) Recorded() ([]Followed, bool) {
 // that restores the recorded selection, and a command that writes none of
 // them is not stopped by another client's file.
 func (s Synchronizer) Working(stored domain.Config) (domain.Config, []Followed) {
-	return s.follow(stored, false, s.waitsForToken)
-}
-
-// Reported returns the configuration that a report describes: as Working,
-// with a choice that waits for its Token recorded too, so that the report
-// names the model that the client uses and that it waits for the Token.
-func (s Synchronizer) Reported(stored domain.Config) (domain.Config, []Followed) {
-	return s.follow(stored, true, s.waitsForToken)
-}
-
-// waitsForToken reports whether the client of cfg, whose selection follows
-// its own choice, waits for its provider's Token. A Token that cannot be
-// observed counts as one that the client waits for.
-func (s Synchronizer) waitsForToken(cfg domain.Config, client string) bool {
-	ready, err := s.credentialReadyClients(cfg, client)
-	return err != nil || len(ready) == 0
-}
-
-// follow follows each enabled client's own choice on stored; waits decides
-// whether a followed choice waits for its Token, and reported records such a
-// choice too.
-func (s Synchronizer) follow(stored domain.Config, reported bool, waits func(domain.Config, string) bool) (domain.Config, []Followed) {
 	dependencies, err := s.clientDependencies(nil)
 	if err != nil {
 		return stored, nil
@@ -141,35 +93,24 @@ func (s Synchronizer) follow(stored domain.Config, reported bool, waits func(dom
 			continue
 		}
 		was, is := working.Clients[client], candidate.Clients[client]
-		choice := Followed{
-			Now: now, Earlier: earlier, Returns: earlier.Restore(), binding: is,
+		followed = append(followed, Followed{
+			Now: now, Earlier: earlier, Returns: earlier.Restore(),
 			ForwardingCleared: was.ForwardingEndpoint != "" && is.ForwardingEndpoint == "",
 			RetriesCleared:    was.RetryPolicy != nil && is.RetryPolicy == nil,
-			Waiting:           waits(candidate, client),
-		}
-		followed = append(followed, choice)
-		if !choice.Waiting || reported {
-			working = candidate
-		}
+		})
+		working = candidate
 	}
 	return working, followed
 }
 
 // preimage binds before, the working configuration that a command read, to
 // the stored configuration in snapshot, and returns that stored
-// configuration and the choices that before follows or waits to record.
-// matched is false when what is stored, or a client's file, changed since
-// the command read it. A choice that waited for its Token when the command
-// read the configuration still waits here, so that a Token that the command
-// stores itself does not read as a change.
+// configuration and the choices that before follows. matched is false when
+// what is stored, or a client's file, changed since the command read it.
 func (s Synchronizer) preimage(snapshot store.Snapshot, before domain.Config) (stored domain.Config, followed []Followed, matched bool, err error) {
-	waits := s.waitsForToken
-	if waiting, read := s.Follows.waiting(); read {
-		waits = func(_ domain.Config, client string) bool { return slices.Contains(waiting, client) }
-	}
 	matched, err = snapshot.MatchesConfiguration(before, func(current domain.Config) domain.Config {
 		stored = current
-		working, choices := s.follow(current, false, waits)
+		working, choices := s.Working(current)
 		followed = choices
 		return working
 	})
@@ -177,13 +118,11 @@ func (s Synchronizer) preimage(snapshot store.Snapshot, before domain.Config) (s
 }
 
 // transition is one configuration transition as a commit, or the preview of
-// one, settles it against what is stored: the configuration that the
-// clients' files show before it, the configuration that it saves, the clients
-// whose files it reconciles, the choices that the command's configuration
-// follows, whether what is stored and the clients' files still give that
-// configuration, and whether the stored configuration changes.
+// one, settles it against what is stored: the configuration that it saves,
+// the clients that it reconciles, the choices that the command's
+// configuration follows, whether what is stored and the clients' files still
+// give that configuration, and whether the stored configuration changes.
 type transition struct {
-	shown     domain.Config
 	after     domain.Config
 	clients   []string
 	reconcile bool
@@ -196,12 +135,12 @@ type transition struct {
 // transition whose preimage no longer matches is returned as the command
 // gave it: a commit refuses it, and a preview plans it as it stands.
 func (s Synchronizer) settle(snapshot store.Snapshot, before, after domain.Config, reconcile bool, clientIDs []string) (transition, error) {
-	settled := transition{shown: before, after: after, clients: clientIDs, reconcile: reconcile, saves: !reflect.DeepEqual(before, after)}
+	settled := transition{after: after, clients: clientIDs, reconcile: reconcile, saves: !reflect.DeepEqual(before, after)}
 	stored, followed, matched, err := s.preimage(snapshot, before)
 	if err != nil || !matched {
 		return settled, err
 	}
-	settled.followed, settled.matched, settled.shown = followed, true, shownBy(before, followed)
+	settled.followed, settled.matched = followed, true
 	if settled.after, settled.clients, settled.reconcile, err = s.recorded(before, after, stored, followed, reconcile, clientIDs); err != nil {
 		return settled, err
 	}
@@ -210,38 +149,20 @@ func (s Synchronizer) settle(snapshot store.Snapshot, before, after domain.Confi
 	return settled, err
 }
 
-// shownBy returns the configuration that the clients' files show: before, in
-// which a choice that waits for its Token is not followed, with each such
-// choice followed. The clients' adapters plan a transition from it, so that
-// the file of a client that waits reads as holding its own choice and not an
-// edit made outside AIGW.
-func shownBy(before domain.Config, followed []Followed) domain.Config {
-	shown := before.Clone()
-	for _, choice := range followed {
-		if client := choice.Now.Client; choice.Waiting && before.Clients[client].Enabled {
-			shown.Clients[client] = choice.binding
-		}
-	}
-	return shown
-}
-
 // recorded settles what a transition from before to after does with the
-// choices that before follows or waits to record, and returns the
-// configuration that it saves and the clients whose files it reconciles.
+// choices that before follows, and returns the configuration that it saves
+// and the clients that it reconciles.
 //
-// A choice is saved only in the transition that also writes AIGW's record of
-// the client's file: a record that stayed behind would read the client's
-// next choice of the earlier model as no choice at all, and the next
-// synchronization would write the saved one over it. So a client that the
-// command changes, or whose files can be planned, joins the reconciled
-// clients; one that the command does not touch and whose files cannot be
-// planned, because a file of it is refused, is saved as stored. A client
-// whose choice waits for its Token is not followed in before, so what the
-// command saves for it is the command's own change of its stored selection;
-// its files are not written, so the choice stays in them for the next
-// command, unless the command selects a model for that client itself or
-// withdraws the client. Such a transition is refused when it would leave the
-// chosen model unserved, and it never saves the choice without the record.
+// A choice is saved only in the transition that also brings AIGW's record of
+// the client's file to it: a record that stayed behind would read the
+// client's next choice of the earlier model as no choice at all, and the
+// next synchronization would write the saved one over it. So a client that
+// the command changes, or that can be planned, joins the reconciled clients.
+// Its files are written when the provider of the selection that the
+// transition saves for it has a Token that AIGW can use, and AIGW's record of
+// them alone otherwise, which needs none. One that the command does not
+// touch and that cannot be planned, because a file of it is refused, is
+// saved as stored, and its choice stays in its file.
 func (s Synchronizer) recorded(before, after, stored domain.Config, followed []Followed, reconcile bool, clientIDs []string) (domain.Config, []string, bool, error) {
 	if len(followed) == 0 {
 		return after, clientIDs, reconcile, nil
@@ -253,31 +174,9 @@ func (s Synchronizer) recorded(before, after, stored domain.Config, followed []F
 	settled := after.Clone()
 	for _, choice := range followed {
 		client := choice.Now.Client
-		withdrawn := !settled.Clients[client].Enabled
 		switch {
-		case withdrawn:
-			// A withdrawal removes AIGW's part of the client's file whatever
-			// the file selects; it needs no Token.
-			if !slices.Contains(named, client) {
-				named = append(named, client)
-			}
-		case choice.Waiting && client == s.AuthorizedSelectionClient:
-		case choice.Waiting:
-			// The client runs on the chosen model, which the working
-			// configuration does not hold, so no command's own guard sees it:
-			// the transition keeps the model, its protocol and its endpoint.
-			if err := servesChoice(settled, choice); err != nil {
-				return domain.Config{}, nil, false, &PreflightError{Err: err}
-			}
-			// The files are not written, so the choice is not saved either:
-			// a selection that the transition would set to the chosen model,
-			// as a restored configuration can, stays as stored.
-			if binding := settled.Clients[client]; binding.Model == choice.Now.Model && binding.Protocol == choice.binding.Protocol {
-				settled.Clients[client] = stored.Clients[client]
-			}
-			named = slices.DeleteFunc(named, func(id string) bool { return id == client })
 		case slices.Contains(named, client):
-		case !reflect.DeepEqual(before.Clients[client], settled.Clients[client]) || s.plans(before, settled, client):
+		case !reflect.DeepEqual(before.Clients[client], settled.Clients[client]) || s.plans(before, settled, client, followed):
 			named = append(named, client)
 		default:
 			settled.Clients[client] = stored.Clients[client]
@@ -291,27 +190,11 @@ func (s Synchronizer) recorded(before, after, stored domain.Config, followed []F
 	return settled, s.inAdmissionOrder(named), len(named) > 0, nil
 }
 
-// servesChoice refuses a configuration that no longer serves the model that a
-// client's own file selects while the choice waits for its Token: a removed
-// model or provider, or a protocol or endpoint that the choice runs on. The
-// fix selects a model for the client, which replaces the choice.
-func servesChoice(cfg domain.Config, choice Followed) error {
-	client := choice.Now.Client
-	candidate := cfg.Clone()
-	candidate.Clients[client] = choice.binding
-	if _, err := candidate.ResolveRuntime(client, domain.ModelRef{}); err == nil {
-		return nil
-	}
-	return adapter.NewConflictError(
-		fmt.Sprintf("%[1]s uses %[2]s, chosen in %[1]s, and this change would take that model away from it", choice.Now.Product, choice.Now.Model),
-		adapter.Rerun("aigw use "+client+" <provider/model>"), nil)
-}
-
-// plans reports whether the named client's files can be written for the
-// transition: it has the Token that it needs, and its plan is not refused.
-func (s Synchronizer) plans(before, after domain.Config, client string) bool {
-	projection, err := planned(s, before, after, true, []string{client})
-	return err == nil && slices.Contains(projection.Clients, client)
+// plans reports whether the named client can be planned for the transition:
+// its files, or AIGW's record of them alone, and the plan is not refused.
+func (s Synchronizer) plans(before, after domain.Config, client string, followed []Followed) bool {
+	projection, err := planned(s, before, after, true, []string{client}, followed)
+	return err == nil && slices.Contains(s.reconciled(projection), client)
 }
 
 // inAdmissionOrder returns the named clients in admission order.
@@ -328,15 +211,30 @@ func (s Synchronizer) inAdmissionOrder(named []string) []string {
 	return ordered
 }
 
-// keeps returns the followed choices that a transition to after keeps as the
-// clients' selections: not the client that the transition selects for, and
-// not a client whose selection it replaces. A choice whose earlier model
-// after no longer holds has no step that returns to it.
-func (s Synchronizer) keeps(followed []Followed, after domain.Config) []Followed {
+// SameSelection reports whether left and right select the same model on the
+// same protocol for client, as each configuration resolves it: a selection
+// that names no protocol is the one that its model resolves to, so a stored
+// selection without a protocol equals a followed one that names it. Two
+// configurations in which the client selects nothing select the same.
+func SameSelection(left, right domain.Config, client string) bool {
+	was, wasErr := left.ResolveRuntime(client, domain.ModelRef{})
+	is, isErr := right.ResolveRuntime(client, domain.ModelRef{})
+	if wasErr != nil || isErr != nil {
+		return wasErr != nil && isErr != nil && left.Clients[client].Model == right.Clients[client].Model
+	}
+	return was.Model == is.Model && was.Protocol == is.Protocol
+}
+
+// keeps returns the choices that before follows and that a transition to
+// after keeps as the clients' selections: not the client that the transition
+// selects for, and not a client whose selection it replaces or that it
+// withdraws. A choice whose earlier model after no longer holds has no step
+// that returns to it.
+func (s Synchronizer) keeps(followed []Followed, before, after domain.Config) []Followed {
 	var kept []Followed
 	for _, choice := range followed {
-		binding := after.Clients[choice.Now.Client]
-		if choice.Waiting || choice.Now.Client == s.AuthorizedSelectionClient || !binding.Enabled || binding.Model != choice.Now.Model || binding.Protocol != choice.binding.Protocol {
+		client := choice.Now.Client
+		if client == s.AuthorizedSelectionClient || !after.Clients[client].Enabled || !SameSelection(before, after, client) {
 			continue
 		}
 		if _, held := after.Models[choice.Earlier.Model]; !held {

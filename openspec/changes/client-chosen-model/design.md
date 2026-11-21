@@ -45,7 +45,8 @@ version recorded a choice with AIGW's record of the client's file, and a third r
 check that runs the client, and the verified snapshot that it writes, still compared against the stored
 configuration and the strict projection; a failed command named a followed selection that it had not saved; and a
 choice was still saved without its record while its provider had no Token, so that a person who then chose the
-earlier model again lost that choice once the Token was stored. The decisions below are the fourth version.
+earlier model again lost that choice once the Token was stored. The decisions below are the fourth version, and its
+failure state was removed, not handled further, by the eighth (see "A choice is recorded with or without its Token").
 
 Measured on 2026-11-20 with the installed 0.8.3 in an isolated home, the clients' writes imitated by changing the one
 value in each file: the behaviors that the proposal lists. Not measured: what a real Codex or Hermes writes when a
@@ -119,55 +120,40 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
   followed client's files in the transaction, and save nothing of a choice whose files it does not write.
 - **Chosen because:** the transaction already writes client files with their records and undoes them together, so
   the record needs no second writer, and observation stays read-only. A choice that is not saved loses nothing: it
-  stays in the client's file, every command still works from it, and the next transaction that can write the file
-  records it. A refusal would stop a command about something else for a file that it does not name.
+  stays in the client's file, every command still works from it, and the next transaction that can plan the file
+  records it, by writing the file or, while the provider of its selection has no Token, by the record alone (see "A
+  choice is recorded with or without its Token, by a record-only write"). A refusal would stop a command about
+  something else for a file that it does not name.
 - **Applies to:** `recorded` in `internal/app/synchronization`, which `commit` and the previews share. A client
   whose choice the command does not touch joins the reconciled clients when its files can be planned; the result
-  then names its files. Where one of its files is refused, what is saved holds that client as stored.
+  then names its files. Where one of its files cannot be planned, what is saved holds that client as stored.
 
-### A choice that waits for its Token is reported and not worked from
+### A choice is recorded with or without its Token, by a record-only write
 
-- **Rests on:** the fourth and fifth reviews' runs. While Hermes's chosen model waited for its Token, the command
-  `aigw client edit hermes --via <address>` saved the choice without its record; the fix that put the stored
-  selection back after the command then dropped `--direct`, which the follow had already cleared, and saved a
-  forwarding to an upstream that the client no longer used. A test edits a waiting Hermes with `--direct` and
-  `--via`, then stores the Token and synchronizes.
-- **Considered:** repair what the command saved, field by field, after it ran; refuse an edit of a waiting client;
-  work from the stored selection for a client whose chosen model waits for its Token.
-- **Chosen because:** a command's intent is whole only in the configuration that it starts from, so the repair
-  after it cannot tell an explicit `--direct` from a forwarding that the choice ended. Working from the stored
-  selection gives every command the configuration that it saves, and the choice loses nothing: it stays in the
-  client's file, and the first command after the Token is stored records it. A refusal would break the owner's rule
-  that no command fails because of a model chosen in a client.
-- **Applies to:** `Synchronizer.Working`, which leaves such a choice out and marks it as waiting, and
-  `Synchronizer.Reported`, which `status` and `check` read, so that they name the model that the client uses. The
-  preimage keeps the waiting state that the command read, so a command that stores the Token itself, such as
-  `aigw use --token-stdin`, compares like with like. Once the Token is stored, the recorded choice ends a forwarding
-  that reaches another upstream, as any choice does, and the result says so.
-
-### A waiting client has one answer per question, read from one place
-
-- **Rests on:** the sixth review's four runs against a Hermes whose chosen model waited for its Token:
-  `aigw client list` named the stored selection while `aigw status` named the file's model; `aigw model remove`
-  removed the model that the file selects, and the next synchronization failed on the file; `aigw client disable`
-  left AIGW's entries and record in the file; a rollback saved the chosen model without its record and named it
-  followed. Each is a cell of one table, the lane's state table, and five tests now hold its row "chosen, waiting".
-- **Considered:** repair each of the four commands where the review found it, with a guard in `model remove` and
-  another in `provider remove`; make the working configuration follow a waiting choice after all; answer each
-  question once, where every command already passes.
-- **Chosen because:** six versions each repaired the path that a review named, and the next review found the same
-  state on another path. The state has three questions, and each now has one owner. Which model does the client
-  use: the reported configuration, read by every command that saves nothing. What may not be taken away: the
-  transaction refuses a transition that leaves a waiting choice without its model, protocol or endpoint, so a
-  removal, an edit of the model's protocols, a pruning team file and a rollback meet one guard, where a guard per
-  command would have left the next command out. What do the client's files show: the transition's `shown`
-  configuration, the working one with each waiting choice followed, from which the adapters plan and write.
-  Following a waiting choice in the working configuration would bring back the fifth review's finding.
-- **Applies to:** `Dependencies.LoadReportedConfiguration` in `client list`, `model list`, `model show`,
-  `provider list` and `provider show`, which name no followed selection; `servesChoice`, `shownBy` and `recorded`
-  in the synchronizer, where a withdrawal names a waiting client for its adapter and any other transition keeps it
-  out and puts its stored selection back when the transition would save the choice; `keeps`, which reports no
-  waiting choice as recorded.
+- **Rests on:** the seventh review's eight runs (F1–F8), seven of them in the row "chosen" of the state table where the
+  chosen model's provider has no Token that AIGW can use, and the measurements this redesign made: a Hermes whose
+  choice's provider has no Token, a saving command: the stored selection and the record move to the choice and
+  Hermes's file keeps its bytes, then `sync` after the Token writes it; Codex with two files of which one chose: the
+  record of that file moves and its file keeps its identity, the other file's record waits for the projection that
+  writes it; a failure after the record moves it back; a rollback to an unpinned selection that resolves to the
+  chosen model records it; `aigw client edit hermes --target` of a client whose provider has no Token is refused.
+- **Considered:** handle the waiting state on more paths, as versions four to seven did, with a reported
+  configuration, a guard on the transition and a `shown` configuration per question; refuse to record a choice whose
+  provider has no Token.
+- **Chosen because:** rounds five, six and seven each handled the state on more code paths and each review found it
+  on another, because the state exists for one reason: a choice was recorded only by writing the client's file, and
+  a client's file is not written without its Token. Recording needs no client file — the file already shows the model,
+  and only AIGW's record of it and the stored selection have to move — so the state is removed instead of handled: one
+  configuration for every command, the working one, and a client without a Token is simply a client whose selection's
+  provider has no Token.
+- **Applies to:** `SelectionRecorder`, `PlanRecord` and `ApplyRecord` in `internal/adapter`, dispatched by
+  `Registry.Plan` and `Registry.Apply` for the clients in `Dependencies.RecordOnly`; `hermes.PrepareRecord` and
+  `codex.prepareCodexRecords`, which write the record alone, guarded by the snapshot that they read, with a receipt
+  that restores it; `recordedAlone`, `projectionDependencies` and `SameSelection` in `internal/app/synchronization`,
+  which send a client whose selection's provider has no Token to the record-only write and compare selections as
+  resolved runtimes, never by a binding's raw protocol; and `aigw config rollback`, whose `selections` names only a
+  stored selection that it changes to another model than the file shows, and which records the choice where the
+  restored configuration selects it.
 
 ### An adapter admits a file that shows the selection the transition starts from
 
@@ -250,9 +236,11 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
   for one model; what would be wrong is doing it silently. The owner's rule of 2026-11-20 names `aigw use` alone as
   the command that changes a client's model, so the reading was put to the owner, who confirmed it on 2026-11-20.
 - **Applies to:** `selections` in the rollback's document and the section "Selections" of its human output, in the
-  preview and in the result; no followed selection is named for a client whose selection the rollback replaces. A
-  client whose file the rollback does not write, because it waits for its Token, keeps a model chosen in it; for
-  that client the rollback names only a change of the stored selection.
+  preview and in the result: each stored selection that the rollback changes to another model than the client's file
+  shows, by resolved runtime, so that a restored selection without a protocol that resolves to the file's model is
+  the choice and is recorded and named as followed, not restored. A rollback of a client whose selection's provider
+  has no Token saves the restored selection as pending and brings the record to what the file shows, so that a later
+  pick, the model that the record named before included, is a choice.
 
 ### One record of what an invocation followed, reported ahead of the next step
 
@@ -269,8 +257,8 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
   recorded: not the client that an explicit selection names, not a client whose selection the transition replaces,
   not a choice that it left in the file, and no returning command for a model that the transition removed.
 - **Applies to:** `synchronization.Follows` holds what the load observed and what the last transition, or its
-  preview, recorded. `invocation.FollowedReport` decides what the invocation names: a command that reads the
-  configuration to report it (`ReportedConfiguration`: status, check, bare `aigw`) names every observed choice,
+  preview, recorded. `invocation.FollowedReport` decides what the invocation names: a command that reports what it
+  reads (`ReportedConfiguration`: status, check, bare `aigw`) names every observed choice,
   also when it fails; any other command names what its transition recorded, and nothing when it failed. The
   renderer writes the section ahead of "Next", as a sentence and the returning command on a line of its own;
   `terminal.WriteDocument` adds `followed_selections`, whose entries carry `client`, `model`, `earlier`, the two
@@ -292,10 +280,9 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
 
 - A stale write of a running client is followed as a choice. The followed model, the earlier one and the returning
   command are printed, and the next Change words what a running client needs.
-- While a client's chosen model waits for its Token, a command that changes the client's settings changes them on
-  the stored selection, so a forwarding set then reaches the stored model's upstream, and the choice, recorded once
-  the Token is stored, ends it if its upstream differs. The edit's result names the stored model, and the recording
-  names the forwarding that ended.
+- A command that changes the settings of a client whose selection's provider has no Token saves them on that
+  selection, and the client's file waits for the Token: a forwarding set then reaches the chosen model's upstream,
+  which the next synchronization writes.
 - A command about something else now writes the file of a client whose choice it records: for Codex it puts AIGW's
   comment back on the model line and the chosen model's label into the provider's name. The result names the
   client's files.
@@ -306,8 +293,9 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
   model's provider has no Token, `aigw use` asks for one in a terminal and refuses elsewhere, naming the Token.
 - Beside an outside edit, a model that was not added costs two recoveries in turn: the edit first, then the
   restoring step.
-- A model of a provider whose Token is gone, chosen in the client, is shown by `aigw status` as that client's
-  selection, waiting for the Token, and is not saved; a saving command leaves the stored selection as it is.
+- A model of a provider whose Token is gone, chosen in the client, is `aigw status`'s and every saving command's
+  selection, waiting for the Token; the choice is recorded with the record of the file, and the file is written once
+  the Token is stored.
 - Every command now reads each enabled client's files and AIGW's records of them before it runs. A file that cannot
   be read leaves its client as stored.
 - The clients' writes are imitated in every test of this Change; the next Change's measurement with the real

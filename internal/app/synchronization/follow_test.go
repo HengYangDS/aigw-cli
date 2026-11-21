@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -122,50 +121,6 @@ func TestATransitionRecordsAChoiceWithTheFilesRecord(t *testing.T) {
 	}
 	if data, err := os.ReadFile(target); err != nil || !strings.Contains(string(data), `model = "gpt-other" # managed by AIGW`) {
 		t.Fatalf("the file does not carry AIGW's record of the choice: %v\n%s", err, data)
-	}
-}
-
-// A transition keeps what a choice that waits for its Token runs on: its
-// model, the protocol and the endpoint. Each loss is refused with the client
-// and the model named and the step that replaces the choice, whatever command
-// would cause it, and a withdrawal of the client is not refused.
-func TestATransitionKeepsWhatAWaitingChoiceRunsOn(t *testing.T) {
-	syncer, cfg, target := projectedCodex(t)
-	chooseOther(t, target)
-	waits := func(domain.Config, string) bool { return true }
-	working, followed := syncer.follow(cfg, false, waits)
-	if len(followed) != 1 || !followed[0].Waiting || working.Clients[codex.ID].Model != cfg.Clients[codex.ID].Model {
-		t.Fatalf("a choice that waits: followed %+v, working selection %s", followed, working.Clients[codex.ID].Model)
-	}
-	choice, chosen := followed[0], domain.NewModelRef("gateway", "gpt-other")
-	if err := servesChoice(working, choice); err != nil {
-		t.Fatalf("an unchanged configuration: %v", err)
-	}
-	for name, lose := range map[string]func(*domain.Config){
-		"the model": func(after *domain.Config) { delete(after.Models, chosen) },
-		"its protocol": func(after *domain.Config) {
-			model := after.Models[chosen]
-			model.Protocols = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}
-			after.Models[chosen] = model
-		},
-	} {
-		after := working.Clone()
-		lose(&after)
-		_, _, _, err := syncer.recorded(working, after, cfg, followed, false, nil)
-		refusal, refused := errors.AsType[*PreflightError](err)
-		if !refused || !strings.Contains(refusal.Error(), "Codex uses gateway/gpt-other, chosen in Codex") {
-			t.Fatalf("a transition that takes %s away = %v", name, err)
-		}
-		conflict, carried := errors.AsType[*adapter.ConflictError](err)
-		if !carried || conflict.NextAction() != "aigw use codex <provider/model>" {
-			t.Fatalf("the refusal of losing %s carries %v", name, err)
-		}
-	}
-	withdrawn := working.Clone()
-	withdrawn.SetClientActivation(codex.ID, false, "", nil)
-	delete(withdrawn.Models, chosen)
-	if _, named, reconcile, err := syncer.recorded(working, withdrawn, cfg, followed, false, nil); err != nil || !reconcile || len(named) != 1 || named[0] != codex.ID {
-		t.Fatalf("a withdrawal = %v, %t, %v; want Codex's files reconciled", named, reconcile, err)
 	}
 }
 

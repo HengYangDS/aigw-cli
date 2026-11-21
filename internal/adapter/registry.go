@@ -38,6 +38,9 @@ type Dependencies struct {
 	Host                      discovery.Host
 	AIGWExecutable            string
 	AuthorizedSelectionClient string
+	// RecordOnly names the clients of which Plan and Apply write AIGW's
+	// record alone, through their SelectionRecorder.
+	RecordOnly []string
 }
 
 // ProjectionPlan is a side-effect-free description of one owned projection
@@ -229,7 +232,7 @@ func (registry Registry) Plan(deps Dependencies, before, after domain.Config, cl
 	}
 	plans := make([]ProjectionPlan, 0)
 	for _, adapter := range adapters {
-		adapterPlans, err := adapter.Plan(deps, before, after)
+		adapterPlans, err := planClient(deps, adapter, before, after)
 		if err != nil {
 			return nil, namedTarget(adapter.Spec(), deps.Host.Home, unfollowed(deps, before, adapter, err))
 		}
@@ -282,7 +285,7 @@ func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, a
 			return nil, false, err
 		}
 		failing = ClientLabel(adapter.Spec().Label)
-		receipt, err := adapter.Apply(ctx, deps, before, after)
+		receipt, err := applyClient(ctx, deps, adapter, before, after)
 		if err != nil {
 			return nil, false, err
 		}

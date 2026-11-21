@@ -64,10 +64,9 @@ type Dependencies struct {
 	Follows *synchronization.Follows
 }
 
-// LoadConfiguration reads the configuration that every saving command works
-// from: the stored one with the model that each enabled client chose in its
-// own file recorded as that client's selection, unless the chosen model's
-// provider has no Token that AIGW can use. The invocation's record keeps
+// LoadConfiguration reads the configuration that every command works from:
+// the stored one with the model that each enabled client chose in its own
+// file recorded as that client's selection. The invocation's record keeps
 // those choices, which the stored configuration does not hold yet.
 func (d Dependencies) LoadConfiguration() (domain.Config, error) {
 	stored, err := d.Config.Load()
@@ -79,27 +78,13 @@ func (d Dependencies) LoadConfiguration() (domain.Config, error) {
 	return working, nil
 }
 
-// LoadReportedConfiguration reads the configuration that a report, such as
-// status or a check, describes: as LoadConfiguration, with a choice that
-// waits for its Token recorded too, so that the report names it as the
-// client's model.
-func (d Dependencies) LoadReportedConfiguration() (domain.Config, error) {
-	stored, err := d.Config.Load()
-	if err != nil {
-		return domain.Config{}, err
-	}
-	reported, followed := d.Synchronizer().Reported(stored)
-	d.Follows.Observe(followed)
-	return reported, nil
-}
-
 // SaveVerifiedSnapshot records a completed check of cfg, the configuration
 // that the check read, while the stored configuration and the clients' own
 // files still give it.
 func (d Dependencies) SaveVerifiedSnapshot(ctx context.Context, cfg domain.Config, clients []store.VerifiedClient) error {
 	return d.Config.SaveVerifiedCheckpoint(ctx, cfg, clients, func(stored domain.Config) domain.Config {
-		reported, _ := d.Synchronizer().Reported(stored)
-		return reported
+		working, _ := d.Synchronizer().Working(stored)
+		return working
 	})
 }
 

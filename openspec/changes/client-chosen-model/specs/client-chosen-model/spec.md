@@ -41,6 +41,16 @@ change of selection.
   the client among those whose files it wrote
 - **AND** the earlier model, selected in the client again afterwards, SHALL be followed as any other choice.
 
+#### Scenario: The chosen model's provider waits for a Token
+
+- **WHEN** the provider of the chosen model has no Token that AIGW can use and a command saves the configuration
+- **THEN** it SHALL record the choice as that client's selection, and bring AIGW's record of the client's file to
+  it without writing the file, the catalog or a credential reader
+- **AND** `aigw status` and every list and view SHALL name the chosen model for that client, and the client as
+  waiting for the Token of its selection's provider
+- **AND** the synchronization after the Token is stored SHALL write the file, with the selection that the record
+  names.
+
 #### Scenario: Codex has several files
 
 - **WHEN** one or more of Codex's files name the same other added model and the others show the recorded one
@@ -57,30 +67,32 @@ change of selection.
 - **AND** `aigw status` SHALL name the chosen model for that client, as waiting for the Token
 - **AND** the first command that saves after the Token is stored SHALL record the model that the file selects then.
 
-#### Scenario: Every list and view names the model that a waiting client uses
+#### Scenario: Every list and view names the model that the client uses
 
 - **GIVEN** a client whose file selects a model whose provider has no Token that AIGW can use
 - **WHEN** `aigw client list`, `aigw model list`, `aigw model show`, `aigw provider list` or `aigw provider show` runs
 - **THEN** it SHALL name the chosen model as that client's, as `aigw status` does, and not the stored selection
 - **AND** it SHALL save nothing and write no client file.
 
-#### Scenario: A model of a client that waits for a Token is not taken away
+#### Scenario: The removal guards see the chosen model as the selection
 
-- **GIVEN** a client whose file selects a model whose provider has no Token that AIGW can use
 - **WHEN** a command would remove the chosen model, its provider, or the protocol or endpoint that the choice runs
-  on, or would remove the stored selection or its provider, with or without `--dry-run`
+  on, with or without `--dry-run`
 - **THEN** it SHALL be refused with the client and the model named and a step that selects a model for the client
 - **AND** configuration and client files SHALL remain unchanged
+- **AND** removing the model that the stored selection named before SHALL record the choice in the same transaction,
+  name no step back to a model that is gone, and leave the client's file as it is while its Token is missing
 - **AND** a withdrawal of that client and an explicit selection for it SHALL NOT be refused for the choice.
 
-#### Scenario: A command changes the settings of a client that waits for a Token
+#### Scenario: A command changes the settings of a client whose provider has no Token
 
 - **GIVEN** the operator selected in Hermes a model whose provider has no Token that AIGW can use
-- **WHEN** a command changes another setting of that client, such as `aigw client edit hermes --direct` or `--via`
-- **THEN** the command SHALL save its change on the stored selection and name that selection in its result
-- **AND** it SHALL leave the client's file as it is
-- **AND** the first command that saves after the Token is stored SHALL record the choice and name a forwarding that
-  the choice's upstream ends.
+- **WHEN** a command changes another setting of that client, such as `aigw client edit hermes --via` or `--target`
+- **THEN** a change of its configuration files SHALL be refused, naming the provider without a Token, as for any
+  client whose selection's provider has no Token
+- **AND** any other change SHALL be saved on the chosen model, which the command's result names, and the client's
+  file SHALL be left as it is
+- **AND** the synchronization after the Token is stored SHALL write the file with what the edit saved.
 
 #### Scenario: Another file of the client cannot be written
 
@@ -258,11 +270,11 @@ changed.
 
 ### Requirement: A rollback names the selections that it restores
 
-`aigw config rollback` SHALL restore each client's selection as the restored configuration holds it, a model chosen
-in the client since then included where it writes that client's file, and SHALL name each one with the model that it
-replaces: `selections` in JSON, with `client`, `model` and `replaces`, and a section in human output, in its preview
-and in its result, and no followed selection for that client. A rollback that is refused before it writes SHALL pass
-on the refusal's Fix.
+`aigw config rollback` SHALL restore each client's selection as the restored configuration holds it, and SHALL name
+with the model that it replaces each stored selection that it changes to another model than the client's file
+shows, as `selections` in JSON and a section in human output, in its preview and result. A restored selection of the
+model that the client's file shows SHALL be a followed selection. A rollback refused before it writes SHALL pass on
+the refusal's Fix.
 
 #### Scenario: A rollback over a model chosen in Codex
 
@@ -271,13 +283,23 @@ on the refusal's Fix.
 - **THEN** it SHALL name Codex, the selection that it restores and the chosen model that this replaces
 - **AND** the run SHALL write the restored selection to Codex's file, and the preview SHALL write nothing.
 
-#### Scenario: A rollback does not write a client that waits for its Token
+#### Scenario: A rollback meets the model that the client's file shows
 
-- **WHEN** a client whose file selects a model of its own waits for a Token and a rollback runs
+- **GIVEN** a client's file selects a model whose provider has no Token that AIGW can use
+- **WHEN** a rollback runs and the restored configuration selects that model for the client
+- **THEN** it SHALL record the choice, bring AIGW's record of the file to it without writing the file, and name it
+  as a followed selection, not among `selections`
+- **AND** the model that the record named before, selected in the client again, SHALL be a choice that a later
+  synchronization keeps.
+
+#### Scenario: A rollback restores another model while the client waits for a Token
+
+- **GIVEN** a client's file selects a model of its own and the client waits for the Token of its selection's provider
+- **WHEN** a rollback restores another model for it
 - **THEN** the model chosen in the client SHALL stay in its file
-- **AND** the rollback SHALL name for that client only a stored selection that it changes
-- **AND** it SHALL NOT save the chosen model as that client's selection or name it as followed, also when the
-  restored configuration holds that model for the client.
+- **AND** the rollback SHALL save the restored selection as that client's, waiting for its Token, name it with the
+  chosen model that it replaces, and bring AIGW's record of the file to what the file shows
+- **AND** the synchronization after the Token is stored SHALL write the restored selection.
 
 #### Scenario: A rollback restores a client without a selection
 

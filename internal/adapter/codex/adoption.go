@@ -117,36 +117,51 @@ func awaitsRecord(cfg domain.Config, selected domain.Runtime, target string) boo
 // observeSelection reads how the target at path stands against AIGW's record
 // of it.
 func observeSelection(path string) (observation, error) {
+	file, _, err := readSelection(path)
+	return file, err
+}
+
+// selectionRecord is AIGW's record of a target as one observation read it,
+// and where it is kept.
+type selectionRecord struct {
+	path string
+	file platform.FileSnapshot
+}
+
+// readSelection observes the target at path as observeSelection does and
+// returns the record that it read, for a write of the record alone.
+func readSelection(path string) (observation, selectionRecord, error) {
 	config, err := adapter.CaptureTarget(path, true)
 	if err != nil || !config.Exists {
-		return observation{}, err
+		return observation{}, selectionRecord{}, err
 	}
-	stateSnapshot, err := adapter.CaptureTarget(codexRecordPath(path), true)
-	if err != nil || !stateSnapshot.Exists {
-		return observation{}, err
+	record := selectionRecord{path: codexRecordPath(path)}
+	record.file, err = adapter.CaptureTarget(record.path, true)
+	if err != nil || !record.file.Exists {
+		return observation{}, selectionRecord{}, err
 	}
 	canonical, err := canonicalCodexTargetPath(path)
 	if err != nil {
-		return observation{}, nil
+		return observation{}, selectionRecord{}, nil
 	}
 	catalog, err := platform.CaptureFileSnapshot(codexCatalogPath(canonical))
 	if err != nil {
-		return observation{}, err
+		return observation{}, selectionRecord{}, err
 	}
-	state, err := codexStateForTarget(stateSnapshot)
+	state, err := codexStateForTarget(record.file)
 	if err != nil || state.ProjectedModel == "" {
-		return observation{}, nil
+		return observation{}, selectionRecord{}, nil
 	}
 	text := string(config.Data)
 	if !ownedSelectionIntact(path, text, state, catalog) {
-		return observation{recorded: state.ProjectedModel, state: selectionDrifted}, nil
+		return observation{recorded: state.ProjectedModel, state: selectionDrifted}, record, nil
 	}
 	modelLine, err := codexSelectionLine(text, "model")
 	model := selectionStringValue(modelLine)
 	if err != nil || model == "" || selectionHasValue(modelLine, "model", state.ProjectedModel) {
-		return observation{recorded: state.ProjectedModel}, nil
+		return observation{recorded: state.ProjectedModel}, record, nil
 	}
-	return observation{model: model, recorded: state.ProjectedModel, state: selectionChosen}, nil
+	return observation{model: model, recorded: state.ProjectedModel, state: selectionChosen}, record, nil
 }
 
 // ownedSelectionIntact reports whether the provider selection, provider table,

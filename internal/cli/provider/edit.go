@@ -104,7 +104,7 @@ func requireBalanceInput(cmd *cobra.Command, runtime invocation.Context, options
 }
 
 func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, options editOptions) error {
-	cfg, provider, err := loadProvider(runtime.LoadConfiguration, args[0])
+	cfg, provider, err := loadProvider(runtime, args[0])
 	if err != nil {
 		return err
 	}

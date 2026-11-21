@@ -18,9 +18,10 @@ signing, and GA status remain separate evidence.
   it; a command that saves the configuration records it, together with AIGW's
   record of the client's file, and keeps its own change; and
   `aigw client disable` and `aigw self uninstall` withdraw after such a
-  choice. Where a command does not write that client's file, as for a client
-  that waits for its Token, the choice stays in the client's file and is not
-  saved. `aigw status` and `aigw check` report the chosen model as
+  choice. When the chosen model's provider has no Token that AIGW can use,
+  the choice is recorded all the same: AIGW moves its record of the client's
+  file to it and leaves the file until the Token is stored. `aigw status` and
+  `aigw check` report the chosen model as
   configured, where they reported drift. A command that records a choice, its
   preview, `aigw status`, `aigw check` and bare `aigw` name what they follow:
   a section "Followed selection" ahead of the next step in text and

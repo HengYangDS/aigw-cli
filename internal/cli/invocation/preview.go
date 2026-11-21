@@ -36,6 +36,15 @@ type Preview struct {
 // names, for a command that renders its preview itself.
 func (preview Preview) Plans() []adapter.ProjectionPlan { return preview.plans }
 
+// Projects reports whether the preview plans the files of client. A plan that
+// brings only AIGW's record of a file to the model that the file selects
+// plans none of them: the client's files wait, as for a Token.
+func (preview Preview) Projects(client string) bool {
+	return slices.ContainsFunc(preview.plans, func(plan adapter.ProjectionPlan) bool {
+		return plan.Client == client && !plan.RecordOnly()
+	})
+}
+
 // Home is the home directory from which documents name client files: the
 // observed host's, from which the client adapters locate them, else the
 // environment's.

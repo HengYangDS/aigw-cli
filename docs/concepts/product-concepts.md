@@ -124,8 +124,9 @@ A model chosen in Hermes or Codex is that client's selection for every
 command, when it is an added model within the client's reach and nothing else
 that AIGW owns in that client changed. Commands work from it; a command that
 saves the configuration records it together with AIGW's record of the client's
-file, or leaves it in that file where it does not write it, as for a client
-that waits for its Token; and commands and reports name what they follow, with
+file, and where the client's files cannot be written for lack of a Token, it
+brings AIGW's record of the file to the choice and leaves the file until the
+Token is stored; and commands and reports name what they follow, with
 the earlier selection and the command that returns to it. A model that AIGW has not added
 is not followed and not overwritten: the command names the `aigw use` that
 restores the recorded selection. Two commands replace a client's own choice,

@@ -10,12 +10,16 @@ import (
 	"aigw-cli/internal/secret"
 )
 
-// Projection is what a commit would project: the clients whose projections it
-// would reconcile, for which it prepares the credential reader, the client
-// files that it would change, and whether it would change the stored
-// configuration.
+// Projection is what a commit would project: the clients whose files it would
+// reconcile, for which it prepares the credential reader, the clients of
+// which it would write AIGW's record alone, the files that it would change,
+// and whether it would change the stored configuration.
 type Projection struct {
-	Clients       []string
+	Clients []string
+	// Recorded are the clients whose own choice the commit records without
+	// writing their files, because the provider of the selection that it
+	// saves for them has no Token that AIGW can use.
+	Recorded      []string
 	Targets       []adapter.ProjectionPlan
 	Configuration bool
 }
@@ -97,7 +101,7 @@ func (s Synchronizer) PreviewSelection(before, after domain.Config, client strin
 func project(planner Synchronizer, before, after domain.Config, reconcile bool, clientIDs ...string) (Projection, error) {
 	// Without a store, as in a plan that nothing saves, the transition is
 	// what the command gave.
-	settled := transition{shown: before, after: after, clients: clientIDs, reconcile: reconcile, saves: !reflect.DeepEqual(before, after)}
+	settled := transition{after: after, clients: clientIDs, reconcile: reconcile, saves: !reflect.DeepEqual(before, after)}
 	if planner.Config != nil {
 		snapshot, err := planner.Config.CaptureSnapshot()
 		if err == nil {
@@ -107,40 +111,44 @@ func project(planner Synchronizer, before, after domain.Config, reconcile bool, 
 			return Projection{}, err
 		}
 	}
-	projection, err := planned(planner, settled.shown, settled.after, settled.reconcile, settled.clients)
+	projection, err := planned(planner, before, settled.after, settled.reconcile, settled.clients, settled.followed)
 	if err != nil {
 		return Projection{}, err
 	}
 	// Only a preview that the run would not refuse says what it records.
-	planner.Follows.settle(planner.keeps(settled.followed, settled.after))
+	planner.Follows.settle(planner.keeps(settled.followed, before, settled.after))
 	projection.Configuration = settled.saves
 	return projection, nil
 }
 
-// planned plans the projections of the credential-ready clients among
-// clientIDs, or among every client when none is named, and of none unless
-// reconcile is set. It writes nothing, so a plan that is refused is a
-// PreflightError, for a command and for its preview alike.
-func planned(planner Synchronizer, before, after domain.Config, reconcile bool, clientIDs []string) (Projection, error) {
+// planned plans what a transition from before, which follows the choices in
+// followed, reconciles among clientIDs, or among every client when none is
+// named, and nothing unless reconcile is set: the projections of the
+// credential-ready clients, and AIGW's record alone of each client whose
+// choice the transition records without a Token. It writes nothing, so a plan
+// that is refused is a PreflightError, for a command and for its preview
+// alike.
+func planned(planner Synchronizer, before, after domain.Config, reconcile bool, clientIDs []string, followed []Followed) (Projection, error) {
 	if !reconcile {
 		return Projection{}, nil
 	}
-	clients, err := planner.credentialReadyClients(after, clientIDs...)
+	ready, err := planner.credentialReadyClients(after, clientIDs...)
 	if err != nil {
 		return Projection{}, &PreflightError{Err: err}
 	}
-	if len(clients) == 0 {
+	projection := Projection{Clients: ready, Recorded: recordedAlone(after, followed, clientIDs, ready)}
+	if len(projection.Clients)+len(projection.Recorded) == 0 {
 		return Projection{}, nil
 	}
-	dependencies, err := planner.clientDependencies(clients, before, after)
+	dependencies, err := planner.projectionDependencies(projection, before, after)
 	if err != nil {
 		return Projection{}, err
 	}
-	targets, err := planner.registry().Plan(dependencies, before, after, clients...)
+	projection.Targets, err = planner.registry().Plan(dependencies, before, after, planner.reconciled(projection)...)
 	if err != nil {
 		return Projection{}, &PreflightError{Err: err}
 	}
-	return Projection{Clients: clients, Targets: targets}, nil
+	return projection, nil
 }
 
 // errPresumedToken refuses a Token read or write during a preview.
