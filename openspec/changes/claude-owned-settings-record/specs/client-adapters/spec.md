@@ -61,7 +61,7 @@ withdraws.
 ### Requirement: A record that the previous release reads keeps its shape
 
 A record of a client's file that the previous published release reads strictly SHALL keep the fields and the digest
-that that release reads. AIGW SHALL record a setting that it newly owns in that file in a record of its own beside
+which that release reads. AIGW SHALL record a setting that it newly owns in that file in a record of its own beside
 the first, whose reader keeps an entry that it does not know and leaves that entry's setting as it is. Release
 acceptance SHALL roll the program back to the published predecessor with such a setting written.
 
