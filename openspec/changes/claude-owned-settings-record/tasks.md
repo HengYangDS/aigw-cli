@@ -12,15 +12,15 @@
 
 ## 2. Acceptance and documents
 
-- [ ] 2.1 Make the release journey's manifest list a provider's own ID of a Claude model, and assert the map after
+- [x] 2.1 Make the release journey's manifest list a provider's own ID of a Claude model, and assert the map after
       the update, after the rollback's synchronization, after the re-upgrade and its absence after the uninstall,
       with the new record among the files that the uninstall removes. Done when the journey passes with the
       source-built predecessor.
-- [ ] 2.2 Correct the changelog's entry for 0.9.0 and the documents that describe the map and its record. Done when
+- [x] 2.2 Correct the changelog's entry for 0.9.0 and the documents that describe the map and its record. Done when
       the changelog validation and the documentation gates pass.
 
 ## 3. Verification
 
-- [ ] 3.1 Pass `mise run check` on the lane head.
-- [ ] 3.2 Pass the proposal's hosted checks on both forges, the Windows jobs included.
+- [x] 3.1 Pass `mise run check` on the lane head.
+- [x] 3.2 Pass the proposal's hosted checks on both forges, the Windows jobs included.
 - [ ] 3.3 Pass the candidate's acceptance against the published `v0.8.3` on the lane head.
