@@ -82,7 +82,7 @@ func Pooled(measurements []Measurement) ([]Measurement, error) {
 		if exists && group.Budget != row.Budget {
 			return nil, fmt.Errorf("%s changed its measured budget", key)
 		}
-		if exists && group.Runtime != row.Runtime {
+		if exists && !group.Runtime.Equal(row.Runtime) {
 			return nil, fmt.Errorf("%s changed its resolved runtime binding", key)
 		}
 		if exists && ((group.Executable == nil) != (row.Executable == nil) ||
@@ -300,7 +300,7 @@ func (s Summary) reviewMemoryBindings(programs map[string]Program) error {
 		if row.Executable != nil && (row.Executable.SHA256 != programs[row.Variant].SHA256 || row.Executable.Bytes != programs[row.Variant].Bytes) {
 			return errors.New("peak memory differs from its released program")
 		}
-		if binding, ok := bindings[row.Variant]; ok && binding != row.Runtime {
+		if binding, ok := bindings[row.Variant]; ok && !binding.Equal(row.Runtime) {
 			return errors.New("peak-memory blocks differ from their resolved native binding")
 		}
 		bindings[row.Variant] = row.Runtime
@@ -310,7 +310,7 @@ func (s Summary) reviewMemoryBindings(programs map[string]Program) error {
 		index := slices.IndexFunc(s.Blocks, func(measurement Measurement) bool {
 			return measurement.Variant == row.Variant && measurement.Backend == "env" && measurement.Case == row.Case && measurement.Block == row.Block
 		})
-		if index < 0 || s.Blocks[index].Mode != row.Mode || s.Blocks[index].Runtime != row.Runtime {
+		if index < 0 || s.Blocks[index].Mode != row.Mode || !s.Blocks[index].Runtime.Equal(row.Runtime) {
 			return errors.New("peak memory differs from its timed status workload")
 		}
 	}

@@ -146,7 +146,7 @@ func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 	delete(after.Models, domain.NewModelRef("gateway", "grok-4.6"))
 	oldRuntime, oldErr := before.ResolveRuntime(ID, domain.ModelRef{})
 	newRuntime, newErr := after.ResolveRuntime(ID, domain.ModelRef{})
-	if oldErr != nil || newErr != nil || oldRuntime != newRuntime {
+	if oldErr != nil || newErr != nil || !oldRuntime.Equal(newRuntime) {
 		t.Fatalf("selected Hermes Route changed: before=%#v (%v), after=%#v (%v)", oldRuntime, oldErr, newRuntime, newErr)
 	}
 	if got := hermesRegistry().ChangedClients(before, after); !slices.Equal(got, []string{ID}) {

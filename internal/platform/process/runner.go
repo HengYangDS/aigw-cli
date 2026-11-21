@@ -278,7 +278,7 @@ func (Runner) RunStream(ctx context.Context, plan Plan, stdout, stderr io.Writer
 	// Native files retain immediate-exit writes. Other writers use bounded
 	// output pipes; the owned process group or job is reclaimed before return.
 	cmd.Stdout, cmd.Stderr = stdout, stderr
-	cleanup, err := startCapturedProcess(cmd)
+	cleanup, err := startCapturedProcess(cmd, plan.OnCreated)
 	if err != nil {
 		// A context that ends during the start stops the child before it runs.
 		return fmt.Errorf("start %s: %w", plan.Executable, errors.Join(err, ctx.Err()))

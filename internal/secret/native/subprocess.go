@@ -144,9 +144,24 @@ func execute(parent context.Context, runner process.CaptureRunner, plan process.
 	if len(plan.Stdin) > maxStoredValue {
 		return "", ErrUnavailable
 	}
+	// The clock starts before the deadline is set, so the limit is never
+	// shorter than the time the operation had.
+	began := time.Now()
 	ctx, cancel := context.WithTimeout(parent, operationTimeout)
 	defer cancel()
+	stood := DeadlineError{Created: -1, Started: -1}
+	plan.OnCreated = func() { stood.Created = time.Since(began) }
+	plan.OnStart = func(*os.Process) error {
+		stood.Started = time.Since(began)
+		return nil
+	}
 	output, err := runner.RunCapture(ctx, plan)
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		// The context is bounded here, so it has a deadline.
+		limit, _ := ctx.Deadline()
+		stood.Limit = limit.Sub(began)
+		return "", &stood
+	}
 	if ctx.Err() != nil {
 		return "", ctx.Err()
 	}

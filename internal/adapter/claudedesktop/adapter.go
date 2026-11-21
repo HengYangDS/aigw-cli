@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
@@ -111,7 +112,7 @@ func (claudeDesktopAdapter) ProjectionChanged(before, after domain.Config) bool 
 	}
 	left, leftErr := before.ResolveRuntime(ID, domain.ModelRef{})
 	right, rightErr := after.ResolveRuntime(ID, domain.ModelRef{})
-	if leftErr != nil || rightErr != nil || left != right {
+	if leftErr != nil || rightErr != nil || !left.Equal(right) {
 		return true
 	}
 	return !slices.Equal(claudeDesktopModels(before, left), claudeDesktopModels(after, right)) ||
@@ -245,33 +246,32 @@ func claudeDesktopDesired(deps adapter.Dependencies, cfg domain.Config, selected
 }
 
 // claudeDesktopModelRefs lists the models the profile exposes: the selected
-// model, then, in configuration order, the first compatible model of its
-// provider of each other family. A model that is its own family counts as one
-// family.
+// model and the first model of each other family of its provider on its
+// protocol, as the configuration lists a provider's models for a client.
 func claudeDesktopModelRefs(cfg domain.Config, selected domain.Runtime) []domain.ModelRef {
-	refs := []domain.ModelRef{selected.Model}
-	seen := map[string]bool{cfg.Models[selected.Model].FamilyID(): true}
-	spec := claudeDesktopAdapter{}.Spec()
-	for _, ref := range cfg.ProviderModelRefs(selected.ProviderID) {
-		model := cfg.Models[ref]
-		if ref == selected.Model || seen[model.FamilyID()] {
-			continue
-		}
-		provider := cfg.Providers[model.Provider]
-		if !slices.Contains(spec.CompatibleModelProtocols(provider, model), selected.Protocol) {
-			continue
-		}
-		refs = append(refs, ref)
-		seen[model.FamilyID()] = true
+	return cfg.FamilyModels(selected.Model, selected.Protocol)
+}
+
+// anthropicModelPrefix begins every Anthropic model ID that Claude Desktop
+// knows.
+const anthropicModelPrefix = "claude-"
+
+// behavesAs is the Anthropic model that an entry's model serves under another
+// ID of its provider, which Desktop's sessions then run at that model's
+// window, or "" for a model that is its own family, names it, or serves a
+// family that is no Anthropic model ID.
+func behavesAs(model domain.Model) string {
+	if family := model.VariantOf(); strings.HasPrefix(family, anthropicModelPrefix) {
+		return family
 	}
-	return refs
+	return ""
 }
 
 func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {
 	refs := claudeDesktopModelRefs(cfg, selected)
-	models := []Model{{Name: selected.UpstreamModel, Label: selected.ModelLabel}}
+	models := []Model{{Name: selected.UpstreamModel, Label: selected.ModelLabel, BehavesAs: behavesAs(cfg.Models[selected.Model])}}
 	for _, ref := range refs[1:] {
-		models = append(models, Model{Name: ref.ID(), Label: cfg.ModelLabel(ref)})
+		models = append(models, Model{Name: ref.ID(), Label: cfg.ModelLabel(ref), BehavesAs: behavesAs(cfg.Models[ref])})
 	}
 	return models
 }

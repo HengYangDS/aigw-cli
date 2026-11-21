@@ -43,24 +43,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			token, err := runtime.Secrets.Get(providerID)
 			if err != nil {
-				if errors.Is(err, context.DeadlineExceeded) {
-					return terminal.ProblemError("Token read exceeded its deadline", "", "The credential subprocess was stopped; no Token was returned.", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read.", err)
-				}
-				if errors.Is(err, secret.ErrNotFound) {
-					return terminal.ProblemError(
-						fmt.Sprintf("%s Token is not configured", client), "",
-						"No Token was returned.",
-						"Set the selected Token in the configured backend; run `aigw check --depth local` for backend guidance.",
-						err,
-					)
-				}
-				evidence, action := unreadableToken(err)
-				return terminal.ProblemError(
-					fmt.Sprintf("%s Token could not be read", client), evidence,
-					"No Token was returned.",
-					action,
-					err,
-				)
+				return unreadProblem(client, err)
 			}
 			_, err = fmt.Fprintln(runtime.Out, token)
 			if err != nil {
@@ -69,6 +52,37 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		},
 	}
+}
+
+// unreadProblem is the problem of a Token read that failed: a deadline, with
+// where a native operation stood as its evidence; a Token that is not
+// configured; or a backend that could not be read.
+func unreadProblem(client string, err error) error {
+	if errors.Is(err, context.DeadlineExceeded) {
+		evidence, fix := "", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read."
+		if stood, typed := errors.AsType[*native.DeadlineError](err); typed {
+			evidence = stood.Evidence()
+			if !stood.Answering() {
+				fix = "Retry once this machine is less busy: the credential subprocess was not started in time; configuration synchronization cannot repair a slow start."
+			}
+		}
+		return terminal.ProblemError("Token read exceeded its deadline", evidence, "The read was stopped; no Token was returned.", fix, err)
+	}
+	if errors.Is(err, secret.ErrNotFound) {
+		return terminal.ProblemError(
+			fmt.Sprintf("%s Token is not configured", client), "",
+			"No Token was returned.",
+			"Set the selected Token in the configured backend; run `aigw check --depth local` for backend guidance.",
+			err,
+		)
+	}
+	evidence, action := unreadableToken(err)
+	return terminal.ProblemError(
+		fmt.Sprintf("%s Token could not be read", client), evidence,
+		"No Token was returned.",
+		action,
+		err,
+	)
 }
 
 // unreadableToken is the evidence and the action of a Token read that failed

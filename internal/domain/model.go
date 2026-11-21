@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"maps"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -113,6 +114,16 @@ func (model Model) FamilyID() string {
 	return model.ID
 }
 
+// VariantOf returns the family that the model serves under another ID of its
+// provider, such as a provider's channel of a vendor's model, or "" for a
+// model that is its own family or names it.
+func (model Model) VariantOf() string {
+	if model.Family == "" || strings.EqualFold(model.ID, model.Family) {
+		return ""
+	}
+	return model.Family
+}
+
 // Declares reports whether the model qualified capability on protocol.
 func (model Model) Declares(protocol EndpointProtocol, capability Capability) bool {
 	return slices.Contains(model.Protocols[protocol], capability)
@@ -140,6 +151,12 @@ type Runtime struct {
 	ModelProvider     string           `json:"model_provider"`
 	Authentication    Authentication   `json:"authentication"`
 	CredentialCommand string           `json:"-"`
+	// FamilyVariants maps the family of each of the selection's FamilyModels
+	// that serves its family under another ID to that model's ID: the
+	// selected model's own ID for its family, and the first in configuration
+	// order for any other. A client that knows a vendor's model IDs learns
+	// from it which of them the provider serves, and as what.
+	FamilyVariants map[string]string `json:"-"`
 }
 
 // ModelName is the model's label without the provider's name and its
@@ -185,6 +202,11 @@ func upstreamIdentity(client, providerID, endpoint string) string {
 func (runtime Runtime) SameUpstream(other Runtime) bool {
 	return runtime.Client == other.Client && runtime.Protocol == other.Protocol &&
 		runtime.CredentialProjectionFingerprint(runtime.Client) == other.CredentialProjectionFingerprint(other.Client)
+}
+
+// Equal reports whether two runtimes resolve the same binding in every field.
+func (runtime Runtime) Equal(other Runtime) bool {
+	return reflect.DeepEqual(runtime, other)
 }
 
 // BalanceProbe declares an optional provider-owned diagnostic API independently from inference traffic.
@@ -515,7 +537,47 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		ModelProvider:     selectedModelProvider(spec, selection),
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
+		FamilyVariants:    c.familyVariants(ref, protocol),
 	}, nil
+}
+
+// FamilyModels lists the models that a client shows for the provider of
+// selected on protocol: selected first, then, in configuration order, the
+// first model of each other family that the provider serves on that
+// protocol. A model that is its own family counts as one family. Every
+// client that offers the provider's other models offers these.
+func (c *Config) FamilyModels(selected ModelRef, protocol EndpointProtocol) []ModelRef {
+	chosen := c.Models[selected]
+	if protocol == "" || c.Providers[chosen.Provider].Endpoints.For(protocol) == "" {
+		return []ModelRef{selected}
+	}
+	refs := []ModelRef{selected}
+	taken := map[string]bool{chosen.FamilyID(): true}
+	for _, ref := range c.ProviderModelRefs(chosen.Provider) {
+		model := c.Models[ref]
+		if ref == selected || taken[model.FamilyID()] || !modelAdmitsProtocol(model, protocol) {
+			continue
+		}
+		taken[model.FamilyID()] = true
+		refs = append(refs, ref)
+	}
+	return refs
+}
+
+// familyVariants maps the family that each of selected's FamilyModels serves
+// under another ID to that model's ID. It is nil when none is a variant.
+func (c *Config) familyVariants(selected ModelRef, protocol EndpointProtocol) map[string]string {
+	var mapped map[string]string
+	for _, ref := range c.FamilyModels(selected, protocol) {
+		model := c.Models[ref]
+		if family := model.VariantOf(); family != "" {
+			if mapped == nil {
+				mapped = map[string]string{}
+			}
+			mapped[family] = model.ID
+		}
+	}
+	return mapped
 }
 
 // forwardingFor returns a client's forwarding destination for a selection that

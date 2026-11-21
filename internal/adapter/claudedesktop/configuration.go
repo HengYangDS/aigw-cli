@@ -52,10 +52,13 @@ func PathsForLibrary(library string) Paths {
 	}
 }
 
-// Model is one explicit Claude Desktop model-picker entry.
+// Model is one explicit Claude Desktop model-picker entry. BehavesAs names
+// the Anthropic model that the entry's model serves, so that Desktop's
+// sessions run the entry at that model's window.
 type Model struct {
-	Name  string `json:"name"`
-	Label string `json:"label,omitempty"`
+	Name      string `json:"name"`
+	Label     string `json:"label,omitempty"`
+	BehavesAs string `json:"behaves_as,omitempty"`
 }
 
 // Desired is the complete AIGW-owned Claude Desktop profile.
@@ -341,6 +344,9 @@ func profileDocument(desired Desired) (document, error) {
 		entry := map[string]string{"name": model.Name}
 		if model.Label != "" {
 			entry["labelOverride"] = model.Label
+		}
+		if model.BehavesAs != "" {
+			entry["behavesAs"] = model.BehavesAs
 		}
 		models = append(models, entry)
 	}

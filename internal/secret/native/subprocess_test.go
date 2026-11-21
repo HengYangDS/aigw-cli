@@ -77,6 +77,11 @@ func (r fixtureReader) RunCapture(ctx context.Context, plan process.Plan) ([]byt
 	if plan.Executable != "/owned/aigw" || strings.Join(plan.Args, " ") != readCommand+" AIGW_TOKEN team" || plan.Stdin != "" {
 		return nil, errors.New("credential subprocess target drift")
 	}
+	// The fixture stands for a subprocess that was created and started.
+	plan.OnCreated()
+	if err := plan.OnStart(nil); err != nil {
+		return nil, err
+	}
 	if r.code == 0 {
 		return []byte("exact-token"), nil
 	}
@@ -121,7 +126,10 @@ func TestReadTerminatesAndReapsUnresponsiveCredentialSubprocess(t *testing.T) {
 
 type waitReader struct{ plan process.Plan }
 
-func (r waitReader) RunCapture(ctx context.Context, _ process.Plan) ([]byte, error) {
+// RunCapture runs the reader's own plan with the observations of the plan that
+// execute built, so that a deadline names the steps of the real subprocess.
+func (r waitReader) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
+	r.plan.OnCreated, r.plan.OnStart = plan.OnCreated, plan.OnStart
 	return (process.Runner{}).RunCapture(ctx, r.plan)
 }
 

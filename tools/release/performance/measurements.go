@@ -363,7 +363,7 @@ func reviewRuntime(mode string, binding domain.Runtime) error {
 	if mode != "" && mode != "direct" && mode != "forwarding" {
 		return errors.New("performance mode is not direct or forwarding")
 	}
-	if mode == "" && binding == (domain.Runtime{}) {
+	if mode == "" && binding.Equal(domain.Runtime{}) {
 		return nil
 	}
 	if binding.Client == "" || binding.Model.IsZero() || binding.ProviderID == "" || binding.Protocol == "" || binding.Endpoint == "" || binding.UpstreamEndpoint == "" {

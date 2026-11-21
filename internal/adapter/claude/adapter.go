@@ -2,6 +2,7 @@ package claude
 
 import (
 	"context"
+	"maps"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
@@ -91,7 +92,8 @@ func (claudeAdapter) ProjectionChanged(before, after domain.Config) bool {
 	if beforeErr != nil || afterErr != nil {
 		return true
 	}
-	return !beforeRuntime.SameUpstream(afterRuntime) || beforeRuntime.Endpoint != afterRuntime.Endpoint || beforeRuntime.UpstreamModel != afterRuntime.UpstreamModel
+	return !beforeRuntime.SameUpstream(afterRuntime) || beforeRuntime.Endpoint != afterRuntime.Endpoint || beforeRuntime.UpstreamModel != afterRuntime.UpstreamModel ||
+		!maps.Equal(modelOverrides(beforeRuntime), modelOverrides(afterRuntime))
 }
 
 func (claudeAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime) adapter.Status {

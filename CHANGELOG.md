@@ -11,8 +11,6 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
-### Changed
-
 - **Breaking:** a model chosen inside Codex or Hermes is that client's
   selection for every command, not for `aigw sync` alone. Commands work from
   it; a command that saves the configuration records it, together with AIGW's
@@ -61,12 +59,37 @@ signing, and GA status remain separate evidence.
   `aigw provider add` and `edit` 3, `aigw provider remove` 2, `aigw model add`,
   `edit` and `remove` 3, `aigw client enable` and `disable` 3, and
   `aigw client edit` 2.
+
+
+## [0.9.0] - 2026-11-21
+
+### Changed
+
+- Claude Code and Claude Desktop now learn which Anthropic model a provider's
+  own model ID serves, such as a provider's Claude Code channel of Claude Opus
+  5.5. AIGW writes Claude Code's `modelOverrides`, so each model row and alias
+  in Claude Code sends the ID that the selected provider serves and runs at
+  that model's context window, and writes `behavesAs` on Claude Desktop's model
+  entries, so a Desktop session no longer holds such a model to 200,000 tokens.
+  Both are values that AIGW owns. Breaking: AIGW's record of Claude Code's
+  settings gains a field that 0.8.3 refuses, so before rolling the program
+  back to 0.8.3 run `aigw client disable claude`; and a `modelOverrides` that
+  you added by hand to settings that AIGW already owned is reported as changed
+  outside AIGW until you remove it.
 - The repository's ETHOS proof runs its Go test suite once instead of twice.
   The coverage command can write JUnit and LCOV reports from its one test run
   (`--junit-output`, `--lcov-output`), and ETHOS judges those reports instead of
   running the suite again. Without `--json`, the command now also shows the
   output of a test that never reported a result, such as one that timed out.
   The released program is unchanged.
+- An operation on a Token in the operating system's credential store that
+  reaches its five-second deadline now says where it stood: its subprocess was
+  not created in time, was created and not started in time, or was started and
+  did not answer in time, with the time of each step. `aigw credential` shows
+  that as the evidence of "Token read exceeded its deadline", and its fix names
+  the credential service only when the subprocess was started; otherwise it
+  says that the subprocess was not started in time. The deadline itself is
+  unchanged.
 
 ## [0.8.3] - 2026-11-19
 

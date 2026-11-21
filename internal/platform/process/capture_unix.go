@@ -12,10 +12,15 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func startCapturedProcess(cmd *exec.Cmd) (func() error, error) {
+// startCapturedProcess starts the child in a process group of its own and
+// reports its creation, with which the group exists.
+func startCapturedProcess(cmd *exec.Cmd, created func()) (func() error, error) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Start(); err != nil {
 		return nil, err
+	}
+	if created != nil {
+		created()
 	}
 	return func() error { return terminateCapturedProcessGroup(cmd.Process.Pid, unix.Kill) }, nil
 }

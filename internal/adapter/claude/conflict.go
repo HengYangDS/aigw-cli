@@ -46,8 +46,8 @@ func refuseUnrecordedWithdrawal(path string, document settingsDocument) error {
 	}
 	record := filepath.Base(path + adapter.StateSuffix)
 	return adapter.NewConflictError(
-		"AIGW's record "+record+" is missing, so AIGW cannot tell its settings in "+filepath.Base(path)+" from yours; its apiKeyHelper stays, with ANTHROPIC_BASE_URL and model",
-		adapter.Rerun("Restore "+record+" in its folder from a copy of it, then run the same command again; or remove apiKeyHelper, and ANTHROPIC_BASE_URL and model if AIGW set them, from "+filepath.Base(path)+" yourself"),
+		"AIGW's record "+record+" is missing, so AIGW cannot tell its settings in "+filepath.Base(path)+" from yours; its apiKeyHelper stays, with ANTHROPIC_BASE_URL, model and modelOverrides",
+		adapter.Rerun("Restore "+record+" in its folder from a copy of it, then run the same command again; or remove apiKeyHelper, and ANTHROPIC_BASE_URL, model and modelOverrides if AIGW set them, from "+filepath.Base(path)+" yourself"),
 		nil,
 	)
 }
