@@ -11,6 +11,8 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-21
+
 ### Changed
 
 - Claude Code and Claude Desktop now learn which Anthropic model a provider's
