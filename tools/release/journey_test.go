@@ -218,6 +218,11 @@ func verifiedSnapshot(config string) string {
 // is recommended.
 var probeModel = domain.NewModelRef("native-system-keyring-probe", "claude-test")
 
+// probeFamily is the Anthropic model ID that probeModel serves under its
+// provider's own ID. The two differ, so Claude Code's settings carry a map
+// from the one to the other for the journey's selection.
+const probeFamily = "claude-anthropic-test"
+
 func newNativeJourney(t *testing.T, source, endpoint string, installClient bool) *journeyFixture {
 	t.Helper()
 	root := t.TempDir()
@@ -268,32 +273,32 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 [[providers]]
 id = "native-system-keyring-probe"
 label = "Native System Keyring Probe"
-endpoints = {anthropic = %q}
+endpoints = {anthropic = %[1]q}
 
 [[providers.models]]
-id = "claude-test"
-family = "claude-test"
+id = %[2]q
+family = %[3]q
 label = "Native System Keyring Probe Claude"
 protocols = {anthropic = ["text"]}
 
 [[providers]]
 id = "unused"
 label = "Unused"
-endpoints = {anthropic = %q}
+endpoints = {anthropic = %[1]q}
 
 [[providers.models]]
-id = "claude-test"
-family = "claude-test"
+id = %[2]q
+family = %[3]q
 label = "Unused Claude"
 protocols = {anthropic = ["text"]}
 
 [[families]]
-id = "claude-test"
+id = %[3]q
 label = "Claude Test"
 
 [recommendations.claude]
-primary = {model = "native-system-keyring-probe/claude-test"}
-`, endpoint, endpoint)
+primary = {model = %[4]q}
+`, endpoint, probeModel.ID(), probeFamily, probeModel.String())
 	if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -387,11 +392,17 @@ func (j *journeyFixture) requireConfigContains(values ...string) {
 func (j *journeyFixture) requireNoClaudeProjection() {
 	j.testing.Helper()
 	j.requireNoClientProjection(claude.ID)
+	// The record of owned settings keys exists only beside a written map, so
+	// it is not a path that every projection has; it goes with the projection.
+	if _, err := os.Stat(j.claudeOwnedKeysRecord()); !os.IsNotExist(err) {
+		j.testing.Fatalf("Claude's record of owned settings keys exists without a projection: %v", err)
+	}
 }
 
 func (j *journeyFixture) requireClaudeProjection() {
 	j.testing.Helper()
 	j.requireClientProjection(claude.ID)
+	j.requireOwnedModelOverrides()
 	data, err := os.ReadFile(j.settings)
 	if err != nil {
 		j.testing.Fatal(err)

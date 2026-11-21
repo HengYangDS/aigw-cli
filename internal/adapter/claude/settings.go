@@ -38,11 +38,10 @@ type optionalValue struct {
 }
 
 type originalSettings struct {
-	FileExisted    bool                     `json:"file_existed"`
-	APIKeyHelper   optionalValue            `json:"api_key_helper"`
-	Model          optionalValue            `json:"model"`
-	ModelOverrides optionalValue            `json:"model_overrides"`
-	Environment    map[string]optionalValue `json:"environment,omitempty"`
+	FileExisted  bool                     `json:"file_existed"`
+	APIKeyHelper optionalValue            `json:"api_key_helper"`
+	Model        optionalValue            `json:"model"`
+	Environment  map[string]optionalValue `json:"environment,omitempty"`
 }
 
 type settingsState struct {
@@ -70,6 +69,9 @@ const (
 type SettingsPlan struct {
 	Action SettingsAction `json:"action"`
 	Target string         `json:"target"`
+	// ownedKeys reports whether applying the plan may write or remove the
+	// record of the settings keys that AIGW newly owns.
+	ownedKeys bool
 }
 
 // ChangesState reports whether applying the plan changes owned settings.
@@ -78,30 +80,14 @@ func (plan SettingsPlan) ChangesState() bool {
 }
 
 // Effects returns every file that applying the plan may write or remove: the
-// settings file and its ownership state.
+// settings file, its ownership state, and the record of the keys that AIGW
+// newly owns when the plan may write or remove it.
 func (plan SettingsPlan) Effects() []string {
-	return []string{plan.Target, plan.Target + adapter.StateSuffix}
-}
-
-// SettingsReceipt records the settings projection that was actually applied.
-type SettingsReceipt struct {
-	SettingsPlan
-	restore func() platform.Restoration
-}
-
-// Rollback restores the captured preimages only while this projection's
-// postimages remain unchanged. A receipt for a no-op never changes files.
-func (receipt SettingsReceipt) Rollback() error {
-	return receipt.Restore().Err()
-}
-
-// Restore rolls the projection back as Rollback does and reports each file
-// that it wrote.
-func (receipt SettingsReceipt) Restore() platform.Restoration {
-	if receipt.restore == nil {
-		return nil
+	effects := []string{plan.Target, plan.Target + adapter.StateSuffix}
+	if plan.ownedKeys {
+		effects = append(effects, ownedKeysPath(plan.Target))
 	}
-	return receipt.restore()
+	return effects
 }
 
 type settingsDocument map[string]json.RawMessage
@@ -110,17 +96,21 @@ type settingsChange struct {
 	plan           SettingsPlan
 	path           string
 	statePath      string
+	keysPath       string
 	settingsBefore platform.FileSnapshot
 	stateBefore    platform.FileSnapshot
+	keysBefore     platform.FileSnapshot
 	settingsData   []byte
 	stateData      []byte
+	keysData       []byte
+	planKeys       ownedKeysDisposition
 	removeSettings bool
 }
 
 // CopyProjection copies one complete AIGW-owned Claude projection to a private
 // target without interpreting or changing its contents.
 func CopyProjection(source, target string) error {
-	for _, suffix := range []string{"", adapter.StateSuffix} {
+	for _, suffix := range []string{"", adapter.StateSuffix, ownedKeysSuffix} {
 		snapshot, err := platform.CaptureFileSnapshot(source + suffix)
 		if err != nil {
 			return err
@@ -171,7 +161,7 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 	if path == "" {
 		return settingsChange{}, errors.New("Claude settings path is empty")
 	}
-	statePath := path + adapter.StateSuffix
+	statePath, keysPath := path+adapter.StateSuffix, ownedKeysPath(path)
 	settingsBefore, err := captureSnapshot(path)
 	if err != nil {
 		return settingsChange{}, &adapter.TargetError{Path: path, Desired: !disabled, Err: err}
@@ -179,6 +169,10 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 	stateBefore, err := captureSnapshot(statePath)
 	if err != nil {
 		return settingsChange{}, &adapter.TargetError{Path: statePath, Desired: !disabled, Err: err}
+	}
+	keysBefore, err := captureSnapshot(keysPath)
+	if err != nil {
+		return settingsChange{}, &adapter.TargetError{Path: keysPath, Desired: !disabled, Err: err}
 	}
 	document, err := decodeSettings(settingsBefore)
 	if err != nil {
@@ -188,10 +182,13 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 		return settingsChange{}, err
 	}
 	change := settingsChange{
+		plan:           SettingsPlan{Target: path},
 		path:           path,
 		statePath:      statePath,
+		keysPath:       keysPath,
 		settingsBefore: settingsBefore,
 		stateBefore:    stateBefore,
+		keysBefore:     keysBefore,
 	}
 
 	if disabled {
@@ -223,6 +220,10 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 	if err != nil {
 		return settingsChange{}, err
 	}
+	ownedKeys, err := readOwnedKeys(path, keysBefore)
+	if err != nil {
+		return settingsChange{}, err
+	}
 	observedHash := managedSettingsHash(document)
 	observedModel := captureOptional(document, "model")
 	var observedHelper string
@@ -238,44 +239,71 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 		// helper path change preserves the user's visible native model.
 		restoreOptional(document, "model", observedModel)
 	}
-	if stateBefore.Exists && state.ManagedSHA256 == projectedHash &&
-		(observedHash == projectedHash || preserveModel) {
-		change.plan = SettingsPlan{Action: SettingsActionAlreadyConverged, Target: path}
-		return change, nil
-	}
-	change.settingsData, _ = adapter.EncodeJSON(document)
-	state.ManagedSHA256 = projectedHash
-	change.stateData, _ = adapter.EncodeJSON(state)
-	change.plan = SettingsPlan{Action: SettingsActionProject, Target: path}
-	return change, nil
-}
-
-// withdrawal plans the removal of AIGW's settings from document, restoring
-// the values that AIGW's record holds. Without the record nothing is AIGW's to
-// remove, unless AIGW's credential helper is still there, which it refuses.
-func (change settingsChange) withdrawal(document settingsDocument, previousModel string) (settingsChange, error) {
-	if !change.stateBefore.Exists {
-		if err := refuseUnrecordedWithdrawal(change.path, document); err != nil {
-			return settingsChange{}, err
-		}
-		change.plan = SettingsPlan{Action: SettingsActionAlreadyRestored, Target: change.path}
-		return change, nil
-	}
-	state, err := readSettingsState(change.path, change.stateBefore.Data)
+	change, err = change.projectModelOverrides(document, runtime, ownedKeys)
 	if err != nil {
 		return settingsChange{}, err
 	}
-	if !state.acceptModelPreference(document, previousModel) {
-		return settingsChange{}, outsideEdit("managed Claude settings changed outside AIGW; refusing to remove user edits")
+	return change.planProjection(document, state, projectedHash, preserveModel), nil
+}
+
+// projectModelOverrides decides the map, the one settings key that this
+// release newly owns, against record and projects the decision into document.
+// The selection's map is written and recorded; a key whose selection needs no
+// map returns to the original that its entry recorded, and the entry goes; a
+// map that is not AIGW's stays exactly as the user has it; and a map that was
+// changed outside AIGW is refused. The change that it returns plans the
+// record of owned keys: written when an entry changed, removed when none
+// remains, left otherwise.
+func (change settingsChange) projectModelOverrides(document settingsDocument, runtime domain.Runtime, record ownedKeysRecord) (settingsChange, error) {
+	overrides := desiredOwnedKey(modelOverrides(runtime))
+	overridesEntry := record.Keys[ownedKeyModelOverrides]
+	// Claude Code sends the provider's ID for every picker row and alias of an
+	// Anthropic model that the map names, and gives it that model's window.
+	record, mapAction, err := ownedKeysForProjection(document, ownedKeyModelOverrides, overrides, record)
+	if err != nil {
+		return settingsChange{}, err
 	}
-	change.plan = SettingsPlan{Action: SettingsActionRestore, Target: change.path}
-	restoreOriginalSettings(document, state.Original)
-	if !state.Original.FileExisted && len(document) == 0 {
-		change.removeSettings = true
-		return change, nil
+	overridesBefore := append(json.RawMessage(nil), document[ownedKeyModelOverrides]...)
+	projectedOwnedKey(ownedKeyModelOverrides, document, mapAction, overrides, overridesEntry)
+	if mapAction == ownedKeyLeave {
+		// A map that AIGW does not own stays exactly as the user has it.
+		restoreOptional(document, ownedKeyModelOverrides, captureOptionalValue(overridesBefore))
 	}
-	change.settingsData, _ = adapter.EncodeJSON(document)
+	remaining := normalizedRecord(record.Keys)
+	change.planKeys = ownedKeysForWrite(change.keysBefore, remaining)
+	if change.planKeys == keysWritten {
+		change.keysData = ownedKeysData(remaining)
+	}
+	change.plan.ownedKeys = change.planKeys != keysUnchanged
 	return change, nil
+}
+
+// planProjection plans what the projection writes once document holds the
+// projected settings, state is the first record as it was read, and
+// projectedHash is the digest that the record takes. A projection writes only
+// what differs: a map that AIGW gave back, with the other values as it
+// projected them, leaves the settings as they are, and the record of owned
+// keys is the transition's only change. A model preference that the user
+// changed since the projection is adopted into the record rather than written
+// back.
+func (change settingsChange) planProjection(document settingsDocument, state settingsState, projectedHash string, preserveModel bool) settingsChange {
+	settingsBefore, stateBefore := change.settingsBefore, change.stateBefore
+	converged := stateBefore.Exists && (state.ManagedSHA256 == projectedHash || preserveModel)
+	if data, _ := adapter.EncodeJSON(document); !sameJSON(data, settingsBefore.Data) ||
+		(change.plan.ownedKeys && !stateBefore.Exists && !settingsBefore.Exists) {
+		change.settingsData = data
+	}
+	if converged && change.settingsData == nil && !change.plan.ownedKeys {
+		change.plan.Action = SettingsActionAlreadyConverged
+		return change
+	}
+	if change.settingsData == nil {
+		change.settingsData = settingsBefore.Data
+	}
+	state.ManagedSHA256 = projectedHash
+	change.stateData, _ = adapter.EncodeJSON(state)
+	change.plan.Action = SettingsActionProject
+	return change
 }
 
 func prepareSettingsState(path string, document settingsDocument, settingsBefore, stateBefore platform.FileSnapshot, previousModel string) (settingsState, error) {
@@ -313,39 +341,6 @@ func (state *settingsState) acceptModelPreference(document settingsDocument, pre
 	}
 	state.Original.Model = captureOptional(document, "model")
 	return true
-}
-
-func (change settingsChange) apply() (SettingsReceipt, error) {
-	var settingsAfter platform.FileSnapshot
-	var err error
-	settingsAction, stateAction := "write", "write"
-	if change.plan.Action == SettingsActionRestore {
-		settingsAction, stateAction = "restore", "remove"
-	}
-	if change.removeSettings {
-		settingsAfter, err = removeGuarded(change.path, change.settingsBefore)
-	} else {
-		settingsAfter, err = writeGuarded(change.path, change.settingsBefore, change.settingsData, 0o600)
-	}
-	if err != nil {
-		return SettingsReceipt{}, fmt.Errorf("%s Claude settings: %w", settingsAction, err)
-	}
-	var stateAfter platform.FileSnapshot
-	if change.plan.Action == SettingsActionRestore {
-		stateAfter, err = removeGuarded(change.statePath, change.stateBefore)
-	} else {
-		stateAfter, err = writeGuarded(change.statePath, change.stateBefore, change.stateData, 0o600)
-	}
-	if err != nil {
-		restored := platform.Restoration{{Path: change.path, Err: restoreGuarded(change.path, change.settingsBefore, settingsAfter)}}
-		return SettingsReceipt{}, platform.FailedWrite(fmt.Errorf("%s Claude settings state: %w", stateAction, err), restored)
-	}
-	return SettingsReceipt{SettingsPlan: change.plan, restore: func() platform.Restoration {
-		return platform.Restoration{
-			{Path: change.path, Err: restoreGuarded(change.path, change.settingsBefore, settingsAfter)},
-			{Path: change.statePath, Err: restoreGuarded(change.statePath, change.stateBefore, stateAfter)},
-		}
-	}}, nil
 }
 
 func decodeSettings(snapshot platform.FileSnapshot) (settingsDocument, error) {
@@ -405,13 +400,6 @@ func projectSettings(document settingsDocument, runtime domain.Runtime, executab
 	} else {
 		document["model"] = adapter.RawJSON(runtime.UpstreamModel)
 	}
-	// Claude Code sends the provider's ID for every picker row and alias of an
-	// Anthropic model that the map names, and gives it that model's window.
-	if overrides := modelOverrides(runtime); len(overrides) == 0 {
-		delete(document, "modelOverrides")
-	} else {
-		document["modelOverrides"] = adapter.RawJSON(overrides)
-	}
 	document["apiKeyHelper"] = adapter.RawJSON(credentialHelper(executable, runtime.CredentialProjectionFingerprint(ID)))
 }
 
@@ -437,11 +425,10 @@ func credentialHelper(executable, scope string) string {
 func captureOriginalSettings(document settingsDocument, fileExisted bool) originalSettings {
 	environment, _ := decodeEnvironment(document)
 	original := originalSettings{
-		FileExisted:    fileExisted,
-		APIKeyHelper:   captureOptional(document, "apiKeyHelper"),
-		Model:          captureOptional(document, "model"),
-		ModelOverrides: captureOptional(document, "modelOverrides"),
-		Environment:    map[string]optionalValue{},
+		FileExisted:  fileExisted,
+		APIKeyHelper: captureOptional(document, "apiKeyHelper"),
+		Model:        captureOptional(document, "model"),
+		Environment:  map[string]optionalValue{},
 	}
 	for _, key := range managedEnvironmentKeys {
 		if value, ok := environment[key]; ok {
@@ -451,26 +438,6 @@ func captureOriginalSettings(document settingsDocument, fileExisted bool) origin
 		}
 	}
 	return original
-}
-
-func restoreOriginalSettings(document settingsDocument, original originalSettings) {
-	restoreOptional(document, "apiKeyHelper", original.APIKeyHelper)
-	restoreOptional(document, "model", original.Model)
-	restoreOptional(document, "modelOverrides", original.ModelOverrides)
-	environment, _ := decodeEnvironment(document)
-	for _, key := range managedEnvironmentKeys {
-		value := original.Environment[key]
-		if value.Present {
-			environment[key] = append(json.RawMessage(nil), value.Value...)
-		} else {
-			delete(environment, key)
-		}
-	}
-	if len(environment) == 0 {
-		delete(document, "env")
-	} else {
-		document["env"], _ = json.Marshal(environment)
-	}
 }
 
 func captureOptional(document settingsDocument, key string) optionalValue {
@@ -513,10 +480,8 @@ func managedSettingsHash(document settingsDocument) string {
 	if value, ok := document["apiKeyHelper"]; ok {
 		managed["apiKeyHelper"] = value
 	}
-	for _, key := range []string{"model", "modelOverrides"} {
-		if value, ok := document[key]; ok {
-			managed[key] = value
-		}
+	if value, ok := document["model"]; ok {
+		managed["model"] = value
 	}
 	for key, raw := range managed {
 		var value string
