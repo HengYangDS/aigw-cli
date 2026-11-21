@@ -157,8 +157,8 @@ func readSelection(path string) (observation, selectionRecord, error) {
 		return observation{recorded: state.ProjectedModel, state: selectionDrifted}, record, nil
 	}
 	modelLine, err := codexSelectionLine(text, "model")
-	model := selectionStringValue(modelLine)
-	if err != nil || model == "" || selectionHasValue(modelLine, "model", state.ProjectedModel) {
+	model, _ := selectionValue(modelLine, "model")
+	if err != nil || model == "" || model == state.ProjectedModel {
 		return observation{recorded: state.ProjectedModel}, record, nil
 	}
 	return observation{model: model, recorded: state.ProjectedModel, state: selectionChosen}, record, nil

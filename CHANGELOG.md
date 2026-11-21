@@ -69,6 +69,18 @@ signing, and GA status remain separate evidence.
   it keeps by default from the stored selection, and says
   `forwarding_cleared` or `retries_cleared` when the stored forwarding or
   retry budgets end.
+- A model picked in Codex's file is read as TOML, whatever its spelling. A
+  pick written as a literal string (`model = 'gpt-terra'`) was not followed:
+  `aigw status` reported drift and `aigw sync` refused it as an outside edit.
+- `aigw client edit` after a model was chosen in the client is judged
+  against the stored selection and saves the choice with its own change.
+  `aigw client edit hermes --direct` after a choice that ended the stored
+  forwarding reported "Nothing to change" and left the forwarding stored, so
+  it came back with the stored model.
+- `aigw model remove` of the model that a client's stored selection names,
+  while a file of that client is refused and its own choice cannot be
+  recorded, is refused with that file's refusal and its Fix. It was refused
+  with "refuse invalid config" and `aigw check` as the next step.
 - These documents move up one `schema_version` for the fields above:
   `aigw status` 4, `aigw check` 5, `aigw sync` 4, `aigw use` 4,
   `aigw setup --from` 5, `aigw config rollback` 3, `aigw self uninstall` 3,

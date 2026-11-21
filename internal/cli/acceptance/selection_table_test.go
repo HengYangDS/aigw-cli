@@ -273,10 +273,47 @@ func TestAnEditOfAClientThatWaitsForATokenRecordsTheChoiceWithTheEdit(t *testing
 	syncAndCheckPass(t, app, output, hermes.ID)
 }
 
+// editedClient is what `aigw client edit --json` says of the client.
+type editedClient struct {
+	Changed    bool   `json:"changed"`
+	Model      string `json:"model"`
+	Forwarding string `json:"forwarding"`
+}
+
+// endsTheStoredForwarding runs `aigw client edit hermes --direct` after the
+// choice of ucloud/claude-opus-5-5 ended a stored forwarding, and checks that
+// the edit is judged against what is stored: it follows the choice and says
+// that the choice ended the forwarding, saves the chosen model without a
+// forwarding, and finds nothing to change when it runs again.
+func endsTheStoredForwarding(t *testing.T, app *cli.App, output *bytes.Buffer) {
+	t.Helper()
+	var edited editedClient
+	got := followedIn(t, app, output, "client", "edit", "hermes", "--direct", "--json")
+	if len(got) != 1 || got[0].Model != "ucloud/claude-opus-5-5" || !got[0].ForwardingCleared {
+		t.Fatalf("--direct follows %+v; want the choice, which ended the earlier forwarding", got)
+	}
+	if err := json.Unmarshal(output.Bytes(), &edited); err != nil || !edited.Changed || edited.Model != "ucloud/claude-opus-5-5" || edited.Forwarding != "" {
+		t.Fatalf("--direct reports %+v, %v; want the choice saved without a forwarding\n%s", edited, err, output)
+	}
+	if binding := selection(t, app, hermes.ID); binding.ForwardingEndpoint != "" || binding.Model != domain.NewModelRef("ucloud", "claude-opus-5-5") {
+		t.Fatalf("--direct did not reach what is saved: %#v", binding)
+	}
+	if again := followedIn(t, app, output, "client", "edit", "hermes", "--direct", "--json"); len(again) != 0 {
+		t.Fatalf("a second --direct follows %+v; the choice is saved", again)
+	}
+	if err := json.Unmarshal(output.Bytes(), &edited); err != nil || edited.Changed {
+		t.Fatalf("a second --direct reports %+v, %v; nothing is left to change\n%s", edited, err, output)
+	}
+}
+
 // An edit of the forwarding of such a client acts on the model chosen in it,
-// which is the client's selection: the earlier selection's forwarding ended
-// with its upstream, as the record of the choice says, so `--direct` finds
-// nothing to end, and `--via` forwards the chosen model. Holds the cell
+// which is the client's selection, and is judged against what is stored: the
+// stored selection still forwards, though the choice of another upstream
+// ended that forwarding in the configuration that the command works from. So
+// `--direct` saves the choice without the forwarding and says that the choice
+// ended it, and a `--via` after it forwards the chosen model. Before the
+// tenth review `--direct` found nothing to change here and saved nothing, so
+// the stored model, picked again, forwarded again. Holds the cell
 // chosen/edits.
 func TestAForwardingEditOfAClientThatWaitsForATokenActsOnTheChosenModel(t *testing.T) {
 	app, output, _, target := shippedHermesAppWith(t, true)
@@ -287,23 +324,13 @@ func TestAForwardingEditOfAClientThatWaitsForATokenActsOnTheChosenModel(t *testi
 		t.Fatal(err)
 	}
 	chosen := hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
-	var edited struct {
-		Changed    bool   `json:"changed"`
-		Model      string `json:"model"`
-		Forwarding string `json:"forwarding"`
+	endsTheStoredForwarding(t, app, output)
+	var edited editedClient
+	if err := runDocument(t, app, output, &edited, "client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json"); err != nil {
+		t.Fatalf("--via: %v\n%s", err, output)
 	}
-	if err := runDocument(t, app, output, &edited, "client", "edit", "hermes", "--direct", "--json"); err != nil {
-		t.Fatalf("--direct: %v\n%s", err, output)
-	}
-	if edited.Changed || edited.Model != "ucloud/claude-opus-5-5" || edited.Forwarding != "" {
-		t.Fatalf("--direct reports %+v; the chosen model's upstream has no forwarding to end", edited)
-	}
-	got := followedIn(t, app, output, "client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json")
-	if len(got) != 1 || got[0].Model != "ucloud/claude-opus-5-5" || !got[0].ForwardingCleared {
-		t.Fatalf("--via follows %+v; want the choice, which ended the earlier forwarding", got)
-	}
-	if err := json.Unmarshal(output.Bytes(), &edited); err != nil || edited.Model != "ucloud/claude-opus-5-5" || edited.Forwarding != "http://127.0.0.1:8792" {
-		t.Fatalf("the edit's result does not name what it saved: %+v, %v\n%s", edited, err, output)
+	if !edited.Changed || edited.Model != "ucloud/claude-opus-5-5" || edited.Forwarding != "http://127.0.0.1:8792" {
+		t.Fatalf("the edit's result does not name what it saved: %+v\n%s", edited, output)
 	}
 	if binding := selection(t, app, hermes.ID); binding.ForwardingEndpoint != "http://127.0.0.1:8792" || binding.Model != domain.NewModelRef("ucloud", "claude-opus-5-5") {
 		t.Fatalf("--via did not reach what is saved: %#v", binding)

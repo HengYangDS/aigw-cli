@@ -48,6 +48,12 @@
       Token is planned without being written, a rollback names every client whose stored binding it replaces, and
       an explicit selection takes its defaults and its report from the stored binding. The matrix fails on version
       nine and with each of the two changes switched off, and the ninth review's seventeen tests pass.
+- [ ] 2.13 Read a selection line of Codex's file through one TOML reader, judge `aigw client edit` against the
+      stored binding, and refuse the removal of a left client's stored model with the refused file's own words.
+      Done when the matrix, widened by the spelling of a pick, a checked withdrawal, a record that `follows`
+      needs, the comparison of each run with its twin across the Token and the chosen provider's Token, fails on
+      version ten in the tenth review's sequences and passes; the review's six finding probes pass as regression
+      tests; and an eleventh review works from the widened matrix.
 - [ ] 2.5 Keep one record per invocation of what was followed and report it ahead of the next step, with the
       returning command on a line of its own, the entry's protocol and ended-setting fields, no entry for the
       client that an explicit selection names, and no returning command that cannot run; tests read each, and

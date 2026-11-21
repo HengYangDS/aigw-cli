@@ -25,13 +25,31 @@ change of selection.
 - **AND** Codex SHALL keep the operator's model
 - **AND** a following preview SHALL report no change.
 
+#### Scenario: The pick is written in another spelling of the file's format
+
+- **GIVEN** the operator writes the model in Codex's file as a TOML literal string, without spaces around the sign
+  or with a comment after it, or in Hermes's file with the model or the provider as a quoted YAML scalar
+- **WHEN** a command or a report reads the file
+- **THEN** the choice SHALL be read, followed and recorded as the same pick in the spelling that AIGW writes
+- **AND** files of one client that name the same model in different spellings SHALL count as selecting one model.
+
 #### Scenario: A command changes the client's own settings
 
 - **GIVEN** the operator selected another added model in Codex or Hermes
 - **WHEN** a command changes another setting of that client, such as `aigw client edit` of its retry budget or its
   forwarding
 - **THEN** the command SHALL succeed with its own change
-- **AND** the client SHALL keep the operator's model, and the client's selection SHALL name it.
+- **AND** the client SHALL keep the operator's model, and the client's selection SHALL name it
+- **AND** the edit SHALL be judged against the stored selection: `aigw client edit --direct` after a choice that
+  ended the stored forwarding SHALL save the choice without that forwarding, report `changed` and name the followed
+  selection, so that the stored model, picked again, does not forward again.
+
+#### Scenario: An edit asks for what is stored already
+
+- **GIVEN** no file of the client chose a model
+- **WHEN** `aigw client edit` asks for settings that the stored selection of the client already has
+- **THEN** it SHALL report that nothing changed
+- **AND** it SHALL write neither the configuration, a client file nor AIGW's record of one.
 
 #### Scenario: A command about something else records the choice
 
@@ -74,7 +92,10 @@ change of selection.
 - **AND** configuration and client files SHALL remain unchanged
 - **AND** removing the model that the stored selection named before SHALL record the choice in the same transaction,
   name no step back to a model that is gone, and leave the client's file as it is while its Token is missing
-- **AND** a withdrawal of that client and an explicit selection for it SHALL NOT be refused for the choice.
+- **AND** a withdrawal of that client and an explicit selection for it SHALL NOT be refused for the choice
+- **AND** while a file of the client is refused, so that the choice cannot be recorded, removing the model that the
+  stored selection names SHALL be refused with that file's own refusal and its step, and not with a validation
+  message about the removed model.
 
 #### Scenario: A command changes the settings of a client whose provider has no Token
 
@@ -122,6 +143,7 @@ change of selection.
 
 #### Scenario: A client is withdrawn after a choice
 
+- **GIVEN** AIGW's record of each of the client's files is in place
 - **WHEN** the operator runs `aigw client disable` for that client, or `aigw self uninstall`
 - **THEN** AIGW SHALL withdraw its settings from the client's file, the selection included, as from a file that shows
   the recorded model
@@ -162,9 +184,21 @@ ahead of the next step. A report SHALL write nothing, and any other command SHAL
 
 - **GIVEN** the operator selected another added model in Codex or Hermes
 - **WHEN** `aigw status` or `aigw check <client> --depth local` runs
-- **THEN** the client's row SHALL name that model, and the check SHALL pass for it
+- **THEN** the client's row SHALL name that model, and the check SHALL pass for it, unless the choice ended a
+  setting that the client's file still holds (the next scenario)
 - **AND** the output SHALL name the followed selection, also when the check fails for another reason
 - **AND** configuration and client files SHALL remain unchanged.
+
+#### Scenario: The choice ended a forwarding that Hermes's file still holds
+
+- **GIVEN** the stored selection of Hermes forwards, and the operator selected in Hermes a model of another upstream
+  endpoint, or of the same provider on another protocol
+- **WHEN** `aigw status` or `aigw check hermes --depth local` runs
+- **THEN** the output SHALL name the followed selection with `forwarding_cleared`
+- **AND** the check SHALL report that Hermes's file differs from the selected model, with `aigw sync` as its step,
+  because the file still holds the forwarding address
+- **AND** `aigw sync` SHALL then write the file without the forwarding and save the choice, and a following check
+  SHALL pass.
 
 #### Scenario: The fields of an entry
 

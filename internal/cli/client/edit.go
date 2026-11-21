@@ -222,7 +222,15 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 		return err
 	}
 	document := describeEdit(cfg, spec.ID)
-	document.Changed = !reflect.DeepEqual(before, cfg)
+	// The edit is judged against what is stored for the client, not against
+	// the configuration that already follows a model chosen in the client's
+	// own file. Following such a choice may have ended the stored selection's
+	// forwarding, so `--direct` changes nothing in the configuration that
+	// the command works from, while the stored selection still forwards: the
+	// forwarding would come back with the stored model. So an edit of a
+	// client whose file chose a model always has something to save, the
+	// choice, and saves it with what the edit asks for.
+	document.Changed = !reflect.DeepEqual(runtime.Synchronizer().FromStoredBinding(before, spec.ID), cfg)
 	preview := invocation.Preview{}
 	if document.Changed {
 		if preview, err = invocation.PreviewProjection(runtime, before, cfg, spec.ID); err != nil {

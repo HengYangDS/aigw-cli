@@ -13,6 +13,8 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 func recRun(t *testing.T, app *cli.App, output *bytes.Buffer, args ...string) error {
@@ -27,27 +29,52 @@ func recRun(t *testing.T, app *cli.App, output *bytes.Buffer, args ...string) er
 	return err
 }
 
+// recCodexModelLine returns the lines of a Codex file and the index of its
+// root model assignment, or -1. The line is found by the TOML parser, so that
+// every spelling of the assignment is read: it is the line before the first
+// table that parses into the one key model with a string value.
+func recCodexModelLine(t *testing.T, target string) ([]string, int) {
+	t.Helper()
+	lines := strings.Split(string(readFile(t, target)), "\n")
+	for index, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "[") {
+			break
+		}
+		var assignment map[string]any
+		if err := toml.Unmarshal([]byte(strings.TrimSuffix(line, "\r")), &assignment); err != nil || len(assignment) != 1 {
+			continue
+		}
+		if _, selects := assignment["model"].(string); selects {
+			return lines, index
+		}
+	}
+	return lines, -1
+}
+
+// recCodexModel returns the root model line of a Codex file as it is written.
 func recCodexModel(t *testing.T, target string) string {
 	t.Helper()
-	for line := range strings.SplitSeq(string(readFile(t, target)), "\n") {
-		if strings.HasPrefix(line, "model = ") {
-			return line
-		}
+	if lines, index := recCodexModelLine(t, target); index >= 0 {
+		return lines[index]
 	}
 	return "<none>"
 }
 
 func recPick(t *testing.T, target, to string) {
 	t.Helper()
-	lines := strings.Split(string(readFile(t, target)), "\n")
-	for i, line := range lines {
-		if strings.HasPrefix(line, "model = ") {
-			lines[i] = `model = "` + to + `"`
-			writeFile(t, target, []byte(strings.Join(lines, "\n")), 0o600)
-			return
-		}
+	recPickAs(t, target, `model = "`+to+`"`)
+}
+
+// recPickAs writes line in place of the root model line of a Codex file, as a
+// person who edits the file does, in whatever spelling line has.
+func recPickAs(t *testing.T, target, line string) {
+	t.Helper()
+	lines, index := recCodexModelLine(t, target)
+	if index < 0 {
+		t.Fatalf("no root model in %s", target)
 	}
-	t.Fatalf("no root model in %s", target)
+	lines[index] = line
+	writeFile(t, target, []byte(strings.Join(lines, "\n")), 0o600)
 }
 
 func recCodexRecorded(t *testing.T, target string) string {

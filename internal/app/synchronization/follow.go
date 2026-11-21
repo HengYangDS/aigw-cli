@@ -1,6 +1,8 @@
 package synchronization
 
 import (
+	"errors"
+	"fmt"
 	"reflect"
 	"slices"
 
@@ -176,6 +178,7 @@ func (s Synchronizer) recorded(before, after, stored domain.Config, followed []F
 		return after, clientIDs, nil, reconcile, nil
 	}
 	var left []string
+	refused := map[string]error{}
 	named := slices.Clone(clientIDs)
 	if reconcile && len(named) == 0 {
 		named = slices.Clone(s.ClientIDs())
@@ -185,26 +188,51 @@ func (s Synchronizer) recorded(before, after, stored domain.Config, followed []F
 		client := choice.Now.Client
 		switch {
 		case slices.Contains(named, client):
-		case !reflect.DeepEqual(before.Clients[client], settled.Clients[client]) || s.plans(before, settled, client):
+		case !reflect.DeepEqual(before.Clients[client], settled.Clients[client]):
 			named = append(named, client)
 		default:
+			refusal := s.planRefusal(before, settled, client)
+			if refusal == nil {
+				named = append(named, client)
+				continue
+			}
 			settled.Clients[client] = stored.Clients[client]
-			left = append(left, client)
+			left, refused[client] = append(left, client), refusal
 		}
 	}
+	// A client that is left keeps its stored selection. A command that
+	// removes the model of that selection is refused in the words of what
+	// keeps the client's choice from being recorded, which name the step, and
+	// not in the validator's words about a model that the command removed.
+	for _, client := range left {
+		model := settled.Clients[client].Model
+		if _, held := settled.Models[model]; held || model.IsZero() {
+			continue
+		}
+		return domain.Config{}, nil, nil, false, &PreflightError{Err: fmt.Errorf(
+			"%s keeps its selection %s, which cannot be removed while the model chosen in %s is not recorded: %w",
+			s.registry().Admission().Label(client), model, s.registry().Admission().Label(client), refused[client])}
+	}
 	// What is saved may hold a client as stored beside the command's own
-	// change, such as the removal of the model that the stored selection names.
+	// change.
 	if err := validateTransition(settled); err != nil {
 		return domain.Config{}, nil, nil, false, &PreflightError{Err: err}
 	}
 	return settled, s.inAdmissionOrder(named), left, len(named) > 0, nil
 }
 
-// plans reports whether the named client can be planned for the transition:
-// its files, or AIGW's record of them alone, and the plan is not refused.
-func (s Synchronizer) plans(before, after domain.Config, client string) bool {
+// errNothingPlanned says that a plan of a client holds nothing for it.
+var errNothingPlanned = errors.New("nothing can be written or recorded for the client")
+
+// planRefusal returns why the named client cannot be planned for the
+// transition, or nil when its files, or AIGW's record of them alone, can be
+// planned.
+func (s Synchronizer) planRefusal(before, after domain.Config, client string) error {
 	projection, err := planned(s, before, after, true, []string{client}, nil)
-	return err == nil && slices.Contains(s.reconciled(projection), client)
+	if err == nil && !slices.Contains(s.reconciled(projection), client) {
+		return errNothingPlanned
+	}
+	return err
 }
 
 // inAdmissionOrder returns the named clients in admission order.

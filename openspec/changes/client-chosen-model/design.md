@@ -175,12 +175,61 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
 - **Applies to:** `recordsAlone` and `admitsWaiting` in `internal/app/synchronization` and `RecordPending` of the
   adapters, which ask the projection's `Plan`; `restoredClients`, `CommitRestore` and `PreviewRestore`, by which a
   rollback names every client whose stored binding it replaces; `FromStoredBinding`, from which an explicit
-  selection takes its defaults and its report; and the test
-  `TestEveryCommandLeavesEachRecordNamingWhatItsFileSelects` with its states and commands, which a new state or
-  command joins before the code that handles it. `aigw sync` therefore refuses a client that waits for its Token
+  selection takes its defaults and its report; and the three tests
+  `TestEveryCommandLeavesEachRecordNamingWhatItsFileSelects…` (Codex on one file, Codex on two, Hermes) with their
+  states and commands, which a new state or command joins before the code that handles it. `aigw sync` therefore refuses a client that waits for its Token
   when its files would be refused with the Token, where it passed over that client before. The plan, which for
   Codex starts the Codex program, runs only for a client whose record is behind its file and for a client that a
   reconciling command covers while it waits for its Token; every other command reads the file and its record once.
+
+### A selection line has one reader, the file's own format
+
+- **Rests on:** the tenth review. A model picked in Codex's file as a TOML literal string (`model = 'gpt-terra'`)
+  was read as no choice: `readSelection` decoded the line's value as a JSON string, which a literal string is not,
+  and took the empty result for "shows the recorded model", while the plan's admission read the same line as TOML.
+  One fact had two parsers. The widened matrix failed in 26 runs on it, in the review's three sequences.
+- **Considered:** teach the second reader the literal string; normalise the line before reading it.
+- **Chosen because:** Codex's file is TOML, so TOML decides what a line assigns. `selectionValue` reads a root
+  selection line as TOML and is the only reader; `selectionHasValue` rests on it, and the second reader is deleted.
+  Every spelling that TOML gives a string names the same model, the ones that nobody listed included.
+- **Applies to:** `selectionValue` and `selectionHasValue` in `internal/adapter/codex/config.go`, `readSelection` in
+  `adoption.go`, the table test `TestASelectionLineIsReadAsTOML`, and the matrix's dimension of spellings: Codex's
+  basic string, literal string, no spaces and trailing comment, and for Hermes, whose file is read by its YAML
+  parser already, the model or the provider as a plain, single-quoted or double-quoted scalar.
+
+### An edit of a client's own settings is judged against what is stored
+
+- **Rests on:** the tenth review. With a stored forwarding, a choice of a model of another upstream ends the
+  forwarding in the configuration that every command works from. `aigw client edit hermes --direct` compared its
+  edit with that configuration, found nothing to change and saved nothing; the stored selection kept the
+  forwarding, which came back when the operator picked the stored model again. The widened matrix also asks what
+  a command does that succeeds and changes nothing, which the checker had accepted from any command.
+- **Considered:** commit every edit, changed or not, so that every successful command records a pending choice;
+  compare field by field what the edit names with the stored binding.
+- **Chosen because:** the edit is about the client as it now stands, and that differs from what is stored exactly
+  when the client's file chose a model or the edit changes a setting. So the edit is compared with the stored
+  binding of the client (`FromStoredBinding`): after a choice it always has something to save, the choice, and
+  saves it with what the edit asks for. An edit that asks for what is stored already, while no file of the client
+  chose a model, has nothing to save: it commits nothing and changes nothing, as a preview does. The specification
+  already said that a command records a choice when it saves a change; a command that saves nothing leaves the
+  state as it found it, which every report still describes.
+- **Applies to:** `runEdit` in `internal/cli/client/edit.go`; the matrix's command `end forwarding` with its
+  declaration `idle`, under which a run must leave the configuration, the files and the records untouched, and its
+  check `leaves`, which reads the stored binding; `TestAForwardingEditOfAClientThatWaitsForATokenActsOnTheChosenModel`,
+  rewritten from the old outcome to this one.
+
+### A removal beside a choice that cannot be recorded is refused in the file's words
+
+- **Rests on:** the tenth review's finding 4. While a file of a client is refused, the client's choice stays in
+  its file and the client is saved as stored. Removing the model that the stored selection names then passed the
+  removal guard, which reads the working configuration, and failed the validation of what would be saved with
+  "names the unknown model" and `aigw check` as its step.
+- **Considered:** make the guard read the stored configuration too, which would also refuse the removal that a
+  recordable choice allows.
+- **Chosen because:** the transaction knows why the client is left: the plan of its files was refused. It returns
+  that refusal, which names the file and its step, wrapped in a sentence that says which selection is kept.
+- **Applies to:** `recorded` and `planRefusal` in `internal/app/synchronization/follow.go`, and the regression test
+  of the tenth review's removal probe.
 
 ### An adapter admits a file that shows the selection the transition starts from
 

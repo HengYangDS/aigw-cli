@@ -4,7 +4,6 @@
 package codex
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -415,7 +414,7 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 		// Explicit Route selection owns these root values. Provider tables,
 		// scheduler state, and catalog bytes remain independently guarded.
 	} else if projectedModel == "" {
-		if !isManagedSelection(modelLine, "model", selectionStringValue(modelLine)) {
+		if model, _ := selectionValue(modelLine, "model"); !isManagedSelection(modelLine, "model", model) {
 			return "", newConflictError("Codex config conflict: AIGW-managed model selection cannot be attributed; refusing to overwrite user edits", nil)
 		}
 	} else if !rootModelAdmitted(modelLine, projectedModel, chosen, previous.UpstreamModel) {
@@ -468,29 +467,24 @@ func isManagedSelection(line, key, value string) bool {
 	return selectionHasValue(line, key, value) && strings.HasSuffix(strings.TrimSpace(line), "# managed by AIGW")
 }
 
-func selectionHasValue(line, key, value string) bool {
+// selectionValue returns the string that line assigns to key, and whether
+// line is such an assignment. The line is read as TOML, the format of Codex's
+// file, so every spelling of a string names the same value. It is the one
+// reader of a root selection's value: a second reader that decoded the value
+// as JSON read a literal string as no value, and a model chosen in Codex in
+// that spelling as no choice.
+func selectionValue(line, key string) (string, bool) {
 	var selection map[string]any
 	if err := toml.Unmarshal([]byte(line), &selection); err != nil || len(selection) != 1 {
-		return false
+		return "", false
 	}
-	selected, ok := selection[key].(string)
-	return ok && selected == value
+	selected, assigned := selection[key].(string)
+	return selected, assigned
 }
 
-func selectionStringValue(line string) string {
-	_, value, found := strings.Cut(line, "=")
-	if !found {
-		return ""
-	}
-	value = strings.TrimSpace(value)
-	if comment := strings.IndexByte(value, '#'); comment >= 0 {
-		value = strings.TrimSpace(value[:comment])
-	}
-	var decoded string
-	if err := json.Unmarshal([]byte(value), &decoded); err != nil {
-		return ""
-	}
-	return decoded
+func selectionHasValue(line, key, value string) bool {
+	selected, assigned := selectionValue(line, key)
+	return assigned && selected == value
 }
 
 func codexRuntimeProvider(runtime domain.Runtime) string {
