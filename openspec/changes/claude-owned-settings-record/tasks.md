@@ -23,4 +23,4 @@
 
 - [x] 3.1 Pass `mise run check` on the lane head.
 - [x] 3.2 Pass the proposal's hosted checks on both forges, the Windows jobs included.
-- [ ] 3.3 Pass the candidate's acceptance against the published `v0.8.3` on the lane head.
+- [x] 3.3 Pass the candidate's acceptance against the published `v0.8.3` on the lane head.
