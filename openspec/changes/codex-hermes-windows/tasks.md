@@ -1,0 +1,51 @@
+## 1. The declaration
+
+- [ ] 1.1 Give a model an optional `context_window` with one default constant of 1,000,000 in the domain, carry it
+      into the resolved runtime, and refuse a value that is not above zero. Done when domain tests cover a model
+      without a declaration, with one, and an invalid one.
+- [ ] 1.2 Store the field in schema 8 only when declared, in `aigw.toml`, the team file and `aigw config export`.
+      Done when a store test shows that a model without a window encodes no such key, that a declared one round
+      trips, and that a team file's value reaches the configuration.
+- [ ] 1.3 Add `--context-window` to `aigw model add` and `aigw model edit`, and `--default-context-window` to
+      `aigw model edit`; report `context_window` in `aigw model list` and `aigw model show`, in JSON for every
+      model and in text where it differs from the default. Done when acceptance tests read each and the refusals
+      of the specification's fourth scenario.
+
+## 2. Codex
+
+- [ ] 2.1 Write the declared window into the two window fields of the selected model's entry, for an alias and for
+      a model whose ID is an entry of the table. Done when catalog tests compare every other field and every other
+      entry with Codex's own table, cover a lower declared window, and fail when the bundled table lacks the two
+      fields.
+- [ ] 2.2 Report in a passing check of `aigw check codex` that Codex's fallback window applies to a model whose
+      family the table does not hold. Done when a test reads the check for such a model and its absence for a
+      model with an entry.
+- [ ] 2.3 Rewrite the table when the declared window of the selected model changes. Done when an acceptance test
+      edits the window, reads the table, and reads a following preview that plans nothing.
+
+## 3. Hermes
+
+- [ ] 3.1 Read the models that a provider entry lists through one function that accepts the mapping and the list
+      of IDs, and use it wherever an entry's models are read. Done when its table test covers both shapes and the
+      choice-following tests pass over each.
+- [ ] 3.2 Write each model's declared window as `context_length` under its ID, in AIGW's order, and no window on
+      an entry or in the `model` block. Done when projection tests read the mapping and its order, a file in the
+      earlier shape with its record is accepted and rewritten, and a changed window plans a write.
+
+## 4. Team file and documents
+
+- [ ] 4.1 Declare the vendor's documented window for the families below 1,000,000 in `manifests/team.toml`, with
+      the source in a comment beside each family's first model. Done when the team file's test holds the
+      specification's scenario.
+- [ ] 4.2 Describe the declaration and each client's use of it in the product concepts and the team rollout guide,
+      and state the change under Unreleased in `CHANGELOG.md` with the new JSON field. Done when the documentation
+      gates pass.
+
+## 5. Verification
+
+- [ ] 5.1 Run one short turn in Codex and one in Hermes, each in an isolated home with the real client, and read the
+      window that the client reports for the selected model.
+- [ ] 5.2 Run the published previous release through the lifecycle journey after a rollback from this program,
+      with Hermes and Codex enabled, and require both to synchronize without a refusal.
+- [ ] 5.3 Pass `mise run check` on the lane head.
+- [ ] 5.4 Pass the proposal's hosted checks on both forges.
