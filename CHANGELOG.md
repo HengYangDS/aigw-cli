@@ -21,11 +21,12 @@ signing, and GA status remain separate evidence.
   in Claude Code sends the ID that the selected provider serves and runs at
   that model's context window, and writes `behavesAs` on Claude Desktop's model
   entries, so a Desktop session no longer holds such a model to 200,000 tokens.
-  Both are values that AIGW owns. Breaking: AIGW's record of Claude Code's
-  settings gains a field that 0.8.3 refuses, so before rolling the program
-  back to 0.8.3 run `aigw client disable claude`; and a `modelOverrides` that
-  you added by hand to settings that AIGW already owned is reported as changed
-  outside AIGW until you remove it.
+  AIGW records the map in `settings.json.aigw-owned-keys.json` beside Claude
+  Code's settings, and takes over a map that you added by hand the first time
+  the selection needs one while keeping it for the withdrawal. The map stays
+  through a rollback to 0.8.3, which leaves it as AIGW wrote it until the
+  newer program synchronizes again; a withdrawal, projection or uninstall by
+  the newer program removes it and its record.
 - The repository's ETHOS proof runs its Go test suite once instead of twice.
   The coverage command can write JUnit and LCOV reports from its one test run
   (`--junit-output`, `--lcov-output`), and ETHOS judges those reports instead of

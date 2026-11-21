@@ -131,6 +131,8 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	journey.requireVersion(oldVersion)
 	journey.updateTo(archive, checksums, newVersion, newArtifact)
 	journey.requireInstallationDescription(newVersion, newArtifact, baseline)
+	// The candidate's synchronization writes the selection's map and its record.
+	journey.requireOwnedModelOverrides()
 	journey.requireSyncPreservesUserSettings("", "user-dark")
 	requireUserFiles()
 	if output := journey.run("self", "update", "--archive", archive, "--checksums", checksums); !strings.Contains(string(output), "already matches the current program") {
@@ -142,18 +144,25 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	journey.run("sync")
 	journey.requireHealthyVersion(oldVersion)
 	journey.requireProgramBytes(baseline)
+	// The predecessor synchronized with the map in the settings. One that does
+	// not manage the key leaves it, and one that does keeps the selection's.
+	journey.requireModelOverrides()
 	requireUserFiles()
 	journey.updateTo(archive, checksums, newVersion, newArtifact)
 	journey.requireInstallationDescription(newVersion, newArtifact, baseline)
+	// The candidate finds the map its own again, whatever the predecessor did
+	// to the settings, and holds the selection's map and its record.
+	journey.requireOwnedModelOverrides()
 	journey.requireSyncPreservesUserSettings("user-dark", "user-dark-after-upgrade")
 	requireUserFiles()
 
 	journey.uninstallWithAndRequireInstallationRemoved(newArtifact)
+	journey.requireNoModelOverrides()
 	journey.requireUserTheme("user-dark-after-upgrade")
 	if got := readFile(t, codexConfig); string(got) != originalCodex {
 		t.Fatalf("uninstall changed original Codex configuration: %q", got)
 	}
-	for _, path := range []string{journey.settings + ".aigw-state.json", verifiedSnapshot(journey.config), codexConfig + ".aigw-state.json", codexConfig + ".aigw-model-catalog.json"} {
+	for _, path := range []string{journey.settings + ".aigw-state.json", journey.claudeOwnedKeysRecord(), verifiedSnapshot(journey.config), codexConfig + ".aigw-state.json", codexConfig + ".aigw-model-catalog.json"} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatalf("uninstall retained owned state %s: %v", path, err)
 		}
