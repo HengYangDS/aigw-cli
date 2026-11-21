@@ -9,12 +9,14 @@ import (
 // `aigw route list` and `aigw route show`, add, edit and remove replace those
 // of the route writes, and search replaces those of `aigw catalog` and
 // `aigw models`, so each continues from its predecessors' schema_version 1.
+// The documents that hold a model moved to 3 when the model gained
+// context_window.
 const (
-	listSchemaVersion   = 2
-	showSchemaVersion   = 2
-	addSchemaVersion    = 2
-	editSchemaVersion   = 2
-	removeSchemaVersion = 2
+	listSchemaVersion   = 3
+	showSchemaVersion   = 3
+	addSchemaVersion    = 3
+	editSchemaVersion   = 3
+	removeSchemaVersion = 3
 	searchSchemaVersion = 2
 )
 
@@ -76,6 +78,9 @@ type modelItem struct {
 	Label     string         `json:"label"`
 	Family    string         `json:"family"`
 	Protocols []protocolItem `json:"protocols"`
+	// ContextWindow is the model's context window in tokens: the one that it
+	// declares, or the default.
+	ContextWindow int `json:"context_window"`
 	// ProtocolClients are the clients that speak one of the model's
 	// protocols; protocol overlap permits selection and qualifies nothing.
 	ProtocolClients []string         `json:"protocol_clients"`

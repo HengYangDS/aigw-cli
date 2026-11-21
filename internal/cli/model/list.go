@@ -2,6 +2,7 @@ package model
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
@@ -109,6 +110,9 @@ func renderList(runtime invocation.Context, cfg domain.Config, document listDocu
 			protocols = append(protocols, label)
 		}
 		detail = append(detail, strings.Join(protocols, ", "))
+		if item.ContextWindow != domain.DefaultContextWindow {
+			detail = append(detail, "context window "+strconv.Itoa(item.ContextWindow))
+		}
 		if len(item.SelectedBy) > 0 {
 			state = terminal.OK
 			detail = append(detail, "used by "+clientLabels(runtime.Clients.Admission(), item.SelectedBy))

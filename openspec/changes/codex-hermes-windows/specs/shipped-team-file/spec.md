@@ -4,8 +4,8 @@
 
 The shipped team file SHALL declare `context_window` for a model only where the model's vendor documents a context
 window below 1,000,000, or where no vendor document remains and another named source gives a lower number. It SHALL
-declare that number, the same for every model of one family, and SHALL name the source in a comment beside the
-family's first model.
+declare that number, the same for every model of one family. The file SHALL stay the byte-identical native export,
+which holds no comment, so the repository's dated qualification evidence SHALL name each such family's source.
 
 #### Scenario: Declared windows are below the default and agree within a family
 

@@ -1,39 +1,5 @@
 ## ADDED Requirements
 
-### Requirement: Codex runs the selected model at its declared context window
-
-In the model table that AIGW writes for Codex, the entry that describes the selected model SHALL carry the model's
-declared context window as its `context_window` and as its `max_context_window`. Every other field of that entry
-and every other entry SHALL stay as Codex's own table has them. For a model whose family Codex's table does not
-hold, AIGW SHALL write no entry, and `aigw check codex` SHALL say that Codex's own fallback window applies.
-
-#### Scenario: The table holds the model's family
-
-- **GIVEN** the selected model is a provider's ID of a family that Codex's table holds
-- **WHEN** AIGW projects Codex's files
-- **THEN** the alias that AIGW adds for the model SHALL carry the declared window in both fields
-- **AND** the alias's other fields SHALL be the family's, apart from its own ID and display name
-- **AND** the family's own entry and every other entry SHALL be unchanged.
-
-#### Scenario: The model's ID is an entry of the table
-
-- **WHEN** the selected model's ID is itself an entry of Codex's table
-- **THEN** that entry SHALL carry the declared window in both fields in the table that AIGW writes
-- **AND** nothing else of the table SHALL change.
-
-#### Scenario: The table does not hold the model's family
-
-- **WHEN** the selected model's family is not in Codex's table
-- **THEN** AIGW SHALL write the table without an entry for the model
-- **AND** `aigw check codex` SHALL report, in a check of its own that passes, that Codex has no entry for the
-  model's family and uses its own fallback window whatever the model declares.
-
-#### Scenario: The declared window changes
-
-- **WHEN** `aigw model edit` changes the declared window of the model that Codex selects
-- **THEN** the command SHALL rewrite Codex's table with the new window
-- **AND** `aigw sync --dry-run` afterwards SHALL plan no change.
-
 ### Requirement: Hermes runs each model at its declared context window
 
 For every model of every provider entry that AIGW owns in Hermes's file, AIGW SHALL write the model's declared

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
@@ -56,6 +57,48 @@ func loadModel(runtime invocation.Context, text string, protocol domain.Endpoint
 	return cfg, model, err
 }
 
+// errWindowValue refuses a context window that is no whole number above
+// zero. pflag quotes the refused value and its flag before it.
+var errWindowValue = errors.New("expected a whole number of tokens above zero")
+
+// windowFlag is the value of `--context-window`: one context window, a whole
+// number of tokens above zero. Any other value, and a second one, is refused
+// while the flags are parsed, before the command reads the configuration.
+type windowFlag struct {
+	tokens int
+	given  bool
+}
+
+func (flag *windowFlag) Set(text string) error {
+	if flag.given {
+		return errors.New("this flag takes one value")
+	}
+	tokens, err := strconv.Atoi(text)
+	if err != nil || domain.ValidateContextWindow(tokens) != nil {
+		return errWindowValue
+	}
+	flag.tokens, flag.given = tokens, true
+	return nil
+}
+
+// String is the window, which a command line that rebuilds the flag writes.
+func (flag *windowFlag) String() string {
+	if !flag.given {
+		return ""
+	}
+	return strconv.Itoa(flag.tokens)
+}
+
+// Type names the value in help.
+func (*windowFlag) Type() string { return "tokens" }
+
+// bindWindow adds the `--context-window` flag to cmd, which stores the window
+// that it declares in target.
+func bindWindow(cmd *cobra.Command, target *windowFlag, usage string) {
+	cmd.Flags().Var(target, "context-window", usage+"; a model that declares none has "+strconv.Itoa(domain.DefaultContextWindow))
+	invocation.CompleteFlag(cmd, "context-window", cobra.NoFileCompletions)
+}
+
 // describe reports one added model as list and show do: its name, label,
 // family, protocols with their capabilities, the clients that can use it and
 // the clients that select it.
@@ -65,7 +108,7 @@ func describe(cfg domain.Config, ref domain.ModelRef) modelItem {
 	clients, _ := cfg.ProtocolClientIDs(ref)
 	item := modelItem{
 		ID: ref.String(), Provider: model.Provider, Label: cfg.ModelLabel(ref), Family: model.FamilyID(),
-		Protocols: []protocolItem{}, ProtocolClients: append([]string{}, clients...),
+		Protocols: []protocolItem{}, ContextWindow: model.Window(), ProtocolClients: append([]string{}, clients...),
 		SelectedBy: append([]string{}, cfg.SelectedClientsForModel(ref)...), Deprecated: model.Deprecated,
 	}
 	for _, protocol := range displayProtocols(model) {
@@ -138,6 +181,7 @@ func modelFields(runtime invocation.Context, item modelItem) []terminal.Field {
 		{Label: "Label", Value: item.Label},
 		{Label: "Family", Value: item.Family},
 		{Label: "Protocols", Value: strings.Join(protocols, ", ")},
+		{Label: "Context window", Value: strconv.Itoa(item.ContextWindow) + " tokens"},
 	}
 	if len(item.SelectedBy) > 0 {
 		fields = append(fields, terminal.Field{Label: "Selected by", Value: clientLabels(runtime.Clients.Admission(), item.SelectedBy)})

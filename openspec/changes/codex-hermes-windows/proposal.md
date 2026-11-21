@@ -31,14 +31,16 @@ None.
 ### Modified Capabilities
 
 - `product-control-plane`: a model declares its context window.
-- `client-adapters`: Codex and Hermes run a model at its declared context window.
+- `projection-format`: the entry of Codex's model table that describes the selected model carries the declared
+  context window, and the tracked verifier proves it with the real client.
+- `client-adapters`: Hermes runs each model at its declared context window.
 - `shipped-team-file`: a window below the default is declared with the vendor's number.
 
 ## Impact
 
 `internal/domain` (the model's field), `internal/store` (one optional field of schema 8), `internal/cli/model`,
-`internal/adapter/codex` and its `modelcatalog`, `internal/adapter/hermes`, `manifests/team.toml`, and the guides
-that name these files. AIGW stays the owner of what it wrote before: Codex's table file and its own provider
+`internal/adapter/codex` and its `modelcatalog`, the tracked verifier `tools/codex/catalogcheck`,
+`internal/adapter/hermes`, `manifests/team.toml`, and the guides that name these files. AIGW stays the owner of what it wrote before: Codex's table file and its own provider
 entries in Hermes's file. It writes no window into `config.toml`, into Hermes's `model` block or at the level of a
 provider entry.
 

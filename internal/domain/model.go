@@ -27,6 +27,10 @@ const (
 	// file that this build reads and writes.
 	ConfigVersion = 8
 
+	// DefaultContextWindow is the context window, in tokens, of a model that
+	// declares none.
+	DefaultContextWindow int = 1_000_000
+
 	// AuthenticationProviderToken sends the provider's Token, which AIGW
 	// stores.
 	AuthenticationProviderToken Authentication = "provider-token"
@@ -95,14 +99,25 @@ type Family struct {
 // Model is one provider's model, named `provider/model`: ID is the provider's
 // own model ID, byte for byte. Family is empty for a model that is its own
 // family. Protocols maps each protocol on which AIGW may use the model to the
-// capabilities qualified there.
+// capabilities qualified there. ContextWindow is the context window, in
+// tokens, that the model declares, or zero for a model that declares none.
 type Model struct {
-	Provider   string
-	ID         string
-	Family     string
-	Label      string
-	Protocols  map[EndpointProtocol][]Capability
-	Deprecated bool
+	Provider      string
+	ID            string
+	Family        string
+	Label         string
+	Protocols     map[EndpointProtocol][]Capability
+	ContextWindow int
+	Deprecated    bool
+}
+
+// Window returns the context window, in tokens, that AIGW tells a client to
+// use for the model: the one that it declares, or DefaultContextWindow.
+func (model Model) Window() int {
+	if model.ContextWindow != 0 {
+		return model.ContextWindow
+	}
+	return DefaultContextWindow
 }
 
 // FamilyID returns the model's family: its declared family, or the model ID
@@ -157,6 +172,8 @@ type Runtime struct {
 	// order for any other. A client that knows a vendor's model IDs learns
 	// from it which of them the provider serves, and as what.
 	FamilyVariants map[string]string `json:"-"`
+	// ContextWindow is the selected model's Window, in tokens.
+	ContextWindow int `json:"-"`
 }
 
 // ModelName is the model's label without the provider's name and its
@@ -538,6 +555,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
 		FamilyVariants:    c.familyVariants(ref, protocol),
+		ContextWindow:     model.Window(),
 	}, nil
 }
 

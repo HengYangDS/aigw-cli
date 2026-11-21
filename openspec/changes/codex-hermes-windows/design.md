@@ -57,7 +57,10 @@ full window.
   that one entry to the declared window gives Codex 950,000 usable tokens for a window of 1,000,000 and compaction
   at 900,000, below the documented largest input. Where the model's ID is itself an entry of the table, that entry
   carries the window in AIGW's copy, which Codex reads only while AIGW's provider is selected.
-- **Applies to:** `modelcatalog.Document.Project` and the catalog plan in `internal/adapter/codex`.
+- **Applies to:** `modelcatalog.Document.Project` and the catalog plan in `internal/adapter/codex`, and the tracked
+  verifier `tools/codex/catalogcheck`, which until now proved that an alias equals its family's entry in every field
+  but its ID and display name. Codex 0.171.0 rendered a raised window on one of its own entries exactly as written
+  on 2026-11-22, with every other field and entry unchanged.
 
 ### A Codex model without an entry keeps Codex's fallback, and AIGW says so
 
@@ -92,7 +95,9 @@ full window.
 - **Chosen because:** the owner's rule is 1,000,000 unless a real limit is lower. A vendor's documented window is
   such a limit; a largest input within a few percent of the window is not, because both clients compact well before
   it.
-- **Applies to:** `manifests/team.toml` and its test.
+- **Applies to:** `manifests/team.toml` and its test. The file is the byte-identical native export and holds no
+  comment, so each number's source is named in the dated qualification evidence
+  (`docs/research/provider-model-qualification.md`).
 
 ## Risks / Trade-offs
 

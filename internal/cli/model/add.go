@@ -18,6 +18,7 @@ type addOptions struct {
 	family       string
 	capabilities []string
 	label        string
+	window       windowFlag
 	unlisted     bool
 	dryRun       bool
 	jsonMode     bool
@@ -55,6 +56,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 	invocation.BindText(cmd, &options.family, "family", "The model's family; an unknown family is created")
 	cmd.Flags().StringArrayVar(&options.capabilities, "capability", nil, "A qualified `capability`; repeatable: "+capabilityUsage())
 	invocation.BindText(cmd, &options.label, "label", "Display name")
+	bindWindow(cmd, &options.window, "The model's context window in tokens")
 	cmd.Flags().BoolVar(&options.unlisted, "unlisted", false, "Add the model without reading the provider's catalog")
 	cmd.Flags().BoolVar(&options.dryRun, "dry-run", false, "Show the addition without reading the catalog or writing anything")
 	cmd.Flags().BoolVar(&options.jsonMode, "json", false, "Write the added model as JSON")
@@ -94,7 +96,10 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 		return capabilityRefusal(cmd, provider, unadmitted)
 	}
 	before := cfg.Clone()
-	model := domain.Model{Label: strings.TrimSpace(options.label), Provider: ref.Provider(), ID: ref.ID(), Protocols: declared}
+	model := domain.Model{
+		Label: strings.TrimSpace(options.label), Provider: ref.Provider(), ID: ref.ID(), Protocols: declared,
+		ContextWindow: options.window.tokens,
+	}
 	family, created := familyFor(&cfg, ref, options.family)
 	model.Family = family
 	cfg.Models[ref] = model

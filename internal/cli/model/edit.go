@@ -15,20 +15,22 @@ import (
 // editOptions are the flags of `aigw model edit`. A repeatable set that is
 // given replaces the model's set.
 type editOptions struct {
-	protocols    []domain.EndpointProtocol
-	family       string
-	capabilities []string
-	label        string
-	dryRun       bool
-	jsonMode     bool
+	protocols     []domain.EndpointProtocol
+	family        string
+	capabilities  []string
+	label         string
+	window        windowFlag
+	defaultWindow bool
+	dryRun        bool
+	jsonMode      bool
 }
 
 func newEditCommand(runtime invocation.Context) *cobra.Command {
 	var options editOptions
 	cmd := &cobra.Command{
 		Use:   "edit <provider/model>",
-		Short: "Change a model's protocols, family, capabilities or label",
-		Long: "Change a model's protocols, family, capabilities or label.\n" +
+		Short: "Change a model's protocols, family, capabilities, label or context window",
+		Long: "Change a model's protocols, family, capabilities, label or context window.\n" +
 			"Each repeatable flag replaces the model's set; --capability \"\" clears the capabilities.",
 		Example: "aigw model edit dmxapi/gpt-6.1-sol-cdx --family gpt-6.1-sol\n" +
 			"aigw model edit ucloud/minimax-m3 --capability tool_search\n" +
@@ -37,8 +39,11 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			if err := modelArgument(cmd, args); err != nil {
 				return err
 			}
-			if !slices.ContainsFunc([]string{"protocol", "family", "capability", "label"}, cmd.Flags().Changed) {
-				return fmt.Errorf("model edit needs --protocol, --family, --capability or --label; run `%s --help`", cmd.CommandPath())
+			if !slices.ContainsFunc([]string{"protocol", "family", "capability", "label", "context-window", "default-context-window"}, cmd.Flags().Changed) {
+				return fmt.Errorf("model edit needs --protocol, --family, --capability, --label, --context-window or --default-context-window; run `%s --help`", cmd.CommandPath())
+			}
+			if options.window.given && options.defaultWindow {
+				return fmt.Errorf("--context-window and --default-context-window are mutually exclusive; run `%s --help`", cmd.CommandPath())
 			}
 			if cmd.Flags().Changed("family") && !domain.ValidIdentifier(options.family) {
 				return fmt.Errorf("--family %q is not a family ID; use letters, numbers, dots, hyphens or underscores; run `%s --help`", options.family, cmd.CommandPath())
@@ -55,6 +60,8 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 	invocation.BindText(cmd, &options.family, "family", "The model's family; an unknown family is created")
 	cmd.Flags().StringArrayVar(&options.capabilities, "capability", nil, "Replace the model's capabilities with this `capability`; repeatable, \"\" clears them: "+capabilityUsage())
 	invocation.BindText(cmd, &options.label, "label", "Display name; \"\" clears it")
+	bindWindow(cmd, &options.window, "Declare the model's context window in tokens")
+	cmd.Flags().BoolVar(&options.defaultWindow, "default-context-window", false, "Remove the model's declared context window, so that it has the default")
 	cmd.Flags().BoolVar(&options.dryRun, "dry-run", false, "Show the edit without writing anything")
 	cmd.Flags().BoolVar(&options.jsonMode, "json", false, "Write the edited model as JSON")
 	invocation.CompleteFlag(cmd, "family", invocation.CompleteFamilies(runtime))
@@ -104,6 +111,12 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, opti
 	}
 	if cmd.Flags().Changed("label") {
 		model.Label = strings.TrimSpace(options.label)
+	}
+	switch {
+	case options.window.given:
+		model.ContextWindow = options.window.tokens
+	case options.defaultWindow:
+		model.ContextWindow = 0
 	}
 	cfg.Models[ref] = model
 	item := describe(cfg, ref)

@@ -94,6 +94,7 @@ func equivalentModel(left, right Model) bool {
 	return left.Provider == right.Provider &&
 		left.ID == right.ID &&
 		left.Family == right.Family &&
+		left.ContextWindow == right.ContextWindow &&
 		left.Deprecated == right.Deprecated &&
 		equalProtocols(left.Protocols, right.Protocols)
 }
