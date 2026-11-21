@@ -100,49 +100,37 @@ func requireOwnedMapDigest(t *testing.T, path string) {
 	}
 }
 
+// designTableCase is one row of the design's table as a test seeds it: the
+// settings before, the map that the file holds now when it differs, the
+// record's entry, and the selection.
+type designTableCase struct {
+	name    string
+	row     string
+	before  string
+	current string
+	entry   string
+	runtime func() domain.Runtime
+	refuse  bool
+}
+
+// usersMapSettings are settings in which the user wrote a map of their own.
+const usersMapSettings = `{"theme":"dark","modelOverrides":{"claude-opus-4-8":"my-opus"}}`
+
 // The design's table decides every transition of the map and its record:
 // each case names the row that it holds.
 func TestOwnedSettingsKeysFollowTheDesignTable(t *testing.T) {
-	userMap := `{"theme":"dark","modelOverrides":{"claude-opus-4-8":"my-opus"}}`
-	for _, test := range []struct {
-		name    string
-		row     string
-		before  string
-		current string
-		entry   string
-		runtime func() domain.Runtime
-		refuse  bool
-	}{
-		{name: "no entry, no map, any value", row: "one", before: userMap, runtime: withoutMapRuntime},
+	recorded := `{"original":{"present":true,"value":{"claude-opus-4-8":"my-opus"}},"written_sha256":"%s"}`
+	for _, test := range []designTableCase{
+		{name: "no entry, no map, any value", row: "one", before: usersMapSettings, runtime: withoutMapRuntime},
 		{name: "no entry, some, absent", row: "two", before: `{"theme":"dark"}`, runtime: overridesRuntime},
-		{name: "no entry, some, the file holds a map", row: "two", before: userMap, runtime: overridesRuntime},
-		{name: "entry, some, what AIGW wrote", row: "three", before: userMap, current: `{"claude-opus-4-8":"aigw-opus"}`, entry: `{"original":{"present":true,"value":{"claude-opus-4-8":"my-opus"}},"written_sha256":"%s"}`, runtime: overridesRuntime},
-		{name: "entry, none, what AIGW wrote", row: "four", before: userMap, current: `{"claude-opus-4-8":"aigw-opus"}`, entry: `{"original":{"present":true,"value":{"claude-opus-4-8":"my-opus"}},"written_sha256":"%s"}`, runtime: withoutMapRuntime},
-		{name: "entry, some, changed outside AIGW", row: "five", before: userMap, entry: `{"original":{"present":true,"value":{"claude-opus-4-8":"my-opus"}},"written_sha256":"%s"}`, runtime: overridesRuntime, refuse: true},
-		{name: "entry, none, a value changed outside AIGW", row: "five", before: userMap, entry: `{"original":{"present":true,"value":{"claude-opus-4-8":"some-other-opus"}},"written_sha256":"%s"}`, runtime: withoutMapRuntime, refuse: true},
+		{name: "no entry, some, the file holds a map", row: "two", before: usersMapSettings, runtime: overridesRuntime},
+		{name: "entry, some, what AIGW wrote", row: "three", before: usersMapSettings, current: `{"claude-opus-4-8":"aigw-opus"}`, entry: recorded, runtime: overridesRuntime},
+		{name: "entry, none, what AIGW wrote", row: "four", before: usersMapSettings, current: `{"claude-opus-4-8":"aigw-opus"}`, entry: recorded, runtime: withoutMapRuntime},
+		{name: "entry, some, changed outside AIGW", row: "five", before: usersMapSettings, entry: recorded, runtime: overridesRuntime, refuse: true},
+		{name: "entry, none, a value changed outside AIGW", row: "five", before: usersMapSettings, entry: `{"original":{"present":true,"value":{"claude-opus-4-8":"some-other-opus"}},"written_sha256":"%s"}`, runtime: withoutMapRuntime, refuse: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "settings.json")
-			if err := os.WriteFile(path, []byte(test.before), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			if test.current != "" {
-				document := readSettingsFile(t, path)
-				document["modelOverrides"] = json.RawMessage(test.current)
-				if err := os.WriteFile(path, settingsJSON(t, document), 0o600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if test.entry != "" {
-				// The entry records a map that AIGW wrote, which is neither
-				// the user's map in the file nor the selection's.
-				written := adapter.RawJSON(map[string]string{"claude-opus-4-8": "aigw-opus"})
-				record := `{"version":1,"writer_id":"aigw-cli","keys":{"modelOverrides":` +
-					strings.Replace(test.entry, "%s", canonicalDigest(t, written), 1) + `}}`
-				if err := os.WriteFile(ownedKeysPath(path), []byte(record), 0o600); err != nil {
-					t.Fatal(err)
-				}
-			}
+			path := test.seed(t)
 			settingsBefore, keysBefore := readFileBytes(t, path), readFileBytes(t, ownedKeysPath(path))
 			_, err := ReconcileSettings(path, false, test.runtime(), testExecutable(), test.runtime().UpstreamModel)
 			if test.refuse {
@@ -157,59 +145,95 @@ func TestOwnedSettingsKeysFollowTheDesignTable(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			overrides, present := writtenOverrides(t, path)
-			want := modelOverrides(test.runtime())
-			if test.row == "one" || test.row == "four" {
-				want = map[string]string{"claude-opus-4-8": "my-opus"}
-			}
-			if present != (len(want) > 0 || test.row == "two") || !maps.Equal(overrides, want) {
-				t.Fatalf("row %s: modelOverrides = %v (present %t), want %v", test.row, overrides, present, want)
-			}
-			if test.row != "one" && test.row != "four" {
-				requireOwnedMapDigest(t, path)
-			}
-			// The same projection again changes nothing.
-			settings, keys := readFileBytes(t, path), readFileBytes(t, ownedKeysPath(path))
-			plan, err := PlanSettings(path, false, test.runtime(), testExecutable(), test.runtime().UpstreamModel)
-			if err != nil || plan.Action != SettingsActionAlreadyConverged {
-				t.Fatalf("row %s: the projection again plans %q, %v; want already converged", test.row, plan.Action, err)
-			}
-			if !bytes.Equal(readFileBytes(t, path), settings) || !bytes.Equal(readFileBytes(t, ownedKeysPath(path)), keys) {
-				t.Fatal("the projection again rewrote a file")
-			}
+			test.requireProjected(t, path)
 		})
 	}
+}
 
-	// Row three with the entry that a projection wrote itself: a selection
-	// whose map changed replaces the map that AIGW wrote, and the entry keeps
-	// the original that the first projection recorded, not AIGW's earlier map.
-	t.Run("entry, some, the map of an earlier selection", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "settings.json")
-		if err := os.WriteFile(path, []byte(userMap), 0o600); err != nil {
+// seed writes the case's settings, the map that the file holds now, and the
+// record's entry, and returns the settings path.
+func (test designTableCase) seed(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(path, []byte(test.before), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if test.current != "" {
+		document := readSettingsFile(t, path)
+		document["modelOverrides"] = json.RawMessage(test.current)
+		if err := os.WriteFile(path, settingsJSON(t, document), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		usersMap := readSettingsFile(t, path)["modelOverrides"]
-		earlier, changed := overridesRuntime(), anotherChannelRuntime()
-		if maps.Equal(modelOverrides(earlier), modelOverrides(changed)) {
-			t.Fatal("the two selections need the same map, so the projection has nothing to replace")
-		}
-		if _, err := ReconcileSettings(path, false, earlier, testExecutable(), ""); err != nil {
+	}
+	if test.entry != "" {
+		// The entry records a map that AIGW wrote, which is neither the
+		// user's map in the file nor the selection's.
+		written := adapter.RawJSON(map[string]string{"claude-opus-4-8": "aigw-opus"})
+		record := `{"version":1,"writer_id":"aigw-cli","keys":{"modelOverrides":` +
+			strings.Replace(test.entry, "%s", canonicalDigest(t, written), 1) + `}}`
+		if err := os.WriteFile(ownedKeysPath(path), []byte(record), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if original := recordedOriginal(t, path); !original.Present || !sameJSON(original.Value, usersMap) {
-			t.Fatalf("the first projection recorded the original %s, want the user's map %s", original.Value, usersMap)
-		}
-		if _, err := ReconcileSettings(path, false, changed, testExecutable(), earlier.UpstreamModel); err != nil {
-			t.Fatal(err)
-		}
-		if got, present := writtenOverrides(t, path); !present || !maps.Equal(got, modelOverrides(changed)) {
-			t.Fatalf("row three: modelOverrides = %v (present %t), want the changed selection's %v", got, present, modelOverrides(changed))
-		}
+	}
+	return path
+}
+
+// requireProjected requires the map that the row leaves in the settings, its
+// digest in the record where AIGW owns it, and that the same projection again
+// changes nothing.
+func (test designTableCase) requireProjected(t *testing.T, path string) {
+	t.Helper()
+	owned := test.row != "one" && test.row != "four"
+	overrides, present := writtenOverrides(t, path)
+	want := modelOverrides(test.runtime())
+	if !owned {
+		want = map[string]string{"claude-opus-4-8": "my-opus"}
+	}
+	if present != (len(want) > 0 || test.row == "two") || !maps.Equal(overrides, want) {
+		t.Fatalf("row %s: modelOverrides = %v (present %t), want %v", test.row, overrides, present, want)
+	}
+	if owned {
 		requireOwnedMapDigest(t, path)
-		if original := recordedOriginal(t, path); !original.Present || !sameJSON(original.Value, usersMap) {
-			t.Fatalf("row three: the entry's original became %s, want the user's map %s unchanged", original.Value, usersMap)
-		}
-	})
+	}
+	settings, keys := readFileBytes(t, path), readFileBytes(t, ownedKeysPath(path))
+	plan, err := PlanSettings(path, false, test.runtime(), testExecutable(), test.runtime().UpstreamModel)
+	if err != nil || plan.Action != SettingsActionAlreadyConverged {
+		t.Fatalf("row %s: the projection again plans %q, %v; want already converged", test.row, plan.Action, err)
+	}
+	if !bytes.Equal(readFileBytes(t, path), settings) || !bytes.Equal(readFileBytes(t, ownedKeysPath(path)), keys) {
+		t.Fatal("the projection again rewrote a file")
+	}
+}
+
+// Row three with the entry that a projection wrote itself: a selection whose
+// map changed replaces the map that AIGW wrote, and the entry keeps the
+// original that the first projection recorded, not AIGW's earlier map.
+func TestOwnedSettingsKeysReplaceTheMapOfAnEarlierSelection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(path, []byte(usersMapSettings), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	usersMap := readSettingsFile(t, path)["modelOverrides"]
+	earlier, changed := overridesRuntime(), anotherChannelRuntime()
+	if maps.Equal(modelOverrides(earlier), modelOverrides(changed)) {
+		t.Fatal("the two selections need the same map, so the projection has nothing to replace")
+	}
+	if _, err := ReconcileSettings(path, false, earlier, testExecutable(), ""); err != nil {
+		t.Fatal(err)
+	}
+	if original := recordedOriginal(t, path); !original.Present || !sameJSON(original.Value, usersMap) {
+		t.Fatalf("the first projection recorded the original %s, want the user's map %s", original.Value, usersMap)
+	}
+	if _, err := ReconcileSettings(path, false, changed, testExecutable(), earlier.UpstreamModel); err != nil {
+		t.Fatal(err)
+	}
+	if got, present := writtenOverrides(t, path); !present || !maps.Equal(got, modelOverrides(changed)) {
+		t.Fatalf("row three: modelOverrides = %v (present %t), want the changed selection's %v", got, present, modelOverrides(changed))
+	}
+	requireOwnedMapDigest(t, path)
+	if original := recordedOriginal(t, path); !original.Present || !sameJSON(original.Value, usersMap) {
+		t.Fatalf("row three: the entry's original became %s, want the user's map %s unchanged", original.Value, usersMap)
+	}
 }
 
 // recordedOriginal reads what the record's entry for modelOverrides says the

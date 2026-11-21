@@ -29,7 +29,8 @@ func (change settingsChange) withdrawal(document settingsDocument, previousModel
 	// The first record's values go back first, and the record of owned keys
 	// then decides the map against the settings as the user has them.
 	restoreOriginalSettings(document, original)
-	if _, err := change.ownedKeysForWithdrawal(document); err != nil {
+	change, err := change.ownedKeysForWithdrawal(document)
+	if err != nil {
 		return settingsChange{}, err
 	}
 	change.plan = SettingsPlan{Action: SettingsActionRestore, Target: change.path, ownedKeys: change.planKeys != keysUnchanged}
@@ -62,14 +63,14 @@ func (change settingsChange) withdrawal(document settingsDocument, previousModel
 // entry remains. The map is decided again after the other restored values,
 // because a recorded map that equals one of them, such as an absent value, is
 // AIGW's own map as much as one that carries its digest.
-func (change *settingsChange) ownedKeysForWithdrawal(document settingsDocument) (ownedKeysRecord, error) {
+func (change settingsChange) ownedKeysForWithdrawal(document settingsDocument) (settingsChange, error) {
 	record, err := readOwnedKeys(change.path, change.keysBefore)
 	if err != nil {
-		return ownedKeysRecord{}, err
+		return settingsChange{}, err
 	}
 	action, err := decideOwnedKey(document[ownedKeyModelOverrides], nil, record.Keys[ownedKeyModelOverrides])
 	if err != nil {
-		return ownedKeysRecord{}, err
+		return settingsChange{}, err
 	}
 	projectedOwnedKey(ownedKeyModelOverrides, document, action, nil, record.Keys[ownedKeyModelOverrides])
 	delete(record.Keys, ownedKeyModelOverrides)
@@ -77,7 +78,7 @@ func (change *settingsChange) ownedKeysForWithdrawal(document settingsDocument) 
 	if change.planKeys == keysWritten {
 		change.keysData = ownedKeysData(normalizedRecord(record.Keys))
 	}
-	return record, nil
+	return change, nil
 }
 
 // restoreOriginalSettings restores the values that the first record holds.

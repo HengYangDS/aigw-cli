@@ -2,6 +2,7 @@ package claude
 
 import (
 	"fmt"
+	"slices"
 
 	"aigw-cli/internal/platform"
 )
@@ -23,8 +24,7 @@ type restorationFile struct {
 // while it still holds the transition's own postimage.
 func undoWritten(written []restorationFile) platform.Restoration {
 	restored := make(platform.Restoration, 0, len(written))
-	for index := len(written) - 1; index >= 0; index-- {
-		file := written[index]
+	for _, file := range slices.Backward(written) {
 		restored = append(restored, platform.FileOutcome{Path: file.path, Err: restoreGuarded(file.path, file.before, file.after)})
 	}
 	return restored
@@ -67,15 +67,14 @@ func (change settingsChange) apply() (SettingsReceipt, error) {
 	}
 	written = append(written, restorationFile{path: change.path, before: change.settingsBefore, after: settingsAfter})
 	keysAction := "write"
-	switch change.planKeys {
-	case keysRemoved:
-		keysAction = "remove"
-	}
 	var keysAfter platform.FileSnapshot
 	switch change.planKeys {
+	case keysUnchanged:
+		// The record of owned keys stays as it is.
 	case keysWritten:
 		keysAfter, err = writeGuarded(change.keysPath, change.keysBefore, change.keysData, 0o600)
 	case keysRemoved:
+		keysAction = "remove"
 		keysAfter, err = removeGuarded(change.keysPath, change.keysBefore)
 	}
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/platform"
@@ -135,6 +136,8 @@ func ownedKeysForProjection(document settingsDocument, key string, desired json.
 // selection's value or the original that the entry recorded.
 func projectedOwnedKey(key string, document settingsDocument, action ownedKeyAction, desired, entry json.RawMessage) {
 	switch action {
+	case ownedKeyLeave:
+		// A key that is not AIGW's stays as the user has it.
 	case ownedKeyWrite:
 		document[key] = append(json.RawMessage(nil), desired...)
 	case ownedKeyRestore:
@@ -151,10 +154,10 @@ func projectedOwnedKey(key string, document settingsDocument, action ownedKeyAct
 // own map for the user's.
 func refreshedOwnedKeys(record ownedKeysRecord, key string, action ownedKeyAction, original, written json.RawMessage) map[string]json.RawMessage {
 	keys := make(map[string]json.RawMessage, len(record.Keys))
-	for name, entry := range record.Keys {
-		keys[name] = entry
-	}
+	maps.Copy(keys, record.Keys)
 	switch action {
+	case ownedKeyLeave:
+		// The record keeps every entry as it was read.
 	case ownedKeyWrite:
 		// The digest is taken over the value's canonical JSON, so that the same
 		// map written again, or re-indented by a previous release, keeps its
