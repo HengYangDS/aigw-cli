@@ -92,6 +92,28 @@ func followedRecords(deps adapter.Dependencies, followed domain.Config) ([]codex
 	return prepareCodexRecords(targets, selected.UpstreamModel)
 }
 
+// RecordPending reports whether a record of one of Codex's files is behind
+// the model that the file selects, which followed names, and can be brought
+// to it without writing the files. While every file shows its recorded model
+// it reads the files and their records alone. A record that is behind is
+// pending exactly when the ordinary projection of followed would be admitted:
+// every configured file is there with its record, none was edited outside,
+// and each selects the recorded model or the one that followed names.
+func (client codexAdapter) RecordPending(deps adapter.Dependencies, followed domain.Config) bool {
+	binding := followed.Clients[ID]
+	if !binding.Enabled || len(binding.Targets) == 0 {
+		return false
+	}
+	if observed, err := observeChoice(binding.Targets); err != nil || observed.drifted || len(observed.models) == 0 {
+		return false
+	}
+	if _, err := client.Plan(deps, followed, followed); err != nil {
+		return false
+	}
+	records, err := followedRecords(deps, followed)
+	return err == nil && len(records) > 0
+}
+
 // PlanRecord plans the writes that bring AIGW's records of Codex's files to
 // the model chosen in Codex, which followed names as its selection: one plan
 // for each file that shows the choice, naming its record alone.

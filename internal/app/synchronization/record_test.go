@@ -246,7 +246,7 @@ func TestATransitionSettlesAChoiceByWhatItSaves(t *testing.T) {
 
 	withdrawn := working.Clone()
 	withdrawn.SetClientActivation(codex.ID, false, "", nil)
-	if _, named, reconcile, err := syncer.recorded(working, withdrawn, cfg, followed, false, nil); err != nil || !reconcile || !slices.Equal(named, []string{codex.ID}) {
+	if _, named, _, reconcile, err := syncer.recorded(working, withdrawn, cfg, followed, false, nil); err != nil || !reconcile || !slices.Equal(named, []string{codex.ID}) {
 		t.Fatalf("a withdrawal reconciles %v, %t: %v", named, reconcile, err)
 	}
 	if kept := syncer.keeps(followed, working, withdrawn); len(kept) != 0 {
@@ -255,7 +255,7 @@ func TestATransitionSettlesAChoiceByWhatItSaves(t *testing.T) {
 
 	removed := working.Clone()
 	delete(removed.Models, cfg.SelectedModel(codex.ID))
-	saved, named, reconcile, err := syncer.recorded(working, removed, cfg, followed, false, nil)
+	saved, named, _, reconcile, err := syncer.recorded(working, removed, cfg, followed, false, nil)
 	if err != nil || !reconcile || !slices.Equal(named, []string{codex.ID}) || saved.SelectedModel(codex.ID) != working.SelectedModel(codex.ID) {
 		t.Fatalf("removing the earlier model saves %s and reconciles %v: %v", saved.SelectedModel(codex.ID), named, err)
 	}
@@ -283,4 +283,42 @@ func withdrawnSelection(cfg domain.Config) domain.Config {
 	cleared := cfg.Clone()
 	delete(cleared.Clients, codex.ID)
 	return cleared
+}
+
+// A credential reader that cannot be resolved stops no command that names
+// nothing of a client: the record decision passes over the client, whose file
+// and record stay exactly as they were, and the command that writes the
+// client's files reports the failure.
+func TestAnUnresolvedReaderLeavesAClientThatNothingNamesAlone(t *testing.T) {
+	syncer, cfg, target, _ := codexWithReader(t)
+	failure := errors.New("the credential reader cannot be resolved")
+	syncer.ResolveCredentialPath = func() (string, error) { return "", failure }
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func(path string) []byte {
+		t.Helper()
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
+	}
+	file, record := read(target), read(target+adapter.StateSuffix)
+
+	after := cfg.Clone()
+	after.Providers["spare"] = domain.Provider{Label: "Spare", Endpoints: domain.Endpoints{Responses: "https://spare.test/v1"}}
+	if err := syncer.Commit(context.Background(), cfg, after, "a command that names nothing of Codex"); err != nil {
+		t.Fatalf("the command was refused for a client that it does not name: %v", err)
+	}
+	if _, saved := storedConfiguration(t, syncer).Providers["spare"]; !saved {
+		t.Fatal("the command's own change was not saved")
+	}
+	if !leftAs(t, target, info, file) || !bytes.Equal(read(target+adapter.StateSuffix), record) {
+		t.Fatal("Codex's file or AIGW's record of it changed")
+	}
+	if err := syncer.CommitProjection(context.Background(), after, after, "sync"); !errors.Is(err, failure) {
+		t.Fatalf("a synchronization of Codex = %v, want the reader's failure", err)
+	}
 }

@@ -182,7 +182,7 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 			// chosen in the client since then included, and names each one
 			// that it restores. A refusal of its plan changed nothing and
 			// passes on as it is.
-			projection, err := runtime.Synchronizer().Preview(current, restored)
+			projection, err := runtime.Synchronizer().PreviewRestore(current, restored)
 			if err != nil {
 				return err
 			}
@@ -206,7 +206,7 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 				invocation.RenderPreview(r, preview, apply)
 				return nil
 			}
-			if err := runtime.Synchronizer().Commit(cmd.Context(), current, restored, "rollback"); err != nil {
+			if err := runtime.Synchronizer().CommitRestore(cmd.Context(), current, restored, "rollback"); err != nil {
 				// A refusal before anything was written names its own step.
 				if _, refused := errors.AsType[*synchronization.PreflightError](err); refused {
 					return err

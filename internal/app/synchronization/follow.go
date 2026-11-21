@@ -127,8 +127,12 @@ type transition struct {
 	clients   []string
 	reconcile bool
 	followed  []Followed
-	matched   bool
-	saves     bool
+	// left are the clients whose own choice the transition does not save,
+	// because a file of theirs is refused: the choice stays in the file, and
+	// AIGW's record of it stays behind the choice.
+	left    []string
+	matched bool
+	saves   bool
 }
 
 // settle settles the transition from before to after against snapshot. A
@@ -141,7 +145,7 @@ func (s Synchronizer) settle(snapshot store.Snapshot, before, after domain.Confi
 		return settled, err
 	}
 	settled.followed, settled.matched = followed, true
-	if settled.after, settled.clients, settled.reconcile, err = s.recorded(before, after, stored, followed, reconcile, clientIDs); err != nil {
+	if settled.after, settled.clients, settled.left, settled.reconcile, err = s.recorded(before, after, stored, followed, reconcile, clientIDs); err != nil {
 		return settled, err
 	}
 	same, err := snapshot.MatchesConfiguration(settled.after, nil)
@@ -160,13 +164,18 @@ func (s Synchronizer) settle(snapshot store.Snapshot, before, after domain.Confi
 // the command changes, or that can be planned, joins the reconciled clients.
 // Its files are written when the provider of the selection that the
 // transition saves for it has a Token that AIGW can use, and AIGW's record of
-// them alone otherwise, which needs none. One that the command does not
-// touch and that cannot be planned, because a file of it is refused, is
-// saved as stored, and its choice stays in its file.
-func (s Synchronizer) recorded(before, after, stored domain.Config, followed []Followed, reconcile bool, clientIDs []string) (domain.Config, []string, bool, error) {
+// them alone otherwise, which needs none. A client that the command names
+// is not judged here: the plan refuses the whole command when the ordinary
+// projection would refuse the client's files, with a Token or without one
+// (see admitsWaiting). One that the command does not touch and that cannot
+// be planned, because a file of it is refused, is saved as stored, and its
+// choice stays in its file: it is returned among left, so that no record is
+// brought up over the choice.
+func (s Synchronizer) recorded(before, after, stored domain.Config, followed []Followed, reconcile bool, clientIDs []string) (domain.Config, []string, []string, bool, error) {
 	if len(followed) == 0 {
-		return after, clientIDs, reconcile, nil
+		return after, clientIDs, nil, reconcile, nil
 	}
+	var left []string
 	named := slices.Clone(clientIDs)
 	if reconcile && len(named) == 0 {
 		named = slices.Clone(s.ClientIDs())
@@ -176,24 +185,25 @@ func (s Synchronizer) recorded(before, after, stored domain.Config, followed []F
 		client := choice.Now.Client
 		switch {
 		case slices.Contains(named, client):
-		case !reflect.DeepEqual(before.Clients[client], settled.Clients[client]) || s.plans(before, settled, client, followed):
+		case !reflect.DeepEqual(before.Clients[client], settled.Clients[client]) || s.plans(before, settled, client):
 			named = append(named, client)
 		default:
 			settled.Clients[client] = stored.Clients[client]
+			left = append(left, client)
 		}
 	}
 	// What is saved may hold a client as stored beside the command's own
 	// change, such as the removal of the model that the stored selection names.
 	if err := validateTransition(settled); err != nil {
-		return domain.Config{}, nil, false, &PreflightError{Err: err}
+		return domain.Config{}, nil, nil, false, &PreflightError{Err: err}
 	}
-	return settled, s.inAdmissionOrder(named), len(named) > 0, nil
+	return settled, s.inAdmissionOrder(named), left, len(named) > 0, nil
 }
 
 // plans reports whether the named client can be planned for the transition:
 // its files, or AIGW's record of them alone, and the plan is not refused.
-func (s Synchronizer) plans(before, after domain.Config, client string, followed []Followed) bool {
-	projection, err := planned(s, before, after, true, []string{client}, followed)
+func (s Synchronizer) plans(before, after domain.Config, client string) bool {
+	projection, err := planned(s, before, after, true, []string{client}, nil)
 	return err == nil && slices.Contains(s.reconciled(projection), client)
 }
 

@@ -2,6 +2,7 @@ package hermes
 
 import (
 	"context"
+	"fmt"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
@@ -97,6 +98,28 @@ func hermesRecord(followed domain.Config) (RecordPlan, string, error) {
 	return plan, target, err
 }
 
+// RecordPending reports whether AIGW's record of Hermes' file is behind the
+// model that the file selects, which followed names, and can be brought to it
+// without writing the file. While the file shows what the record holds it
+// reads the file and the record alone. A record that is behind is pending
+// exactly when the ordinary projection of followed would be admitted: the
+// file is there, nothing else that AIGW owns in it changed, and it selects the
+// model that followed names.
+func (clientAdapter hermesAdapter) RecordPending(deps adapter.Dependencies, followed domain.Config) bool {
+	binding := followed.Clients[ID]
+	if !binding.Enabled || len(binding.Targets) != 1 {
+		return false
+	}
+	if _, changed, err := ObserveSelection(binding.Targets[0]); err != nil || !changed {
+		return false
+	}
+	if _, err := clientAdapter.Plan(deps, followed, followed); err != nil {
+		return false
+	}
+	plan, _, err := hermesRecord(followed)
+	return err == nil && plan.ChangesState()
+}
+
 // PlanRecord plans the write that brings AIGW's record of Hermes' file to the
 // model chosen in Hermes, which followed names as its selection.
 func (hermesAdapter) PlanRecord(_ adapter.Dependencies, followed domain.Config) ([]adapter.ProjectionPlan, error) {
@@ -113,5 +136,9 @@ func (hermesAdapter) ApplyRecord(_ context.Context, _ adapter.Dependencies, foll
 	if err != nil {
 		return nil, err
 	}
-	return plan.Apply()
+	receipt, err := plan.Apply()
+	if err != nil {
+		return nil, fmt.Errorf("record the model chosen in Hermes in %s: %w", plan.path, err)
+	}
+	return receipt, nil
 }

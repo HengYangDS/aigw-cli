@@ -161,12 +161,20 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	}
 	operation := runtime
 	operation.Interactive = runtime.Interactive && !options.jsonMode
-	chosen, err := resolve(operation, cfg, given, options.protocol)
+	synchronizer := operation.Synchronizer()
+	// An explicit selection replaces what was saved for the client, so its
+	// defaults and its report start from the stored binding and not from a
+	// model that the client's own file chose in between.
+	saved := cfg
+	if given.client != "" {
+		saved = synchronizer.FromStoredBinding(cfg, given.client)
+	}
+	chosen, err := resolve(operation, saved, given, options.protocol)
 	if err != nil {
 		return invocation.CancelledPrompt(cmd, args, err)
 	}
 	chosen.unlisted = options.unlisted && (chosen.adds || chosen.gains)
-	synchronizer := operation.Synchronizer()
+	saved = synchronizer.FromStoredBinding(cfg, chosen.client.ID)
 	after, selected, err := synchronizer.PrepareSelection(withAddition(cfg, chosen), chosen.client.ID, chosen.ref, chosen.protocol)
 	if err != nil {
 		return err
@@ -184,7 +192,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 		return err
 	}
 	outcome := selectionOutcome{
-		before: cfg, after: desired, selected: selected, choice: chosen, preview: invocation.Planned(operation, projection),
+		before: saved, after: desired, selected: selected, choice: chosen, preview: invocation.Planned(operation, projection),
 		tokenMissing: missing, readOnly: secret.IsReadOnly(operation.Secrets), unlisted: options.unlisted,
 	}
 	if options.dryRun {

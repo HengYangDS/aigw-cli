@@ -59,14 +59,6 @@ change of selection.
 - **AND** files that name different models SHALL be followed by no command; a command that writes them SHALL fail
   with the step that restores the recorded selection.
 
-#### Scenario: The chosen model's provider waits for a Token
-
-- **WHEN** the provider of the chosen model has no Token that AIGW can use and a command saves the configuration
-- **THEN** it SHALL leave the client's file and the stored selection as they are, so that the choice stays in the
-  client's file alone
-- **AND** `aigw status` SHALL name the chosen model for that client, as waiting for the Token
-- **AND** the first command that saves after the Token is stored SHALL record the model that the file selects then.
-
 #### Scenario: Every list and view names the model that the client uses
 
 - **GIVEN** a client whose file selects a model whose provider has no Token that AIGW can use
@@ -99,7 +91,27 @@ change of selection.
 - **WHEN** a command that names nothing of the client saves while another of that client's files is missing or
   refused
 - **THEN** the command SHALL succeed as it does without the choice
-- **AND** it SHALL leave the choice in the client's file alone.
+- **AND** it SHALL leave the choice in the client's file alone, with the stored selection and AIGW's record of the
+  file as they were
+- **AND** it SHALL do so whether or not the chosen model's provider has a Token that AIGW can use.
+
+#### Scenario: A command that names the client meets a file that is refused
+
+- **GIVEN** a client's file chose another added model while another of that client's files is missing, has no
+  readable record, was edited outside, or selects a different model
+- **WHEN** a command that names that client runs, such as `aigw sync` or `aigw client edit` for it
+- **THEN** the command SHALL be refused with the step that the refused file gives, and nothing SHALL change
+- **AND** it SHALL be refused alike whether or not the client's provider has a Token that AIGW can use.
+
+#### Scenario: The record follows the file at every commit
+
+- **GIVEN** a client's file selects a model that AIGW's record of that file does not name, and nothing else that
+  AIGW owns in the file changed
+- **WHEN** any command commits, whether or not it names that client or writes that client's file
+- **THEN** AIGW's record of the file SHALL name the model that the file selects when the command ends
+- **AND** this SHALL hold when the file selects the model that the configuration already stores, as after a
+  selection that waited for its Token while the operator picked that model in the client
+- **AND** a later pick of the model that the record named before SHALL be followed as a choice.
 
 #### Scenario: Any command after a choice
 
@@ -256,6 +268,23 @@ changed.
   model in that client
 - **THEN** AIGW SHALL write the named model, not the client's choice.
 
+#### Scenario: An explicit selection returns to the stored model
+
+- **GIVEN** the stored selection forwards to a local address or carries retry budgets, and the operator then picked
+  a model of another provider in the client
+- **WHEN** `aigw use` selects the stored model again
+- **THEN** the forwarding and the retry budgets of the stored selection SHALL be kept
+- **AND** the result SHALL NOT report them as cleared
+- **AND** without `--protocol` the selection SHALL keep the stored protocol, not the protocol of the model that the
+  client chose in between.
+
+#### Scenario: An explicit selection of another upstream after a choice
+
+- **GIVEN** the stored selection forwards to a local address, and the operator then picked another model in the
+  client
+- **WHEN** `aigw use` selects a model of another upstream for that client
+- **THEN** the result and its preview SHALL say that the forwarding ended, as they do without the choice.
+
 #### Scenario: An explicit selection over a model that AIGW has not added
 
 - **WHEN** the client's selection names a model that AIGW has not added and the operator runs
@@ -305,6 +334,15 @@ the refusal's Fix.
 
 - **WHEN** the restored configuration selects no model for a client that has one now
 - **THEN** the entry SHALL carry `client` and `replaces` and omit `model`.
+
+#### Scenario: A rollback restores the model that the client chose
+
+- **GIVEN** the client's file chose the model that the restored configuration selects for that client, while the
+  stored configuration selects another
+- **WHEN** the operator runs `aigw config rollback`
+- **THEN** the restored selection SHALL be stored and AIGW's record of the file SHALL name it
+- **AND** when another of the client's files is refused the rollback SHALL be refused with that file's step, with
+  or without a Token, and SHALL NOT report success while the replaced selection stays stored.
 
 #### Scenario: A rollback meets a model that AIGW has not added
 

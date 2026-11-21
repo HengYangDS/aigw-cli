@@ -488,3 +488,11 @@ func (registry Registry) adapter(clientID string) (Adapter, error) {
 	}
 	return adapter, nil
 }
+
+// RecordPending reports whether AIGW's record of the named client's files is
+// behind the selection that the files show and can be brought to it without
+// writing those files. A client that keeps no such record has none pending.
+func (registry Registry) RecordPending(deps Dependencies, followed domain.Config, clientID string) bool {
+	records, keeps := registry.byID[clientID].(SelectionRecorder)
+	return keeps && records.RecordPending(deps, followed)
+}

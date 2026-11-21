@@ -149,11 +149,38 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
 - **Applies to:** `SelectionRecorder`, `PlanRecord` and `ApplyRecord` in `internal/adapter`, dispatched by
   `Registry.Plan` and `Registry.Apply` for the clients in `Dependencies.RecordOnly`; `hermes.PrepareRecord` and
   `codex.prepareCodexRecords`, which write the record alone, guarded by the snapshot that they read, with a receipt
-  that restores it; `recordedAlone`, `projectionDependencies` and `SameSelection` in `internal/app/synchronization`,
-  which send a client whose selection's provider has no Token to the record-only write and compare selections as
+  that restores it; `recordsAlone`, `projectionDependencies` and `SameSelection` in `internal/app/synchronization`,
+  which send a client whose record is behind its file to the record-only write and compare selections as
   resolved runtimes, never by a binding's raw protocol; and `aigw config rollback`, whose `selections` names only a
   stored selection that it changes to another model than the file shows, and which records the choice where the
   restored configuration selects it.
+
+### One sentence holds for every command, and one judge decides every client
+
+- **Rests on:** the eighth and ninth reviews. The eighth found a record left behind a file that shows the stored
+  selection; the ninth found a choice saved for a named client whose files could not be recorded (two Codex files,
+  one missing, no Token, `aigw sync`). An exhaustive test written before the change failed in five cases on the
+  code that the ninth review read, one of which no review had found (two files with different picks, no Token, an
+  edit of the client's own setting). Nine reviews each sampled sequences; none enumerated them.
+- **Considered:** refresh the record on one more path, as versions two to nine did; decide at the settlement which
+  clients are saved by predicting what the plan will do, which is what failed; drop following without a Token.
+- **Chosen because:** the sentence is small enough to state and to check for every case: after a committed
+  command the record of each of a client's files names the model that the file selects, or that client's
+  selection, files and records are exactly as before. It holds when one judge decides every client that a
+  transition touches, with a Token or without: the ordinary projection's own admission. A client whose files are
+  written is planned as before; a client that a command names and that waits for its Token is planned without
+  being written; a client that no command names has its record brought up exactly when that plan is admitted; and a
+  client whose plan is refused is left as it is stored, or refuses the command that names it. The Token then
+  decides only whether the files are written, never what is saved or refused.
+- **Applies to:** `recordsAlone` and `admitsWaiting` in `internal/app/synchronization` and `RecordPending` of the
+  adapters, which ask the projection's `Plan`; `restoredClients`, `CommitRestore` and `PreviewRestore`, by which a
+  rollback names every client whose stored binding it replaces; `FromStoredBinding`, from which an explicit
+  selection takes its defaults and its report; and the test
+  `TestEveryCommandLeavesEachRecordNamingWhatItsFileSelects` with its states and commands, which a new state or
+  command joins before the code that handles it. `aigw sync` therefore refuses a client that waits for its Token
+  when its files would be refused with the Token, where it passed over that client before. The plan, which for
+  Codex starts the Codex program, runs only for a client whose record is behind its file and for a client that a
+  reconciling command covers while it waits for its Token; every other command reads the file and its record once.
 
 ### An adapter admits a file that shows the selection the transition starts from
 

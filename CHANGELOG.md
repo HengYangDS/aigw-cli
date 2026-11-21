@@ -11,6 +11,8 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
 - **Breaking:** a model chosen inside Codex or Hermes is that client's
   selection for every command, not for `aigw sync` alone. Commands work from
   it; a command that saves the configuration records it, together with AIGW's
@@ -53,13 +55,26 @@ signing, and GA status remain separate evidence.
   changes, in its preview as in its result.
 - `aigw status` and `aigw check` name the model that Claude Code's own
   settings select, in text and as `client_model`.
+- **Breaking:** a command that names a client whose provider has no Token now
+  checks that client's files as it does with the Token, without writing them.
+  `aigw sync`, which names every client, and `aigw client edit` refuse when a
+  file of that client is missing where AIGW does not create it, has no
+  readable record, was edited outside AIGW, or selects a different model than
+  another file; they passed over such a client before. The refusal and its
+  Fix are the ones that the same files give with the Token.
+- `aigw config rollback` to the model that the client itself chose stores
+  that selection, or is refused when a file of the client is; it reported
+  success before while the replaced selection stayed stored.
+- `aigw use` after a model was chosen in the client takes the protocol that
+  it keeps by default from the stored selection, and says
+  `forwarding_cleared` or `retries_cleared` when the stored forwarding or
+  retry budgets end.
 - These documents move up one `schema_version` for the fields above:
   `aigw status` 4, `aigw check` 5, `aigw sync` 4, `aigw use` 4,
   `aigw setup --from` 5, `aigw config rollback` 3, `aigw self uninstall` 3,
   `aigw provider add` and `edit` 3, `aigw provider remove` 2, `aigw model add`,
   `edit` and `remove` 3, `aigw client enable` and `disable` 3, and
   `aigw client edit` 2.
-
 
 ## [0.9.0] - 2026-11-21
 

@@ -16,9 +16,9 @@ import (
 // and whether it would change the stored configuration.
 type Projection struct {
 	Clients []string
-	// Recorded are the clients whose own choice the commit records without
-	// writing their files, because the provider of the selection that it
-	// saves for them has no Token that AIGW can use.
+	// Recorded are the clients of which the commit writes AIGW's record
+	// alone, because the record is behind the selection that their files
+	// show and the commit does not write those files.
 	Recorded      []string
 	Targets       []adapter.ProjectionPlan
 	Configuration bool
@@ -42,6 +42,16 @@ func (s Synchronizer) PreviewProjection(before, after domain.Config, clientIDs .
 		return Projection{}, err
 	}
 	return project(s, before, after, true, clientIDs...)
+}
+
+// PreviewRestore reports what CommitRestore would project for a restore of
+// restored from before, the configuration that the command worked from.
+func (s Synchronizer) PreviewRestore(before, restored domain.Config) (Projection, error) {
+	clients := s.restoredClients(before, restored)
+	if len(clients) == 0 {
+		return s.Preview(before, restored)
+	}
+	return s.PreviewProjection(before, restored, clients...)
 }
 
 // PreviewSetup reports what Setup would write for the named clients, as if the
@@ -111,7 +121,7 @@ func project(planner Synchronizer, before, after domain.Config, reconcile bool, 
 			return Projection{}, err
 		}
 	}
-	projection, err := planned(planner, before, settled.after, settled.reconcile, settled.clients, settled.followed)
+	projection, err := planned(planner, before, settled.after, settled.reconcile, settled.clients, settled.left)
 	if err != nil {
 		return Projection{}, err
 	}
@@ -121,22 +131,26 @@ func project(planner Synchronizer, before, after domain.Config, reconcile bool, 
 	return projection, nil
 }
 
-// planned plans what a transition from before, which follows the choices in
-// followed, reconciles among clientIDs, or among every client when none is
-// named, and nothing unless reconcile is set: the projections of the
-// credential-ready clients, and AIGW's record alone of each client whose
-// choice the transition records without a Token. It writes nothing, so a plan
-// that is refused is a PreflightError, for a command and for its preview
-// alike.
-func planned(planner Synchronizer, before, after domain.Config, reconcile bool, clientIDs []string, followed []Followed) (Projection, error) {
-	if !reconcile {
-		return Projection{}, nil
+// planned plans what a transition from before to after writes: the
+// projections of the credential-ready clients among clientIDs, or among every
+// client when none is named, when reconcile is set; and, at every transition,
+// AIGW's record alone of each other client whose record is behind the
+// selection that its files show (see recordsAlone). left names the clients whose
+// choice the transition did not save. It writes nothing, so a plan that is
+// refused is a PreflightError, for a command and for its preview alike.
+func planned(planner Synchronizer, before, after domain.Config, reconcile bool, clientIDs, left []string) (Projection, error) {
+	var projection Projection
+	if reconcile {
+		ready, err := planner.credentialReadyClients(after, clientIDs...)
+		if err != nil {
+			return Projection{}, &PreflightError{Err: err}
+		}
+		projection.Clients = ready
+		if err := planner.admitsWaiting(before, after, clientIDs, ready); err != nil {
+			return Projection{}, &PreflightError{Err: err}
+		}
 	}
-	ready, err := planner.credentialReadyClients(after, clientIDs...)
-	if err != nil {
-		return Projection{}, &PreflightError{Err: err}
-	}
-	projection := Projection{Clients: ready, Recorded: recordedAlone(after, followed, clientIDs, ready)}
+	projection.Recorded = planner.recordsAlone(before, after, projection.Clients, left)
 	if len(projection.Clients)+len(projection.Recorded) == 0 {
 		return Projection{}, nil
 	}

@@ -16,13 +16,25 @@ const ActionRecord = "record"
 // file to what the file shows and leaves the file itself as it is.
 func (plan ProjectionPlan) RecordOnly() bool { return plan.Action == ActionRecord }
 
-// SelectionRecorder is implemented by an adapter whose client's own choice of
-// a model AIGW follows. It brings AIGW's record of the client's files to the
-// selection that the files show, which followed names as the client's, and
-// writes no client file, no catalog and no credential reader, so it needs no
-// Token. A file that still shows the recorded selection is left; a file whose
-// other managed settings changed is refused, as a projection refuses it.
+// SelectionRecorder is implemented by an adapter whose client records its
+// selection in a file of AIGW's beside the client's own. AIGW's record of the
+// client's files must follow the selection that the files show at every
+// commit: a record that stayed behind reads the client's next pick of the
+// recorded model as no choice at all, and the next synchronization then writes
+// the saved model over it. The recorder decides whether the record is behind
+// and brings it up with a write of the record alone, which needs no Token and
+// leaves every client file as it is.
 type SelectionRecorder interface {
+	// RecordPending reports whether AIGW's record of the client's files is
+	// behind the selection that the files show, which followed names as the
+	// client's, and can be brought to it without writing those files. It
+	// reads the files and their records first, and nothing else while no
+	// record is behind. A record that is behind is pending exactly when the
+	// ordinary projection of followed would be admitted, so that one rule
+	// decides for a client with a Token and for one without: a configured
+	// file that is missing, unreadable or edited outside leaves the whole
+	// client as it is stored, and a model chosen in it in its file alone.
+	RecordPending(deps Dependencies, followed domain.Config) bool
 	// PlanRecord describes ApplyRecord's effects at observation time: one
 	// plan, whose action is ActionRecord and whose effects name the record
 	// alone, for each file whose record changes.

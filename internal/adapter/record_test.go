@@ -17,6 +17,10 @@ type selectionRecordingAdapter struct {
 	followed *[]domain.Config
 }
 
+func (adapter selectionRecordingAdapter) RecordPending(Dependencies, domain.Config) bool {
+	return true
+}
+
 func (adapter selectionRecordingAdapter) PlanRecord(_ Dependencies, followed domain.Config) ([]ProjectionPlan, error) {
 	*adapter.events = append(*adapter.events, "plan-record:"+adapter.id)
 	*adapter.followed = append(*adapter.followed, followed)

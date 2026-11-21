@@ -52,7 +52,8 @@ func followChosen(cfg *domain.Config, selected domain.Runtime, recorded adapter.
 	}
 	if ref == selected.Model {
 		// The binding already names Codex's choice; only AIGW's record of
-		// the file is behind, which the next write of the file brings up.
+		// the file is behind, which the next commit of any command brings
+		// up, with the file or by a write of the record alone.
 		return domain.ModelRef{}, nil
 	}
 	cfg.SetSelectedModel(ID, ref, "")

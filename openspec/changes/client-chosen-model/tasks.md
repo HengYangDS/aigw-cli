@@ -37,6 +37,17 @@
       cannot be written, and delete the waiting state it replaces (`Followed.Waiting`, the reported configuration,
       the transition's `shown` and `servesChoice`); the seventh review's eight runs pass as regression tests, and a
       record-only write leaves the client's file's identity and bytes as they were.
+- [ ] 2.11 Bring AIGW's record of every enabled client's files to the selection that the files show at every
+      committed transition, through the one predicate that the ordinary projection uses, leave a client whose
+      file is refused as stored with or without a Token, and start an explicit selection from the stored binding;
+      the eighth review's twenty probes pass as regression tests with assertions, and a ninth review works from
+      the state table.
+- [ ] 2.12 Hold one sentence for every committed command by an exhaustive test over client, files, Token, each
+      file's state against its record and the command, and let one judge, the ordinary projection's admission,
+      decide every client that a transition touches with a Token or without: a named client that waits for its
+      Token is planned without being written, a rollback names every client whose stored binding it replaces, and
+      an explicit selection takes its defaults and its report from the stored binding. The matrix fails on version
+      nine and with each of the two changes switched off, and the ninth review's seventeen tests pass.
 - [ ] 2.5 Keep one record per invocation of what was followed and report it ahead of the next step, with the
       returning command on a line of its own, the entry's protocol and ended-setting fields, no entry for the
       client that an explicit selection names, and no returning command that cannot run; tests read each, and

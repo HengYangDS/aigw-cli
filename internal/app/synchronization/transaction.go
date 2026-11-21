@@ -27,6 +27,18 @@ func (s Synchronizer) CommitProjection(ctx context.Context, before, after domain
 	return err
 }
 
+// CommitRestore persists restored, a configuration that a rollback restores,
+// and reconciles every client whose selection the restore decides (see
+// restoredClients), so that a restored selection is written or recorded, or
+// the restore is refused, and is never silently set aside.
+func (s Synchronizer) CommitRestore(ctx context.Context, before, restored domain.Config, subject string) error {
+	clients := s.restoredClients(before, restored)
+	if len(clients) == 0 {
+		return s.Commit(ctx, before, restored, subject)
+	}
+	return s.CommitProjection(ctx, before, restored, subject, clients...)
+}
+
 // validateTransition refuses a configuration that cannot be saved before the
 // guards that assume a valid one, and before anything is written.
 func validateTransition(after domain.Config) error {
@@ -83,7 +95,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 		return committed{}, err
 	}
 	after, followed := settled.after, settled.followed
-	projection, err := planned(s, before, after, settled.reconcile, settled.clients, followed)
+	projection, err := planned(s, before, after, settled.reconcile, settled.clients, settled.left)
 	if err != nil {
 		return committed{}, err
 	}
