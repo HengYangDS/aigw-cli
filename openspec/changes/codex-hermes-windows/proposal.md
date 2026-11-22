@@ -17,7 +17,8 @@ Codex and Hermes still decide the window from their own tables, because AIGW wri
   1,000,000. `aigw model add` and `aigw model edit` set it, and `aigw model list` and `aigw model show` report it.
 - Codex: the entry of Codex's model table that describes the selected model carries the declared window as its
   window and its ceiling. For a model whose family the table does not hold, AIGW writes no entry, as before, and
-  `aigw check codex` says that Codex's own fallback window applies.
+  `aigw check codex` says that Codex chooses the window itself; where AIGW writes no table, it says that Codex is not
+  given the declared window, and why.
 - Hermes: every model of every provider entry that AIGW owns carries the declared window as its own
   `context_length`. The entry's `models` becomes a mapping from model ID, where it was a list of IDs.
 - The shipped team file declares a lower window for the families whose vendor documents one.

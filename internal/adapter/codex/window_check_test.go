@@ -219,9 +219,58 @@ func TestACodexTargetsOwnFailureKeepsTheAdaptersStatus(t *testing.T) {
 	}
 }
 
+// TestCodexInspectionSaysWhereAIGWWritesNoTable holds the scenario "AIGW
+// writes no table for a Codex target": the configuration names a model table
+// of the user's own, or the model runs under a model provider of Codex's own,
+// so Codex is not given the declared window. The passing check names the
+// window, the model and the reason, beside the target's own check.
+func TestCodexInspectionSaysWhereAIGWWritesNoTable(t *testing.T) {
+	const model = "gpt-6.2-sol-cdx"
+	for name, test := range map[string]struct {
+		config func(t *testing.T) string
+		edit   func(cfg domain.Config) domain.Config
+		reason string
+	}{
+		"a model table of the user's own": {
+			config: func(t *testing.T) string {
+				own := writeCodexTestConfig(t, `{"models":[{"slug":"mine"}]}`)
+				return "model_catalog_json = \"" + own + "\"\nmodel_provider = \"native\"\n"
+			},
+			edit:   func(cfg domain.Config) domain.Config { return declareWindow(cfg, 400_000) },
+			reason: "this configuration names its own model table in model_catalog_json, which AIGW leaves alone",
+		},
+		"a model provider of Codex's own": {
+			config: func(*testing.T) string { return "model_provider = \"native\"\n" },
+			edit: func(cfg domain.Config) domain.Config {
+				binding := cfg.Clients[ID]
+				binding.ModelProvider, binding.Authentication = "amazon-bedrock", domain.AuthenticationClientNative
+				cfg.Clients[ID] = binding
+				return cfg
+			},
+			reason: "the model runs under Codex's model provider amazon-bedrock, for which AIGW writes no model table",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			stubWindowedTable(t)
+			path := writeCodexTestConfig(t, test.config(t))
+			cfg := test.edit(windowConfiguration(model, "gpt-6.2-sol", path))
+			checks, status := inspectedChecks(cfg, projectForInspection(t, cfg, "codex"))
+			if _, err := os.Stat(codexCatalogPath(path)); !os.IsNotExist(err) {
+				t.Fatalf("AIGW wrote a model table: %v", err)
+			}
+			declared := cfg.Models[cfg.Clients[ID].Model].Window()
+			detail := fmt.Sprintf("Codex is not given the window of %d tokens that gateway/%s declares, because %s", declared, model, test.reason)
+			if !status.Ready || strings.Join(checks, "; ") != "codex:target-1 true "+path+"; codex:window-1 true "+path || status.Checks[1].Detail != detail {
+				t.Fatalf("checks = %q, status = %+v; want the detail %q", checks, status, detail)
+			}
+		})
+	}
+}
+
 // TestCodexInspectionAddsNoWindowCheckWithoutATableOfAIGWs leaves the
-// target's own check alone where AIGW wrote no table, where the file is no
-// longer the one that it recorded, and where it cannot be parsed.
+// target's own check alone where AIGW wrote no table because the client
+// printed none, where the file is no longer the one that it recorded, and
+// where it cannot be parsed.
 func TestCodexInspectionAddsNoWindowCheckWithoutATableOfAIGWs(t *testing.T) {
 	t.Run("no table was written", func(t *testing.T) {
 		path := writeCodexTestConfig(t, "model_provider = \"native\"\n")

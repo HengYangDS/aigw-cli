@@ -183,14 +183,15 @@ func TestATeamFilesContextWindowReachesTheConfiguration(t *testing.T) {
 	}
 }
 
-// A context window that is zero or below it is refused when the file is read,
-// in aigw.toml and in a team file, by the entry of the model that declares
-// it; a value that is no whole number is refused as a value of the wrong type.
-func TestAContextWindowThatIsNotAboveZeroIsRefusedByItsModel(t *testing.T) {
+// A context window outside the bounds is refused when the file is read, in
+// aigw.toml and in a team file, by the entry of the model that declares it,
+// with both bounds; a value that is no whole number is refused as a value of
+// the wrong type.
+func TestAContextWindowOutsideTheBoundsIsRefusedByItsModel(t *testing.T) {
 	_, valid := schemaEightConfig(t)
 	declared := func(value string) []byte { return holdingWindow(t, valid, value) }
-	for _, value := range []string{"0", "-1"} {
-		refusal := "a context window is a whole number of tokens above zero, not " + value
+	for _, value := range []string{"0", "-1", strconv.Itoa(domain.MinContextWindow - 1), strconv.Itoa(domain.MaxContextWindow + 1)} {
+		refusal := fmt.Sprintf("a context window is a whole number of tokens from %d to %d, not %s", domain.MinContextWindow, domain.MaxContextWindow, value)
 		_, err := decodeTOMLConfig(declared(value), testAdmission())
 		loadErr, isLoad := errors.AsType[*LoadError](err)
 		if entry, named := domain.EntryOf(err); !isLoad || loadErr.Phase != LoadPhaseValidate || !named || entry != "model `dmxapi/claude-opus-5-5`" ||

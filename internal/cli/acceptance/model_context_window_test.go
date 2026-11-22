@@ -304,11 +304,18 @@ func TestAFileThatHoldsTheDefaultWindowDeclaresNone(t *testing.T) {
 	requireNoDeclaredWindow(t, app, out)
 }
 
-// Scenario "A window is not a whole number above zero": the flag with zero, a
-// negative number or text, both flags together, and a team file with such a
-// value are refused, and the configuration and the file of the client that
-// uses the model stay as they were.
-func TestAWindowThatIsNotAWholeNumberAboveZeroIsRefused(t *testing.T) {
+// windowBounds is the refusal of a context window of value, which names both
+// bounds of a window.
+func windowBounds(value string) string {
+	return fmt.Sprintf("a context window is a whole number of tokens from %d to %d, not %s", domain.MinContextWindow, domain.MaxContextWindow, value)
+}
+
+// Scenario "A window is not a whole number within the bounds": the flag with
+// zero, a negative number, text or a number outside the bounds, both flags
+// together, and a team file with such a value are refused, each refusal of a
+// number names both bounds, and the configuration and the file of the client
+// that uses the model stay as they were.
+func TestAWindowThatIsNotAWholeNumberWithinTheBoundsIsRefused(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
@@ -341,8 +348,9 @@ func TestAWindowThatIsNotAWholeNumberAboveZeroIsRefused(t *testing.T) {
 	edit := func(flags ...string) []string {
 		return append([]string{"model", "edit", "team/small", "--label", "Renamed"}, flags...)
 	}
-	const wholeNumber = "expected a whole number of tokens above zero"
-	for _, value := range []string{"0", "-1", "many", "1.5", ""} {
+	outside := []string{"0", "-1", strconv.Itoa(domain.MinContextWindow - 1), strconv.Itoa(domain.MaxContextWindow + 1)}
+	wholeNumber := fmt.Sprintf("expected a whole number of tokens from %d to %d", domain.MinContextWindow, domain.MaxContextWindow)
+	for _, value := range append([]string{"many", "1.5", ""}, outside...) {
 		flag := `invalid argument "` + value + `" for "--context-window" flag: ` + wholeNumber
 		refused(flag+"; run `aigw model edit --help`", edit("--context-window", value)...)
 		refused(flag+"; run `aigw model add --help`", "model", "add", "team/extra", "--unlisted", "--context-window", value)
@@ -367,10 +375,10 @@ func TestAWindowThatIsNotAWholeNumberAboveZeroIsRefused(t *testing.T) {
 	if !bytes.Equal(readFile(t, app.Config.Path()), configuration) || !bytes.Equal(readFile(t, target), clientFile) {
 		t.Fatal("the refused --json edit changed the configuration or Codex's file")
 	}
-	// A team file that declares zero or a negative number is refused by its
+	// A team file that declares a number outside the bounds is refused by its
 	// model's entry, and one that declares no whole number where it is read.
-	for _, value := range []string{"0", "-1"} {
-		refused("invalid team file: model team/small: a context window is a whole number of tokens above zero, not "+value,
+	for _, value := range outside {
+		refused("invalid team file: model team/small: "+windowBounds(value),
 			"setup", "--from", writeConfigurationManifest(t, fmt.Sprintf(windowTeamFile, value)))
 		if !strings.Contains(out.String(), "Correct model `team/small` in the team file") {
 			t.Fatalf("the refusal of context_window = %s does not name the entry to correct:\n%s", value, out)
@@ -379,8 +387,8 @@ func TestAWindowThatIsNotAWholeNumberAboveZeroIsRefused(t *testing.T) {
 	for _, value := range []string{"'many'", "1.5"} {
 		refused("Cannot decode TOML document at line 11", "setup", "--from", writeConfigurationManifest(t, fmt.Sprintf(windowTeamFile, value)))
 	}
-	// The same edit with a window above zero writes both, so the refusals
-	// above stopped a command that would have.
+	// The same edit with a window within the bounds writes both, so the
+	// refusals above stopped a command that would have.
 	out.Reset()
 	if err := cli.Execute(app, edit("--context-window", "512000")); err != nil {
 		t.Fatalf("model edit --context-window 512000: %v\n%s", err, out)

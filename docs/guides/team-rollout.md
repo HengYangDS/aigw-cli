@@ -117,8 +117,9 @@ available model; use it at the level below its top, or at its only level.
 Whether a provider passes an effort level through to the model unchanged is not
 established: the team's qualification runs Hermes at `medium`.
 
-AIGW tells Codex and Hermes each model's context window: 1,000,000 tokens
-unless the model declares another `context_window`. Claude Code and Claude
+AIGW tells Hermes the context window of each model that it lists, and Codex
+the selected model's: 1,000,000 tokens unless the model declares another
+`context_window`. Claude Code and Claude
 Desktop take a model's window from the Anthropic model that the provider's ID
 serves. Compaction stays a client setting. A declared window, a catalog listing
 or a successful short request does not prove a full-window request will
@@ -130,15 +131,25 @@ succeed.
   `model_context_window` in `config.toml` can lower the window and cannot raise
   it above the entry's; `model_auto_compact_token_limit` can lower the
   compaction threshold. A model whose family Codex's own table lacks has no
-  entry: Codex runs it at its own fallback window whatever the model declares,
-  and `aigw check codex` says so. The optional
+  entry, and Codex chooses its window itself whatever the model declares; for a
+  `model_catalog_json` of your own or a model provider of Codex's own, AIGW
+  writes no table and Codex is not given the declared window. A check of
+  `aigw check codex` says which applies: `aigw check codex --verbose` lists it,
+  and `--json` always holds it. The optional
   `model_auto_compact_token_limit_scope` selects `total` (the default, counting
   the full active context) or `body_after_prefix` (growth after the carried
   compaction-window prefix). Changing the counting scope does not enlarge the
   model's window. See the [Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
 - **Hermes:** each model that AIGW lists under a provider carries its declared
   window as `context_length`. When Hermes starts compression inside that
-  window is its own `compression` setting, which AIGW does not write.
+  window is its own `compression` setting, which AIGW does not write. For a
+  model whose window differs from the number that Hermes knows, Hermes's log
+  may warn that `model.context_length` pins it and that removing
+  `model.context_length` from `config.yaml` gives the advertised window. The
+  number is AIGW's per-model `context_length`, and the pin wins as intended.
+  Change it with `aigw model edit --context-window`: AIGW refuses an edit of
+  its entries in Hermes's file, a removed key or reordered models included, as
+  an outside edit.
 - **Claude Code:** [`autoCompactWindow`](https://code.claude.com/docs/en/settings-reference#autocompactwindow)
   sets the automatic compaction window, not provider capacity. Claude Code caps
   it at the model's window. Leaving it unset uses the client's model-specific
@@ -187,7 +198,11 @@ journeys separately when the rollout depends on them.
 ## Upgrade from 0.6.1 or earlier
 
 A member on 0.6.1 or earlier cannot read a version 8 team file: that release
-refuses it as an unsupported manifest version, so everyone upgrades first. Then
+refuses it as an unsupported manifest version, so everyone upgrades first. A
+team file or an `aigw config export` in which a model declares
+`context_window`, as the shipped file does, also needs the release that
+introduced the field or later. It is still version 8, and 0.9.0 refuses it with
+"schema 8 does not define the field providers.models.context_window". Then
 each member:
 
 1. Reads that 0.7.0 uses only `aigw.toml` and never reads or changes AIGW's

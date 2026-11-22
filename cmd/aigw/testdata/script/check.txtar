@@ -953,6 +953,12 @@ Fix
           "state": "passed",
           "detail": "Matches the selection",
           "target": "~/.codex/config.toml"
+        },
+        {
+          "name": "codex:window-1",
+          "state": "passed",
+          "detail": "Codex is not given the window of 1000000 tokens that team/native-model declares, because the model runs under Codex's model provider amazon-bedrock, for which AIGW writes no model table",
+          "target": "~/.codex/config.toml"
         }
       ],
       "next_action": "aigw check codex --depth client"

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -33,35 +34,50 @@ func TestDeclaredContextWindowStoresEveryWindowButTheDefault(t *testing.T) {
 	}
 }
 
-// A context window that a model declares is a whole number of tokens above
-// zero.
-func TestValidateContextWindowAdmitsOnlyANumberAboveZero(t *testing.T) {
-	for window, valid := range map[int]bool{1: true, 256000: true, DefaultContextWindow: true, 0: false, -1: false} {
-		if err := ValidateContextWindow(window); (err == nil) != valid {
-			t.Errorf("ValidateContextWindow(%d) = %v, want valid %v", window, err, valid)
+// windowRefusal is the refusal of a context window of tokens, which names
+// both bounds.
+func windowRefusal(tokens int) string {
+	return fmt.Sprintf("a context window is a whole number of tokens from %d to %d, not %d", MinContextWindow, MaxContextWindow, tokens)
+}
+
+// A context window that a model declares is a whole number of tokens within
+// the two bounds, which hold the default, and a refusal names both bounds.
+func TestValidateContextWindowAdmitsOnlyAWindowWithinItsBounds(t *testing.T) {
+	if MinContextWindow > DefaultContextWindow || DefaultContextWindow > MaxContextWindow {
+		t.Fatalf("the bounds %d and %d do not hold the default %d", MinContextWindow, MaxContextWindow, DefaultContextWindow)
+	}
+	for window, valid := range map[int]bool{
+		MinContextWindow: true, DefaultContextWindow: true, MaxContextWindow: true,
+		MinContextWindow - 1: false, MaxContextWindow + 1: false, 0: false, -1: false,
+	} {
+		err := ValidateContextWindow(window)
+		if (err == nil) != valid || (err != nil && err.Error() != windowRefusal(window)) {
+			t.Errorf("ValidateContextWindow(%d) = %v, want valid %v or the refusal %q", window, err, valid, windowRefusal(window))
 		}
 	}
 }
 
-// A configuration whose model declares a context window below zero is
-// refused by the model's name; a declared window above zero is valid.
-func TestValidateRefusesAContextWindowBelowZero(t *testing.T) {
+// A configuration whose model declares a context window outside the bounds
+// is refused by the model's name; a declared window within them is valid.
+func TestValidateRefusesAContextWindowOutsideItsBounds(t *testing.T) {
 	ref := NewModelRef("dmx", "claude-test")
 	cfg := validConfig()
 	model := cfg.Models[ref]
 	model.ContextWindow = 256000
 	cfg.Models[ref] = model
 	if err := cfg.Validate(); err != nil {
-		t.Fatalf("a declared window above zero = %v", err)
+		t.Fatalf("a declared window within the bounds = %v", err)
 	}
-	model.ContextWindow = -1
-	cfg.Models[ref] = model
-	err := cfg.Validate()
-	if err == nil || !strings.Contains(err.Error(), "model dmx/claude-test: a context window is a whole number of tokens above zero, not -1") {
-		t.Fatalf("a window below zero = %v, want a refusal that names the model and its context window", err)
-	}
-	if entry, named := EntryOf(err); !named || entry != "model `dmx/claude-test`" {
-		t.Fatalf("the refusal names the entry %q, %v", entry, named)
+	for _, window := range []int{-1, MinContextWindow - 1, MaxContextWindow + 1} {
+		model.ContextWindow = window
+		cfg.Models[ref] = model
+		err := cfg.Validate()
+		if err == nil || !strings.Contains(err.Error(), "model dmx/claude-test: "+windowRefusal(window)) {
+			t.Fatalf("a window of %d = %v, want a refusal that names the model and both bounds", window, err)
+		}
+		if entry, named := EntryOf(err); !named || entry != "model `dmx/claude-test`" {
+			t.Fatalf("the refusal names the entry %q, %v", entry, named)
+		}
 	}
 }
 
@@ -110,9 +126,10 @@ func storing(cfg Config, ref ModelRef, window int) Config {
 
 // A team file's model brings its window. The file's declaration replaces the
 // local one, and a file that declares none removes a window that the operator
-// declared; the merge reports the model as changed in both cases. A file
-// whose model has the local one's window changes nothing, and a model that
-// only the configuration has keeps its window.
+// declared; the merge reports the model as changed in both cases, and names
+// each window that changes with the one before it. A file whose model has the
+// local one's window changes nothing, and a model that only the configuration
+// has keeps its window.
 func TestMergeTeamFileGivesAModelTheFilesWindow(t *testing.T) {
 	filed, localOnly := NewModelRef("team", "gpt"), NewModelRef("team", "spare")
 	file := teamFile(t)
@@ -136,15 +153,39 @@ func TestMergeTeamFileGivesAModelTheFilesWindow(t *testing.T) {
 			t.Errorf("%s: the model has the window %d, want %d", name, got, test.want)
 		}
 		var changed []ModelRef
+		var windows []ChangedWindow
 		if test.changed {
 			changed = []ModelRef{filed}
+			windows = []ChangedWindow{{Model: filed, Local: (Model{ContextWindow: test.local}).Window(), File: test.want}}
 		}
 		if !slices.Equal(report.ChangedModels, changed) || len(report.ChangedLabels) != 0 {
 			t.Errorf("%s: changed models %v, want %v; changed labels %v", name, report.ChangedModels, changed, report.ChangedLabels)
 		}
+		if !slices.Equal(report.ChangedWindows, windows) {
+			t.Errorf("%s: changed windows %+v, want %+v", name, report.ChangedWindows, windows)
+		}
 		if got := merged.Models[localOnly].Window(); got != 300000 {
 			t.Errorf("%s: a model that only the configuration has is left with the window %d, want its own 300000", name, got)
 		}
+	}
+}
+
+// On a protocol whose endpoint the provider keeps local, the model keeps its
+// local capabilities, and still takes the file's window, which the merge
+// names beside the operator's.
+func TestMergeTeamFileNamesTheWindowThatItReplacesOnAKeptEndpoint(t *testing.T) {
+	ref := NewModelRef("team", "sonnet")
+	cfg := storing(localTeamConfig(t), ref, 200000)
+	file := teamFile(t)
+	file.Models[ref] = Model{Provider: "team", Family: "sonnet", ID: "sonnet",
+		Protocols: map[EndpointProtocol][]Capability{ProtocolAnthropic: {CapabilityText, CapabilityToolSearch}}}
+	merged, report := mergeTeam(t, cfg, file, false)
+	if got := merged.Models[ref].Protocols[ProtocolAnthropic]; !slices.Equal(got, []Capability{CapabilityText}) {
+		t.Fatalf("the local capabilities were not kept: %v", got)
+	}
+	want := []ChangedWindow{{Model: ref, Local: 200000, File: DefaultContextWindow}}
+	if merged.Models[ref].Window() != DefaultContextWindow || !slices.Equal(report.ChangedWindows, want) {
+		t.Fatalf("the model has the window %d, changed windows %+v; want the file's %d and %+v", merged.Models[ref].Window(), report.ChangedWindows, DefaultContextWindow, want)
 	}
 }
 
@@ -160,8 +201,8 @@ func TestMergeTeamFileSeesNoDifferenceBetweenAnExplicitDefaultAndNone(t *testing
 		"the configuration spells the default out": {storing(base, ref, DefaultContextWindow), file},
 	} {
 		merged, report := mergeTeam(t, merge[0], merge[1], false)
-		if got := merged.Models[ref].Window(); got != DefaultContextWindow || len(report.ChangedModels) != 0 {
-			t.Errorf("%s: the model has the window %d, changed models %v; want the default and no change", name, got, report.ChangedModels)
+		if got := merged.Models[ref].Window(); got != DefaultContextWindow || len(report.ChangedModels) != 0 || len(report.ChangedWindows) != 0 {
+			t.Errorf("%s: the model has the window %d, changed models %v, changed windows %v; want the default and no change", name, got, report.ChangedModels, report.ChangedWindows)
 		}
 	}
 }

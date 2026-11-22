@@ -2,10 +2,10 @@
 
 ### Requirement: A model declares its context window
 
-A model MAY declare `context_window`, the number of tokens that AIGW tells a client to use as the model's context
-window. A model that declares none SHALL have 1,000,000. Only `aigw model add`, `aigw model edit` and a team file
-SHALL set it, to a whole number above zero. `aigw.toml` and `aigw config export` SHALL hold the field only for a
-model that declares it, and `aigw model list` and `aigw model show` SHALL report the window of every model.
+A model MAY declare `context_window`, the number of tokens that AIGW tells Codex and Hermes to use as its context
+window; one that declares none SHALL have 1,000,000. Only `aigw model add`, `aigw model edit` and a team file SHALL set
+it, to a whole number from 64,000 to 100,000,000. `aigw.toml` and `aigw config export` SHALL hold it only for a model
+that declares it, and `aigw model show` and `aigw model list --json` SHALL report every model's window.
 
 #### Scenario: A model declares no window
 
@@ -19,6 +19,14 @@ model that declares it, and `aigw model list` and `aigw model show` SHALL report
 - **THEN** the configuration and every report SHALL give that model 256,000
 - **AND** human output of `aigw model list` SHALL show a window that differs from the default.
 
+#### Scenario: A team file changes a window that the operator declared
+
+- **GIVEN** the operator declared a window for a model that a team file defines with another window or none
+- **WHEN** `aigw setup --from` applies the file
+- **THEN** the model SHALL take the window of the file's definition
+- **AND** the preview and the result, in human output and in JSON, SHALL name each model whose window changes, with
+  the window before and after.
+
 #### Scenario: An operator sets a window and returns to the default
 
 - **WHEN** `aigw model edit <provider/model> --context-window 512000` runs
@@ -26,8 +34,10 @@ model that declares it, and `aigw model list` and `aigw model show` SHALL report
 - **AND** `aigw model edit <provider/model> --default-context-window` SHALL remove the declaration
 - **AND** `aigw model add <provider/model> --context-window 512000` SHALL add the model with that window.
 
-#### Scenario: A window is not a whole number above zero
+#### Scenario: A window is not a whole number within the bounds
 
-- **WHEN** `--context-window` is given zero, a negative number or text that is no whole number, or a team file
-  declares such a value, or `--context-window` and `--default-context-window` are given together
-- **THEN** the command SHALL be refused before it changes the configuration or a client's file.
+- **WHEN** `--context-window` is given text that is no whole number or a number below 64,000 or above 100,000,000,
+  or a team file or `aigw.toml` declares such a value, or `--context-window` and `--default-context-window` are given
+  together
+- **THEN** the command SHALL be refused before it changes the configuration or a client's file
+- **AND** a refused number SHALL be refused with both bounds.

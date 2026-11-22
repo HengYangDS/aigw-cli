@@ -33,6 +33,14 @@ release wrote.
 - **THEN** `aigw sync --dry-run` SHALL plan a write of Hermes's file
 - **AND** the command that changed the window SHALL write the new number for an enabled Hermes.
 
+#### Scenario: An entry's models reordered outside AIGW
+
+- **WHEN** the models of a provider entry that AIGW owns stand in Hermes's file in an order other than the one that
+  AIGW wrote, the order of the configuration before the command, and nothing else of the entry changed
+- **THEN** synchronization, a command that projects Hermes and its inspection SHALL refuse it as an outside edit
+  without changing configuration or client files
+- **AND** a command whose configuration changes the order of a provider's models SHALL write them in the new order.
+
 ## MODIFIED Requirements
 
 ### Requirement: A record that the previous release reads keeps its shape

@@ -208,7 +208,7 @@ func validateCodexCatalogReference(path, text string, state codexState) error {
 		return fmt.Errorf("parse Codex config catalog reference: %w", err)
 	}
 	if state.CatalogHash == "" {
-		if strings.HasSuffix(strings.TrimSpace(line), "# managed by AIGW") {
+		if managedLine(line) {
 			return newConflictError("Codex config references an AIGW-managed model catalog that AIGW does not own", nil)
 		}
 		return nil
@@ -409,7 +409,13 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 // isManagedSelection compares the parsed TOML value while requiring the owned
 // comment. Equivalent string spelling is not an ownership conflict.
 func isManagedSelection(line, key, value string) bool {
-	return selectionHasValue(line, key, value) && strings.HasSuffix(strings.TrimSpace(line), "# managed by AIGW")
+	return selectionHasValue(line, key, value) && managedLine(line)
+}
+
+// managedLine reports whether a line of a Codex file carries the comment with
+// which AIGW marks a line that it wrote.
+func managedLine(line string) bool {
+	return strings.HasSuffix(strings.TrimSpace(line), "# managed by AIGW")
 }
 
 func selectionHasValue(line, key, value string) bool {

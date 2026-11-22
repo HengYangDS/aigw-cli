@@ -30,6 +30,13 @@ const (
 	// DefaultContextWindow is the context window, in tokens, of a model that
 	// declares none.
 	DefaultContextWindow int = 1_000_000
+	// MinContextWindow is the lowest context window, in tokens, that a model
+	// may declare: Hermes refuses a session below 64,000 tokens.
+	MinContextWindow int = 64_000
+	// MaxContextWindow is the highest context window, in tokens, that a model
+	// may declare: Codex multiplies a window by 95 in 64-bit integers, which
+	// 100,000,000 keeps far from an overflow.
+	MaxContextWindow int = 100_000_000
 
 	// AuthenticationProviderToken sends the provider's Token, which AIGW
 	// stores.

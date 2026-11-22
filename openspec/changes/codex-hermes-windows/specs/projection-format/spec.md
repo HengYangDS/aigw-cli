@@ -5,8 +5,7 @@
 In the model table that AIGW projects for Codex, the entry that describes the selected model, its alias or the
 model's own entry, SHALL carry the model's declared context window as its `context_window` and as its
 `max_context_window`. Every other field of that entry and every other entry SHALL stay as the client's own table has
-them. For each Codex target, `aigw check codex` SHALL report the window that this entry carries, or that the table
-has no entry for the model.
+them. For each Codex target, `aigw check codex` SHALL report the window that Codex is given, or why AIGW gives it none.
 
 #### Scenario: An alias carries the declared window
 
@@ -33,8 +32,16 @@ has no entry for the model.
 
 - **WHEN** the selected model's family is not in the client's bundled table
 - **THEN** AIGW SHALL project the table without an entry for the model
-- **AND** `aigw check codex` SHALL report, in a check of its own that passes, that Codex has no entry for the
-  model's family and uses its own fallback window whatever the model declares.
+- **AND** `aigw check codex` SHALL report, in a check of its own that passes, that Codex's table has no entry for the
+  model's family, so Codex chooses the window itself whatever the model declares.
+
+#### Scenario: AIGW writes no table for a Codex target
+
+- **WHEN** a Codex target's configuration names a `model_catalog_json` that AIGW did not write, or the selected model
+  runs under one of Codex's own model providers
+- **THEN** AIGW SHALL write no table for that target
+- **AND** `aigw check codex` SHALL report, in a check of its own that passes, that Codex is not given the declared
+  window, with that reason.
 
 #### Scenario: The declared window of the selected model changes
 
@@ -49,10 +56,10 @@ has no entry for the model.
 AIGW SHALL atomically prepare and validate selected client targets, mutate only
 owned projections, compensate failures only while postimages remain
 transaction-owned, and expose credential-free, side-effect-free dry runs. For a
-Codex model whose family is in Codex's bundled table, it SHALL derive an alias
-of that family's entry bound to client version and digest, preserve the wire
-model ID, and update all three atomically. Foreign or user-authored catalogs
-MUST remain untouched.
+Codex model whose family is in Codex's bundled table and whose ID is not itself
+an entry of it, it SHALL derive an alias of that family's entry bound to client
+version and digest, preserve the wire model ID, and update all three
+atomically. Foreign or user-authored catalogs MUST remain untouched.
 
 #### Scenario: Multi-target projection fails
 

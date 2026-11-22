@@ -163,30 +163,9 @@ func TestHermesExplicitSelectionAdoptsNativeSwitchThenSyncs(t *testing.T) {
 			t.Fatalf("%v: %v", args, err)
 		}
 	}
-	observed := readFile(t, target)
-	var native map[string]any
-	if err := yaml.Unmarshal(observed, &native); err != nil {
-		t.Fatal(err)
-	}
-	model, ok := native["model"].(map[string]any)
-	if !ok {
-		t.Fatal("native Hermes model is not a mapping")
-	}
-	providerID := "aigw-dmxapi-responses"
-	providers, ok := native["providers"].(map[string]any)
-	if !ok {
-		t.Fatal("native Hermes providers are not a mapping")
-	}
-	provider, ok := providers[providerID].(map[string]any)
-	if !ok {
-		t.Fatal("native Hermes selected provider is not a mapping")
-	}
-	model["provider"], model["base_url"] = providerID, provider["base_url"]
-	drifted, err := yaml.Marshal(native)
-	if err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, target, drifted, 0o600)
+	// Hermes' own command changes the selection in place and keeps the order
+	// of the file, whose reorder AIGW refuses as an outside edit.
+	drifted := hermesNativeSelection(t, target, "aigw-dmxapi-responses", "gpt-6.2-sol", nil)
 	stateBefore := readFile(t, target+".aigw-state.json")
 	configBefore, err := app.Config.Load()
 	if err != nil {

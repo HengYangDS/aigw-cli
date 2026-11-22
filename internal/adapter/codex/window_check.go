@@ -21,16 +21,23 @@ import (
 // writes the table again. For a model that the table has no entry for, it
 // passes and says that Codex chooses the window itself: Codex takes the entry
 // whose slug is the longest prefix of the model's ID before it falls back to a
-// window of its own, and AIGW keeps a figure of neither. It reports false, and
-// the target's own check owns the failure, where AIGW's table for the target
-// cannot be read.
+// window of its own, and AIGW keeps a figure of neither. Where AIGW writes no
+// table for the target, for a reason that tableLeftOut names, it passes and
+// says that Codex is not given the declared window, and why. It reports false,
+// and the target's own check owns the failure, where AIGW's table for the
+// target cannot be read or is missing for any other reason.
 func windowCheck(index int, target string, runtime domain.Runtime) (adapter.Check, bool) {
-	table, owned := ownedCatalog(target)
-	if !owned {
-		return adapter.Check{}, false
-	}
 	check := adapter.Check{ID: fmt.Sprintf("codex:window-%d", index+1), Ready: true, Target: target}
 	model, declared := runtime.Model.String(), runtime.ContextWindow
+	table, owned := ownedCatalog(target)
+	if !owned {
+		reason := tableLeftOut(target, runtime)
+		if reason == "" {
+			return adapter.Check{}, false
+		}
+		check.Detail = fmt.Sprintf("Codex is not given the window of %d tokens that %s declares, because %s", declared, model, reason)
+		return check, true
+	}
 	const chooses = ", so Codex chooses the window itself, whatever the model declares"
 	switch table.DescribedBy(runtime.UpstreamModel, runtime.FamilyID) {
 	case "":
@@ -46,6 +53,26 @@ func windowCheck(index int, target string, runtime domain.Runtime) (adapter.Chec
 		check.Detail = "Codex's model table has no entry for " + model + chooses
 	}
 	return check, true
+}
+
+// tableLeftOut names why AIGW writes no model table for the Codex file at
+// target, for the two reasons on which the projection writes none
+// (codexCatalogProjection): the model runs under a model provider of Codex's
+// own, or the file names a model table that AIGW did not write. It names
+// nothing for any other file, or one that it cannot read.
+func tableLeftOut(target string, runtime domain.Runtime) string {
+	if provider := codexRuntimeProvider(runtime); provider != modelProviderAIGW {
+		return "the model runs under Codex's model provider " + provider + ", for which AIGW writes no model table"
+	}
+	text, err := os.ReadFile(target)
+	if err != nil {
+		return ""
+	}
+	line, err := codexSelectionLine(string(text), "model_catalog_json")
+	if err != nil || line == "" || managedLine(line) {
+		return ""
+	}
+	return "this configuration names its own model table in model_catalog_json, which AIGW leaves alone"
 }
 
 // carried words what an entry carries in the window field that a sentence

@@ -36,11 +36,14 @@ provider's models under the provider.
 - **`deprecated`:** `true` marks a model that keeps existing selections but is
   not recommended.
 - **`context_window`:** optional number of tokens that AIGW tells Codex and
-  Hermes to use as the model's context window. Without it the model has
-  1,000,000. Declare it only where the model's vendor documents a lower
-  window, with that number and the same for every model of the family, and
-  name the source in the
+  Hermes to use as the model's context window, a whole number from 64,000 to
+  100,000,000. Without it the model has 1,000,000. Declare it only where the
+  model's vendor documents a lower window, or, where no vendor document
+  remains, another named source gives a lower one; use that number, the same
+  for every model of the family, and name the source in the
   [dated qualification evidence](../research/provider-model-qualification.md).
+  A member needs the release that introduced the field, or a later one, to
+  apply a file that declares it.
 - **`[[families]]`:** `id` and `label`.
 - **`[recommendations.<client>]`:** sole team recommendation owner, with a
   `primary` model and optional reviewed `alternatives`; recommendations do not

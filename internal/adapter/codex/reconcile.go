@@ -385,7 +385,7 @@ func sameCodexTOMLValues(current, projected []byte) bool {
 		if err != nil {
 			return false
 		}
-		if !strings.HasSuffix(strings.TrimSpace(wanted), "# managed by AIGW") {
+		if !managedLine(wanted) {
 			continue
 		}
 		actual, err := codexSelectionLine(string(current), key)

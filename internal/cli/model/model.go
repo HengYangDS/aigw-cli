@@ -57,13 +57,15 @@ func loadModel(runtime invocation.Context, text string, protocol domain.Endpoint
 	return cfg, model, err
 }
 
-// errWindowValue refuses a context window that is no whole number above
-// zero. pflag quotes the refused value and its flag before it.
-var errWindowValue = errors.New("expected a whole number of tokens above zero")
+// errWindowValue refuses a context window that is no whole number within the
+// bounds of a window, which it names. pflag quotes the refused value and its
+// flag before it.
+var errWindowValue = fmt.Errorf("expected a whole number of tokens from %d to %d", domain.MinContextWindow, domain.MaxContextWindow)
 
 // windowFlag is the value of `--context-window`: one context window, a whole
-// number of tokens above zero. Any other value, and a second one, is refused
-// while the flags are parsed, before the command reads the configuration.
+// number of tokens within the bounds of a window. Any other value, and a
+// second one, is refused while the flags are parsed, before the command reads
+// the configuration.
 type windowFlag struct {
 	tokens int
 	given  bool

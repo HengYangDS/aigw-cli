@@ -6,6 +6,8 @@ package hermes
 // release is rewritten, and that a changed window is a changed projection.
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -21,16 +23,27 @@ import (
 // windowConfig declares.
 const lowerWindow = 256000
 
+// windowListing is the provider's models in windowConfig, in its order:
+// wire-z, which declares lowerWindow, and wire-a, which declares none.
+var windowListing = []domain.Model{{ID: "wire-z", ContextWindow: lowerWindow}, {ID: "wire-a"}}
+
 // windowConfig is a configuration in which an enabled Hermes at target selects
 // wire-a, which declares no context window, of a provider that lists wire-z
 // before it, which declares lowerWindow.
 func windowConfig(t *testing.T, target string) domain.Config {
 	t.Helper()
+	return listingConfig(t, target, windowListing)
+}
+
+// listingConfig is windowConfig with the provider's models in the order of
+// models.
+func listingConfig(t *testing.T, target string, models []domain.Model) domain.Config {
+	t.Helper()
 	cfg := domain.NewConfig(testAdmission())
 	if err := cfg.AppendProvider("gateway", domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}); err != nil {
 		t.Fatal(err)
 	}
-	for _, model := range []domain.Model{{ID: "wire-z", ContextWindow: lowerWindow}, {ID: "wire-a"}} {
+	for _, model := range models {
 		model.Provider = "gateway"
 		model.Protocols = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}
 		if err := cfg.AppendModel(model); err != nil {
@@ -222,4 +235,86 @@ func TestAChangedWindowAloneIsAChangedProjection(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Scenario "An entry's models reordered outside AIGW", which the accepted
+// "Other managed settings changed" asks for: the record's digest does not see
+// the order of a mapping's keys, so the projection compares the file's order
+// with the order that AIGW wrote, the one of the configuration before the
+// change. A file whose models were reordered by hand is refused as an outside
+// edit by a synchronization, by an edit of a window and by an inspection; a
+// file that nobody edited plans nothing; and a configuration whose models
+// change their order writes them in the new order.
+func TestAHandReorderOfTheModelsOfAnEntryIsAnOutsideEdit(t *testing.T) {
+	block := func(models ...domain.Model) string {
+		text := "    models:\n"
+		for _, model := range models {
+			text += fmt.Sprintf("      %s:\n        context_length: %d\n", model.ID, model.Window())
+		}
+		return text
+	}
+	written, reordered := block(windowListing...), block(windowListing[1], windowListing[0])
+	readTarget := func(t *testing.T, target string) string {
+		t.Helper()
+		data, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	project := func(t *testing.T) (string, domain.Config, adapter.Dependencies) {
+		t.Helper()
+		target := filepath.Join(t.TempDir(), "config.yaml")
+		cfg, deps := windowConfig(t, target), windowDependencies(t)
+		projectHermes(t, deps, domain.NewConfig(testAdmission()), cfg)
+		if text := readTarget(t, target); !strings.Contains(text, written) {
+			t.Fatalf("the file does not list the models as AIGW writes them:\n%s", text)
+		}
+		return target, cfg, deps
+	}
+	t.Run("the models reordered by hand", func(t *testing.T) {
+		target, cfg, deps := project(t)
+		if err := os.WriteFile(target, []byte(strings.Replace(readTarget(t, target), written, reordered, 1)), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		edited := cfg.Clone()
+		model := edited.Models[domain.NewModelRef("gateway", "wire-z")]
+		model.ContextWindow = lowerWindow / 2
+		edited.Models[model.Ref()] = model
+		for name, after := range map[string]domain.Config{"a synchronization": cfg, "an edit of a window": edited} {
+			if plans, err := (hermesAdapter{}).Plan(deps, cfg, after); !errors.Is(err, errExternalEdit) {
+				t.Errorf("%s over a hand reorder = %+v, %v; want the outside-edit refusal", name, plans, err)
+			}
+		}
+		runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if plan, err := hermesInspectionPlan(deps, cfg, runtime, target); !errors.Is(err, errExternalEdit) {
+			t.Errorf("the inspection of a hand reorder = %s, %v; want the outside-edit refusal", plan.Action, err)
+		}
+		if text := readTarget(t, target); !strings.Contains(text, reordered) {
+			t.Errorf("the refused plans changed the file:\n%s", text)
+		}
+	})
+	t.Run("nobody edited the file", func(t *testing.T) {
+		_, cfg, deps := project(t)
+		if action := plannedAction(t, deps, cfg, cfg); action != "unchanged" {
+			t.Fatalf("an unedited file plans %s", action)
+		}
+	})
+	t.Run("the configuration reorders the models", func(t *testing.T) {
+		target, cfg, deps := project(t)
+		after := listingConfig(t, target, []domain.Model{windowListing[1], windowListing[0]})
+		if action := plannedAction(t, deps, cfg, after); action != "write" {
+			t.Fatalf("a reorder of the configuration plans %s, want write", action)
+		}
+		projectHermes(t, deps, cfg, after)
+		if text := readTarget(t, target); !strings.Contains(text, reordered) {
+			t.Fatalf("the file does not list the models in the new order:\n%s", text)
+		}
+		if action := plannedAction(t, deps, after, after); action != "unchanged" {
+			t.Fatalf("an unchanged configuration plans %s after the reorder", action)
+		}
+	})
 }

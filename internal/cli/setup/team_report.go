@@ -4,6 +4,7 @@ import (
 	"errors"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"aigw-cli/internal/app"
@@ -27,15 +28,17 @@ const (
 )
 
 // teamDocument is `aigw setup --from`'s JSON document: what the team file
-// added, changed and pruned, what stayed local, the capabilities that it
-// dropped and the protocols that it left unusable, the Token of each provider
-// that a selection or recommendation needs, each client's state, and in a
-// preview the client files that it would write.
+// added, changed and pruned, the labels and context windows that it replaced,
+// what stayed local, the capabilities that it dropped and the protocols that
+// it left unusable, the Token of each provider that a selection or
+// recommendation needs, each client's state, and in a preview the client
+// files that it would write.
 type teamDocument struct {
 	DryRun              bool                          `json:"dry_run,omitempty"`
 	Added               teamEntries                   `json:"added"`
 	Changed             teamEntries                   `json:"changed"`
 	ChangedLabels       []changedLabel                `json:"changed_labels,omitempty"`
+	ChangedWindows      []changedWindow               `json:"changed_windows,omitempty"`
 	Pruned              *teamEntries                  `json:"pruned,omitempty"`
 	KeptEndpoints       []keptEndpoint                `json:"kept_endpoints,omitempty"`
 	KeptBalanceProbes   []keptProbe                   `json:"kept_balance_probes,omitempty"`
@@ -74,6 +77,14 @@ type changedLabel struct {
 	Family   string `json:"family,omitempty"`
 	Local    string `json:"local,omitempty"`
 	File     string `json:"file,omitempty"`
+}
+
+// changedWindow is a model whose context window, in tokens, the team file
+// changes from Local to File.
+type changedWindow struct {
+	Model string `json:"model"`
+	Local int    `json:"local"`
+	File  int    `json:"file"`
 }
 
 // keptEndpoint is an existing provider's endpoint that stays local; Local is
@@ -165,6 +176,9 @@ func (t teamSetup) document(after domain.Config, states map[string]string, conne
 			changed.Model = label.Model.String()
 		}
 		document.ChangedLabels = append(document.ChangedLabels, changed)
+	}
+	for _, window := range report.ChangedWindows {
+		document.ChangedWindows = append(document.ChangedWindows, changedWindow{Model: window.Model.String(), Local: window.Local, File: window.File})
 	}
 	if t.request.Prune {
 		document.Pruned = &teamEntries{Providers: []string{}, Models: refs(report.PrunedModels), Families: nonNil(report.PrunedFamilies)}
@@ -287,6 +301,7 @@ func (t teamSetup) write(document teamDocument, ok bool) error {
 	changed := renderEntries(r, "Added", document.Added)
 	changed = renderEntries(r, "Changed", document.Changed) || changed
 	renderLabels(r, document.ChangedLabels)
+	renderWindows(r, document.ChangedWindows)
 	if document.Pruned != nil {
 		changed = renderEntries(r, "Pruned", *document.Pruned) || changed
 	}
@@ -381,6 +396,20 @@ func renderLabels(r *terminal.Renderer, labels []changedLabel) {
 			r.Rows(rows...)
 		}
 	}
+}
+
+// renderWindows names each model whose context window the team file
+// changes, with the window before and after, in a section of its own.
+func renderWindows(r *terminal.Renderer, windows []changedWindow) {
+	if len(windows) == 0 {
+		return
+	}
+	rows := make([]terminal.Field, 0, len(windows))
+	for _, window := range windows {
+		rows = append(rows, terminal.Field{Label: window.Model, Value: strconv.Itoa(window.Local) + " tokens becomes " + strconv.Itoa(window.File) + " tokens"})
+	}
+	r.Section("Context windows")
+	r.Rows(rows...)
 }
 
 // renderKept names what stayed local, what was dropped and what is unusable.

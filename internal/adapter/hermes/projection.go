@@ -75,6 +75,24 @@ func (provider Provider) validate() error {
 	return err
 }
 
+// refuseReorderedModels refuses, as an outside edit, a plan over a file that
+// AIGW's record proves its own and whose provider entries list the models of
+// written, the projection that AIGW wrote, in another order
+// (reorderedModels).
+func (plan *Plan) refuseReorderedModels(written []Provider) error {
+	if !plan.stateBefore.Exists || len(written) == 0 {
+		return nil
+	}
+	root, err := parse(plan.configBefore.Data)
+	if err != nil {
+		return err
+	}
+	if reorderedModels(root, written) {
+		return errExternalEdit
+	}
+	return nil
+}
+
 // Plan describes a prepared configuration change without applying it.
 type Plan struct {
 	Action       string

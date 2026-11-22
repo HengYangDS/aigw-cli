@@ -178,6 +178,7 @@ func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan
 			return nil, nil, err
 		}
 	}
+	written := hermesListing(before)
 	targets := slices.Clone(current.Targets)
 	for _, target := range previous.Targets {
 		if !slices.Contains(targets, target) {
@@ -205,12 +206,34 @@ func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan
 				plan, err = PrepareAdoptedSelection(target, *projection, previous)
 			}
 		}
+		if err == nil && projection != nil {
+			err = plan.refuseReorderedModels(written)
+		}
 		if err != nil {
 			return nil, nil, err
 		}
 		plans = append(plans, plan)
 	}
 	return plans, targets, nil
+}
+
+// hermesListing is what AIGW wrote into Hermes's file for cfg, the
+// configuration before a change: each provider entry that cfg projects, with
+// its models in AIGW's order, whatever Tokens are stored, and nothing where cfg
+// projects no Hermes.
+func hermesListing(cfg domain.Config) []Provider {
+	if !cfg.Clients[ID].Enabled {
+		return nil
+	}
+	catalog, err := hermesCatalog(cfg)
+	if err != nil {
+		return nil
+	}
+	providers := make([]Provider, 0, len(catalog))
+	for _, item := range catalog {
+		providers = append(providers, Provider{ID: item.ID, Models: item.Models})
+	}
+	return providers
 }
 
 func hermesPreviousDesired(deps adapter.Dependencies, before domain.Config) (Desired, error) {
@@ -379,6 +402,11 @@ func hermesInspectionPlan(deps adapter.Dependencies, cfg domain.Config, selected
 		return Plan{}, err
 	}
 	plan, err := Prepare(target, &desired)
+	if err == nil {
+		// An inspection compares the file with the configuration that it
+		// inspects, which AIGW last wrote there.
+		err = plan.refuseReorderedModels(desired.Providers)
+	}
 	if err != nil || plan.Action == "unchanged" || !selected.UsesAIGWCredentialStore() {
 		return plan, err
 	}

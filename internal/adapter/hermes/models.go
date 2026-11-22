@@ -75,3 +75,24 @@ func modelIDs(models *yaml.Node) []string {
 	}
 	return ids
 }
+
+// reorderedModels reports whether root lists the models of an entry of
+// written, the projection that AIGW wrote, in another order: the same models,
+// whose settings the record's digest proves unchanged, in an order that AIGW
+// did not write, which that digest does not see. An entry that lists other
+// models than written gives no verdict, because AIGW did not write written
+// there.
+func reorderedModels(root *yaml.Node, written []Provider) bool {
+	providers := field(root, "providers")
+	for _, provider := range written {
+		ids := make([]string, 0, len(provider.Models))
+		for _, model := range provider.Models {
+			ids = append(ids, model.ID)
+		}
+		listed := modelIDs(field(field(providers, provider.ID), "models"))
+		if !slices.Equal(listed, ids) && slices.Equal(slices.Sorted(slices.Values(listed)), slices.Sorted(slices.Values(ids))) {
+			return true
+		}
+	}
+	return false
+}
