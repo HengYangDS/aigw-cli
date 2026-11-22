@@ -215,7 +215,8 @@ func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...d
 }
 
 // credentialReadyClients excludes default-Token consumers only when their
-// selected Account has no Token that AIGW can use. Disabled and
+// selected Account has no Token that AIGW can use, an empty one or one that
+// cannot be observed, as a locked keychain leaves it. Disabled and
 // external-credential clients remain eligible for withdrawal or independent
 // convergence.
 func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...string) ([]string, error) {
@@ -234,10 +235,7 @@ func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...str
 		}
 		ready := true
 		for _, account := range accounts {
-			usable, err := s.tokenUsable(account)
-			if err != nil {
-				return nil, fmt.Errorf("inspect provider %q Token availability: %w", account, err)
-			}
+			usable, _ := s.tokenUsable(account)
 			if !usable {
 				ready = false
 				break
@@ -252,14 +250,20 @@ func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...str
 
 // tokenUsable reports whether account has a Token that AIGW can use: its slot
 // is present, holds a value, and is no Keychain item that macOS refuses AIGW.
-// Each of the three leaves the client waiting for its Token, as status and
-// the local check report it, and none stops the other clients: the client's
-// files are not written to name a reader that would return no Token. A
-// preview presumes the Token that its command would store, which its store
-// answers for itself.
+// Each way in which that cannot be shown leaves the client waiting for its
+// Token, as status and the local check report it, and none stops the other
+// clients: the client's files are not written to name a reader that would
+// return no Token. A store that cannot say whether the slot is there, as a
+// locked keychain cannot, shows no usable Token either, and the client waits
+// as it does for an absent one; the failure it reports is returned with the
+// answer for a caller that shows it. A preview presumes the Token that its
+// command would store, which its store answers for itself.
 func (s Synchronizer) tokenUsable(account string) (bool, error) {
 	observation, err := secret.ObserveToken(s.Secrets, account)
-	return observation.Usable(), err
+	if err != nil {
+		return false, err
+	}
+	return observation.Usable(), nil
 }
 
 func (s Synchronizer) credentialEntrypointProviders(cfg domain.Config, clientIDs ...string) ([]string, error) {

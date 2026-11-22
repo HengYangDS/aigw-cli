@@ -12,14 +12,20 @@ import (
 
 // Projection is what a commit would project: the clients whose files it would
 // reconcile, for which it prepares the credential reader, the clients of
-// which it would write AIGW's record alone, the files that it would change,
-// and whether it would change the stored configuration.
+// which it would write AIGW's record alone, the clients whose files it would
+// withdraw alone, the files that it would change, and whether it would change
+// the stored configuration.
 type Projection struct {
 	Clients []string
 	// Recorded are the clients of which the commit writes AIGW's record
 	// alone, because the record is behind the selection that their files
 	// show and the commit does not write those files.
-	Recorded      []string
+	Recorded []string
+	// Withdrawn are the enabled clients whose provider has no Token that AIGW
+	// can use, and whose files the transition drops: the dropped files are
+	// restored, which needs no Token, and the files that the client keeps wait
+	// for it.
+	Withdrawn     []string
 	Targets       []adapter.ProjectionPlan
 	Configuration bool
 }
@@ -146,12 +152,13 @@ func planned(planner Synchronizer, before, after domain.Config, reconcile bool, 
 			return Projection{}, &PreflightError{Err: err}
 		}
 		projection.Clients = ready
+		projection.Withdrawn = planner.withdrawnClients(before, after, clientIDs, ready)
 		if err := planner.admitsWaiting(before, after, clientIDs, ready); err != nil {
 			return Projection{}, &PreflightError{Err: err}
 		}
 	}
 	projection.Recorded = planner.recordsAlone(before, after, projection.Clients, left)
-	if len(projection.Clients)+len(projection.Recorded) == 0 {
+	if len(projection.Clients)+len(projection.Recorded)+len(projection.Withdrawn) == 0 {
 		return Projection{}, nil
 	}
 	dependencies, err := planner.projectionDependencies(projection, before, after)

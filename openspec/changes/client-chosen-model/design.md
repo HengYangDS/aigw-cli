@@ -231,6 +231,60 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
 - **Applies to:** `recorded` and `planRefusal` in `internal/app/synchronization/follow.go`, and the regression test
   of the tenth review's removal probe.
 
+### A Token that cannot be shown leaves its client waiting, and the choice is still recorded
+
+- **Rests on:** the eleventh review's finding 4. `credentialReadyClients` returned the error of a credential store
+  that could not say whether a slot was there, as a locked keychain cannot; the plan then failed, the transaction
+  read that failure as a refused file, and a command about something else succeeded with AIGW's record left behind
+  the choice. The Token decided the outcome, which is the third defect family.
+- **Considered:** refuse such a command, so that the store's failure reaches the operator; treat the client as
+  written, which would write a file naming a reader that cannot return a Token.
+- **Chosen because:** the three ways in which a Token is unusable — absent, empty, unobservable — already have one
+  answer in `tokenUsable`: the client waits for its Token. An unobservable slot is a fourth reading of the same
+  condition, not a different failure of the command. A waiting client is planned with the dependencies of a
+  record-only write, which reads no Token, so the choice is recorded and the file stays as it is. This also
+  settles `CredentialEntrypointPlan`, which now answers Unchanged instead of the store's error.
+- **Applies to:** `tokenUsable` and `credentialReadyClients` in `internal/app/synchronization/synchronizer.go`;
+  `TestZZ11AChoiceWhileTheTokenCannotBeRead` (both ways of refusing the presence).
+
+### The files a client drops are restored without a Token, and the files it keeps wait for one
+
+- **Rests on:** the eleventh review's findings 2 and 3. A rollback that restored another file of Codex dropped the
+  current file; with no Token the client was not planned, so the dropped file kept AIGW's settings and its record,
+  which no later command visits. And `aigw client edit --target` refused the files that the client already had
+  whenever no Token was usable, although that edit drops nothing and its record needs no Token.
+- **Considered:** refuse a rollback that drops a file while the client has no Token (the Token would then decide
+  the refusal); plan the whole client as if it had a Token (it would write a file naming a reader that returns
+  none).
+- **Chosen because:** a file that a client no longer has cannot keep AIGW's settings, and restoring it reads the
+  file and its record and never a Token — the same reason a withdrawal needs none. So a client that is not written
+  but loses a file joins the transition as a third kind, `Withdrawn`: its dropped targets alone are planned, through
+  the restore transition the adapters already have, and its kept targets wait for its Token as before. For the
+  edit, the refusal now depends on what the edit does and not on which flag it used: only an edit that drops a file
+  loses one that could keep AIGW's settings, so only that edit waits for the Token.
+- **Applies to:** `adapter.Dependencies.WithdrawOnly`, `planClient` and `applyClient` in `internal/adapter/record.go`,
+  `reconciliationInputs` in `internal/adapter/codex/adapter.go`, `hermesPlans` in `internal/adapter/hermes/adapter.go`,
+  `withdrawnClients`, `reconciled` and `projectionDependencies` in `internal/app/synchronization/record.go`, and
+  `admitTargets` in `internal/cli/client/edit.go`; `TestZZ11ARollbackToOtherFilesOverAChoice` and
+  `TestZZ11TheSameFilesAreRefusedWithoutTheToken`.
+
+### The matrix's checker is its own subject of test
+
+- **Rests on:** the eleventh review's seven holes. Each was a path on which a product with that fault would have
+  passed the matrix: a command's own setting that was never stored, a binding that differed between twins in
+  everything but the model, a preview that wrote a backup beside the configuration, a stored selection of another
+  provider read by model ID alone, a file that vanished under the command, a rollback checked by the model alone,
+  and a withdrawal that left the client enabled.
+- **Considered:** read the checker and reason about the seven, which is what the tenth review did for its own
+  gaps; add only the cases that the product could reach today.
+- **Chosen because:** a checker's defects are invisible in its passing runs, so each needs an outcome no command
+  produces, built by hand and given to the checker. `faults` returns what the checker finds instead of reporting
+  it, so one probe can feed it a wrong outcome and require a fault; `holds` and `twinned` report those faults for
+  the matrix. The probes stay as regression tests of the checker itself.
+- **Applies to:** `faults`, `committedFaults`, `withdrewFaults` and `twinnedFaults` in
+  `internal/cli/acceptance/selection_invariant_checks_test.go`; the seven inverted probes in
+  `zz11_review_checker_test.go`.
+
 ### An adapter admits a file that shows the selection the transition starts from
 
 - **Rests on:** a transition now starts from a configuration that names the client's choice while AIGW's record of

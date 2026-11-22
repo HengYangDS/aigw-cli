@@ -41,6 +41,11 @@ type Dependencies struct {
 	// RecordOnly names the clients of which Plan and Apply write AIGW's
 	// record alone, through their SelectionRecorder.
 	RecordOnly []string
+	// WithdrawOnly names the clients of which Plan and Apply restore the files
+	// that the transition drops and write no file that it keeps: a file that a
+	// client no longer has cannot keep AIGW's settings, and its withdrawal
+	// needs no Token, unlike the files that wait for one.
+	WithdrawOnly []string
 }
 
 // ProjectionPlan is a side-effect-free description of one owned projection

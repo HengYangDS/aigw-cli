@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/domain"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 // run executes one command of a world's preparation, which must succeed.
@@ -98,9 +101,28 @@ func codexWorld(t *testing.T, count int) selectionWorld {
 		}
 		return state.ProjectedModel == world.shows(t, path)
 	}
+	world.reaches = codexReaches
 	world.run(t, "provider", "edit", "spare", "--label", "Earlier")
 	world.restored = "gpt-sol"
 	return world
+}
+
+// codexReaches names the endpoint of the provider entry that AIGW wrote into
+// path, which the file's model_provider selects, or "" when the file holds no
+// such entry. The endpoint is the runtime's own, so it compares with the
+// stored selection's.
+func codexReaches(t *testing.T, path string) string {
+	t.Helper()
+	var document struct {
+		ModelProvider  string `toml:"model_provider"`
+		ModelProviders map[string]struct {
+			BaseURL string `toml:"base_url"`
+		} `toml:"model_providers"`
+	}
+	if err := toml.Unmarshal(readFile(t, path), &document); err != nil || document.ModelProvider == "" {
+		return ""
+	}
+	return document.ModelProviders[document.ModelProvider].BaseURL
 }
 
 // codexRestoring is codexWorld whose last change selected gpt-sol in place of
@@ -109,6 +131,9 @@ func codexRestoring(t *testing.T, count int, earlier string) selectionWorld {
 	t.Helper()
 	world := codexWorld(t, count)
 	world.run(t, "use", "codex", "gateway/"+earlier)
+	// The binding that the last change replaces, which a rollback restores.
+	restored := selection(t, world.app, codex.ID)
+	world.restoredBinding = &restored
 	world.run(t, "use", "codex", "gateway/gpt-sol")
 	world.restored = earlier
 	return world
@@ -145,11 +170,35 @@ func chosenBeforeARollback(count int, earlier string, without bool) func(t *test
 	}
 }
 
+// withRequestRetries is what `aigw client edit codex --request-retries` leaves:
+// the stored binding's retry budget gives requests that many retries, and
+// leaves the stream's budget as it was.
+func withRequestRetries(retries uint64) func(after selectionSnapshot) string {
+	return func(after selectionSnapshot) string {
+		policy := after.binding.RetryPolicy
+		if policy != nil && policy.RequestMaxRetries != nil && *policy.RequestMaxRetries == retries {
+			return ""
+		}
+		return "the client's retry budget does not give requests " + strconv.FormatUint(retries, 10) + " retries"
+	}
+}
+
+// forwardingTo is what `aigw client edit hermes --via` leaves: the stored
+// binding forwards to that address.
+func forwardingTo(address string) func(after selectionSnapshot) string {
+	return func(after selectionSnapshot) string {
+		if after.binding.ForwardingEndpoint == address {
+			return ""
+		}
+		return "the stored selection forwards to " + strconv.Quote(after.binding.ForwardingEndpoint) + ", not to " + strconv.Quote(address)
+	}
+}
+
 func codexCommands() []selectionCommand {
 	return []selectionCommand{
 		{name: "another provider", args: []string{"provider", "edit", "spare", "--label", "Other", "--json"}},
 		{name: "sync", args: []string{"sync", "--json"}},
-		{name: "own setting", args: []string{"client", "edit", "codex", "--request-retries", "2", "--json"}},
+		{name: "own setting", args: []string{"client", "edit", "codex", "--request-retries", "2", "--json"}, leaves: withRequestRetries(2)},
 		{name: "select a third model", args: []string{"use", "codex", "gateway/gpt-luna", "--json"}, explicit: true, stores: "gateway"},
 		{name: "select the stored model", args: []string{"use", "codex", "gateway/gpt-sol", "--json"}, explicit: true, stores: "gateway"},
 		{name: "rollback", args: []string{"config", "rollback", "--last-change", "--json"}, explicit: true, restores: true},

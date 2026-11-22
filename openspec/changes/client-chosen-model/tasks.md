@@ -54,6 +54,16 @@
       needs, the comparison of each run with its twin across the Token and the chosen provider's Token, fails on
       version ten in the tenth review's sequences and passes; the review's six finding probes pass as regression
       tests; and an eleventh review works from the widened matrix.
+- [ ] 2.14 Answer the eleventh review's findings two to four, and close the seven holes it found in the matrix's
+      checker, in the twelfth version. A tokenless edit admits the files a client already has and refuses only
+      one that drops a file; a Token that cannot be observed leaves its client waiting like an absent one, so the
+      choice is recorded; a rollback over a choice restores the files it drops while its client keeps any kept
+      file waiting for its Token. The checker compares the whole folder for a preview or a refusal, requires a
+      command's own setting to be stored, compares each twin's whole binding except the worlds' own paths,
+      requires a withdrawal to disable the client, reads a Codex file's endpoint rather than its model alone, and
+      no longer skips a file that is gone. Done when the product matrix passes at this head, the eleventh
+      review's seven hole probes pass inverted, and a twelfth fresh review of the whole lane finds none of the
+      three defect families.
 - [ ] 2.5 Keep one record per invocation of what was followed and report it ahead of the next step, with the
       returning command on a line of its own, the entry's protocol and ended-setting fields, no entry for the
       client that an explicit selection names, and no returning command that cannot run; tests read each, and

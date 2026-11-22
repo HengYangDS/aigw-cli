@@ -2,6 +2,8 @@ package cli_test
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -31,12 +33,22 @@ type selectionWorld struct {
 	follows func(t *testing.T, path string) bool
 	// storedAs renders the stored selection as a file would show it.
 	storedAs func(runtime domain.Runtime) string
+	// reaches names the endpoint that the file at path reaches through AIGW's
+	// entry, or "" where the world does not read it. Two providers that serve
+	// one model ID are two selections: a choice recorded for another provider
+	// than the one the file reaches is not the file's selection.
+	reaches func(t *testing.T, path string) string
 	// keepsAIGWsPart reports whether a file's bytes still hold what AIGW
 	// writes into the client's file, which a withdrawal removes.
 	keepsAIGWsPart func(file []byte) bool
 	// restored is the selection that a rollback of the last change restores,
 	// in storedAs's words, or "" where the state does not fix it.
 	restored string
+	// restoredBinding is the client's binding in the configuration that the
+	// last change replaced, captured as the state is built, so that a rollback
+	// is checked by everything that the change touched and not by the model
+	// alone.
+	restoredBinding *domain.ClientBinding
 	// blocked says what in this state prevents AIGW from recording the
 	// client's files, or "" when nothing does. The step that builds the
 	// obstacle declares it (losingFile, losingRecord, chose), so it is read
@@ -88,6 +100,13 @@ type selectionSnapshot struct {
 	records [][]byte
 	shows   []string
 	follows []bool
+	// provider is the provider of the stored selection, whose endpoints an
+	// AIGW-written file of the client reaches.
+	provider string
+	// tree is every path below the world's configuration folder with the hash
+	// of its content, so that a command that writes nothing is seen to write
+	// nothing anywhere.
+	tree map[string]string
 }
 
 // selectionRun is one command run in one world: what it returned, and the
@@ -121,8 +140,9 @@ func (w selectionWorld) snapshot(t *testing.T) selectionSnapshot {
 		t.Fatal(err)
 	}
 	snap := selectionSnapshot{config: readFile(t, w.app.Config.Path()), binding: cfg.Clients[w.client]}
+	snap.tree = w.folder(t, filepath.Dir(w.app.Config.Path()))
 	if runtime, err := cfg.ResolveRuntime(w.client, domain.ModelRef{}); err == nil {
-		snap.stored = w.storedAs(runtime)
+		snap.stored, snap.provider = w.storedAs(runtime), runtime.ProviderID
 	}
 	for _, path := range w.files {
 		data, err := os.ReadFile(path)
@@ -138,6 +158,33 @@ func (w selectionWorld) snapshot(t *testing.T) selectionSnapshot {
 		snap.shows, snap.follows = append(snap.shows, shows), append(snap.follows, follows)
 	}
 	return snap
+}
+
+// folder names every path below root with the hash of its content, so that a
+// command that writes nothing is seen to write nothing anywhere below it. It
+// reads no file's content beyond its hash.
+func (w selectionWorld) folder(t *testing.T, root string) map[string]string {
+	t.Helper()
+	paths := map[string]string{}
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return nil
+		}
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		name, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return relErr
+		}
+		paths[name] = fmt.Sprintf("%x", sha256.Sum256(data))
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("read the world's tree: %v", err)
+	}
+	return paths
 }
 
 // clientUntouched reports whether the client's binding, files and records are

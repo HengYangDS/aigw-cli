@@ -160,6 +160,11 @@ func hermesProviderID(providerID string, protocol domain.EndpointProtocol) strin
 
 func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan, []string, error) {
 	previous, current := before.Clients[ID], after.Clients[ID]
+	// A withdraw-only client restores the files that the transition drops and
+	// writes none that it keeps, whose selection waits for its Token.
+	if slices.Contains(deps.WithdrawOnly, ID) {
+		current.Targets = nil
+	}
 	if !previous.Enabled && !current.Enabled {
 		return nil, nil, nil
 	}

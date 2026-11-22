@@ -88,6 +88,33 @@ func (s Synchronizer) admitsWaiting(before, after domain.Config, clientIDs, read
 	return nil
 }
 
+// withdrawnClients names, in admission order, the enabled clients among named
+// (or among every client when none is named) that a transition from before to
+// after leaves without a Token that AIGW can use, and whose files it drops. A
+// file that a client no longer has cannot keep AIGW's settings, and its
+// withdrawal needs no Token; but a client that is written writes every file
+// that it keeps and restores the ones it drops, so only a client that is not
+// written is named here. A client that loses no file is not named: its files
+// wait for its Token.
+func (s Synchronizer) withdrawnClients(before, after domain.Config, clientIDs, ready []string) []string {
+	named := clientIDs
+	if len(named) == 0 {
+		named = s.ClientIDs()
+	}
+	var withdrawn []string
+	for _, client := range named {
+		if slices.Contains(ready, client) || !after.Clients[client].Enabled {
+			continue
+		}
+		kept := after.Clients[client].Targets
+		if !slices.ContainsFunc(before.Clients[client].Targets, func(target string) bool { return !slices.Contains(kept, target) }) {
+			continue
+		}
+		withdrawn = append(withdrawn, client)
+	}
+	return s.inAdmissionOrder(withdrawn)
+}
+
 // restoredClients returns, in admission order, the clients whose selection a
 // restore of restored decides: those whose projection changes from before,
 // the configuration that the command worked from, and those whose stored
@@ -104,19 +131,20 @@ func (s Synchronizer) restoredClients(before, restored domain.Config) []string {
 }
 
 // reconciled returns the clients that projection plans, those whose files it
-// writes and those of which it writes AIGW's record alone, in admission order
-// when it holds both kinds.
+// writes, those whose files it withdraws alone, and those of which it writes
+// AIGW's record alone, in admission order when it holds more than one kind.
 func (s Synchronizer) reconciled(projection Projection) []string {
-	if len(projection.Recorded) == 0 {
+	if len(projection.Recorded) == 0 && len(projection.Withdrawn) == 0 {
 		return projection.Clients
 	}
-	return s.inAdmissionOrder(slices.Concat(projection.Clients, projection.Recorded))
+	return s.inAdmissionOrder(slices.Concat(projection.Clients, projection.Withdrawn, projection.Recorded))
 }
 
 // projectionDependencies are the client adapters' dependencies for a
 // projection of the transition from before to after: the credential reader
-// that the clients whose files it writes name, and the clients of which the
-// adapters write AIGW's record alone.
+// that the clients whose files it writes name, the clients whose files it
+// withdraws alone, and the clients of which the adapters write AIGW's record
+// alone.
 func (s Synchronizer) projectionDependencies(projection Projection, before, after domain.Config) (adapter.Dependencies, error) {
 	var configurations []domain.Config
 	if len(projection.Clients) > 0 {
@@ -124,5 +152,6 @@ func (s Synchronizer) projectionDependencies(projection Projection, before, afte
 	}
 	dependencies, err := s.clientDependencies(projection.Clients, configurations...)
 	dependencies.RecordOnly = projection.Recorded
+	dependencies.WithdrawOnly = projection.Withdrawn
 	return dependencies, err
 }

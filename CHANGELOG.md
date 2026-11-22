@@ -69,6 +69,20 @@ signing, and GA status remain separate evidence.
   it keeps by default from the stored selection, and says
   `forwarding_cleared` or `retries_cleared` when the stored forwarding or
   retry budgets end.
+- `aigw client edit --target` changes a client's configuration files without a
+  Token as long as the edit drops none: naming the files that the client has,
+  or adding one, is saved on the model chosen in the client and writes no
+  file, and AIGW's record of each file follows it. Only an edit that drops a
+  file waits for the Token, because the dropped file would otherwise keep
+  AIGW's settings where no later synchronization visits it.
+- A Token whose presence cannot be observed, as a locked keychain leaves it,
+  no longer refuses a command that saves the configuration: the client waits
+  for its Token as it does for an absent one, and the model chosen in its file
+  is recorded.
+- `aigw config rollback` restores the files that it drops while the client's
+  provider has no Token that AIGW can use, instead of leaving AIGW's settings
+  and record in a file that the client no longer has; the files that the
+  client keeps wait for its Token as before.
 - A model picked in Codex's file is read as TOML, whatever its spelling. A
   pick written as a literal string (`model = 'gpt-terra'`) was not followed:
   `aigw status` reported drift and `aigw sync` refused it as an outside edit.

@@ -325,15 +325,20 @@ func refuseTargetsUnderFiles(targets []string, spec domain.ClientSpec, home stri
 	return nil
 }
 
-// admitTargets refuses to change an enabled client's configuration files
-// while its provider has no Token that AIGW can use, or its Token cannot be
+// admitTargets refuses an edit that would drop a configuration file while the
+// client's provider has no Token that AIGW can use, or its Token cannot be
 // observed: the transaction then writes no client file, and AIGW's settings
 // would stay behind in the files that the edit drops, which no later
-// synchronization visits. An empty Token is a missing one. A Keychain item
-// that macOS refuses AIGW ends the edit with the item's refusal, which names
-// its fix, as it ends enabling the client.
+// synchronization visits. An edit that names the files that the client has,
+// or adds a file, drops none and is admitted: the configuration is saved, and
+// AIGW's record of each file follows it without a Token. An empty Token is a
+// missing one. A Keychain item that macOS refuses AIGW ends the edit with the
+// item's refusal, which names its fix, as it ends enabling the client.
 func admitTargets(runtime invocation.Context, cfg domain.Config, spec domain.ClientSpec, targets []string) error {
 	if len(targets) == 0 || !cfg.Clients[spec.ID].Enabled {
+		return nil
+	}
+	if !slices.ContainsFunc(cfg.Clients[spec.ID].Targets, func(target string) bool { return !slices.Contains(targets, target) }) {
 		return nil
 	}
 	selected, err := cfg.ResolveRuntime(spec.ID, domain.ModelRef{})

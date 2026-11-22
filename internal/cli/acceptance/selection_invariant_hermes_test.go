@@ -89,6 +89,9 @@ func hermesRestoring(model, protocol, shown string) func(t *testing.T) selection
 	return func(t *testing.T) selectionWorld {
 		world := hermesPlain(t)
 		world.run(t, "use", "hermes", model, "--protocol", protocol)
+		// The binding that the last change replaces, which a rollback restores.
+		restored := selection(t, world.app, hermes.ID)
+		world.restoredBinding = &restored
 		world.run(t, "use", "hermes", "dmxapi/gpt-6.2-sol", "--protocol", "responses")
 		world.restored = shown
 		return world.choosing(t, "dmxapi", "anthropic", "claude-opus-5-5", plainScalars)
@@ -124,7 +127,7 @@ func hermesCommands() []selectionCommand {
 	return []selectionCommand{
 		{name: "another provider", args: []string{"provider", "edit", "ucloud", "--label", "Other", "--json"}},
 		{name: "sync", args: []string{"sync", "--json"}},
-		{name: "own setting", args: []string{"client", "edit", "hermes", "--via", hermesForwardedTo, "--json"}},
+		{name: "own setting", args: []string{"client", "edit", "hermes", "--via", hermesForwardedTo, "--json"}, leaves: forwardingTo(hermesForwardedTo)},
 		{name: "end forwarding", args: []string{"client", "edit", "hermes", "--direct", "--json"}, leaves: withoutForwarding, idle: nothingToEnd},
 		{name: "another client", args: []string{"use", "claude", "ucloud/claude-opus-5-5", "--json"}, stores: "ucloud"},
 		{name: "select a third model", args: []string{"use", "hermes", "ucloud/claude-opus-5-5", "--protocol", "anthropic", "--json"}, explicit: true, stores: "ucloud"},

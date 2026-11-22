@@ -58,26 +58,65 @@ func recorder(deps Dependencies, client Adapter) (SelectionRecorder, bool, error
 
 // planClient plans client's part of a transition from before to after: its
 // projection, or, for a client of which only AIGW's record is written, the
-// record of the selection that before follows.
+// record of the selection that before follows; a client whose files are
+// withdrawn alone plans the dropped files' restoration, and it too may need
+// its record.
 func planClient(deps Dependencies, client Adapter, before, after domain.Config) ([]ProjectionPlan, error) {
 	records, only, err := recorder(deps, client)
 	if err != nil {
 		return nil, err
 	}
-	if only {
-		return records.PlanRecord(deps, before)
+	withdraw := slices.Contains(deps.WithdrawOnly, client.Spec().ID)
+	if !only && !withdraw {
+		return client.Plan(deps, before, after)
 	}
-	return client.Plan(deps, before, after)
+	plans := make([]ProjectionPlan, 0)
+	if withdraw {
+		restored, err := client.Plan(deps, before, after)
+		if err != nil {
+			return nil, err
+		}
+		plans = append(plans, restored...)
+	}
+	if only {
+		recorded, err := records.PlanRecord(deps, before)
+		if err != nil {
+			return nil, err
+		}
+		plans = append(plans, recorded...)
+	}
+	return plans, nil
 }
 
-// applyClient applies what planClient plans for client.
+// applyClient applies what planClient plans for client, the record last, so
+// that AIGW's record follows the files as the transition left them.
 func applyClient(ctx context.Context, deps Dependencies, client Adapter, before, after domain.Config) (ProjectionReceipt, error) {
 	records, only, err := recorder(deps, client)
 	if err != nil {
 		return nil, err
 	}
-	if only {
-		return records.ApplyRecord(ctx, deps, before)
+	withdraw := slices.Contains(deps.WithdrawOnly, client.Spec().ID)
+	if !only && !withdraw {
+		return client.Apply(ctx, deps, before, after)
 	}
-	return client.Apply(ctx, deps, before, after)
+	var receipts ProjectionReceipts
+	if withdraw {
+		receipt, err := client.Apply(ctx, deps, before, after)
+		if err != nil {
+			return nil, err
+		}
+		if receipt != nil {
+			receipts = append(receipts, receipt)
+		}
+	}
+	if only {
+		receipt, err := records.ApplyRecord(ctx, deps, before)
+		if err != nil {
+			return nil, err
+		}
+		if receipt != nil {
+			receipts = append(receipts, receipt)
+		}
+	}
+	return receipts, nil
 }

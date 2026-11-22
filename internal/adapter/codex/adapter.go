@@ -275,6 +275,17 @@ func reconciliationInputs(deps adapter.Dependencies, before, after domain.Config
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
+	// A withdraw-only client restores the files that the transition drops and
+	// writes none that it keeps, whose selection waits for its Token: only the
+	// dropped files are planned, and the union restores them.
+	if slices.Contains(deps.WithdrawOnly, ID) {
+		kept := make(map[string]bool, len(afterRefs))
+		for _, target := range afterRefs {
+			kept[target.Path] = true
+		}
+		beforeRefs = slices.DeleteFunc(beforeRefs, func(target TargetRef) bool { return kept[target.Path] })
+		afterRefs = nil
+	}
 	previous, _ := before.ResolveRuntime(ID, domain.ModelRef{})
 	if previous.RequiresProviderToken() {
 		previous.CredentialCommand = previous.CredentialExecutable(deps.AIGWExecutable)

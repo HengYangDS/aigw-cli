@@ -101,10 +101,11 @@ change of selection.
 
 - **GIVEN** the operator selected in Hermes a model whose provider has no Token that AIGW can use
 - **WHEN** a command changes another setting of that client, such as `aigw client edit hermes --via` or `--target`
-- **THEN** a change of its configuration files SHALL be refused, naming the provider without a Token, as for any
-  client whose selection's provider has no Token
-- **AND** any other change SHALL be saved on the chosen model, which the command's result names, and the client's
-  file SHALL be left as it is
+- **THEN** an edit that would drop one of the client's configuration files SHALL be refused, naming the provider
+  without a Token, as for any client whose selection's provider has no Token
+- **AND** an edit that names the files that the client has, or adds one, SHALL be saved on the chosen model, which
+  the command's result names, and the client's file SHALL be left as it is: nothing is dropped, and AIGW's record
+  of each file follows what the file shows without a Token
 - **AND** the synchronization after the Token is stored SHALL write the file with what the edit saved.
 
 #### Scenario: Another file of the client cannot be written
@@ -362,6 +363,10 @@ the refusal's Fix.
 - **THEN** the model chosen in the client SHALL stay in its file
 - **AND** the rollback SHALL save the restored selection as that client's, waiting for its Token, name it with the
   chosen model that it replaces, and bring AIGW's record of the file to what the file shows
+- **AND** when the restored configuration holds the client on other files, every file that it drops SHALL be
+  restored to what it held before AIGW wrote it, record and all, whether or not the client's provider has a Token
+  that AIGW can use: a file that the client no longer has cannot keep AIGW's settings, and its withdrawal needs
+  none
 - **AND** the synchronization after the Token is stored SHALL write the restored selection.
 
 #### Scenario: A rollback restores a client without a selection
@@ -387,8 +392,22 @@ the refusal's Fix.
 ### Requirement: Claude Code's own model is reported as it stands
 
 When Claude Code's settings name a model of their own while the connection that AIGW wrote is intact, `aigw status`
-and `aigw check` SHALL name that value beside AIGW's selection, in human output and as `client_model` in JSON, and
-no command SHALL change it except an explicit `aigw use claude`.
+and `aigw check` SHALL name that value beside AIGW's selection, in human output and as `client_model` in JSON. A
+command that writes none of Claude Code's settings SHALL leave that model as the file holds it.
+
+#### Scenario: A command that writes none of Claude Code's settings leaves its model
+
+- **GIVEN** Claude Code's settings name `opus[1m]`, which AIGW's selection does not name
+- **WHEN** a command that writes none of Claude Code's settings runs
+- **THEN** the settings SHALL hold `opus[1m]` afterwards, as they did before.
+
+#### Scenario: A command rewrites Claude Code's settings
+
+- **GIVEN** Claude Code's settings name `opus[1m]` and a command rewrites another value that they hold, such as the
+  provider's endpoint or the forwarding
+- **WHEN** the command runs
+- **THEN** whether it replaces `opus[1m]` with AIGW's selection SHALL be decided by the Change about Claude Code's
+  own model, and this requirement SHALL neither permit nor forbid it.
 
 #### Scenario: Status names Claude Code's own model
 
