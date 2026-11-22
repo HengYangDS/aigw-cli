@@ -23,8 +23,11 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Compile and vet the changed packages and their tests for Windows and Linux on the lane head.
-- [ ] 3.2 Pass `mise run check` on the lane head.
-- [ ] 3.3 Apply the shipped team file on this workstation with the built program from the lane, in a preview
-      first, and read the report. Done when the preview names exactly the 30 models and 11 families that the
-      current host holds as local-only, and nothing else.
+- [x] 3.1 Compile and vet the changed packages and their tests for Windows and Linux on the lane head.
+- [x] 3.2 Pass `mise run check` on the lane head.
+- [x] 3.3 Preview the shipped team file with the program built from the lane, against a copy of this workstation's
+      configuration as it was before its unused models were removed (the backup that the installed release kept
+      when it pruned them). Done when the preview names exactly the 30 models and 11 families that the copy holds
+      as local-only, `--keep-local` names the same entries as kept, `--prune` is refused as an unknown option, and
+      nothing is written.
+- [ ] 3.4 Pass the proposal's hosted checks on both forges.
