@@ -210,28 +210,6 @@ type selectionCell struct {
 	plain   bool
 }
 
-// Every committed command leaves the record of each client file naming the
-// model that the file selects, for every state of the files and every
-// spelling of a pick, with and without each Token that the state depends on;
-// only where the state itself prevents the record may it leave the client
-// exactly as it was. The reviews of versions one to ten each found one more
-// path on which a record stayed behind a file; these tests run the product of
-// states and commands instead of the paths that a reviewer happens to pick.
-// There is one test for each client's matrix, so that each runs alone.
-func TestEveryCommandLeavesEachRecordNamingWhatItsFileSelectsCodexOneFile(t *testing.T) {
-	codexOneFileMatrix().run(t)
-}
-
-// The matrix of Codex on two files.
-func TestEveryCommandLeavesEachRecordNamingWhatItsFileSelectsCodexTwoFiles(t *testing.T) {
-	codexTwoFilesMatrix().run(t)
-}
-
-// The matrix of Hermes.
-func TestEveryCommandLeavesEachRecordNamingWhatItsFileSelectsHermes(t *testing.T) {
-	hermesMatrix().run(t)
-}
-
 // run runs every command of the matrix in every state that the command
 // accepts: once with every Token, and once without each Token that the state
 // depends on, each time in a world of its own. A run without a Token is

@@ -295,30 +295,6 @@ func zz11CodexStates(count int) map[string]func(t *testing.T) selectionWorld {
 	return states
 }
 
-// Every command of zz11CodexCommands in every state of Codex on one file,
-// with the Token and without it: the rule, judged by zz11Judge.
-func TestZZ11CommandsOutsideTheMatrixCodexOneFile(t *testing.T) {
-	zz11Sweep(t, zz11CodexStates(1), zz11CodexCommands())
-}
-
-// The same for Codex on two files, in four parts, so that each run stays
-// inside the time that a run may take.
-func TestZZ11CommandsOutsideTheMatrixCodexTwoFilesFirst(t *testing.T) {
-	zz11Sweep(t, zz11Part(zz11CodexStates(2), 4, 0), zz11CodexCommands())
-}
-
-func TestZZ11CommandsOutsideTheMatrixCodexTwoFilesSecond(t *testing.T) {
-	zz11Sweep(t, zz11Part(zz11CodexStates(2), 4, 1), zz11CodexCommands())
-}
-
-func TestZZ11CommandsOutsideTheMatrixCodexTwoFilesThird(t *testing.T) {
-	zz11Sweep(t, zz11Part(zz11CodexStates(2), 4, 2), zz11CodexCommands())
-}
-
-func TestZZ11CommandsOutsideTheMatrixCodexTwoFilesFourth(t *testing.T) {
-	zz11Sweep(t, zz11Part(zz11CodexStates(2), 4, 3), zz11CodexCommands())
-}
-
 // zz11HermesSweepCommands are the commands that the Hermes matrix does not
 // run. None selects a model for Hermes or withdraws it.
 func zz11HermesSweepCommands() []zz11Command {
@@ -355,20 +331,6 @@ func zz11HermesStates() map[string]func(t *testing.T) selectionWorld {
 		return hermesPlain(t).choosing(t, "dmxapi", "responses", "gpt-6.1-terra", plainScalars)
 	}
 	return states
-}
-
-// Every command of zz11HermesSweepCommands in every state of Hermes, with
-// each Token and without it, in three parts.
-func TestZZ11CommandsOutsideTheMatrixHermesFirst(t *testing.T) {
-	zz11Sweep(t, zz11Part(zz11HermesStates(), 3, 0), zz11HermesSweepCommands())
-}
-
-func TestZZ11CommandsOutsideTheMatrixHermesSecond(t *testing.T) {
-	zz11Sweep(t, zz11Part(zz11HermesStates(), 3, 1), zz11HermesSweepCommands())
-}
-
-func TestZZ11CommandsOutsideTheMatrixHermesThird(t *testing.T) {
-	zz11Sweep(t, zz11Part(zz11HermesStates(), 3, 2), zz11HermesSweepCommands())
 }
 
 // zz11Part returns the states whose place in the sorted names leaves part

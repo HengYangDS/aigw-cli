@@ -126,37 +126,6 @@ func zz11HermesCommands() map[string][]string {
 	}
 }
 
-// A pick of another model in Hermes's file, written in each further way that
-// YAML allows, with the Token and without it.
-//
-// Before: F = R = aigw-dmxapi-responses/gpt-6.2-sol, S = dmxapi/gpt-6.2-sol on
-// the Responses protocol. The person selects claude-opus-5-5 of the entry
-// aigw-dmxapi-anthropic in the spelling: F is that by the YAML parser, R and
-// S stay.
-//
-// Then a command that does not select for Hermes runs. The rule is the one of
-// the Codex probe above. Because the record of Hermes holds a digest and no
-// model, "the record names what the file selects" is then tried by what
-// follows from it: the person selects gpt-6.2-sol again, in the same spelling,
-// the Token is there, and `aigw sync` must leave that last pick stored and in
-// the file, or refuse and change nothing.
-func TestZZ11AHermesPickInFurtherSpellingsIsRecordedOrRefused(t *testing.T) {
-	t.Parallel()
-	const earlier, chosen = "aigw-dmxapi-responses/gpt-6.2-sol", "aigw-dmxapi-anthropic/claude-opus-5-5"
-	for _, pick := range zz11HermesPicks() {
-		for _, crlf := range []bool{false, true} {
-			name := pick.name
-			if crlf {
-				name += ", the whole file with carriage returns"
-			}
-			t.Run(name, func(t *testing.T) {
-				t.Parallel()
-				zz11HermesSpellingProbe(t, pick, chosen, earlier, crlf)
-			})
-		}
-	}
-}
-
 // zz11HermesSpellingProbe runs one spelling of a Hermes pick through the
 // commands that do not select for Hermes, with the Token and without it, and
 // then the person's return to the earlier model with the Token stored.
