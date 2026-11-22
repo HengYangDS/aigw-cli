@@ -1,3 +1,9 @@
+## Purpose
+
+Define what a model that a person chooses inside Codex or Hermes means to every AIGW command: when it becomes that
+client's selection, how AIGW's record of the client's file follows it, how commands and reports name it, and where
+AIGW refuses to follow it.
+
 ## ADDED Requirements
 
 ### Requirement: A model chosen in Codex or Hermes is that client's selection
