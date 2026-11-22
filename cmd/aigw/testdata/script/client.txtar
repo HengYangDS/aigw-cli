@@ -215,7 +215,7 @@ fixloop -did 'selected team/team-model for Hermes' edit-no-model.json aigw clien
 }
 -- disable-preview-windows.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "dry_run": true,
   "client": "claude",

@@ -319,14 +319,56 @@ func blockRemoval(t *testing.T, path string) {
 		t.Cleanup(func() { _ = file.Close() })
 		return
 	}
-	if os.Geteuid() == 0 {
-		t.Skip("root removes files from a read-only directory")
+	readOnlyDirectory(t, filepath.Dir(path))
+}
+
+// blockFolder makes replacing or removing any file in folder fail until
+// release runs or the test ends: Windows refuses to replace a file that is
+// open, and POSIX refuses to change a directory without write permission. On
+// Windows a new file can still be created there, and a write that then fails
+// to replace its target must remove it.
+func blockFolder(t *testing.T, folder string) (release func()) {
+	t.Helper()
+	if runtime.GOOS != "windows" {
+		return readOnlyDirectory(t, folder)
 	}
-	directory := filepath.Dir(path)
+	entries, err := os.ReadDir(folder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var open []*os.File
+	for _, entry := range entries {
+		if !entry.Type().IsRegular() {
+			continue
+		}
+		file, err := os.Open(filepath.Join(folder, entry.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		open = append(open, file)
+	}
+	release = sync.OnceFunc(func() {
+		for _, file := range open {
+			_ = file.Close()
+		}
+	})
+	t.Cleanup(release)
+	return release
+}
+
+// readOnlyDirectory removes the write permission of directory until release
+// runs or the test ends. Root writes into it regardless, so the test skips.
+func readOnlyDirectory(t *testing.T, directory string) (release func()) {
+	t.Helper()
+	if os.Geteuid() == 0 {
+		t.Skip("root writes into a read-only directory")
+	}
 	if err := os.Chmod(directory, 0o500); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(directory, 0o700) })
+	release = sync.OnceFunc(func() { _ = os.Chmod(directory, 0o700) })
+	t.Cleanup(release)
+	return release
 }
 
 func saveCommandModel(t *testing.T, app *cli.App, endpoints domain.Endpoints, client, model string) {

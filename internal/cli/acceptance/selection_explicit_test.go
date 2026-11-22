@@ -2,7 +2,6 @@ package cli_test
 
 import (
 	"bytes"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -83,12 +82,9 @@ func TestSelectionAnUnwritableRecordAndCommandsAboutSomethingElse(t *testing.T) 
 		hermesNativeSelection(t, target, "aigw-dmxapi-responses", "gpt-6.2-sol", nil)
 		folder := filepath.Dir(target)
 		before := ownedFileSnapshot(t, folder, app.Config.Path())
-		if err := os.Chmod(folder, 0o500); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = os.Chmod(folder, 0o700) })
+		release := blockFolder(t, folder)
 		err := selRun(t, app, output, command...)
-		_ = os.Chmod(folder, 0o700)
+		release()
 		t.Logf("%v with Hermes's folder read-only: err=%v", command, err)
 		if after := ownedFileSnapshot(t, folder, app.Config.Path()); err != nil && !equalSnapshots(after, before) {
 			t.Errorf("%v failed (%v) and left the record, the file or the stored configuration changed", command, err)

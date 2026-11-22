@@ -141,13 +141,10 @@ func TestRecordAFailedRecordOrSaveLeavesNothing(t *testing.T) {
 		recPick(t, targets[0], "gpt-terra")
 		recPick(t, targets[1], "gpt-terra")
 		folder := filepath.Dir(targets[locked])
-		if err := os.Chmod(folder, 0o500); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = os.Chmod(folder, 0o700) })
 		stored := readFile(t, app.Config.Path())
+		release := blockFolder(t, folder)
 		err := recRun(t, app, output, "provider", "edit", "spare", "--label", "Other", "--json")
-		_ = os.Chmod(folder, 0o700)
+		release()
 		recCodexState(t, app, targets, "after the failed record")
 		if err == nil {
 			t.Errorf("locked=%d: the command succeeded although one record cannot be written", locked)
@@ -167,12 +164,9 @@ func TestRecordAFailedRecordOrSaveLeavesNothing(t *testing.T) {
 	}
 	recPick(t, targets[0], "gpt-terra")
 	folder := filepath.Dir(app.Config.Path())
-	if err := os.Chmod(folder, 0o500); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(folder, 0o700) })
+	release := blockFolder(t, folder)
 	err := recRun(t, app, output, "provider", "edit", "spare", "--label", "Other", "--json")
-	_ = os.Chmod(folder, 0o700)
+	release()
 	recCodexState(t, app, targets, "after the failed save")
 	if err == nil || recCodexRecorded(t, targets[0]) != "gpt-sol" || selection(t, app, codex.ID).Model.String() != "gateway/gpt-sol" {
 		t.Errorf("a failed save (err=%v) left the record at %s", err, recCodexRecorded(t, targets[0]))

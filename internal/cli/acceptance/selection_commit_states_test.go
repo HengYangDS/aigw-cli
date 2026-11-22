@@ -3,7 +3,6 @@ package cli_test
 import (
 	"bytes"
 	"maps"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -256,12 +255,9 @@ func TestSelectionAFailedRecordOnOtherPathsLeavesNothing(t *testing.T) {
 		recPick(t, targets[0], "gpt-terra")
 		folder := filepath.Dir(targets[0])
 		before := ownedFileSnapshot(t, folder, app.Config.Path())
-		if err := os.Chmod(folder, 0o500); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = os.Chmod(folder, 0o700) })
+		release := blockFolder(t, folder)
 		err := selRun(t, app, output, command...)
-		_ = os.Chmod(folder, 0o700)
+		release()
 		after := ownedFileSnapshot(t, folder, app.Config.Path())
 		t.Logf("%v: err=%v S=%s R=%s", command, err, selection(t, app, codex.ID).Model, recCodexRecorded(t, targets[0]))
 		if err == nil {

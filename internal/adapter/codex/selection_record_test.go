@@ -145,7 +145,9 @@ func TestTheRecordOfACodexChoiceMovesAlone(t *testing.T) {
 	if err := receipt.Rollback(); err != nil {
 		t.Fatal(err)
 	}
-	if rewritten := before.rewritten(readOwnedFiles(t, targets)); len(rewritten) != 1 || recordedModel(t, targets[0]) != "gpt-sol" || !bytes.Equal(readOwnedFiles(t, targets)[record].data, before[record].data) {
+	// The restore replaces the record, and Linux can give the new file the
+	// inode that the replaced one freed, so the restore is judged by its bytes.
+	if rewritten := before.rewritten(readOwnedFiles(t, targets)); len(rewritten) > 1 || len(rewritten) == 1 && rewritten[0] != record || recordedModel(t, targets[0]) != "gpt-sol" || !bytes.Equal(readOwnedFiles(t, targets)[record].data, before[record].data) {
 		t.Fatalf("the receipt restored %v; the record names %s", rewritten, recordedModel(t, targets[0]))
 	}
 }
