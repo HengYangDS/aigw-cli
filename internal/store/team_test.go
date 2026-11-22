@@ -164,10 +164,10 @@ func TestTeamManifestUsesRequestedFamilies(t *testing.T) {
 		"claude-fable-5-2", "claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5",
 		"cohere-command-a",
 		"deepseek-v4.1-flash", "deepseek-v4.1-flash-1017", "doubao-seed-2-1-pro-260915", "ernie-5.1", "gemini-4-argon",
-		"gemini-4-carbon", "gemini-4-hydrogen", "glm-5.2", "glm-5.3", "gpt-6-luna", "gpt-6.1-terra", "gpt-6.2-astra",
-		"gpt-6.2-sol", "grok-4.7", "hy4", "kimi-k3.1-pro", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.5", "mercury-2.5",
-		"mimo-v2.6-pro", "minimax-m2.5", "minimax-m3.1-flash", "mistral-large-3", "muse-wonder", "nemotron-3-ultra-550b-a55b",
-		"qwen4-max", "solar-pro4", "step-5-preview",
+		"gemini-4-carbon", "gemini-4-hydrogen", "gemini-4-neon", "glm-5.2", "glm-5.3", "gpt-6-luna", "gpt-6.1-terra",
+		"gpt-6.2-astra", "gpt-6.2-sol", "grok-4.7", "hy4", "kimi-k3.1-pro", "laguna-s-2.1", "ling-3.0-flash", "ling-3.2-flash",
+		"longcat-2.5", "mimo-v2.6-pro", "minimax-m2.5", "minimax-m3.1-flash", "mistral-large-3", "muse-spark-1.3",
+		"nemotron-3-ultra-550b-a55b", "qwen4-max", "solar-pro4",
 	}
 	if got := slices.Sorted(maps.Keys(manifest.Families)); !slices.Equal(got, want) {
 		t.Fatalf("team logical Models = %v, want %v", got, want)
@@ -257,10 +257,8 @@ func TestTeamManifestKeepsQualifiedAdditionalVendorModels(t *testing.T) {
 		"aihubmix/ernie-5.1":                       {"ernie-5.1", "ernie-5.1", domain.ProtocolResponses},
 		"aihubmix/laguna-s-2.1":                    {"laguna-s-2.1", "laguna-s-2.1", domain.ProtocolChat},
 		"aihubmix/ling-3.0-flash":                  {"ling-3.0-flash", "ling-3.0-flash", domain.ProtocolChat},
-		"aihubmix/mercury-2.5":                     {"mercury-2.5", "mercury-2.5", domain.ProtocolChat},
 		"aihubmix/mistral-large-3":                 {"mistral-large-3", "mistral-large-3", domain.ProtocolChat},
 		"aihubmix/nemotron-3-ultra-550b-a55b-free": {"nemotron-3-ultra-550b-a55b", "nemotron-3-ultra-550b-a55b-free", domain.ProtocolChat},
-		"aihubmix/step-5-preview":                  {"step-5-preview", "step-5-preview", domain.ProtocolChat},
 	}
 	for id, expected := range want {
 		route, ok := teamModel(t, manifest, id)

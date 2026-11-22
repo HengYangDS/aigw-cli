@@ -11,6 +11,14 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- The shipped team file follows each provider's lines and vendors as of 2026-11-23. Gemini 4 Neon joins on
+  AIHubMix, Gemini 4 Carbon on DMXAPI, Qwen4-Max on UCloud, DMXAPI's SSVIP channels of GPT-6.2 Astra and Sol, and
+  Ling-3.2-Flash on DMXAPI. Muse Spark 1.3 replaces the Muse Wonder preview; the Step 5 preview leaves. UCloud's
+  Gemini 4 Carbon and AIHubMix's Mercury 2.5 leave, since those providers no longer list them. Applying the file
+  keeps your clients' explicit selections of a model that leaves.
+
 ## [0.9.0] - 2026-11-21
 
 ### Changed
