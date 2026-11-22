@@ -125,17 +125,23 @@ Only Codex can establish that its projected model catalog actually loaded.
 After a catalog or client-version change, use the tracked verifier:
 
 ```bash
-mise exec --locked -- go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -family gpt-6.1-sol -name 'GPT-6.1 Sol · cdx'
+mise exec --locked -- go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -family gpt-6.1-sol -name 'GPT-6.1 Sol · cdx' -context-window 1000000
 ```
 
 The required `-family` must be the model's family, the Codex model whose
 bundled metadata it takes; no part of the model ID stands in for it. The
 required `-name` is the display name that AIGW gives the alias, the model's
-label without its provider, as `aigw model show` prints it. The verifier
-uses an isolated client home, makes no inference request, compares the
-selected entry with the family's bundled metadata apart from `slug` and
-`display_name`, and fails when another entry shows the alias's name. Retain client version, executable checksum and entry digests. Exit 2
-means a missing client or unproved input, not acceptance.
+label without its provider, and `-context-window` is the model's declared
+context window, both as `aigw model show` prints them; without
+`-context-window` the verifier takes the window of a model that declares none.
+It uses an isolated client home and makes no inference request. It fails
+unless the entry that Codex renders for the model carries that window as
+`context_window` and as `max_context_window` and equals the bundled metadata
+in the other fields: the family's, apart from `slug` and `display_name`, for
+an alias, whose name no other entry may show, and the model's own for a model
+that is itself an entry of Codex's table. Verify a model of each kind. Retain
+client version, executable checksum, entry digests and the two window numbers.
+Exit 2 means a missing client or unproved input, not acceptance.
 
 Live-client model qualification instead uses `aigw check codex --depth client`
 or `aigw check claude --depth client`; catalog inspection and direct HTTP probes cannot

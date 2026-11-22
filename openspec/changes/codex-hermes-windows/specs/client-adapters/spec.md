@@ -32,3 +32,46 @@ release wrote.
 - **WHEN** the declared window of a listed model changes
 - **THEN** `aigw sync --dry-run` SHALL plan a write of Hermes's file
 - **AND** the command that changed the window SHALL write the new number for an enabled Hermes.
+
+## MODIFIED Requirements
+
+### Requirement: A record that the previous release reads keeps its shape
+
+A record of a client's file that the previous published release reads strictly SHALL keep the fields and the digest
+which that release reads. A setting that AIGW newly owns in that file outside what that digest covers SHALL have a
+record of its own beside the first, whose reader keeps an entry that it does not know and leaves that entry's
+setting as it is. Release acceptance SHALL roll the program back to the published predecessor with every newly
+owned setting written.
+
+#### Scenario: The previous release synchronizes after a rollback
+
+- **GIVEN** the newer program wrote Claude Code's settings with a map
+- **WHEN** the program is rolled back to the previous release and that release synchronizes
+- **THEN** the synchronization SHALL succeed with Claude Code enabled
+- **AND** the map SHALL stay in the settings as the newer program wrote it.
+
+#### Scenario: A new setting lies inside what the record's digest covers
+
+- **GIVEN** the newer program wrote each model's context window inside the provider entries of Hermes's file, which
+  the digest of Hermes's record covers, and into Codex's model table, whose record holds the table's digest
+- **WHEN** the program is rolled back to the previous release and that release synchronizes
+- **THEN** the synchronization SHALL succeed with Hermes and Codex enabled, with no second record
+- **AND** the previous release SHALL find both files its own and write its own form of them.
+
+#### Scenario: The newer program returns after a rollback
+
+- **WHEN** the newer program is activated again after the previous release synchronized, and synchronizes
+- **THEN** it SHALL find the map its own, however the previous release re-indented the settings, and write the
+  selection's map.
+
+#### Scenario: The previous release withdrew the client
+
+- **GIVEN** the previous release withdrew Claude Code after a rollback, which left the map and its record
+- **WHEN** the newer program next projects or withdraws Claude Code, or is uninstalled
+- **THEN** the map SHALL return to what the settings held before AIGW wrote it, and its record SHALL be removed.
+
+#### Scenario: The record holds an entry of a later release
+
+- **WHEN** the record of newly owned settings holds an entry that this program does not know
+- **THEN** this program SHALL keep the entry when it writes the record and SHALL leave that entry's setting as it
+  is.

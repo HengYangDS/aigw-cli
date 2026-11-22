@@ -35,7 +35,7 @@ func TestVerificationProjectsAnotherModelWithoutChangingOwnedFiles(t *testing.T)
 		t.Fatal(err)
 	}
 	desired.SelectedModel = "another-model"
-	desired.Providers[0].Models = append(desired.Providers[0].Models, desired.SelectedModel)
+	desired.Providers[0].Models = append(desired.Providers[0].Models, Model{ID: desired.SelectedModel, ContextWindow: 256000})
 	plan, err = Prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)

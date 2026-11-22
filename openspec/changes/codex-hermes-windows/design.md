@@ -84,7 +84,11 @@ full window.
 - **Chosen because:** only the per-model key holds one model's number through a switch of model and stays inside
   its entry. The mapping keeps each ID as a plain key, so a reader that walks the node's children still meets every
   ID. One function reads the models that an entry lists, for both shapes, and every caller uses it.
-- **Applies to:** `project`, `Provider` and the readers of an entry's models in `internal/adapter/hermes`.
+- **Applies to:** `project`, `Provider` and the readers of an entry's models in `internal/adapter/hermes`. The
+  record of Hermes's file keeps its fields and its digest rule, so the accepted requirement on a record that the
+  previous release reads asks for no second record here; its text now says which new settings need one, and
+  release acceptance rolls back with these written. A mapping's digest does not see the order of its keys, so the
+  projection compares the order of an entry's models itself, as it compares the order of the providers.
 
 ### The shipped team file lowers a window only on a vendor's number
 

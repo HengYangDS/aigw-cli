@@ -13,27 +13,29 @@
 
 ## 2. Codex
 
-- [ ] 2.1 Write the declared window into the two window fields of the selected model's entry, for an alias and for
+- [x] 2.1 Write the declared window into the two window fields of the selected model's entry, for an alias and for
       a model whose ID is an entry of the table. Done when catalog tests compare every other field and every other
       entry with Codex's own table, cover a lower declared window, and fail when the bundled table lacks the two
       fields.
-- [ ] 2.2 Report in a passing check of `aigw check codex`, for each Codex target, the window that the selected
+- [x] 2.2 Report in a passing check of `aigw check codex`, for each Codex target, the window that the selected
       model's entry carries in the table that AIGW wrote, or that Codex's fallback window applies to a model whose
       family the table does not hold. Done when tests read the check for a model with an entry and for one
       without, and its absence where AIGW wrote no table.
-- [ ] 2.3 Rewrite the table when the declared window of the selected model changes. Done when an acceptance test
-      edits the window, reads the table, and reads a following preview that plans nothing.
-- [ ] 2.4 Give the tracked catalog verifier the declared window: leave the two window fields out of its comparison
+- [x] 2.3 Rewrite the table when the declared window of the selected model changes. Done when an adapter test
+      changes the window, reads the rewritten table and reads a following plan that changes nothing; the command's
+      path to a client's file is held by Hermes's acceptance test, and task 5.1 runs the command with the real
+      Codex, because no fixture of the acceptance package can run a Codex that prints its table.
+- [x] 2.4 Give the tracked catalog verifier the declared window: leave the two window fields out of its comparison
       with the bundled metadata, require them in the entry that the client rendered, and verify a model that is
       itself an entry. Done when its tests cover an alias and an entry with their refusals, and the contribution
       guide names what the command takes.
 
 ## 3. Hermes
 
-- [ ] 3.1 Read the models that a provider entry lists through one function that accepts the mapping and the list
+- [x] 3.1 Read the models that a provider entry lists through one function that accepts the mapping and the list
       of IDs, and use it wherever an entry's models are read. Done when its table test covers both shapes and the
       choice-following tests pass over each.
-- [ ] 3.2 Write each model's declared window as `context_length` under its ID, in AIGW's order, and no window on
+- [x] 3.2 Write each model's declared window as `context_length` under its ID, in AIGW's order, and no window on
       an entry or in the `model` block. Done when projection tests read the mapping and its order, a file in the
       earlier shape with its record is accepted and rewritten, and a changed window plans a write.
 
@@ -50,7 +52,8 @@
 
 - [ ] 5.1 Run the tracked catalog verifier with the installed Codex for an alias and for a model that is an entry
       and keep its records; run one short turn in Codex and one in Hermes, each in an isolated home with the real
-      client, and read the window that the client reports for the selected model.
+      client, and read the window that the client reports for the selected model; switch the model once with
+      Hermes's own command in that home and require the next synchronization to follow it.
 - [ ] 5.2 Run the published previous release through the lifecycle journey after a rollback from this program,
       with Hermes and Codex enabled, and require both to synchronize without a refusal.
 - [ ] 5.3 Pass `mise run check` on the lane head.

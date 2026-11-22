@@ -130,13 +130,14 @@ func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
 			Default  string `yaml:"default"`
 		} `yaml:"model"`
 		Providers map[string]struct {
-			Models []string `yaml:"models"`
+			Models map[string]struct{} `yaml:"models"`
 		} `yaml:"providers"`
 	}
 	if err := yaml.Unmarshal(readFile(t, target), &projected); err != nil {
 		t.Fatal(err)
 	}
-	if projected.Model.Default != "gpt-6.2-sol-cdx" || !slices.Contains(projected.Providers[projected.Model.Provider].Models, projected.Model.Default) {
+	_, listed := projected.Providers[projected.Model.Provider].Models[projected.Model.Default]
+	if projected.Model.Default != "gpt-6.2-sol-cdx" || !listed {
 		t.Fatalf("shipped Hermes projection = %#v", projected)
 	}
 	if httpClient.calls != 0 || strings.Contains(string(readFile(t, target)), "fixture-token") {

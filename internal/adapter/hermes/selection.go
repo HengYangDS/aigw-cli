@@ -113,21 +113,21 @@ func selectionOnlyDrift(root *yaml.Node, state ownership, previous *Desired) boo
 			return false
 		}
 	}
-	defaultModel, models := field(model, "default"), field(provider, "models")
-	if defaultModel == nil || models == nil || !slices.ContainsFunc(models.Content, func(node *yaml.Node) bool { return node.Value == defaultModel.Value }) {
+	defaultModel := field(model, "default")
+	if defaultModel == nil || !slices.Contains(modelIDs(field(provider, "models")), defaultModel.Value) {
 		return false
 	}
 	defer setField(root, "model", model)
 	for _, providerID := range state.ProviderIDs {
 		owned := field(field(root, "providers"), providerID)
-		baseURL, transport, candidates := field(owned, "base_url"), field(owned, "transport"), field(owned, "models")
-		if baseURL == nil || transport == nil || candidates == nil {
+		baseURL, transport := field(owned, "base_url"), field(owned, "transport")
+		if baseURL == nil || transport == nil {
 			continue
 		}
-		for _, candidate := range candidates.Content {
+		for _, candidate := range modelIDs(field(owned, "models")) {
 			replacement := mapping()
 			setString(replacement, "provider", providerID)
-			setString(replacement, "default", candidate.Value)
+			setString(replacement, "default", candidate)
 			setString(replacement, "base_url", baseURL.Value)
 			setString(replacement, "api_mode", transport.Value)
 			setField(root, "model", replacement)

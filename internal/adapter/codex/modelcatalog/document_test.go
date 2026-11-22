@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -12,6 +13,10 @@ type catalogDocument struct {
 	Models []map[string]json.RawMessage `json:"models"`
 }
 
+// testWindow is a declared context window that differs from the stand-in
+// table's own.
+const testWindow = 640_000
+
 // testBundledCatalog is a stand-in for the client's own table. It keeps the
 // shape that matters here: several bare slugs and entries carrying fields this
 // package does not model.
@@ -19,7 +24,7 @@ func testBundledCatalog(slugs ...string) []byte {
 	entries := make([]string, 0, len(slugs))
 	for index, slug := range slugs {
 		entries = append(entries, fmt.Sprintf(
-			`{"slug":%q,"display_name":"Display %d","context_window":400000,"unknown_future_field":{"nested":[1,2]}}`,
+			`{"slug":%q,"display_name":"Display %d","context_window":400000,"max_context_window":872000,"unknown_future_field":{"nested":[1,2]}}`,
 			slug, index,
 		))
 	}
@@ -60,12 +65,12 @@ func TestDocumentProjectionTakesNoMetadataFromAPrefix(t *testing.T) {
 	document := mustParseCatalog(t, testBundledCatalog("gpt-5.6-sol", "gpt-5.5", "codex-auto-review"))
 	for _, model := range []string{"openai.gpt-5.6-sol", "us.openai.gpt-5.5", "anthropic.codex-auto-review"} {
 		for _, family := range []string{"", model} {
-			if projected, base := document.Project(model, family, ""); projected != nil || base != "" {
+			if projected, base := document.Project(model, family, "", testWindow); projected != nil || base != "" {
 				t.Fatalf("Project(%q, %q) = %q / %q, want no alias", model, family, projected, base)
 			}
 		}
 	}
-	projected, base := document.Project("openai.gpt-5.6-sol", "gpt-5.6-sol", "")
+	projected, base := document.Project("openai.gpt-5.6-sol", "gpt-5.6-sol", "", testWindow)
 	if base != "gpt-5.6-sol" || strings.Join(catalogSlugList(t, projected), ",") != "gpt-5.6-sol,gpt-5.5,codex-auto-review,openai.gpt-5.6-sol" {
 		t.Fatalf("Project() through the family = %q / %q, want one alias", projected, base)
 	}
@@ -76,7 +81,7 @@ func TestDocumentProjectionTakesNoMetadataFromAPrefix(t *testing.T) {
 // only the alias would push every other model onto fallback metadata.
 func TestDocumentProjectionKeepsTheCompleteBundledTable(t *testing.T) {
 	bundled := testBundledCatalog("gpt-5.6-sol", "gpt-5.5")
-	data, _ := mustParseCatalog(t, bundled).Project("gpt-5.6-sol-cdx", "gpt-5.6-sol", "")
+	data, _ := mustParseCatalog(t, bundled).Project("gpt-5.6-sol-cdx", "gpt-5.6-sol", "", testWindow)
 	if data == nil {
 		t.Fatal("Document.Project() returned no catalog")
 	}
@@ -101,7 +106,7 @@ func TestDocumentProjectionKeepsTheCompleteBundledTable(t *testing.T) {
 
 func TestDocumentProjectionPreservesDocumentMetadata(t *testing.T) {
 	bundled := []byte(`{"revision":"client-owned","capabilities":{"schema":2,"features":["tools","images"]},"models":[{"slug":"base","instructions":"retain"}]}`)
-	data, _ := mustParseCatalog(t, bundled).Project("provider.base", "base", "")
+	data, _ := mustParseCatalog(t, bundled).Project("provider.base", "base", "", testWindow)
 	var source, generated map[string]json.RawMessage
 	if err := json.Unmarshal(bundled, &source); err != nil {
 		t.Fatal(err)
@@ -117,14 +122,11 @@ func TestDocumentProjectionPreservesDocumentMetadata(t *testing.T) {
 }
 
 // TestDocumentProjectionWithholdsWhatItCannotProve is the anti-silencing guard:
-// an id the client already knows needs nothing, and an id without a family, or
-// whose family is not in the table, keeps the client's own fallback and its
-// warning.
+// an id that the table does not hold, without a family or with one that the
+// table does not hold either, keeps the client's own fallback and its warning.
 func TestDocumentProjectionWithholdsWhatItCannotProve(t *testing.T) {
 	bundled := testBundledCatalog("gpt-5.6-sol", "gpt-5.5")
 	for _, model := range []string{
-		"gpt-5.6-sol",
-		"gpt-5.5",
 		"openai.no-such-model",
 		"no-such-model",
 		"openai.",
@@ -132,7 +134,7 @@ func TestDocumentProjectionWithholdsWhatItCannotProve(t *testing.T) {
 		"",
 	} {
 		for _, family := range []string{"", model, "no-such-model"} {
-			if data, _ := mustParseCatalog(t, bundled).Project(model, family, ""); data != nil {
+			if data, _ := mustParseCatalog(t, bundled).Project(model, family, "", testWindow); data != nil {
 				t.Fatalf("Document.Project(%q, %q) generated a catalog for an id it cannot prove", model, family)
 			}
 		}
@@ -141,15 +143,16 @@ func TestDocumentProjectionWithholdsWhatItCannotProve(t *testing.T) {
 
 // TestDocumentProjectionUsesDeclaredFamily links a variant by its family: it
 // adds only the exact model ID as an alias and copies the family's entry but
-// its display name, which TestDocumentProjectionNamesTheAliasApart pins,
-// without editing the client table.
+// its display name, which TestDocumentProjectionNamesTheAliasApart pins, and
+// its window, which TestProjectionGivesAnAliasTheDeclaredWindow pins, without
+// editing the client table.
 func TestDocumentProjectionUsesDeclaredFamily(t *testing.T) {
 	const (
 		family = "gpt-6.1-sol"
 		wire   = "gpt-6.1-sol-cdx"
 	)
 	document := mustParseCatalog(t, testBundledCatalog(family, "gpt-6-luna"))
-	projected, base := document.Project(wire, family, "")
+	projected, base := document.Project(wire, family, "", testWindow)
 	if projected == nil || base != family {
 		t.Fatalf("Project(%q, %q) = %q / %q, want an explicit alias", wire, family, projected, base)
 	}
@@ -162,7 +165,7 @@ func TestDocumentProjectionUsesDeclaredFamily(t *testing.T) {
 		t.Fatalf("alias fields = %v, family fields = %v", aliasEntry, baseEntry)
 	}
 	for field, value := range baseEntry {
-		if field != "slug" && field != "display_name" && !bytes.Equal(aliasEntry[field], value) {
+		if field != "slug" && field != "display_name" && !slices.Contains(windowFields, field) && !bytes.Equal(aliasEntry[field], value) {
 			t.Errorf("alias metadata %q = %s, want the family's value %s", field, aliasEntry[field], value)
 		}
 	}
@@ -178,29 +181,30 @@ func TestDocumentProjectionRejectsUnprovedFamily(t *testing.T) {
 	const wire = "gpt-6.1-sol-cdx"
 	document := mustParseCatalog(t, testBundledCatalog("gpt-6.1-sol", "gpt-6-luna"))
 	for _, family := range []string{"", "gpt-6.1", "missing-model", wire} {
-		projected, base := document.Project(wire, family, "")
+		projected, base := document.Project(wire, family, "", testWindow)
 		if projected != nil || base != "" {
 			t.Fatalf("Project(%q, %q) = %q / %q, want no projection", wire, family, projected, base)
 		}
 	}
 	nativeWire := mustParseCatalog(t, testBundledCatalog(wire, "gpt-6.1-sol"))
-	if projected, _ := nativeWire.Project(wire, "gpt-6.1-sol", ""); projected != nil {
-		t.Fatalf("Project duplicated already-native wire model %q", wire)
+	projected, base := nativeWire.Project(wire, "gpt-6.1-sol", "", testWindow)
+	if got := strings.Join(catalogSlugList(t, projected), ","); base != wire || got != wire+",gpt-6.1-sol" {
+		t.Fatalf("Project duplicated already-native wire model %q: %q / %q", wire, got, base)
 	}
 }
 
 func TestDocumentProjectionIsDeterministicAndIdempotent(t *testing.T) {
 	bundled := testBundledCatalog("gpt-5.5", "gpt-5.6-sol", "codex-auto-review")
-	first, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "gpt-5.6-sol", "")
-	second, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "gpt-5.6-sol", "")
+	first, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "gpt-5.6-sol", "", testWindow)
+	second, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "gpt-5.6-sol", "", testWindow)
 	if string(first) != string(second) {
 		t.Fatal("Document.Project() is not byte-deterministic")
 	}
 	// Re-running against a table that already carries the alias must add
 	// nothing, so a converged target keeps producing the same bytes.
-	again, _ := mustParseCatalog(t, first).Project("openai.gpt-5.6-sol", "gpt-5.6-sol", "")
-	if again != nil {
-		t.Fatalf("Document.Project() duplicated existing aliases:\n%s", again)
+	again, _ := mustParseCatalog(t, first).Project("openai.gpt-5.6-sol", "gpt-5.6-sol", "", testWindow)
+	if !bytes.Equal(again, first) {
+		t.Fatalf("Document.Project() changed a table that already carries the alias:\n%s", again)
 	}
 }
 
@@ -228,14 +232,14 @@ func TestParseRejectsUnusableBundledTables(t *testing.T) {
 
 func TestDocumentModelObservationCannotChangeProjection(t *testing.T) {
 	document := mustParseCatalog(t, []byte(`{"models":[{"slug":"base","instructions":"original"}]}`))
-	before, base := document.Project("provider.base", "base", "")
+	before, base := document.Project("provider.base", "base", "", testWindow)
 	if base != "base" {
 		t.Fatalf("Project() base = %q", base)
 	}
 	model := document.Model("base")
 	model["instructions"][1] = 'X'
 	delete(model, "slug")
-	after, _ := document.Project("provider.base", "base", "")
+	after, _ := document.Project("provider.base", "base", "", testWindow)
 	if !bytes.Equal(before, after) {
 		t.Fatalf("model observation changed projection: %s", after)
 	}
@@ -275,7 +279,7 @@ func TestDocumentProjectionNamesTheAliasApart(t *testing.T) {
 		{"", "GPT-6.2-Sol (gpt-6.2-sol-cdx)"},
 		{"gpt-6.2-astra", "gpt-6.2-astra (gpt-6.2-sol-cdx)"},
 	} {
-		data, base := document.Project("gpt-6.2-sol-cdx", "gpt-6.2-sol", testCase.name)
+		data, base := document.Project("gpt-6.2-sol-cdx", "gpt-6.2-sol", testCase.name, testWindow)
 		if base != "gpt-6.2-sol" || displayName(data, "gpt-6.2-sol-cdx") != testCase.want {
 			t.Fatalf("Project(name %q) shows %q, want %q", testCase.name, displayName(data, "gpt-6.2-sol-cdx"), testCase.want)
 		}
@@ -286,7 +290,7 @@ func TestDocumentProjectionNamesTheAliasApart(t *testing.T) {
 	// A table that already shows the name with the model ID in it leaves no
 	// name to give, so nothing is projected.
 	taken := mustParseCatalog(t, []byte(`{"models":[{"slug":"gpt-6.2-sol","display_name":"GPT-6.2-Sol"},{"slug":"other","display_name":"GPT-6.2-Sol (gpt-6.2-sol-cdx)"}]}`))
-	if data, base := taken.Project("gpt-6.2-sol-cdx", "gpt-6.2-sol", ""); data != nil || base != "" {
+	if data, base := taken.Project("gpt-6.2-sol-cdx", "gpt-6.2-sol", "", testWindow); data != nil || base != "" {
 		t.Fatalf("a name the table already shows twice = %q / %q", data, base)
 	}
 }

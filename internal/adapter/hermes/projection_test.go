@@ -17,7 +17,7 @@ func testDesired() Desired {
 		SelectedProvider: "aigw",
 		SelectedModel:    "model-test",
 		Providers: []Provider{{
-			ID: "aigw", Models: []string{"model-test"}, Endpoint: "https://provider.test/v1",
+			ID: "aigw", Models: []Model{{ID: "model-test", ContextWindow: 256000}}, Endpoint: "https://provider.test/v1",
 			Protocol: "responses", CredentialCommand: "aigw credential hermes projection-test",
 		}},
 	}
@@ -228,9 +228,9 @@ func TestProjectionPublishesTheCuratedModelsForEachOwnedProvider(t *testing.T) {
 		SelectedProvider: "aigw-ucloud-anthropic",
 		SelectedModel:    "claude-fable-5-1",
 		Providers: []Provider{
-			{ID: "aigw-ucloud-anthropic", Name: "UCloud · Anthropic Messages", Endpoint: "https://messages.test", Protocol: "anthropic", CredentialCommand: "aigw credential hermes messages", Models: []string{"claude-fable-5-1", "claude-opus-5"}},
-			{ID: "aigw-ucloud-responses", Name: "UCloud · OpenAI Responses", Endpoint: "https://responses.test/v1", Protocol: "responses", CredentialCommand: "aigw credential hermes responses", Models: []string{"gpt-6-astra", "grok-4.6"}},
-			{ID: "aigw-ucloud-chat", Name: "UCloud · OpenAI Chat Completions", Endpoint: "https://chat.test/v1", Protocol: "chat", CredentialCommand: "aigw credential hermes chat", Models: []string{"gemini-3.8-flash"}},
+			{ID: "aigw-ucloud-anthropic", Name: "UCloud · Anthropic Messages", Endpoint: "https://messages.test", Protocol: "anthropic", CredentialCommand: "aigw credential hermes messages", Models: []Model{{ID: "claude-fable-5-1", ContextWindow: 256000}, {ID: "claude-opus-5", ContextWindow: 256000}}},
+			{ID: "aigw-ucloud-responses", Name: "UCloud · OpenAI Responses", Endpoint: "https://responses.test/v1", Protocol: "responses", CredentialCommand: "aigw credential hermes responses", Models: []Model{{ID: "gpt-6-astra", ContextWindow: 256000}, {ID: "grok-4.6", ContextWindow: 256000}}},
+			{ID: "aigw-ucloud-chat", Name: "UCloud · OpenAI Chat Completions", Endpoint: "https://chat.test/v1", Protocol: "chat", CredentialCommand: "aigw credential hermes chat", Models: []Model{{ID: "gemini-3.8-flash", ContextWindow: 256000}}},
 		},
 	}
 	plan, err := Prepare(path, &desired)
@@ -248,7 +248,7 @@ func TestProjectionPublishesTheCuratedModelsForEachOwnedProvider(t *testing.T) {
 	providers := configMap(t, got, "providers")
 	for _, provider := range desired.Providers {
 		projected := configMap(t, providers, provider.ID)
-		models, ok := projected["models"].([]any)
+		models, ok := projected["models"].(map[string]any)
 		if projected["name"] != provider.Name || projected["key_cmd"] != provider.CredentialCommand || projected["discover_models"] != false || !ok || len(models) != len(provider.Models) {
 			t.Fatalf("provider %s projection = %#v", provider.ID, projected)
 		}

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/app"
 	clientactivation "aigw-cli/internal/app/activation"
 	domainreadiness "aigw-cli/internal/app/readiness"
@@ -257,13 +258,30 @@ func (c *checker) fileChecks(ctx context.Context, r *result, selected domain.Run
 	if !status.Ready {
 		check = failedCheck(name, label, status.Issue, status.RepairAction, domainreadiness.Invalid)
 	}
-	checks := []localCheck{check}
-	home := invocation.Home(c.deps.Dependencies)
-	for index, observation := range status.Checks {
+	return append([]localCheck{check}, observedChecks(r.spec, invocation.Home(c.deps.Dependencies), status.Checks)...)
+}
+
+// observedChecks are the local checks of the observations that a client's
+// adapter made of its files. A ready observation shows what it states of its
+// own, and matches the selection when it states nothing. A file's position is
+// that of its first observation among the files, so every observation of one
+// file names it alike.
+func observedChecks(spec domain.ClientSpec, home string, observations []adapter.Check) []localCheck {
+	positions := make(map[string]int, len(observations))
+	for _, observation := range observations {
+		if _, numbered := positions[observation.Target]; !numbered {
+			positions[observation.Target] = len(positions)
+		}
+	}
+	checks := make([]localCheck, 0, len(observations))
+	for _, observation := range observations {
 		target, outside := platform.HomeTarget(observation.Target, home)
-		file := localCheck{Name: observation.ID, State: checkPassed, Detail: "Matches the selection", Target: target, label: targetLabel(r.spec, target, outside, index)}
-		if !observation.Ready {
+		file := localCheck{Name: observation.ID, State: checkPassed, Detail: "Matches the selection", Target: target, label: targetLabel(spec, target, outside, positions[observation.Target])}
+		switch {
+		case !observation.Ready:
 			file.State, file.Detail, file.fix, file.failed = checkFailed, observation.Detail, observation.RepairAction, domainreadiness.Invalid
+		case observation.Detail != "":
+			file.Detail = observation.Detail
 		}
 		checks = append(checks, file)
 	}

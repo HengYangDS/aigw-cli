@@ -129,7 +129,8 @@ func (codexAdapter) ProjectionChanged(before, after domain.Config) bool {
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
 		beforeRuntime.UpstreamModel != afterRuntime.UpstreamModel ||
 		beforeRuntime.ModelProvider != afterRuntime.ModelProvider ||
-		beforeRuntime.Authentication != afterRuntime.Authentication
+		beforeRuntime.Authentication != afterRuntime.Authentication ||
+		beforeRuntime.ContextWindow != afterRuntime.ContextWindow
 }
 
 func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime) adapter.Status {
@@ -145,7 +146,7 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 	}
 	status := adapter.Status{Ready: true, Checks: make([]adapter.Check, 0, len(binding.Targets))}
 	for index, target := range binding.Targets {
-		check := adapter.Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "model " + runtime.Model.String(), Target: target}
+		check := adapter.Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Target: target}
 		issue, detail, repair := inspectTarget(deps, cfg, runtime, target)
 		if detail != "" {
 			check.Ready = false
@@ -156,6 +157,13 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 			status.RepairAction = repair
 		}
 		status.Checks = append(status.Checks, check)
+	}
+	// The window checks follow every target's own check, each numbered as its
+	// target is.
+	for index, target := range binding.Targets {
+		if check, described := windowCheck(index, target, runtime); described {
+			status.Checks = append(status.Checks, check)
+		}
 	}
 
 	return status

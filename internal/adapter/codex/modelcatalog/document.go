@@ -1,5 +1,6 @@
-// Package modelcatalog preserves Codex-owned model metadata while adding an
-// alias for a model whose family the installed client's table holds.
+// Package modelcatalog preserves Codex-owned model metadata while giving the
+// selected model's entry its declared context window, and adding an alias for
+// a model whose family the installed client's table holds.
 package modelcatalog
 
 import (
@@ -63,21 +64,33 @@ func (d Document) Model(slug string) map[string]json.RawMessage {
 	return entry
 }
 
-// Project returns the client's complete table with an alias named model whose
-// metadata is family's entry, and family as the alias's base. Metadata comes
-// only from the model's family, never from a prefix or suffix of the model ID:
-// a model that the table already holds, a model without a family, and a model
-// whose family the table does not hold get nothing, so the client keeps its
-// own behavior for them. The alias is shown as name, or as the family's name
+// Project returns the client's complete table in which the entry that
+// describes model carries window, in tokens, as its context_window and as its
+// max_context_window, together with the slug of the client's entry that this
+// entry's metadata comes from. A model that the table holds keeps its own
+// entry, and that slug is model. Any other model gets an alias of family's
+// entry, named model, and that slug is family. The two window fields are
+// written whether or not the client's entry had them; every other field of the
+// entry, every other entry and their order stay the client's. Metadata comes
+// only from the model's own entry or its family's, never from a prefix or
+// suffix of the model ID. An alias is shown as name, or as the family's name
 // when name is empty; a name that another entry already shows, ignoring case,
 // is followed by the model ID in parentheses, so that no two entries of the
 // table share a display name.
-func (d Document) Project(model, family, name string) ([]byte, string) {
-	if model == "" || family == "" {
+//
+// Project returns nothing, so that the client keeps its own table: for a model
+// that the table does not hold and whose family is empty or not in the table
+// either; for an alias that has no name left to tell it apart; and for a
+// window that is not above zero, which is a caller's error, because every
+// resolved selection has one above zero.
+func (d Document) Project(model, family, name string, window int) ([]byte, string) {
+	if model == "" || window <= 0 {
 		return nil, ""
 	}
-	if _, present := d.slugs[model]; present {
-		return nil, ""
+	models := slices.Clone(d.models)
+	if index, present := d.slugs[model]; present {
+		models[index] = withWindow(d.Model(model), window)
+		return d.withModels(models), model
 	}
 	entry := d.Model(family)
 	if entry == nil {
@@ -96,7 +109,31 @@ func (d Document) Project(model, family, name string) ([]byte, string) {
 		entry["display_name"], _ = json.Marshal(name)
 	}
 	entry["slug"], _ = json.Marshal(model)
-	return d.withModels(append(slices.Clone(d.models), entry)), family
+	return d.withModels(append(models, withWindow(entry, window))), family
+}
+
+// withWindow sets the two window fields of entry, a copy that the caller owns.
+func withWindow(entry map[string]json.RawMessage, window int) map[string]json.RawMessage {
+	for _, field := range [...]string{"context_window", "max_context_window"} {
+		entry[field], _ = json.Marshal(window)
+	}
+	return entry
+}
+
+// ContextWindow returns the context window and its ceiling, in tokens, that
+// slug's entry carries as context_window and max_context_window. A field that
+// is absent or is not a whole number above zero, and either field of an entry
+// that the table does not hold, is zero.
+func (d Document) ContextWindow(slug string) (window, ceiling int) {
+	entry := d.Model(slug)
+	read := func(field string) int {
+		var tokens int
+		if json.Unmarshal(entry[field], &tokens) != nil || tokens < 0 {
+			return 0
+		}
+		return tokens
+	}
+	return read("context_window"), read("max_context_window")
 }
 
 // shows reports whether an entry of the table has name as its display name,

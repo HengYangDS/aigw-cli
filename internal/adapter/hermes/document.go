@@ -250,13 +250,7 @@ func project(root *yaml.Node, desired Desired) {
 		protocol, _ := nativeProtocol(desiredProvider.Protocol)
 		setString(provider, "transport", protocol)
 		setString(provider, "key_cmd", desiredProvider.CredentialCommand)
-		models := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
-		for _, modelID := range desiredProvider.Models {
-			model := &yaml.Node{}
-			model.SetString(modelID)
-			models.Content = append(models.Content, model)
-		}
-		setField(provider, "models", models)
+		setField(provider, "models", modelsNode(desiredProvider.Models))
 		discovery := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "false"}
 		setField(provider, "discover_models", discovery)
 		setField(providers, desiredProvider.ID, provider)

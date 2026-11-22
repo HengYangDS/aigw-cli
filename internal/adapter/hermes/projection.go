@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 
 	"go.yaml.in/yaml/v4"
@@ -18,7 +19,7 @@ import (
 type Provider struct {
 	ID                string
 	Name              string
-	Models            []string
+	Models            []Model
 	Endpoint          string
 	Protocol          string
 	CredentialCommand string
@@ -46,7 +47,7 @@ func (desired Desired) Validate() error {
 			return fmt.Errorf("Hermes provider %q is duplicated", provider.ID)
 		}
 		providerIDs[provider.ID] = true
-		if provider.ID == desired.SelectedProvider && slices.Contains(provider.Models, desired.SelectedModel) {
+		if provider.ID == desired.SelectedProvider && listsModel(provider.Models, desired.SelectedModel) {
 			selected = true
 		}
 	}
@@ -64,6 +65,11 @@ func (provider Provider) validate() error {
 	}
 	if len(provider.Models) == 0 {
 		return fmt.Errorf("Hermes provider %q requires at least one model", provider.ID)
+	}
+	for _, model := range provider.Models {
+		if err := domain.ValidateContextWindow(model.ContextWindow); err != nil {
+			return fmt.Errorf("Hermes model %q of provider %q: %w", model.ID, provider.ID, err)
+		}
 	}
 	_, err := nativeProtocol(provider.Protocol)
 	return err
@@ -209,7 +215,7 @@ func (plan *Plan) prepareDesired(root *yaml.Node, desired Desired, state ownersh
 	if err := desired.Validate(); err != nil {
 		return err
 	}
-	orderChanged := !slices.Equal(ownedProviderOrder(root, state.ProviderIDs), desired.providerIDs())
+	orderChanged := !slices.Equal(ownedProviderOrder(root, state.ProviderIDs), desired.providerIDs()) || !modelsInOrder(root, desired)
 	providers := field(root, "providers")
 	if providers != nil {
 		setField(providers, legacyProviderID, nil)

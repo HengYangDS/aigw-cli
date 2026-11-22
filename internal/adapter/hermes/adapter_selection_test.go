@@ -1,6 +1,7 @@
 package hermes
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -30,6 +31,33 @@ func TestAdoptHermesSelectionLeavesUnprojectedBindingsUnchanged(t *testing.T) {
 			routeID, err := (hermesAdapter{}).AdoptSelection(adapter.Dependencies{}, &candidate)
 			if err != nil || !routeID.IsZero() || candidate.SelectedModel(ID) != before.SelectedModel(ID) {
 				t.Fatalf("adoption = %q, %v; binding %#v", routeID, err, candidate.Clients[ID])
+			}
+		})
+	}
+}
+
+// TestAdoptSelectionFollowsAModelChosenInHermes holds the scenario "A model
+// chosen in Hermes among mapped models" over each shape in which a file lists
+// an entry's models: the binding follows the choice, and the synchronization
+// that follows leaves the choice in Hermes' file.
+func TestAdoptSelectionFollowsAModelChosenInHermes(t *testing.T) {
+	for _, shape := range modelShapes {
+		t.Run(shape.name, func(t *testing.T) {
+			target := filepath.Join(t.TempDir(), "config.yaml")
+			before, deps := windowConfig(t, target), windowDependencies(t)
+			projectHermes(t, deps, domain.NewConfig(testAdmission()), before)
+			shape.rewrite(t, target)
+			selectInHermes(t, target, windowEntry(), "wire-z")
+			after, chosen := before.Clone(), domain.NewModelRef("gateway", "wire-z")
+			if ref, err := (hermesAdapter{}).AdoptSelection(deps, &after); err != nil || ref != chosen || after.SelectedModel(ID) != chosen {
+				t.Fatalf("adoption = %q, %v; binding %#v", ref, err, after.Clients[ID])
+			}
+			projectHermes(t, deps, before, after)
+			if !(Desired{SelectedProvider: windowEntry(), SelectedModel: "wire-z"}).selects(projectedFile(t, target)) {
+				t.Fatal("synchronization replaced the model chosen in Hermes")
+			}
+			if action := plannedAction(t, deps, after, after); action != "unchanged" {
+				t.Fatalf("the adopted choice plans %s on the next synchronization", action)
 			}
 		})
 	}

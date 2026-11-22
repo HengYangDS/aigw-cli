@@ -116,7 +116,7 @@ type hermesCatalogProvider struct {
 	Protocol domain.EndpointProtocol
 	Endpoint string
 	Runtime  domain.Runtime
-	Models   []string
+	Models   []Model
 }
 
 // hermesCatalog groups the models that Hermes can use under one Hermes
@@ -141,7 +141,7 @@ func hermesCatalog(cfg domain.Config) ([]hermesCatalogProvider, error) {
 						Provider: providerID, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected})
 					index = len(items) - 1
 				}
-				items[index].Models = append(items[index].Models, model.ID)
+				items[index].Models = append(items[index].Models, Model{ID: model.ID, ContextWindow: model.Window()})
 			}
 		}
 		slices.SortStableFunc(items, func(left, right hermesCatalogProvider) int {
@@ -265,7 +265,7 @@ func hermesModelFor(cfg domain.Config, native Selection) (domain.ModelRef, domai
 		return domain.ModelRef{}, "", fmt.Errorf("Hermes selects provider %q, which AIGW no longer projects; run `aigw use hermes <provider/model>`", native.Provider)
 	}
 	provider := catalog[index]
-	if !slices.Contains(provider.Models, native.Model) {
+	if !listsModel(provider.Models, native.Model) {
 		return domain.ModelRef{}, "", fmt.Errorf("Hermes selects model %q, which provider %q has not added; run `aigw use hermes %s/%s --protocol %s`",
 			native.Model, provider.Provider, provider.Provider, native.Model, provider.Protocol.Name())
 	}

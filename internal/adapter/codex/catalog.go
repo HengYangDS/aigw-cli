@@ -12,6 +12,7 @@ import (
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/codex/modelcatalog"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
 
@@ -140,26 +141,29 @@ func validateCodexCatalogPreflight(target codexReconciliationTarget, config, sta
 }
 
 // codexCatalogProjection decides what AIGW owns for one target without writing
-// anything. An AIGW custom provider pins the installed client's complete table
-// even for a known base model: otherwise Codex may try to decode the provider's
-// standard /models response as its private metadata format. A model whose
-// family the table holds gets an alias of the family's entry; any other model
-// keeps the client's fallback rather than a guessed entry.
-func codexCatalogProjection(target TargetRef, model, family, name, base string, state codexState, before platform.FileSnapshot) codexCatalogPlan {
+// anything. For the selected model under AIGW's custom provider it pins the
+// installed client's complete table, even for a known base model: otherwise
+// Codex may try to decode the provider's standard /models response as its
+// private metadata format. The entry that describes the model, its own or an
+// alias of its family's, carries the model's declared context window; a model
+// that the table describes by neither keeps the client's fallback rather than
+// a guessed entry. A model under another provider gets no table of AIGW's.
+func codexCatalogProjection(target TargetRef, selected domain.Runtime, base string, state codexState, before platform.FileSnapshot) codexCatalogPlan {
 	// A user-authored model_catalog_json is the user's own client policy. AIGW
 	// replaces the bundled table wholesale, so adopting that key here would
 	// silently drop models the user added.
 	selection, selectionErr := codexSelectionLine(base, "model_catalog_json")
-	if model == "" || selectionErr != nil || selection != "" {
+	model := selected.UpstreamModel
+	if model == "" || codexRuntimeProvider(selected) != modelProviderAIGW || selectionErr != nil || selection != "" {
 		return codexCatalogPlan{}
 	}
 	live, bundled, err := codexBundledCatalog(target.Executable)
 	document, parseErr := modelcatalog.Parse(bundled)
 	if err == nil && parseErr == nil {
-		data, _ := document.Project(model, family, name)
+		data, _ := document.Project(model, selected.FamilyID, selected.ModelName(), selected.ContextWindow)
 		if data == nil {
-			// Preserve Codex's native table for a model that the table holds or
-			// whose family it does not hold. Never invent metadata or leave
+			// Preserve Codex's native table for a model that neither its own
+			// entry nor its family's describes. Never invent metadata or leave
 			// Codex to query provider-specific /models.
 			data = bundled
 		}
