@@ -30,4 +30,5 @@
       when it pruned them). Done when the preview names exactly the 30 models and 11 families that the copy holds
       as local-only, `--keep-local` names the same entries as kept, `--prune` is refused as an unknown option, and
       nothing is written.
-- [ ] 3.4 Pass the proposal's hosted checks on both forges.
+- [x] 3.4 Pass the proposal's hosted checks on both forges (GitHub PR 274; GitLab !206, pipeline 17313 after one
+      retry of its Linux job, which timed out downloading packages).
