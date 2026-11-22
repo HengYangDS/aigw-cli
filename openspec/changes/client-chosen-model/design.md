@@ -431,6 +431,32 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
 - The clients' writes are imitated in every test of this Change; the next Change's measurement with the real
   clients may change the conditions of following.
 
+## What stays open
+
+These are known at the landing, decided by the owner on 2026-11-22 at 19:43 to be answered after it, and no release
+carries this Change until the first two have landed:
+
+- **Which files a transition drops.** Four places compare a client's targets as strings (`admitTargets`,
+  `withdrawnClients`, Codex's `reconciliationInputs`, `hermesPlans`), while `codexTargetUnion` and `sameTargetFile`
+  compare file identity. The twelfth review showed that a target named by a symbolic link or by its resolved path
+  then makes a rollback without a Token strip AIGW's settings from the file Codex still uses, and makes a same-file
+  edit depend on the Token. A Change of its own makes "is it the same file" one judgement.
+- **Whether a Token is usable when the store fails.** `tokenUsable` treats a client as waiting; `SecretAvailable`,
+  used by `ConvergeBinding` and `hermesDesired`, returns the store's error. The twelfth review showed that another
+  provider's unreadable Token file then leaves Hermes's record behind its file, and that `aigw sync` is refused when
+  the Token cannot be observed. A Change of its own makes "is the Token usable" one judgement.
+- **An edit that drops a file without a Token.** The specification refuses it, so that the dropped file does not keep
+  AIGW's settings; the rule that a Token decides no refusal says otherwise, and a rollback that drops a file
+  succeeds without one. Which holds is the owner's to decide.
+- **A file added without a Token gets no record until the Token is stored.** The sequence converges; the record
+  sentence of the specification is untrue for that file meanwhile.
+- **What a rewrite of Claude Code's settings does to its own model** belongs to its own Change.
+- **The rollback of a setting, such as a retry budget, that does not reach the client's file** belongs to its own
+  Change (see the proposal's scope).
+- **`retries_cleared` on a followed entry cannot arise with today's clients:** only Codex honors retry budgets, and a
+  model chosen in Codex keeps its provider. The field stays as the client-neutral rule's answer and is held by no
+  test of a followed entry.
+
 ## Migration Plan
 
 No data changes. A script reads `followed_selections` where it read `adopted_selections`, receives the restoring

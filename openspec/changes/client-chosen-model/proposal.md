@@ -26,6 +26,10 @@ writes imitated, showed what a person meets after choosing a model in Codex or H
 - **Breaking:** when a client's file names a model that AIGW has not added, the Fix is the command that restores the
   recorded selection, and the failure's text names the command that adds the named model. The Fix no longer follows
   the file's value.
+- **Breaking:** a command that names a client whose provider has no Token checks that client's files as it does with
+  the Token, without writing them, and refuses a file that is missing where AIGW does not create it, has no readable
+  record, was edited outside AIGW, or selects a different model than another file; it passed over such a client
+  before.
 - `aigw config rollback` restores each client's selection as the restored configuration holds it, a model chosen in
   the client since then included, and names each one with the model that it replaces (`selections`), in its preview
   and its result.

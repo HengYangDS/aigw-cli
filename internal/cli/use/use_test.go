@@ -305,6 +305,11 @@ func TestUseSaysThatItEnablesADisabledClient(t *testing.T) {
 	if again := useDocument(t, runtime, codex.ID, "gateway/gpt-test"); again.Enabled || again.WasDisabled || again.Changed {
 		t.Fatalf("a selection of an enabled client = %#v", again)
 	}
+	// A preview of a selection that the configuration already holds says so,
+	// as its result does: nothing in the stored configuration changes.
+	if preview := useDocument(t, runtime, codex.ID, "gateway/gpt-test", "--dry-run"); preview.Changed {
+		t.Fatalf("a preview of a selection that is stored already = %#v", preview)
+	}
 	stored, err := runtime.Config.Load()
 	if err != nil || !stored.Clients[codex.ID].Enabled {
 		t.Fatalf("the selected client is not enabled: %#v, %v", stored.Clients[codex.ID], err)

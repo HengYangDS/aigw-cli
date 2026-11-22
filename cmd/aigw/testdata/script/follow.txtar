@@ -45,6 +45,18 @@ exec aigw sync --json
 ! stdout 'followed_selections'
 grep '^model = "team-model" # managed by AIGW$' $HOME/.codex/config.toml
 
+# The earlier model, chosen in Codex again after a command about something
+# else, is a choice too: the next command about something else records it,
+# and choosing back is recorded the same way.
+replace $HOME/.codex/config.toml 'model = "team-model" # managed by AIGW' 'model = "spare-model"'
+exec aigw provider edit other --label 'Other Again' --json
+stdout '"model": "team/spare-model",\n\s+"earlier": "team/team-model",\n\s+"returns_with": "aigw use codex team/team-model"\n'
+grep '^model = "spare-model" # managed by AIGW$' $HOME/.codex/config.toml
+replace $HOME/.codex/config.toml 'model = "spare-model" # managed by AIGW' 'model = "team-model"'
+exec aigw provider edit other --label Other --json
+stdout '"model": "team/team-model",\n\s+"earlier": "team/spare-model",\n\s+"returns_with": "aigw use codex team/spare-model"\n'
+grep '^model = "team-model" # managed by AIGW$' $HOME/.codex/config.toml
+
 replace $HOME/.codex/config.toml 'model = "team-model" # managed by AIGW' 'model = "ghost"'
 snapshot $HOME unknown.txt
 exitcode 1 aigw sync --json

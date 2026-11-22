@@ -425,8 +425,9 @@ func TestTheReturningCommandIsNamedOnlyWhileItRuns(t *testing.T) {
 }
 
 // Claude Code's own model is not a selection that AIGW records: status names
-// the value beside AIGW's selection, in text and JSON, and no command but an
-// explicit selection changes it.
+// the value beside AIGW's selection, in text and JSON. A command that writes
+// none of Claude Code's settings leaves it; what a rewrite of the settings
+// does to it belongs to a separate Change.
 func TestStatusNamesTheModelThatClaudeCodeItselfSelects(t *testing.T) {
 	app, output, credentials, _, _ := testApp(t, "")
 	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
