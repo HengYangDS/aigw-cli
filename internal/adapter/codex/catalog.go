@@ -140,6 +140,53 @@ func validateCodexCatalogPreflight(target codexReconciliationTarget, config, sta
 	return validateCodexCatalogReference(target.ref.Path, string(config.Data), attribution)
 }
 
+// recordedCatalog is the one reader of the model table that AIGW wrote for the
+// Codex file at path: the bytes that state, AIGW's record of that file, holds
+// the digest of, and nothing where the record holds no table. It refuses a
+// table that is missing, that is not AIGW's regular, owner-only file, or whose
+// bytes are not the recorded ones.
+func recordedCatalog(path string, state codexState) ([]byte, error) {
+	if state.CatalogHash == "" {
+		return nil, nil
+	}
+	// The catalog is written beside the canonical configuration path, because that
+	// is the identity the projection transaction resolves targets to. Validation
+	// resolves the caller's path the same way, so a symlinked configuration
+	// directory does not read as a mismatch.
+	canonical, err := canonicalCodexTargetPath(path)
+	if err != nil {
+		return nil, err
+	}
+	catalogPath := codexCatalogPath(canonical)
+	// The catalog's type and permissions are as much a part of what AIGW owns as
+	// its bytes, so they are checked before the contents: a symlink or a widened
+	// mode at the managed path is a drift worth reporting on its own.
+	info, err := os.Lstat(catalogPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("Codex model catalog is missing")
+		}
+		return nil, fmt.Errorf("read Codex model catalog: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("Codex model catalog is not a regular file: %s", info.Mode())
+	}
+	if catalogModeIsEnforceable() && info.Mode().Perm() != 0o600 {
+		return nil, fmt.Errorf("Codex model catalog is not owner-only: %s", info.Mode().Perm())
+	}
+	data, err := os.ReadFile(catalogPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("Codex model catalog is missing")
+		}
+		return nil, fmt.Errorf("read Codex model catalog: %w", err)
+	}
+	if platform.SHA256(data) != state.CatalogHash {
+		return nil, newConflictError("Codex config conflict: AIGW-managed model catalog changed; refusing to overwrite user edits", nil)
+	}
+	return data, nil
+}
+
 // codexCatalogProjection decides what AIGW owns for one target without writing
 // anything. For the selected model under AIGW's custom provider it pins the
 // installed client's complete table, even for a known base model: otherwise
@@ -175,7 +222,17 @@ func codexCatalogProjection(target TargetRef, selected domain.Runtime, base stri
 	// the fallback it was meant to prevent.
 	recorded := ExecutableIdentity{Version: state.CatalogClientVersion, SHA256: state.CatalogClientSHA256}
 	if state.CatalogHash != "" && live.same(recorded) && before.Exists && platform.SHA256(before.Data) == state.CatalogHash {
-		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: before.Data, client: recorded, state: catalogStateProjected}
+		data := before.Data
+		// The copy's own entry for the model still takes the declared window. No
+		// family is given, so a copy without that entry gets no alias from a
+		// table that the client did not just print, and stays as it is. An
+		// unchanged window gives the bytes that the same projection wrote.
+		if reused, err := modelcatalog.Parse(data); err == nil {
+			if windowed, _ := reused.Project(model, "", "", selected.ContextWindow); windowed != nil {
+				data = windowed
+			}
+		}
+		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: recorded, state: catalogStateProjected}
 	}
 	if state.CatalogHash == "" && state.CatalogState == "" {
 		// AIGW never owned a catalog here, so nothing was lost and there is

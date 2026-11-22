@@ -302,8 +302,8 @@ func (family Family) validate(name string) error {
 // its ID labels it. A model may declare a protocol for which its provider has
 // no endpoint, as a team file leaves one whose provider keeps its local
 // endpoints: the protocol is unusable until the provider has the endpoint,
-// because no client selection resolves on it. A context window of zero is
-// none declared, and one below zero is refused.
+// because no client selection resolves on it. Its window is a whole number
+// of tokens above zero.
 func (model Model) validate(ref ModelRef, providers map[string]Provider) error {
 	if model.Ref() != ref {
 		return fmt.Errorf("model %s is stored as %s", model.Ref(), ref)
@@ -339,17 +339,14 @@ func (model Model) validate(ref ModelRef, providers map[string]Provider) error {
 			seenCapabilities[capability] = true
 		}
 	}
-	if model.ContextWindow != 0 {
-		if err := ValidateContextWindow(model.ContextWindow); err != nil {
-			return fmt.Errorf("model %s: %w", ref, err)
-		}
+	if err := ValidateContextWindow(model.Window()); err != nil {
+		return fmt.Errorf("model %s: %w", ref, err)
 	}
 	return nil
 }
 
-// ValidateContextWindow checks a context window that a model declares: a
-// whole number of tokens above zero. Zero declares none only inside a Model,
-// so a file or a flag that gives zero is refused here.
+// ValidateContextWindow checks a context window, which is a whole number of
+// tokens above zero.
 func ValidateContextWindow(tokens int) error {
 	if tokens <= 0 {
 		return fmt.Errorf("a context window is a whole number of tokens above zero, not %d", tokens)

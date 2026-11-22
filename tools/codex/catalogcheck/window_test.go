@@ -139,7 +139,7 @@ func TestCatalogProbeComparesWhatTheEntryDoesNotOwn(t *testing.T) {
 		"an alias without window fields":  {entry: `{"slug":"base","display_name":"Alias","priority":1}`, alias: true, equal: true},
 		"an entry without a window field": {entry: `{"slug":"base","display_name":"Base","context_window":500000,"priority":1}`, equal: true},
 	} {
-		own := ownFields(test.alias)
+		own := modelcatalog.ProjectedFields(test.alias)
 		reference, rendered := catalogProbe(client, "base", own), catalogProbe(parse(test.entry), "base", own)
 		if !reference.Present || !rendered.Present || (reference.MetadataSHA256 == rendered.MetadataSHA256) != test.equal {
 			t.Errorf("%s: digests %s and %s, want equal %t", name, reference.MetadataSHA256, rendered.MetadataSHA256, test.equal)

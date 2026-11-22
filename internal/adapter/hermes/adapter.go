@@ -39,6 +39,7 @@ func (hermesAdapter) Spec() domain.ClientSpec {
 		},
 		SessionsKeepModel: true,
 		OptionalTarget:    "config.yaml",
+		ContextWindow:     true,
 	}
 }
 

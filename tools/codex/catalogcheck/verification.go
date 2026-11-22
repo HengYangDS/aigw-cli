@@ -135,7 +135,7 @@ func verifyCatalog(executable, model, family, name string, window int) (verifica
 		return verification, err
 	}
 	alias := base != model
-	own := ownFields(alias)
+	own := modelcatalog.ProjectedFields(alias)
 	verification.Reference = catalogProbe(bundledDocument, verification.BaseSlug, own)
 	verification.Unadapted = catalogProbe(bundledDocument, model, own)
 	verification.Adapted = catalogProbe(effectiveDocument, model, own)
@@ -157,16 +157,6 @@ func probeCodexCatalog(executable, catalogPath string) (modelcatalog.Document, e
 		return modelcatalog.Document{}, fmt.Errorf("read Codex effective model catalog: %w", err)
 	}
 	return document, nil
-}
-
-// ownFields are the fields that the entry which describes a model does not
-// take from its base: the two window fields, and for an alias also its slug
-// and its display name.
-func ownFields(alias bool) []string {
-	if alias {
-		return []string{"slug", "display_name", "context_window", "max_context_window"}
-	}
-	return []string{"context_window", "max_context_window"}
 }
 
 // catalogProbe reports whether document holds model, and digests its entry

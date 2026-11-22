@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -229,6 +230,78 @@ func TestAnOperatorSetsAWindowAndReturnsToTheDefault(t *testing.T) {
 	if plain.ContextWindow == nil || *plain.ContextWindow != domain.DefaultContextWindow || declaredWindow(t, app, "team/plain") != 0 {
 		t.Fatalf("model add without --context-window reports %v and stores %d", plain.ContextWindow, declaredWindow(t, app, "team/plain"))
 	}
+}
+
+// requireNoDeclaredWindow requires aigw.toml and `aigw config export` to hold
+// no context window, and human output of `aigw model list` to name none: no
+// model declares one.
+func requireNoDeclaredWindow(t *testing.T, app *cli.App, out *bytes.Buffer) {
+	t.Helper()
+	for name, text := range map[string]string{"aigw.toml": string(readFile(t, app.Config.Path())), "config export": exportedTeamFile(t, app, out)} {
+		if strings.Contains(text, "context_window") {
+			t.Errorf("%s holds a context window, and every model has the default:\n%s", name, text)
+		}
+	}
+	if text := runWindowText(t, app, out, "model", "list"); strings.Contains(text, "context window") {
+		t.Errorf("model list names a window, and every model has the default:\n%s", out)
+	}
+}
+
+// A window has one spelling in the commands: one set to the default is no
+// declaration. An edit to the default leaves a model that declares none as it
+// is and removes another model's declaration, an addition at the default
+// declares none, and each command's own output still shows the window.
+func TestACommandThatSetsTheDefaultWindowDeclaresNone(t *testing.T) {
+	app, out := windowApp(t)
+	window := strconv.Itoa(domain.DefaultContextWindow)
+	before := readFile(t, app.Config.Path())
+	edited := runWindowJSON(t, app, out, "model", "edit", "team/large", "--context-window", window, "--json")
+	if edited.ContextWindow == nil || *edited.ContextWindow != domain.DefaultContextWindow {
+		t.Errorf("model edit --context-window %s reports the window %v", window, edited.ContextWindow)
+	}
+	if after := readFile(t, app.Config.Path()); !bytes.Equal(after, before) {
+		t.Errorf("model edit --context-window %s changed the configuration of a model that declares none:\n%s", window, after)
+	}
+	if text, want := runWindowText(t, app, out, "model", "edit", "team/small", "--context-window", window), "Context window "+window+" tokens"; !strings.Contains(text, want) {
+		t.Errorf("model edit --context-window %s lacks %q:\n%s", window, want, out)
+	}
+	added := runWindowJSON(t, app, out, "model", "add", "team/extra", "--unlisted", "--context-window", window, "--json")
+	if added.ContextWindow == nil || *added.ContextWindow != domain.DefaultContextWindow {
+		t.Errorf("model add --context-window %s reports the window %v", window, added.ContextWindow)
+	}
+	for _, model := range []string{"team/small", "team/large", "team/extra"} {
+		assertReportedWindow(t, app, out, model, domain.DefaultContextWindow)
+	}
+	requireNoDeclaredWindow(t, app, out)
+}
+
+// A window has one spelling in the files: a team file that gives a model the
+// default, and an aigw.toml that holds it, give the model no declaration, and
+// the next write of the configuration holds no window for it.
+func TestAFileThatHoldsTheDefaultWindowDeclaresNone(t *testing.T) {
+	window := strconv.Itoa(domain.DefaultContextWindow)
+	app, out, _, _, _ := testApp(t, "")
+	if err := cli.Execute(app, []string{"setup", "--from", writeConfigurationManifest(t, fmt.Sprintf(windowTeamFile, window))}); err != nil {
+		t.Fatalf("setup --from: %v\n%s", err, out)
+	}
+	assertReportedWindow(t, app, out, "team/small", domain.DefaultContextWindow)
+	requireNoDeclaredWindow(t, app, out)
+	// The stored configuration, with the key written into it by hand.
+	const protocols = "id = 'small'\nprotocols = { anthropic = [] }\n"
+	stored := string(readFile(t, app.Config.Path()))
+	held := strings.Replace(stored, protocols, protocols+"context_window = "+window+"\n", 1)
+	if held == stored {
+		t.Fatalf("aigw.toml has no %q:\n%s", protocols, stored)
+	}
+	writeFile(t, app.Config.Path(), []byte(held), 0o600)
+	assertReportedWindow(t, app, out, "team/small", domain.DefaultContextWindow)
+	if text := runWindowText(t, app, out, "model", "list"); strings.Contains(text, "context window") {
+		t.Errorf("model list names the window that aigw.toml spells out:\n%s", out)
+	}
+	if err := cli.Execute(app, []string{"model", "edit", "team/large", "--label", "Large"}); err != nil {
+		t.Fatalf("model edit --label: %v\n%s", err, out)
+	}
+	requireNoDeclaredWindow(t, app, out)
 }
 
 // Scenario "A window is not a whole number above zero": the flag with zero, a

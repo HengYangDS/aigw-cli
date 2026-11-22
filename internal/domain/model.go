@@ -100,7 +100,8 @@ type Family struct {
 // own model ID, byte for byte. Family is empty for a model that is its own
 // family. Protocols maps each protocol on which AIGW may use the model to the
 // capabilities qualified there. ContextWindow is the context window, in
-// tokens, that the model declares, or zero for a model that declares none.
+// tokens, that the model declares, or zero for a model that declares none:
+// DeclaredContextWindow gives it for a window, and Window the window for it.
 type Model struct {
 	Provider      string
 	ID            string
@@ -118,6 +119,19 @@ func (model Model) Window() int {
 		return model.ContextWindow
 	}
 	return DefaultContextWindow
+}
+
+// DeclaredContextWindow returns what a model stores as its ContextWindow for
+// a context window of tokens: zero, as a model that declares none, for
+// DefaultContextWindow, and tokens for any other window. A model so declares
+// a window only when it differs from the default, and a window has one
+// spelling: whatever gives a model a window, a file or a command, stores what
+// this function returns.
+func DeclaredContextWindow(tokens int) int {
+	if tokens == DefaultContextWindow {
+		return 0
+	}
+	return tokens
 }
 
 // FamilyID returns the model's family: its declared family, or the model ID
@@ -172,7 +186,8 @@ type Runtime struct {
 	// order for any other. A client that knows a vendor's model IDs learns
 	// from it which of them the provider serves, and as what.
 	FamilyVariants map[string]string `json:"-"`
-	// ContextWindow is the selected model's Window, in tokens.
+	// ContextWindow is the selected model's Window, in tokens, for a client
+	// that AIGW tells it (ClientSpec.ContextWindow), and zero for any other.
 	ContextWindow int `json:"-"`
 }
 
@@ -539,6 +554,10 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		}
 		endpoint = strings.TrimRight(forwarding, "/")
 	}
+	window := 0
+	if spec.ContextWindow {
+		window = model.Window()
+	}
 	return Runtime{
 		RetryPolicy:       c.retryPolicyFor(client, selection, upstream, protocol),
 		Model:             ref,
@@ -555,7 +574,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
 		FamilyVariants:    c.familyVariants(ref, protocol),
-		ContextWindow:     model.Window(),
+		ContextWindow:     window,
 	}, nil
 }
 

@@ -198,45 +198,8 @@ func validateCodexCatalog(path, text string, state codexState) error {
 	if err := validateCodexCatalogReference(path, text, state); err != nil {
 		return err
 	}
-	if state.CatalogHash == "" {
-		return nil
-	}
-	// The catalog is written beside the canonical configuration path, because that
-	// is the identity the projection transaction resolves targets to. Validation
-	// resolves the caller's path the same way, so a symlinked configuration
-	// directory does not read as a mismatch.
-	canonical, err := canonicalCodexTargetPath(path)
-	if err != nil {
-		return err
-	}
-	catalogPath := codexCatalogPath(canonical)
-	// The catalog's type and permissions are as much a part of what AIGW owns as
-	// its bytes, so they are checked before the contents: a symlink or a widened
-	// mode at the managed path is a drift worth reporting on its own.
-	info, err := os.Lstat(catalogPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("Codex model catalog is missing")
-		}
-		return fmt.Errorf("read Codex model catalog: %w", err)
-	}
-	if !info.Mode().IsRegular() {
-		return fmt.Errorf("Codex model catalog is not a regular file: %s", info.Mode())
-	}
-	if catalogModeIsEnforceable() && info.Mode().Perm() != 0o600 {
-		return fmt.Errorf("Codex model catalog is not owner-only: %s", info.Mode().Perm())
-	}
-	data, err := os.ReadFile(catalogPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("Codex model catalog is missing")
-		}
-		return fmt.Errorf("read Codex model catalog: %w", err)
-	}
-	if platform.SHA256(data) != state.CatalogHash {
-		return newConflictError("Codex config conflict: AIGW-managed model catalog changed; refusing to overwrite user edits", nil)
-	}
-	return nil
+	_, err := recordedCatalog(path, state)
+	return err
 }
 
 func validateCodexCatalogReference(path, text string, state codexState) error {

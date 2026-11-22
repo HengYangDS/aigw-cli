@@ -142,6 +142,35 @@ fixloop stdout aigw model edit mixed/chat-only --protocol anthropic --json
 exec aigw use hermes mixed/chat-only --protocol chat
 exec aigw model edit mixed/chat-only --protocol chat
 
+# A window set to the default is no declaration: the command still names the
+# window, and aigw.toml holds no key. Another window is written, and the flag
+# that returns the model to the default removes it again.
+[darwin] cp $HOME/Library/Application' 'Support/aigw/aigw.toml spelled.toml
+[!darwin] cp $HOME/aigw/aigw.toml spelled.toml
+exec aigw model edit team/team-model --context-window 1000000
+stdout 'Context window +1000000 tokens'
+[darwin] cp $HOME/Library/Application' 'Support/aigw/aigw.toml spelled.toml
+[!darwin] cp $HOME/aigw/aigw.toml spelled.toml
+! grep 'context_window' spelled.toml
+exec aigw model edit team/team-model --context-window 256000
+stdout 'Context window +256000 tokens'
+[darwin] cp $HOME/Library/Application' 'Support/aigw/aigw.toml spelled.toml
+[!darwin] cp $HOME/aigw/aigw.toml spelled.toml
+grep 'context_window = 256000' spelled.toml
+exec aigw model edit team/team-model --default-context-window
+stdout 'Context window +1000000 tokens'
+[darwin] cp $HOME/Library/Application' 'Support/aigw/aigw.toml spelled.toml
+[!darwin] cp $HOME/aigw/aigw.toml spelled.toml
+! grep 'context_window' spelled.toml
+exec aigw model show team/team-model --json
+stdout '"context_window": 1000000'
+exec aigw model add team/spelled --unlisted --context-window 1000000
+stdout 'Context window +1000000 tokens'
+[darwin] cp $HOME/Library/Application' 'Support/aigw/aigw.toml spelled.toml
+[!darwin] cp $HOME/aigw/aigw.toml spelled.toml
+! grep 'context_window' spelled.toml
+exec aigw model remove team/spelled
+
 # The team file gives mixed/twin two protocols, and show names both.
 exec aigw model show mixed/twin --json
 normalize stdout show-twin.out

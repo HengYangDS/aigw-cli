@@ -76,21 +76,26 @@ func TestCodexInspectionReportsTheWindowThatItsTableGives(t *testing.T) {
 	}
 }
 
-// TestCodexInspectionSaysWhenCodexsFallbackWindowApplies reads the passing
+// TestCodexInspectionSaysWhenCodexChoosesTheWindowItself reads the passing
 // check of a model that the table has no entry for: its family is not in the
-// table, or its alias had no name left. The text names no figure for the
-// fallback, which is the client's.
-func TestCodexInspectionSaysWhenCodexsFallbackWindowApplies(t *testing.T) {
-	const fallback = ", so Codex uses its own fallback window whatever the model declares"
+// table, it is its own family, or its alias had no name left. The text names
+// no figure and no fallback: Codex matches a model ID to the entry whose slug
+// is its longest prefix before it falls back, so the window is Codex's choice.
+func TestCodexInspectionSaysWhenCodexChoosesTheWindowItself(t *testing.T) {
+	const chooses = ", so Codex chooses the window itself, whatever the model declares"
 	for name, test := range map[string]struct{ table, model, family, want string }{
 		"the family is not in the table": {
 			table: windowedTable, model: "muse-spark-1.3", family: "muse-spark-1.3",
-			want: "Codex's model table has no entry for the family muse-spark-1.3 of gateway/muse-spark-1.3" + fallback,
+			want: "Codex's model table has no entry for the family muse-spark-1.3 of gateway/muse-spark-1.3" + chooses,
+		},
+		"the model is its own family, and an entry's slug begins its ID": {
+			table: windowedTable, model: "gpt-6.2-sol-cdx",
+			want: "Codex's model table has no entry for the family gpt-6.2-sol-cdx of gateway/gpt-6.2-sol-cdx" + chooses,
 		},
 		"the alias has no name left": {
 			table: `{"models":[{"slug":"gpt-6.2-sol","display_name":"Sol by the gateway"},{"slug":"other","display_name":"Sol by the gateway (gpt-6.2-sol-cdx)"}]}`,
 			model: "gpt-6.2-sol-cdx", family: "gpt-6.2-sol",
-			want: "Codex's model table has no entry for gateway/gpt-6.2-sol-cdx" + fallback,
+			want: "Codex's model table has no entry for gateway/gpt-6.2-sol-cdx" + chooses,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -109,6 +114,111 @@ func TestCodexInspectionSaysWhenCodexsFallbackWindowApplies(t *testing.T) {
 	}
 }
 
+// earlierTable stands for the table that 0.9.0 wrote for either model of
+// windowModels: the client's own, in which a model's own entry keeps the
+// client's two window fields, with an alias that carries its family's.
+var earlierTable = strings.TrimSuffix(windowedTable, "]}") +
+	`,{"slug":"gpt-6.2-sol-cdx","display_name":"Sol by the gateway","context_window":500000,"max_context_window":872000,"reasoning_effort":"high"}]}`
+
+// recordTable writes table as the model table beside the Codex file at path,
+// and into AIGW's record of that file as the table that AIGW wrote.
+func recordTable(t *testing.T, path, table string) {
+	t.Helper()
+	if err := os.WriteFile(codexCatalogPath(path), []byte(table), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	state := readCodexSidecar(t, path)
+	state.CatalogHash = platform.SHA256([]byte(table))
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(codexStatePath(path), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestCodexInspectionFailsATableThatDoesNotGiveTheDeclaredWindow reads the
+// check of a target whose table holds an entry for the selected model that
+// does not carry the declared window in both fields: the table that 0.9.0
+// wrote, for an alias and for an entry; a declared window that no sync wrote;
+// a ceiling that alone differs; and an entry without one field or both. The
+// check and the adapter's status are not ready, name the model, what the table
+// gives and what the model declares, and are repaired by a sync, while the
+// target's own check passes.
+func TestCodexInspectionFailsATableThatDoesNotGiveTheDeclaredWindow(t *testing.T) {
+	const earlier = "a context window of 500000 tokens and a ceiling of 872000 tokens"
+	for name, test := range map[string]struct {
+		model, table, gives string
+		declared            int
+	}{
+		"an alias as 0.9.0 wrote it":             {model: "gpt-6.2-sol-cdx", table: earlierTable, gives: earlier},
+		"an entry as 0.9.0 wrote it":             {model: "gpt-6.2-sol", table: windowedTable, gives: earlier},
+		"a declared window that was not written": {model: "gpt-6.2-sol-cdx", declared: 400_000, gives: "a context window of 1000000 tokens and a ceiling of 1000000 tokens"},
+		"a ceiling that alone differs":           {model: "gpt-6.2-sol-cdx", table: earlierTable, declared: 500_000, gives: earlier},
+		"an entry without a ceiling":             {model: "gpt-6.2-sol-cdx", table: `{"models":[{"slug":"gpt-6.2-sol-cdx","context_window":1000000}]}`, gives: "a context window of 1000000 tokens and no ceiling"},
+		"an entry without the window fields":     {model: "gpt-6.2-sol-cdx", table: `{"models":[{"slug":"gpt-6.2-sol-cdx"}]}`, gives: "no context window and no ceiling"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			stubWindowedTable(t)
+			path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
+			cfg := windowConfiguration(test.model, "gpt-6.2-sol", path)
+			runtime := projectForInspection(t, cfg, "codex")
+			if test.table != "" {
+				recordTable(t, path, test.table)
+			}
+			want := domain.DefaultContextWindow
+			if test.declared != 0 {
+				// The declaration reaches the inspection and no file.
+				cfg, want = declareWindow(cfg, test.declared), test.declared
+				declaring, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				declaring.CredentialCommand = runtime.CredentialCommand
+				runtime = declaring
+			}
+			checks, status := inspectedChecks(cfg, runtime)
+			detail := fmt.Sprintf("Codex's model table gives gateway/%s %s, but the model declares %d tokens", test.model, test.gives, want)
+			if status.Ready || status.Issue != "Codex configuration drift: "+detail || status.RepairAction != "aigw sync" ||
+				strings.Join(checks, "; ") != "codex:target-1 true "+path+"; codex:window-1 false "+path {
+				t.Fatalf("checks = %q, status = %+v; want the issue %q", checks, status, detail)
+			}
+			if window := status.Checks[1]; window.Detail != detail || window.RepairAction != "aigw sync" {
+				t.Fatalf("the window check = %+v, want the detail %q and a sync as its repair", window, detail)
+			}
+		})
+	}
+}
+
+// TestACodexTargetsOwnFailureKeepsTheAdaptersStatus leaves the adapter's issue
+// and repair to a target's own check that failed, here over an outside edit
+// that a sync refuses: the table that does not give the declared window is
+// reported by its own check, with a sync as that check's repair only.
+func TestACodexTargetsOwnFailureKeepsTheAdaptersStatus(t *testing.T) {
+	stubWindowedTable(t)
+	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
+	cfg := windowConfiguration("gpt-6.2-sol-cdx", "gpt-6.2-sol", path)
+	runtime := projectForInspection(t, cfg, "codex")
+	recordTable(t, path, earlierTable)
+	written := string(mustReadFile(t, path))
+	edited := strings.Replace(written, "https://gateway.test/v1", "https://elsewhere.test/v1", 1)
+	if edited == written {
+		t.Fatalf("no endpoint to edit in:\n%s", written)
+	}
+	if err := os.WriteFile(path, []byte(edited), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	checks, status := inspectedChecks(cfg, runtime)
+	if status.Ready || strings.Join(checks, "; ") != "codex:target-1 false "+path+"; codex:window-1 false "+path {
+		t.Fatalf("checks = %q, status = %+v", checks, status)
+	}
+	own, window := status.Checks[0], status.Checks[1]
+	if status.Issue != own.Detail || status.RepairAction != own.RepairAction || own.RepairAction == "aigw sync" || window.RepairAction != "aigw sync" {
+		t.Fatalf("status = %+v, want the issue and the repair of the target's own check %+v, and a sync only for %+v", status, own, window)
+	}
+}
+
 // TestCodexInspectionAddsNoWindowCheckWithoutATableOfAIGWs leaves the
 // target's own check alone where AIGW wrote no table, where the file is no
 // longer the one that it recorded, and where it cannot be parsed.
@@ -123,9 +233,9 @@ func TestCodexInspectionAddsNoWindowCheckWithoutATableOfAIGWs(t *testing.T) {
 	})
 	// A table that another writer left is not read, even one that describes
 	// the model; a table that AIGW recorded gives no check where it cannot be
-	// parsed or its entry for the model carries no window. Each case names
-	// the file's content, none for a removed file, whether AIGW's record holds
-	// that content, and whether the target's own check passes.
+	// parsed. Each case names the file's content, none for a removed file,
+	// whether AIGW's record holds that content, and whether the target's own
+	// check passes.
 	for name, test := range map[string]struct {
 		table           string
 		recorded, ready bool
@@ -133,7 +243,6 @@ func TestCodexInspectionAddsNoWindowCheckWithoutATableOfAIGWs(t *testing.T) {
 		"the table changed outside AIGW":        {table: `{"models":[{"slug":"gpt-6.2-sol-cdx","context_window":1,"max_context_window":1}]}`},
 		"the recorded table is no longer there": {},
 		"the recorded table cannot be parsed":   {table: "not a table", recorded: true, ready: true},
-		"the recorded entry carries no window":  {table: `{"models":[{"slug":"gpt-6.2-sol-cdx"}]}`, recorded: true, ready: true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			stubWindowedTable(t)
@@ -143,19 +252,11 @@ func TestCodexInspectionAddsNoWindowCheckWithoutATableOfAIGWs(t *testing.T) {
 			if err := os.Remove(codexCatalogPath(path)); err != nil {
 				t.Fatal(err)
 			}
-			if test.table != "" {
+			switch {
+			case test.recorded:
+				recordTable(t, path, test.table)
+			case test.table != "":
 				if err := os.WriteFile(codexCatalogPath(path), []byte(test.table), 0o600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if test.recorded {
-				state := readCodexSidecar(t, path)
-				state.CatalogHash = platform.SHA256([]byte(test.table))
-				data, err := json.Marshal(state)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(codexStatePath(path), data, 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}

@@ -98,7 +98,7 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 	before := cfg.Clone()
 	model := domain.Model{
 		Label: strings.TrimSpace(options.label), Provider: ref.Provider(), ID: ref.ID(), Protocols: declared,
-		ContextWindow: options.window.tokens,
+		ContextWindow: domain.DeclaredContextWindow(options.window.tokens),
 	}
 	family, created := familyFor(&cfg, ref, options.family)
 	model.Family = family

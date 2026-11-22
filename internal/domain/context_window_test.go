@@ -18,6 +18,21 @@ func TestModelWindowIsTheDeclaredOneOrTheDefault(t *testing.T) {
 	}
 }
 
+// A model stores a window only when it differs from the default: what it
+// stores for the default is what a model that declares none stores, and a
+// model that stores what a window gives has that window.
+func TestDeclaredContextWindowStoresEveryWindowButTheDefault(t *testing.T) {
+	if got, none := DeclaredContextWindow(DefaultContextWindow), (Model{}).ContextWindow; got != none {
+		t.Errorf("a model stores %d for the default window, want %d, as a model that declares none does", got, none)
+	}
+	for _, window := range []int{1, 256000, DefaultContextWindow - 1, DefaultContextWindow, DefaultContextWindow + 1} {
+		stored := DeclaredContextWindow(window)
+		if got := (Model{ContextWindow: stored}).Window(); got != window {
+			t.Errorf("a model that stores %d for a window of %d has the window %d", stored, window, got)
+		}
+	}
+}
+
 // A context window that a model declares is a whole number of tokens above
 // zero.
 func TestValidateContextWindowAdmitsOnlyANumberAboveZero(t *testing.T) {
@@ -50,15 +65,22 @@ func TestValidateRefusesAContextWindowBelowZero(t *testing.T) {
 	}
 }
 
-// The runtime of a selection carries the selected model's window: the default
-// for a model that declares none, the declared one otherwise, and that of a
-// model that a client tries without selecting it. The runtime's JSON document
-// does not hold it.
+// The runtime of a client that AIGW tells a model's window carries the
+// selected model's: the default for a model that declares none, the declared
+// one otherwise, and that of a model that the client tries without selecting
+// it. The runtime's JSON document does not hold it. The runtime of any other
+// client carries none, whatever its model declares.
 func TestResolveRuntimeCarriesTheSelectedModelsWindow(t *testing.T) {
 	cfg := validConfig()
-	runtime, err := cfg.ResolveRuntime(ClientClaude, ModelRef{})
+	runtime, err := cfg.ResolveRuntime(ClientCodex, ModelRef{})
 	if err != nil || runtime.ContextWindow != DefaultContextWindow {
 		t.Fatalf("the runtime of a model that declares no window carries %d, %v; want the default %d", runtime.ContextWindow, err, DefaultContextWindow)
+	}
+	selected := cfg.Models[cfg.Clients[ClientClaude].Model]
+	selected.ContextWindow = 300000
+	cfg.Models[selected.Ref()] = selected
+	if runtime, err := cfg.ResolveRuntime(ClientClaude, ModelRef{}); err != nil || runtime.ContextWindow != 0 {
+		t.Fatalf("the runtime of a client that is told no window carries %d, %v", runtime.ContextWindow, err)
 	}
 	ref := NewModelRef("backup", "gpt-test")
 	model := cfg.Models[ref]
@@ -76,30 +98,70 @@ func TestResolveRuntimeCarriesTheSelectedModelsWindow(t *testing.T) {
 	}
 }
 
-// A team file that gives a model another window changes the model, which
-// takes the file's window, and the same file applied again changes nothing.
-// A file that declares the default for a model that declares none changes the
-// model too: the configuration then holds a declaration that it did not.
-func TestMergeTeamFileComparesAModelsWindow(t *testing.T) {
+// storing returns a copy of cfg in which the model that ref names stores
+// window as its context window.
+func storing(cfg Config, ref ModelRef, window int) Config {
+	stored := cfg.Clone()
+	model := stored.Models[ref]
+	model.ContextWindow = window
+	stored.Models[ref] = model
+	return stored
+}
+
+// A team file's model brings its window. The file's declaration replaces the
+// local one, and a file that declares none removes a window that the operator
+// declared; the merge reports the model as changed in both cases. A file
+// whose model has the local one's window changes nothing, and a model that
+// only the configuration has keeps its window.
+func TestMergeTeamFileGivesAModelTheFilesWindow(t *testing.T) {
+	filed, localOnly := NewModelRef("team", "gpt"), NewModelRef("team", "spare")
+	file := teamFile(t)
+	// The first merge takes the file's label, so that the merges below change
+	// the model by its window alone.
+	base, _ := mergeTeam(t, localTeamConfig(t), file, false)
+	none := (Model{}).ContextWindow
+	for name, test := range map[string]struct {
+		local, file, want int
+		changed           bool
+	}{
+		"a window for a model that declares none":  {local: none, file: 256000, want: 256000, changed: true},
+		"a window in place of the operator's":      {local: 200000, file: 256000, want: 256000, changed: true},
+		"no window in place of the operator's":     {local: 200000, file: none, want: DefaultContextWindow, changed: true},
+		"the window that the model declares":       {local: 256000, file: 256000, want: 256000},
+		"no window for a model that declares none": {local: none, file: none, want: DefaultContextWindow},
+	} {
+		cfg := storing(storing(base, filed, test.local), localOnly, 300000)
+		merged, report := mergeTeam(t, cfg, storing(file, filed, test.file), false)
+		if got := merged.Models[filed].Window(); got != test.want {
+			t.Errorf("%s: the model has the window %d, want %d", name, got, test.want)
+		}
+		var changed []ModelRef
+		if test.changed {
+			changed = []ModelRef{filed}
+		}
+		if !slices.Equal(report.ChangedModels, changed) || len(report.ChangedLabels) != 0 {
+			t.Errorf("%s: changed models %v, want %v; changed labels %v", name, report.ChangedModels, changed, report.ChangedLabels)
+		}
+		if got := merged.Models[localOnly].Window(); got != 300000 {
+			t.Errorf("%s: a model that only the configuration has is left with the window %d, want its own 300000", name, got)
+		}
+	}
+}
+
+// A window declared as the default is the window of a model that declares
+// none, so the merge sees no difference between the two, whichever of the
+// team file and the configuration spells the default out.
+func TestMergeTeamFileSeesNoDifferenceBetweenAnExplicitDefaultAndNone(t *testing.T) {
 	ref := NewModelRef("team", "gpt")
 	file := teamFile(t)
-	cfg, _ := mergeTeam(t, localTeamConfig(t), file, false)
-	declare := func(window int) Config {
-		declared := file.Clone()
-		model := declared.Models[ref]
-		model.ContextWindow = window
-		declared.Models[ref] = model
-		return declared
-	}
-	merged, report := mergeTeam(t, cfg, declare(256000), false)
-	if got := merged.Models[ref].Window(); got != 256000 || !slices.Equal(report.ChangedModels, []ModelRef{ref}) || len(report.ChangedLabels) != 0 {
-		t.Fatalf("a lower window in the file: the model has %d, changed models %v, changed labels %v", got, report.ChangedModels, report.ChangedLabels)
-	}
-	if _, report := mergeTeam(t, merged, declare(256000), false); len(report.ChangedModels) != 0 {
-		t.Fatalf("the same file applied again changed %v", report.ChangedModels)
-	}
-	merged, report = mergeTeam(t, cfg, declare(DefaultContextWindow), false)
-	if got := merged.Models[ref].ContextWindow; got != DefaultContextWindow || !slices.Equal(report.ChangedModels, []ModelRef{ref}) {
-		t.Fatalf("a file that declares the default: the model declares %d, changed models %v", got, report.ChangedModels)
+	base, _ := mergeTeam(t, localTeamConfig(t), file, false)
+	for name, merge := range map[string][2]Config{
+		"the file spells the default out":          {base, storing(file, ref, DefaultContextWindow)},
+		"the configuration spells the default out": {storing(base, ref, DefaultContextWindow), file},
+	} {
+		merged, report := mergeTeam(t, merge[0], merge[1], false)
+		if got := merged.Models[ref].Window(); got != DefaultContextWindow || len(report.ChangedModels) != 0 {
+			t.Errorf("%s: the model has the window %d, changed models %v; want the default and no change", name, got, report.ChangedModels)
+		}
 	}
 }

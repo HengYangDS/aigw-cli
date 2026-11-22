@@ -46,66 +46,6 @@ func catalogSlugList(t *testing.T, data []byte) []string {
 	return slugs
 }
 
-// TestCodexCatalogProjectionReusesOnlyTheSameClient is the last-known-good gate.
-// A copy describes exactly one build, so reuse after an upgrade would override
-// the newer bundled table: a worse outcome than the fallback it prevents.
-func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
-	dir := t.TempDir()
-	target := HomeTarget(filepath.Join(dir, "configuration.toml"))
-	target.Executable = filepath.Join(dir, "codex")
-	owned := []byte(`{"models":[{"slug":"openai.gpt-5.5"}]}` + "\n")
-	before := platform.FileSnapshot{Exists: true, Data: owned, SHA256: platform.SHA256(owned), Mode: 0o600}
-	state := codexState{
-		CatalogState:         catalogStateProjected,
-		CatalogHash:          platform.SHA256(owned),
-		CatalogClientVersion: "1.0.0",
-		CatalogClientSHA256:  "aaaa",
-	}
-	original := codexBundledCatalog
-	defer func() { codexBundledCatalog = original }()
-
-	// Same identity, regeneration unavailable: the copy still describes the
-	// installed build, so it is reused.
-	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
-		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
-	}
-	selected := domain.Runtime{UpstreamModel: "openai.gpt-5.5", ContextWindow: domain.DefaultContextWindow}
-	plan := codexCatalogProjection(target, selected, "", state, before)
-	if plan.state != catalogStateProjected || string(plan.data) != string(owned) {
-		t.Fatalf("same client: plan = %+v", plan)
-	}
-
-	// Upgraded client, regeneration unavailable: refuse the copy and report it.
-	for _, live := range []ExecutableIdentity{
-		{Version: "1.1.0", SHA256: "aaaa"},
-		{Version: "1.0.0", SHA256: "bbbb"},
-		{},
-	} {
-		codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
-			return live, nil, fmt.Errorf("dump failed")
-		}
-		plan = codexCatalogProjection(target, selected, "", state, before)
-		if plan.state != catalogStateStale || plan.data != nil || plan.path != "" {
-			t.Fatalf("changed client %+v: plan = %+v", live, plan)
-		}
-	}
-
-	// Same identity but the file on disk is no longer the one AIGW recorded
-	// writing: it is not AIGW's to reuse.
-	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
-		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
-	}
-	edited := platform.FileSnapshot{Exists: true, Data: []byte("{}"), SHA256: platform.SHA256([]byte("{}")), Mode: 0o600}
-	if plan = codexCatalogProjection(target, selected, "", state, edited); plan.state != catalogStateStale {
-		t.Fatalf("edited catalog: plan = %+v", plan)
-	}
-
-	// Never owned a catalog here: nothing was lost, so nothing is reported.
-	if plan = codexCatalogProjection(target, selected, "", codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
-		t.Fatalf("never owned: plan = %+v", plan)
-	}
-}
-
 // TestCodexCatalogProjectionYieldsToUserAuthoredCatalog protects a setting AIGW
 // does not own. The key replaces the bundled table, so adopting it would delete
 // whatever the user put there.

@@ -11,6 +11,15 @@ import (
 	"strings"
 )
 
+// The fields of an entry that this package reads and writes. Every other field
+// is the client's and is carried as it is.
+const (
+	slugField        = "slug"
+	displayNameField = "display_name"
+	windowField      = "context_window"
+	ceilingField     = "max_context_window"
+)
+
 // Document is a validated client catalog, including fields AIGW does not own.
 type Document struct {
 	fields map[string]json.RawMessage
@@ -32,7 +41,7 @@ func Parse(data []byte) (Document, error) {
 	}
 	document.slugs = make(map[string]int, len(document.models))
 	for index, entry := range document.models {
-		raw, present := entry["slug"]
+		raw, present := entry[slugField]
 		if !present {
 			return Document{}, fmt.Errorf("Codex model catalog entry %d has no slug", index)
 		}
@@ -84,20 +93,17 @@ func (d Document) Model(slug string) map[string]json.RawMessage {
 // window that is not above zero, which is a caller's error, because every
 // resolved selection has one above zero.
 func (d Document) Project(model, family, name string, window int) ([]byte, string) {
-	if model == "" || window <= 0 {
+	base := d.DescribedBy(model, family)
+	if base == "" || window <= 0 {
 		return nil, ""
 	}
-	models := slices.Clone(d.models)
-	if index, present := d.slugs[model]; present {
-		models[index] = withWindow(d.Model(model), window)
-		return d.withModels(models), model
-	}
-	entry := d.Model(family)
-	if entry == nil {
-		return nil, ""
+	entry, models := withWindow(d.Model(base), window), slices.Clone(d.models)
+	if base == model {
+		models[d.slugs[model]] = entry
+		return d.withModels(models), base
 	}
 	if name == "" {
-		_ = json.Unmarshal(entry["display_name"], &name)
+		_ = json.Unmarshal(entry[displayNameField], &name)
 	}
 	if name != "" {
 		if d.shows(name) {
@@ -106,15 +112,43 @@ func (d Document) Project(model, family, name string, window int) ([]byte, strin
 		if d.shows(name) {
 			return nil, ""
 		}
-		entry["display_name"], _ = json.Marshal(name)
+		entry[displayNameField], _ = json.Marshal(name)
 	}
-	entry["slug"], _ = json.Marshal(model)
-	return d.withModels(append(models, withWindow(entry, window))), family
+	entry[slugField], _ = json.Marshal(model)
+	return d.withModels(append(models, entry)), base
+}
+
+// DescribedBy returns the slug of the entry of the table that describes model,
+// of family: model, where the table holds an entry of that ID, which is the
+// one that Codex reads for it; else family, where the table holds that entry,
+// from which Project makes the model's alias; and else nothing. Nothing
+// describes a model without an ID, and no prefix or suffix of an ID is looked
+// up.
+func (d Document) DescribedBy(model, family string) string {
+	if model == "" {
+		return ""
+	}
+	for _, slug := range [...]string{model, family} {
+		if _, present := d.slugs[slug]; present {
+			return slug
+		}
+	}
+	return ""
+}
+
+// ProjectedFields returns the fields that Project gives the entry which
+// describes a model, and which that entry so does not take from its base: the
+// two window fields, and for an alias also its slug and its display name.
+func ProjectedFields(alias bool) []string {
+	if alias {
+		return []string{slugField, displayNameField, windowField, ceilingField}
+	}
+	return []string{windowField, ceilingField}
 }
 
 // withWindow sets the two window fields of entry, a copy that the caller owns.
 func withWindow(entry map[string]json.RawMessage, window int) map[string]json.RawMessage {
-	for _, field := range [...]string{"context_window", "max_context_window"} {
+	for _, field := range ProjectedFields(false) {
 		entry[field], _ = json.Marshal(window)
 	}
 	return entry
@@ -133,7 +167,7 @@ func (d Document) ContextWindow(slug string) (window, ceiling int) {
 		}
 		return tokens
 	}
-	return read("context_window"), read("max_context_window")
+	return read(windowField), read(ceilingField)
 }
 
 // shows reports whether an entry of the table has name as its display name,
@@ -146,7 +180,7 @@ func (d Document) shows(name string) bool {
 // name is slug's, ignoring case, in table order.
 func (d Document) SharingDisplayName(slug string) []string {
 	var name string
-	if index, present := d.slugs[slug]; !present || json.Unmarshal(d.models[index]["display_name"], &name) != nil || name == "" {
+	if index, present := d.slugs[slug]; !present || json.Unmarshal(d.models[index][displayNameField], &name) != nil || name == "" {
 		return nil
 	}
 	return d.showing(name, slug)
@@ -158,8 +192,8 @@ func (d Document) showing(name, except string) []string {
 	var slugs []string
 	for _, entry := range d.models {
 		var shown, slug string
-		_ = json.Unmarshal(entry["slug"], &slug)
-		if slug != except && json.Unmarshal(entry["display_name"], &shown) == nil && strings.EqualFold(shown, name) {
+		_ = json.Unmarshal(entry[slugField], &slug)
+		if slug != except && json.Unmarshal(entry[displayNameField], &shown) == nil && strings.EqualFold(shown, name) {
 			slugs = append(slugs, slug)
 		}
 	}

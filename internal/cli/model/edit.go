@@ -114,9 +114,9 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, opti
 	}
 	switch {
 	case options.window.given:
-		model.ContextWindow = options.window.tokens
+		model.ContextWindow = domain.DeclaredContextWindow(options.window.tokens)
 	case options.defaultWindow:
-		model.ContextWindow = 0
+		model.ContextWindow = domain.DeclaredContextWindow(domain.DefaultContextWindow)
 	}
 	cfg.Models[ref] = model
 	item := describe(cfg, ref)

@@ -3,6 +3,8 @@ package store
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -14,6 +16,18 @@ func declareWindow(cfg *domain.Config, ref domain.ModelRef, window int) {
 	model := cfg.Models[ref]
 	model.ContextWindow = window
 	cfg.Models[ref] = model
+}
+
+// holdingWindow returns text, the aigw.toml of schemaEightConfig, in which
+// the model dmxapi/claude-opus-5-5 holds `context_window = value`.
+func holdingWindow(t *testing.T, text, value string) []byte {
+	t.Helper()
+	const protocols = "protocols = { anthropic = ['text', 'tool_search'] }\n"
+	held := strings.Replace(text, protocols, protocols+"context_window = "+value+"\n", 1)
+	if held == text {
+		t.Fatalf("the fixture has no %q", protocols)
+	}
+	return []byte(held)
 }
 
 // A declared context window is written under its model, after the model's
@@ -51,16 +65,70 @@ func TestADeclaredContextWindowRoundTrips(t *testing.T) {
 
 // A configuration in which no model declares a context window encodes as the
 // bytes that it had before the field existed, and neither aigw.toml nor its
-// export as a team file holds the key.
+// export as a team file holds the key. A model that stores the default, which
+// no file and no command gives it, is written as one that declares none.
 func TestAModelWithoutAContextWindowEncodesNoSuchKey(t *testing.T) {
 	cfg, want := schemaEightConfig(t)
-	data, err := encodeConfig(cfg)
-	if err != nil || string(data) != want || strings.Contains(string(data), "context_window") {
-		t.Fatalf("aigw.toml =\n%s\n%v\nwant\n%s", data, err, want)
+	stored := cfg.Clone()
+	declareWindow(&stored, dmxapiModel("gpt-6.1-sol-cdx"), domain.DefaultContextWindow)
+	for name, cfg := range map[string]domain.Config{"no model declares a window": cfg, "a model stores the default": stored} {
+		data, err := encodeConfig(cfg)
+		if err != nil || string(data) != want || strings.Contains(string(data), "context_window") {
+			t.Errorf("%s: aigw.toml =\n%s\n%v\nwant\n%s", name, data, err, want)
+		}
+		exported, err := ExportTeamFile(cfg)
+		if err != nil || strings.Contains(string(exported), "context_window") {
+			t.Errorf("%s: the exported team file holds a context window:\n%s\n%v", name, exported, err)
+		}
+	}
+}
+
+// A file that gives a model the default context window gives it no
+// declaration. aigw.toml reads as the configuration that the file without the
+// key holds and is written back without it; a team file's model reads as the
+// one beside it that declares none, and the configuration that the file is
+// applied to is stored and exported without the key.
+func TestAFileThatDeclaresTheDefaultContextWindowDeclaresNone(t *testing.T) {
+	window := strconv.Itoa(domain.DefaultContextWindow)
+	_, plain := schemaEightConfig(t)
+	want, err := decodeTOMLConfig([]byte(plain), testAdmission())
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := decodeTOMLConfig(holdingWindow(t, plain, window), testAdmission())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(loaded, want) {
+		t.Errorf("aigw.toml with context_window = %s does not read as the file without the key does", window)
+	}
+	if data, err := encodeConfig(loaded); err != nil || string(data) != plain {
+		t.Errorf("aigw.toml with context_window = %s is written back as\n%s\n%v", window, data, err)
+	}
+	file, err := ParseTeamFile(fmt.Appendf(nil, windowTeamFile, window), testAdmission())
+	if err != nil {
+		t.Fatal(err)
+	}
+	small, large := file.Models[domain.NewModelRef("team", "small")], file.Models[domain.NewModelRef("team", "large")]
+	if small.ContextWindow != large.ContextWindow || small.Window() != domain.DefaultContextWindow {
+		t.Errorf("the team file's model stores %d and has the window %d; the model that declares none stores %d", small.ContextWindow, small.Window(), large.ContextWindow)
+	}
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), file, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := encodeConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
 	}
 	exported, err := ExportTeamFile(cfg)
-	if err != nil || strings.Contains(string(exported), "context_window") {
-		t.Fatalf("the exported team file holds a context window that no model declares:\n%s\n%v", exported, err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, data := range map[string][]byte{"aigw.toml": stored, "the exported team file": exported} {
+		if strings.Contains(string(data), "context_window") {
+			t.Errorf("%s holds a context window for a model that has the default:\n%s", name, data)
+		}
 	}
 }
 
@@ -120,14 +188,7 @@ func TestATeamFilesContextWindowReachesTheConfiguration(t *testing.T) {
 // it; a value that is no whole number is refused as a value of the wrong type.
 func TestAContextWindowThatIsNotAboveZeroIsRefusedByItsModel(t *testing.T) {
 	_, valid := schemaEightConfig(t)
-	const protocols = "protocols = { anthropic = ['text', 'tool_search'] }\n"
-	declared := func(value string) []byte {
-		text := strings.Replace(valid, protocols, protocols+"context_window = "+value+"\n", 1)
-		if text == valid {
-			t.Fatalf("the fixture has no %q", protocols)
-		}
-		return []byte(text)
-	}
+	declared := func(value string) []byte { return holdingWindow(t, valid, value) }
 	for _, value := range []string{"0", "-1"} {
 		refusal := "a context window is a whole number of tokens above zero, not " + value
 		_, err := decodeTOMLConfig(declared(value), testAdmission())

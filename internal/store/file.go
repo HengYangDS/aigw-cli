@@ -44,9 +44,10 @@ type endpointsDocument struct {
 }
 
 // modelDocument is one model of a provider. ContextWindow is absent for a
-// model that declares none, so that such a model is written as it was before
-// the field existed; a pointer tells an absent field from a zero, which is
-// refused.
+// model whose window is the default, so that such a model is written as it
+// was before the field existed. A file may hold the default all the same,
+// which reads as no declaration (domain.DeclaredContextWindow); a pointer
+// tells an absent field from a zero, which is refused.
 type modelDocument struct {
 	ID            string                                          `toml:"id"`
 	Family        string                                          `toml:"family,omitempty"`
@@ -170,7 +171,7 @@ func (d document) config(admission domain.Admission) (domain.Config, error) {
 				if err := domain.ValidateContextWindow(*model.ContextWindow); err != nil {
 					return domain.Config{}, domain.NewEntryError(modelEntry, fmt.Errorf("model %s: %w", described.Ref(), err))
 				}
-				described.ContextWindow = *model.ContextWindow
+				described.ContextWindow = domain.DeclaredContextWindow(*model.ContextWindow)
 			}
 			if err := cfg.AppendModel(described); err != nil {
 				return domain.Config{}, domain.NewEntryError(modelEntry, err)
@@ -261,8 +262,8 @@ func newDocument(cfg domain.Config) document {
 			declared := modelDocument{
 				ID: model.ID, Family: model.Family, Label: model.Label, Protocols: protocols, Deprecated: model.Deprecated,
 			}
-			if model.ContextWindow != 0 {
-				declared.ContextWindow = &model.ContextWindow
+			if window := model.Window(); window != domain.DefaultContextWindow {
+				declared.ContextWindow = &window
 			}
 			entry.Models = append(entry.Models, declared)
 		}

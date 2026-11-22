@@ -58,3 +58,15 @@
       with Hermes and Codex enabled, and require both to synchronize without a refusal.
 - [ ] 5.3 Pass `mise run check` on the lane head.
 - [ ] 5.4 Pass the proposal's hosted checks on both forges.
+
+## 6. The Review Of The Whole Lane
+
+- [x] 6.1 Answer the review's findings 3, 5 and 7 and its design-principle items in code: Codex's check fails a
+      table that does not give the declared window, a reused table takes it, a window that cannot reach a client is
+      no changed projection of it, a window has one spelling (the default is stored as no declaration), and each
+      of the two window fields, the reader of AIGW's table and the entry that describes a model has one owner.
+      Done when every touched package and the acceptance package pass on the lane's tree.
+- [ ] 6.2 Answer findings 1, 2, 4, 6, 8 and 9 (the report is in `build/runtime/work/review-12/report.md` of the main
+      checkout) and correct the specification and document text that the review found untrue. Done when each
+      finding has a test or a stated decision in the design, and the CHANGELOG, the concepts and the team guide say
+      what the code does.
