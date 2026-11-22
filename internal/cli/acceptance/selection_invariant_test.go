@@ -235,11 +235,15 @@ func TestEveryCommandLeavesEachRecordNamingWhatItsFileSelectsHermes(t *testing.T
 // run runs every command of the matrix in every state that the command
 // accepts: once with every Token, and once without each Token that the state
 // depends on, each time in a world of its own. A run without a Token is
-// compared with its twin with every Token (twinned).
+// compared with its twin with every Token (twinned). Each state runs in
+// parallel with the others; every world lives in temporary directories of its
+// own subtest.
 func (matrix selectionMatrix) run(t *testing.T) {
+	t.Parallel()
 	t.Logf("the matrix of %s: %d states, %d commands", matrix.client, len(matrix.states), len(matrix.commands))
 	for _, state := range slices.Sorted(mapKeys(matrix.states)) {
 		t.Run(state, func(t *testing.T) {
+			t.Parallel()
 			// The state is built once more to read what its steps declare.
 			declared := matrix.states[state](t)
 			t.Logf("declared: blocked=%q, choice=%q, the choice's other provider=%q, a rollback restores %q",

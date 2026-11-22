@@ -157,39 +157,50 @@ func zz11Class(w selectionWorld, command zz11Command, run ranIn, choice string, 
 
 // zz11Sweep runs every command in every state: once with every Token, and
 // once without each Token that the state depends on, and compares the twins.
+// Each run builds its world in a subtest of its own, so that the tree that it
+// compares holds that world's files alone; each state runs in parallel with
+// the others.
 func zz11Sweep(t *testing.T, states map[string]func(t *testing.T) selectionWorld, commands []zz11Command) {
-	counts := map[string]int{}
+	t.Parallel()
 	for _, state := range slices.Sorted(mapKeys(states)) {
 		t.Run(state, func(t *testing.T) {
+			t.Parallel()
 			declared := states[state](t)
 			for _, command := range commands {
-				run := func(absent string) zz11Judged {
-					world := states[state](t)
-					world.withoutToken(t, absent)
-					token := "with every Token"
-					if absent != "" {
-						token = "without the Token of " + absent
+				t.Run(command.name, func(t *testing.T) {
+					run := func(absent string) zz11Judged {
+						token := "with every Token"
+						if absent != "" {
+							token = "without the Token of " + absent
+						}
+						var judged zz11Judged
+						t.Run(token, func(t *testing.T) {
+							world := states[state](t)
+							world.withoutToken(t, absent)
+							judged = zz11Judge(t, world, command, token, zz11Run(t, world, command))
+							t.Logf("%s", judged.class)
+						})
+						return judged
 					}
-					judged := zz11Judge(t, world, command, token, zz11Run(t, world, command))
-					counts[command.name+": "+judged.class]++
-					return judged
-				}
-				with := run("")
-				for _, absent := range declared.absentTokens() {
-					without := run(absent)
-					if command.tokenRefuses && with.err == nil && without.err != nil {
-						continue
+					with := run("")
+					for _, absent := range declared.absentTokens() {
+						without := run(absent)
+						// A run whose world could not be built was judged by
+						// nobody and has failed on its own.
+						if with.class == "" || without.class == "" {
+							continue
+						}
+						if command.tokenRefuses && with.err == nil && without.err != nil {
+							continue
+						}
+						if with.class != without.class || with.stored != without.stored || !slices.Equal(with.behind, without.behind) {
+							t.Errorf("the Token of %s decides the outcome: with it %s, %q stored, behind %v (err=%v); without it %s, %q stored, behind %v (err=%v)",
+								absent, with.class, with.stored, with.behind, with.err, without.class, without.stored, without.behind, without.err)
+						}
 					}
-					if with.class != without.class || with.stored != without.stored || !slices.Equal(with.behind, without.behind) {
-						t.Errorf("%s: the Token of %s decides the outcome: with it %s, %q stored, behind %v (err=%v); without it %s, %q stored, behind %v (err=%v)",
-							command.name, absent, with.class, with.stored, with.behind, with.err, without.class, without.stored, without.behind, without.err)
-					}
-				}
+				})
 			}
 		})
-	}
-	for _, line := range slices.Sorted(mapKeys(counts)) {
-		t.Logf("%4d  %s", counts[line], line)
 	}
 }
 

@@ -141,6 +141,7 @@ func zz11HermesCommands() map[string][]string {
 // the Token is there, and `aigw sync` must leave that last pick stored and in
 // the file, or refuse and change nothing.
 func TestZZ11AHermesPickInFurtherSpellingsIsRecordedOrRefused(t *testing.T) {
+	t.Parallel()
 	const earlier, chosen = "aigw-dmxapi-responses/gpt-6.2-sol", "aigw-dmxapi-anthropic/claude-opus-5-5"
 	for _, pick := range zz11HermesPicks() {
 		for _, crlf := range []bool{false, true} {
@@ -149,6 +150,7 @@ func TestZZ11AHermesPickInFurtherSpellingsIsRecordedOrRefused(t *testing.T) {
 				name += ", the whole file with carriage returns"
 			}
 			t.Run(name, func(t *testing.T) {
+				t.Parallel()
 				zz11HermesSpellingProbe(t, pick, chosen, earlier, crlf)
 			})
 		}
