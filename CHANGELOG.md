@@ -11,6 +11,61 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Added
+
+- A model can declare its context window, the number of tokens that AIGW tells
+  a client to use for it. A model that declares none has 1,000,000.
+  `aigw model add` and `aigw model edit` take `--context-window <tokens>`,
+  `aigw model edit --default-context-window` removes the declaration, and a
+  team file may declare `context_window` for a model. `aigw model list` and
+  `aigw model show` report every model's window. In JSON, each model of
+  `aigw model list`, `show`, `add`, `edit` and `remove` gains `context_window`,
+  and those documents move to `schema_version` 3. `aigw.toml` holds the field
+  only for a model that declares it. 0.9.0 reads a configuration in which no
+  model declares a window and refuses one in which a model does, as it refuses
+  any field that it does not define, so `aigw self rollback` to 0.9.0 stops
+  before it changes anything while a model declares a window. Remove the
+  declarations first with `aigw model edit --default-context-window`, or
+  restore a configuration without them with `aigw config rollback`.
+
+### Changed
+
+- Codex runs the selected model at its declared context window. In the model
+  table that AIGW writes for Codex, the entry that describes the selected model
+  carries the declared window as `context_window` and `max_context_window`, so
+  at 1,000,000 Codex counts 950,000 tokens as usable and starts compaction at
+  900,000, where the family's own entry gave 272,000 or 500,000. Codex's table
+  describes families, not every provider's model: for a model whose family it
+  lacks, AIGW writes no entry, Codex keeps its own fallback window whatever the
+  model declares, and `aigw check codex` says so in a check of its own, which
+  otherwise reports the window that the model's entry carries.
+- Hermes runs each model at its declared context window. Every model that AIGW
+  lists under one of its provider entries in Hermes's file carries the window
+  as its own `context_length`, and the entry's `models` is a mapping from model
+  ID where it was a list of IDs. AIGW still reads a file in the earlier form
+  and rewrites it at the next synchronization. When Hermes starts compression
+  inside the window stays Hermes's own setting.
+- The shipped team file declares a window below 1,000,000 for eight families:
+  seven whose vendor documents one, from Ernie 5.1 at 128,000 to Solar Pro 4 at
+  512,000, and MiniMax M2.5, which its vendor has retired, at the 204,800 of
+  Hermes's own table. The dated qualification evidence names each source.
+  Apply the file again with `aigw setup --from` to take these windows; until
+  then those models run at 1,000,000.
+- The team file's fields, layout and admission rules moved from the team
+  rollout guide into their own reference, `docs/guides/team-file.md`.
+- The tracked Codex catalog verifier (`tools/codex/catalogcheck`) takes
+  `-context-window`, proves that the entry which Codex renders for the model
+  carries that window, and also verifies a model that is itself an entry of
+  Codex's table.
+
+### Fixed
+
+- `aigw check` showed "Matches the selection" for every passing observation
+  of a client's file, whatever the adapter had observed, and numbered a file
+  outside the home directory by the observation's position among all
+  observations. A passing observation now shows what it states of its own, and
+  every observation of one file names that file alike.
+
 ## [0.9.0] - 2026-11-21
 
 ### Changed

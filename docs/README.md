@@ -72,7 +72,9 @@ They answer different questions; none substitutes for all the others.
 - **Governance:** [Contributor contracts](governance/README.md) governs
   layout, extension and release.
 - **Guides:** [Team rollout](guides/team-rollout.md) covers configuration
-  distribution, member setup, release artifacts and updates.
+  distribution, member setup, release artifacts and updates; the
+  [team file reference](guides/team-file.md) defines the file's fields, layout
+  and admission rules.
 - **Operations:** [Operations](operations/README.md) covers independent GitLab
   and GitHub publication and real-client acceptance.
 - **Research:** [Research](research/README.md) separates comparisons and

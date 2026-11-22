@@ -72,6 +72,15 @@ or a model's name.
 Model IDs are the provider's own strings. AIGW does not infer a capability or
 version policy from their spelling.
 
+A model may declare `context_window`, the number of tokens that AIGW tells a
+client to use as the model's context window. A model that declares none has
+1,000,000. `aigw model add` and `aigw model edit` set it with
+`--context-window <tokens>`, a team file may declare it, and
+`aigw model edit --default-context-window` removes the declaration.
+`aigw model list` and `aigw model show` report every model's window. The
+number is what AIGW tells a client; it is not evidence that the provider
+serves that many tokens.
+
 Authentication defaults to `provider-token`, which uses the provider's Token in
 the selected backend. A client may instead select admitted client-native
 authentication and its native provider identity. That client then owns
@@ -109,12 +118,16 @@ selection changes.
 ### Client files
 
 - **Codex:** recorded provider and model configuration, with a Token helper or
-  explicit client-native authentication.
+  explicit client-native authentication, and the selected model's declared
+  context window in the model table that AIGW writes. Codex's own table
+  describes families, not every provider's model: for a model whose family it
+  lacks AIGW writes no entry, Codex runs the model at its own fallback window,
+  and `aigw check codex` says so.
 - **Claude Code:** official user-settings endpoint and model, and a credential
   helper.
 - **Claude Desktop:** its separate third-party inference library.
-- **Hermes:** its native provider catalog, explicit protocol and model
-  selection, and credential commands.
+- **Hermes:** its native provider catalog with each model's declared context
+  window, explicit protocol and model selection, and credential commands.
 
 An admitted client adapter writes and withdraws only AIGW's settings in its
 client's files; it does not own provider behavior. Missing and unselected

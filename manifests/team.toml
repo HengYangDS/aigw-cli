@@ -141,6 +141,7 @@ protocols = { responses = [] }
 id = 'grok-4.7'
 family = 'grok-4.7'
 protocols = { responses = [] }
+context_window = 500000
 
 [[providers.models]]
 id = 'hy4'
@@ -231,6 +232,7 @@ protocols = { responses = [] }
 id = 'grok-4.7'
 family = 'grok-4.7'
 protocols = { responses = [] }
+context_window = 500000
 
 [[providers.models]]
 id = 'hy4'
@@ -326,6 +328,7 @@ protocols = { responses = [] }
 id = 'ernie-5.1'
 family = 'ernie-5.1'
 protocols = { responses = [] }
+context_window = 128000
 
 [[providers.models]]
 id = 'gemini-4-argon'
@@ -351,6 +354,7 @@ protocols = { responses = [] }
 id = 'grok-4.7'
 family = 'grok-4.7'
 protocols = { responses = [] }
+context_window = 500000
 
 [[providers.models]]
 id = 'minimax-m3.1-flash'
@@ -371,6 +375,7 @@ protocols = { responses = [] }
 id = 'cohere-command-a'
 family = 'cohere-command-a'
 protocols = { chat = [] }
+context_window = 256000
 
 [[providers.models]]
 id = 'hy4'
@@ -391,16 +396,19 @@ protocols = { chat = [] }
 id = 'ling-3.0-flash'
 family = 'ling-3.0-flash'
 protocols = { chat = [] }
+context_window = 256000
 
 [[providers.models]]
 id = 'mercury-2.5'
 family = 'mercury-2.5'
 protocols = { chat = [] }
+context_window = 260000
 
 [[providers.models]]
 id = 'mistral-large-3'
 family = 'mistral-large-3'
 protocols = { chat = [] }
+context_window = 256000
 
 [[providers.models]]
 id = 'nemotron-3-ultra-550b-a55b-free'
@@ -412,6 +420,7 @@ protocols = { chat = [] }
 id = 'solar-pro4'
 family = 'solar-pro4'
 protocols = { chat = [] }
+context_window = 512000
 
 [[providers.models]]
 id = 'step-5-preview'
@@ -525,6 +534,7 @@ protocols = { chat = [] }
 id = 'Minimax-M2.5'
 family = 'minimax-m2.5'
 protocols = { chat = [] }
+context_window = 204800
 
 [[providers.models]]
 id = 'GLM-5.2'

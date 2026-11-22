@@ -54,6 +54,33 @@ Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default models; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
 
+## November 22: context windows below the default
+
+AIGW tells Codex and Hermes each model's context window. A model that declares none has 1,000,000 tokens; the team
+file declares a lower number only for a family whose vendor documents one. Each vendor's own page was read on
+November 22 for every family of the file. Where a page gives a rounded figure such as 256k, the file declares the
+decimal reading, the lower of the two, so a declared window is never above the documented one. MiniMax retired M2.5 on
+November 18 and its pages give no window any more; the number is the one in Hermes v0.23.3's own model table, and
+Artificial Analysis lists 205k. A documented window is the vendor's; whether a provider's channel serves all of it
+is not established, and no session near any of these limits was run. Raw results are in the canonical checkout's
+`build/evidence/client-windows-20261122/`.
+
+| Family           | Declared | Source, as read                                                                        |
+| ---------------- | -------- | -------------------------------------------------------------------------------------- |
+| Ernie 5.1        | 128,000  | [Baidu Qianfan](https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j): 128k                 |
+| MiniMax M2.5     | 204,800  | Hermes v0.23.3's model table; no vendor page since the retirement                      |
+| Cohere Command A | 256,000  | [Cohere](https://docs.cohere.com/docs/models), as `command-a-03-2025`: 256k            |
+| Ling 3.0 Flash   | 256,000  | [Ant Ling](https://developer.ant-ling.com/en/docs/faq/): 256K, input and output shared |
+| Mistral Large 3  | 256,000  | [Mistral](https://docs.mistral.ai/models/mistral-large-3-25-12): 256k                  |
+| Mercury 2.5      | 260,000  | [Inception](https://docs.inceptionlabs.ai/get-started/models): Chat 260K               |
+| Grok 4.7         | 500,000  | [xAI](https://docs.x.ai/docs/models/grok-4.7): 500,000 tokens                          |
+| Solar Pro 4      | 512,000  | [Upstage](https://console.upstage.ai/docs/models/solar-pro-4): 512K                    |
+
+Every other family of the file documents 1,000,000 tokens or more, or "1M" without a figure, and declares nothing.
+One of them rests on a deployment: NVIDIA's hosted catalog gives Nemotron 3 Ultra 1,048,576 tokens, and its
+self-hosting guide a native 262,144 that a longer window must be configured over, so the window that a provider
+serves depends on how it deployed the model.
+
 ## November 19: Suhe.AI
 
 Suhe.AI (`suheai.cn`) serves each Claude and GPT model under two IDs: the plain one, a direct model, and one with a

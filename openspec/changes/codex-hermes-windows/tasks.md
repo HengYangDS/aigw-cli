@@ -41,10 +41,10 @@
 
 ## 4. Team file and documents
 
-- [ ] 4.1 Declare the vendor's documented window for the families below 1,000,000 in `manifests/team.toml`, and
+- [x] 4.1 Declare the vendor's documented window for the families below 1,000,000 in `manifests/team.toml`, and
       name each family's source in a dated section of the qualification evidence. Done when the team file's test
       holds the specification's scenario and the file still equals its native export.
-- [ ] 4.2 Describe the declaration and each client's use of it in the product concepts and the team rollout guide,
+- [x] 4.2 Describe the declaration and each client's use of it in the product concepts and the team rollout guide,
       and state the change under Unreleased in `CHANGELOG.md` with the new JSON field. Done when the documentation
       gates pass.
 
