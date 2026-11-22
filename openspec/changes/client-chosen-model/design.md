@@ -432,7 +432,8 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
   `selection_matrix` tag and run in the quality graph's gate of that name, without the race detector and coverage.
   Under both they took about six times as long and carried the acceptance package past the coverage run's
   20-minute package limit in two full checks (2026-11-22 and 2026-11-23); alone they take about ten minutes at two
-  cores, and the untagged package about six under both. The code they reach is covered by the untagged tests; a
+  cores, so the gate sets a one-hour limit as the client acceptance gate does (Go's default of ten minutes stopped
+  the check of `6371c8390` at 600 s), and the untagged package takes about six minutes under both. The code they reach is covered by the untagged tests; a
   data race only they would show is not looked for.
 - The clients' writes are imitated in every test of this Change; the next Change's measurement with the real
   clients may change the conditions of following.
