@@ -22,6 +22,30 @@ func overridesRuntime() domain.Runtime {
 	}
 }
 
+// opusOnlyRuntime is the same selection over a provider that serves the
+// selected Anthropic model under its own ID and no other.
+func opusOnlyRuntime() domain.Runtime {
+	runtime := overridesRuntime()
+	runtime.FamilyVariants = map[string]string{"claude-opus-5-5": "claude-code-opus-5-5", "gpt-6.2-sol": "codex-gpt-6.2-sol"}
+	return runtime
+}
+
+// anotherChannelRuntime is the same selection over the same provider after a
+// channel of another model changed.
+func anotherChannelRuntime() domain.Runtime {
+	runtime := overridesRuntime()
+	runtime.FamilyVariants = map[string]string{"claude-opus-5-5": "claude-code-opus-5-5", "claude-fable-5-2": "claude-code-fable-5-2b"}
+	return runtime
+}
+
+// withoutMapRuntime is the same selection over a provider that serves no
+// Anthropic model under another ID.
+func withoutMapRuntime() domain.Runtime {
+	runtime := overridesRuntime()
+	runtime.FamilyVariants = map[string]string{"gpt-6.2-sol": "codex-gpt-6.2-sol"}
+	return runtime
+}
+
 // writtenOverrides reads the map that the settings file holds, and whether it
 // holds one.
 func writtenOverrides(t *testing.T, path string) (map[string]string, bool) {
@@ -37,46 +61,73 @@ func writtenOverrides(t *testing.T, path string) (map[string]string, bool) {
 	return overrides, true
 }
 
-// Claude Code's settings carry the runtime's map, so that every picker row
-// and alias reaches the provider's ID: the projection writes it, writes it
-// again unchanged, and leaves it out when the runtime has none.
+// The table's rows one and three: without an entry and without a map the key
+// is not AIGW's and stays; with a projection that writes the map the same
+// projection again writes nothing, and the record's entry is what makes the
+// map AIGW's.
 func TestSettingsProjectTheProvidersModelOverrides(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "settings.json")
-	runtime := overridesRuntime()
-	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
-		t.Fatal(err)
-	}
-	want := map[string]string{"claude-opus-5-5": "claude-code-opus-5-5", "claude-fable-5-2": "claude-code-fable-5-2"}
-	if got, present := writtenOverrides(t, path); !present || !maps.Equal(got, want) {
-		t.Fatalf("modelOverrides = %v (present %t), want %v: a family that is no Anthropic model ID stays out", got, present, want)
-	}
-	plan, err := PlanSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel)
-	if err != nil || plan.Action != SettingsActionAlreadyConverged {
-		t.Fatalf("the projected map plans %q, %v; want already converged", plan.Action, err)
-	}
-	if _, err := InspectSettings(path, runtime, testExecutable()); err != nil {
-		t.Fatalf("inspection of the projected map: %v", err)
-	}
+	t.Run("row two and row three", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "settings.json")
+		runtime := overridesRuntime()
+		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
+			t.Fatal(err)
+		}
+		want := map[string]string{"claude-opus-5-5": "claude-code-opus-5-5", "claude-fable-5-2": "claude-code-fable-5-2"}
+		if got, present := writtenOverrides(t, path); !present || !maps.Equal(got, want) {
+			t.Fatalf("modelOverrides = %v (present %t), want %v: a family that is no Anthropic model ID stays out", got, present, want)
+		}
+		requireOwnedMapDigest(t, path)
+		plan, err := PlanSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel)
+		if err != nil || plan.Action != SettingsActionAlreadyConverged {
+			t.Fatalf("the projected map plans %q, %v; want already converged", plan.Action, err)
+		}
+		if _, err := InspectSettings(path, runtime, testExecutable()); err != nil {
+			t.Fatalf("inspection of the projected map: %v", err)
+		}
+	})
 
-	without := runtime
-	without.FamilyVariants = map[string]string{"gpt-6.2-sol": "codex-gpt-6.2-sol"}
-	if _, err := ReconcileSettings(path, false, without, testExecutable(), runtime.UpstreamModel); err != nil {
-		t.Fatal(err)
-	}
-	if got, present := writtenOverrides(t, path); present {
-		t.Fatalf("a runtime without a map left modelOverrides %v", got)
-	}
+	t.Run("row four", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "settings.json")
+		if _, err := ReconcileSettings(path, false, overridesRuntime(), testExecutable(), ""); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReconcileSettings(path, false, withoutMapRuntime(), testExecutable(), overridesRuntime().UpstreamModel); err != nil {
+			t.Fatal(err)
+		}
+		if got, present := writtenOverrides(t, path); present {
+			t.Fatalf("a selection without a map left modelOverrides %v", got)
+		}
+		if _, present := readOwnedKeysFile(t, path)["modelOverrides"]; present {
+			t.Fatal("a selection without a map kept the entry once it gave the key back")
+		}
+	})
+
+	t.Run("row one", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "settings.json")
+		if err := os.WriteFile(path, []byte(`{"modelOverrides":{"claude-opus-4-8":"my-opus"}}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReconcileSettings(path, false, withoutMapRuntime(), testExecutable(), ""); err != nil {
+			t.Fatal(err)
+		}
+		if got, present := writtenOverrides(t, path); !present || !maps.Equal(got, map[string]string{"claude-opus-4-8": "my-opus"}) {
+			t.Fatalf("a selection without a map changed the user's modelOverrides: %v (present %t)", got, present)
+		}
+		if _, err := os.Stat(ownedKeysPath(path)); !os.IsNotExist(err) {
+			t.Fatalf("a key AIGW did not write has an entry: %v", err)
+		}
+	})
 }
 
-// A map that the user wrote before AIGW comes back when AIGW withdraws, and
-// settings that held none hold none afterwards.
+// The table's rows four and five at a withdrawal: the user's map comes back
+// when AIGW wrote over it, and settings that held none hold none afterwards.
 func TestSettingsWithdrawalRestoresTheUsersModelOverrides(t *testing.T) {
 	for _, test := range []struct {
 		name, before string
 		want         map[string]string
 	}{
-		{"none", `{"theme":"dark"}`, nil},
-		{"the user's", `{"theme":"dark","modelOverrides":{"claude-opus-4-8":"my-opus"}}`, map[string]string{"claude-opus-4-8": "my-opus"}},
+		{"row four: the user's map returns", `{"theme":"dark","modelOverrides":{"claude-opus-4-8":"my-opus"}}`, map[string]string{"claude-opus-4-8": "my-opus"}},
+		{"row four: a map AIGW wrote alone leaves none", `{"theme":"dark"}`, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
@@ -100,30 +151,30 @@ func TestSettingsWithdrawalRestoresTheUsersModelOverrides(t *testing.T) {
 	}
 }
 
-// A map changed outside AIGW is managed drift: the next projection refuses
-// and writes nothing.
+// The table's row five: a map changed outside AIGW is managed drift, and the
+// next projection refuses and writes nothing.
 func TestSettingsRefuseAModelOverridesEditOutsideAIGW(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	runtime := overridesRuntime()
 	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	edited := []byte(strings.Replace(string(data), `"claude-code-fable-5-2"`, `"someone-elses-fable"`, 1))
+	edited := []byte(strings.Replace(string(readFileBytes(t, path)), `"claude-code-fable-5-2"`, `"someone-elses-fable"`, 1))
 	if err := os.WriteFile(path, edited, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	keys := readFileBytes(t, ownedKeysPath(path))
 	next := runtime
 	next.Endpoint = "https://next.test"
-	_, err = ReconcileSettings(path, false, next, testExecutable(), runtime.UpstreamModel)
+	_, err := ReconcileSettings(path, false, next, testExecutable(), runtime.UpstreamModel)
 	if err == nil || !strings.Contains(err.Error(), "managed Claude settings changed") {
 		t.Fatalf("an edited map = %v, want the refusal of an outside edit", err)
 	}
-	if current, readErr := os.ReadFile(path); readErr != nil || string(current) != string(edited) {
-		t.Fatalf("the refused projection wrote the settings: %v", readErr)
+	if got := readFileBytes(t, path); string(got) != string(edited) {
+		t.Fatalf("the refused projection wrote the settings: %s", got)
+	}
+	if got := readFileBytes(t, ownedKeysPath(path)); string(got) != string(keys) {
+		t.Fatalf("the refused projection wrote the record: %s", got)
 	}
 }
 

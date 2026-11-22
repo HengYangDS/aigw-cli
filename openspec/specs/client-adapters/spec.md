@@ -456,6 +456,18 @@ withdraws.
 - **WHEN** the map in Claude Code's settings differs from what AIGW recorded and the next transition writes them
 - **THEN** the transition SHALL refuse it as managed drift and write nothing.
 
+#### Scenario: The settings hold the user's own map
+
+- **GIVEN** Claude Code's settings hold a map that AIGW did not write
+- **WHEN** AIGW projects a selection that needs a map
+- **THEN** it SHALL write its map and keep the user's for the withdrawal
+- **AND** while the selection needs no map, AIGW SHALL leave the user's map as it is.
+
+#### Scenario: The selection no longer needs a map
+
+- **WHEN** AIGW projects a selection that needs no map over settings that hold the map that AIGW wrote
+- **THEN** the map SHALL return to what the settings held before AIGW wrote it.
+
 ### Requirement: Claude Desktop names the Anthropic model behind an entry
 
 AIGW SHALL name, on each model entry of its Claude Desktop profile, the Anthropic model ID that the entry's model
@@ -467,3 +479,35 @@ profile that AIGW owns.
 - **WHEN** AIGW projects the Claude Desktop profile with `claude-code-fable-5-2` in the family `claude-fable-5-2`
 - **THEN** that entry SHALL name `claude-fable-5-2` as the model behind it
 - **AND** an entry whose ID is its family SHALL name none.
+
+### Requirement: A record that the previous release reads keeps its shape
+
+A record of a client's file that the previous published release reads strictly SHALL keep the fields and the digest
+which that release reads. AIGW SHALL record a setting that it newly owns in that file in a record of its own beside
+the first, whose reader keeps an entry that it does not know and leaves that entry's setting as it is. Release
+acceptance SHALL roll the program back to the published predecessor with such a setting written.
+
+#### Scenario: The previous release synchronizes after a rollback
+
+- **GIVEN** the newer program wrote Claude Code's settings with a map
+- **WHEN** the program is rolled back to the previous release and that release synchronizes
+- **THEN** the synchronization SHALL succeed with Claude Code enabled
+- **AND** the map SHALL stay in the settings as the newer program wrote it.
+
+#### Scenario: The newer program returns after a rollback
+
+- **WHEN** the newer program is activated again after the previous release synchronized, and synchronizes
+- **THEN** it SHALL find the map its own, however the previous release re-indented the settings, and write the
+  selection's map.
+
+#### Scenario: The previous release withdrew the client
+
+- **GIVEN** the previous release withdrew Claude Code after a rollback, which left the map and its record
+- **WHEN** the newer program next projects or withdraws Claude Code, or is uninstalled
+- **THEN** the map SHALL return to what the settings held before AIGW wrote it, and its record SHALL be removed.
+
+#### Scenario: The record holds an entry of a later release
+
+- **WHEN** the record of newly owned settings holds an entry that this program does not know
+- **THEN** this program SHALL keep the entry when it writes the record and SHALL leave that entry's setting as it
+  is.

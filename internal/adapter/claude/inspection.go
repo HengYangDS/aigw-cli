@@ -77,8 +77,31 @@ func InspectSettings(path string, runtime domain.Runtime, executable string) (Se
 	if err != nil {
 		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized: %w; run `aigw sync`", err)
 	}
+	keysBefore, err := captureSnapshot(ownedKeysPath(path))
+	if err != nil {
+		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized: read the record of owned settings keys: %w", err)
+	}
+	keys, err := readOwnedKeys(path, keysBefore)
+	if err != nil {
+		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized: %w", err)
+	}
+	// The map's record decides whether a map that differs from the
+	// selection's is AIGW's to replace: one that the record owns, or that no
+	// entry covers and that synchronization would newly own, is drift that
+	// `aigw sync` repairs; anything else is an outside edit. A selection that
+	// needs no map leaves the map alone; one that needs a map the file lacks
+	// is drift too.
+	overrides := desiredOwnedKey(modelOverrides(runtime))
+	_, mapAction, err := ownedKeysForProjection(maps.Clone(document), ownedKeyModelOverrides, overrides, keys)
+	if err != nil {
+		return SettingsInspection{}, err
+	}
+	if mapAction == ownedKeyWrite && !sameJSON(document[ownedKeyModelOverrides], overrides) {
+		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized; run `aigw sync`")
+	}
 	expected := maps.Clone(document)
 	projectSettings(expected, runtime, executable)
+	projectedOwnedKey(ownedKeyModelOverrides, expected, mapAction, overrides, keys.Keys[ownedKeyModelOverrides])
 	expectedHash := managedSettingsHash(expected)
 	if state.ManagedSHA256 != expectedHash {
 		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized; run `aigw sync`")
