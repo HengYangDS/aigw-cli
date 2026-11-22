@@ -50,7 +50,7 @@
 
 ## 5. Verification
 
-- [ ] 5.1 Run the tracked catalog verifier with the installed Codex for an alias and for a model that is an entry
+- [x] 5.1 Run the tracked catalog verifier with the installed Codex for an alias and for a model that is an entry
       and keep its records; run one short turn in Codex and one in Hermes, each in an isolated home with the real
       client, and read the window that the client reports for the selected model; switch the model once with
       Hermes's own command in that home and require the next synchronization to follow it.
