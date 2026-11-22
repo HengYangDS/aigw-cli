@@ -82,7 +82,7 @@ func TestTeamFileExportOmitsDerivedLabelsAndRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), file, false)
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), file, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestTeamFileExportOmitsDerivedLabelsAndRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	merged, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), again, false)
+	merged, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), again, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ primary = {model = "northstar/northstar-model", model_provider = "northstar", au
 	if err != nil {
 		t.Fatal(err)
 	}
-	merged, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), incoming, false)
+	merged, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), incoming, true)
 	if err != nil {
 		t.Fatal(err)
 	}

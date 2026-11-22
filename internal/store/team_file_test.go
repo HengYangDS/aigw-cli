@@ -32,12 +32,12 @@ primary = {model = "gateway/model"}
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false); err == nil || !strings.Contains(err.Error(), "provider gateway, which the file adds") {
+	if _, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, true); err == nil || !strings.Contains(err.Error(), "provider gateway, which the file adds") {
 		t.Fatalf("a new provider without the model's endpoint = %v", err)
 	}
 	local := domain.NewConfig(testAdmission())
 	local.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg, report, err := domain.MergeTeamFile(local, manifest, false)
+	cfg, report, err := domain.MergeTeamFile(local, manifest, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ primary = {model = "unknown/missing"}
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false); err == nil || !strings.Contains(err.Error(), `claude recommendation names unknown/missing`) {
+	if _, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, true); err == nil || !strings.Contains(err.Error(), `claude recommendation names unknown/missing`) {
 		t.Fatalf("unknown recommended model error = %v", err)
 	}
 }

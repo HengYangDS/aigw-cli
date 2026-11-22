@@ -475,8 +475,9 @@ files that would change, not files that have been written or verified, and it
 reads no Token and writes no configuration or client file.
 
 For models, families and recommendations, what the file names wins, and
-local-only entries stay unless `--prune` removes the models that no client
-selects and no recommendation names, and then the families that no model uses.
+the local-only models that no client selects and no recommendation names are
+removed, and then the families that no remaining model uses; `--keep-local`
+keeps every local-only entry instead.
 A team file never changes an existing provider's endpoints or Token and never
 replaces a client's selection:
 
@@ -487,7 +488,7 @@ replaces a client's selection:
 | An existing provider's endpoint         | The local endpoint stays and is reported                           |
 | A balance probe that the provider lacks | Added from the file; a differing probe stays local and is reported |
 | A model, family or recommendation       | The file's version wins                                            |
-| A local-only model or family            | Kept, unless `--prune` removes the unused ones                     |
+| An unused local-only model or family    | Removed on import; `--keep-local` keeps it                         |
 | A client's selection or a stored Token  | Never changed                                                      |
 
 If this machine intentionally points DMXAPI at a local optional proxy, that
