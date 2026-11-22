@@ -105,5 +105,5 @@
 - [x] 5.4 Run the exhaustive tests of a choice in a quality gate of their own, under the `selection_matrix` tag,
       without the race detector and coverage. Done when the gate passes at two cores (594 s on 2026-11-23) under a one-hour limit and
       the untagged acceptance package passes under both (351 s).
-- [ ] 5.2 Pass `mise run check` on the lane head.
+- [x] 5.2 Pass `mise run check` on the lane head (`4fb4495b2`, 95.78 %).
 - [ ] 5.3 Pass the proposal's hosted checks on both forges.
