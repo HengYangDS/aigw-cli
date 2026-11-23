@@ -14,6 +14,9 @@
       file whose existing folder is named in another case judged as one file; a target named by a hard link stays
       out of scope, as the design states. Done when the review's probes for the first two pass and the hosted Windows
       acceptance, which stopped the test binary of `84f6fa5eb` (exit status 0xc0000409), passes.
+- [ ] 1.5 Make every native acceptance run keep a JUnit report beside its coverage profile, so a test binary that
+      the platform ends without output (hosted Windows' 0xc0000409 on this lane) still names the tests that never
+      finished; then fix what it names. Done when hosted Windows names its last test and then passes.
 
 ## 2. Verification
 

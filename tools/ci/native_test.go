@@ -324,7 +324,8 @@ func TestNativeCommandsRequireCoverageOnEveryPlatform(t *testing.T) {
 		if platform != "windows" {
 			want = append(want, "--race")
 		}
-		want = append(want, "--profile-output", filepath.Join("build", "verification", "coverage", "profile.out"))
+		evidence := filepath.Join("build", "verification", "coverage")
+		want = append(want, "--profile-output", filepath.Join(evidence, "profile.out"), "--junit-output", filepath.Join(evidence, "junit.xml"))
 		name := "go"
 		if platform == "linux" {
 			name = "dbus-run-session"
