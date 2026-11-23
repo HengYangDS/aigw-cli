@@ -16,7 +16,8 @@
       acceptance, which stopped the test binary of `84f6fa5eb` (exit status 0xc0000409), passes.
 - [ ] 1.5 Make every native acceptance run keep a JUnit report beside its coverage profile, so a test binary that
       the platform ends without output (hosted Windows' 0xc0000409 on this lane) still names the tests that never
-      finished; then fix what it names. Done when hosted Windows names its last test and then passes.
+      finished; then fix what it names: the fixture for a client's executable becomes a program (design: "A client's
+      executable in the acceptance tests is a program"). Done when hosted Windows names its last test and then passes.
 
 ## 2. Verification
 

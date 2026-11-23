@@ -64,6 +64,21 @@ cover; Hermes's write replacing a symbolic link to its file with a regular file,
 - **Chosen because:** comparing the deepest existing folder by the operating system's identity and the names below
   it by spelling makes links and case one judgement for a missing file too.
 
+### A client's executable in the acceptance tests is a program
+
+- **Rests on:** the hosted Windows Server 2025 x64 runner ended the acceptance test binary with a fail fast
+  (`0xc0000409`, no output) on three heads of this lane, while the ARM64 guest passed the package natively, with a
+  short-name temporary folder, and as an x64 binary under emulation. Under the Windows debugger on the hosted runner
+  the fail fast was raised inside `KERNEL32!BasepProcessInvalidImage`, called from `CreateProcessW`, when Codex's
+  catalog probe (`IdentifyExecutable`, `codex --version`) started the fixture that stands for Codex: a text file
+  named `codex.exe`. This Change's tests start such probes many times at once (parallel `client edit` and
+  `config rollback` runs), which the earlier suites did not.
+- **Chosen because:** the fixture stands for a client that is not there; a program that exits with status 1 and
+  writes nothing fails the probe the same way on every platform without asking the operating system to start a file
+  that is not a program. It is built once per test process, as the keychain worker already is. The product's handling
+  of an invalid image is unchanged: a real file that is not a program is the person's own, and AIGW reports the
+  probe's error.
+
 ## Risks / Trade-offs
 
 - **A target named by a hard link** is one file by the judgement, but AIGW's record of a file is kept by its name, so
