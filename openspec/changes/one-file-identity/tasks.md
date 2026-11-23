@@ -7,6 +7,13 @@
       `reconciliationInputs` and `codexTargetUnion`, and `hermesPlans` decide kept and dropped files by it. Done when
       1.1's tests pass, the existing suites pass, and no decision about a client's targets compares their paths as
       strings.
+- [x] 1.3 Make Hermes write its file through a symbolic link that names it, so that the link stays a link and its
+      target holds what AIGW writes, using the one canonical path form. Done when a test that names Hermes's file by a
+      link fails on the lane's base and passes after, with and without the Token.
+- [ ] 1.4 Answer the fresh review of `84f6fa5eb`: Codex's catalog path compared by the one judgement, and a missing
+      file whose existing folder is named in another case judged as one file; a target named by a hard link stays
+      out of scope, as the design states. Done when the review's probes for the first two pass and the hosted Windows
+      acceptance, which stopped the test binary of `84f6fa5eb` (exit status 0xc0000409), passes.
 
 ## 2. Verification
 

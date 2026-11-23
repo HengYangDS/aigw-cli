@@ -27,21 +27,25 @@ type RecordPlan struct {
 // ObserveSelection refuses it, and a choice of another model than shown as
 // an outside edit, because no configuration follows it yet.
 func PrepareRecord(path string, shown Selection) (RecordPlan, error) {
-	plan := RecordPlan{path: path + adapter.StateSuffix}
-	file, err := observe(path)
-	if err != nil || !file.changed {
+	file, err := fileOf(path, true)
+	if err != nil {
+		return RecordPlan{}, err
+	}
+	plan := RecordPlan{path: file + adapter.StateSuffix}
+	observed, err := observe(path)
+	if err != nil || !observed.changed {
 		return plan, err
 	}
-	if file.selection != shown {
+	if observed.selection != shown {
 		return plan, errExternalEdit
 	}
-	owned, err := managedBytes(file.root, file.state.ProviderIDs)
+	owned, err := managedBytes(observed.root, observed.state.ProviderIDs)
 	if err != nil {
 		return plan, err
 	}
-	file.state.ManagedDigest = platform.SHA256(owned)
-	plan.before = file.record
-	plan.after, err = adapter.EncodeJSON(file.state)
+	observed.state.ManagedDigest = platform.SHA256(owned)
+	plan.before = observed.record
+	plan.after, err = adapter.EncodeJSON(observed.state)
 	return plan, err
 }
 

@@ -22,6 +22,12 @@ treated as dropped, with or without the provider's Token.
 #### Scenario: A file that does not exist yet
 
 - **WHEN** a configured path names no existing file
-- **THEN** it SHALL name the same file as another path only when both resolve to the same path, the symbolic links of
-  the folders that exist resolved and the names of the parts that do not kept
-- **AND** a path through a linked folder and the path through its resolved folder SHALL name the same file.
+- **THEN** it SHALL name the same file as another path only when their deepest existing folders are one folder by
+  the operating system and the names below those folders are equal
+- **AND** a path through a linked folder, or through the folder named in another case on a volume that ignores case,
+  and the path through the folder itself SHALL name the same file.
+
+#### Scenario: Hermes's file is a symbolic link
+
+- **WHEN** Hermes's configuration file is a symbolic link to a file elsewhere and a command writes it
+- **THEN** the link SHALL stay a link and the file it names SHALL hold what AIGW writes.

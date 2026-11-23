@@ -107,3 +107,50 @@ func TestAMissingTargetThroughALinkedFolderIsOneFileForEveryDecision(t *testing.
 		t.Fatalf("one missing file in two spellings: Codex's union plans it once=%t (%d targets, %v), and the change drops %q", planned, len(union), err, dropped)
 	}
 }
+
+// A Codex file with AIGW's model catalog is the catalog's file in every
+// spelling that names it: through a link to its folder, and in another case on
+// a volume that ignores case. Validation accepts the catalog reference that
+// the file holds, and a change of the target's spelling, either way, is
+// planned as the same file and not refused as an outside edit. A volume that
+// keeps case leaves only the link.
+func TestACodexCatalogIsTheFilesOwnInEverySpelling(t *testing.T) {
+	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
+	path := writeCodexTestConfig(t, "approval_policy = \"on-request\"\n")
+	link := filepath.Join(t.TempDir(), "linked")
+	if err := os.Symlink(filepath.Dir(path), link); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("this account cannot create a symbolic link: %v", err)
+		}
+		t.Fatal(err)
+	}
+	spellings := map[string]string{"a link to its folder": filepath.Join(link, filepath.Base(path))}
+	cased := filepath.Join(filepath.Dir(path), "Configuration.toml")
+	if platform.SameFile(path, cased) {
+		spellings["another case"] = cased
+	}
+	executable := filepath.Join(filepath.Dir(path), "codex")
+	target := func(path string) TargetRef {
+		ref := HomeTarget(path)
+		ref.Executable = executable
+		return ref
+	}
+	selected := catalogTestRuntime("openai.gpt-5.6-sol")
+	if _, err := ReconcileConfigs(nil, []TargetRef{target(path)}, selected, selected, false); err != nil {
+		t.Fatal(err)
+	}
+	if state := readCodexSidecar(t, path); state.CatalogHash == "" {
+		t.Fatal("no catalog was projected")
+	}
+	for name, spelling := range spellings {
+		if err := ValidateConfig(spelling, selected); err != nil {
+			t.Errorf("%s: the catalog was not accepted: %v", name, err)
+		}
+		if _, err := ReconcileConfigs([]TargetRef{target(path)}, []TargetRef{target(spelling)}, selected, selected, false); err != nil {
+			t.Errorf("%s: a change of the target to this spelling was refused: %v", name, err)
+		}
+		if _, err := ReconcileConfigs([]TargetRef{target(spelling)}, []TargetRef{target(path)}, selected, selected, false); err != nil {
+			t.Errorf("%s: a change of the target back from this spelling was refused: %v", name, err)
+		}
+	}
+}

@@ -20,7 +20,9 @@ and `aigw client edit --target` of that file in another spelling succeeds or is 
 - `aigw client edit`, synchronization's choice of the clients whose files are withdrawn, Codex's reconciliation and
   Hermes's plans decide which files a command keeps and which it drops by that judgement, so a file in another
   spelling is kept, with the Token and without it.
-- What AIGW writes does not change, and a target list that names one file twice is refused as before.
+- Hermes writes its file through a symbolic link that names it, so the link stays a link (the owner's word of
+  2026-11-23 17:01); before, its atomic write replaced the link with a regular file.
+- A target list that names one file twice is refused as before.
 
 ## Capabilities
 

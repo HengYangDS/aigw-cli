@@ -88,12 +88,10 @@ func (change respelling) paths(t *testing.T, spelling fileSpelling, file string)
 }
 
 // identityClient is a client of these tests: its world, a choice of another
-// model in its first file, and the links that name that file lastingly. Codex
-// resolves a link before it writes, so a link to the file and a link to its
-// folder both name its file. Hermes writes its file by replacing it, which
-// replaces a link to the file with a file of its own; so only a link to the
-// folder still names Hermes's file after a write. Hermes has one home, so
-// the cases of a second file apply to Codex alone.
+// model in its first file, and the links that name that file. Both clients
+// write the file that a link names, so a link to the file and a link to its
+// folder each name the client's file before and after a write. Hermes has
+// one home, so the cases of a second file apply to Codex alone.
 type identityClient struct {
 	id        string
 	world     func(t *testing.T) selectionWorld
@@ -118,7 +116,7 @@ func identityClients() map[string]identityClient {
 			choose: func(t *testing.T, w selectionWorld) selectionWorld {
 				return w.choosing(t, "dmxapi", "anthropic", "claude-opus-5-5", plainScalars)
 			},
-			spellings: []fileSpelling{throughAFolderLink},
+			spellings: []fileSpelling{throughAFileLink, throughAFolderLink},
 		},
 	}
 }
@@ -233,60 +231,118 @@ func TestFileIdentityAnEditThatNamesTheFileAnotherWay(t *testing.T) {
 	})
 }
 
-// An edit names Codex's default home, which does not exist yet, through a link
-// to the folder that holds it.
+// An edit names Codex's default home, which does not exist yet, in another
+// spelling of the folder that holds it: through a link to that folder, or
+// with the folder named in another case on a volume that ignores case.
 //
 // Before: Codex is enabled on its default home, which AIGW creates when it
 // writes it, and the provider's Token is missing, so no synchronization has
 // created it. The person stores the Token, or not, and runs `aigw client edit
-// codex --target <the same file through a link to its folder>`. The file
-// does not exist, and it is the same file once it does: its canonical form,
-// with the links of the folders that exist resolved, is the home's own. So the
-// edit drops no file and ends alike with the Token and without it: it is
-// saved, and with the Token the home is created as the default home.
-func TestFileIdentityAnEditThatNamesTheMissingDefaultHomeThroughALinkedFolder(t *testing.T) {
-	type outcome struct {
-		err     error
-		stored  string
-		created bool
-	}
-	var outcomes [2]outcome
-	for index, token := range []bool{true, false} {
-		app, output, store, _, _ := testApp(t, "")
-		bindCredentialReader(t, app)
-		home := filepath.Join(t.TempDir(), "home")
-		config := filepath.Join(home, ".codex", "config.toml")
-		if err := os.MkdirAll(filepath.Dir(config), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		app.Discovery = fakeDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: config, Present: true, AutoManaged: true}}}}
-		cfg := domain.NewConfig(clients.Admission())
-		cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-		cfg.Models[domain.NewModelRef("gateway", "gpt-sol")] = qualifiedModel("gpt-sol", "gateway", "gpt-sol", domain.ProtocolResponses)
-		cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-sol"), "")
-		cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{config})
-		if err := app.Config.Save(cfg); err != nil {
-			t.Fatal(err)
-		}
-		through := filepath.Join(symlinkTo(t, home), ".codex", "config.toml")
-		if token {
-			if err := store.Set("gateway", "fixture-token"); err != nil {
+// codex --target <the same file in the other spelling>`. The file does not
+// exist, and it is the same file once it does: its folder is the home's
+// folder by the operating system, and its name is the same. So the edit drops
+// no file and ends alike with the Token and without it: it is saved, and with
+// the Token the home is created as the default home.
+func TestFileIdentityAnEditThatNamesTheMissingDefaultHomeInAnotherSpelling(t *testing.T) {
+	spellings := map[string]func(t *testing.T, home string) string{
+		"through a linked folder": func(t *testing.T, home string) string {
+			return filepath.Join(symlinkTo(t, home), ".codex", "config.toml")
+		},
+		"its folder in another case": func(t *testing.T, home string) string {
+			other := filepath.Join(home, ".CODEX")
+			if left, err := os.Stat(filepath.Join(home, ".codex")); err != nil {
 				t.Fatal(err)
+			} else if right, err := os.Stat(other); err != nil || !os.SameFile(left, right) {
+				t.Skip("this volume keeps case")
 			}
-		}
-		output.Reset()
-		err := cli.Execute(app, []string{"client", "edit", codex.ID, "--target", through, "--json"})
-		_, statErr := os.Stat(config)
-		outcomes[index] = outcome{err: err, stored: selection(t, app, codex.ID).Model.String(), created: statErr == nil}
-		if err != nil {
-			t.Errorf("token=%t: the edit that names the missing default home through a linked folder was refused: %v\n%s", token, err, output)
-		}
+			return filepath.Join(other, "config.toml")
+		},
 	}
-	if with, without := outcomes[0], outcomes[1]; (with.err == nil) != (without.err == nil) || with.stored != without.stored {
-		t.Errorf("the Token decides the edit: with it %+v, without it %+v", with, without)
+	for _, name := range slices.Sorted(mapKeys(spellings)) {
+		t.Run(name, func(t *testing.T) {
+			type outcome struct {
+				err     error
+				stored  string
+				created bool
+			}
+			var outcomes [2]outcome
+			for index, token := range []bool{true, false} {
+				app, output, store, _, _ := testApp(t, "")
+				bindCredentialReader(t, app)
+				home := filepath.Join(t.TempDir(), "home")
+				config := filepath.Join(home, ".codex", "config.toml")
+				if err := os.MkdirAll(filepath.Dir(config), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				app.Discovery = fakeDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: config, Present: true, AutoManaged: true}}}}
+				cfg := domain.NewConfig(clients.Admission())
+				cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+				cfg.Models[domain.NewModelRef("gateway", "gpt-sol")] = qualifiedModel("gpt-sol", "gateway", "gpt-sol", domain.ProtocolResponses)
+				cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-sol"), "")
+				cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{config})
+				if err := app.Config.Save(cfg); err != nil {
+					t.Fatal(err)
+				}
+				other := spellings[name](t, home)
+				if token {
+					if err := store.Set("gateway", "fixture-token"); err != nil {
+						t.Fatal(err)
+					}
+				}
+				output.Reset()
+				err := cli.Execute(app, []string{"client", "edit", codex.ID, "--target", other, "--json"})
+				_, statErr := os.Stat(config)
+				outcomes[index] = outcome{err: err, stored: selection(t, app, codex.ID).Model.String(), created: statErr == nil}
+				if err != nil {
+					t.Errorf("token=%t: the edit that names the missing default home %s was refused: %v\n%s", token, name, err, output)
+				}
+			}
+			if with, without := outcomes[0], outcomes[1]; (with.err == nil) != (without.err == nil) || with.stored != without.stored {
+				t.Errorf("the Token decides the edit: with it %+v, without it %+v", with, without)
+			}
+			if !outcomes[0].created {
+				t.Error("with the Token, the edit did not create the default home")
+			}
+		})
 	}
-	if !outcomes[0].created {
-		t.Error("with the Token, the edit did not create the default home")
+}
+
+// Hermes's file is a symbolic link to a file elsewhere, as a person who keeps
+// their Hermes configuration in another folder makes it.
+//
+// Before: config.yaml in the Hermes home links to a file of Hermes's own in
+// another folder. The person sets AIGW up for Hermes with the Token, which
+// writes the file; then the person disables Hermes in AIGW, with the Token or
+// without it, which restores the file. After each command the link is still a
+// link, and the file that it names holds what AIGW wrote, with a record that
+// names what the file selects, and after the withdrawal neither AIGW's
+// settings nor its record.
+func TestFileIdentityHermesWritesThroughALinkToItsFile(t *testing.T) {
+	for _, token := range []bool{true, false} {
+		t.Run(fmt.Sprintf("token at the withdrawal=%t", token), func(t *testing.T) {
+			named := filepath.Join(t.TempDir(), "config.yaml")
+			writeFile(t, named, []byte("model:\n  default: native-model\n  provider: openrouter\n"), 0o600)
+			target := symlinkTo(t, named)
+			app, output, _, _ := shippedHermesAppAt(t, true, target)
+			world := hermesWorld(t, app, target)
+			world.output = output
+			linked := func(after string) {
+				t.Helper()
+				if info, err := os.Lstat(target); err != nil || info.Mode()&os.ModeSymlink == 0 {
+					t.Fatalf("after %s, Hermes's file is no longer a link (%v), and the file that it named holds:\n%s", after, err, readFile(t, named))
+				}
+			}
+			linked("the setup")
+			if data := readFile(t, named); !world.keepsAIGWsPart(data) || !world.follows(t, target) {
+				t.Fatalf("the setup did not write the file that the link names with a record that follows it:\n%s", data)
+			}
+			world.setToken(t, token)
+			world.run(t, "client", "disable", hermes.ID)
+			linked("the withdrawal")
+			if data := readFile(t, named); world.keepsAIGWsPart(data) || world.recordOf(t, target) != nil {
+				t.Fatalf("the withdrawal left AIGW's settings or its record in the file that the link names:\n%s", data)
+			}
+		})
 	}
 }
 

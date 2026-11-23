@@ -48,8 +48,27 @@ cover; Hermes's write replacing a symbolic link to its file with a regular file,
 - **Chosen because:** one canonical form, moved from Codex into `internal/platform`, serves both, so a missing file
   is judged alike everywhere.
 
+### Hermes writes through a link to its file
+
+- **Rests on:** the owner's word of 2026-11-23 17:01 ("Do this task here") on the defect that Hermes's atomic write
+  (a rename over the configured path) replaces a symbolic link to its file with a regular file and leaves the link's
+  target unchanged; Codex resolves its target before it writes and does not have it.
+- **Chosen because:** with the one canonical form in `internal/platform`, Hermes writes the file that the link
+  names, so the configured path and the written file stay one file, which this Change's requirement asks for.
+
+### A missing file compares its existing folder by identity
+
+- **Rests on:** the fresh review of `84f6fa5eb`: on a volume that ignores case, a missing file in a folder named in
+  another case was two files by its canonical spelling, while the same folder is one by the operating system; the
+  refusal's reason then followed the Token.
+- **Chosen because:** comparing the deepest existing folder by the operating system's identity and the names below
+  it by spelling makes links and case one judgement for a missing file too.
+
 ## Risks / Trade-offs
 
+- **A target named by a hard link** is one file by the judgement, but AIGW's record of a file is kept by its name, so
+  such a target finds no record and is refused, with the Token and without it. Hard-linked configuration files are
+  rare; this Change does not move records to file identity.
 - **A stat per comparison:** client target lists hold one to a few files; the cost is negligible.
 - **One error message changes:** a loop of symbolic links in a target now reads `resolve symbolic links: …`, not
   `resolve Codex target symlinks: …`; the path that fails is still named first.

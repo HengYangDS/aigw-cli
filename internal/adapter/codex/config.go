@@ -260,8 +260,10 @@ func validateCodexCatalogReference(path, text string, state codexState) error {
 	if err != nil {
 		return err
 	}
-	catalogPath := codexCatalogPath(canonical)
-	if !isManagedSelection(line, "model_catalog_json", catalogPath) {
+	// The reference names AIGW's catalog when it names that file, in whichever
+	// spelling of the configuration's path the catalog was written.
+	referenced, _ := selectionValue(line, "model_catalog_json")
+	if !isManagedSelection(line, "model_catalog_json", referenced) || !platform.SameFile(referenced, codexCatalogPath(canonical)) {
 		return newConflictError("Codex config model catalog selection does not match AIGW", nil)
 	}
 	return nil

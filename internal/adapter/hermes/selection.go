@@ -92,7 +92,11 @@ func observe(path string) (observed, error) {
 	if err != nil {
 		return observed{}, err
 	}
-	record, err := adapter.CaptureTarget(path+adapter.StateSuffix, true)
+	file, err := fileOf(path, true)
+	if err != nil {
+		return observed{}, err
+	}
+	record, err := adapter.CaptureTarget(file+adapter.StateSuffix, true)
 	if err != nil || !record.Exists {
 		return observed{}, err
 	}
@@ -103,7 +107,7 @@ func observe(path string) (observed, error) {
 	if err != nil {
 		return observed{}, err
 	}
-	state, err := readOwnershipRecord(path, record.Data)
+	state, err := readOwnershipRecord(file, record.Data)
 	if err != nil {
 		return observed{}, err
 	}

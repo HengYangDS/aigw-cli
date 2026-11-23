@@ -2,12 +2,14 @@ package platform
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // onVolume makes each path in names read the identity of its real file, so a
@@ -148,12 +150,12 @@ func TestCanonicalPathRefusesAPathItCannotResolve(t *testing.T) {
 }
 
 // A path that names no existing file is the same file as another when their
-// canonical forms are equal: the links of the part of each path that exists
-// are resolved, and the names of the parts that do not exist yet are kept. So
-// a missing file through a link to its folder is the file at the resolved
-// folder, as it will be once it exists, and a missing file of another name is
-// another file.
-func TestAMissingFileIsOneFileByItsCanonicalForm(t *testing.T) {
+// deepest existing folders are one folder by the operating system and the
+// names below those folders are equal. So a missing file through a link to
+// its folder, or through its folder named in another case on a volume that
+// ignores case, is the file in the folder itself, as it will be once it
+// exists, and a missing file of another name is another file.
+func TestAMissingFileIsOneFileByItsExistingFolder(t *testing.T) {
 	root := t.TempDir()
 	folder := filepath.Join(root, "home")
 	if err := os.Mkdir(folder, 0o700); err != nil {
@@ -166,7 +168,7 @@ func TestAMissingFileIsOneFileByItsCanonicalForm(t *testing.T) {
 	}
 	through := filepath.Join(linkTo(t, folder, filepath.Join(root, "linked")), "config.toml")
 	if !SameFile(through, missing) || !SameFile(missing, through) {
-		t.Error("a missing file through a folder link was taken for another file than the one in the resolved folder")
+		t.Error("a missing file through a folder link was taken for another file than the one in the folder itself")
 	}
 	if dropped := DroppedFiles([]string{through}, []string{missing}); len(dropped) != 0 {
 		t.Errorf("a change between two spellings of a missing file drops %q", dropped)
@@ -174,5 +176,49 @@ func TestAMissingFileIsOneFileByItsCanonicalForm(t *testing.T) {
 	other := filepath.Join(folder, "other.toml")
 	if dropped := DroppedFiles([]string{through}, []string{other}); !slices.Equal(dropped, []string{through}) {
 		t.Errorf("a change to a missing file of another name drops %q", dropped)
+	}
+
+	// The folder named in another case, on a volume that ignores case and on
+	// one that keeps it.
+	lower, upper := filepath.Join(root, ".codex"), filepath.Join(root, ".Codex")
+	first, second := filepath.Join(root, "first"), filepath.Join(root, "second")
+	for _, made := range []string{first, second} {
+		if err := os.Mkdir(made, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	inLower, inUpper := filepath.Join(lower, "config.toml"), filepath.Join(upper, "config.toml")
+	onVolume(t, map[string]string{lower: first, upper: first})
+	if !SameFile(inLower, inUpper) || len(DroppedFiles([]string{inLower}, []string{inUpper})) != 0 {
+		t.Error("on a volume that ignores case, a missing file in its folder named in another case was taken for another file")
+	}
+	onVolume(t, map[string]string{lower: first, upper: second})
+	if SameFile(inLower, inUpper) {
+		t.Error("on a volume that keeps case, missing files in two folders were taken for one file")
+	}
+}
+
+// A path whose links do not resolve up to its root, as on a share that does
+// not answer, ends at the root with a classified failure at the path as
+// given, and never climbs past the root.
+func TestCanonicalPathEndsAtTheRoot(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing", "config.toml")
+	original := resolveLinks
+	t.Cleanup(func() { resolveLinks = original })
+	resolveLinks = func(path string) (string, error) {
+		return "", &fs.PathError{Op: "lstat", Path: path, Err: fs.ErrNotExist}
+	}
+	ended := make(chan error, 1)
+	go func() {
+		_, err := CanonicalPath(path)
+		ended <- err
+	}()
+	select {
+	case err := <-ended:
+		if failure, classified := errors.AsType[*PathConditionError](err); !classified || !failure.Absent() || failure.Path != path {
+			t.Errorf("a path whose root does not resolve = %v; want it classified as missing at %s", err, path)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("CanonicalPath did not end within 5 s for a path whose root does not resolve")
 	}
 }
