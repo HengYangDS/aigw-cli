@@ -165,7 +165,9 @@ change of selection.
 ### Requirement: A Token that its store cannot observe makes its clients wait
 
 Every command SHALL judge a provider's Token as usable, absent, or not observable, in one place. A Token that cannot
-be observed SHALL count as an absent one for each client that uses it, and SHALL NOT refuse the command.
+be observed SHALL count as an absent one for each client that uses it: a command SHALL end as it ends when that Token
+is absent, so a command that changes several clients SHALL NOT be refused for it, and the result SHALL name the
+store's failure and the fix that the failure names for itself.
 
 #### Scenario: Another provider's Token file is refused
 
@@ -183,3 +185,10 @@ be observed SHALL count as an absent one for each client that uses it, and SHALL
 - **THEN** the client SHALL wait for its Token as it does when the Token is absent, the other clients SHALL be
   synchronized, and the result SHALL name the store's failure and its fix
 - **AND** the command SHALL end as it ends when that Token is absent.
+
+#### Scenario: A client waits for its Token
+
+- **GIVEN** a selected client's provider has no Token that AIGW can use, absent or not observable
+- **WHEN** `aigw sync` runs
+- **THEN** the result SHALL say that the client's files wait for its Token and SHALL NOT say that the client
+  configuration is aligned.

@@ -135,7 +135,7 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 	facts.CredentialAvailable = available
 	if observationErr != nil {
 		facts.CredentialObservationIssue = "Credential metadata is unavailable"
-		if secret.NamesTokenFolder(observationErr) {
+		if secret.NamesItsFix(observationErr) {
 			cause, fix := secret.ObservationFailure(observationErr, platform.PathContext{Home: home, Check: true})
 			facts.CredentialObservationIssue, facts.CredentialObservationAction = cause, fix
 		}

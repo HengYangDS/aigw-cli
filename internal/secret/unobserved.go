@@ -38,16 +38,22 @@ func tokenFileFailure(err error) error {
 	return tokenFileError{err: err}
 }
 
-// NamesTokenFolder reports a failure that ObservationFailure tells by a path
-// of AIGW's Token store: a file in the way of the Token folder or a link that
-// leads nowhere, or a permission error that the operating system gave at an
-// absolute path of the folder or of a Token file in it.
-func NamesTokenFolder(err error) bool {
+// NamesItsFix reports a failure for which ObservationFailure names a fix of
+// its own, by a path of AIGW's Token store: a file in the way of the Token
+// folder or a link that leads nowhere, a permission error that the operating
+// system gave at an absolute path of the folder or of a Token file in it, or a
+// Token file or folder whose type or mode the file store refuses. Any other
+// failure is the backend's, whose fix is BackendUnavailableFix.
+func NamesItsFix(err error) bool {
 	if _, blocked := platform.BlockedPath(err); blocked {
 		return true
 	}
-	_, denied := deniedFolder(err)
-	return denied
+	if _, denied := deniedFolder(err); denied {
+		return true
+	}
+	_, file := errors.AsType[unsafeTokenFileError](err)
+	_, directory := errors.AsType[unsafeTokenDirectoryError](err)
+	return file || directory
 }
 
 // deniedFolder classifies a permission error at an absolute path, which a

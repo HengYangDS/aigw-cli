@@ -360,3 +360,42 @@ func TestAnEditThatDropsTheHermesFileWithdrawsWithoutTheToken(t *testing.T) {
 		})
 	}
 }
+
+// `aigw sync` says that the client configuration is aligned only when no
+// selected client waits for its Token: an absent Token and one that the store
+// cannot observe end alike, and neither is aligned (the fresh review of
+// 034296053, its first finding).
+func TestSyncIsAlignedOnlyWhileNoClientWaitsForItsToken(t *testing.T) {
+	for _, state := range tokenStates {
+		t.Run(state, func(t *testing.T) {
+			w := codexWorld(t, 1)
+			holdToken(t, &w, state)
+			run := runIn(t, w, "sync")
+			if run.err != nil {
+				t.Fatalf("sync = %v\n%s", run.err, run.output)
+			}
+			aligned := strings.Contains(run.output, "Client configuration is aligned")
+			waits := strings.Contains(run.output, "files wait for its Token")
+			if aligned == (state != "usable") || waits == (state == "usable") {
+				t.Fatalf("Token %s: aligned %t, waits %t\n%s", state, aligned, waits, run.output)
+			}
+		})
+	}
+}
+
+// A Token file that the file store refuses for its mode names that file and
+// its mode as the next step of `aigw sync` and of `aigw check --depth local`,
+// never unlocking a store (the fresh review of 034296053, its second finding).
+func TestARefusedTokenFileNamesItsOwnFix(t *testing.T) {
+	kind := unobservableStores()[0]
+	for _, args := range [][]string{{"sync"}, {"check", "codex", "--depth", "local"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			w := codexWorld(t, 1)
+			kind.hold(t, w, []string{"gateway", "spare"}, []string{"gateway"})
+			run := runIn(t, w, args...)
+			if !strings.Contains(run.output, "Make gateway in AIGW's Token directory") || strings.Contains(run.output, "unlocking") {
+				t.Fatalf("%v names no fix of the refused Token file, or tells to unlock the store:\n%s", args, run.output)
+			}
+		})
+	}
+}

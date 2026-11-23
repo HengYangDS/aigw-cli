@@ -83,9 +83,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			// such as moving a file out of the way of the Token folder, or else
 			// the local check, which inspects the store.
 			unobserved, unobservedCause := activation.UnobservedCredential(), "AIGW cannot tell whether its provider has a Token"
-			if secret.NamesTokenFolder(unobserved) {
+			if secret.NamesItsFix(unobserved) {
 				unobservedCause, result.next = secret.ObservationFailure(unobserved, platform.PathContext{Home: invocation.Home(runtime.Dependencies)})
 			}
+			// A client waits for its Token whether the store says that the
+			// Token is absent or cannot tell: both end alike, and neither is
+			// aligned.
+			waiting := unobserved != nil || len(activation.ClientCredentialPrerequisites) > 0
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
 			for _, client := range runtime.Clients.Admission().IDs() {
@@ -123,6 +127,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			case unobserved != nil:
 				outcome = append(outcome, terminal.Field{State: terminal.Warn, Label: "Client activation", Value: "A selected client's files wait for its Token",
 					Details: []string{unobservedCause}})
+			case waiting:
+				outcome = append(outcome, terminal.Field{State: terminal.Warn, Label: "Client activation", Value: "A selected client's files wait for its Token"})
 			}
 			if len(outcome) > 0 && dryRun {
 				r.Section("Activation")
@@ -131,7 +137,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			switch {
 			case dryRun:
 				r.Success("Preview did not write configuration, state files, authentication, or conversations")
-			case result.EnabledClients != 0 && activation.State != domainreadiness.Deferred && unobserved == nil:
+			case result.EnabledClients != 0 && activation.State != domainreadiness.Deferred && !waiting:
 				r.Success("Client configuration is aligned; authentication was unchanged")
 			}
 			r.Next(result.next)

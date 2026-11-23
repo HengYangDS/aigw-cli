@@ -34,6 +34,22 @@ failure, which stays in `internal/secret`; the file-identity judgement, which is
 - **Chosen because:** the edit then ends the same way with the Token and without it, and nothing is left in a
   dropped file.
 
+### The fresh review of `034296053`
+
+- **Rests on:** its findings: `aigw sync` said "aligned" while a client waited for an absent Token, though not for
+  one that could not be observed; a Token file refused for its mode was given the fix "unlock the store", because the
+  callers asked `NamesTokenFolder` before `ObservationFailure`, whose own fix for that file they never reached; the
+  model catalog judged a Token itself (`Exists` and `Get`), so an empty Token file was a backend failure there and
+  an absent Token everywhere else.
+- **Chosen because:** "aligned" now requires that no selected client waits, by either answer; the predicate is
+  `NamesItsFix`, true for every failure that `ObservationFailure` gives its own fix, refused files included; the
+  catalog asks `ObserveToken` and reads a Token's value only when it is usable. Each has a test that fails on
+  `034296053`.
+- **Left as it is:** `aigw use`, `aigw client enable` and guided setup still refuse, for one client, a Token that cannot
+  be observed, as they refuse an absent one; the requirement now says that a command ends as it does for an absent
+  Token, which these do. When an edit drops the file that holds a model chosen in the client and the Token is not
+  usable, the chosen model is recorded and the kept file is written for it once the Token is there.
+
 ## Risks / Trade-offs
 
 - **`one-file-identity` touches `admitTargets` too:** it lands first, and this lane merges `dev` before it archives.
