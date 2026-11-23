@@ -345,8 +345,9 @@ Claude Desktop and SHALL survive AIGW projections.
 ### Requirement: An outside edit to managed client settings has one recovery action
 
 When AIGW refuses because AIGW-managed settings of any client were changed
-outside AIGW, every surface that reports the refusal, including errors, `check`
-and `status`,
+outside AIGW, other than a client's own model selection, which
+`client-chosen-model` owns, every surface that reports the refusal, including
+errors, `check` and `status`,
 SHALL give the same next action: undo the outside edit, then run `aigw sync`,
 or, before a configuration exists, the refused `aigw setup` again. AIGW SHALL
 NOT advise a command that refuses on the same state, overwrite the edit, or
@@ -516,9 +517,9 @@ comments alone do not grant authority.
 
 - **WHEN** the root provider or model value no longer matches the attributed
   AIGW projection
-- **THEN** `aigw sync`, unless it adopts a model-only change that
-  `model-selection` admits, SHALL reject the conflict before writing
-  configuration, sidecar, catalog, or credential state
+- **THEN** a command that writes Codex's files, unless it follows a model-only
+  change that `client-chosen-model` admits, SHALL reject the conflict before
+  writing configuration, sidecar, catalog, or credential state
 - **AND** `aigw check --depth client` MAY replace the values only in its
   private copy
 - **AND** an explicit `aigw use` MAY replace the root values only after the
