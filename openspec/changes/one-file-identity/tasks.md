@@ -18,7 +18,7 @@
 ## 2. Verification
 
 - [x] 2.1 Compile and vet the changed packages and their tests for Windows and Linux on the lane head.
-- [ ] 2.2 A fresh review of the lane's whole change, by a reviewer who has not seen it, against this Change's
+- [x] 2.2 A fresh review of the lane's whole change, by a reviewer who has not seen it, against this Change's
       requirement and the twelfth review's two findings. Done when its findings are answered in code or in this design.
 - [ ] 2.3 Pass `mise run check` on the lane head.
 - [ ] 2.4 Pass the proposal's hosted checks on both forges.
