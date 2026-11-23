@@ -161,6 +161,15 @@ func (w selectionWorld) naming(t *testing.T, targets ...string) {
 	}
 }
 
+// diag reports a step with the process's goroutines and heap, for one hosted
+// Windows run that ends this binary without output (temporary).
+func diag(t *testing.T, step string) {
+	t.Helper()
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	t.Logf("diag %s: goroutines %d, sys %d MiB, heap %d MiB", step, runtime.NumGoroutine(), stats.Sys>>20, stats.HeapAlloc>>20)
+}
+
 // identityTwins runs a command in two worlds that prepare builds with every
 // Token: the first keeps them, and the second runs without the Token of the
 // stored selection's provider. Each run is checked by the one sentence
@@ -173,18 +182,18 @@ func identityTwins(t *testing.T, prepare func(t *testing.T) (selectionWorld, sel
 	var command selectionCommand
 	account := ""
 	for index, token := range []bool{true, false} {
-		t.Logf("diag token=%t: preparing", token)
+		diag(t, "preparing")
 		var world selectionWorld
 		world, command = prepare(t)
-		t.Logf("diag token=%t: prepared", token)
+		diag(t, "prepared")
 		world.setToken(t, token)
 		run := selectionRun{before: world.snapshot(t)}
-		t.Logf("diag token=%t: snapshot", token)
+		diag(t, "snapshot")
 		world.output.Reset()
 		run.err = cli.Execute(world.app, command.args)
-		t.Logf("diag token=%t: executed", token)
+		diag(t, "executed")
 		run.after = world.holds(t, run.before, command, run.err)
-		t.Logf("diag token=%t: holds", token)
+		diag(t, "holds")
 		if run.err != nil {
 			t.Errorf("token=%t: %s was refused: %v", token, command.name, run.err)
 		} else {
