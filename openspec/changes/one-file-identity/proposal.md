@@ -15,8 +15,8 @@ and `aigw client edit --target` of that file in another spelling succeeds or is 
 
 - One judgement of whether two configured paths name one client file, owned in one place and used by every caller:
   paths that both exist are one file when the operating system reports one file, which covers a symbolic link and a
-  volume that ignores case; otherwise they are one file when their cleaned spellings are equal. This is the rule that
-  Codex's projection applies today.
+  volume that ignores case; otherwise they are one file when they resolve to the same path, the form Codex already
+  resolves its targets to.
 - `aigw client edit`, synchronization's choice of the clients whose files are withdrawn, Codex's reconciliation and
   Hermes's plans decide which files a command keeps and which it drops by that judgement, so a file in another
   spelling is kept, with the Token and without it.
@@ -30,10 +30,11 @@ None.
 
 ### Modified Capabilities
 
-- `client-chosen-model`: one requirement is added, that a client's file is one file however its path is spelled.
+- `client-chosen-model`: one requirement is added, that a file of Codex or Hermes is one file however its path is
+  spelled. Claude Desktop, whose target is a library folder, is not covered.
 
 ## Impact
 
 `internal/platform` (the judgement's one owner), `internal/cli/client`, `internal/app/synchronization`,
-`internal/adapter/codex`, `internal/adapter/hermes` and their tests. No configuration, schema or report field changes;
-not a breaking change.
+`internal/adapter/codex`, `internal/adapter/hermes`, `internal/adapter/discovery` and their tests. No configuration,
+schema or report field changes; not a breaking change. One error message's wording changes (a loop of symbolic links).

@@ -140,7 +140,7 @@ func readSelection(path string) (observation, selectionRecord, error) {
 	if err != nil || !record.file.Exists {
 		return observation{}, selectionRecord{}, err
 	}
-	canonical, err := canonicalCodexTargetPath(path)
+	canonical, err := platform.CanonicalPath(path)
 	if err != nil {
 		return observation{}, selectionRecord{}, nil
 	}

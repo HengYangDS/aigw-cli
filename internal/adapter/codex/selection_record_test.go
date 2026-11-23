@@ -119,7 +119,7 @@ func TestTheRecordOfACodexChoiceMovesAlone(t *testing.T) {
 	if err != nil || len(plans) != 1 {
 		t.Fatalf("plans = %+v, %v; want one, for the file that shows the choice", plans, err)
 	}
-	if plan := plans[0]; plan.Action != adapter.ActionRecord || !sameTargetFile(plan.Target, targets[0]) || len(plan.Effects) != 1 || !sameTargetFile(plan.Effects[0], record) || !plan.ChangesState {
+	if plan := plans[0]; plan.Action != adapter.ActionRecord || !platform.SameFile(plan.Target, targets[0]) || len(plan.Effects) != 1 || !platform.SameFile(plan.Effects[0], record) || !plan.ChangesState {
 		t.Fatalf("the record's plan is %+v; the record is %s", plan, record)
 	}
 	if rewritten := before.rewritten(readOwnedFiles(t, targets)); len(rewritten) != 0 {

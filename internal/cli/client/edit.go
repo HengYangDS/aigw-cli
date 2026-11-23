@@ -338,7 +338,7 @@ func admitTargets(runtime invocation.Context, cfg domain.Config, spec domain.Cli
 	if len(targets) == 0 || !cfg.Clients[spec.ID].Enabled {
 		return nil
 	}
-	if !slices.ContainsFunc(cfg.Clients[spec.ID].Targets, func(target string) bool { return !slices.Contains(targets, target) }) {
+	if len(platform.DroppedFiles(cfg.Clients[spec.ID].Targets, targets)) == 0 {
 		return nil
 	}
 	selected, err := cfg.ResolveRuntime(spec.ID, domain.ModelRef{})

@@ -211,7 +211,7 @@ func validateCodexCatalog(path, text string, state codexState) error {
 	// is the identity the projection transaction resolves targets to. Validation
 	// resolves the caller's path the same way, so a symlinked configuration
 	// directory does not read as a mismatch.
-	canonical, err := canonicalCodexTargetPath(path)
+	canonical, err := platform.CanonicalPath(path)
 	if err != nil {
 		return err
 	}
@@ -256,7 +256,7 @@ func validateCodexCatalogReference(path, text string, state codexState) error {
 		}
 		return nil
 	}
-	canonical, err := canonicalCodexTargetPath(path)
+	canonical, err := platform.CanonicalPath(path)
 	if err != nil {
 		return err
 	}

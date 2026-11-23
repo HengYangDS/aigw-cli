@@ -1,11 +1,11 @@
 ## ADDED Requirements
 
-### Requirement: A client's file is one file however its path is spelled
+### Requirement: A file of Codex or Hermes is one file however its path is spelled
 
-Every decision of a command about which of a client's configuration files it keeps, drops or adds SHALL compare files
-by one judgement: two configured paths that both exist SHALL name one file when the operating system reports one
-file, and otherwise when their cleaned spellings are equal. A file kept in another spelling SHALL NOT be treated as
-dropped, with or without the provider's Token.
+Every decision of a command about which of Codex's or Hermes's configuration files it keeps, drops or adds SHALL
+compare files by one judgement: two configured paths that both exist SHALL name one file when the operating system
+reports one file, and otherwise when they resolve to the same path. A file kept in another spelling SHALL NOT be
+treated as dropped, with or without the provider's Token.
 
 #### Scenario: A rollback meets the file in another spelling
 
@@ -22,4 +22,6 @@ dropped, with or without the provider's Token.
 #### Scenario: A file that does not exist yet
 
 - **WHEN** a configured path names no existing file
-- **THEN** it SHALL name the same file as another path only when their cleaned spellings are equal.
+- **THEN** it SHALL name the same file as another path only when both resolve to the same path, the symbolic links of
+  the folders that exist resolved and the names of the parts that do not kept
+- **AND** a path through a linked folder and the path through its resolved folder SHALL name the same file.

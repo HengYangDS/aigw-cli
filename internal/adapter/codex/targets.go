@@ -27,7 +27,7 @@ func codexTargetUnion(before, after []TargetRef) ([]codexReconciliationTarget, e
 	// each is spelled, so one file is never both restored and projected.
 	merge := func(target TargetRef, desired bool) {
 		for index, existing := range union {
-			if existing.ref.Path == target.Path || sameTargetFile(existing.ref.configured, target.configured) {
+			if platform.SameFile(existing.ref.configured, target.configured) {
 				union[index] = codexReconciliationTarget{ref: target, desired: desired}
 				return
 			}
@@ -61,11 +61,11 @@ func normalizeCodexTargets(values []TargetRef, desired bool) ([]TargetRef, error
 		if err != nil {
 			return nil, &adapter.TargetError{Path: target.Path, Desired: desired, Err: err}
 		}
-		path, err := canonicalCodexTargetPath(sourcePath)
+		path, err := platform.CanonicalPath(sourcePath)
 		if err != nil {
 			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: ownedTarget(err, target)}
 		}
-		if slices.ContainsFunc(normalized, func(kept TargetRef) bool { return kept.Path == path || sameTargetFile(kept.configured, sourcePath) }) {
+		if slices.ContainsFunc(normalized, func(kept TargetRef) bool { return platform.SameFile(kept.configured, sourcePath) }) {
 			// A configuration from before sync converged one file's names, which
 			// the change drops, has nothing to plan twice.
 			if !desired {
@@ -73,7 +73,7 @@ func normalizeCodexTargets(values []TargetRef, desired bool) ([]TargetRef, error
 			}
 			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: duplicateTargetError{}}
 		}
-		folder, err := canonicalCodexTargetPath(filepath.Dir(sourcePath))
+		folder, err := platform.CanonicalPath(filepath.Dir(sourcePath))
 		if err != nil {
 			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: ownedTarget(err, target)}
 		}
@@ -109,58 +109,6 @@ func (duplicateTargetError) NextAction() string {
 	return "aigw client edit codex --target <file>, naming each Codex configuration file once"
 }
 
-// statTarget reads the identity that sameTargetFile compares. A test replaces
-// it to stand for a volume that keeps or ignores case.
-var statTarget = os.Stat
-
-// sameTargetFile reports whether two configured paths name one file. Paths
-// that both exist are one file only when the operating system says so, which
-// covers a volume that ignores case and a symbolic link, never a guess from
-// the platform. Otherwise they are one file only when their cleaned spellings
-// are equal, which makes / and \ alike on Windows and folds no case.
-func sameTargetFile(left, right string) bool {
-	if filepath.Clean(left) == filepath.Clean(right) {
-		return true
-	}
-	leftInfo, leftErr := statTarget(left)
-	rightInfo, rightErr := statTarget(right)
-	return leftErr == nil && rightErr == nil && os.SameFile(leftInfo, rightInfo)
-}
-
-// canonicalCodexTargetPath resolves path's symbolic links, keeping the names of
-// the parts that do not exist yet. A file in the way or a link that leads
-// nowhere refuses it, classified at path, the target as given: AIGW neither
-// walks past nor creates a folder through either one.
-func canonicalCodexTargetPath(path string) (string, error) {
-	absolute, err := absoluteCodexTargetPath(path)
-	if err != nil {
-		return "", err
-	}
-	missing := []string{}
-	for {
-		resolved, err := filepath.EvalSymlinks(absolute)
-		if err == nil {
-			for _, segment := range slices.Backward(missing) {
-				resolved = filepath.Join(resolved, segment)
-			}
-			return filepath.Clean(resolved), nil
-		}
-		// A path through a regular file resolves to nothing, and on Windows it
-		// reads as a missing path; the file system tells it from a missing one.
-		failure := platform.ClassifyPath(absolute, platform.FileExpected, err)
-		switch {
-		case failure.Blocked():
-			blocked := *failure
-			blocked.Path = path
-			return "", &blocked
-		case !failure.Absent():
-			return "", fmt.Errorf("resolve Codex target symlinks: %w", err)
-		}
-		missing = append(missing, filepath.Base(absolute))
-		absolute = filepath.Dir(absolute)
-	}
-}
-
 func absoluteCodexTargetPath(path string) (string, error) {
 	absolute, err := filepath.Abs(filepath.Clean(path))
 	if err != nil {
@@ -179,7 +127,7 @@ func codexRecordPath(path string) string {
 	if err != nil {
 		return codexStatePath(path)
 	}
-	canonicalPath, err := canonicalCodexTargetPath(sourcePath)
+	canonicalPath, err := platform.CanonicalPath(sourcePath)
 	if err != nil {
 		return codexStatePath(sourcePath)
 	}
