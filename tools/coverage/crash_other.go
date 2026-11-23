@@ -8,5 +8,6 @@ import "io"
 // (temporary).
 func prepareCrashDumps(string, io.Writer) {}
 
-// showCrashRecords has no crash log to read outside Windows (temporary).
-func showCrashRecords(string, io.Writer) {}
+// showCrashRecords has no crash log or debugger to use outside Windows
+// (temporary).
+func showCrashRecords(string, []string, io.Writer) {}
