@@ -1,0 +1,17 @@
+## 1. The judgement
+
+- [ ] 1.1 Write the failing tests: the twelfth review's findings 1 and 4 for Codex and for Hermes, each with the
+      Token and without it, from its probes `zz12_review_targets_test.go`, `zz12_review_respelled_after_test.go` and
+      `zz12_review_withdrawn_test.go`. Done when each fails on the lane's base for the reason the review gives.
+- [ ] 1.2 Give the judgement one owner in `internal/platform` and make `admitTargets`, `withdrawnClients`, Codex's
+      `reconciliationInputs` and `codexTargetUnion`, and `hermesPlans` decide kept and dropped files by it. Done when
+      1.1's tests pass, the existing suites pass, and no decision about a client's targets compares their paths as
+      strings.
+
+## 2. Verification
+
+- [ ] 2.1 Compile and vet the changed packages and their tests for Windows and Linux on the lane head.
+- [ ] 2.2 A fresh review of the lane's whole change, by a reviewer who has not seen it, against this Change's
+      requirement and the twelfth review's two findings. Done when its findings are answered in code or in this design.
+- [ ] 2.3 Pass `mise run check` on the lane head.
+- [ ] 2.4 Pass the proposal's hosted checks on both forges.
