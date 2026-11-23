@@ -316,12 +316,15 @@ func supportedNativePlatform(platform string) bool {
 }
 
 func nativeCommands(platform string) []command {
-	profile := filepath.Join("build", "verification", "coverage", "profile.out")
+	evidence := filepath.Join("build", "verification", "coverage")
 	tests := command{Name: "go", Args: []string{"run", "./tools/coverage", "--tags=native_resource_acceptance"}}
 	if platform != "windows" {
 		tests.Args = append(tests.Args, "--race")
 	}
-	tests.Args = append(tests.Args, "--profile-output", profile)
+	// The JUnit report names each test that never finished ("No result"), so a
+	// test binary that the platform ends without output still shows where it
+	// stopped; the workflow retains the folder whatever the outcome.
+	tests.Args = append(tests.Args, "--profile-output", filepath.Join(evidence, "profile.out"), "--junit-output", filepath.Join(evidence, "junit.xml"))
 	if platform == "linux" {
 		tests.Name = "dbus-run-session"
 		tests.Args = append([]string{"--", "env", "AIGW_VERIFY_LOCKED_SECRET_SERVICE=1", "AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host", "go"}, tests.Args...)

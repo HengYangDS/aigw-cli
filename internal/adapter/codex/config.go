@@ -211,7 +211,7 @@ func validateCodexCatalog(path, text string, state codexState) error {
 	// is the identity the projection transaction resolves targets to. Validation
 	// resolves the caller's path the same way, so a symlinked configuration
 	// directory does not read as a mismatch.
-	canonical, err := canonicalCodexTargetPath(path)
+	canonical, err := platform.CanonicalPath(path)
 	if err != nil {
 		return err
 	}
@@ -256,12 +256,14 @@ func validateCodexCatalogReference(path, text string, state codexState) error {
 		}
 		return nil
 	}
-	canonical, err := canonicalCodexTargetPath(path)
+	canonical, err := platform.CanonicalPath(path)
 	if err != nil {
 		return err
 	}
-	catalogPath := codexCatalogPath(canonical)
-	if !isManagedSelection(line, "model_catalog_json", catalogPath) {
+	// The reference names AIGW's catalog when it names that file, in whichever
+	// spelling of the configuration's path the catalog was written.
+	referenced, _ := selectionValue(line, "model_catalog_json")
+	if !isManagedSelection(line, "model_catalog_json", referenced) || !platform.SameFile(referenced, codexCatalogPath(canonical)) {
 		return newConflictError("Codex config model catalog selection does not match AIGW", nil)
 	}
 	return nil

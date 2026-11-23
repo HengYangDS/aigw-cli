@@ -5,6 +5,7 @@ import (
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 )
 
 // recordsAlone names, in admission order, the clients of which a transition from
@@ -106,8 +107,7 @@ func (s Synchronizer) withdrawnClients(before, after domain.Config, clientIDs, r
 		if slices.Contains(ready, client) || !after.Clients[client].Enabled {
 			continue
 		}
-		kept := after.Clients[client].Targets
-		if !slices.ContainsFunc(before.Clients[client].Targets, func(target string) bool { return !slices.Contains(kept, target) }) {
+		if len(platform.DroppedFiles(before.Clients[client].Targets, after.Clients[client].Targets)) == 0 {
 			continue
 		}
 		withdrawn = append(withdrawn, client)

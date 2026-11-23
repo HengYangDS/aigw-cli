@@ -76,7 +76,7 @@ func rebaseCopiedCodexCatalog(source, target string, config, attribution platfor
 	if state.CatalogHash == "" {
 		return rebaseUserCatalogReference(source, config)
 	}
-	canonical, err := canonicalCodexTargetPath(target)
+	canonical, err := platform.CanonicalPath(target)
 	if err != nil {
 		return config, err
 	}

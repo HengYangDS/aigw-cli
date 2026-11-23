@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -283,14 +285,44 @@ func synchronizeClaudeProjection(t *testing.T, app *cli.App, cfg domain.Config) 
 	}
 }
 
+// executableFixture is a client's executable for one test: a program that
+// exits at once with status 1 and writes nothing, so a probe of it fails as it
+// does for a client that is not there. A file that is not a program makes the
+// operating system refuse it as an invalid image, a path on which hosted
+// Windows Server 2025 ended the test binary with a fail fast (0xc0000409).
 func executableFixture(t *testing.T, name string) string {
 	t.Helper()
+	program, err := silentProgram()
+	if err != nil {
+		t.Fatal(err)
+	}
 	path := filepath.Join(t.TempDir(), executableName(name))
-	if err := os.WriteFile(path, []byte("native client fixture"), 0o755); err != nil {
+	if err := os.WriteFile(path, program, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	return path
 }
+
+// silentProgram builds, once for the tests of one process, a program that
+// exits with status 1 and returns its bytes.
+var silentProgram = sync.OnceValues(func() ([]byte, error) {
+	folder, err := os.MkdirTemp("", "aigw-silent-client-")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.RemoveAll(folder) }()
+	source := filepath.Join(folder, "client.go")
+	if err := os.WriteFile(source, []byte("package main\n\nimport \"os\"\n\nfunc main() { os.Exit(1) }\n"), 0o600); err != nil {
+		return nil, err
+	}
+	program := filepath.Join(folder, executableName("client"))
+	build := exec.Command("go", "build", "-o", program, source)
+	build.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOWORK=off", "GOPROXY=off", "CGO_ENABLED=0")
+	if output, err := build.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("build the silent client: %w\n%s", err, output)
+	}
+	return os.ReadFile(program)
+})
 
 // wantNext reports whether a document's next step is want: a command that a
 // script can run as it stands is next_action, and anything else next_detail.

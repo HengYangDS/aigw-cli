@@ -7,35 +7,42 @@ import (
 	"testing"
 )
 
-func TestResolveSurfacePathHandlesMissingAndSymbolicPaths(t *testing.T) {
+// A surface owns its configuration file in every spelling that names the
+// file: through a link to it, and, before the file exists, through a link to
+// its folder. Another file, and an empty path, are not the surface's.
+func TestASurfaceOwnsItsFileInEverySpelling(t *testing.T) {
 	dir := t.TempDir()
-	missing := filepath.Join(dir, "missing", "configuration.toml")
-	wantMissing, err := filepath.Abs(missing)
-	if err != nil {
+	home := filepath.Join(dir, "home")
+	if err := os.Mkdir(home, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if got := resolveSurfacePath(missing); got != wantMissing {
-		t.Fatalf("resolveSurfacePath(missing) = %q, want %q", got, wantMissing)
-	}
-
-	target := filepath.Join(dir, "target.toml")
+	missing := Result{Surfaces: []Surface{{ID: "missing", ConfigPath: filepath.Join(home, "missing.toml")}}}
+	linkedHome := filepath.Join(dir, "linked")
+	target := filepath.Join(home, "target.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	link := filepath.Join(dir, "linked.toml")
+	if err := os.Symlink(home, linkedHome); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("this account cannot create a symbolic link: %v", err)
+		}
+		t.Fatal(err)
+	}
 	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)
 	}
-	resolvedTarget, err := filepath.EvalSymlinks(target)
-	if err != nil {
-		t.Fatal(err)
+	if surface, ok := missing.SurfaceForConfigPath(filepath.Join(linkedHome, "missing.toml")); !ok || surface.ID != "missing" {
+		t.Fatalf("a missing file through a link to its folder = %#v, %t", surface, ok)
 	}
-	wantTarget, err := filepath.Abs(resolvedTarget)
-	if err != nil {
-		t.Fatal(err)
+	existing := Result{Surfaces: []Surface{{ID: "target", ConfigPath: target}}}
+	if surface, ok := existing.SurfaceForConfigPath(link); !ok || surface.ID != "target" {
+		t.Fatalf("a link to the file = %#v, %t", surface, ok)
 	}
-	if got := resolveSurfacePath(link); got != wantTarget {
-		t.Fatalf("resolveSurfacePath(link) = %q, want %q", got, wantTarget)
+	for _, other := range []string{filepath.Join(home, "other.toml"), ""} {
+		if surface, ok := existing.SurfaceForConfigPath(other); ok {
+			t.Fatalf("%q was taken for the surface's file: %#v", other, surface)
+		}
 	}
 }
 

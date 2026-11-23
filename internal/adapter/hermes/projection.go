@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 
@@ -123,13 +124,16 @@ type ownership struct {
 // explicit marks a selection that the operator named: it replaces whatever
 // model the file selects, but not an edited address or mode.
 func PrepareTransition(path string, desired *Desired, shown *Selection, explicit bool) (Plan, error) {
-	plan := Plan{path: path, Action: "unchanged"}
-	var err error
+	file, err := fileOf(path, desired != nil)
+	if err != nil {
+		return Plan{}, err
+	}
+	plan := Plan{path: file, Action: "unchanged"}
 	plan.configBefore, err = adapter.CaptureTarget(path, desired != nil)
 	if err != nil {
 		return Plan{}, err
 	}
-	plan.stateBefore, err = adapter.CaptureTarget(path+adapter.StateSuffix, desired != nil)
+	plan.stateBefore, err = adapter.CaptureTarget(file+adapter.StateSuffix, desired != nil)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -312,6 +316,24 @@ func (desired Desired) providerIDs() []string {
 		ids = append(ids, provider.ID)
 	}
 	return ids
+}
+
+// fileOf is the file that Hermes's configuration path names, which AIGW
+// writes and beside which it keeps its record: path itself, or, when path is
+// a symbolic link, the file that the link leads to, in the one canonical form
+// (platform.CanonicalPath). A write replaces its file by a rename, which would
+// replace the link itself and leave the file that it names as it was. A link
+// that leads nowhere is refused, classified at path; kept says whether the
+// configuration after the change keeps the file.
+func fileOf(path string, kept bool) (string, error) {
+	if info, err := os.Lstat(path); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		return path, nil
+	}
+	file, err := platform.CanonicalPath(path)
+	if err != nil {
+		return "", &adapter.TargetError{Path: path, Desired: kept, Err: err}
+	}
+	return file, nil
 }
 
 // Apply commits the prepared projection while protecting newer edits.

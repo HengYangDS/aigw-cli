@@ -238,7 +238,7 @@ func convergedTargets(discovered discovery.Result, current []string) []string {
 	targets := make([]string, 0, len(current)+len(discovered.Surfaces))
 	// A path that names a file already listed adds nothing.
 	appendTarget := func(path string) {
-		if path != "" && !slices.ContainsFunc(targets, func(kept string) bool { return sameTargetFile(kept, path) }) {
+		if path != "" && !slices.ContainsFunc(targets, func(kept string) bool { return platform.SameFile(kept, path) }) {
 			targets = append(targets, path)
 		}
 	}
@@ -267,24 +267,20 @@ func reconciliationInputs(deps adapter.Dependencies, before, after domain.Config
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
-	beforeRefs, err := targetRefs(discovered, beforeBinding.Targets, bindingExecutable(discovered, beforeBinding))
-	if err != nil {
-		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
-	}
-	afterRefs, err := targetRefs(discovered, afterBinding.Targets, bindingExecutable(discovered, afterBinding))
-	if err != nil {
-		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
-	}
+	beforeTargets, afterTargets := beforeBinding.Targets, afterBinding.Targets
 	// A withdraw-only client restores the files that the transition drops and
 	// writes none that it keeps, whose selection waits for its Token: only the
 	// dropped files are planned, and the union restores them.
 	if slices.Contains(deps.WithdrawOnly, ID) {
-		kept := make(map[string]bool, len(afterRefs))
-		for _, target := range afterRefs {
-			kept[target.Path] = true
-		}
-		beforeRefs = slices.DeleteFunc(beforeRefs, func(target TargetRef) bool { return kept[target.Path] })
-		afterRefs = nil
+		beforeTargets, afterTargets = platform.DroppedFiles(beforeTargets, afterTargets), nil
+	}
+	beforeRefs, err := targetRefs(discovered, beforeTargets, bindingExecutable(discovered, beforeBinding))
+	if err != nil {
+		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
+	}
+	afterRefs, err := targetRefs(discovered, afterTargets, bindingExecutable(discovered, afterBinding))
+	if err != nil {
+		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
 	previous, _ := before.ResolveRuntime(ID, domain.ModelRef{})
 	if previous.RequiresProviderToken() {

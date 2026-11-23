@@ -159,6 +159,7 @@ func hermesProviderID(providerID string, protocol domain.EndpointProtocol) strin
 
 func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan, []string, error) {
 	previous, current := before.Clients[ID], after.Clients[ID]
+	dropped := platform.DroppedFiles(previous.Targets, current.Targets)
 	// A withdraw-only client restores the files that the transition drops and
 	// writes none that it keeps, whose selection waits for its Token.
 	if slices.Contains(deps.WithdrawOnly, ID) {
@@ -181,12 +182,10 @@ func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan
 			return nil, nil, err
 		}
 	}
-	targets := slices.Clone(current.Targets)
-	for _, target := range previous.Targets {
-		if !slices.Contains(targets, target) {
-			targets = append(targets, target)
-		}
-	}
+	// The files that the configuration after the transition names come first:
+	// they alone are written, while the client is enabled. A file that the
+	// transition drops, however either configuration spells it, is restored.
+	targets := slices.Concat(current.Targets, dropped)
 	// The selection that the transition starts from: a file that shows it
 	// holds Hermes' own choice, which the configuration follows.
 	var shown *Selection
@@ -194,9 +193,9 @@ func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan
 		shown = &Selection{Provider: hermesProviderID(selected.ProviderID, selected.Protocol), Model: selected.UpstreamModel}
 	}
 	plans := make([]Plan, 0, len(targets))
-	for _, target := range targets {
+	for index, target := range targets {
 		var projection *Desired
-		if current.Enabled && len(current.Targets) > 0 && slices.Contains(current.Targets, target) {
+		if current.Enabled && index < len(current.Targets) {
 			projection = &desired
 		}
 		plan, err := PrepareTransition(target, projection, shown, deps.AuthorizedSelectionClient == ID)

@@ -262,6 +262,13 @@ func shippedHermesApp(t *testing.T) (*cli.App, *bytes.Buffer, *fakeHTTP, string)
 // production does, so that a missing Account Token defers its clients.
 func shippedHermesAppWith(t *testing.T, reader bool) (*cli.App, *bytes.Buffer, *fakeHTTP, string) {
 	t.Helper()
+	return shippedHermesAppAt(t, reader, filepath.Join(t.TempDir(), "hermes", "config.yaml"))
+}
+
+// shippedHermesAppAt is shippedHermesAppWith with Hermes's file at target,
+// which the caller may have prepared, such as a link to a file elsewhere.
+func shippedHermesAppAt(t *testing.T, reader bool, target string) (*cli.App, *bytes.Buffer, *fakeHTTP, string) {
+	t.Helper()
 	app, output, credentials, _, httpClient := testApp(t, "")
 	if reader {
 		bindCredentialReader(t, app)
@@ -271,7 +278,6 @@ func shippedHermesAppWith(t *testing.T, reader bool) (*cli.App, *bytes.Buffer, *
 			t.Fatal(err)
 		}
 	}
-	target := filepath.Join(t.TempDir(), "hermes", "config.yaml")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{hermes.ID: executableFixture(t, "hermes")},
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},

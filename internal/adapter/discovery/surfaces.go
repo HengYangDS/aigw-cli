@@ -1,7 +1,7 @@
 package discovery
 
 import (
-	"path/filepath"
+	"aigw-cli/internal/platform"
 )
 
 // Surface is a stable host classification. Discovery only inspects paths; it
@@ -44,22 +44,9 @@ func (r Result) SurfaceForExecutablePath(path string) (Surface, bool) {
 	return Surface{}, false
 }
 
+// sameSurfacePath reports whether path names a surface's file, by the one
+// judgement of file identity (platform.SameFile). A surface without the path
+// owns nothing.
 func sameSurfacePath(left, right string) bool {
-	if left == "" || right == "" {
-		return false
-	}
-	left = resolveSurfacePath(left)
-	right = resolveSurfacePath(right)
-	return left == right
-}
-
-func resolveSurfacePath(path string) string {
-	path = filepath.Clean(path)
-	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		path = resolved
-	}
-	if absolute, err := filepath.Abs(path); err == nil {
-		return absolute
-	}
-	return path
+	return left != "" && right != "" && platform.SameFile(left, right)
 }
