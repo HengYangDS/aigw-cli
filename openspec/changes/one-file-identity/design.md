@@ -69,6 +69,10 @@ cover; Hermes's write replacing a symbolic link to its file with a regular file,
 - **A target named by a hard link** is one file by the judgement, but AIGW's record of a file is kept by its name, so
   such a target finds no record and is refused, with the Token and without it. Hard-linked configuration files are
   rare; this Change does not move records to file identity.
+- **`..` after a symbolic link** is cleaned by its spelling before any judgement (`filepath.Abs`), as Go and AIGW
+  did before this Change: `link/../codex/config.toml` names `codex/config.toml` beside the link, while the operating
+  system opens the file beside the link's target. Every part of AIGW sees the same cleaned path, so the outcome does
+  not depend on the Token; a configured path that relies on `..` through a link is written where its spelling says.
 - **A stat per comparison:** client target lists hold one to a few files; the cost is negligible.
 - **One error message changes:** a loop of symbolic links in a target now reads `resolve symbolic links: …`, not
   `resolve Codex target symlinks: …`; the path that fails is still named first.
