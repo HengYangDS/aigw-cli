@@ -21,9 +21,6 @@ func TestTeamManifestKeepsOnlyQualifiedRefreshModels(t *testing.T) {
 		"aihubmix/minimax-m3.1-flash": {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolResponses},
 		"dmxapi/MiniMax-M3.1-Flash":   {"minimax-m3.1-flash", "MiniMax-M3.1-Flash", domain.ProtocolResponses},
 		"ucloud/minimax-m3.1-flash":   {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolResponses},
-		"aihubmix/muse-wonder":        {"muse-wonder", "muse-wonder", domain.ProtocolResponses},
-		"dmxapi/muse-wonder":          {"muse-wonder", "muse-wonder", domain.ProtocolResponses},
-		"ucloud/muse-wonder-1.0":      {"muse-wonder", "muse-wonder-1.0", domain.ProtocolResponses},
 		"aihubmix/solar-pro4":         {"solar-pro4", "solar-pro4", domain.ProtocolChat},
 	} {
 		route, ok := teamModel(t, manifest, id)
@@ -58,6 +55,40 @@ func TestTeamManifestKeepsOnlyQualifiedRefreshModels(t *testing.T) {
 			if held[retired] && held[successor] {
 				t.Errorf("provider %s keeps superseded %q beside %q", provider, retired, successor)
 			}
+		}
+	}
+}
+
+// The November 23 refresh admits each new provider model only on the provider and protocol on which it passed the
+// three Hermes turns, replaces the Meta and StepFun previews, and drops the models that providers no longer list.
+func TestTeamManifestKeepsTheNovember23Refresh(t *testing.T) {
+	_, manifest := loadTeamManifest(t)
+	for id, expected := range map[string]struct {
+		model, wire string
+		protocol    domain.EndpointProtocol
+	}{
+		"aihubmix/gemini-4-neon":       {"gemini-4-neon", "gemini-4-neon", domain.ProtocolResponses},
+		"dmxapi/gemini-4-carbon":       {"gemini-4-carbon", "gemini-4-carbon", domain.ProtocolResponses},
+		"dmxapi/gemini-4-carbon-ssvip": {"gemini-4-carbon", "gemini-4-carbon-ssvip", domain.ProtocolResponses},
+		"dmxapi/gpt-6.2-astra-ssvip":   {"gpt-6.2-astra", "gpt-6.2-astra-ssvip", domain.ProtocolResponses},
+		"dmxapi/gpt-6.2-sol-ssvip":     {"gpt-6.2-sol", "gpt-6.2-sol-ssvip", domain.ProtocolResponses},
+		"dmxapi/Ling-3.2-flash":        {"ling-3.2-flash", "Ling-3.2-flash", domain.ProtocolResponses},
+		"ucloud/qwen4-max":             {"qwen4-max", "qwen4-max", domain.ProtocolResponses},
+		"ucloud/muse-spark-1.3":        {"muse-spark-1.3", "muse-spark-1.3", domain.ProtocolChat},
+		"aihubmix/muse-spark-1.3":      {"muse-spark-1.3", "muse-spark-1.3", domain.ProtocolChat},
+	} {
+		route, ok := teamModel(t, manifest, id)
+		if !ok || route.Family != expected.model || route.ID != expected.wire ||
+			!slices.Equal(route.AdmittedProtocols(), []domain.EndpointProtocol{expected.protocol}) {
+			t.Errorf("qualified Route %q = %+v, want Model %q, wire %q and %s", id, route, expected.model, expected.wire, expected.protocol)
+		}
+	}
+	for _, id := range []string{
+		"dmxapi/muse-wonder", "ucloud/muse-wonder-1.0", "aihubmix/muse-wonder", "dmxapi/step-5-preview", "aihubmix/step-5-preview",
+		"ucloud/gemini-4-carbon", "aihubmix/mercury-2.5", "ucloud/gemini-4-hydrogen", "suheai/gemini-4-argon", "suheai/gemini-4-carbon",
+	} {
+		if _, admitted := teamModel(t, manifest, id); admitted {
+			t.Errorf("Route %q is in the shipped manifest", id)
 		}
 	}
 }

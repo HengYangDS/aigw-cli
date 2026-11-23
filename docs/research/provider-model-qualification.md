@@ -54,6 +54,32 @@ Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default models; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
 
+## November 23 refresh: Gemini 4 Neon and the vendors' current models
+
+The owner asked on November 22 for the whole file per provider and line, naming Gemini 4 Neon and Qwen4. Google's
+Gemini API release notes made Gemini 4 Neon generally available on November 18, a fourth Gemini 4 line between
+Hydrogen and Carbon that replaces no model. Each vendor's own pages were read for its strongest generally available
+model: Meta's Muse Wonder and StepFun's Step 5 are previews, whose strongest models that are not previews are Muse
+Spark 1.3 and Step 3.7 Flash; Ant Ling released 3.1 and 3.2 Flash without ranking them. Each cell ran the three turns
+of November 12 on the stock Hermes v0.23.2 (`ae2a81ccc00e`, clean), with a control of DMXAPI's GPT-6.2 Sol in the
+same run. Raw results are in the canonical checkout's `build/evidence/team-refresh-20261123/`.
+
+| Model                                   | Admitted provider / protocol                       | Note                                      |
+| --------------------------------------- | -------------------------------------------------- | ----------------------------------------- |
+| Gemini 4 Neon                           | AIHubMix / Responses (Chat Completions passed too) | Google's fourth Gemini 4 line             |
+| Gemini 4 Carbon, with its SSVIP channel | DMXAPI / Responses                                 | Listed there since this refresh           |
+| Qwen4-Max                               | UCloud / Responses (Chat Completions passed too)   | Listed there since this refresh           |
+| GPT-6.2 Astra and Sol, SSVIP channels   | DMXAPI / Responses                                 | Listed there since this refresh           |
+| Muse Spark 1.3                          | UCloud, AIHubMix / Chat Completions                | Replaces the Muse Wonder preview          |
+| Ling-3.2-Flash                          | DMXAPI / Responses                                 | AIHubMix lists only a free variant of 3.2 |
+
+Not admitted, each from the provider's answer: UCloud's Gemini 4 Hydrogen (a safety filter refused the third turn),
+Suhe.AI's Gemini 4 Argon and Carbon ("Model not found" though listed, as on November 19), AIHubMix's Cohere Command
+A Plus and Mistral Large 4 ("cannot be served at the moment"; their current families stay), and Step 3.7 Flash
+(DMXAPI kept the tool's line numbers in its third answer; AIHubMix reported an exhausted quota). StepFun leaves the
+file until a model of it that is not a preview qualifies. UCloud no longer lists Gemini 4 Carbon nor AIHubMix
+Mercury 2.5; both leave.
+
 ## November 19: Suhe.AI
 
 Suhe.AI (`suheai.cn`) serves each Claude and GPT model under two IDs: the plain one, a direct model, and one with a
