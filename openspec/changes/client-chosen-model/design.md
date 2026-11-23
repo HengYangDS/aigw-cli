@@ -434,7 +434,9 @@ and the one for Codex of 2026-10-19 rests on an imitation. The next Change in th
   20-minute package limit in two full checks (2026-11-22 and 2026-11-23); alone they take about ten minutes at two
   cores, so the gate sets a one-hour limit as the client acceptance gate does (Go's default of ten minutes stopped
   the check of `6371c8390` at 600 s), and the untagged package takes about six minutes under both. The code they reach is covered by the untagged tests; a
-  data race only they would show is not looked for.
+  data race only they would show is not looked for. The gate belongs to `./tools/ci quality`, which the proof's
+  static gate runs, so that ETHOS gate declares its own bound of 2,400 s (ETHOS's default of 600 s stopped the
+  proof of `eb5fb89d0`), and the behavior gate one of 1,200 s for the acceptance package under the race detector.
 - The clients' writes are imitated in every test of this Change; the next Change's measurement with the real
   clients may change the conditions of following.
 

@@ -107,5 +107,8 @@
       the untagged acceptance package passes under both (351 s).
 - [x] 5.2 Pass `mise run check` on the lane head (`4fb4495b2`, 95.78 %; again after each merge of `dev`: `0c43ffa10`
       and `5006895d4`, 95.78 %).
+- [x] 5.5 Declare the time bounds of the proof's static and behavior gates in `.ethos/profile.toml`, from the
+      quality run with the selection-matrix gate (620 s) and the acceptance package under the race detector and
+      coverage (361 s). Done when ETHOS's readiness proof accepts the profile at the lane head.
 - [x] 5.3 Pass the proposal's hosted checks on both forges (`5006895d4`: GitHub 5 passed, 2 skipped; GitLab pipeline
       17380, its macOS job passing on retry 76118 after the 5-second credential bound failed under host load).
