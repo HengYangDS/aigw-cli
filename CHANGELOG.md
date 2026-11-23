@@ -13,6 +13,19 @@ signing, and GA status remain separate evidence.
 
 ### Changed
 
+- **Breaking:** `aigw setup --from` now leaves only the configuration that the
+  team file describes. The local-only models that no client selects and no
+  recommendation names are removed in the same transaction as the merge, and
+  then the families that no remaining model uses, so importing the file on a
+  machine that has collected older families beside their successors leaves the
+  file's models plus whatever a client or a recommendation uses. The preview
+  and the result name every model and family that the import removes.
+  Providers, their endpoints and Tokens, and every client's selection are
+  unchanged, and `aigw config rollback --last-change` restores a removal.
+- **Breaking:** the `--prune` flag is removed, because the import now prunes by
+  default; `aigw setup --prune` fails as an unknown option. `--keep-local`
+  keeps the local-only models and families that the import would otherwise
+  remove, which is what `--from` did before this change.
 - The shipped team file follows each provider's lines and vendors as of 2026-11-23. Gemini 4 Neon joins on
   AIHubMix, Gemini 4 Carbon on DMXAPI, Qwen4-Max on UCloud, DMXAPI's SSVIP channels of GPT-6.2 Astra and Sol, and
   Ling-3.2-Flash on DMXAPI. Muse Spark 1.3 replaces the Muse Wonder preview; the Step 5 preview leaves. UCloud's

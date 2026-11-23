@@ -48,7 +48,7 @@ func TestSetupAdmitsArgumentsBeforeCreatingConfiguration(t *testing.T) {
 		{"--from", "team.toml", "--provider", "Bad ID", "--token-stdin"},
 		{"--from", "team.toml", "--provider", "one", "--provider", "two", "--token-stdin"},
 		{"--provider", "one"},
-		{"--prune"},
+		{"--keep-local"},
 		{"--json"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {

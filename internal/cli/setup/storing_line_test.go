@@ -92,8 +92,8 @@ func TestTheLineThatStoresAProvidersTokenFollowsTheCommandLine(t *testing.T) {
 		{name: "not named beside another provider's Token on standard input", terminal: true,
 			args: []string{"--from", "team.toml", "--provider", "other", "--token-stdin", "--dry-run"},
 			want: "aigw setup --from team.toml --token-stdin --provider gateway"},
-		{name: "not named, with a flag that the rerun keeps", terminal: true, args: []string{"--from", "team.toml", "--prune", "--dry-run"},
-			want: "aigw setup --from team.toml --prune --provider gateway"},
+		{name: "not named, with a flag that the rerun keeps", terminal: true, args: []string{"--from", "team.toml", "--keep-local", "--dry-run"},
+			want: "aigw setup --from team.toml --keep-local --provider gateway"},
 
 		{name: "a path that needs quoting, the same command", terminal: true, args: []string{"--from", quoted, "--provider", "gateway"}},
 		{name: "a path that needs quoting, the same command with the Token on standard input",
