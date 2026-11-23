@@ -10,11 +10,11 @@
 - [x] 1.3 Make Hermes write its file through a symbolic link that names it, so that the link stays a link and its
       target holds what AIGW writes, using the one canonical path form. Done when a test that names Hermes's file by a
       link fails on the lane's base and passes after, with and without the Token.
-- [ ] 1.4 Answer the fresh review of `84f6fa5eb`: Codex's catalog path compared by the one judgement, and a missing
+- [x] 1.4 Answer the fresh review of `84f6fa5eb`: Codex's catalog path compared by the one judgement, and a missing
       file whose existing folder is named in another case judged as one file; a target named by a hard link stays
       out of scope, as the design states. Done when the review's probes for the first two pass and the hosted Windows
       acceptance, which stopped the test binary of `84f6fa5eb` (exit status 0xc0000409), passes.
-- [ ] 1.5 Make every native acceptance run keep a JUnit report beside its coverage profile, so a test binary that
+- [x] 1.5 Make every native acceptance run keep a JUnit report beside its coverage profile, so a test binary that
       the platform ends without output (hosted Windows' 0xc0000409 on this lane) still names the tests that never
       finished; then fix what it names: the fixture for a client's executable becomes a program (design: "A client's
       executable in the acceptance tests is a program"). Done when hosted Windows names its last test and then passes.
@@ -24,5 +24,5 @@
 - [x] 2.1 Compile and vet the changed packages and their tests for Windows and Linux on the lane head.
 - [x] 2.2 A fresh review of the lane's whole change, by a reviewer who has not seen it, against this Change's
       requirement and the twelfth review's two findings. Done when its findings are answered in code or in this design.
-- [ ] 2.3 Pass `mise run check` on the lane head.
-- [ ] 2.4 Pass the proposal's hosted checks on both forges.
+- [x] 2.3 Pass `mise run check` on the lane head.
+- [x] 2.4 Pass the proposal's hosted checks on both forges.
