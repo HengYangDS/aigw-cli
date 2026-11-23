@@ -10,4 +10,4 @@
 
 - [x] 2.1 `mise run check` passes on the lane head.
 - [x] 2.2 The proposal's hosted checks pass on both forges (GitHub at `eb1084853`: 5 passed, 2 skipped; GitLab pipeline
-      17334).
+      17334; again after `dev` was merged, at `02c1ae272`: GitHub 5 passed, 2 skipped; GitLab pipeline 17368).
