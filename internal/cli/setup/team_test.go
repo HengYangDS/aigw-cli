@@ -84,7 +84,7 @@ func TestTeamSetupReportsWhatTheFileChangedAndWhatStayedLocal(t *testing.T) {
 	home.runtime.Interactive = false
 	configuredTeam(t, home)
 	path := writeTeamFile(t, teamFileText)
-	if err := home.run(t, &guidedPrompt{}, "--from", path, "--prune", "--dry-run"); err != nil {
+	if err := home.run(t, &guidedPrompt{}, "--from", path, "--dry-run"); err != nil {
 		t.Fatalf("preview: %v\n%s", err, home.out)
 	}
 	for _, want := range []string{
@@ -196,7 +196,7 @@ func TestSetupRefusesFlagsThatCannotRun(t *testing.T) {
 		{[]string{"--from", path, "--provider", "team", "--token-stdin"}, false, true, "the environment backend reads the team Token"},
 		{[]string{"--from", path, "--provider", "team"}, false, false, "pipe the Token to `aigw setup --from " + path + " --provider team --token-stdin`"},
 		{[]string{"--from", path, "--provider", "team", "--provider", "spare"}, false, false, "one provider at a time"},
-		{[]string{"--prune"}, true, false, "need --from"},
+		{[]string{"--keep-local"}, true, false, "need --from"},
 		{nil, false, false, "without one, apply a team file"},
 		{[]string{"--json"}, true, false, "--json never prompts"},
 		{[]string{"--dry-run"}, true, false, "the one write without a preview"},

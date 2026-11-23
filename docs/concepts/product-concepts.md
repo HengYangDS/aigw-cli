@@ -181,8 +181,9 @@ tools, continuation, or compaction.
 ## Team files
 
 `aigw setup --from` applies a token-free team file. For models, families and
-recommendations, what the file names wins, and local-only entries stay unless
-`--prune` removes the unused ones. A team file never changes an existing
+recommendations, what the file names wins, and the local-only entries that
+no client selects and no recommendation names are removed, together with the
+families that no remaining model uses; `--keep-local` keeps them instead. A team file never changes an existing
 provider's endpoints or Token and never replaces a client's selection: a
 differing endpoint stays local and is reported. `aigw provider edit` changes an
 endpoint deliberately.

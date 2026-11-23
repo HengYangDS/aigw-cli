@@ -94,7 +94,7 @@ func TestTeamManifestSelectsOnlyDeclaredRecommendationsForConnectedProvider(t *t
 		ClientCodex: domain.ProtocolResponses, ClientHermes: domain.ProtocolResponses,
 	}
 	for accountID := range manifest.Providers {
-		cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false)
+		cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -292,7 +292,7 @@ func TestTeamManifestRefreshPreservesExplicitSupersededModels(t *testing.T) {
 			cfg.Models[ref] = domain.Model{Provider: "aihubmix", Family: selected.model, ID: selected.wire, Label: "AIHubMix · " + selected.wire,
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
 			cfg.SetSelectedModel(ClientHermes, ref, "")
-			merged, _, err := domain.MergeTeamFile(cfg, manifest, false)
+			merged, _, err := domain.MergeTeamFile(cfg, manifest, true)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -306,7 +306,7 @@ func TestTeamManifestRefreshPreservesExplicitSupersededModels(t *testing.T) {
 
 func TestTeamManifestModelsUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false)
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,7 +364,7 @@ func TestTeamManifestModelsUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 
 func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false)
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,7 +412,7 @@ func TestTeamProviderEndpointsHaveHosts(t *testing.T) {
 
 func TestTeamManifestDerivesPlainModelLabelsAndKeepsChannelOverrides(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false)
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -469,7 +469,7 @@ func TestModelLabelDerivesDisplayWithoutChangingExactWireModel(t *testing.T) {
 
 func TestTeamManifestUsesNativeExportLayout(t *testing.T) {
 	data, manifest := loadTeamManifest(t)
-	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, false)
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), manifest, true)
 	if err != nil {
 		t.Fatal(err)
 	}

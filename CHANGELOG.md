@@ -95,6 +95,19 @@ signing, and GA status remain separate evidence.
   while a file of that client is refused and its own choice cannot be
   recorded, is refused with that file's refusal and its Fix. It was refused
   with "refuse invalid config" and `aigw check` as the next step.
+- **Breaking:** `aigw setup --from` now leaves only the configuration that the
+  team file describes. The local-only models that no client selects and no
+  recommendation names are removed in the same transaction as the merge, and
+  then the families that no remaining model uses, so importing the file on a
+  machine that has collected older families beside their successors leaves the
+  file's models plus whatever a client or a recommendation uses. The preview
+  and the result name every model and family that the import removes.
+  Providers, their endpoints and Tokens, and every client's selection are
+  unchanged, and `aigw config rollback --last-change` restores a removal.
+- **Breaking:** the `--prune` flag is removed, because the import now prunes by
+  default; `aigw setup --prune` fails as an unknown option. `--keep-local`
+  keeps the local-only models and families that the import would otherwise
+  remove, which is what `--from` did before this change.
 - These documents move up one `schema_version` for the fields above:
   `aigw status` 4, `aigw check` 5, `aigw sync` 4, `aigw use` 4,
   `aigw setup --from` 5, `aigw config rollback` 3, `aigw self uninstall` 3,

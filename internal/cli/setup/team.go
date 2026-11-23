@@ -84,7 +84,7 @@ func runTeamSetup(cmd *cobra.Command, runtime invocation.Context, request setupR
 	if err != nil {
 		return err
 	}
-	merged, report, err := domain.MergeTeamFile(cfg, file, request.Prune)
+	merged, report, err := domain.MergeTeamFile(cfg, file, request.KeepLocal)
 	if err != nil {
 		if shared, ok := errors.AsType[*domain.SharedModelLabelError](err); ok {
 			return sharedLabelRefusal(shared, file, err)
