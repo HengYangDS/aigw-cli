@@ -85,7 +85,7 @@ func symbolize(log, binary string, stderr io.Writer) bool {
 	if err != nil {
 		return true
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	header, ok := file.OptionalHeader.(*pe.OptionalHeader64)
 	if !ok {
 		return true
