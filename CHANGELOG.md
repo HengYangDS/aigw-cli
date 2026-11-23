@@ -11,6 +11,8 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-23
+
 ### Changed
 
 - **Breaking:** a model chosen inside Codex or Hermes is that client's
