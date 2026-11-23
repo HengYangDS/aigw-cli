@@ -173,13 +173,18 @@ func identityTwins(t *testing.T, prepare func(t *testing.T) (selectionWorld, sel
 	var command selectionCommand
 	account := ""
 	for index, token := range []bool{true, false} {
+		t.Logf("diag token=%t: preparing", token)
 		var world selectionWorld
 		world, command = prepare(t)
+		t.Logf("diag token=%t: prepared", token)
 		world.setToken(t, token)
 		run := selectionRun{before: world.snapshot(t)}
+		t.Logf("diag token=%t: snapshot", token)
 		world.output.Reset()
 		run.err = cli.Execute(world.app, command.args)
+		t.Logf("diag token=%t: executed", token)
 		run.after = world.holds(t, run.before, command, run.err)
+		t.Logf("diag token=%t: holds", token)
 		if run.err != nil {
 			t.Errorf("token=%t: %s was refused: %v", token, command.name, run.err)
 		} else {
