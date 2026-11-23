@@ -197,9 +197,9 @@ func setEndpoint(endpoints *domain.Endpoints, protocol domain.EndpointProtocol, 
 // questions whose answers it could not use: the observation of the item tells
 // that it is there, and that AIGW may not read it.
 func (g guidedSetup) storedOrAsked(ctx context.Context, provider *guidedProvider) error {
-	observation, err := secret.ObserveToken(g.runtime.Secrets, provider.ID)
-	if err != nil {
-		return fmt.Errorf("observe the Token of provider %s: %w", provider.ID, err)
+	observation := secret.ObserveToken(g.runtime.Secrets, provider.ID)
+	if observation.Unobserved != nil {
+		return fmt.Errorf("observe the Token of provider %s: %w", provider.ID, observation.Unobserved)
 	}
 	if observation.Refusal != nil {
 		return observation.Refusal

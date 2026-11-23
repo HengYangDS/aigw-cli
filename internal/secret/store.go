@@ -72,6 +72,24 @@ func UnusedTokens(store Store, providers []string) ([]string, error) {
 	return slices.Compact(unused), nil
 }
 
+// TokenState is the one judgement of a provider's Token that every command
+// decides by.
+type TokenState uint8
+
+const (
+	// TokenAbsent says that the store holds no Token of the provider that
+	// AIGW can use: it has no slot, an empty one, or a Keychain item that
+	// macOS refuses AIGW, whose refusal names its fix.
+	TokenAbsent TokenState = iota
+	// TokenUsable says that the slot holds a Token that AIGW can use.
+	TokenUsable
+	// TokenUnobservable says that the store cannot tell whether it has the
+	// slot, as a locked keychain or a Token file that the file store refuses
+	// cannot. For each client that uses the Token it counts as an absent one:
+	// the client waits for it, and the command goes on for the others.
+	TokenUnobservable
+)
+
 // TokenObservation is what AIGW learns of a provider's Token slot without the
 // value reaching this process.
 type TokenObservation struct {
@@ -83,36 +101,59 @@ type TokenObservation struct {
 	// AIGW that item while its keychain is unlocked. The item is there, and it
 	// is no Token that AIGW can use; the refusal owns its title and its fix.
 	Refusal *KeychainItemRefusedError
+	// Unobserved is the store's failure to tell whether it has the slot, as
+	// Exists returns it, kept for the report that names the failure and its
+	// fix. The other fields are then zero.
+	Unobserved error
+}
+
+// State judges the observation: a Token that AIGW can use, none, or one that
+// the store cannot observe.
+func (observation TokenObservation) State() TokenState {
+	switch {
+	case observation.Unobserved != nil:
+		return TokenUnobservable
+	case observation.Present && !observation.Empty && observation.Refusal == nil:
+		return TokenUsable
+	}
+	return TokenAbsent
 }
 
 // Usable reports whether the slot holds a Token that AIGW can use: it is
 // present, holds a value, and is no Keychain item that macOS refuses AIGW.
 func (observation TokenObservation) Usable() bool {
-	return observation.Present && !observation.Empty && observation.Refusal == nil
+	return observation.State() == TokenUsable
 }
 
 // ObserveToken observes account's Token slot. It is the one owner of that
-// observation, so that every command decides from the same facts: whether the
-// store has the slot and, for a slot that it has, whether the slot is empty or
-// is a Keychain item that macOS refuses AIGW. Its error is the store's failure
-// to tell presence, as Exists returns it. A backend that cannot tell whether a
-// slot is empty reports one that is not, and its Get reports ErrEmpty. One
-// availability scope asks the backend once about each slot. A store that
-// stands in front of another, as a preview does that presumes the Token that
-// its command would store, answers the observation itself.
-func ObserveToken(store Store, account string) (TokenObservation, error) {
+// observation and of its judgement (State), so that every command decides
+// from the same facts: whether the store has the slot and, for a slot that it
+// has, whether the slot is empty or is a Keychain item that macOS refuses
+// AIGW. A store that cannot tell presence leaves its failure in Unobserved. A
+// backend that cannot tell whether a slot is empty reports one that is not,
+// and its Get reports ErrEmpty. One availability scope asks the backend once
+// about each slot. A store that stands in front of another, as a preview does
+// that presumes the Token that its command would store, answers the
+// observation itself. Without a store there is no Token.
+func ObserveToken(store Store, account string) TokenObservation {
+	if store == nil {
+		return TokenObservation{}
+	}
 	if observer, ok := store.(interface {
-		ObserveToken(account string) (TokenObservation, error)
+		ObserveToken(account string) TokenObservation
 	}); ok {
 		return observer.ObserveToken(account)
 	}
 	present, err := store.Exists(account)
-	if err != nil || !present {
-		return TokenObservation{}, err
+	switch {
+	case err != nil:
+		return TokenObservation{Unobserved: err}
+	case !present:
+		return TokenObservation{}
 	}
 	empty, err := tokenSlotEmpty(store, account)
 	refusal, _ := errors.AsType[*KeychainItemRefusedError](err)
-	return TokenObservation{Present: true, Empty: empty, Refusal: refusal}, nil
+	return TokenObservation{Present: true, Empty: empty, Refusal: refusal}
 }
 
 // slotEmptiness is implemented by a backend that tells whether a present slot

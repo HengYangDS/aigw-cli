@@ -85,12 +85,11 @@ func hermesDesired(deps adapter.Dependencies, cfg domain.Config, selected domain
 	connected := map[string]bool{selected.ProviderID: true}
 	desired := Desired{SelectedProvider: hermesProviderID(selected.ProviderID, selected.Protocol), SelectedModel: selected.UpstreamModel}
 	for _, item := range catalog {
+		// A provider whose Token AIGW cannot use, or whose Token the store
+		// cannot observe, is left out: its credential command would return no
+		// Token.
 		if _, observed := connected[item.Provider]; !observed {
-			available, err := adapter.SecretAvailable(deps.Secrets, item.Provider)
-			if err != nil {
-				return Desired{}, fmt.Errorf("inspect Hermes provider %q credential: %w", item.Provider, err)
-			}
-			connected[item.Provider] = available
+			connected[item.Provider] = secret.ObserveToken(deps.Secrets, item.Provider).Usable()
 		}
 		if !connected[item.Provider] {
 			continue

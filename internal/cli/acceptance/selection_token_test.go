@@ -2,11 +2,14 @@ package cli_test
 
 import (
 	"bytes"
+	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli"
@@ -192,20 +195,32 @@ func TestARollbackNamesOnlyTheSelectionThatItSaves(t *testing.T) {
 }
 
 // An edit of the configuration files of a client whose provider has no Token
-// is refused, with a choice as without one: the provider is the chosen
-// model's, and nothing of AIGW's stays behind in a file that the
-// configuration no longer names. Holds the cell chosen/edits (the review's
-// F4).
+// is saved on the chosen model, as with the Token: AIGW withdraws its
+// settings and record from the file that the edit drops, which needs no
+// Token, so nothing of AIGW's stays behind in a file that the configuration
+// no longer names. The file that Hermes moves to waits for the Token, which
+// the edit's next step names. Holds the cell chosen/edits (the review's F4,
+// changed by the Change one-token-usability).
 func TestATargetEditOfAClientWithoutItsTokenLeavesNothingBehind(t *testing.T) {
-	app, output, target, chosen := waitingHermes(t)
-	before := readFile(t, app.Config.Path())
+	const chosenModel = "ucloud/claude-opus-5-5"
+	app, output, target, _ := waitingHermes(t)
 	moved := filepath.Join(t.TempDir(), "hermes", "config.yaml")
-	err := runDocument(t, app, output, nil, "client", "edit", "hermes", "--target", moved, "--json")
-	if err == nil || !strings.Contains(output.String(), "ucloud") {
-		t.Fatalf("the edit = %v; want the refusal that names the provider without a Token\n%s", err, output)
+	var edited followUp
+	if err := runDocument(t, app, output, &edited, "client", "edit", "hermes", "--target", moved, "--json"); err != nil {
+		t.Fatalf("the edit = %v\n%s", err, output)
 	}
-	if !bytes.Equal(readFile(t, app.Config.Path()), before) || !bytes.Equal(readFile(t, target), chosen) {
-		t.Fatalf("the refused edit changed the configuration or Hermes's file: %v", err)
+	if binding := mustLoad(t, app).Clients[hermes.ID]; !slices.Equal(binding.Targets, []string{moved}) || binding.Model.String() != chosenModel {
+		t.Fatalf("the edit saved Hermes on %q with %s; want the new file and the chosen %s", binding.Targets, binding.Model, chosenModel)
+	}
+	for _, path := range []string{target, target + adapter.StateSuffix, moved} {
+		if data, err := os.ReadFile(path); err == nil && (path != target || bytes.Contains(data, []byte("aigw-"))) {
+			t.Errorf("after the edit %s holds AIGW's part:\n%s", path, data)
+		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+			t.Fatal(err)
+		}
+	}
+	if next := edited.NextAction + edited.NextDetail; !strings.Contains(next, "ucloud") {
+		t.Errorf("the edit's next step is %q; Hermes waits for the Token of ucloud", next)
 	}
 }
 

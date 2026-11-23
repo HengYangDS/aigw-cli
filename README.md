@@ -258,6 +258,21 @@ changes: `aigw use` with another provider or protocol, or
 `aigw provider edit --endpoint` for the endpoint that the client reaches.
 `--direct` drops the forwarding endpoint and its recorded upstream together.
 
+### Client configuration files
+
+Move a client to other configuration files, or give Codex several homes:
+
+```bash
+aigw client edit <client> --target <file> --dry-run --json
+aigw client edit <client> --target <file>
+```
+
+The files given replace the current ones. AIGW removes its settings and its
+record from each file that the edit drops, which needs no Token. The files
+that the client keeps or gains are written for its model when AIGW can use its
+provider's Token; otherwise they wait, and the edit's next step is the one
+that gives AIGW the Token.
+
 ## Product model
 
 | Noun     | Owns                                                                                  |

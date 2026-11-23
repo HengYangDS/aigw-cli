@@ -342,7 +342,8 @@ func (t teamSetup) tokenProviders() []string {
 func (t teamSetup) tokenStates() (map[string]string, error) {
 	states := map[string]string{}
 	for _, id := range t.tokenProviders() {
-		observation, err := secret.ObserveToken(t.runtime.Secrets, id)
+		observation := secret.ObserveToken(t.runtime.Secrets, id)
+		err := observation.Unobserved
 		if observation.Refusal != nil {
 			// For the provider that the command names, the refusal ends the
 			// setup as a store that cannot tell does.

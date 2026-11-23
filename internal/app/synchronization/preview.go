@@ -198,12 +198,9 @@ func (presumed presumedTokens) Exists(account string) (bool, error) {
 // use, without consulting the credential store, and observes any other
 // Account's there: the readiness owner and the client adapters then plan the
 // clients that the previewed command would write.
-func (presumed presumedTokens) ObserveToken(account string) (secret.TokenObservation, error) {
+func (presumed presumedTokens) ObserveToken(account string) secret.TokenObservation {
 	if slices.Contains(presumed.providers, account) {
-		return secret.TokenObservation{Present: true}, nil
-	}
-	if presumed.store == nil {
-		return secret.TokenObservation{}, nil
+		return secret.TokenObservation{Present: true}
 	}
 	return secret.ObserveToken(presumed.store, account)
 }

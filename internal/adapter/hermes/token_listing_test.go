@@ -1,6 +1,7 @@
 package hermes
 
 import (
+	"errors"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -22,19 +23,20 @@ func (store observedTokens) Exists(account string) (bool, error) {
 	return store.slots[account].Present, nil
 }
 
-func (store observedTokens) ObserveToken(account string) (secret.TokenObservation, error) {
-	return store.slots[account], nil
+func (store observedTokens) ObserveToken(account string) secret.TokenObservation {
+	return store.slots[account]
 }
 
 // Hermes lists the providers that it can reach beside the selected one: those
 // whose Token AIGW can use. A provider whose slot is there and holds nothing,
-// or holds a Keychain item that macOS refuses AIGW, is left out, as one
-// without a Token is: its credential command would return no Token. The
+// holds a Keychain item that macOS refuses AIGW, or cannot be observed, as a
+// locked keychain leaves it, is left out, as one without a Token is: its
+// credential command would return no Token, and the plan does not fail. The
 // selected provider is listed whatever its slot holds, because the readiness
 // of the client's own Token decides whether Hermes's file is written at all.
 func TestHermesListsOnlyProvidersWhoseTokenAIGWCanUse(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
-	for _, provider := range []string{"selected", "stored", "empty", "refused", "missing"} {
+	for _, provider := range []string{"selected", "stored", "empty", "refused", "unobservable", "missing"} {
 		cfg.Providers[provider] = domain.Provider{Label: provider, Endpoints: domain.Endpoints{Responses: "https://" + provider + ".test/v1"}}
 		cfg.Models[domain.NewModelRef(provider, "gpt-"+provider)] = qualifiedModel(provider, provider, "gpt-"+provider, domain.ProtocolResponses)
 	}
@@ -45,10 +47,11 @@ func TestHermesListsOnlyProvidersWhoseTokenAIGWCanUse(t *testing.T) {
 	}
 	refusal := &secret.KeychainItemRefusedError{Kind: secret.APIToken, Provider: "refused", Status: -25293}
 	store := observedTokens{slots: map[string]secret.TokenObservation{
-		"selected": {Present: true, Empty: true},
-		"stored":   {Present: true},
-		"empty":    {Present: true, Empty: true},
-		"refused":  {Present: true, Refusal: refusal},
+		"selected":     {Present: true, Empty: true},
+		"stored":       {Present: true},
+		"empty":        {Present: true, Empty: true},
+		"refused":      {Present: true, Refusal: refusal},
+		"unobservable": {Unobserved: errors.New("the keychain is locked")},
 	}}
 	desired, err := hermesDesired(adapter.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, selected)
 	if err != nil {

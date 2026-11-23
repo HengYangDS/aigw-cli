@@ -70,15 +70,25 @@ signing, and GA status remain separate evidence.
   `forwarding_cleared` or `retries_cleared` when the stored forwarding or
   retry budgets end.
 - `aigw client edit --target` changes a client's configuration files without a
-  Token as long as the edit drops none: naming the files that the client has,
-  or adding one, is saved on the model chosen in the client and writes no
-  file, and AIGW's record of each file follows it. Only an edit that drops a
-  file waits for the Token, because the dropped file would otherwise keep
-  AIGW's settings where no later synchronization visits it.
-- A Token whose presence cannot be observed, as a locked keychain leaves it,
-  no longer refuses a command that saves the configuration: the client waits
-  for its Token as it does for an absent one, and the model chosen in its file
-  is recorded.
+  Token. Naming the files that the client has, or adding one, is saved on the
+  model chosen in the client and writes no file, and AIGW's record of each
+  file follows it. An edit that drops a file is no longer refused: AIGW
+  removes its settings and its record from each file that the edit drops,
+  which needs no Token, and the files that the client keeps wait for the
+  Token, whose step the edit names next. Whether the edit is saved no longer
+  depends on the Token.
+- A Token whose presence cannot be observed, as a locked keychain or a Token
+  file that the file store refuses leaves it, no longer refuses a command: the
+  clients that use it wait for it as they do for an absent Token, and the
+  model chosen in a client's file is recorded. `aigw sync` and its preview,
+  which were refused with "Synchronization prerequisites are unavailable",
+  write the other clients and report the state `unavailable`; the next step is
+  the store's own fix where it names one, such as a file in the way of the
+  Token folder, and `aigw check --depth local` otherwise. Hermes leaves out
+  the models of another provider whose Token cannot be observed, as it leaves
+  out those of a provider without a Token; a command that wrote Hermes's file
+  was refused, and other commands left AIGW's record of that file behind a
+  model chosen in Hermes.
 - `aigw config rollback` restores the files that it drops while the client's
   provider has no Token that AIGW can use, instead of leaving AIGW's settings
   and record in a file that the client no longer has; the files that the

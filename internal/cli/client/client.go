@@ -158,9 +158,9 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 // that a client could read, and its refusal, which names its fix, is the
 // error.
 func holdsToken(store secret.Store, provider string) (bool, error) {
-	observation, err := secret.ObserveToken(store, provider)
-	if err != nil {
-		return false, fmt.Errorf("Cannot inspect provider %q credential: %w", provider, err)
+	observation := secret.ObserveToken(store, provider)
+	if observation.Unobserved != nil {
+		return false, fmt.Errorf("Cannot inspect provider %q credential: %w", provider, observation.Unobserved)
 	}
 	if observation.Refusal != nil {
 		return false, observation.Refusal

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	goruntime "runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -16,36 +17,42 @@ import (
 	"aigw-cli/internal/terminal"
 )
 
-// An enabled client's configuration files do not move while its provider's
-// Token is missing, because the files that the edit drops would keep AIGW's
-// settings; the fix stores the Token, or sets the environment backend's
-// variable.
-func TestEditKeepsTheConfigurationFilesWhileTheTokenIsMissing(t *testing.T) {
-	runtime, _, target, _ := enabledCodex(t)
-	moved := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(moved, []byte("model = \"other\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	before, err := runtime.Config.CaptureSnapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
+// An enabled client's configuration files move while its provider has no
+// Token that AIGW can use, or the store cannot observe it: AIGW withdraws its
+// settings from the file that the edit drops, which needs no Token, and the
+// file that the client moves to waits. The edit's next step is the one that
+// status names for the waiting client: storing the Token, setting the
+// environment backend's variable, or the local check of a store that cannot
+// tell.
+func TestEditWithdrawsTheDroppedFileWhileTheTokenIsMissing(t *testing.T) {
 	for _, test := range []struct {
+		name  string
 		store secret.Store
-		fix   string
+		next  string
 	}{
-		{secret.NewMemoryStore(), "aigw provider rotate gateway"},
-		{environmentBackend(func(string) string { return "" }), "Set " + secret.EnvironmentKey("gateway") + ", then run the same command again."},
-		{unavailableAdapterSecretStore{}, "aigw provider show gateway"},
+		{"a missing Token", secret.NewMemoryStore(), "run `aigw provider rotate gateway`"},
+		{"the environment backend", environmentBackend(func(string) string { return "" }), "set environment variable " + secret.EnvironmentKey("gateway")},
+		{"a store that cannot tell", unavailableAdapterSecretStore{}, "aigw check --depth local"},
 	} {
-		runtime.Secrets = test.store
-		err := executeAdapter(t, runtime, "edit", codex.ID, "--target", moved)
-		if problem := terminal.ProblemFor(err); !strings.Contains(problem.Title, "Codex's configuration files cannot change") || problem.Impact != "Nothing changed." || problem.Fix != test.fix {
-			t.Fatalf("%T: %q, impact %q, fix %q", test.store, problem.Title, problem.Impact, problem.Fix)
-		}
-	}
-	if after, err := runtime.Config.CaptureSnapshot(); err != nil || !reflect.DeepEqual(before, after) || !strings.Contains(readTarget(t, target), "AIGW managed provider") {
-		t.Fatalf("a refused move changed the configuration or the file: %v", err)
+		t.Run(test.name, func(t *testing.T) {
+			runtime, out, target, _ := enabledCodex(t)
+			moved := filepath.Join(t.TempDir(), "config.toml")
+			if err := os.WriteFile(moved, []byte("model = \"other\"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			// As in the product, Codex reads its Token through AIGW's
+			// credential reader, so the Token decides whether its files are
+			// written.
+			reader := filepath.Join(t.TempDir(), "aigw-credential")
+			runtime.Secrets, runtime.ResolveCredentialPath = test.store, func() (string, error) { return reader, nil }
+			document := edited(t, runtime, out, codex.ID, "--target", moved)
+			if !document.Changed || !slices.Equal(document.Targets, []string{moved}) || document.NextAction+document.NextDetail != test.next {
+				t.Fatalf("the edit = %#v; want Codex on the new file and the next step %q", document, test.next)
+			}
+			if strings.Contains(readTarget(t, target), "AIGW managed provider") || readTarget(t, moved) != "model = \"other\"\n" {
+				t.Fatalf("the edit left AIGW's settings in the dropped file:\n%s\nor wrote the file that waits:\n%s", readTarget(t, target), readTarget(t, moved))
+			}
+		})
 	}
 }
 

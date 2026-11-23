@@ -315,7 +315,12 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 	}
 }
 
-func TestSyncSurfacesCredentialObservationFailure(t *testing.T) {
+// A credential store that cannot tell whether the selected provider's Token
+// is there, as a locked keychain cannot, refuses no synchronization: the
+// client waits for its Token, as for an absent one, and the result names the
+// store's failure and the step that inspects it, without the store's own
+// words. Configuration and client files stay as they were.
+func TestSyncWaitsWhileTheStoreCannotTellWhetherTheTokenIsThere(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	saveCommandModel(t, app, domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
 	cfg, err := app.Config.Load()
@@ -326,24 +331,28 @@ func TestSyncSurfacesCredentialObservationFailure(t *testing.T) {
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
+	configuration := readFile(t, app.Config.Path())
 	want := errors.New("credential observation failed")
 	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: want}
 
-	if err := cli.Execute(app, []string{"sync"}); err == nil || err.Error() != "Synchronization prerequisites are unavailable" || !errors.Is(err, want) {
-		t.Fatalf("error = %v, want %v", err, want)
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatalf("sync = %v\n%s", err, out)
 	}
 	for _, expected := range []string{
-		"Synchronization prerequisites are unavailable",
-		"AIGW could not determine which clients' files it can write with the clients and credentials available now.",
-		"Configuration and client files are unchanged.",
+		"Synchronization completed",
+		"files wait for its Token",
+		"AIGW cannot tell whether its provider has a Token",
 		"aigw check --depth local",
 	} {
 		if !strings.Contains(out.String(), expected) {
 			t.Fatalf("output missing %q:\n%s", expected, out.String())
 		}
 	}
-	if strings.Contains(out.String(), want.Error()) {
-		t.Fatalf("output exposes implementation error:\n%s", out.String())
+	if strings.Contains(out.String(), want.Error()) || strings.Contains(out.String(), "aligned") {
+		t.Fatalf("output exposes the store's own words, or claims that the waiting client is aligned:\n%s", out.String())
+	}
+	if !bytes.Equal(readFile(t, app.Config.Path()), configuration) {
+		t.Fatal("sync changed the configuration of a client that waits for its Token")
 	}
 }
 

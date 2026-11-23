@@ -14,7 +14,6 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
-	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -44,7 +43,8 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 		Short: "Change a client's executable, configuration files, forwarding or retry budgets",
 		Long: "Change a client's executable, configuration files, forwarding or retry budgets; <client> is " + admission.Usage() + ".\n" +
 			"Forwarding sends the client to another endpoint, such as a local proxy; its provider, model and Token stay.\n" +
-			"Retry budgets belong to the client's provider, so they stay when forwarding changes.",
+			"Retry budgets belong to the client's provider, so they stay when forwarding changes.\n" +
+			"A file that --target drops loses AIGW's settings at once; the files that the client keeps wait for its provider's Token when AIGW cannot use it.",
 		Example: editExamples(admission),
 		Args: func(cmd *cobra.Command, args []string) error {
 			spec, err := clientArgument(cmd, admission, args)
@@ -214,9 +214,11 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 	if err := checkTargets(cmd, runtime, spec.ID, targets); err != nil {
 		return err
 	}
-	if err := admitTargets(runtime, cfg, spec, targets); err != nil {
-		return err
-	}
+	// A file that the edit drops is withdrawn with the edit: AIGW's settings
+	// and record leave it. That needs no Token, so an edit of a client whose
+	// provider has no Token that AIGW can use, or whose Token the store cannot
+	// observe, ends as it ends with the Token; only the files that the client
+	// keeps or adds wait for the Token.
 	before := cfg.Clone()
 	if err := editClient(&cfg, spec.ID, options, targets); err != nil {
 		return err
@@ -323,47 +325,6 @@ func refuseTargetsUnderFiles(targets []string, spec domain.ClientSpec, home stri
 		}
 	}
 	return nil
-}
-
-// admitTargets refuses an edit that would drop a configuration file while the
-// client's provider has no Token that AIGW can use, or its Token cannot be
-// observed: the transaction then writes no client file, and AIGW's settings
-// would stay behind in the files that the edit drops, which no later
-// synchronization visits. An edit that names the files that the client has,
-// or adds a file, drops none and is admitted: the configuration is saved, and
-// AIGW's record of each file follows it without a Token. An empty Token is a
-// missing one. A Keychain item that macOS refuses AIGW ends the edit with the
-// item's refusal, which names its fix, as it ends enabling the client.
-func admitTargets(runtime invocation.Context, cfg domain.Config, spec domain.ClientSpec, targets []string) error {
-	if len(targets) == 0 || !cfg.Clients[spec.ID].Enabled {
-		return nil
-	}
-	if !slices.ContainsFunc(cfg.Clients[spec.ID].Targets, func(target string) bool { return !slices.Contains(targets, target) }) {
-		return nil
-	}
-	selected, err := cfg.ResolveRuntime(spec.ID, domain.ModelRef{})
-	if err != nil || !selected.UsesAIGWCredentialStore() {
-		return nil
-	}
-	observation, err := secret.ObserveToken(runtime.Secrets, selected.ProviderID)
-	if err == nil && observation.Usable() {
-		return nil
-	}
-	if _, blocked := platform.BlockedPath(err); blocked {
-		return err
-	}
-	if observation.Refusal != nil {
-		return observation.Refusal
-	}
-	title := fmt.Sprintf("%s's configuration files cannot change while provider %s has no Token", spec.Label, selected.ProviderID)
-	fix := "aigw provider rotate " + selected.ProviderID
-	switch {
-	case err != nil:
-		title, fix = fmt.Sprintf("%s's configuration files cannot change while the Token of provider %s cannot be observed", spec.Label, selected.ProviderID), "aigw provider show "+selected.ProviderID
-	case secret.IsReadOnly(runtime.Secrets):
-		fix = "Set " + secret.EnvironmentKey(selected.ProviderID) + ", then run the same command again."
-	}
-	return terminal.ProblemError(title, "Without the Token, AIGW writes no client file, and its settings would stay in the files that the edit drops.", "Nothing changed.", fix, err)
 }
 
 // editClient applies an edit to the client's settings in cfg. Forwarding comes

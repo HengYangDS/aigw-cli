@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -76,6 +77,15 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			activation := clientactivation.AssessActivation(after, runtime.Secrets)
 			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, next: activation.NextActionFor(nil)}
+			// A client whose provider's Token the store cannot observe waits
+			// for it, as for an absent Token, and the result names the store's
+			// failure and its fix: the fix that the failure names for itself,
+			// such as moving a file out of the way of the Token folder, or else
+			// the local check, which inspects the store.
+			unobserved, unobservedCause := activation.UnobservedCredential(), "AIGW cannot tell whether its provider has a Token"
+			if secret.NamesTokenFolder(unobserved) {
+				unobservedCause, result.next = secret.ObservationFailure(unobserved, platform.PathContext{Home: invocation.Home(runtime.Dependencies)})
+			}
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
 			for _, client := range runtime.Clients.Admission().IDs() {
@@ -110,6 +120,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				})
 			case activation.State == domainreadiness.Deferred:
 				outcome = append(outcome, terminal.Field{State: terminal.Info, Label: "Client activation", Value: "The selected client's files wait"})
+			case unobserved != nil:
+				outcome = append(outcome, terminal.Field{State: terminal.Warn, Label: "Client activation", Value: "A selected client's files wait for its Token",
+					Details: []string{unobservedCause}})
 			}
 			if len(outcome) > 0 && dryRun {
 				r.Section("Activation")
@@ -118,7 +131,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			switch {
 			case dryRun:
 				r.Success("Preview did not write configuration, state files, authentication, or conversations")
-			case result.EnabledClients != 0 && activation.State != domainreadiness.Deferred:
+			case result.EnabledClients != 0 && activation.State != domainreadiness.Deferred && unobserved == nil:
 				r.Success("Client configuration is aligned; authentication was unchanged")
 			}
 			r.Next(result.next)

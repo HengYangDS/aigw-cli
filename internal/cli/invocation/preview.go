@@ -30,6 +30,10 @@ type Preview struct {
 	Files                []ClientFile                  `json:"client_files,omitempty"`
 	CredentialEntrypoint *app.CredentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
 	plans                []adapter.ProjectionPlan
+	// withdrawn are the clients whose plans only withdraw AIGW from the
+	// files that the transition drops, because their provider has no Token
+	// that AIGW can use.
+	withdrawn []string
 }
 
 // Plans returns the projection plans of the client files that the preview
@@ -37,10 +41,11 @@ type Preview struct {
 func (preview Preview) Plans() []adapter.ProjectionPlan { return preview.plans }
 
 // Projects reports whether the preview plans the files of client. A plan that
-// brings only AIGW's record of a file to the model that the file selects
-// plans none of them: the client's files wait, as for a Token.
+// brings only AIGW's record of a file to the model that the file selects, or
+// that only withdraws AIGW from the files that the transition drops, plans
+// none of them: the files that the client keeps wait, as for a Token.
 func (preview Preview) Projects(client string) bool {
-	return slices.ContainsFunc(preview.plans, func(plan adapter.ProjectionPlan) bool {
+	return !slices.Contains(preview.withdrawn, client) && slices.ContainsFunc(preview.plans, func(plan adapter.ProjectionPlan) bool {
 		return plan.Client == client && !plan.RecordOnly()
 	})
 }
@@ -142,7 +147,7 @@ func PreviewProjection(runtime Context, before, after domain.Config, clientIDs .
 // Planned is a projection's client files alone, without the credential
 // reader: what a commit, which prepares the reader itself, writes.
 func Planned(runtime Context, projection synchronization.Projection) Preview {
-	preview := Preview{plans: projection.Targets}
+	preview := Preview{plans: projection.Targets, withdrawn: projection.Withdrawn}
 	if len(projection.Targets) > 0 {
 		preview.Files = clientFiles(runtime, projection.Targets)
 	}

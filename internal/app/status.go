@@ -126,8 +126,8 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 		// The same observation as the activation's, so that a slot that
 		// holds nothing, or a Keychain item that macOS refuses AIGW, is no
 		// available Token here either, and the refusal is the error.
-		observation, err := secret.ObserveToken(store, accountID)
-		available, observationErr = observation.Usable(), err
+		observation := secret.ObserveToken(store, accountID)
+		available, observationErr = observation.Usable(), observation.Unobserved
 		if observation.Refusal != nil {
 			observationErr = observation.Refusal
 		}

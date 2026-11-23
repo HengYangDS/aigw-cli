@@ -215,10 +215,14 @@ func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...d
 }
 
 // credentialReadyClients excludes default-Token consumers only when their
-// selected Account has no Token that AIGW can use, an empty one or one that
-// cannot be observed, as a locked keychain leaves it. Disabled and
-// external-credential clients remain eligible for withdrawal or independent
-// convergence.
+// selected Account has no Token that AIGW can use: none, an empty one, a
+// Keychain item that macOS refuses AIGW, or one that the store cannot
+// observe, as a locked keychain leaves it. Each leaves the client waiting for
+// its Token, as status and the local check report it, and none stops the
+// other clients: the client's files are not written to name a reader that
+// would return no Token. A preview presumes the Token that its command would
+// store, which its store answers for itself. Disabled and external-credential
+// clients remain eligible for withdrawal or independent convergence.
 func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...string) ([]string, error) {
 	if len(clientIDs) == 0 {
 		clientIDs = s.ClientIDs()
@@ -233,37 +237,11 @@ func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...str
 			projectable = append(projectable, clientID)
 			continue
 		}
-		ready := true
-		for _, account := range accounts {
-			usable, _ := s.tokenUsable(account)
-			if !usable {
-				ready = false
-				break
-			}
-		}
-		if ready {
+		if !slices.ContainsFunc(accounts, func(account string) bool { return !secret.ObserveToken(s.Secrets, account).Usable() }) {
 			projectable = append(projectable, clientID)
 		}
 	}
 	return projectable, nil
-}
-
-// tokenUsable reports whether account has a Token that AIGW can use: its slot
-// is present, holds a value, and is no Keychain item that macOS refuses AIGW.
-// Each way in which that cannot be shown leaves the client waiting for its
-// Token, as status and the local check report it, and none stops the other
-// clients: the client's files are not written to name a reader that would
-// return no Token. A store that cannot say whether the slot is there, as a
-// locked keychain cannot, shows no usable Token either, and the client waits
-// as it does for an absent one; the failure it reports is returned with the
-// answer for a caller that shows it. A preview presumes the Token that its
-// command would store, which its store answers for itself.
-func (s Synchronizer) tokenUsable(account string) (bool, error) {
-	observation, err := secret.ObserveToken(s.Secrets, account)
-	if err != nil {
-		return false, err
-	}
-	return observation.Usable(), nil
 }
 
 func (s Synchronizer) credentialEntrypointProviders(cfg domain.Config, clientIDs ...string) ([]string, error) {

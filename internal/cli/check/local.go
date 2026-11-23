@@ -206,8 +206,8 @@ func (c *checker) tokenCheck(r result) localCheck {
 		return skippedCheck(name, label, "An external credential helper gives "+c.admission().ProductName(r.spec.ID)+" its Token")
 	}
 	provider := r.runtime.ProviderID
-	observation, err := secret.ObserveToken(c.deps.Secrets, provider)
-	switch {
+	observation := secret.ObserveToken(c.deps.Secrets, provider)
+	switch err := observation.Unobserved; {
 	case observation.Refusal != nil:
 		return failedCheck(name, label, observation.Refusal.Title(), observation.Refusal.Fix(), domainreadiness.Unavailable)
 	case err != nil:

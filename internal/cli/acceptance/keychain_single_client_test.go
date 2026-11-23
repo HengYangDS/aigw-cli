@@ -211,62 +211,66 @@ func codexOnOne(t *testing.T, slots ...string) (app *cli.App, out *bytes.Buffer,
 }
 
 // `aigw client edit <client> --target` moves the configuration files of one
-// enabled client, whose provider's Token the client needs: without one that
-// AIGW can use, the transaction writes no client file, and AIGW's settings
-// would stay behind in the files that the edit drops. A Keychain item that
-// another program stored ends the edit with the item's refusal, in text and
-// as JSON, as it ends `aigw client enable`; an empty Token gets the problem
-// of a missing one. Either way nothing changes and no Token is read. Followed
-// as printed, the fix of the refusal lets the same edit move the files, which
-// asks once whether the item is there and whether it is empty.
-func TestAClientEditKeepsTheFilesWhileAIGWCannotUseTheToken(t *testing.T) {
-	const missing = "Codex's configuration files cannot change while provider one has no Token"
+// enabled client, whose provider's Token the client needs. Without one that
+// AIGW can use, a Keychain item that another program stored or an empty
+// Token, the edit is saved all the same: AIGW withdraws its settings and
+// record from the file that the edit drops, which needs no Token, the file
+// that Codex moves to waits for the Token, and the edit's next step is the
+// Token's own fix, in text and as JSON: the item's, or the step that stores a
+// missing Token. The edit observes the Token and reads none. Followed as
+// printed, the item's fix lets `aigw sync` write the file that Codex moved to.
+func TestAClientEditWithdrawsTheDroppedFileWhileAIGWCannotUseTheToken(t *testing.T) {
 	for _, state := range []string{"an item of another program", "an empty Token"} {
 		for _, flag := range []string{"", "--json"} {
 			t.Run(strings.TrimSpace(state+" "+flag), func(t *testing.T) {
-				refused := state == "an item of another program"
-				var slots []string
-				if refused {
-					slots = []string{"one"}
-				}
-				app, out, items, target, moved := codexOnOne(t, slots...)
-				if !refused {
-					items.hold(t, "one", "")
-				}
-				configuration, native, other := readFile(t, app.Config.Path()), readFile(t, target), readFile(t, moved)
-				args := []string{"client", "edit", codex.ID, "--target", moved}
-				if flag != "" {
-					args = append(args, flag)
-				}
-				err := cli.Execute(app, args)
-				if refused {
-					requireRefusal(t, args, err, out, flag == "--json", "one", refusalFix("one", "`aigw provider rotate one`"))
-				} else if text := strings.Join(strings.Fields(out.String()), " "); err == nil || !strings.Contains(text, missing) ||
-					!strings.Contains(text, "Nothing changed.") || !strings.Contains(text, "aigw provider rotate one") || strings.Contains(text, "Another program") {
-					t.Fatalf("%v = %v\n%s", args, err, out)
-				}
-				requireObservedOnly(t, items, args)
-				if !bytes.Equal(readFile(t, app.Config.Path()), configuration) || !bytes.Equal(readFile(t, target), native) || !bytes.Equal(readFile(t, moved), other) {
-					t.Fatalf("%v changed the configuration or one of Codex's files", args)
-				}
-				if !refused || flag != "" {
-					return
-				}
-				storeTokenAsPrinted(t, app, out, items)
-				fixed := len(items.operations(t))
-				out.Reset()
-				if err := cli.Execute(app, args); err != nil {
-					t.Fatalf("%v after the fix = %v\n%s", args, err, out)
-				}
-				cfg, err := app.Config.Load()
-				if err != nil || !slices.Equal(cfg.Clients[codex.ID].Targets, []string{moved}) || !bytes.Contains(readFile(t, moved), []byte("https://one.test/v1")) {
-					t.Fatalf("%v after the fix: Codex's files are %q, %v; the file:\n%s", args, cfg.Clients[codex.ID].Targets, err, readFile(t, moved))
-				}
-				// The admission, the plan and the commit share one observation.
-				if operations := items.operations(t)[fixed:]; !slices.Equal(operations, []string{"exists one", "empty one", "reader read one"}) {
-					t.Fatalf("%v after the fix ran %q; want one observation, one emptiness answer and the reader's read of the Token", args, operations)
-				}
+				editCodexTargetWithoutAUsableToken(t, state == "an item of another program", flag)
 			})
 		}
+	}
+}
+
+func editCodexTargetWithoutAUsableToken(t *testing.T, refused bool, flag string) {
+	t.Helper()
+	var slots []string
+	if refused {
+		slots = []string{"one"}
+	}
+	app, out, items, target, moved := codexOnOne(t, slots...)
+	if !refused {
+		items.hold(t, "one", "")
+	}
+	native, other := readFile(t, target), readFile(t, moved)
+	args := []string{"client", "edit", codex.ID, "--target", moved}
+	if flag != "" {
+		args = append(args, flag)
+	}
+	if err := cli.Execute(app, args); err != nil {
+		t.Fatalf("%v = %v\n%s", args, err, out)
+	}
+	fix := "aigw provider rotate one"
+	if refused {
+		fix = refusalFix("one", "`aigw provider rotate one`")
+	}
+	if text := strings.Join(strings.Fields(out.String()), " "); !strings.Contains(text, fix) || strings.Contains(text, fixtureToken) {
+		t.Fatalf("%v names no next step %q, or shows the Token:\n%s", args, fix, out)
+	}
+	requireObservedOnly(t, items, args)
+	cfg, err := app.Config.Load()
+	if err != nil || !slices.Equal(cfg.Clients[codex.ID].Targets, []string{moved}) {
+		t.Fatalf("%v saved Codex's files %q, %v; want the file that it moves to", args, cfg.Clients[codex.ID].Targets, err)
+	}
+	if bytes.Contains(readFile(t, target), []byte("one.test")) || !bytes.Equal(readFile(t, target), native) || !bytes.Equal(readFile(t, moved), other) {
+		t.Fatalf("%v wrote a file of Codex without a Token that AIGW can use", args)
+	}
+	if !refused || flag != "" {
+		return
+	}
+	storeTokenAsPrinted(t, app, out, items)
+	out.Reset()
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatalf("sync after the fix = %v\n%s", err, out)
+	}
+	if !bytes.Contains(readFile(t, moved), []byte("https://one.test/v1")) {
+		t.Fatalf("sync after the fix left the file that Codex moved to:\n%s", readFile(t, moved))
 	}
 }
