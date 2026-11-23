@@ -109,8 +109,8 @@ change of selection.
 
 - **GIVEN** the operator selected in Hermes a model whose provider has no Token that AIGW can use
 - **WHEN** a command changes another setting of that client, such as `aigw client edit hermes --via` or `--target`
-- **THEN** an edit that would drop one of the client's configuration files SHALL be refused, naming the provider
-  without a Token, as for any client whose selection's provider has no Token
+- **THEN** an edit that drops one of the client's configuration files SHALL withdraw AIGW's settings and record
+  from each dropped file, which needs no Token, and SHALL end as it ends with the Token
 - **AND** an edit that names the files that the client has, or adds one, SHALL be saved on the chosen model, which
   the command's result names, and the client's file SHALL be left as it is: nothing is dropped, and AIGW's record
   of each file follows what the file shows without a Token
@@ -455,3 +455,34 @@ treated as dropped, with or without the provider's Token.
 
 - **WHEN** Hermes's configuration file is a symbolic link to a file elsewhere and a command writes it
 - **THEN** the link SHALL stay a link and the file it names SHALL hold what AIGW writes.
+
+### Requirement: A Token that its store cannot observe makes its clients wait
+
+Every command SHALL judge a provider's Token as usable, absent, or not observable, in one place. A Token that cannot
+be observed SHALL count as an absent one for each client that uses it: a command SHALL end as it ends when that Token
+is absent, so a command that changes several clients SHALL NOT be refused for it, and the result SHALL name the
+store's failure and the fix that the failure names for itself.
+
+#### Scenario: Another provider's Token file is refused
+
+- **GIVEN** Hermes selects a model of one provider and AIGW has models of a second provider whose Token file the file
+  store refuses
+- **WHEN** a command synchronizes Hermes
+- **THEN** Hermes SHALL be written for its selection without the second provider's models, as for a provider without
+  a Token
+- **AND** AIGW's record of Hermes's file SHALL name the model that the file selects.
+
+#### Scenario: The selected provider's Token cannot be observed
+
+- **GIVEN** the store cannot tell whether the selected provider's Token is there, as a locked keychain cannot
+- **WHEN** `aigw sync` or its preview runs
+- **THEN** the client SHALL wait for its Token as it does when the Token is absent, the other clients SHALL be
+  synchronized, and the result SHALL name the store's failure and its fix
+- **AND** the command SHALL end as it ends when that Token is absent.
+
+#### Scenario: A client waits for its Token
+
+- **GIVEN** a selected client's provider has no Token that AIGW can use, absent or not observable
+- **WHEN** `aigw sync` runs
+- **THEN** the result SHALL say that the client's files wait for its Token and SHALL NOT say that the client
+  configuration is aligned.
