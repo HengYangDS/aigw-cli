@@ -287,6 +287,11 @@ func (attempt nativeAttempt) run(runner commandRunner, goArgs []string, profileP
 		}
 		testOutput = events
 	}
+	dumps := ""
+	if attempt.profile != "" {
+		dumps = filepath.Join(filepath.Dir(attempt.profile), "dumps")
+	}
+	prepareCrashDumps(dumps, stderr)
 	failures := []error{
 		runner.Run("go", slices.Concat(goArgs, attempt.packages), testOutput, stderr),
 		retainCoverageProfile(profilePath, attempt.profile),
@@ -294,7 +299,7 @@ func (attempt nativeAttempt) run(runner commandRunner, goArgs []string, profileP
 	// go test itself exits 1 when a test binary dies, so any real exit reads
 	// the crash records (temporary).
 	if _, exited := errors.AsType[*exec.ExitError](failures[0]); exited {
-		showCrashRecords(stderr)
+		showCrashRecords(dumps, stderr)
 	}
 	if events != nil {
 		failures = append(failures, events.finish(), writeReport(attempt.junit, events.writeJUnit))
