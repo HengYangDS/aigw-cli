@@ -73,17 +73,8 @@ func (s Synchronizer) stored(cfg domain.Config) (domain.Config, bool) {
 	if err != nil {
 		return domain.Config{}, false
 	}
-	// The snapshot hands its decoded configuration to the view that it
-	// compares; the comparison's result is not needed here.
-	var stored domain.Config
-	read := false
-	if _, err := snapshot.MatchesConfiguration(cfg, func(current domain.Config) domain.Config {
-		stored, read = current, true
-		return current
-	}); err != nil {
-		return domain.Config{}, false
-	}
-	return stored, read
+	stored, exists, err := snapshot.Configuration(cfg.Admission())
+	return stored, exists && err == nil
 }
 
 // SelectModel commits after, which PrepareSelection made from before and may

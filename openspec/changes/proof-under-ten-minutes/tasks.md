@@ -7,7 +7,7 @@
       when a test shows the same order as `ModelRefs` gave before for configurations decoded from files, built by
       appends, and mixed with models set into the map directly, and a profile of the matrix test no longer shows
       `ModelRefs` among its top costs.
-- [ ] 1.3 Profile the matrix test again and fix any further product hot spot it names, each with its own test. Done
+- [x] 1.3 Profile the matrix test again and fix any further product hot spot it names, each with its own test. Done
       when the profile's top product costs are the commands' own file reads and writes.
 
 ## 2. Parallel acceptance tests

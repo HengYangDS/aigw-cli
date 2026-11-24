@@ -123,19 +123,29 @@ func (snapshot Snapshot) equal(other Snapshot) bool {
 	return snapshot.Config.Equal(other.Config) && snapshot.Backup.Equal(other.Backup) && snapshot.Verified.Equal(other.Verified)
 }
 
+// Configuration decodes the configuration that the snapshot holds; exists is
+// false, with no error, in the empty pre-setup state.
+func (snapshot Snapshot) Configuration(admission domain.Admission) (cfg domain.Config, exists bool, err error) {
+	if !snapshot.Config.Exists {
+		return domain.Config{}, false, nil
+	}
+	cfg, err = decodeTOMLConfig(snapshot.Config.Data, admission)
+	return cfg, err == nil, err
+}
+
 // MatchesConfiguration binds an earlier assembled selection to this exact
 // configuration preimage, including the empty pre-setup state. view derives
 // the configuration that commands work from out of the stored one, and
 // expected is compared with that; a nil view compares the stored one itself.
 func (snapshot Snapshot) MatchesConfiguration(expected domain.Config, view func(domain.Config) domain.Config) (bool, error) {
-	if !snapshot.Config.Exists {
+	current, exists, err := snapshot.Configuration(expected.Admission())
+	if err != nil {
+		return false, err
+	}
+	if !exists {
 		expected = expected.Clone()
 		expected.Normalize()
 		return reflect.DeepEqual(expected, domain.NewConfig(expected.Admission())), nil
-	}
-	current, err := decodeTOMLConfig(snapshot.Config.Data, expected.Admission())
-	if err != nil {
-		return false, err
 	}
 	if view != nil {
 		current = view(current)
