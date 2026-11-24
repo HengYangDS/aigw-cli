@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
@@ -292,15 +293,39 @@ func synchronizeClaudeProjection(t *testing.T, app *cli.App, cfg domain.Config) 
 // Windows Server 2025 ended the test binary with a fail fast (0xc0000409).
 func executableFixture(t *testing.T, name string) string {
 	t.Helper()
+	path := filepath.Join(t.TempDir(), executableName(name))
+	writeSilentProgram(t, path)
+	return path
+}
+
+// writeSilentProgram writes the program of executableFixture at path, for a
+// test that names the folder of a client's executable itself.
+func writeSilentProgram(t *testing.T, path string) {
+	t.Helper()
 	program, err := silentProgram()
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(t.TempDir(), executableName(name))
+	writeProgram(t, path, program)
+}
+
+// writeProgram writes a program that a test then starts. The tests run in
+// parallel, so another test may start a process while this one writes: on
+// Unix the child holds every descriptor of this process until it runs its own
+// program, and Linux refuses to start a file that is open for writing
+// (ETXTBSY, https://go.dev/issue/22315). The file is written under
+// syscall.ForkLock, which every fork of this process holds for writing; on
+// Windows, where no descriptor is inherited so, the lock waits for nothing.
+func writeProgram(t *testing.T, path string, program []byte) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	syscall.ForkLock.RLock()
+	defer syscall.ForkLock.RUnlock()
 	if err := os.WriteFile(path, program, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	return path
 }
 
 // silentProgram builds, once for the tests of one process, a program that

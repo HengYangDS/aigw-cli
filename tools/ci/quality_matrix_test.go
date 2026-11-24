@@ -2,7 +2,7 @@ package main
 
 import (
 	"go/ast"
-	"go/build/constraint"
+	"go/build"
 	"go/parser"
 	"go/token"
 	"path/filepath"
@@ -49,43 +49,44 @@ func TestSelectionMatrixGateSelectsOnlyItsOwnTag(t *testing.T) {
 }
 
 // acceptanceTests returns the top-level test functions of the acceptance
-// package, split by whether their file carries the selection_matrix tag.
+// package that this platform builds, split by whether their file is built only
+// with the selection_matrix tag. Go's own build context decides, so a file's
+// other constraints (its platform, a Go version) count as Go counts them.
 func acceptanceTests(t *testing.T) (tagged, untagged []string) {
 	t.Helper()
-	files, err := filepath.Glob(filepath.Join(repositoryRoot(t), "internal", "cli", "acceptance", "*_test.go"))
+	folder := filepath.Join(repositoryRoot(t), "internal", "cli", "acceptance")
+	files, err := filepath.Glob(filepath.Join(folder, "*_test.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	withTag, without := build.Default, build.Default
+	withTag.BuildTags, without.BuildTags = []string{"selection_matrix"}, nil
 	fileSet := token.NewFileSet()
 	for _, path := range files {
-		file, err := parser.ParseFile(fileSet, path, nil, parser.ParseComments)
+		inMatrix, err := withTag.MatchFile(folder, filepath.Base(path))
 		if err != nil {
 			t.Fatal(err)
 		}
-		matrix := false
-		for _, group := range file.Comments {
-			for _, comment := range group.List {
-				if comment.Pos() > file.Package || !constraint.IsGoBuild(comment.Text) {
-					continue
-				}
-				expression, err := constraint.Parse(comment.Text)
-				if err != nil {
-					t.Fatal(err)
-				}
-				with := expression.Eval(func(tag string) bool { return tag == "selection_matrix" })
-				without := expression.Eval(func(string) bool { return false })
-				matrix = with && !without
-			}
+		inBehavior, err := without.MatchFile(folder, filepath.Base(path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !inMatrix && !inBehavior {
+			continue
+		}
+		file, err := parser.ParseFile(fileSet, path, nil, parser.SkipObjectResolution)
+		if err != nil {
+			t.Fatal(err)
 		}
 		for _, declaration := range file.Decls {
 			function, ok := declaration.(*ast.FuncDecl)
 			if !ok || function.Recv != nil || !strings.HasPrefix(function.Name.Name, "Test") {
 				continue
 			}
-			if matrix {
-				tagged = append(tagged, function.Name.Name)
-			} else {
+			if inBehavior {
 				untagged = append(untagged, function.Name.Name)
+			} else {
+				tagged = append(tagged, function.Name.Name)
 			}
 		}
 	}

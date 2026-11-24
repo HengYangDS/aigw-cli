@@ -341,7 +341,7 @@ func claudeAndCodexOnOneGateway(t *testing.T, root, target string) domain.Config
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	for _, id := range []string{claude.ID, codex.ID} {
 		executable := filepath.Join(root, id)
-		writeFile(t, executable, []byte("public fixture"), 0o700)
+		writeSilentProgram(t, executable)
 		protocol := domain.ProtocolResponses
 		if id == claude.ID {
 			protocol = domain.ProtocolAnthropic

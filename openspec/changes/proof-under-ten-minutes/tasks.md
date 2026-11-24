@@ -12,11 +12,11 @@
 
 ## 2. Parallel acceptance tests
 
-- [x] 2.1 Call `t.Parallel` first in every top-level test of the acceptance package that does not call `t.Setenv`.
-      Done when the package passes under the race detector with coverage, as `go-behavior` runs it.
-- [x] 2.2 Add a test of the package that reads its own test files and requires `t.Parallel` first in every top-level
-      test unless the test calls `t.Setenv`. Done when it fails on a new test without `t.Parallel` and passes on the
-      package.
+- [x] 2.1 Call `t.Parallel` first in every top-level test of the acceptance package that does not call `t.Setenv` or
+      `t.Chdir`, and write every program that a test starts under `syscall.ForkLock`. Done when the package passes
+      under the race detector with coverage, as `go-behavior` runs it.
+- [x] 2.2 Enable golangci-lint's `paralleltest` for the acceptance package's top-level tests. Done when the lint refuses
+      a new test of the package without `t.Parallel`, passes the package, and passes a test outside it.
 
 ## 3. Verification
 

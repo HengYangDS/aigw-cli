@@ -145,7 +145,7 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	home := t.TempDir()
 	bin := filepath.Join(home, "bin")
 	for _, name := range []string{"aigw", claude.ID, codex.ID} {
-		writeFile(t, filepath.Join(bin, executableName(name)), []byte("native executable fixture"), 0o755)
+		writeSilentProgram(t, filepath.Join(bin, executableName(name)))
 	}
 
 	codexHome := filepath.Join(home, ".codex")

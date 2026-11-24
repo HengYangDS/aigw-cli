@@ -12,8 +12,10 @@ import (
 // every list follows the file. The store records it as it reads the file
 // through the Append methods. An entry that a command adds to a map directly
 // comes after the recorded ones, in identity order, so that no list depends
-// on map order. Every writer records a list that names each identity at most
-// once: a list these methods returned, with at most one new identity.
+// on map order. No recorded list names an identity twice: each writer records
+// a list that these methods returned, that list with one identity that it does
+// not hold, or (a team file's merge) one such list followed by the entries of
+// another that it does not hold.
 type displayOrder struct {
 	providers []string
 	families  []string
