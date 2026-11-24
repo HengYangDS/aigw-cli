@@ -56,8 +56,11 @@ Every placement was checked against these before the decision; each one excludes
 
 ### The matrix's bound and the budgets around it
 
-- **Rests on:** constraint 5 and the gate's measured runs (proposal): the slowest, 855 s on the GitLab Windows guest,
-  times three is about 43 minutes. The bound was one hour, longer than the GitHub quality job (25 minutes), the GitHub
+- **Rests on:** constraint 5 and the gate's measured runs. The requirement measures from a quiet host, so the basis is
+  the quiet run of the slowest platform: Windows, 837 s on a hosted runner (2026-11-24), times three is about 42
+  minutes. Every Windows run measured since is inside that: 855 s on the GitLab guest (pipeline 17863), 667 s on the
+  guest and 1,158 s on a hosted runner in this Change's own jobs (pipeline 17879, run 45455081134), the last 1.38 times
+  the quiet run; macOS ran 449 to 655 s. The bound was one hour, longer than the GitHub quality job (25 minutes), the GitHub
   native jobs (25 minutes) and the local proof's static gate (2,400 s), so a hang there would have ended without Go's
   diagnostics. The accepted requirement "Hang bounds tolerate a shared CI host" already states the obligation; its
   "each package run" is the coverage run's, whose 20-minute limit the matrix cannot use under the same three-times rule.
@@ -70,8 +73,12 @@ Every placement was checked against these before the decision; each one excludes
   gate gets 3,600 s, against 65 to 83 s for the rest of that gate before the matrix joined it. A test of the tracked
   files checks the necessary condition, that every GitHub job and proof gate that runs the matrix has a budget above
   its bound; the margin for the work before the matrix rests on the figures above. GitLab's jobs take the project's
-  limit of 60 minutes (read 2026-11-25, a Forge setting outside the repository); before the matrix they run setup and
-  the source check, about 5 minutes on the guests (manual pipeline 17863); a runner's own `maximum_timeout` is not read.
+  limit of 60 minutes (read 2026-11-25, a Forge setting outside the repository), within each runner's
+  `maximum_timeout` (read 2026-11-25: 3,600 s for the protected macOS and Linux runners, 7,200 s for the others); before
+  the matrix they run setup and the source check, about 5 minutes on the guests (manual pipeline 17863).
+- **Measured with the matrix in place** (proposal of `c980a8c49`): GitHub's native jobs took 21.2 minutes (macOS) and
+  30.8 minutes (Windows) against 70; GitLab's took 17.9 minutes (macOS) and 20.6 minutes (Windows) against 60; the
+  matrix started about 3 minutes into each hosted native job.
 - **Not changed:** the official clients' journey keeps its own bound of one hour (`tools/release/construction`); the
   native budget, 45 minutes before this Change and 70 now, leaves the job's earlier steps 10 minutes before it, which
   is not measured for that path. A manual run that combines `--full-quality` with the clients runs the quality graph,

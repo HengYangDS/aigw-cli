@@ -23,8 +23,9 @@ local proof keeps it, because the design holds with no remote, one or many (00:0
   run the matrix derive from it.
 - A native run that qualifies every quality tool (`--full-quality`) runs the gate once, through the quality graph; an
   artifact-only native journey runs no source tests and no matrix.
-- The matrix's own bound falls from one hour to 45 minutes, three times its slowest measured run; every GitHub job that
-  runs it gets 70 minutes and the local proof's static gate 3,600 s, so a hang ends with Go's diagnostics.
+- The matrix's own bound falls from one hour to 45 minutes, three times a quiet run on its slowest platform; every
+  GitHub job that runs it gets 70 minutes and the local proof's static gate 3,600 s, so a hang ends with Go's
+  diagnostics.
 - The full local proof and the Linux quality jobs keep the gate unchanged.
 
 No behavior of the product changes. Not breaking.

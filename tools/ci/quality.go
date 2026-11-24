@@ -63,9 +63,10 @@ type qualityGraph struct {
 const selectionMatrixGate = "selection-matrix"
 
 // selectionMatrixCommand runs the exhaustive selection tests. Its bound leaves
-// room for a host three times slower than the slowest measured run (855 s on
-// the GitLab Windows guest, 2026-11-24) and stays inside the time budget of
-// every job and proof gate that runs it, so a hang ends with Go's diagnostics.
+// room for a host three times slower than a quiet run on the slowest platform
+// (Windows, 837 s on a hosted runner, 2026-11-24) and stays inside the time
+// budget of every job and proof gate that runs it, so a hang ends with Go's
+// diagnostics. The Change selection-matrix-native-platforms gives every run.
 var selectionMatrixCommand = command{Name: "go", Args: []string{"test", "-tags=selection_matrix", "-count=1", "-timeout=45m", "./" + selectionMatrixPackage, "-run", "^TestMatrix"}}
 
 // selectionMatrixPackage holds the exhaustive selection tests.
