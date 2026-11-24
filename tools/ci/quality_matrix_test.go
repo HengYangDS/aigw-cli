@@ -24,6 +24,11 @@ func TestSelectionMatrixGateSelectsOnlyItsOwnTag(t *testing.T) {
 		t.Fatal("the quality graph has no selection-matrix gate")
 	}
 	args := repositoryQualityGraph.Gates[index].Command.Args
+	// A fresh run of the package whose tests are read below: a cached pass
+	// never stands in for the matrix.
+	if !slices.Contains(args, "-count=1") || !slices.Contains(args, "./"+selectionMatrixPackage) {
+		t.Fatalf("the selection-matrix gate does not run %s afresh: %v", selectionMatrixPackage, args)
+	}
 	at := slices.Index(args, "-run")
 	if at < 0 || at+1 >= len(args) || !slices.Contains(args, "-tags=selection_matrix") {
 		t.Fatalf("the selection-matrix gate selects no tagged tests by name: %v", args)
@@ -54,7 +59,7 @@ func TestSelectionMatrixGateSelectsOnlyItsOwnTag(t *testing.T) {
 // other constraints (its platform, a Go version) count as Go counts them.
 func acceptanceTests(t *testing.T) (tagged, untagged []string) {
 	t.Helper()
-	folder := filepath.Join(repositoryRoot(t), "internal", "cli", "acceptance")
+	folder := filepath.Join(repositoryRoot(t), filepath.FromSlash(selectionMatrixPackage))
 	files, err := filepath.Glob(filepath.Join(folder, "*_test.go"))
 	if err != nil {
 		t.Fatal(err)

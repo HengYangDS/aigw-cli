@@ -101,6 +101,6 @@ evidence_class = "proof"
 trust_bearing = true
 writes_files = true
 network_policy = "required"
-# The quality run includes the tagged selection-matrix gate (537 s in the proof of 7e64d0b7d), whose
-# own bound is 45 minutes; this bound outlasts it, so a hang ends with Go's diagnostics.
+# The quality run includes the tagged selection-matrix gate (537 s in the proof of 7e64d0b7d); this
+# bound outlasts the gate's own, so a hang ends with Go's diagnostics.
 timeout_seconds = 3600

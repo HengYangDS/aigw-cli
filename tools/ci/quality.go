@@ -66,7 +66,10 @@ const selectionMatrixGate = "selection-matrix"
 // room for a host three times slower than the slowest measured run (855 s on
 // the GitLab Windows guest, 2026-11-24) and stays inside the time budget of
 // every job and proof gate that runs it, so a hang ends with Go's diagnostics.
-var selectionMatrixCommand = command{Name: "go", Args: []string{"test", "-tags=selection_matrix", "-count=1", "-timeout=45m", "./internal/cli/acceptance", "-run", "^TestMatrix"}}
+var selectionMatrixCommand = command{Name: "go", Args: []string{"test", "-tags=selection_matrix", "-count=1", "-timeout=45m", "./" + selectionMatrixPackage, "-run", "^TestMatrix"}}
+
+// selectionMatrixPackage holds the exhaustive selection tests.
+const selectionMatrixPackage = "internal/cli/acceptance"
 
 var repositoryQualityGraph = qualityGraph{
 	Gates: []qualityGate{

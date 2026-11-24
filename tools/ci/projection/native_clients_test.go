@@ -22,8 +22,7 @@ func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {
 	}
 	var workflow struct {
 		Jobs map[string]struct {
-			TimeoutMinutes string `yaml:"timeout-minutes"`
-			Steps          []step `yaml:"steps"`
+			Steps []step `yaml:"steps"`
 		} `yaml:"jobs"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {

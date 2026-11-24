@@ -226,6 +226,18 @@ func TestEachForgeRunsTheSelectionMatrixOnEveryPlatformWithoutItsQualityJob(t *t
 	}
 }
 
+// runsTheSelectionMatrix reports whether a command line runs the matrix: the
+// quality graph (quality, source, the repository check, full native quality),
+// the native matrix flag, or the tagged tests themselves.
+func runsTheSelectionMatrix(line string) bool {
+	for _, form := range []string{"./tools/ci quality", "./tools/ci source", "mise run check", "--selection-matrix", "--full-quality", "-tags=selection_matrix"} {
+		if strings.Contains(line, form) {
+			return true
+		}
+	}
+	return false
+}
+
 func anyStrings(value any) []string {
 	items, _ := value.([]any)
 	texts := make([]string, 0, len(items))
@@ -237,10 +249,10 @@ func anyStrings(value any) []string {
 	return texts
 }
 
-// Every GitHub job and proof gate that runs the selection matrix gives it more
-// time than the matrix's own bound, so a hang ends with Go's diagnostics before
-// the job or the gate is cut off.
-func TestEveryRunOfTheSelectionMatrixOutlastsItsBound(t *testing.T) {
+// Every GitHub job and proof gate that runs the selection matrix has a budget
+// above the matrix's own bound. This is the necessary condition only; the time
+// that a job spends before the matrix is measured, not tested (the design).
+func TestEveryBudgetAroundTheSelectionMatrixExceedsItsBound(t *testing.T) {
 	at := slices.IndexFunc(selectionMatrixCommand.Args, func(arg string) bool { return strings.HasPrefix(arg, "-timeout=") })
 	if at < 0 {
 		t.Fatalf("the selection matrix has no bound: %q", selectionMatrixCommand.Args)
@@ -253,7 +265,7 @@ func TestEveryRunOfTheSelectionMatrixOutlastsItsBound(t *testing.T) {
 	for name, job := range readGitHubVerify(t) {
 		runs := false
 		for _, step := range job.Steps {
-			runs = runs || strings.Contains(step.Run, "./tools/ci quality") || strings.Contains(step.Run, "--selection-matrix") || strings.Contains(step.Run, "--full-quality")
+			runs = runs || runsTheSelectionMatrix(step.Run)
 		}
 		if !runs {
 			continue
@@ -283,7 +295,7 @@ func TestEveryRunOfTheSelectionMatrixOutlastsItsBound(t *testing.T) {
 	}
 	gates := 0
 	for _, gate := range profile.Proof.Gates {
-		if strings.Contains(strings.Join(gate.Command, " "), "./tools/ci quality") {
+		if runsTheSelectionMatrix(strings.Join(gate.Command, " ")) {
 			gates++
 			if time.Duration(gate.Timeout)*time.Second <= bound {
 				t.Errorf("the proof gate %q gives the matrix %d s, not more than its bound %v", gate.Command, gate.Timeout, bound)

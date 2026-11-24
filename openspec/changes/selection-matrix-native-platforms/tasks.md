@@ -7,8 +7,8 @@
       `--selection-matrix` in the native command of every other platform; regenerate the projections. Done when the
       projection check passes and a test of the generated pipelines finds the flag on exactly the native jobs whose
       runner differs from that Forge's quality job, on both Forges.
-- [x] 1.3 Bound the matrix at 45 min and give every GitHub job that runs it 60 min and the proof's static gate 3,600 s.
-      Done when a test of the tracked files finds every such job and gate outlasting the bound.
+- [x] 1.3 Bound the matrix at 45 min and give every GitHub job that runs it 70 min and the proof's static gate 3,600 s.
+      Done when a test of the tracked files finds every such job's and gate's budget above the bound.
 
 ## 2. Verification
 

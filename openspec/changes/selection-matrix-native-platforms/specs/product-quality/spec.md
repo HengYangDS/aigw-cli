@@ -28,12 +28,3 @@ that pipeline.
 
 - **WHEN** a native job accepts prebuilt release artifacts without source tests
 - **THEN** it SHALL NOT run the exhaustive selection tests
-
-### Requirement: Every run of the selection tests outlasts their bound
-
-Every job and proof gate that runs the exhaustive selection tests SHALL give them more time than their own bound.
-
-#### Scenario: The selection tests hang
-
-- **WHEN** the exhaustive selection tests stop making progress in a job or a proof gate
-- **THEN** their own bound SHALL stop them with Go's diagnostics before the job's or the gate's time budget ends

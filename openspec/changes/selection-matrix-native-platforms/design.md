@@ -47,9 +47,10 @@ Every placement was checked against these before the decision; each one excludes
 - **Chosen:** the CUE graph declares the quality jobs' platform once (`qualityPlatform`; it moves their runners, while
   their toolchain setup stays Linux's); the native command of every other platform carries `--selection-matrix`.
   `ci native --selection-matrix`, in its explicit and its GitLab environment form and through the Linux Secret Service
-  session, runs the quality graph's `selectionMatrixCommand` after the Go source check and before the coverage run, with
-  the coverage run's isolated environment (its own temporary folder, no Forge credentials). With `--full-quality` the
-  quality graph already runs it, so it is not added; an artifact-only journey runs no source commands and no matrix.
+  session, runs the quality graph's `selectionMatrixCommand` after the Go source check and before the coverage run, in
+  the coverage run's isolated environment: the run's temporary folder, which the two share, and no Forge credentials.
+  With `--full-quality` the quality graph already runs it, so it is not added, and it runs in the job's own
+  environment, as in the quality jobs; an artifact-only journey runs no source commands and no matrix.
 - **Applies to:** `.config/ci/pipeline.cue`, `.gitlab-ci.yml`, `.github/workflows/verify.yml`, `tools/ci/main.go`,
   `tools/ci/native_environment.go`, `tools/ci/quality.go`.
 
@@ -58,14 +59,25 @@ Every placement was checked against these before the decision; each one excludes
 - **Rests on:** constraint 5 and the gate's measured runs (proposal): the slowest, 855 s on the GitLab Windows guest,
   times three is about 43 minutes. The bound was one hour, longer than the GitHub quality job (25 minutes), the GitHub
   native jobs (25 minutes) and the local proof's static gate (2,400 s), so a hang there would have ended without Go's
-  diagnostics.
-- **Chosen:** the matrix's bound is 45 minutes. Every GitHub job that runs it, ordinarily or with `--full-quality`, gets
-  60 minutes: the quality job and every native job, whose one budget also covers the official clients' journeys
-  (45 minutes before; GitHub runs those only with a published baseline, which runs no source tests). The local proof's
-  static gate gets 3,600 s. A test of the tracked files requires every GitHub job and proof gate that runs the matrix to
-  outlast its bound. GitLab's jobs take the project's limit of 60 minutes (read 2026-11-25, a Forge setting outside the
-  repository); before the matrix they run setup and the source check, about 5 minutes on the guests.
-- **Applies to:** `tools/ci/quality.go`, `.config/ci/pipeline.cue`, `.ethos/profile.toml`.
+  diagnostics. The accepted requirement "Hang bounds tolerate a shared CI host" already states the obligation; its
+  "each package run" is the coverage run's, whose 20-minute limit the matrix cannot use under the same three-times rule.
+- **Measured work around the matrix** (GitHub `dev` pushes of `51fdc384f` and `7e64d0b7d`): the quality step 390 to
+  530 s, the Linux matrix (about 138 s) included; the native run step 567 to 607 s on Windows and 705 to 976 s on macOS,
+  without the matrix; setup outside those steps under 2 minutes. If all of a job's longest measured work ran before the
+  matrix, 976 s plus setup plus the 45-minute bound is about 63 minutes.
+- **Chosen:** the matrix's bound is 45 minutes. Every GitHub job that runs it, ordinarily or with `--full-quality`,
+  gets 70 minutes (`matrixJobMinutes`, declared once): the quality job and every native job. The local proof's static
+  gate gets 3,600 s, against 65 to 83 s for the rest of that gate before the matrix joined it. A test of the tracked
+  files checks the necessary condition, that every GitHub job and proof gate that runs the matrix has a budget above
+  its bound; the margin for the work before the matrix rests on the figures above. GitLab's jobs take the project's
+  limit of 60 minutes (read 2026-11-25, a Forge setting outside the repository); before the matrix they run setup and
+  the source check, about 5 minutes on the guests (manual pipeline 17863); a runner's own `maximum_timeout` is not read.
+- **Not changed:** the official clients' journey keeps its own bound of one hour (`tools/release/construction`); the
+  native budget, 45 minutes before this Change and 70 now, leaves the job's earlier steps 10 minutes before it, which
+  is not measured for that path. A manual run that combines `--full-quality` with the clients runs the quality graph,
+  the coverage run and the journey in one job, which no budget measured here covers.
+- **Applies to:** `tools/ci/quality.go`, `.config/ci/pipeline.cue`, `.ethos/profile.toml`,
+  `.config/checks/coverage/policy.toml` (its comment).
 
 ## Risks / Trade-offs
 
