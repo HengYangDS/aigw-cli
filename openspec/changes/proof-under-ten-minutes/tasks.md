@@ -26,4 +26,4 @@
 - [ ] 3.3 A full proof of the lane head held 600 s or less on this host, with its admission load recorded. Done when
       the proof record shows it; if it does not, the remaining cost and the matrix's place in the proof go to the owner
       as a decision.
-- [ ] 3.4 Pass the proposal's hosted checks on both forges.
+- [x] 3.4 Pass the proposal's hosted checks on both forges.
