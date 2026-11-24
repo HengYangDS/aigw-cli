@@ -3,7 +3,7 @@
 - [x] 1.1 Give the selection matrix's tagged tests a prefix of their own and select only it in the `selection-matrix`
       gate. Done when a test of the quality graph finds that the gate's pattern matches no test of the acceptance
       package's untagged files, and the tagged run lists only tagged tests.
-- [ ] 1.2 Make `Config.AppendModel` append to a recorded order that already holds every model, without sorting. Done
+- [x] 1.2 Make `Config.AppendModel` append to a recorded order that already holds every model, without sorting. Done
       when a test shows the same order as `ModelRefs` gave before for configurations decoded from files, built by
       appends, and mixed with models set into the map directly, and a profile of the matrix test no longer shows
       `ModelRefs` among its top costs.
