@@ -196,7 +196,7 @@ func documentProblems(document []byte) []string {
 
 // identifierKeyed names the objects whose keys are identifiers, such as client
 // IDs, rather than field names.
-var identifierKeyed = map[string]bool{"clients": true, "selections": true, "adopted_selections": true, "recommendations": true, "accounts": true, "routes": true}
+var identifierKeyed = map[string]bool{"clients": true, "selections": true, "recommendations": true, "accounts": true, "routes": true}
 
 // snakeKey matches a snake_case field name.
 var snakeKey = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)

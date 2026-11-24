@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 )
 
 // refusal is an unknown name or a malformed argument that a command refuses
@@ -36,7 +37,7 @@ func ParseModelArgument(cfg domain.Config, text string) (domain.ModelRef, error)
 		}
 	}
 	fix := "aigw model list " + text
-	if !plain(text) {
+	if !platform.PlainWord(text) {
 		fix = "aigw model list"
 	}
 	if len(named) == 0 {
@@ -59,7 +60,7 @@ func ResolveModel(cfg domain.Config, ref domain.ModelRef, protocol domain.Endpoi
 	}
 	if _, declared := model.Protocols[protocol]; protocol != "" && !declared {
 		fix := "aigw model list --provider " + ref.Provider()
-		if show := Command("model", "show", ref.String()); show != "" {
+		if show := platform.AIGWCommand("model", "show", ref.String()); show != "" {
 			fix = show
 		}
 		return domain.Model{}, refusal{message: fmt.Sprintf("%s declares no %s", ref, domain.ProtocolLabel(protocol)), fix: fix}
@@ -120,7 +121,7 @@ func ResolveLoneClient(admission domain.Admission, id string) (domain.ClientSpec
 	if !refused {
 		return spec, err
 	}
-	failed.fix = Command("model", "list", id)
+	failed.fix = platform.AIGWCommand("model", "list", id)
 	if failed.fix == "" {
 		failed.fix = "aigw model list"
 	}

@@ -38,7 +38,9 @@ func RawJSON(value any) json.RawMessage {
 // executable to keep, and checks that AIGW's credential store holds a Token of
 // the selected Account that AIGW can use when the Route reads it from there.
 // ready reports whether all of them are present; when it is false, the adapter
-// leaves the client's activation unchanged. With requireRunnable, an
+// leaves the client's activation unchanged. A Token that the store cannot
+// observe is no Token that AIGW can use: the client is not ready, and the
+// store's failure is no error of the command. With requireRunnable, an
 // executable that is not runnable is not ready, and the credential store is
 // not read.
 func ConvergeBinding(deps Dependencies, cfg *domain.Config, discovered discovery.Result, clientID string, requireRunnable bool) (binding domain.ClientBinding, executable string, ready bool, err error) {
@@ -63,13 +65,7 @@ func ConvergeBinding(deps Dependencies, cfg *domain.Config, discovered discovery
 			return domain.ClientBinding{}, "", false, err
 		}
 	}
-	available := !runtime.UsesAIGWCredentialStore()
-	if runtime.UsesAIGWCredentialStore() {
-		available, err = SecretAvailable(deps.Secrets, runtime.ProviderID)
-		if err != nil {
-			return domain.ClientBinding{}, "", false, err
-		}
-	}
+	available := !runtime.UsesAIGWCredentialStore() || secret.ObserveToken(deps.Secrets, runtime.ProviderID).Usable()
 	return binding, executable, executable != "" && available, nil
 }
 
@@ -84,18 +80,6 @@ func resolveExecutable(clientID, configured, discovered string) (string, error) 
 		return configured, nil
 	}
 	return discovered, nil
-}
-
-// SecretAvailable reports whether the credential store holds a Token of the
-// Account that AIGW can use: its slot is present, holds a value, and is no
-// Keychain item that macOS refuses AIGW. A client that reads a Token that is
-// none of these would get no Token from AIGW's credential reader.
-func SecretAvailable(store secret.Store, accountID string) (bool, error) {
-	if store == nil {
-		return false, nil
-	}
-	observation, err := secret.ObserveToken(store, accountID)
-	return observation.Usable(), err
 }
 
 // RetainedDefaultReader returns the credential reader that a client's native

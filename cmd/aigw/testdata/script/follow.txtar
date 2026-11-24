@@ -1,0 +1,75 @@
+# A model chosen inside a client is that client's selection for every command.
+# Codex's own picker rewrites the root model of its file, which the script
+# does here. The reports name the choice and write nothing; a command that
+# writes Codex's file keeps the choice and its own edit; a command about
+# something else, here another provider, records the choice with AIGW's
+# record of the file, so that the earlier model, chosen in Codex again, is a
+# choice too; a model that the provider has not added is refused with the
+# command that restores the recorded selection, which runs as printed.
+stdin token.txt
+exec aigw provider add team --endpoint responses=$UPSTREAM/v1 --token-stdin
+exec aigw model add team/team-model
+exec aigw model add team/spare-model
+exec aigw use codex team/team-model
+exec aigw client edit codex --target $HOME/.codex/config.toml --executable $WORK/codex
+grep '^model = "team-model" # managed by AIGW$' $HOME/.codex/config.toml
+
+replace $HOME/.codex/config.toml 'model = "team-model" # managed by AIGW' 'model = "spare-model"'
+snapshot $HOME chosen.txt
+exec aigw status --json
+stdout '"model": "team/spare-model"'
+stdout '"followed_selections": \[\n\s+\{\n\s+"client": "codex",\n\s+"model": "team/spare-model",\n\s+"earlier": "team/team-model",\n\s+"returns_with": "aigw use codex team/team-model"\n'
+exec aigw status
+stdout 'Followed selection\n  Codex uses team/spare-model, chosen in Codex; AIGW held team/team-model\. To return to it:\n  aigw use codex team/team-model\n\nNext\n'
+exec aigw sync --dry-run --json
+stdout '"followed_selections"'
+exec aigw model list --json
+! stdout 'followed_selections'
+snapshot $HOME reported.txt
+cmp reported.txt chosen.txt
+
+exec aigw client edit codex --request-retries 2 --json
+stdout '"returns_with": "aigw use codex team/team-model"'
+grep '^model = "spare-model" # managed by AIGW$' $HOME/.codex/config.toml
+grep '^request_max_retries = 2$' $HOME/.codex/config.toml
+exec aigw status --json
+stdout '"model": "team/spare-model"'
+! stdout 'followed_selections'
+
+replace $HOME/.codex/config.toml 'model = "spare-model" # managed by AIGW' 'model = "team-model"'
+stdin token.txt
+exec aigw provider add other --endpoint responses=$UPSTREAM/v1 --token-stdin --json
+stdout '"model": "team/team-model",\n\s+"earlier": "team/spare-model",\n\s+"returns_with": "aigw use codex team/spare-model"\n'
+grep '^model = "team-model" # managed by AIGW$' $HOME/.codex/config.toml
+exec aigw sync --json
+! stdout 'followed_selections'
+grep '^model = "team-model" # managed by AIGW$' $HOME/.codex/config.toml
+
+# The earlier model, chosen in Codex again after a command about something
+# else, is a choice too: the next command about something else records it,
+# and choosing back is recorded the same way.
+replace $HOME/.codex/config.toml 'model = "team-model" # managed by AIGW' 'model = "spare-model"'
+exec aigw provider edit other --label 'Other Again' --json
+stdout '"model": "team/spare-model",\n\s+"earlier": "team/team-model",\n\s+"returns_with": "aigw use codex team/team-model"\n'
+grep '^model = "spare-model" # managed by AIGW$' $HOME/.codex/config.toml
+replace $HOME/.codex/config.toml 'model = "spare-model" # managed by AIGW' 'model = "team-model"'
+exec aigw provider edit other --label Other --json
+stdout '"model": "team/team-model",\n\s+"earlier": "team/spare-model",\n\s+"returns_with": "aigw use codex team/spare-model"\n'
+grep '^model = "team-model" # managed by AIGW$' $HOME/.codex/config.toml
+
+replace $HOME/.codex/config.toml 'model = "team-model" # managed by AIGW' 'model = "ghost"'
+snapshot $HOME unknown.txt
+exitcode 1 aigw sync --json
+stdout '"impact": "Configuration and client files are unchanged."'
+stdout '"next_action": "aigw use codex team/team-model"'
+stdout 'aigw use codex team/ghost. adds and selects the model that Codex names'
+cp stdout refused.json
+exitcode 1 aigw client disable codex --json
+stdout '"next_action": "aigw use codex team/team-model"'
+snapshot $HOME refused.txt
+cmp refused.txt unknown.txt
+fixloop refused.json aigw sync --json
+grep '^model = "team-model" # managed by AIGW$' $HOME/.codex/config.toml
+
+-- token.txt --
+sk-team-token-0001

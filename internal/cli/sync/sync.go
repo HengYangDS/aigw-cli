@@ -1,6 +1,7 @@
 // Package sync implements `aigw sync`, which makes the enabled clients' files
-// match the configuration: it discovers the clients, adopts a selection that
-// a client made itself, and writes each client's files for its model. It never
+// match the configuration: it discovers the clients and writes each client's
+// files for its model. Like every command it works from the configuration
+// that follows a model chosen in a client. It never
 // changes client conversation history or model metadata.
 package sync
 
@@ -12,6 +13,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -19,16 +21,15 @@ import (
 
 // schemaVersion is the version of `aigw sync`'s JSON document, which also
 // replaces `aigw repair`'s: both were at 2.
-const schemaVersion = 3
+const schemaVersion = 4
 
 // syncResult is `aigw sync`'s JSON document: each client's model as
-// provider/model, any selection adopted from a client, and in a preview the
+// provider/model, and in a preview the
 // client files that it would write and the credential reader that it would
 // install. Its next step is a command that a script can run, or guidance.
 type syncResult struct {
-	DryRun            bool              `json:"dry_run,omitempty"`
-	Selections        map[string]string `json:"selections"`
-	AdoptedSelections map[string]string `json:"adopted_selections,omitempty"`
+	DryRun     bool              `json:"dry_run,omitempty"`
+	Selections map[string]string `json:"selections"`
 	invocation.Preview
 	EnabledClients int    `json:"enabled_clients"`
 	State          string `json:"state,omitempty"`
@@ -49,7 +50,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Example: "aigw sync\naigw sync --dry-run\naigw sync --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			before, err := runtime.Config.Load()
+			before, err := runtime.LoadConfiguration()
 			if err != nil {
 				return err
 			}
@@ -59,11 +60,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return terminal.ProblemError("Not configured", "No provider has been added.", "", "aigw setup", fmt.Errorf("not configured"))
 			}
 			synchronizer := runtime.Synchronizer()
-			adoptedConfig, adopted, err := synchronizer.AdoptNativeSelections(before)
-			if err != nil {
-				return fmt.Errorf("sync synchronization preflight failed; configuration and client files were unchanged: %w", err)
-			}
-			after, _, err := synchronizer.DesiredSyncConfiguration(adoptedConfig)
+			after, _, err := synchronizer.DesiredSyncConfiguration(before)
 			// A blocked Token folder states its own fix, which the command's
 			// presentation renders.
 			if _, blocked := platform.BlockedPath(err); blocked {
@@ -73,24 +70,31 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return terminal.ProblemError(
 					"Synchronization prerequisites are unavailable",
 					"AIGW could not determine which clients' files it can write with the clients and credentials available now.",
-					"Configuration and client files are unchanged.",
+					terminal.UnchangedImpact,
 					"aigw check --depth local",
 					err,
 				)
 			}
 			activation := clientactivation.AssessActivation(after, runtime.Secrets)
 			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, next: activation.NextActionFor(nil)}
+			// A client whose provider's Token the store cannot observe waits
+			// for it, as for an absent Token, and the result names the store's
+			// failure and its fix: the fix that the failure names for itself,
+			// such as moving a file out of the way of the Token folder, or else
+			// the local check, which inspects the store.
+			unobserved, unobservedCause := activation.UnobservedCredential(), "AIGW cannot tell whether its provider has a Token"
+			if secret.NamesItsFix(unobserved) {
+				unobservedCause, result.next = secret.ObservationFailure(unobserved, platform.PathContext{Home: invocation.Home(runtime.Dependencies)})
+			}
+			// A client waits for its Token whether the store says that the
+			// Token is absent or cannot tell: both end alike, and neither is
+			// aligned.
+			waiting := unobserved != nil || len(activation.ClientCredentialPrerequisites) > 0
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
 			for _, client := range runtime.Clients.Admission().IDs() {
 				if selected := after.SelectedModel(client); !selected.IsZero() {
 					result.Selections[client] = selected.String()
-				}
-			}
-			if len(adopted) > 0 {
-				result.AdoptedSelections = map[string]string{}
-				for client, ref := range adopted {
-					result.AdoptedSelections[client] = ref.String()
 				}
 			}
 			if dryRun {
@@ -111,14 +115,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				r.ProductTitle("Synchronization completed")
 			}
 			outcome := []terminal.Field{}
-			for _, client := range runtime.Clients.Admission().IDs() {
-				if model, ok := result.AdoptedSelections[client]; ok {
-					outcome = append(outcome, terminal.Field{
-						State: terminal.Info, Label: "Adopted selection",
-						Value: runtime.Clients.Admission().Label(client) + " now uses " + model + ", chosen in " + runtime.Clients.Admission().Label(client),
-					})
-				}
-			}
 			switch {
 			case result.EnabledClients == 0:
 				// The activation decision names the continuation for the current backend.
@@ -128,6 +124,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				})
 			case activation.State == domainreadiness.Deferred:
 				outcome = append(outcome, terminal.Field{State: terminal.Info, Label: "Client activation", Value: "The selected client's files wait"})
+			case unobserved != nil:
+				outcome = append(outcome, terminal.Field{State: terminal.Warn, Label: "Client activation", Value: "A selected client's files wait for its Token",
+					Details: []string{unobservedCause}})
+			case waiting:
+				outcome = append(outcome, terminal.Field{State: terminal.Warn, Label: "Client activation", Value: "A selected client's files wait for its Token"})
 			}
 			if len(outcome) > 0 && dryRun {
 				r.Section("Activation")
@@ -136,7 +137,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			switch {
 			case dryRun:
 				r.Success("Preview did not write configuration, state files, authentication, or conversations")
-			case result.EnabledClients != 0 && activation.State != domainreadiness.Deferred:
+			case result.EnabledClients != 0 && activation.State != domainreadiness.Deferred && !waiting:
 				r.Success("Client configuration is aligned; authentication was unchanged")
 			}
 			r.Next(result.next)

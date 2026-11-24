@@ -130,6 +130,7 @@ func requireClaudeFileAlonePlanned(t *testing.T, args []string, out *bytes.Buffe
 // the keychain holds. Followed as printed, the fix stores the Token, and the
 // next sync writes the first client's file too.
 func TestSyncLeavesTheClientOfAnItemOfAnotherProgramWaiting(t *testing.T) {
+	t.Parallel()
 	fix := refusalFix("one", "`aigw provider rotate one`")
 	for _, flags := range [][]string{nil, {"--json"}, {"--dry-run"}, {"--dry-run", "--json"}} {
 		t.Run(strings.Join(append([]string{"sync"}, flags...), " "), func(t *testing.T) {
@@ -181,6 +182,7 @@ func TestSyncLeavesTheClientOfAnItemOfAnotherProgramWaiting(t *testing.T) {
 // sync`: the client waits with the step that stores one, no reader reads the
 // empty slot, and the sync completes for the client whose Token is stored.
 func TestSyncCountsAnEmptyTokenAsMissing(t *testing.T) {
+	t.Parallel()
 	app, out, items, target := claudeOnOneAndCodexOnTwo(t)
 	items.hold(t, "one", "")
 	native := readFile(t, target)
@@ -212,6 +214,7 @@ func TestSyncCountsAnEmptyTokenAsMissing(t *testing.T) {
 // where the client's file already is the restored selection's, and after the
 // `aigw sync` that the check names where the rollback had that file to write.
 func TestConfigRollbackLeavesTheClientOfAnItemOfAnotherProgramWaiting(t *testing.T) {
+	t.Parallel()
 	fix := refusalFix("one", "`aigw provider rotate one`")
 	for _, test := range []struct {
 		name string
@@ -277,6 +280,7 @@ func TestConfigRollbackLeavesTheClientOfAnItemOfAnotherProgramWaiting(t *testing
 // step that stores one as its next step, in text and as guidance in its
 // document, in place of the local check, which would stop at that Token.
 func TestConfigRollbackNamesTheStepThatStoresAMissingToken(t *testing.T) {
+	t.Parallel()
 	const step = "run `aigw provider rotate one`"
 	for _, flags := range [][]string{nil, {"--json"}} {
 		app, out, _, _, _ := testApp(t, "")
@@ -306,6 +310,7 @@ func TestConfigRollbackNamesTheStepThatStoresAMissingToken(t *testing.T) {
 // for a client whose provider's Keychain item another program stored. It
 // reads no Token and changes nothing.
 func TestAConfigRollbackPreviewPlansNoFileOfTheClientThatWaits(t *testing.T) {
+	t.Parallel()
 	for _, flags := range [][]string{nil, {"--json"}} {
 		t.Run(strings.Join(append([]string{"preview"}, flags...), " "), func(t *testing.T) {
 			app, out, items, installed := claudeOnOne(t, false, "one")
@@ -346,6 +351,7 @@ func TestAConfigRollbackPreviewPlansNoFileOfTheClientThatWaits(t *testing.T) {
 // the Token; Codex's local check then names `aigw sync`, which writes the
 // file that the setup left, and passes.
 func TestASetupLeavesTheClientWhoseFileItRewritesWaiting(t *testing.T) {
+	t.Parallel()
 	for _, flags := range [][]string{nil, {"--json"}, {"--dry-run"}, {"--dry-run", "--json"}} {
 		t.Run(strings.Join(append([]string{"setup"}, flags...), " "), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, fixtureToken+"\n")
@@ -405,6 +411,7 @@ func TestASetupLeavesTheClientWhoseFileItRewritesWaiting(t *testing.T) {
 // whether it is empty, and the one Token that is read is the selected
 // provider's, by the reader.
 func TestSyncListsNoHermesProviderWhoseTokenAIGWCannotUse(t *testing.T) {
+	t.Parallel()
 	for _, state := range []string{"an item of another program", "an empty Token", "a stored Token"} {
 		t.Run(state, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")

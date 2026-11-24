@@ -149,16 +149,21 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 		return adapter.Status{Issue: "Codex configuration target is missing", RepairAction: "aigw sync"}
 	}
 	status := adapter.Status{Ready: true, Checks: make([]adapter.Check, 0, len(binding.Targets))}
+	// Synchronization refuses while any file holds an outside edit, so the
+	// first such file decides the client's step, whichever file comes last.
+	edited := false
 	for index, target := range binding.Targets {
 		check := adapter.Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Target: target}
-		issue, detail, repair := inspectTarget(deps, cfg, runtime, target)
+		issue, detail, repair, conflict := inspectTarget(deps, cfg, runtime, target)
 		if detail != "" {
 			check.Ready = false
 			check.Detail = detail
 			check.RepairAction = repair
 			status.Ready = false
-			status.Issue = issue + detail
-			status.RepairAction = repair
+			if !edited {
+				status.Issue, status.RepairAction = issue+detail, repair
+			}
+			edited = edited || conflict
 		}
 		status.Checks = append(status.Checks, check)
 	}
@@ -183,45 +188,45 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 
 // inspectTarget inspects one configured Codex file: what does not match the
 // selection, with its issue and repair, or no detail when it matches.
-func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, target string) (issue, detail, repair string) {
+func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, target string) (issue, detail, repair string, conflict bool) {
 	issue, repair = driftIssue, "aigw sync"
 	// A missing file, or a path that a file in the way or a link that leads
 	// nowhere blocks, which Windows reports as missing, is found before the
 	// credential reader that it names is read through it, which would only fail.
 	if _, err := os.Stat(target); err != nil {
 		if failure := platform.ClassifyPath(target, platform.FileExpected, err); failure.Absent() || failure.Blocked() {
-			return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, failure)
+			return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, failure), false
 		}
 	}
 	if _, err := adapter.CaptureTarget(target, true); err != nil {
 		if status, unreadable := adapter.UnreadableStatus(err, target, deps.Host.Home); unreadable {
-			return "", status.Issue, status.RepairAction
+			return "", status.Issue, status.RepairAction, false
 		}
 	}
 	if _, err := adapter.CaptureTarget(codexRecordPath(target), true); err != nil {
 		if status, unreadable := adapter.UnreadableStatus(err, codexRecordPath(target), deps.Host.Home); unreadable {
-			return "", status.Issue, status.RepairAction
+			return "", status.Issue, status.RepairAction, false
 		}
 	}
 	observed, readerErr := retainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
-	err := ValidateConfig(target, observed)
-	if conflict, ok := errors.AsType[*adapter.ConflictError](err); ok {
+	err := showsSelection(cfg, observed, target)
+	if refused, ok := errors.AsType[*adapter.ConflictError](err); ok {
 		// Synchronization refuses an outside edit, so advising it alone would
 		// send the operator back to the same refusal. A credential command
 		// that AIGW did not write also fails the reader's inspection, so this
 		// comes first.
-		return "", conflict.Error(), conflict.NextAction()
+		return "", refused.Error(), refused.NextAction(), true
 	}
 	if readerErr != nil {
-		return issue, "Codex credential reader cannot be inspected", repair
+		return issue, "Codex credential reader cannot be inspected", repair, false
 	}
 	switch {
-	case err == nil:
-		return issue, "", repair
+	case err == nil, awaitsRecord(cfg, observed, target):
+		return issue, "", repair, false
 	case errors.Is(err, os.ErrNotExist):
-		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, platform.ClassifyPath(target, platform.FileExpected, err))
+		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, platform.ClassifyPath(target, platform.FileExpected, err)), false
 	default:
-		return issue, "Codex configuration target does not match the selected model", repair
+		return issue, "Codex configuration target does not match the selected model", repair, false
 	}
 }
 
@@ -253,7 +258,7 @@ func convergedTargets(discovered discovery.Result, current []string) []string {
 	targets := make([]string, 0, len(current)+len(discovered.Surfaces))
 	// A path that names a file already listed adds nothing.
 	appendTarget := func(path string) {
-		if path != "" && !slices.ContainsFunc(targets, func(kept string) bool { return sameTargetFile(kept, path) }) {
+		if path != "" && !slices.ContainsFunc(targets, func(kept string) bool { return platform.SameFile(kept, path) }) {
 			targets = append(targets, path)
 		}
 	}
@@ -282,11 +287,18 @@ func reconciliationInputs(deps adapter.Dependencies, before, after domain.Config
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
-	beforeRefs, err := targetRefs(discovered, beforeBinding.Targets, bindingExecutable(discovered, beforeBinding))
+	beforeTargets, afterTargets := beforeBinding.Targets, afterBinding.Targets
+	// A withdraw-only client restores the files that the transition drops and
+	// writes none that it keeps, whose selection waits for its Token: only the
+	// dropped files are planned, and the union restores them.
+	if slices.Contains(deps.WithdrawOnly, ID) {
+		beforeTargets, afterTargets = platform.DroppedFiles(beforeTargets, afterTargets), nil
+	}
+	beforeRefs, err := targetRefs(discovered, beforeTargets, bindingExecutable(discovered, beforeBinding))
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
-	afterRefs, err := targetRefs(discovered, afterBinding.Targets, bindingExecutable(discovered, afterBinding))
+	afterRefs, err := targetRefs(discovered, afterTargets, bindingExecutable(discovered, afterBinding))
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}

@@ -133,7 +133,7 @@ full window.
 - Codex's window fields are client metadata that a Codex release may rename → the catalog projection already
   refuses a table that it cannot parse and falls back to Codex's own; a test fails when the two fields are absent
   from the bundled table.
-- The owner's installed configuration declares no window, so Hermes runs the eight families at 1,000,000 until the
+- The owner's installed configuration declares no window, so Hermes runs the seven families at 1,000,000 until the
   shipped team file is applied again.
 
 ## Migration Plan

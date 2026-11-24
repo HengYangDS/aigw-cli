@@ -146,9 +146,14 @@ commands: {
 	resolveLocks: "mise run dependencies:resolve"
 	quality:      "mise exec --locked -- go run ./tools/ci quality"
 	source:       "mise exec --locked -- go run ./tools/ci source"
+	// A native job runs the quality graph's selection-matrix gate where no
+	// quality job of the pipeline runs that graph.
 	native: {
 		for platform in ["darwin", "linux", "windows"] {
-			(platform): "mise exec --locked -- go run ./tools/ci native --platform \(platform)"
+			(platform): strings.Join([
+				"mise exec --locked -- go run ./tools/ci native --platform \(platform)",
+				if platform != qualityPlatform {"--selection-matrix"},
+			], " ")
 		}
 	}
 	// GitLab native jobs derive their scope from the declared job inputs.
@@ -237,6 +242,16 @@ lifecycle: {
 productEvidence: native: ["darwin", "linux", "windows"]
 
 gitlabControlPlatform: #OperatingSystem & "darwin"
+
+// Both Forges' quality jobs run the whole quality graph on this platform's
+// runners; their toolchain setup is written for Linux.
+qualityPlatform: #OperatingSystem & "linux"
+
+// The budget of every GitHub job that runs the selection matrix: the quality
+// job and each native job. It holds the matrix's own bound after the job's
+// longest measured work counted as if all of it ran first; the design gives
+// the figures. GitLab jobs take the project's limit.
+matrixJobMinutes: 70
 
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser/.goreleaser.yaml.
@@ -522,8 +537,7 @@ _gitLabEvidenceExpiry: "\(evidenceRetentionDays) days"
 	if _platform != "windows" {defaults: run: shell: "bash"}
 	if _platform == "windows" {defaults: run: shell: "pwsh"}
 
-	// Supplying real clients adds their installation to the journey.
-	"timeout-minutes": "${{ inputs.native_clients && 45 || 25 }}"
+	"timeout-minutes": matrixJobMinutes
 	// A manual run selects its native platform, from a tag ref too.
 	if: "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
 	env: MISE_ENABLE_TOOLS: "${{ (\(_sourceCondition)) && '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' || inputs.performance && '\(nativeArtifactToolchain.github[_platform].MISE_ENABLE_TOOLS),\(strings.Join(toolchainTools.performance, ","))' || '\(nativeArtifactToolchain.github[_platform].MISE_ENABLE_TOOLS)' }}\(_clientTools)"
@@ -826,7 +840,7 @@ gitlab: {
 	quality: {
 		interruptible: true
 		extends: [".linux-toolchain"]
-		tags: nativeEvidence.linux.gitlab.tags
+		tags: nativeEvidence[qualityPlatform].gitlab.tags
 		script: [
 			commands.bootstrap,
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
@@ -1030,8 +1044,8 @@ githubVerify: {
 		}
 		quality: {
 			name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph.quality.name)' || '\(graph.quality.name)' }}"
-			"runs-on":         nativeEvidence.linux.github.runner
-			"timeout-minutes": 25
+			"runs-on":         nativeEvidence[qualityPlatform].github.runner
+			"timeout-minutes": matrixJobMinutes
 			if:                githubSourceVerificationCondition
 			env:               qualityToolchain
 			steps: [

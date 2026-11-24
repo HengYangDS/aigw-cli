@@ -58,6 +58,20 @@ type qualityGraph struct {
 	Carriers    []carrierQuality
 }
 
+// selectionMatrixGate names the gate of the exhaustive selection tests, which
+// a native job also runs on a platform where its pipeline runs no quality job.
+const selectionMatrixGate = "selection-matrix"
+
+// selectionMatrixCommand runs the exhaustive selection tests. Its bound leaves
+// room for a host three times slower than a quiet run on the slowest platform
+// (Windows, 837 s on a hosted runner, 2026-11-24) and stays inside the time
+// budget of every job and proof gate that runs it, so a hang ends with Go's
+// diagnostics. The Change selection-matrix-native-platforms gives every run.
+var selectionMatrixCommand = command{Name: "go", Args: []string{"test", "-tags=selection_matrix", "-count=1", "-timeout=45m", "./" + selectionMatrixPackage, "-run", "^TestMatrix"}}
+
+// selectionMatrixPackage holds the exhaustive selection tests.
+const selectionMatrixPackage = "internal/cli/acceptance"
+
 var repositoryQualityGraph = qualityGraph{
 	Gates: []qualityGate{
 		{ID: "go-policy-schema", Command: command{Name: "golangci-lint", Args: []string{"config", "verify", "--config", ".config/checks/golangci-lint/golangci-lint.toml"}}, Concerns: []qualityConcern{qualitySchema}},
@@ -87,12 +101,15 @@ var repositoryQualityGraph = qualityGraph{
 		{ID: "native-resource-fixture", Command: command{Name: "go", Args: []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^TestVerificationResourceCleanupStopsOwnedFixture$"}}, Concerns: []qualityConcern{qualityTest}},
 		{ID: "performance-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|MemoryRetainsInterruptedObservations|PerformanceCases|Attribution(KeepsTheProjectedReaderBoundary|SummaryRetainsItsNonqualifyingScope))$"}}, Concerns: []qualityConcern{qualityTest}},
 		{ID: "dependency-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=dependency_acceptance", "./tools/ci", "-run", "^TestNativeDependencyEvidenceRetainsFindings$"}}, Concerns: []qualityConcern{qualityTest, qualitySecurity}},
+		// The exhaustive tests of a client's own choice: every command in every state of the files. They run without
+		// the race detector and coverage, whose run they would carry past its package limit.
+		{ID: selectionMatrixGate, Command: selectionMatrixCommand, Concerns: []qualityConcern{qualityTest}},
 		{ID: "workflow-lint", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-workflows", "."}}, Concerns: []qualityConcern{qualityLint, qualitySchema, qualityWorkflow}},
 		{ID: "coverage", Command: command{Name: "go", Args: []string{"run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"}}, Concerns: []qualityConcern{qualityTest}, SourceOnly: true},
 	},
 	CommonGates: []string{"text-layout", "secrets", "architecture"},
 	Carriers: []carrierQuality{
-		{Class: "go-source", Required: []qualityConcern{qualityFormat, qualityLint, qualityType, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"spelling", "go-analysis", "source-size", "client-acceptance", "native-resource-fixture", "performance-acceptance", "dependency-acceptance", "coverage"}},
+		{Class: "go-source", Required: []qualityConcern{qualityFormat, qualityLint, qualityType, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"spelling", "go-analysis", "source-size", "client-acceptance", "native-resource-fixture", "performance-acceptance", "dependency-acceptance", selectionMatrixGate, "coverage"}},
 		{Class: "acceptance-scripts", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"spelling", "coverage"}},
 		{Class: "pinned-bytes", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"spelling", "coverage"}},
 		{Class: "native-check-adapters", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "spelling", "npm-signatures", "node-source"}},

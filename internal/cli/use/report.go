@@ -10,6 +10,7 @@ import (
 	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 )
@@ -145,7 +146,7 @@ func toolSearchFix(model domain.Model, capabilities []domain.Capability) string 
 		flags = append(flags, "--capability", string(capability))
 	}
 	name := model.Ref().String()
-	if line := invocation.Command("model", "edit", name); line != "" {
+	if line := platform.AIGWCommand("model", "edit", name); line != "" {
 		return line + " " + strings.Join(flags, " ")
 	}
 	return "Run aigw model edit for " + name + " with " + strings.Join(flags, " ") + "."
@@ -196,7 +197,7 @@ func (o selectionOutcome) describe(runtime invocation.Context, dryRun bool) docu
 		doc.Retries = &retriesItem{Request: policy.RequestMaxRetries, Stream: policy.StreamMaxRetries}
 	}
 	for _, plan := range o.preview.Plans() {
-		if plan.Client == client.ID || !plan.ChangesState || slices.ContainsFunc(doc.OtherClients, func(item otherClientItem) bool { return item.Client == plan.Client }) {
+		if plan.Client == client.ID || !plan.ChangesState || plan.RecordOnly() || slices.ContainsFunc(doc.OtherClients, func(item otherClientItem) bool { return item.Client == plan.Client }) {
 			continue
 		}
 		spec, _ := o.before.Admission().Spec(plan.Client)
@@ -224,7 +225,7 @@ func (o selectionOutcome) describe(runtime invocation.Context, dryRun bool) docu
 // filesChange reports whether the selection changes a file of client.
 func (o selectionOutcome) filesChange(client string) bool {
 	for _, plan := range o.preview.Plans() {
-		if plan.Client == client && plan.ChangesState {
+		if plan.Client == client && plan.ChangesState && !plan.RecordOnly() {
 			return true
 		}
 	}

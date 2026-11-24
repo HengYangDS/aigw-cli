@@ -10,10 +10,11 @@ import (
 // ObserveToken tells every state of a Token slot from the backend's two
 // answers, presence and emptiness, and never asks about the emptiness of a
 // slot that is not there. A slot is usable only when it is present, holds a
-// value and is no Keychain item that macOS refuses AIGW. A failed emptiness
-// answer that is no such refusal, a locked keychain's among them, leaves the
-// slot as presence reported it. A store that cannot tell presence fails as
-// its Exists fails, with the same error.
+// value and is no Keychain item that macOS refuses AIGW; every other slot is
+// absent. A failed emptiness answer that is no such refusal, a locked
+// keychain's among them, leaves the slot as presence reported it. A store
+// that cannot tell presence leaves the slot unobservable, with the error of
+// its Exists kept for the report.
 func TestObserveTokenTellsEachStateOfASlot(t *testing.T) {
 	unavailable := errors.New("the store is locked")
 	for _, test := range []struct {
@@ -24,7 +25,7 @@ func TestObserveTokenTellsEachStateOfASlot(t *testing.T) {
 		emptiness error
 		want      TokenObservation
 		refused   bool
-		usable    bool
+		state     TokenState
 		// asked is how often the backend is asked whether the slot is empty.
 		asked int
 	}{
@@ -32,10 +33,10 @@ func TestObserveTokenTellsEachStateOfASlot(t *testing.T) {
 		{name: "an empty slot", present: true, empty: true, want: TokenObservation{Present: true, Empty: true}, asked: 1},
 		{name: "an item that macOS refuses", present: true, emptiness: &native.KeychainError{Status: -25293, Unlocked: true},
 			want: TokenObservation{Present: true}, refused: true, asked: 1},
-		{name: "a stored Token", present: true, want: TokenObservation{Present: true}, usable: true, asked: 1},
+		{name: "a stored Token", present: true, want: TokenObservation{Present: true}, state: TokenUsable, asked: 1},
 		{name: "a locked keychain", present: true, emptiness: &native.KeychainError{Status: -25293},
-			want: TokenObservation{Present: true}, usable: true, asked: 1},
-		{name: "a store that cannot tell presence", presence: unavailable},
+			want: TokenObservation{Present: true}, state: TokenUsable, asked: 1},
+		{name: "a store that cannot tell presence", presence: unavailable, state: TokenUnobservable},
 	} {
 		asked := 0
 		store := scopedView{store: keyringStore{
@@ -45,15 +46,16 @@ func TestObserveTokenTellsEachStateOfASlot(t *testing.T) {
 				return test.empty, test.emptiness
 			},
 		}}
-		observed, err := ObserveToken(store, "team")
+		observed := ObserveToken(store, "team")
+		err := observed.Unobserved
 		_, wantErr := store.Exists("team")
 		if (err == nil) != (wantErr == nil) || (err != nil && (err.Error() != wantErr.Error() || !errors.Is(err, unavailable))) {
-			t.Errorf("%s: ObserveToken() failed with %v; Exists() fails with %v", test.name, err, wantErr)
+			t.Errorf("%s: ObserveToken() kept %v as unobserved; Exists() fails with %v", test.name, err, wantErr)
 		}
 		if (observed.Refusal != nil) != test.refused || observed.Present != test.want.Present || observed.Empty != test.want.Empty ||
-			observed.Usable() != test.usable || asked != test.asked {
-			t.Errorf("%s: ObserveToken() = %+v, usable %t, after %d emptiness answers; want %+v, a refusal %t, usable %t, after %d",
-				test.name, observed, observed.Usable(), asked, test.want, test.refused, test.usable, test.asked)
+			observed.State() != test.state || observed.Usable() != (test.state == TokenUsable) || asked != test.asked {
+			t.Errorf("%s: ObserveToken() = %+v, state %d, after %d emptiness answers; want %+v, a refusal %t, state %d, after %d",
+				test.name, observed, observed.State(), asked, test.want, test.refused, test.state, test.asked)
 		}
 		if test.refused && *observed.Refusal != (KeychainItemRefusedError{Kind: APIToken, Provider: "team", Status: -25293}) {
 			t.Errorf("%s: refusal = %+v", test.name, *observed.Refusal)
@@ -78,8 +80,8 @@ func TestObserveTokenAsksTheBackendOncePerScope(t *testing.T) {
 	scoped := ObserveAvailability(view)
 	for range 3 {
 		for account, usable := range map[string]bool{"team": true, "empty": false} {
-			if observed, err := ObserveToken(scoped, account); err != nil || observed.Usable() != usable {
-				t.Fatalf("ObserveToken(%s) in a scope = %+v, %v", account, observed, err)
+			if observed := ObserveToken(scoped, account); observed.Unobserved != nil || observed.Usable() != usable {
+				t.Fatalf("ObserveToken(%s) in a scope = %+v", account, observed)
 			}
 		}
 	}
@@ -100,15 +102,23 @@ type answeringStore struct {
 	observation TokenObservation
 }
 
-func (store answeringStore) ObserveToken(string) (TokenObservation, error) {
-	return store.observation, nil
+func (store answeringStore) ObserveToken(string) TokenObservation {
+	return store.observation
 }
 
 // A store that answers the observation itself is asked nothing else: neither
 // its presence nor the backend behind it.
 func TestObserveTokenTakesTheAnswerOfAStoreThatObservesItself(t *testing.T) {
 	want := TokenObservation{Present: true, Empty: true}
-	if observed, err := ObserveToken(answeringStore{observation: want}, "team"); err != nil || observed != want {
-		t.Fatalf("ObserveToken() = %+v, %v; want the store's own answer %+v", observed, err, want)
+	if observed := ObserveToken(answeringStore{observation: want}, "team"); observed != want {
+		t.Fatalf("ObserveToken() = %+v; want the store's own answer %+v", observed, want)
+	}
+}
+
+// Without a store there is no Token: the observation is of an absent slot,
+// and nothing is asked.
+func TestObserveTokenWithoutAStoreIsAbsent(t *testing.T) {
+	if observed := ObserveToken(nil, "team"); observed != (TokenObservation{}) || observed.State() != TokenAbsent {
+		t.Fatalf("ObserveToken(nil) = %+v, state %d; want an absent slot", observed, observed.State())
 	}
 }

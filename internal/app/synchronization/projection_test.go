@@ -122,7 +122,11 @@ func TestDesiredSyncConfigurationPreservesExplicitDisabledSelection(t *testing.T
 	}
 }
 
-func TestDesiredClientConfigurationSurfacesCredentialObservationFailures(t *testing.T) {
+// A Token that the credential store cannot observe, as a locked keychain
+// leaves it, is no Token that AIGW can use: every client that reads it waits,
+// its activation unchanged, as for a missing Token, and the desired
+// configuration does not fail.
+func TestDesiredClientConfigurationWaitsForATokenThatCannotBeObserved(t *testing.T) {
 	before := domain.NewConfig(clients.Admission())
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{
 		Anthropic: "https://gateway.test",
@@ -134,28 +138,17 @@ func TestDesiredClientConfigurationSurfacesCredentialObservationFailures(t *test
 	before.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-test"), "")
 	before.SetSelectedModel(claudedesktop.ID, domain.NewModelRef("gateway", "claude-test"), "")
 	before.SetSelectedModel(hermes.ID, domain.NewModelRef("gateway", "claude-test"), "")
-	want := errors.New("credential observation failed")
-	syncer := Synchronizer{Registry: builtinClients, Secrets: secretReadStub{err: want}, Discovery: staticDiscovery{}}
-
-	// These clients read the credential store before they check their
-	// executable, so a store failure surfaces even without one.
-	for _, client := range []string{claude.ID, codex.ID, claudedesktop.ID} {
+	syncer := Synchronizer{Registry: builtinClients, Secrets: secretReadStub{err: errors.New("credential observation failed")}, Discovery: staticDiscovery{}}
+	for _, client := range []string{claude.ID, codex.ID, claudedesktop.ID, hermes.ID} {
 		enabled := before.Clone()
 		enabled.SetClientActivation(client, true, "", nil)
-		if _, _, err := syncer.DesiredClientConfiguration(enabled, client); !errors.Is(err, want) {
-			t.Fatalf("DesiredClientConfiguration(%q) error = %v, want %v", client, err, want)
+		after, _, err := syncer.DesiredClientConfiguration(enabled, client)
+		if err != nil {
+			t.Fatalf("DesiredClientConfiguration(%q) error = %v; a Token that cannot be observed fails no command", client, err)
 		}
-	}
-	// Hermes activates only a runnable executable and checks it first, so
-	// without one it neither reads the store nor activates.
-	enabled := before.Clone()
-	enabled.SetClientActivation(hermes.ID, true, "", nil)
-	after, _, err := syncer.DesiredClientConfiguration(enabled, hermes.ID)
-	if err != nil {
-		t.Fatalf("DesiredClientConfiguration(hermes) error = %v, want no store read", err)
-	}
-	if binding := after.Clients[hermes.ID]; binding.Executable != "" || len(binding.Targets) != 0 {
-		t.Fatalf("Hermes without a runnable executable was activated: %+v", binding)
+		if binding := after.Clients[client]; binding.Executable != "" || len(binding.Targets) != 0 {
+			t.Fatalf("%s, whose Token cannot be observed, was activated: %+v", client, binding)
+		}
 	}
 }
 

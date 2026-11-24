@@ -26,6 +26,12 @@ type TeamMerge struct {
 	Unusable                          []UnusableProtocol
 	PrunedModels                      []ModelRef
 	PrunedFamilies                    []string
+	// KeptLocalModels and KeptLocalFamilies are the local-only entries that a
+	// merge which keeps them leaves in place, and which a merge that does not
+	// keep them removes: the models that no client selects and no
+	// recommendation names, and the families that no remaining model uses.
+	KeptLocalModels   []ModelRef
+	KeptLocalFamilies []string
 }
 
 // ChangedWindow is an existing model whose context window the team file
@@ -89,15 +95,16 @@ type UnusableProtocol struct {
 
 // MergeTeamFile applies a team file, which is a configuration without
 // clients, to cfg. The file's models, families and recommendations replace
-// the local ones of the same name; local-only ones stay, unless prune removes
-// the models that no client selects and no recommendation names, and then the
-// families that no model uses. A new provider is added; an existing one takes
-// the file's label, and a balance probe when it has none, but keeps its
+// the local ones of the same name; a local-only model stays only while a
+// client selects it or a recommendation names it, and a local-only family
+// only while a remaining model uses it (see pruneLocalOnly). keepLocal keeps
+// every local-only entry instead. A new provider is added; an existing one
+// takes the file's label, and a balance probe when it has none, but keeps its
 // endpoints, its probe and its Token. No client's selection changes. The
 // file's order comes first in display order, then the local-only entries in
 // theirs. The merge returns a valid configuration or an error, and never
 // changes cfg.
-func MergeTeamFile(cfg Config, incoming Config, prune bool) (Config, TeamMerge, error) {
+func MergeTeamFile(cfg Config, incoming Config, keepLocal bool) (Config, TeamMerge, error) {
 	if incoming.Version != ConfigVersion {
 		return Config{}, TeamMerge{}, &UnsupportedTeamFileVersionError{Version: incoming.Version}
 	}
@@ -125,7 +132,9 @@ func MergeTeamFile(cfg Config, incoming Config, prune bool) (Config, TeamMerge, 
 		families:  fileFirst(incoming.FamilyIDs(), before.FamilyIDs()),
 		models:    fileFirst(incoming.ModelRefs(), before.ModelRefs()),
 	}
-	if prune {
+	if keepLocal {
+		report.KeptLocalModels, report.KeptLocalFamilies = removableLocalEntries(&merged, incoming)
+	} else {
 		pruneLocalOnly(&merged, incoming)
 	}
 	merged.Normalize()
@@ -227,27 +236,47 @@ func mergeModel(merged, before *Config, incoming Config, ref ModelRef, report *T
 // recommendation names, then the families that neither a remaining model nor
 // the file names. Providers stay.
 func pruneLocalOnly(merged *Config, incoming Config) {
+	models, families := removableLocalEntries(merged, incoming)
+	for _, ref := range models {
+		delete(merged.Models, ref)
+	}
+	for _, id := range families {
+		delete(merged.Families, id)
+	}
+}
+
+// removableLocalEntries names the local-only models that no client selects and
+// no recommendation names, in display order, and then the families that
+// neither a remaining model nor the file names. It reads merged, the
+// configuration after the file's own entries have replaced the local ones.
+func removableLocalEntries(merged *Config, incoming Config) ([]ModelRef, []string) {
 	named := map[ModelRef]bool{}
 	for _, recommendation := range merged.Recommendations {
 		for _, choice := range recommendation.Selections() {
 			named[choice.Model] = true
 		}
 	}
+	var models []ModelRef
 	for _, ref := range merged.ModelRefs() {
 		if _, filed := incoming.Models[ref]; filed || named[ref] || len(merged.SelectedClientsForModel(ref)) > 0 {
 			continue
 		}
-		delete(merged.Models, ref)
+		models = append(models, ref)
 	}
 	used := map[string]bool{}
-	for _, model := range merged.Models {
+	for ref, model := range merged.Models {
+		if slices.Contains(models, ref) {
+			continue
+		}
 		used[model.Family] = true
 	}
+	var families []string
 	for _, family := range merged.FamilyIDs() {
 		if _, filed := incoming.Families[family]; !filed && !used[family] {
-			delete(merged.Families, family)
+			families = append(families, family)
 		}
 	}
+	return models, families
 }
 
 // compare records what the merge added, changed and pruned, every label that

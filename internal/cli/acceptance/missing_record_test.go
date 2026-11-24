@@ -115,6 +115,7 @@ var projectedClients = map[string]func(*testing.T) projectedClient{
 // surface with the one step that lets synchronization pass: the file restored,
 // or the record deleted when the file is gone for good.
 func TestADeletedClientFileNamesItsRecord(t *testing.T) {
+	t.Parallel()
 	for id, build := range projectedClients {
 		t.Run(id, func(t *testing.T) {
 			client := build(t)
@@ -163,6 +164,7 @@ func TestADeletedClientFileNamesItsRecord(t *testing.T) {
 // so a record that cannot be used is refused on every surface with the one step
 // that keeps them: the record restored. Deleting it would lose them.
 func TestAnUnreadableRecordNamesItsRestoration(t *testing.T) {
+	t.Parallel()
 	for id, build := range projectedClients {
 		for name, content := range map[string]string{"corrupt": "{", "incomplete": "{}"} {
 			t.Run(id+"/"+name, func(t *testing.T) {

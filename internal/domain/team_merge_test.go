@@ -76,7 +76,7 @@ func mergeTeam(t *testing.T, cfg Config, file Config, prune bool) (Config, TeamM
 
 func TestMergeTeamFileTakesTheFilesDefinitionsAndKeepsLocalOnes(t *testing.T) {
 	cfg := localTeamConfig(t)
-	merged, report := mergeTeam(t, cfg, teamFile(t), false)
+	merged, report := mergeTeam(t, cfg, teamFile(t), true)
 	if got := merged.Models[NewModelRef("team", "gpt")].Label; got != "Team GPT" {
 		t.Errorf("the file's model label = %q", got)
 	}
@@ -127,7 +127,7 @@ func TestMergeTeamFileTakesTheFilesDefinitionsAndKeepsLocalOnes(t *testing.T) {
 func TestMergeTeamFileReportsEveryLabelThatItReplaces(t *testing.T) {
 	cfg := localTeamConfig(t)
 	cfg.Families["gpt"] = Family{ID: "gpt", Label: "Local GPT"}
-	merged, report := mergeTeam(t, cfg, teamFile(t), false)
+	merged, report := mergeTeam(t, cfg, teamFile(t), true)
 	want := []ChangedLabel{
 		{Provider: "team", Local: "Team", File: "Team Gateway"},
 		{Model: NewModelRef("team", "gpt"), File: "Team GPT"},
@@ -136,16 +136,16 @@ func TestMergeTeamFileReportsEveryLabelThatItReplaces(t *testing.T) {
 	if !reflect.DeepEqual(report.ChangedLabels, want) {
 		t.Fatalf("changed labels = %+v, want %+v", report.ChangedLabels, want)
 	}
-	if _, again := mergeTeam(t, merged, teamFile(t), false); len(again.ChangedLabels) != 0 {
+	if _, again := mergeTeam(t, merged, teamFile(t), true); len(again.ChangedLabels) != 0 {
 		t.Fatalf("a second merge replaces labels: %+v", again.ChangedLabels)
 	}
 }
 
-func TestMergeTeamFilePrunesOnlyUnusedLocalEntries(t *testing.T) {
+func TestMergeTeamFileRemovesUnusedLocalEntriesByDefault(t *testing.T) {
 	cfg := localTeamConfig(t)
 	// The local recommendation names spare, so pruning keeps it.
 	cfg.Recommendations[ClientHermes] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("team", "spare"), Protocol: ProtocolAnthropic}}
-	merged, report := mergeTeam(t, cfg, teamFile(t), true)
+	merged, report := mergeTeam(t, cfg, teamFile(t), false)
 	if !slices.Equal(report.PrunedModels, []ModelRef{NewModelRef("team", "sonnet")}) {
 		t.Errorf("pruned models %v", report.PrunedModels)
 	}
@@ -166,6 +166,26 @@ func TestMergeTeamFilePrunesOnlyUnusedLocalEntries(t *testing.T) {
 	}
 }
 
+// A merge that keeps the local entries leaves every local-only model and
+// family as it was, and reports no removal.
+func TestMergeTeamFileKeepsLocalEntriesOnRequest(t *testing.T) {
+	cfg := localTeamConfig(t)
+	merged, report := mergeTeam(t, cfg, teamFile(t), true)
+	if len(report.PrunedModels) != 0 || len(report.PrunedFamilies) != 0 {
+		t.Errorf("kept entries were reported as pruned: %v %v", report.PrunedModels, report.PrunedFamilies)
+	}
+	for ref := range cfg.Models {
+		if _, kept := merged.Models[ref]; !kept {
+			t.Errorf("keeping local entries removed %s", ref)
+		}
+	}
+	for family := range cfg.Families {
+		if _, kept := merged.Families[family]; !kept {
+			t.Errorf("keeping local entries removed the family %s", family)
+		}
+	}
+}
+
 func TestMergeTeamFileKeepsAnExistingProvidersEndpointsAndProbe(t *testing.T) {
 	cfg := localTeamConfig(t)
 	file := teamFile(t)
@@ -175,7 +195,7 @@ func TestMergeTeamFileKeepsAnExistingProvidersEndpointsAndProbe(t *testing.T) {
 	file.Providers["team"] = team
 	solo := Provider{Label: "Solo", Endpoints: Endpoints{Anthropic: "https://solo.example"}, BalanceProbe: &BalanceProbe{Kind: "newapi", BaseURL: "https://solo.example"}}
 	file.Providers["solo"] = solo
-	merged, report := mergeTeam(t, cfg, file, false)
+	merged, report := mergeTeam(t, cfg, file, true)
 	if got := merged.Providers["team"].Endpoints; got != cfg.Providers["team"].Endpoints {
 		t.Errorf("team's endpoints = %+v", got)
 	}
@@ -207,7 +227,7 @@ func TestMergeTeamFileDropsCapabilitiesQualifiedOnAnotherEndpoint(t *testing.T) 
 	gpt := file.Models[NewModelRef("team", "gpt")]
 	gpt.Protocols = map[EndpointProtocol][]Capability{ProtocolResponses: {CapabilityReasoning}}
 	file.Models[NewModelRef("team", "gpt")] = gpt
-	merged, report := mergeTeam(t, cfg, file, false)
+	merged, report := mergeTeam(t, cfg, file, true)
 	if got := merged.Models[NewModelRef("team", "sonnet")].Protocols[ProtocolAnthropic]; !slices.Equal(got, []Capability{CapabilityText}) {
 		t.Errorf("sonnet's Anthropic capabilities = %v", got)
 	}
@@ -229,7 +249,7 @@ func TestMergeTeamFileKeepsAModelWhoseChangeWouldMoveASelection(t *testing.T) {
 	file.Providers["solo"] = cfg.Providers["solo"]
 	file.Families["solo"] = Family{Label: "Solo"}
 	file.Models[NewModelRef("solo", "solo")] = Model{Provider: "solo", Family: "solo", ID: "solo", Protocols: map[EndpointProtocol][]Capability{}}
-	merged, report := mergeTeam(t, cfg, file, false)
+	merged, report := mergeTeam(t, cfg, file, true)
 	if !reflect.DeepEqual(merged.Models[NewModelRef("solo", "solo")], cfg.Models[NewModelRef("solo", "solo")]) {
 		t.Errorf("the selected model = %+v", merged.Models[NewModelRef("solo", "solo")])
 	}
@@ -245,7 +265,7 @@ func TestMergeTeamFileAddsAModelOnAProtocolWithoutAnEndpoint(t *testing.T) {
 	file.Families["solo-gpt"] = Family{Label: "Solo GPT"}
 	file.Models[NewModelRef("solo", "solo-gpt")] = Model{Provider: "solo", Family: "solo-gpt", ID: "solo-gpt", Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}}}
 	file.Recommendations[ClientHermes] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("solo", "solo-gpt"), Protocol: ProtocolResponses}}
-	merged, report := mergeTeam(t, cfg, file, false)
+	merged, report := mergeTeam(t, cfg, file, true)
 	if _, added := merged.Models[NewModelRef("solo", "solo-gpt")]; !added {
 		t.Fatal("the model was not added")
 	}
@@ -268,17 +288,17 @@ func TestMergeTeamFileRefusesWhatItCannotApply(t *testing.T) {
 	cfg := localTeamConfig(t)
 	undefined := teamFile(t)
 	undefined.Recommendations[ClientHermes] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("team", "missing"), Protocol: ProtocolAnthropic}}
-	if _, _, err := MergeTeamFile(cfg, undefined, false); err == nil || !strings.Contains(err.Error(), `hermes recommendation names team/missing, which neither the team file nor the configuration defines`) {
+	if _, _, err := MergeTeamFile(cfg, undefined, true); err == nil || !strings.Contains(err.Error(), `hermes recommendation names team/missing, which neither the team file nor the configuration defines`) {
 		t.Errorf("an undefined recommendation: %v", err)
 	}
 	local := teamFile(t)
 	local.Recommendations[ClientHermes] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("team", "spare"), Protocol: ProtocolAnthropic}}
-	if merged, _ := mergeTeam(t, cfg, local, true); merged.Recommendations[ClientHermes].Primary.Model != NewModelRef("team", "spare") {
+	if merged, _ := mergeTeam(t, cfg, local, false); merged.Recommendations[ClientHermes].Primary.Model != NewModelRef("team", "spare") {
 		t.Error("a recommendation of a model that only the configuration defines was not stored")
 	}
 	version := teamFile(t)
 	version.Version = ConfigVersion - 1
-	if _, _, err := MergeTeamFile(cfg, version, false); err == nil || !strings.Contains(err.Error(), "the team file has version 7, and this AIGW reads version 8") {
+	if _, _, err := MergeTeamFile(cfg, version, true); err == nil || !strings.Contains(err.Error(), "the team file has version 7, and this AIGW reads version 8") {
 		t.Errorf("another version: %v", err)
 	}
 }
@@ -306,7 +326,7 @@ func TestMergeTeamFileRefusesANewProvidersProtocolWithoutAnEndpoint(t *testing.T
 	file.Providers["fresh"] = Provider{Label: "Fresh", Endpoints: Endpoints{Anthropic: "https://fresh.example"}}
 	file.Models[NewModelRef("fresh", "fresh")] = Model{Provider: "fresh", Family: "fresh", ID: "fresh", Protocols: map[EndpointProtocol][]Capability{ProtocolChat: {}}}
 	delete(file.Recommendations, ClientCodex)
-	_, _, err := MergeTeamFile(NewConfig(testAdmission()), file, false)
+	_, _, err := MergeTeamFile(NewConfig(testAdmission()), file, true)
 	if err == nil || !strings.Contains(err.Error(), "fresh/fresh") || !strings.Contains(err.Error(), "provider fresh") || !strings.Contains(err.Error(), "OpenAI Chat Completions") {
 		t.Fatalf("a new provider without the model's endpoint = %v", err)
 	}
@@ -322,7 +342,7 @@ func TestARecommendationWithoutAProtocolWaitsForAnEndpoint(t *testing.T) {
 	file.Families["solo-chat"] = Family{Label: "Solo Chat"}
 	file.Models[NewModelRef("solo", "solo-chat")] = Model{Provider: "solo", Family: "solo-chat", ID: "solo-chat", Protocols: map[EndpointProtocol][]Capability{ProtocolChat: {}}}
 	file.Recommendations[ClientHermes] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("solo", "solo-chat")}}
-	merged, report := mergeTeam(t, cfg, file, false)
+	merged, report := mergeTeam(t, cfg, file, true)
 	if merged.Recommendations[ClientHermes].Primary.Model != NewModelRef("solo", "solo-chat") || len(report.Unusable) != 1 {
 		t.Fatalf("recommendation %+v, unusable %+v", merged.Recommendations[ClientHermes], report.Unusable)
 	}
@@ -334,7 +354,7 @@ func TestARecommendationWithoutAProtocolWaitsForAnEndpoint(t *testing.T) {
 	// refused.
 	wrong := teamFile(t)
 	wrong.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("team", "sonnet")}}
-	if _, _, err := MergeTeamFile(cfg, wrong, false); err == nil {
+	if _, _, err := MergeTeamFile(cfg, wrong, true); err == nil {
 		t.Fatal("a recommendation of a model that codex cannot speak was stored")
 	}
 }
@@ -373,7 +393,7 @@ func TestMergeTeamFileOrdersByTheFileThenTheLocalEntries(t *testing.T) {
 	}
 	file.SetAdmission(testAdmission())
 	file.order = displayOrder{providers: []string{"a", "b"}, models: []ModelRef{NewModelRef("a", "y"), NewModelRef("b", "m1"), NewModelRef("b", "m2")}}
-	merged, _ := mergeTeam(t, cfg, file, false)
+	merged, _ := mergeTeam(t, cfg, file, true)
 	if got := merged.ProviderIDs(); !slices.Equal(got, []string{"a", "b", "c"}) {
 		t.Errorf("providers = %v, want the file's a, b, then the local-only c", got)
 	}

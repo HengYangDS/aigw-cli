@@ -372,7 +372,30 @@ func capitalized(clause string) string {
 	return strings.ToUpper(clause[:1]) + clause[1:]
 }
 
+// unchangedRefusal is a change that was refused before anything was written.
+type unchangedRefusal interface {
+	error
+	Unchanged() bool
+}
+
+// UnchangedImpact is the impact of a refusal before anything was written.
+const UnchangedImpact = "Configuration and client files are unchanged."
+
+// problemFor is the problem that err presents. A change that was refused
+// before anything was written says so, unless the problem states an impact
+// of its own or a command stated the whole problem.
 func problemFor(err error, at platform.PathContext) Problem {
+	problem := classifiedProblem(err, at)
+	if _, structured := errors.AsType[*userError](err); structured || problem.Impact != "" {
+		return problem
+	}
+	if refusal, ok := errors.AsType[unchangedRefusal](err); ok && refusal.Unchanged() {
+		problem.Impact = UnchangedImpact
+	}
+	return problem
+}
+
+func classifiedProblem(err error, at platform.PathContext) Problem {
 	// A path failure states its condition's fix, whatever wraps it, unless an
 	// outer error states its own.
 	user, structured := errors.AsType[*userError](err)

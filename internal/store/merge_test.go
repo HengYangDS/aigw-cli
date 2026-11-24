@@ -35,7 +35,7 @@ primary = {model = "team/gpt-test"}
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), team, false)
+	got, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), team, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ primary = {model = "team/gpt-test"}
 	got.Providers["personal"] = domain.Provider{Label: "Personal", Endpoints: domain.Endpoints{Anthropic: "https://personal.test"}}
 	got.Models[domain.NewModelRef("personal", "personal-model")] = testModel("Personal Claude", "personal", "personal-model", domain.ProtocolAnthropic)
 	got.SetSelectedModel(ClientClaude, domain.NewModelRef("personal", "personal-model"), "")
-	merged, _, err := domain.MergeTeamFile(got, team, false)
+	merged, _, err := domain.MergeTeamFile(got, team, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ protocols = {anthropic = []}
 	cfg.SetSelectedModel(ClientClaude, domain.NewModelRef("personal", "claude-personal"), "")
 	cfg.Providers["personal"] = domain.Provider{Label: "Personal", Endpoints: domain.Endpoints{Anthropic: "https://personal.test"}}
 	cfg.Models[domain.NewModelRef("personal", "claude-personal")] = testModel("Personal", "personal", "claude-personal", domain.ProtocolAnthropic)
-	got, _, err := domain.MergeTeamFile(cfg, m, false)
+	got, _, err := domain.MergeTeamFile(cfg, m, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ protocols = {anthropic = []}
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), team, false)
+	got, _, err := domain.MergeTeamFile(domain.NewConfig(testAdmission()), team, true)
 	if err != nil {
 		t.Fatal(err)
 	}

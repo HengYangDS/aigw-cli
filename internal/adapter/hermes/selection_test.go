@@ -1,20 +1,30 @@
 package hermes
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"go.yaml.in/yaml/v4"
+
 	"aigw-cli/internal/adapter"
 )
 
-// projectedSelection projects desired, turns the file and its record into the
+// projectedSelection projects desired, then rewrites Hermes' own selection to
+// the named provider and model, as Hermes' model picker does.
+func projectedSelection(t *testing.T, desired Desired, provider, model string) string {
+	t.Helper()
+	return projectedSelectionIn(t, desired, func(*testing.T, string) {}, provider, model)
+}
+
+// projectedSelectionIn projects desired, turns the file and its record into the
 // shape that rewrite gives, then rewrites Hermes' own selection to the named
-// provider and model, as Hermes' model picker does.
-func projectedSelection(t *testing.T, desired Desired, rewrite func(*testing.T, string), provider, model string) string {
+// provider and model.
+func projectedSelectionIn(t *testing.T, desired Desired, rewrite func(*testing.T, string), provider, model string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,9 +32,10 @@ func projectedSelection(t *testing.T, desired Desired, rewrite func(*testing.T, 
 		t.Fatal(err)
 	}
 	rewrite(t, path)
-	if provider != "" {
-		selectInHermes(t, path, provider, model)
+	if provider == "" {
+		return path
 	}
+	selectInHermes(t, path, provider, model)
 	return path
 }
 
@@ -32,7 +43,14 @@ func projectedSelection(t *testing.T, desired Desired, rewrite func(*testing.T, 
 // the named provider entry and model, as Hermes' model picker does.
 func selectInHermes(t *testing.T, path, provider, model string) {
 	t.Helper()
-	root := projectedFile(t, path)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
 	selected := field(field(root, "providers"), provider)
 	setString(field(root, "model"), "provider", provider)
 	setString(field(root, "model"), "default", model)
@@ -55,75 +73,243 @@ func twoProviders() Desired {
 	return desired
 }
 
+// Both shapes in which AIGW has written an entry's models, the mapping and an
+// earlier release's list of IDs, give the same observation.
 func TestObserveSelectionReportsOnlyAProvedNativeChoice(t *testing.T) {
 	for _, shape := range modelShapes {
 		t.Run(shape.name, func(t *testing.T) {
 			desired := twoProviders()
-			unchanged := projectedSelection(t, desired, shape.rewrite, "", "")
-			if _, changed, err := ObserveSelection(unchanged, desired); err != nil || changed {
+			unchanged := projectedSelectionIn(t, desired, shape.rewrite, "", "")
+			if _, changed, err := ObserveSelection(unchanged); err != nil || changed {
 				t.Fatalf("unchanged projection observed as a choice: %v, %v", changed, err)
 			}
-			if _, changed, err := ObserveSelection(filepath.Join(t.TempDir(), "config.yaml"), desired); err != nil || changed {
+			if _, changed, err := ObserveSelection(filepath.Join(t.TempDir(), "config.yaml")); err != nil || changed {
 				t.Fatalf("absent projection observed as a choice: %v, %v", changed, err)
 			}
-			chosen := projectedSelection(t, desired, shape.rewrite, "other", "other-model")
-			selection, changed, err := ObserveSelection(chosen, desired)
+			chosen := projectedSelectionIn(t, desired, shape.rewrite, "other", "other-model")
+			selection, changed, err := ObserveSelection(chosen)
 			if err != nil || !changed || selection != (Selection{Provider: "other", Model: "other-model"}) {
 				t.Fatalf("native choice = %+v, %v, %v", selection, changed, err)
-			}
-			// The empty ID is the value of every node that is not a scalar.
-			for _, unlisted := range []string{"unlisted-model", ""} {
-				foreign := projectedSelection(t, desired, shape.rewrite, "other", unlisted)
-				if _, _, err := ObserveSelection(foreign, desired); err == nil {
-					t.Fatalf("the model %q outside the projected catalog was observed as a choice", unlisted)
-				}
-			}
-			invalid := desired
-			invalid.SelectedModel = ""
-			if _, _, err := ObserveSelection(chosen, invalid); err == nil {
-				t.Fatal("an invalid current projection was accepted")
 			}
 			if err := os.WriteFile(chosen+adapter.StateSuffix, []byte("{}\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if _, _, err := ObserveSelection(chosen, desired); err == nil {
+			if _, _, err := ObserveSelection(chosen); err == nil {
 				t.Fatal("an invalid ownership record was accepted")
 			}
 		})
 	}
 }
 
-func TestAdoptedSelectionNeverReplacesTheNativeChoice(t *testing.T) {
-	for _, shape := range modelShapes {
-		t.Run(shape.name, func(t *testing.T) {
-			previous := twoProviders()
-			chosen := projectedSelection(t, previous, shape.rewrite, "other", "other-model")
-			adopted := previous
-			adopted.SelectedProvider, adopted.SelectedModel = "other", "other-model"
-			plan, err := PrepareAdoptedSelection(chosen, adopted, previous)
-			if err != nil || plan.Action != "write" || plan.removeConfig {
-				t.Fatalf("adopted plan = %s, %v", plan.Action, err)
+// editModel rewrites Hermes' own model block in the file at path and returns
+// path. A nil block removes it.
+func editModel(t *testing.T, path string, edit func(model *yaml.Node) *yaml.Node) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	setField(root, "model", edit(field(root, "model")))
+	edited, err := encode(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, edited, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// Every state of Hermes' own model block, with everything else that AIGW owns
+// as recorded: what following makes of it, and whether an explicit selection
+// and a transition that starts from the file's selection may replace it.
+func TestTheModelBlockDecidesWhatFollowingAndAnExplicitSelectionDo(t *testing.T) {
+	desired := twoProviders()
+	set := func(key, value string) func(*yaml.Node) *yaml.Node {
+		return func(model *yaml.Node) *yaml.Node { setString(model, key, value); return model }
+	}
+	drop := func(key string) func(*yaml.Node) *yaml.Node {
+		return func(model *yaml.Node) *yaml.Node { setField(model, key, nil); return model }
+	}
+	scalarModel := func(*yaml.Node) *yaml.Node {
+		node := &yaml.Node{}
+		node.SetString("other-model")
+		return node
+	}
+	for _, test := range []struct {
+		name            string
+		file            func(t *testing.T) string
+		followed        Selection
+		unfollowed      *Selection
+		explicit, shown bool
+	}{
+		{name: "a listed model of another owned entry", file: func(t *testing.T) string { return projectedSelection(t, desired, "other", "other-model") },
+			followed: Selection{Provider: "other", Model: "other-model"}, explicit: true, shown: true},
+		{name: "a model that the entry does not list", file: func(t *testing.T) string { return projectedSelection(t, desired, "other", "unlisted-model") },
+			unfollowed: &Selection{Provider: "other", Model: "unlisted-model"}, explicit: true},
+		{name: "another entry's model with the earlier address", file: func(t *testing.T) string {
+			return editModel(t, editModel(t, projectedSelection(t, desired, "", ""), set("provider", "other")), set("default", "other-model"))
+		}},
+		{name: "an edited address", file: func(t *testing.T) string {
+			return editModel(t, projectedSelection(t, desired, "", ""), set("base_url", "http://127.0.0.1:8792/v1"))
+		}},
+		{name: "a removed mode", file: func(t *testing.T) string {
+			return editModel(t, projectedSelection(t, desired, "", ""), drop("api_mode"))
+		}},
+		{name: "a removed model", file: func(t *testing.T) string {
+			return editModel(t, projectedSelection(t, desired, "", ""), drop("default"))
+		}},
+		{name: "a provider that AIGW does not own", file: func(t *testing.T) string {
+			return editModel(t, projectedSelection(t, desired, "", ""), set("provider", "foreign"))
+		}, unfollowed: &Selection{Provider: "foreign", Model: desired.SelectedModel}, explicit: true},
+		{name: "no model block", file: func(t *testing.T) string {
+			return editModel(t, projectedSelection(t, desired, "", ""), func(*yaml.Node) *yaml.Node { return nil })
+		}, unfollowed: &Selection{}, explicit: true},
+		{name: "a model that is one word", file: func(t *testing.T) string { return editModel(t, projectedSelection(t, desired, "", ""), scalarModel) },
+			unfollowed: &Selection{}, explicit: true},
+		{name: "a listed model beside an edited provider entry", file: func(t *testing.T) string {
+			return editedProvider(t, projectedSelection(t, desired, "other", "other-model"), "other")
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := test.file(t)
+			selection, changed, err := ObserveSelection(path)
+			unfollowed, refused := errors.AsType[*unfollowedSelectionError](err)
+			switch {
+			case test.followed != (Selection{}):
+				if err != nil || !changed || selection != test.followed {
+					t.Fatalf("following = %+v, %t, %v; want %+v", selection, changed, err, test.followed)
+				}
+			case test.unfollowed != nil:
+				if !refused || changed || unfollowed.Selection != *test.unfollowed {
+					t.Fatalf("following = %t, %v; want the unfollowed selection %+v", changed, err, *test.unfollowed)
+				}
+			default:
+				if !errors.Is(err, errExternalEdit) || changed {
+					t.Fatalf("following = %t, %v; want the outside edit", changed, err)
+				}
 			}
-			before, err := os.ReadFile(chosen)
-			if err != nil {
-				t.Fatal(err)
+			before, readErr := os.ReadFile(path)
+			if readErr != nil {
+				t.Fatal(readErr)
 			}
-			if shape.kept && string(plan.configAfter) != string(before) {
-				t.Fatal("adoption would rewrite Hermes' own file")
+			// Synchronization that does not start from the file's selection refuses every such file.
+			if _, err := prepare(path, &desired); !errors.Is(err, errExternalEdit) {
+				t.Fatalf("a transition from the record = %v, want the outside edit", err)
 			}
-			planned, err := parse(plan.configAfter)
-			if err != nil || !adopted.selects(planned) {
-				t.Fatalf("adoption would replace the native choice: %v\n%s", err, plan.configAfter)
+			_, err = PrepareTransition(path, &desired, nil, true)
+			if test.explicit != (err == nil) || (err != nil && !errors.Is(err, errExternalEdit)) {
+				t.Fatalf("an explicit selection = %v, want admitted: %t", err, test.explicit)
 			}
-			// A desired selection that differs from the observed native one is refused.
-			if _, err := PrepareAdoptedSelection(chosen, previous, previous); err == nil {
-				t.Fatal("adoption replaced the native choice with another selection")
+			// A transition, and a withdrawal, that start from the file's own
+			// selection are admitted only for a choice that AIGW follows.
+			shown := classifiedSelection(t, path)
+			for name, projection := range map[string]*Desired{"transition": &desired, "withdrawal": nil} {
+				_, err = PrepareTransition(path, projection, &shown, false)
+				if test.shown != (err == nil) || (err != nil && !errors.Is(err, errExternalEdit)) {
+					t.Fatalf("a %s from the file's selection = %v, want admitted: %t", name, err, test.shown)
+				}
 			}
-			invalid := previous
-			invalid.SelectedModel = ""
-			if _, err := PrepareAdoptedSelection(chosen, adopted, invalid); err == nil {
-				t.Fatal("adoption accepted an invalid previous projection")
+			if after, readErr := os.ReadFile(path); readErr != nil || string(after) != string(before) {
+				t.Fatalf("planning changed the file: %v", readErr)
 			}
 		})
+	}
+}
+
+// classifiedSelection reads the selection that the file at path names.
+func classifiedSelection(t *testing.T, path string) Selection {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := field(root, "model")
+	return Selection{Provider: scalar(field(model, "provider")), Model: scalar(field(model, "default"))}
+}
+
+// A transition that starts from Hermes' own choice keeps the file's bytes
+// when it selects the same model, and replaces the selection when it selects
+// another: the configuration, not the record, says where the file stands.
+func TestATransitionFromTheFilesChoiceKeepsOrReplacesIt(t *testing.T) {
+	previous := twoProviders()
+	chosen := projectedSelection(t, previous, "other", "other-model")
+	shown := Selection{Provider: "other", Model: "other-model"}
+	followed := previous
+	followed.SelectedProvider, followed.SelectedModel = shown.Provider, shown.Model
+	plan, err := PrepareTransition(chosen, &followed, &shown, false)
+	if err != nil || plan.Action != "write" || plan.removeConfig || !plan.keepConfig {
+		t.Fatalf("followed plan = %s, keeps the file: %t, %v", plan.Action, plan.keepConfig, err)
+	}
+	before, err := os.ReadFile(chosen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(plan.configAfter) != string(before) {
+		t.Fatal("following would rewrite Hermes' own file")
+	}
+	// A selection that the file does not show is no starting point.
+	other := Selection{Provider: previous.SelectedProvider, Model: previous.SelectedModel}
+	if _, err := PrepareTransition(chosen, &followed, &other, false); !errors.Is(err, errExternalEdit) {
+		t.Fatalf("a transition from a selection that the file does not show = %v", err)
+	}
+	// From the file's choice, a transition to another selection writes it.
+	plan, err = PrepareTransition(chosen, &previous, &shown, false)
+	if err != nil || plan.Action != "write" || plan.keepConfig {
+		t.Fatalf("a transition away from the choice = %s, keeps the file: %t, %v", plan.Action, plan.keepConfig, err)
+	}
+	if _, err := plan.Apply(); err != nil {
+		t.Fatal(err)
+	}
+	if settled, err := prepare(chosen, &previous); err != nil || settled.Action != "unchanged" {
+		t.Fatalf("the written selection did not settle: %s, %v", settled.Action, err)
+	}
+}
+
+// editedProvider changes the credential command of an owned provider entry
+// in the file at path, an edit outside the selection, and returns path.
+func editedProvider(t *testing.T, path, provider string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	setString(field(field(root, "providers"), provider), "key_cmd", "foreign-reader")
+	edited, err := encode(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, edited, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// An explicit selection replaces a selection that names an unlisted model,
+// and the file then matches the record again.
+func TestExplicitSelectionReplacesAnUnlistedModel(t *testing.T) {
+	previous := twoProviders()
+	unlisted := projectedSelection(t, previous, "other", "unlisted-model")
+	plan, err := PrepareTransition(unlisted, &previous, nil, true)
+	if err != nil || plan.Action != "write" {
+		t.Fatalf("explicit selection over an unlisted model = %s, %v", plan.Action, err)
+	}
+	if _, err := plan.Apply(); err != nil {
+		t.Fatal(err)
+	}
+	if restored, err := prepare(unlisted, &previous); err != nil || restored.Action != "unchanged" {
+		t.Fatalf("the explicit selection was not written: %s, %v", restored.Action, err)
 	}
 }

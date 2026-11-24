@@ -473,3 +473,47 @@ Every bound that a test or the coverage run uses to stop a hang SHALL leave room
 
 - **WHEN** the coverage policy's package limit is missing, unparsable or not positive
 - **THEN** the coverage run SHALL refuse the policy before it runs any test.
+
+### Requirement: A proof runs each test once and in parallel where it can
+
+Each test SHALL run once in a full proof: a gate that selects tests by name SHALL match only the tests of its own build tag. A test of the acceptance package SHALL run in parallel unless it changes process state, and the repository's lint SHALL keep it so.
+
+#### Scenario: A tagged gate selects its tests
+
+- **WHEN** the quality graph's `selection-matrix` gate selects tests by name
+- **THEN** its pattern SHALL match no test of the acceptance package's untagged files
+
+#### Scenario: A new acceptance test is added
+
+- **WHEN** a top-level test is added to the acceptance package without calling `t.Parallel`
+- **THEN** the repository's lint SHALL refuse it unless the test calls `t.Setenv` or `t.Chdir`, or names its reason in a
+  `nolint:paralleltest` directive
+
+### Requirement: The selection tests run on every native platform of each Forge
+
+The exhaustive selection tests SHALL run in every full local proof, and in each Forge's pipeline that verifies a pushed
+commit, a merge or pull request, or a tag, once on every native platform that the Forge verifies: in the quality job on
+that job's platform, and in the native job of every other platform. A failure of these tests on any platform SHALL fail
+that pipeline.
+
+#### Scenario: A proof runs without a remote
+
+- **WHEN** a full proof runs on a host with no Forge configured
+- **THEN** it SHALL run the exhaustive selection tests
+
+#### Scenario: A Forge verifies a commit
+
+- **WHEN** a Forge's pipeline verifies a pushed commit, a merge or pull request, or a tag on its macOS, Linux and
+  Windows hosts
+- **THEN** each of those hosts SHALL run the exhaustive selection tests exactly once in that pipeline
+- **AND** the same platforms SHALL run them on the other Forge, generated from the same pipeline declaration
+
+#### Scenario: A native job qualifies every quality tool
+
+- **WHEN** a manual native job qualifies every repository quality tool on its host
+- **THEN** that job SHALL run the exhaustive selection tests exactly once
+
+#### Scenario: A native job accepts only prebuilt artifacts
+
+- **WHEN** a native job accepts prebuilt release artifacts without source tests
+- **THEN** it SHALL NOT run the exhaustive selection tests

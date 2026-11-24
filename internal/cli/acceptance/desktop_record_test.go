@@ -14,6 +14,7 @@ import (
 // the check, which named sync. Every surface now names the one recovery, and
 // deleting the profile and AIGW's entry, as it says, lets sync and check pass.
 func TestClaudeDesktopWithoutItsRecordNamesOneRecovery(t *testing.T) {
+	t.Parallel()
 	client := projectedClients[claudedesktop.ID](t)
 	recovery := "Restore " + filepath.Base(client.record) + " in " + filepath.Base(client.file) + "'s folder from a copy of it, or delete " + filepath.Base(client.file) + " there and remove AIGW's entry and appliedId from _meta.json, then run `aigw sync`"
 	if err := os.Remove(client.record); err != nil {

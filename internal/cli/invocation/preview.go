@@ -1,8 +1,6 @@
 package invocation
 
 import (
-	"regexp"
-	"runtime"
 	"slices"
 	"strings"
 
@@ -32,11 +30,25 @@ type Preview struct {
 	Files                []ClientFile                  `json:"client_files,omitempty"`
 	CredentialEntrypoint *app.CredentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
 	plans                []adapter.ProjectionPlan
+	// withdrawn are the clients whose plans only withdraw AIGW from the
+	// files that the transition drops, because their provider has no Token
+	// that AIGW can use.
+	withdrawn []string
 }
 
 // Plans returns the projection plans of the client files that the preview
 // names, for a command that renders its preview itself.
 func (preview Preview) Plans() []adapter.ProjectionPlan { return preview.plans }
+
+// Projects reports whether the preview plans the files of client. A plan that
+// brings only AIGW's record of a file to the model that the file selects, or
+// that only withdraws AIGW from the files that the transition drops, plans
+// none of them: the files that the client keeps wait, as for a Token.
+func (preview Preview) Projects(client string) bool {
+	return !slices.Contains(preview.withdrawn, client) && slices.ContainsFunc(preview.plans, func(plan adapter.ProjectionPlan) bool {
+		return plan.Client == client && !plan.RecordOnly()
+	})
+}
 
 // Home is the home directory from which documents name client files: the
 // observed host's, from which the client adapters locate them, else the
@@ -135,7 +147,7 @@ func PreviewProjection(runtime Context, before, after domain.Config, clientIDs .
 // Planned is a projection's client files alone, without the credential
 // reader: what a commit, which prepares the reader itself, writes.
 func Planned(runtime Context, projection synchronization.Projection) Preview {
-	preview := Preview{plans: projection.Targets}
+	preview := Preview{plans: projection.Targets, withdrawn: projection.Withdrawn}
 	if len(projection.Targets) > 0 {
 		preview.Files = clientFiles(runtime, projection.Targets)
 	}
@@ -152,37 +164,6 @@ func WithEntrypoint(runtime Context, after domain.Config, projection synchroniza
 	entrypoint, err := app.PlanCredentialEntrypoint(runtime.Synchronizer(), after, projection.Clients...)
 	preview.CredentialEntrypoint = entrypoint
 	return preview, err
-}
-
-// plainWord matches a word that the platform's shells pass through
-// unchanged, so a command line of such words runs as written: it starts with
-// a letter, digit, dot or slash. Windows shells also pass a backslash
-// through, which a path holds there, and expand a percent sign.
-var plainWord = func() *regexp.Regexp {
-	first, rest := `A-Za-z0-9._/`, `A-Za-z0-9._/:@+=~`
-	if runtime.GOOS == "windows" {
-		first, rest = first+`\\`, rest+`\\`
-	} else {
-		rest += `%`
-	}
-	return regexp.MustCompile(`^[` + first + `][` + rest + `-]*$`)
-}()
-
-// shellTilde finds a tilde that a shell would expand after an equals sign or
-// a colon.
-var shellTilde = regexp.MustCompile(`[=:]~`)
-
-func plain(word string) bool {
-	return plainWord.MatchString(word) && !shellTilde.MatchString(word)
-}
-
-// Command returns the aigw command line of words, or "" when a word would
-// need quoting in the platform's shells.
-func Command(words ...string) string {
-	if !slices.ContainsFunc(words, func(word string) bool { return !plain(word) }) {
-		return strings.Join(append([]string{"aigw"}, words...), " ")
-	}
-	return ""
 }
 
 // ApplyCommand returns the continuation of a preview: the same command line
@@ -214,7 +195,7 @@ func commandLine(cmd *cobra.Command, args []string, omitted ...string) (string, 
 	words := append(strings.Fields(cmd.CommandPath()), args...)
 	isPlain := true
 	for _, arg := range args {
-		isPlain = isPlain && plain(arg)
+		isPlain = isPlain && platform.PlainWord(arg)
 	}
 	cmd.Flags().Visit(func(flag *pflag.Flag) {
 		if slices.Contains(omitted, flag.Name) {
@@ -235,7 +216,7 @@ func commandLine(cmd *cobra.Command, args []string, omitted ...string) (string, 
 		}
 		for _, value := range values {
 			words = append(words, "--"+name, value)
-			isPlain = isPlain && plain(value)
+			isPlain = isPlain && platform.PlainWord(value)
 		}
 	})
 	return strings.Join(words, " "), isPlain

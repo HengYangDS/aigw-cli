@@ -111,9 +111,15 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 			})
 			continue
 		}
-		secretAvailable, observationErr := secrets.Exists(providerID)
+		// Whether the provider has a Token that AIGW can use is the one
+		// judgement of secret.ObserveToken; only a usable Token is read.
+		observation := secret.ObserveToken(secrets, providerID)
+		secretAvailable, observationErr := observation.Usable(), observation.Unobserved
+		if observation.Refusal != nil {
+			observationErr = observation.Refusal
+		}
 		var token string
-		if observationErr == nil && secretAvailable {
+		if secretAvailable {
 			token, observationErr = secrets.Get(providerID)
 		}
 		for _, source := range sources {

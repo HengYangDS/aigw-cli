@@ -295,9 +295,6 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 	}
 
 	config := t.TempDir() + "/config.toml"
-	if _, err := canonicalCodexTargetPath(config); err != nil {
-		t.Fatal(err)
-	}
 	if transactionID := newCodexTransactionID(); len(transactionID) != 32 {
 		t.Fatalf("transaction ID = %q", transactionID)
 	}
@@ -309,9 +306,6 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 	}
 	if _, err := normalizeCodexTargets([]TargetRef{{}}, true); err == nil {
 		t.Fatal("incomplete target was accepted")
-	}
-	if _, err := canonicalCodexTargetPath(t.TempDir() + "/missing/config.toml"); err != nil {
-		t.Fatal(err)
 	}
 	if _, err := normalizeCodexTargets([]TargetRef{HomeTarget(config), HomeTarget(config)}, true); err == nil {
 		t.Fatal("duplicate target was accepted")

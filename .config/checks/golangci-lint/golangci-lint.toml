@@ -8,6 +8,7 @@ build-tags = [
   "native_hermes",
   "native_resource_acceptance",
   "performance_acceptance",
+  "selection_matrix",
 ]
 allow-serial-runners = true
 
@@ -58,6 +59,7 @@ enable = [
   "nestif",
   "nolintlint",
   "nosprintfhostport",
+  "paralleltest",
   "predeclared",
   "reassign",
   "recvcheck",
@@ -70,6 +72,13 @@ enable = [
   "wastedassign",
   "whitespace",
 ]
+
+# The acceptance package's tests run in parallel, which keeps its run under the
+# race detector short; a test that changes the whole process (t.Setenv,
+# t.Chdir) is exempt, as Go refuses those in a parallel test. Subtests are
+# their tests' own choice.
+[linters.settings.paralleltest]
+ignore-missing-subtests = true
 
 [linters.settings.govet]
 enable = [
@@ -222,6 +231,12 @@ checks = [
 
 [linters.exclusions]
 presets = []
+
+[[linters.exclusions.rules]]
+linters = [
+  "paralleltest",
+]
+path-except = "^(\\.\\./){3}internal/cli/acceptance/"
 
 [[linters.exclusions.rules]]
 linters = [

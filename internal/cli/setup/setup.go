@@ -20,10 +20,11 @@ import (
 // setupRequest contains the explicit setup inputs before discovery and validation resolve their effects.
 type setupRequest struct {
 	From string
-	// Providers are the providers whose Tokens team setup reads, and Prune
-	// removes the unused local-only models and families.
+	// Providers are the providers whose Tokens team setup reads, and KeepLocal
+	// keeps the local-only models and families that an import would otherwise
+	// remove.
 	Providers  []string
-	Prune      bool
+	KeepLocal  bool
 	TokenStdin bool
 	JSON       bool
 	// DryRun previews setup; apply is the command that applies the preview.
@@ -57,8 +58,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if cmd.Flags().Changed("from") {
 				return admitTeamRequest(cmd, runtime, request)
 			}
-			if len(request.Providers) > 0 || request.Prune || request.TokenStdin {
-				return fmt.Errorf("--provider, --prune and --token-stdin apply a team file, so they need --from; run `%s --help`", cmd.CommandPath())
+			if len(request.Providers) > 0 || request.KeepLocal || request.TokenStdin {
+				return fmt.Errorf("--provider, --keep-local and --token-stdin apply a team file, so they need --from; run `%s --help`", cmd.CommandPath())
 			}
 			return admitGuided(runtime, request)
 		}),
@@ -80,7 +81,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&request.From, "from", "", "Apply a team file: its providers, models, families and recommendations")
 	cmd.Flags().StringArrayVar(&request.Providers, "provider", nil, "With --from, a provider whose Token to read, at a prompt or from --token-stdin, unless one is stored; repeatable")
-	cmd.Flags().BoolVar(&request.Prune, "prune", false, "With --from, remove the local models that no client selects and no recommendation names, and unused families")
+	cmd.Flags().BoolVar(&request.KeepLocal, "keep-local", false, "With --from, keep the local-only models and families that the import would otherwise remove")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "With --from, read the one --provider's Token from standard input")
 	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the setup result as JSON")
 	cmd.Flags().BoolVar(&request.DryRun, "dry-run", false, "Show what setup would change without reading a Token or writing anything")

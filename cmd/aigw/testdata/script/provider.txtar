@@ -420,7 +420,7 @@ Fix
   aigw provider show --help
 -- add-preview.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "dry_run": true,
   "id": "spare",
@@ -450,7 +450,7 @@ Next
   aigw provider edit team --endpoint anthropic=$UPSTREAM/v2
 -- remove-preview.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
   "status": "planned",
@@ -493,7 +493,7 @@ Fix
 }
 -- added.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "id": "spare",
   "label": "Spare",
@@ -554,7 +554,7 @@ Fix
 }
 -- edited.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "id": "team",
   "label": "Team Gateway",
@@ -702,7 +702,7 @@ Next
 }
 -- remove-blocked.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "dry_run": true,
   "status": "blocked",
@@ -720,7 +720,7 @@ Next
 }
 -- removed.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "status": "removed",
   "id": "mixed",
@@ -738,7 +738,7 @@ Next
 }
 -- unbalanced.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "id": "team",
   "label": "Team Gateway",
@@ -795,7 +795,7 @@ Next
   aigw provider show <provider>
 -- fresh-status.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -853,7 +853,7 @@ Next
 }
 -- fresh-removed.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "status": "removed",
   "id": "first",

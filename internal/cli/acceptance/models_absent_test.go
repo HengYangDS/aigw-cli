@@ -41,6 +41,7 @@ func providerWithoutModels(t *testing.T) (*cli.App, *bytes.Buffer, secret.Store)
 // Every client of providers without models selects nothing and names how to
 // select a model, and so does the status.
 func TestStatusOfProvidersWithoutModels(t *testing.T) {
+	t.Parallel()
 	app, out, _ := providerWithoutModels(t)
 	if err := cli.Execute(app, []string{"status", "--json"}); err != nil {
 		t.Fatalf("status: %v\n%s", err, out)
@@ -72,6 +73,7 @@ func TestStatusOfProvidersWithoutModels(t *testing.T) {
 
 // check has no enabled client, says why, and names the selection.
 func TestCheckOfProvidersWithoutModels(t *testing.T) {
+	t.Parallel()
 	app, out, _ := providerWithoutModels(t)
 	if err := cli.Execute(app, []string{"check"}); err == nil ||
 		!strings.Contains(out.String(), "No model has been added, so no client can use one.") || !strings.Contains(out.String(), "aigw use <client> <provider/model>") {
@@ -90,6 +92,7 @@ func TestCheckOfProvidersWithoutModels(t *testing.T) {
 // sync writes no client file, and the credential reader refuses a client
 // that nothing enables.
 func TestSyncAndTheCredentialReaderOfProvidersWithoutModels(t *testing.T) {
+	t.Parallel()
 	app, out, _ := providerWithoutModels(t)
 	before, err := os.ReadFile(app.Config.Path())
 	if err != nil {
@@ -112,6 +115,7 @@ func TestSyncAndTheCredentialReaderOfProvidersWithoutModels(t *testing.T) {
 
 // The configuration exports a team file that setup applies to an empty home.
 func TestTeamFileOfProvidersWithoutModels(t *testing.T) {
+	t.Parallel()
 	app, out, _ := providerWithoutModels(t)
 	if err := cli.Execute(app, []string{"config", "export"}); err != nil {
 		t.Fatal(err)
@@ -132,6 +136,7 @@ func TestTeamFileOfProvidersWithoutModels(t *testing.T) {
 // TestRemovingTheLastModelLeavesClientsThatSelectNothing removes the only
 // model and then the only provider: each step leaves a valid configuration.
 func TestRemovingTheLastModelLeavesClientsThatSelectNothing(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore := providerWithoutModels(t)
 	if err := cli.Execute(app, []string{"model", "add", "team/team-model", "--unlisted"}); err != nil {
 		t.Fatalf("model add: %v\n%s", err, out)

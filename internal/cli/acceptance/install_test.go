@@ -22,6 +22,7 @@ import (
 )
 
 func TestInstallationDescribesCurrentFilesWithoutConfiguration(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	root := t.TempDir()
 	app.Executable = filepath.Join(root, executableName("aigw"))
@@ -65,6 +66,7 @@ func TestInstallationDescribesCurrentFilesWithoutConfiguration(t *testing.T) {
 }
 
 func TestPortableInstallAndUninstallCommandsOwnOnlyProgramFiles(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	app.Executable = filepath.Join(t.TempDir(), "download", "aigw")
 	app.InstallTarget = filepath.Join(t.TempDir(), "bin", "aigw")
@@ -100,12 +102,14 @@ func TestPortableInstallAndUninstallCommandsOwnOnlyProgramFiles(t *testing.T) {
 }
 
 func TestUninstallWithdrawsOwnedClientStateAndPreservesCapabilities(t *testing.T) {
+	t.Parallel()
 	for _, manager := range []string{"portable", "homebrew"} {
 		t.Run(manager, func(t *testing.T) { verifyUninstallOwnership(t, manager) })
 	}
 }
 
 func TestUninstallReportsCommittedWithdrawalWithIncompleteProgramRemoval(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	writeFile(t, app.Executable, []byte("program"), 0o700)
 	codexTarget := filepath.Join(t.TempDir(), "config.toml")
@@ -131,6 +135,7 @@ func TestUninstallReportsCommittedWithdrawalWithIncompleteProgramRemoval(t *test
 }
 
 func TestUnconfiguredUninstallReportsRemovalFailureWithoutClaimingWithdrawal(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	writeFile(t, app.Executable, []byte("program"), 0o700)
 	blockRemoval(t, app.Executable)
@@ -146,6 +151,7 @@ func TestUnconfiguredUninstallReportsRemovalFailureWithoutClaimingWithdrawal(t *
 // directory at the rollback copy's path, which AIGW did not write, stops the
 // preview and the uninstall alike before any client is withdrawn.
 func TestUninstallRefusesARollbackDirectoryBeforeWithdrawal(t *testing.T) {
+	t.Parallel()
 	for _, args := range [][]string{{"self", "uninstall", "--dry-run"}, {"self", "uninstall"}} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
@@ -171,6 +177,7 @@ func TestUninstallRefusesARollbackDirectoryBeforeWithdrawal(t *testing.T) {
 }
 
 func TestUninstallPreservesDriftedSharedReader(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	root := t.TempDir()
 	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
@@ -208,6 +215,7 @@ func TestUninstallPreservesDriftedSharedReader(t *testing.T) {
 }
 
 func TestPortableUninstallPreservesExternalCredentialCommand(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	root := t.TempDir()
 	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
@@ -381,7 +389,7 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(clients.Admission().IDs()...)); err != nil {
+	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(clients.Admission().IDs()...), nil); err != nil {
 		t.Fatal(err)
 	}
 }

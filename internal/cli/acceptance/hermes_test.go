@@ -22,6 +22,7 @@ import (
 )
 
 func TestHermesSetupDeferredSyncCredentialCheckAndWithdrawal(t *testing.T) {
+	t.Parallel()
 	app, output, credentials, runner, httpClient := testApp(t, "")
 	root := t.TempDir()
 	manifest := filepath.Join(root, "team.toml")
@@ -107,6 +108,7 @@ primary = {model = "team/model-test", protocol = "anthropic"}
 }
 
 func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
+	t.Parallel()
 	app, output, credentials, _, httpClient := testApp(t, "")
 	if err := credentials.Set("dmxapi", "fixture-token"); err != nil {
 		t.Fatal(err)
@@ -146,6 +148,7 @@ func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
 }
 
 func TestHermesExplicitSelectionAdoptsNativeSwitchThenSyncs(t *testing.T) {
+	t.Parallel()
 	app, output, credentials, _, httpClient := testApp(t, "")
 	for _, account := range []string{"dmxapi", "ucloud"} {
 		if err := credentials.Set(account, "fixture-token"); err != nil {
@@ -242,6 +245,13 @@ func shippedHermesApp(t *testing.T) (*cli.App, *bytes.Buffer, *fakeHTTP, string)
 // production does, so that a missing Account Token defers its clients.
 func shippedHermesAppWith(t *testing.T, reader bool) (*cli.App, *bytes.Buffer, *fakeHTTP, string) {
 	t.Helper()
+	return shippedHermesAppAt(t, reader, filepath.Join(t.TempDir(), "hermes", "config.yaml"))
+}
+
+// shippedHermesAppAt is shippedHermesAppWith with Hermes's file at target,
+// which the caller may have prepared, such as a link to a file elsewhere.
+func shippedHermesAppAt(t *testing.T, reader bool, target string) (*cli.App, *bytes.Buffer, *fakeHTTP, string) {
+	t.Helper()
 	app, output, credentials, _, httpClient := testApp(t, "")
 	if reader {
 		bindCredentialReader(t, app)
@@ -251,7 +261,6 @@ func shippedHermesAppWith(t *testing.T, reader bool) (*cli.App, *bytes.Buffer, *
 			t.Fatal(err)
 		}
 	}
-	target := filepath.Join(t.TempDir(), "hermes", "config.yaml")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{hermes.ID: executableFixture(t, "hermes")},
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
@@ -280,6 +289,7 @@ func hermesProjectedSelection(t *testing.T, target string) (provider, model stri
 }
 
 func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
+	t.Parallel()
 	app, output, httpClient, target := shippedHermesApp(t)
 	before, err := app.Config.Load()
 	if err != nil {
@@ -291,7 +301,7 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 		t.Fatalf("sync after a native Hermes model choice: %v\n%s", err, output)
 	}
 	var result struct {
-		Adopted map[string]string `json:"adopted_selections"`
+		Adopted followedModels `json:"followed_selections"`
 	}
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatalf("sync result: %v\n%s", err, output)
@@ -323,7 +333,7 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 		t.Fatalf("second sync: %v\n%s", err, output)
 	}
 	var preview struct {
-		Adopted map[string]string `json:"adopted_selections"`
+		Adopted followedModels `json:"followed_selections"`
 		Targets []struct {
 			Client string `json:"client"`
 			Action string `json:"action"`
@@ -345,7 +355,14 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 	}
 }
 
-func TestHermesSyncAdoptsAChoiceWhoseTokenReturnsLater(t *testing.T) {
+// A choice whose provider has no Token is recorded by the first
+// synchronization: the stored selection and AIGW's record of Hermes' file
+// move to it, and the file is left. The synchronization after the Token
+// returns follows nothing more, and the next finds nothing to do; Hermes'
+// file keeps its bytes throughout. Holds the cell chosen/other of the lane's
+// state table.
+func TestHermesSyncRecordsAChoiceWithoutItsToken(t *testing.T) {
+	t.Parallel()
 	app, output, httpClient, target := shippedHermesAppWith(t, true)
 	drifted := hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
 	stateBefore := readFile(t, target+".aigw-state.json")
@@ -363,28 +380,29 @@ func TestHermesSyncAdoptsAChoiceWhoseTokenReturnsLater(t *testing.T) {
 			t.Fatalf("%s sync: %v\n%s", step, err, output)
 		}
 		var result struct {
-			Adopted map[string]string `json:"adopted_selections"`
+			Adopted followedModels `json:"followed_selections"`
 		}
 		if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 			t.Fatalf("%s sync result: %v\n%s", step, err, output)
 		}
-		wantAdopted := map[string]string{}
+		wantAdopted, wantSelected := map[string]string{}, domain.NewModelRef("ucloud", "claude-opus-5-5")
 		if step == "token-missing" {
-			wantAdopted[hermes.ID] = "ucloud/claude-opus-5-5"
+			wantAdopted[hermes.ID] = wantSelected.String()
 		}
 		if len(result.Adopted) != len(wantAdopted) || result.Adopted[hermes.ID] != wantAdopted[hermes.ID] {
-			t.Fatalf("%s adopted selections = %v, want %v", step, result.Adopted, wantAdopted)
+			t.Fatalf("%s followed selections = %v, want %v", step, result.Adopted, wantAdopted)
 		}
 		cfg, err := app.Config.Load()
-		if err != nil || cfg.SelectedModel(hermes.ID) != domain.NewModelRef("ucloud", "claude-opus-5-5") {
+		if err != nil || cfg.SelectedModel(hermes.ID) != wantSelected {
 			t.Fatalf("%s Hermes binding = %#v, %v", step, cfg.Clients[hermes.ID], err)
 		}
 		if !bytes.Equal(readFile(t, target), drifted) {
 			t.Fatalf("%s sync rewrote Hermes' own selection", step)
 		}
-		// A missing Token defers Hermes, so its ownership record stays stale.
-		if step == "token-missing" && !bytes.Equal(readFile(t, target+".aigw-state.json"), stateBefore) {
-			t.Fatal("a deferred Hermes projection changed its ownership record")
+		// A missing Token defers Hermes' file, not AIGW's record of it: the
+		// choice is never saved without the record.
+		if step == "token-missing" && bytes.Equal(readFile(t, target+".aigw-state.json"), stateBefore) {
+			t.Fatal("the choice was saved and AIGW's record of Hermes' file stayed behind")
 		}
 	}
 	output.Reset()
@@ -411,6 +429,7 @@ func TestHermesSyncAdoptsAChoiceWhoseTokenReturnsLater(t *testing.T) {
 }
 
 func TestHermesSyncRefusesChangedManagedProvider(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesApp(t)
 	before, err := app.Config.Load()
 	if err != nil {
@@ -439,6 +458,7 @@ func TestHermesSyncRefusesChangedManagedProvider(t *testing.T) {
 }
 
 func TestHermesExplicitSelectionOverridesNativeModelChoice(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesApp(t)
 	hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-opus-5-5", nil)
 	if err := cli.Execute(app, []string{"use", "hermes", "ucloud/gpt-6.2-sol", "--protocol", "responses"}); err != nil {

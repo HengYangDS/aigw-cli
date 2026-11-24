@@ -63,6 +63,7 @@ func enabledCodexWithDisabledClaude(t *testing.T) (*cli.App, *bytes.Buffer, *pro
 }
 
 func TestDisabledBindingProviderCannotChangeReadiness(t *testing.T) {
+	t.Parallel()
 	app, out, store := enabledCodexWithDisabledClaude(t)
 	commands := [][]string{{"status", "--json"}, {"check", "--json"}, {"doctor", "--json"}}
 	observe := func() []string {

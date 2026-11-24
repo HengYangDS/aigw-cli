@@ -38,6 +38,14 @@ type Dependencies struct {
 	Host                      discovery.Host
 	AIGWExecutable            string
 	AuthorizedSelectionClient string
+	// RecordOnly names the clients of which Plan and Apply write AIGW's
+	// record alone, through their SelectionRecorder.
+	RecordOnly []string
+	// WithdrawOnly names the clients of which Plan and Apply restore the files
+	// that the transition drops and write no file that it keeps: a file that a
+	// client no longer has cannot keep AIGW's settings, and its withdrawal
+	// needs no Token, unlike the files that wait for one.
+	WithdrawOnly []string
 }
 
 // ProjectionPlan is a side-effect-free description of one owned projection
@@ -68,9 +76,22 @@ var ErrProjectionRollbackFailed = errors.New("client file rollback failed")
 type Status struct {
 	Ready               bool
 	NativeModelOverride bool
-	Issue               string
-	RepairAction        string
-	Checks              []Check
+	// NativeModel is the model that the client's own settings name in place
+	// of AIGW's selection, when NativeModelOverride holds and they name one.
+	NativeModel  string
+	Issue        string
+	RepairAction string
+	Checks       []Check
+}
+
+// NativeModelNote says, after product's name, that the client keeps a model
+// preference of its own, with the model that its settings name.
+func (status Status) NativeModelNote(verb string) string {
+	note := verb + " model preference"
+	if status.NativeModel != "" {
+		note += ", " + status.NativeModel
+	}
+	return note
 }
 
 // Check is one adapter-owned, read-only diagnostic observation. Target names
@@ -219,9 +240,9 @@ func (registry Registry) Plan(deps Dependencies, before, after domain.Config, cl
 	}
 	plans := make([]ProjectionPlan, 0)
 	for _, adapter := range adapters {
-		adapterPlans, err := adapter.Plan(deps, before, after)
+		adapterPlans, err := planClient(deps, adapter, before, after)
 		if err != nil {
-			return nil, namedTarget(adapter.Spec(), deps.Host.Home, err)
+			return nil, namedTarget(adapter.Spec(), deps.Host.Home, unfollowed(deps, before, adapter, err))
 		}
 		plans = append(plans, adapterPlans...)
 	}
@@ -272,7 +293,7 @@ func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, a
 			return nil, false, err
 		}
 		failing = ClientLabel(adapter.Spec().Label)
-		receipt, err := adapter.Apply(ctx, deps, before, after)
+		receipt, err := applyClient(ctx, deps, adapter, before, after)
 		if err != nil {
 			return nil, false, err
 		}
@@ -308,7 +329,44 @@ func (registry Registry) Inspect(ctx context.Context, deps Dependencies, cfg dom
 	if !ok {
 		return Status{Issue: fmt.Sprintf("client %q has no admitted operational adapter", clientID), RepairAction: "aigw sync"}
 	}
-	return adapter.Inspect(ctx, deps, cfg, runtime)
+	status := adapter.Inspect(ctx, deps, cfg, runtime)
+	if status.Ready {
+		return status
+	}
+	// A file whose own selection AIGW does not follow is reported as that,
+	// with the step that restores the recorded selection.
+	if refusal := unfollowedSelection(deps, cfg, adapter); refusal != nil {
+		status.Issue, status.RepairAction = refusal.Error(), refusal.NextAction()
+		for index := range status.Checks {
+			if !status.Checks[index].Ready {
+				status.Checks[index].Detail, status.Checks[index].RepairAction = refusal.Error(), refusal.NextAction()
+			}
+		}
+	}
+	return status
+}
+
+// unfollowedSelection is the refusal of the client's own selection in cfg,
+// when its file's only difference from AIGW's record is a selection that AIGW
+// does not follow. The configuration is not changed.
+func unfollowedSelection(deps Dependencies, cfg domain.Config, client Adapter) *SelectionError {
+	probe := cfg.Clone()
+	_, err := client.AdoptSelection(deps, &probe)
+	refusal, _ := errors.AsType[*SelectionError](err)
+	return refusal
+}
+
+// unfollowed returns, in place of a conflict that it explains, the refusal of
+// the client's own selection: such a file is refused with the step that
+// restores the recorded selection, not as an outside edit to undo.
+func unfollowed(deps Dependencies, cfg domain.Config, client Adapter, err error) error {
+	if _, conflict := errors.AsType[*ConflictError](err); !conflict {
+		return err
+	}
+	if refusal := unfollowedSelection(deps, cfg, client); refusal != nil {
+		return refusal
+	}
+	return err
 }
 
 // Verify runs one explicit live verification through the admitted adapter.
@@ -331,20 +389,28 @@ func (registry Registry) Withdraw(cfg *domain.Config, clientID string) error {
 	return nil
 }
 
-// AdoptSelections records each admitted client's own selection as its Client
-// Binding in admission order, and returns the adopted model per client.
-func (registry Registry) AdoptSelections(deps Dependencies, cfg *domain.Config) (map[string]domain.ModelRef, error) {
-	adopted := map[string]domain.ModelRef{}
-	for _, id := range registry.ids {
-		ref, err := registry.byID[id].AdoptSelection(deps, cfg)
-		if err != nil {
-			return nil, namedTarget(registry.byID[id].Spec(), deps.Host.Home, err)
-		}
-		if !ref.IsZero() {
-			adopted[id] = ref
-		}
+// Follow records the named client's own selection as its Client Binding. It
+// returns the selection that the client had before and the followed one;
+// followed is false when the client shows its bound selection.
+func (registry Registry) Follow(deps Dependencies, cfg *domain.Config, clientID string) (earlier, now RecordedSelection, followed bool, err error) {
+	client, err := registry.adapter(clientID)
+	if err != nil {
+		return RecordedSelection{}, RecordedSelection{}, false, err
 	}
-	return adopted, nil
+	before, err := cfg.ResolveRuntime(clientID, domain.ModelRef{})
+	if err != nil {
+		// A client without a selection has nothing to follow from.
+		return RecordedSelection{}, RecordedSelection{}, false, nil
+	}
+	ref, err := client.AdoptSelection(deps, cfg)
+	if err != nil {
+		return RecordedSelection{}, RecordedSelection{}, false, namedTarget(client.Spec(), deps.Host.Home, err)
+	}
+	after, err := cfg.ResolveRuntime(clientID, domain.ModelRef{})
+	if ref.IsZero() || err != nil {
+		return RecordedSelection{}, RecordedSelection{}, false, err
+	}
+	return Recorded(client.Spec(), before), Recorded(client.Spec(), after), true, nil
 }
 
 // ValidatesTargets reports whether the client's adapter validates explicit
@@ -429,4 +495,12 @@ func (registry Registry) adapter(clientID string) (Adapter, error) {
 		return nil, fmt.Errorf("client %q has no admitted operational adapter", clientID)
 	}
 	return adapter, nil
+}
+
+// RecordPending reports whether AIGW's record of the named client's files is
+// behind the selection that the files show and can be brought to it without
+// writing those files. A client that keeps no such record has none pending.
+func (registry Registry) RecordPending(deps Dependencies, followed domain.Config, clientID string) bool {
+	records, keeps := registry.byID[clientID].(SelectionRecorder)
+	return keeps && records.RecordPending(deps, followed)
 }

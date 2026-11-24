@@ -123,11 +123,13 @@ cmp stdout edit-recommended.json
 # there, and setup applies the file to this configured home, where the
 # file's recommendation wins and the rest stays.
 envsubst recommended.in recommended.toml
-exec aigw setup --from recommended.toml
+exec aigw setup --from recommended.toml --keep-local
 fixloop edit-recommended.json aigw model edit mixed/spare-chat --protocol anthropic --json
 # Applying the original team file again restores its model and its
 # recommendation, as the file's win.
-exec aigw setup --from mixed.toml
+# The import keeps the local-only models: this case is about what a model list
+# shows after removals, not about what an import removes.
+exec aigw setup --from mixed.toml --keep-local
 exec aigw model show mixed/spare-chat --json
 stdout '"protocol": "chat"'
 stdin mixed-token.txt
@@ -194,7 +196,9 @@ cmp stdout list-mixed.txt
 # read on both of its protocols, lists none of its own, which are missing,
 # and two that it could add.
 envsubst search.in search.toml
-exec aigw setup --from search.toml
+# The local-only models stay: this case is about what search reports for a
+# model that the configuration holds and the catalog does not list.
+exec aigw setup --from search.toml --keep-local
 stdin fresh-token.txt
 exec aigw provider rotate fresh --token-stdin
 exec aigw model search --help
@@ -611,7 +615,7 @@ Next
   aigw model add team/spare-model
 -- add-preview.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "dry_run": true,
   "id": "team/spare-model",
@@ -637,7 +641,7 @@ Next
 }
 -- edit-preview.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "dry_run": true,
   "id": "team/team-model",
@@ -664,7 +668,7 @@ Next
 }
 -- remove-preview.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "dry_run": true,
   "id": "mixed/chat-only",
@@ -690,7 +694,7 @@ Next
 }
 -- added.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "id": "team/spare-model",
   "provider": "team",
@@ -734,7 +738,7 @@ Fix
 }
 -- add-forced.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "id": "mixed/new-model",
   "provider": "mixed",
@@ -791,7 +795,7 @@ Fix
 }
 -- edited.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "id": "mixed/new-model",
   "provider": "mixed",
@@ -821,7 +825,7 @@ Fix
 }
 -- cleared.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "id": "mixed/new-model",
   "provider": "mixed",
@@ -888,7 +892,7 @@ Fix
   aigw use hermes <provider/model>
 -- removed.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "id": "mixed/spare-chat",
   "provider": "mixed",

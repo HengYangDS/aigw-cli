@@ -86,12 +86,11 @@ func hermesDesired(deps adapter.Dependencies, cfg domain.Config, selected domain
 	connected := map[string]bool{selected.ProviderID: true}
 	desired := Desired{SelectedProvider: hermesProviderID(selected.ProviderID, selected.Protocol), SelectedModel: selected.UpstreamModel}
 	for _, item := range catalog {
+		// A provider whose Token AIGW cannot use, or whose Token the store
+		// cannot observe, is left out: its credential command would return no
+		// Token.
 		if _, observed := connected[item.Provider]; !observed {
-			available, err := adapter.SecretAvailable(deps.Secrets, item.Provider)
-			if err != nil {
-				return Desired{}, fmt.Errorf("inspect Hermes provider %q credential: %w", item.Provider, err)
-			}
-			connected[item.Provider] = available
+			connected[item.Provider] = secret.ObserveToken(deps.Secrets, item.Provider).Usable()
 		}
 		if !connected[item.Provider] {
 			continue
@@ -161,6 +160,12 @@ func hermesProviderID(providerID string, protocol domain.EndpointProtocol) strin
 
 func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan, []string, error) {
 	previous, current := before.Clients[ID], after.Clients[ID]
+	dropped := platform.DroppedFiles(previous.Targets, current.Targets)
+	// A withdraw-only client restores the files that the transition drops and
+	// writes none that it keeps, whose selection waits for its Token.
+	if slices.Contains(deps.WithdrawOnly, ID) {
+		current.Targets = nil
+	}
 	if !previous.Enabled && !current.Enabled {
 		return nil, nil, nil
 	}
@@ -179,33 +184,23 @@ func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan
 		}
 	}
 	written := hermesListing(before)
-	targets := slices.Clone(current.Targets)
-	for _, target := range previous.Targets {
-		if !slices.Contains(targets, target) {
-			targets = append(targets, target)
-		}
+	// The files that the configuration after the transition names come first:
+	// they alone are written, while the client is enabled. A file that the
+	// transition drops, however either configuration spells it, is restored.
+	targets := slices.Concat(current.Targets, dropped)
+	// The selection that the transition starts from: a file that shows it
+	// holds Hermes' own choice, which the configuration follows.
+	var shown *Selection
+	if selected, err := before.ResolveRuntime(ID, domain.ModelRef{}); err == nil {
+		shown = &Selection{Provider: hermesProviderID(selected.ProviderID, selected.Protocol), Model: selected.UpstreamModel}
 	}
 	plans := make([]Plan, 0, len(targets))
-	for _, target := range targets {
+	for index, target := range targets {
 		var projection *Desired
-		if current.Enabled && len(current.Targets) > 0 && slices.Contains(current.Targets, target) {
+		if current.Enabled && index < len(current.Targets) {
 			projection = &desired
 		}
-		plan, err := Prepare(target, projection)
-		if err != nil && projection != nil {
-			authorized := deps.AuthorizedSelectionClient == ID
-			previous, previousErr := hermesPreviousDesired(deps, before)
-			switch {
-			case previousErr != nil && authorized:
-				return nil, nil, previousErr
-			case previousErr != nil:
-				// Without a previous projection there is no proved selection to adopt.
-			case authorized:
-				plan, err = PrepareAuthorizedSelection(target, *projection, previous)
-			default:
-				plan, err = PrepareAdoptedSelection(target, *projection, previous)
-			}
-		}
+		plan, err := PrepareTransition(target, projection, shown, deps.AuthorizedSelectionClient == ID)
 		if err == nil && projection != nil {
 			err = plan.refuseReorderedModels(written)
 		}
@@ -236,19 +231,14 @@ func hermesListing(cfg domain.Config) []Provider {
 	return providers
 }
 
-func hermesPreviousDesired(deps adapter.Dependencies, before domain.Config) (Desired, error) {
-	selected, err := before.ResolveRuntime(ID, domain.ModelRef{})
-	if err != nil {
-		return Desired{}, err
-	}
-	return hermesDesired(deps, before, selected)
-}
-
 // AdoptSelection records Hermes' own model choice as its Client Binding
-// when the operator selected another model of AIGW's projected catalog in
-// Hermes and nothing else that AIGW owns changed. It returns the adopted
-// model, or the zero reference when Hermes still shows the bound selection.
-func (hermesAdapter) AdoptSelection(deps adapter.Dependencies, cfg *domain.Config) (domain.ModelRef, error) {
+// when the operator selected another listed model of a provider entry that
+// AIGW wrote and nothing else that AIGW owns changed. It returns the adopted
+// model, or the zero reference when Hermes shows the bound selection. A
+// selection that AIGW cannot follow is refused with the step that restores
+// the recorded selection. It reads Hermes' file and AIGW's record of it, and
+// no Token or credential command.
+func (hermesAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) (domain.ModelRef, error) {
 	binding := cfg.Clients[ID]
 	if !binding.Enabled || len(binding.Targets) != 1 {
 		return domain.ModelRef{}, nil
@@ -257,43 +247,67 @@ func (hermesAdapter) AdoptSelection(deps adapter.Dependencies, cfg *domain.Confi
 	if err != nil {
 		return domain.ModelRef{}, nil
 	}
-	current, err := hermesDesired(deps, *cfg, selected)
-	if err != nil {
-		return domain.ModelRef{}, err
+	recorded := adapter.Recorded(hermesAdapter{}.Spec(), selected)
+	native, changed, err := ObserveSelection(binding.Targets[0])
+	if unfollowed, refused := errors.AsType[*unfollowedSelectionError](err); refused {
+		return domain.ModelRef{}, hermesChoiceOf(*cfg, unfollowed.Selection).refusal(recorded, unfollowed.Selection)
 	}
-	native, changed, err := ObserveSelection(binding.Targets[0], current)
 	if err != nil || !changed {
 		return domain.ModelRef{}, err
 	}
-	ref, protocol, err := hermesModelFor(*cfg, native)
-	if err != nil {
-		return domain.ModelRef{}, err
+	choice := hermesChoiceOf(*cfg, native)
+	if !choice.listed {
+		return domain.ModelRef{}, choice.refusal(recorded, native)
 	}
-	if ref == binding.Model && protocol == selected.Protocol {
+	if choice.ref == binding.Model && choice.protocol == selected.Protocol {
 		// The binding already names the native choice; only the record is stale.
 		return domain.ModelRef{}, nil
 	}
-	cfg.SetSelectedModel(ID, ref, protocol)
-	return ref, nil
+	cfg.SetSelectedModel(ID, choice.ref, choice.protocol)
+	return choice.ref, nil
 }
 
-// hermesModelFor maps a projected provider and model to the model of that
-// provider with that ID, on the projected provider's protocol.
-func hermesModelFor(cfg domain.Config, native Selection) (domain.ModelRef, domain.EndpointProtocol, error) {
+// hermesChoice is what a selection in Hermes' file names in a configuration:
+// the provider and protocol of its provider entry, when AIGW writes that
+// entry, and whether the entry lists the selected model.
+type hermesChoice struct {
+	ref      domain.ModelRef
+	protocol domain.EndpointProtocol
+	written  bool
+	listed   bool
+}
+
+// hermesChoiceOf maps a provider entry and model to the model of that entry's
+// provider with that ID, on the entry's protocol.
+func hermesChoiceOf(cfg domain.Config, native Selection) hermesChoice {
 	catalog, err := hermesCatalog(cfg)
 	if err != nil {
-		return domain.ModelRef{}, "", err
+		return hermesChoice{}
 	}
 	index := slices.IndexFunc(catalog, func(item hermesCatalogProvider) bool { return item.ID == native.Provider })
 	if index < 0 {
-		return domain.ModelRef{}, "", fmt.Errorf("Hermes selects provider %q, which AIGW no longer projects; run `aigw use hermes <provider/model>`", native.Provider)
+		return hermesChoice{}
 	}
-	provider := catalog[index]
-	if !listsModel(provider.Models, native.Model) {
-		return domain.ModelRef{}, "", fmt.Errorf("Hermes selects model %q, which provider %q has not added; run `aigw use hermes %s/%s --protocol %s`",
-			native.Model, provider.Provider, provider.Provider, native.Model, provider.Protocol.Name())
+	entry := catalog[index]
+	return hermesChoice{
+		ref: domain.NewModelRef(entry.Provider, native.Model), protocol: entry.Protocol,
+		written: true, listed: listsModel(entry.Models, native.Model),
 	}
-	return domain.NewModelRef(provider.Provider, native.Model), provider.Protocol, nil
+}
+
+// refusal refuses a selection that AIGW does not follow, with the step that
+// restores recorded. It names the command that adds and selects the model
+// only for a provider entry that AIGW writes.
+func (choice hermesChoice) refusal(recorded adapter.RecordedSelection, native Selection) *adapter.SelectionError {
+	switch {
+	case native.Provider == "":
+		return adapter.RefusedSelection(recorded, "selects no model of a provider that AIGW wrote", "")
+	case !choice.written:
+		return adapter.RefusedSelection(recorded, fmt.Sprintf("selects provider %q, which AIGW does not write", native.Provider), "")
+	}
+	return adapter.RefusedSelection(recorded,
+		fmt.Sprintf("selects model %q, which provider %q has not added on %s", native.Model, choice.ref.Provider(), domain.ProtocolLabel(choice.protocol)),
+		adapter.SelectCommand(ID, choice.ref, choice.protocol.Name()))
 }
 
 func (hermesAdapter) Plan(deps adapter.Dependencies, before, after domain.Config) ([]adapter.ProjectionPlan, error) {
@@ -361,9 +375,11 @@ func (hermesAdapter) Inspect(ctx context.Context, deps adapter.Dependencies, cfg
 	}
 	plan, err := hermesInspectionPlan(deps, cfg, selected, clientAdapter.Targets[0])
 	if err != nil {
-		return uninspectable(deps, cfg, selected, clientAdapter.Targets[0], err)
+		return uninspectable(deps, err)
 	}
-	if plan.Action != "unchanged" {
+	// A plan that keeps Hermes' file writes only AIGW's record of it: the
+	// file already shows the selection, as after a choice made in Hermes.
+	if plan.Action != "unchanged" && !plan.keepConfig {
 		return adapter.Status{Issue: "Hermes configuration differs from the selected model", RepairAction: "aigw sync"}
 	}
 	return adapter.Status{Ready: true}
@@ -371,10 +387,9 @@ func (hermesAdapter) Inspect(ctx context.Context, deps adapter.Dependencies, cfg
 
 // uninspectable is the status of a Hermes file that inspection refused with
 // err. A refusal that synchronization shares names the action that resolves
-// it; inspection also refuses a model chosen in Hermes itself, which
-// synchronization adopts.
-func uninspectable(deps adapter.Dependencies, cfg domain.Config, selected domain.Runtime, target string, err error) adapter.Status {
-	if status, refused := adapter.ConflictStatus(err); refused && !adoptsSelection(deps, cfg, selected, target) {
+// it.
+func uninspectable(deps adapter.Dependencies, err error) adapter.Status {
+	if status, refused := adapter.ConflictStatus(err); refused {
 		return status
 	}
 	if failed, atTarget := errors.AsType[*adapter.TargetError](err); atTarget {
@@ -385,23 +400,13 @@ func uninspectable(deps adapter.Dependencies, cfg domain.Config, selected domain
 	return adapter.Status{Issue: "Hermes configuration cannot be inspected", RepairAction: "aigw sync"}
 }
 
-// adoptsSelection reports whether synchronization would adopt the model that
-// Hermes' file selects, so the file's only difference is the operator's choice.
-func adoptsSelection(deps adapter.Dependencies, cfg domain.Config, selected domain.Runtime, target string) bool {
-	desired, err := hermesDesired(deps, cfg, selected)
-	if err != nil {
-		return false
-	}
-	_, adopted, err := ObserveSelection(target, desired)
-	return err == nil && adopted
-}
-
 func hermesInspectionPlan(deps adapter.Dependencies, cfg domain.Config, selected domain.Runtime, target string) (Plan, error) {
 	desired, err := hermesDesired(deps, cfg, selected)
 	if err != nil {
 		return Plan{}, err
 	}
-	plan, err := Prepare(target, &desired)
+	shown := &Selection{Provider: desired.SelectedProvider, Model: desired.SelectedModel}
+	plan, err := PrepareTransition(target, &desired, shown, false)
 	if err == nil {
 		// An inspection compares the file with the configuration that it
 		// inspects, which AIGW last wrote there.
@@ -423,7 +428,7 @@ func hermesInspectionPlan(deps adapter.Dependencies, cfg domain.Config, selected
 	if err != nil {
 		return Plan{}, err
 	}
-	return Prepare(target, &desired)
+	return PrepareTransition(target, &desired, shown, false)
 }
 
 func hermesRetainedReader(cfg domain.Config, desired Desired, plan Plan, current string) (string, error) {

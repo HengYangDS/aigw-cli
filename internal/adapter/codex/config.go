@@ -4,7 +4,6 @@
 package codex
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -115,6 +114,13 @@ func ObservedCredentialCommand(path string, runtime domain.Runtime) (string, err
 // AIGW Route. It never changes the target; callers can safely use it for
 // diagnostics before offering an explicit sync.
 func ValidateConfig(path string, runtime domain.Runtime) error {
+	return validateConfig(path, runtime, runtime.UpstreamModel)
+}
+
+// validateConfig verifies a Codex target against runtime, with shown as the
+// root model that the file is to hold: runtime's own model, or Codex's own
+// choice when the rest of the file is checked against the recorded Route.
+func validateConfig(path string, runtime domain.Runtime, shown string) error {
 	if runtime.RequiresProviderToken() && runtime.CredentialCommand == "" {
 		executable, err := os.Executable()
 		if err != nil {
@@ -169,7 +175,7 @@ func ValidateConfig(path string, runtime domain.Runtime) error {
 	if err := validateCodexSchedulerOwnership(state, text); err != nil {
 		return err
 	}
-	if model := runtime.UpstreamModel; model != "" {
+	if model := shown; model != "" {
 		modelLine, err := codexSelectionLine(text, "model")
 		if err != nil {
 			return err
@@ -213,12 +219,14 @@ func validateCodexCatalogReference(path, text string, state codexState) error {
 		}
 		return nil
 	}
-	canonical, err := canonicalCodexTargetPath(path)
+	canonical, err := platform.CanonicalPath(path)
 	if err != nil {
 		return err
 	}
-	catalogPath := codexCatalogPath(canonical)
-	if !isManagedSelection(line, "model_catalog_json", catalogPath) {
+	// The reference names AIGW's catalog when it names that file, in whichever
+	// spelling of the configuration's path the catalog was written.
+	referenced, _ := selectionValue(line, "model_catalog_json")
+	if !isManagedSelection(line, "model_catalog_json", referenced) || !platform.SameFile(referenced, codexCatalogPath(canonical)) {
 		return newConflictError("Codex config model catalog selection does not match AIGW", nil)
 	}
 	return nil
@@ -328,9 +336,21 @@ func codexManagedBlock(runtime domain.Runtime, endpoint string) string {
 	return projection.render(provider)
 }
 
+// rootModelAdmitted reports whether Codex's root model line holds one of the
+// models that a transition may replace: the recorded one, the one about to be
+// projected, or the one that the transition starts from. An empty candidate
+// admits nothing.
+func rootModelAdmitted(modelLine string, candidates ...string) bool {
+	return slices.ContainsFunc(candidates, func(model string) bool {
+		return model != "" && selectionHasValue(modelLine, "model", model)
+	})
+}
+
 // removeCodexProjectionTransition refuses a changed root model unless it already
 // holds chosen, the model about to be projected, because writing that value
-// cannot lose an edit.
+// cannot lose an edit, or the model of previous, the selection that the
+// transition starts from: a configuration that names it has followed Codex's
+// own choice, so the value is the selection and not an outside edit.
 func removeCodexProjectionTransition(current string, state codexState, previous domain.Runtime, chosen string, replaceRootSelections bool) (string, error) {
 	provider := codexStateProvider(state)
 	block, err := codexManagedBlockForProviderIn(current, provider)
@@ -359,10 +379,10 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 		// Explicit Route selection owns these root values. Provider tables,
 		// scheduler state, and catalog bytes remain independently guarded.
 	} else if projectedModel == "" {
-		if !isManagedSelection(modelLine, "model", selectionStringValue(modelLine)) {
+		if model, _ := selectionValue(modelLine, "model"); !isManagedSelection(modelLine, "model", model) {
 			return "", newConflictError("Codex config conflict: AIGW-managed model selection cannot be attributed; refusing to overwrite user edits", nil)
 		}
-	} else if !selectionHasValue(modelLine, "model", projectedModel) && (chosen == "" || !selectionHasValue(modelLine, "model", chosen)) {
+	} else if !rootModelAdmitted(modelLine, projectedModel, chosen, previous.UpstreamModel) {
 		return "", newConflictError("Codex config conflict: AIGW-managed model selection changed; refusing to overwrite user edits", nil)
 	}
 	if err := validateCodexSchedulerOwnership(state, current); err != nil {
@@ -418,29 +438,24 @@ func managedLine(line string) bool {
 	return strings.HasSuffix(strings.TrimSpace(line), "# managed by AIGW")
 }
 
-func selectionHasValue(line, key, value string) bool {
+// selectionValue returns the string that line assigns to key, and whether
+// line is such an assignment. The line is read as TOML, the format of Codex's
+// file, so every spelling of a string names the same value. It is the one
+// reader of a root selection's value: a second reader that decoded the value
+// as JSON read a literal string as no value, and a model chosen in Codex in
+// that spelling as no choice.
+func selectionValue(line, key string) (string, bool) {
 	var selection map[string]any
 	if err := toml.Unmarshal([]byte(line), &selection); err != nil || len(selection) != 1 {
-		return false
+		return "", false
 	}
-	selected, ok := selection[key].(string)
-	return ok && selected == value
+	selected, assigned := selection[key].(string)
+	return selected, assigned
 }
 
-func selectionStringValue(line string) string {
-	_, value, found := strings.Cut(line, "=")
-	if !found {
-		return ""
-	}
-	value = strings.TrimSpace(value)
-	if comment := strings.IndexByte(value, '#'); comment >= 0 {
-		value = strings.TrimSpace(value[:comment])
-	}
-	var decoded string
-	if err := json.Unmarshal([]byte(value), &decoded); err != nil {
-		return ""
-	}
-	return decoded
+func selectionHasValue(line, key, value string) bool {
+	selected, assigned := selectionValue(line, key)
+	return assigned && selected == value
 }
 
 func codexRuntimeProvider(runtime domain.Runtime) string {

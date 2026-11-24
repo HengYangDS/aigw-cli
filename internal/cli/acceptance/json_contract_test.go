@@ -27,6 +27,7 @@ func applicationOutput(t *testing.T, app *cli.App) *bytes.Buffer {
 }
 
 func TestUpdateWritesItsTransitionAsJSON(t *testing.T) {
+	t.Parallel()
 	cleanup := errors.New("remove update workspace: busy")
 	for _, test := range []struct {
 		name    string
@@ -66,6 +67,7 @@ func TestUpdateWritesItsTransitionAsJSON(t *testing.T) {
 }
 
 func TestUninstallWritesTheWithdrawnClientsAsJSON(t *testing.T) {
+	t.Parallel()
 	for _, incomplete := range []bool{false, true} {
 		t.Run(fmt.Sprintf("incomplete removal %v", incomplete), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
@@ -94,6 +96,7 @@ func TestUninstallWritesTheWithdrawnClientsAsJSON(t *testing.T) {
 }
 
 func TestJSONCommandsNeverPrompt(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name  string
 		args  []string

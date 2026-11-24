@@ -135,7 +135,7 @@ func TestMergeTeamFileGivesAModelTheFilesWindow(t *testing.T) {
 	file := teamFile(t)
 	// The first merge takes the file's label, so that the merges below change
 	// the model by its window alone.
-	base, _ := mergeTeam(t, localTeamConfig(t), file, false)
+	base, _ := mergeTeam(t, localTeamConfig(t), file, true)
 	none := (Model{}).ContextWindow
 	for name, test := range map[string]struct {
 		local, file, want int
@@ -148,7 +148,7 @@ func TestMergeTeamFileGivesAModelTheFilesWindow(t *testing.T) {
 		"no window for a model that declares none": {local: none, file: none, want: DefaultContextWindow},
 	} {
 		cfg := storing(storing(base, filed, test.local), localOnly, 300000)
-		merged, report := mergeTeam(t, cfg, storing(file, filed, test.file), false)
+		merged, report := mergeTeam(t, cfg, storing(file, filed, test.file), true)
 		if got := merged.Models[filed].Window(); got != test.want {
 			t.Errorf("%s: the model has the window %d, want %d", name, got, test.want)
 		}
@@ -179,7 +179,7 @@ func TestMergeTeamFileNamesTheWindowThatItReplacesOnAKeptEndpoint(t *testing.T) 
 	file := teamFile(t)
 	file.Models[ref] = Model{Provider: "team", Family: "sonnet", ID: "sonnet",
 		Protocols: map[EndpointProtocol][]Capability{ProtocolAnthropic: {CapabilityText, CapabilityToolSearch}}}
-	merged, report := mergeTeam(t, cfg, file, false)
+	merged, report := mergeTeam(t, cfg, file, true)
 	if got := merged.Models[ref].Protocols[ProtocolAnthropic]; !slices.Equal(got, []Capability{CapabilityText}) {
 		t.Fatalf("the local capabilities were not kept: %v", got)
 	}
@@ -195,12 +195,12 @@ func TestMergeTeamFileNamesTheWindowThatItReplacesOnAKeptEndpoint(t *testing.T) 
 func TestMergeTeamFileSeesNoDifferenceBetweenAnExplicitDefaultAndNone(t *testing.T) {
 	ref := NewModelRef("team", "gpt")
 	file := teamFile(t)
-	base, _ := mergeTeam(t, localTeamConfig(t), file, false)
+	base, _ := mergeTeam(t, localTeamConfig(t), file, true)
 	for name, merge := range map[string][2]Config{
 		"the file spells the default out":          {base, storing(file, ref, DefaultContextWindow)},
 		"the configuration spells the default out": {storing(base, ref, DefaultContextWindow), file},
 	} {
-		merged, report := mergeTeam(t, merge[0], merge[1], false)
+		merged, report := mergeTeam(t, merge[0], merge[1], true)
 		if got := merged.Models[ref].Window(); got != DefaultContextWindow || len(report.ChangedModels) != 0 || len(report.ChangedWindows) != 0 {
 			t.Errorf("%s: the model has the window %d, changed models %v, changed windows %v; want the default and no change", name, got, report.ChangedModels, report.ChangedWindows)
 		}

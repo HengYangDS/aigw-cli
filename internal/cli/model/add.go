@@ -7,6 +7,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -67,7 +68,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, options addOptions) error {
-	cfg, err := runtime.Config.Load()
+	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 		return err
 	}
 	if _, added := cfg.Models[ref]; added {
-		fix := invocation.Command("model", "show", ref.String())
+		fix := platform.AIGWCommand("model", "show", ref.String())
 		if fix == "" {
 			fix = "Run `aigw model show` for " + ref.String() + "."
 		}
@@ -110,7 +111,7 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 			Rerun: func(model string, added ...string) string {
 				return invocation.Rerun(cmd, append([]string{model}, cmd.Flags().Args()[1:]...), nil, added...)
 			},
-			Added: func(model string) string { return invocation.Command("model", "show", model) },
+			Added: func(model string) string { return platform.AIGWCommand("model", "show", model) },
 		}
 		if err := invocation.CheckCatalog(cmd.Context(), runtime, before, ref, commands); err != nil {
 			return err

@@ -28,6 +28,16 @@ type claudeInspectionCase struct {
 	repair string
 }
 
+// recognisedModel is the model that inspection reports as Claude Code's own:
+// the settings' value when inspection recognises a preference, and none
+// otherwise.
+func (test claudeInspectionCase) recognisedModel() string {
+	if test.override {
+		return test.nativeModel
+	}
+	return ""
+}
+
 func TestClaudeInspectionRequiresTheSynchronizedProjection(t *testing.T) {
 	tests := []claudeInspectionCase{
 		{name: "missing", model: "claude-model"},
@@ -97,8 +107,8 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 		files[path] = data
 	}
 	status := (claudeAdapter{}).Inspect(context.Background(), deps, cfg, runtime)
-	if status.Ready != test.ready || status.NativeModelOverride != test.override {
-		t.Errorf("inspection = %+v, want ready=%t override=%t", status, test.ready, test.override)
+	if want := test.recognisedModel(); status.Ready != test.ready || status.NativeModelOverride != test.override || status.NativeModel != want {
+		t.Errorf("inspection = %+v, want ready=%t override=%t native model %q", status, test.ready, test.override, want)
 	}
 	issue, repair := "not synchronized", "aigw sync"
 	if test.repair != "" {

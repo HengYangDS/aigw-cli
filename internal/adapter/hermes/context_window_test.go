@@ -110,7 +110,7 @@ func TestProjectionLeavesAUsersOwnModelWindowAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	desired := testDesired()
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestProjectionLeavesAUsersOwnModelWindowAlone(t *testing.T) {
 	if field(entry, "context_length") != nil {
 		t.Fatal("AIGW wrote a window on its provider entry")
 	}
-	if plan, err = Prepare(path, &desired); err != nil || plan.Action != "unchanged" {
+	if plan, err = prepare(path, &desired); err != nil || plan.Action != "unchanged" {
 		t.Fatalf("second pass = %s, %v", plan.Action, err)
 	}
 }
@@ -140,7 +140,7 @@ func TestProjectionWritesAnOrderOnlyChangeOfAProvidersModels(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	desired := testDesired()
 	desired.Providers[0].Models = append(desired.Providers[0].Models, Model{ID: "model-other", ContextWindow: 512000})
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestProjectionWritesAnOrderOnlyChangeOfAProvidersModels(t *testing.T) {
 		t.Fatal(err)
 	}
 	slices.Reverse(desired.Providers[0].Models)
-	if plan, err = Prepare(path, &desired); err != nil || !plan.ChangesState() {
+	if plan, err = prepare(path, &desired); err != nil || !plan.ChangesState() {
 		t.Fatalf("an order-only change of an entry's models = %s, %v; want a write", plan.Action, err)
 	}
 	if _, err := plan.Apply(); err != nil {
@@ -158,7 +158,7 @@ func TestProjectionWritesAnOrderOnlyChangeOfAProvidersModels(t *testing.T) {
 	if got := writtenModels(t, entry); !slices.Equal(got, desired.Providers[0].Models) {
 		t.Fatalf("the entry's models = %+v, want %+v", got, desired.Providers[0].Models)
 	}
-	if plan, err = Prepare(path, &desired); err != nil || plan.Action != "unchanged" {
+	if plan, err = prepare(path, &desired); err != nil || plan.Action != "unchanged" {
 		t.Fatalf("second pass = %s, %v", plan.Action, err)
 	}
 }
@@ -180,7 +180,7 @@ func TestValidateRefusesAModelWhoseWindowIsNotAboveZero(t *testing.T) {
 // of IDs to be AIGW's own, and the projection writes the mapping.
 func TestProjectionRewritesTheListOfIDsOfAnEarlierRelease(t *testing.T) {
 	desired := twoProviders()
-	path := projectedSelection(t, desired, earlierRelease, "", "")
+	path := projectedSelectionIn(t, desired, earlierRelease, "", "")
 	earlier, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -188,7 +188,7 @@ func TestProjectionRewritesTheListOfIDsOfAnEarlierRelease(t *testing.T) {
 	if !strings.Contains(string(earlier), "models:\n      - model-test\n") {
 		t.Fatalf("the file is not in the earlier shape:\n%s", earlier)
 	}
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil || plan.Action != "write" {
 		t.Fatalf("the plan for a file of an earlier release = %s, %v", plan.Action, err)
 	}
@@ -201,7 +201,7 @@ func TestProjectionRewritesTheListOfIDsOfAnEarlierRelease(t *testing.T) {
 			t.Fatalf("the models of %s = %+v, want %+v", provider.ID, got, provider.Models)
 		}
 	}
-	if plan, err = Prepare(path, &desired); err != nil || plan.Action != "unchanged" {
+	if plan, err = prepare(path, &desired); err != nil || plan.Action != "unchanged" {
 		t.Fatalf("second pass = %s, %v", plan.Action, err)
 	}
 }

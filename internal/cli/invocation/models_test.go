@@ -7,6 +7,7 @@ import (
 
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/terminal"
 )
 
@@ -116,7 +117,7 @@ func TestModelArgumentWithoutSlashListsWhatItCouldMean(t *testing.T) {
 	if problem := terminal.ProblemFor(err); problem.Fix != "aigw model list" {
 		t.Fatalf("a fix that would need quoting = %q", problem.Fix)
 	}
-	if got := Command("model", "show", "two words"); got != "" {
+	if got := platform.AIGWCommand("model", "show", "two words"); got != "" {
 		t.Fatalf("Command with a word that needs quoting = %q", got)
 	}
 	if _, err := ParseModelArgument(cfg, "/gpt"); err == nil || terminal.StatesFix(err) {

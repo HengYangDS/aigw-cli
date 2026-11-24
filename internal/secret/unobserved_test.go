@@ -16,7 +16,11 @@ import (
 // A failure to observe a slot is told from a closed set. A backend's own
 // diagnostic stays out of it.
 func TestObservationFailureNamesItsCauseAndNoPrivateDetail(t *testing.T) {
-	cause, fix := ObservationFailure(fmt.Errorf("inspect: %w", unsafeTokenFileError{name: "orphan", message: "must be owner-only"}), platform.PathContext{})
+	unsafeFile := fmt.Errorf("inspect: %w", unsafeTokenFileError{name: "orphan", message: "must be owner-only"})
+	if !NamesItsFix(unsafeFile) || !NamesItsFix(unsafeTokenDirectoryError{message: "must be a directory"}) {
+		t.Fatal("a Token file or folder that the file store refuses gets the backend's fix")
+	}
+	cause, fix := ObservationFailure(unsafeFile, platform.PathContext{})
 	if cause != "must be owner-only" || !strings.HasPrefix(fix, "Make orphan in AIGW's Token directory "+tokenFileRequirement) {
 		t.Fatalf("an unsafe file = %q, %q", cause, fix)
 	}
@@ -24,8 +28,9 @@ func TestObservationFailureNamesItsCauseAndNoPrivateDetail(t *testing.T) {
 	if cause != "must be a directory" || !strings.HasPrefix(fix, "Make AIGW's Token directory "+tokenDirectoryRequirement) {
 		t.Fatalf("an unsafe directory = %q, %q", cause, fix)
 	}
-	cause, fix = ObservationFailure(errors.New("open /private/home/tokens: permission denied"), platform.PathContext{})
-	if cause != "the credential backend is unavailable" || fix != BackendUnavailableFix {
+	backend := errors.New("open /private/home/tokens: permission denied")
+	cause, fix = ObservationFailure(backend, platform.PathContext{})
+	if NamesItsFix(backend) || cause != "the credential backend is unavailable" || fix != BackendUnavailableFix {
 		t.Fatalf("another failure = %q, %q", cause, fix)
 	}
 }
@@ -76,7 +81,7 @@ func TestObservationFailureNamesADeniedTokenFolder(t *testing.T) {
 	home := t.TempDir()
 	tokens := filepath.Join(home, "aigw", "secrets", "tokens")
 	denied := fmt.Errorf("inspect Token directory: %w", &fs.PathError{Op: "lstat", Path: tokens, Err: syscall.EPERM})
-	if !NamesTokenFolder(denied) {
+	if !NamesItsFix(denied) {
 		t.Fatal("a denied Token folder is not named")
 	}
 	cause, fix := ObservationFailure(denied, platform.PathContext{Home: home, Check: true})
@@ -90,7 +95,7 @@ func TestObservationFailureNamesADeniedTokenFolder(t *testing.T) {
 		fmt.Errorf("read: %w", &fs.PathError{Op: "open", Path: "orphan", Err: syscall.EPERM}),
 		&fs.PathError{Op: "lstat", Path: tokens, Err: syscall.EIO},
 	} {
-		if NamesTokenFolder(err) {
+		if NamesItsFix(err) {
 			t.Errorf("%v names a Token folder", err)
 		}
 	}
@@ -105,7 +110,7 @@ func TestObservationFailureNamesADeniedTokenFileNotTheFolder(t *testing.T) {
 	tokens := filepath.Join(home, "aigw", "secrets", "tokens")
 	file := filepath.Join(tokens, "team")
 	denied := fmt.Errorf("write Token file: %w", tokenFileFailure(&fs.PathError{Op: "open", Path: file, Err: syscall.EPERM}))
-	if !NamesTokenFolder(denied) {
+	if !NamesItsFix(denied) {
 		t.Fatal("a denied Token file gets the generic denial")
 	}
 	cause, fix := ObservationFailure(denied, platform.PathContext{Home: home, Check: true})

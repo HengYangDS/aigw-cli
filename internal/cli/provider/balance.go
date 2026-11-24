@@ -47,7 +47,7 @@ func newBalanceCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func runBalance(cmd *cobra.Command, runtime invocation.Context, args []string, jsonMode bool) error {
-	cfg, err := runtime.Config.Load()
+	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return err
 	}

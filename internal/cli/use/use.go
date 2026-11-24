@@ -6,19 +6,19 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"reflect"
 	"slices"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 
 	"github.com/spf13/cobra"
 )
 
 // schemaVersion is the version of `aigw use`'s JSON document.
-const schemaVersion = 3
+const schemaVersion = 4
 
 // options are the flags of `aigw use`.
 type options struct {
@@ -155,18 +155,26 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	}
 	// Args checked the arguments, so they parse.
 	given, _ := parseArguments(runtime.Clients.Admission(), args)
-	cfg, err := runtime.Config.Load()
+	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return err
 	}
 	operation := runtime
 	operation.Interactive = runtime.Interactive && !options.jsonMode
-	chosen, err := resolve(operation, cfg, given, options.protocol)
+	synchronizer := operation.Synchronizer()
+	// An explicit selection replaces what was saved for the client, so its
+	// defaults and its report start from the stored binding and not from a
+	// model that the client's own file chose in between.
+	saved := cfg
+	if given.client != "" {
+		saved = synchronizer.FromStoredBinding(cfg, given.client)
+	}
+	chosen, err := resolve(operation, saved, given, options.protocol)
 	if err != nil {
 		return invocation.CancelledPrompt(cmd, args, err)
 	}
 	chosen.unlisted = options.unlisted && (chosen.adds || chosen.gains)
-	synchronizer := operation.Synchronizer()
+	saved = synchronizer.FromStoredBinding(cfg, chosen.client.ID)
 	after, selected, err := synchronizer.PrepareSelection(withAddition(cfg, chosen), chosen.client.ID, chosen.ref, chosen.protocol)
 	if err != nil {
 		return err
@@ -184,7 +192,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 		return err
 	}
 	outcome := selectionOutcome{
-		before: cfg, after: desired, selected: selected, choice: chosen, preview: invocation.Planned(operation, projection),
+		before: saved, after: desired, selected: selected, choice: chosen, preview: invocation.Planned(operation, projection),
 		tokenMissing: missing, readOnly: secret.IsReadOnly(operation.Secrets), unlisted: options.unlisted,
 	}
 	if options.dryRun {
@@ -192,7 +200,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 		if outcome.preview, err = invocation.WithEntrypoint(operation, desired, projection); err != nil {
 			return err
 		}
-		outcome.changed = !reflect.DeepEqual(cfg, desired)
+		outcome.changed = projection.Configuration
 		return outcome.report(runtime, options)
 	}
 	token := ""
@@ -256,6 +264,6 @@ func checkCatalog(cmd *cobra.Command, runtime invocation.Context, cfg domain.Con
 		Rerun: func(model string, added ...string) string {
 			return invocation.Rerun(cmd, []string{chosen.client.ID, model}, nil, added...)
 		},
-		Added: func(model string) string { return invocation.Command("use", chosen.client.ID, model) },
+		Added: func(model string) string { return platform.AIGWCommand("use", chosen.client.ID, model) },
 	})
 }

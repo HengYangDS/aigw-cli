@@ -15,10 +15,24 @@ type documentHeader struct {
 	OK            bool `json:"ok"`
 }
 
+// DocumentField is one field that an invocation adds to a document.
+type DocumentField struct {
+	Name  string
+	Value any
+}
+
+// documentExtender is an invocation's output that owns fields of the
+// documents written to it, such as what the invocation itself recorded
+// beside the command's result.
+type documentExtender interface {
+	DocumentFields() []DocumentField
+}
+
 // WriteDocument writes document as one indented JSON object headed by its
 // command's schema version and outcome, followed by document's own fields in
-// their order. document must encode as an object that names neither
-// schema_version nor ok.
+// their order and then by the fields that out adds as the invocation's
+// output. document must encode as an object that names neither
+// schema_version nor ok, nor a field that the invocation adds.
 func WriteDocument(out io.Writer, version int, ok bool, document any) error {
 	body, err := json.Marshal(document)
 	if err != nil {
@@ -43,6 +57,20 @@ func WriteDocument(out io.Writer, version int, ok bool, document any) error {
 	if len(fields) > 0 {
 		head = append(head[:len(head)-1], ',')
 		head = append(head, body[1:]...)
+	}
+	if extender, extends := out.(documentExtender); extends {
+		for _, field := range extender.DocumentFields() {
+			if _, found := fields[field.Name]; found || field.Name == "schema_version" || field.Name == "ok" {
+				return fmt.Errorf("a JSON document must not name the invocation's %s", field.Name)
+			}
+			name, _ := json.Marshal(field.Name)
+			value, err := json.Marshal(field.Value)
+			if err != nil {
+				return err
+			}
+			head = append(append(append(append(head[:len(head)-1], ','), name...), ':'), value...)
+			head = append(head, '}')
+		}
 	}
 	var indented bytes.Buffer
 	if err := json.Indent(&indented, head, "", "  "); err != nil {

@@ -16,6 +16,7 @@ import (
 )
 
 func TestStatusSuggestsProviderSpecificDiagnostics(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{Responses: "https://dmx.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
@@ -35,6 +36,7 @@ func TestStatusSuggestsProviderSpecificDiagnostics(t *testing.T) {
 }
 
 func TestStatusWarnsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
@@ -58,6 +60,7 @@ func TestStatusWarnsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T
 }
 
 func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	if err := os.WriteFile(app.Config.Path(), []byte("version = 0\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -87,6 +90,7 @@ func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
 }
 
 func TestStatusDirectsAPredecessorSchemaToTheMatchingRelease(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	if err := os.WriteFile(app.Config.Path(), []byte("version = 5\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -100,6 +104,7 @@ func TestStatusDirectsAPredecessorSchemaToTheMatchingRelease(t *testing.T) {
 }
 
 func TestStatusPrioritizesSelectedActivationWhileRetainingModelGuidance(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{Responses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
@@ -140,6 +145,7 @@ func TestStatusPrioritizesSelectedActivationWhileRetainingModelGuidance(t *testi
 }
 
 func TestStatusKeepsTheFirstRunNextActionSimple(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	if err := cli.Execute(app, []string{"status"}); err != nil {
 		t.Fatal(err)
@@ -152,6 +158,7 @@ func TestStatusKeepsTheFirstRunNextActionSimple(t *testing.T) {
 }
 
 func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
@@ -172,6 +179,7 @@ func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 }
 
 func TestStatusShowsIndependentModelsAndJSONNeverContainsToken(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "dmx", "Codex", domain.Endpoints{Anthropic: "https://example.test", Responses: "https://example.test/v1"}, codex.ID, "gpt-test")
@@ -198,6 +206,7 @@ func TestStatusShowsIndependentModelsAndJSONNeverContainsToken(t *testing.T) {
 }
 
 func TestStatusReportsModelTransport(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name      string
 		endpoint  string
@@ -254,6 +263,7 @@ func TestStatusReportsModelTransport(t *testing.T) {
 }
 
 func TestStatusLabelsModelCountAsModelConfigurations(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Responses: "https://team.test/v1", Anthropic: "https://team.test"}}

@@ -20,8 +20,8 @@ func (store observedSlots) Exists(account string) (bool, error) {
 	return store.slots[account].Present, nil
 }
 
-func (store observedSlots) ObserveToken(account string) (secret.TokenObservation, error) {
-	return store.slots[account], nil
+func (store observedSlots) ObserveToken(account string) secret.TokenObservation {
+	return store.slots[account]
 }
 
 // refusedSlot is the observation of a provider's Keychain item that macOS

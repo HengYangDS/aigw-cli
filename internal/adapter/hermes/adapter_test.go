@@ -223,7 +223,7 @@ func TestHermesCatalogCoversShippedModelWireIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(builtInAdmission()), manifest, false)
+	cfg, _, err := domain.MergeTeamFile(domain.NewConfig(builtInAdmission()), manifest, true)
 	if err != nil {
 		t.Fatal(err)
 	}

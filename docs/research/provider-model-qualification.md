@@ -54,13 +54,39 @@ Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default models; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
 
+## November 23 refresh: Gemini 4 Neon and the vendors' current models
+
+The owner asked on November 22 for the whole file per provider and line, naming Gemini 4 Neon and Qwen4. Google's
+Gemini API release notes made Gemini 4 Neon generally available on November 18, a fourth Gemini 4 line between
+Hydrogen and Carbon that replaces no model. Each vendor's own pages were read for its strongest generally available
+model: Meta's Muse Wonder and StepFun's Step 5 are previews, whose strongest models that are not previews are Muse
+Spark 1.3 and Step 3.7 Flash; Ant Ling released 3.1 and 3.2 Flash without ranking them. Each cell ran the three turns
+of November 12 on the stock Hermes v0.23.2 (`ae2a81ccc00e`, clean), with a control of DMXAPI's GPT-6.2 Sol in the
+same run. Raw results are in the canonical checkout's `build/evidence/team-refresh-20261123/`.
+
+| Model                                   | Admitted provider / protocol                       | Note                                      |
+| --------------------------------------- | -------------------------------------------------- | ----------------------------------------- |
+| Gemini 4 Neon                           | AIHubMix / Responses (Chat Completions passed too) | Google's fourth Gemini 4 line             |
+| Gemini 4 Carbon, with its SSVIP channel | DMXAPI / Responses                                 | Listed there since this refresh           |
+| Qwen4-Max                               | UCloud / Responses (Chat Completions passed too)   | Listed there since this refresh           |
+| GPT-6.2 Astra and Sol, SSVIP channels   | DMXAPI / Responses                                 | Listed there since this refresh           |
+| Muse Spark 1.3                          | UCloud, AIHubMix / Chat Completions                | Replaces the Muse Wonder preview          |
+| Ling-3.2-Flash                          | DMXAPI / Responses                                 | AIHubMix lists only a free variant of 3.2 |
+
+Not admitted, each from the provider's answer: UCloud's Gemini 4 Hydrogen (a safety filter refused the third turn),
+Suhe.AI's Gemini 4 Argon and Carbon ("Model not found" though listed, as on November 19), AIHubMix's Cohere Command
+A Plus and Mistral Large 4 ("cannot be served at the moment"; their current families stay), and Step 3.7 Flash
+(DMXAPI kept the tool's line numbers in its third answer; AIHubMix reported an exhausted quota). StepFun leaves the
+file until a model of it that is not a preview qualifies. UCloud no longer lists Gemini 4 Carbon nor AIHubMix
+Mercury 2.5; both leave.
+
 ## November 22: context windows below the default
 
 AIGW tells Hermes each listed model's context window and Codex the selected model's. A model that declares none has
 1,000,000 tokens; the team file declares a lower number for a family whose vendor documents one, and for a retired
 family whose vendor page is gone, on the named source below. Each vendor's own page was fetched on November 22 for
-every family of the file. The numbers of Baidu and xAI were read as raw page text; those of Cohere, Ant Ling, Mistral,
-Inception and Upstage were relayed by the fetch tool's summarising model, one step further from the page. Where a
+every family of the file. The numbers of Baidu and xAI were read as raw page text; those of Cohere, Ant Ling, Mistral
+and Upstage were relayed by the fetch tool's summarising model, one step further from the page. Where a
 page gives a rounded figure such as 256k, the file declares the
 decimal reading, the lower of the two, so a declared window is never above the documented one. MiniMax retired M2.5 on
 November 18 and its pages give no window any more; the number is the one in Hermes v0.23.3's own model table, and
@@ -75,7 +101,6 @@ is not established, and no session near any of these limits was run. Raw results
 | Cohere Command A | 256,000  | [Cohere](https://docs.cohere.com/docs/models), as `command-a-03-2025`: 256k¹           |
 | Ling 3.0 Flash   | 256,000  | [Ant Ling](https://developer.ant-ling.com/en/docs/faq/): 256K, input and output shared |
 | Mistral Large 3  | 256,000  | [Mistral](https://docs.mistral.ai/models/mistral-large-3-25-12): 256k                  |
-| Mercury 2.5      | 260,000  | [Inception](https://docs.inceptionlabs.ai/get-started/models): Chat 260K               |
 | Grok 4.7         | 500,000  | [xAI](https://docs.x.ai/docs/models/grok-4.7): 500,000 tokens                          |
 | Solar Pro 4      | 512,000  | [Upstage](https://console.upstage.ai/docs/models/solar-pro-4): 512K                    |
 

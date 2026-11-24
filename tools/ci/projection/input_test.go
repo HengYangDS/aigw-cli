@@ -26,8 +26,7 @@ func TestNativePackageProjectionUsesOnePortableReleaseInputOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	for platform, job := range map[string]gitLabJob{"darwin": pipeline.Darwin, "linux": pipeline.Linux, "windows": pipeline.Windows} {
-		native := "mise exec --locked -- go run ./tools/ci native --platform " + platform + " --from-env"
-		if !slices.Contains(job.Script, native) {
+		if !slices.ContainsFunc(job.Script, isNativeJobCommand(platform)) {
 			t.Errorf("%s does not derive its release inputs in the native command", platform)
 		}
 		// The native command alone maps the declared inputs to release flags.

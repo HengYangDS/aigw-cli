@@ -12,13 +12,14 @@ func TestObserveSelectionReportsOnlyAModelOnlyChange(t *testing.T) {
 	for _, test := range []struct {
 		name, from, to string
 		model          string
+		state          selectionState
 	}{
 		{name: "unchanged"},
 		{name: "comment removed", from: `model = "gpt-test" # managed by AIGW`, to: `model = "gpt-test"`},
-		{name: "model", from: `model = "gpt-test" # managed by AIGW`, to: `model = "gpt-other"`, model: "gpt-other"},
-		{name: "native rewrite", from: `model_provider = "aigw" # managed by AIGW` + "\n" + `model = "gpt-test" # managed by AIGW`, to: `model_provider = "aigw"` + "\n" + `model = "gpt-other"`, model: "gpt-other"},
-		{name: "provider", from: `model_provider = "aigw" # managed by AIGW` + "\n" + `model = "gpt-test" # managed by AIGW`, to: `model_provider = "openai"` + "\n" + `model = "gpt-other"`},
-		{name: "provider table", from: `base_url = "https://example.test/v1"`, to: `base_url = "https://other.test/v1"`},
+		{name: "model", from: `model = "gpt-test" # managed by AIGW`, to: `model = "gpt-other"`, model: "gpt-other", state: selectionChosen},
+		{name: "native rewrite", from: `model_provider = "aigw" # managed by AIGW` + "\n" + `model = "gpt-test" # managed by AIGW`, to: `model_provider = "aigw"` + "\n" + `model = "gpt-other"`, model: "gpt-other", state: selectionChosen},
+		{name: "provider", from: `model_provider = "aigw" # managed by AIGW` + "\n" + `model = "gpt-test" # managed by AIGW`, to: `model_provider = "openai"` + "\n" + `model = "gpt-other"`, state: selectionDrifted},
+		{name: "provider table", from: `base_url = "https://example.test/v1"`, to: `base_url = "https://other.test/v1"`, state: selectionDrifted},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
@@ -45,9 +46,9 @@ func TestObserveSelectionReportsOnlyAModelOnlyChange(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			model, changed, err := ObserveSelection(path)
-			if err != nil || model != test.model || changed != (test.model != "") {
-				t.Fatalf("ObserveSelection() = %q, %t, %v; want %q", model, changed, err, test.model)
+			observed, err := observeSelection(path)
+			if err != nil || observed.model != test.model || observed.state != test.state || observed.recorded != "gpt-test" {
+				t.Fatalf("observeSelection() = %+v, %v; want model %q, state %d beside the recorded gpt-test", observed, err, test.model, test.state)
 			}
 			if after, err := os.ReadFile(path); err != nil || string(after) != current {
 				t.Fatalf("observation changed the Codex configuration: %v", err)
@@ -61,8 +62,8 @@ func TestObserveSelectionNeedsTheRecordedProjection(t *testing.T) {
 	if err := os.WriteFile(path, []byte("model = \"gpt-native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if model, changed, err := ObserveSelection(path); err != nil || changed || model != "" {
-		t.Fatalf("unprojected target = %q, %t, %v", model, changed, err)
+	if observed, err := observeSelection(path); err != nil || observed != (observation{}) {
+		t.Fatalf("unprojected target = %+v, %v", observed, err)
 	}
 	legacy := filepath.Join(t.TempDir(), "config.toml")
 	writeLegacyCodexProjection(t, legacy, atomicTestRuntime().UpstreamModel)
@@ -74,8 +75,8 @@ func TestObserveSelectionNeedsTheRecordedProjection(t *testing.T) {
 	if err := os.WriteFile(legacy, []byte(drifted), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if model, changed, err := ObserveSelection(legacy); err != nil || changed || model != "" {
-		t.Fatalf("a sidecar without a projected model was attributed: %q, %t, %v", model, changed, err)
+	if observed, err := observeSelection(legacy); err != nil || observed != (observation{}) {
+		t.Fatalf("a sidecar without a projected model was attributed: %+v, %v", observed, err)
 	}
 }
 

@@ -68,7 +68,7 @@ func TestATeamFileThatSharesALabelNamesWhereToCorrectIt(t *testing.T) {
 	if err := home.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	err = home.run(t, &guidedPrompt{}, "--from", writeTeamFile(t, file), "--dry-run")
+	err = home.run(t, &guidedPrompt{}, "--from", writeTeamFile(t, file), "--keep-local", "--dry-run")
 	problem := terminal.ProblemFor(err)
 	want := "Give a/old-id a label of its own with `aigw model edit a/old-id --label <label>`, or remove it with `aigw model remove a/old-id`, then run the same command again."
 	if err == nil || problem.Fix != want || !strings.Contains(problem.Title, "a/new-id") {

@@ -10,6 +10,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
@@ -111,7 +112,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		// names them absolute, so that they mean the same from any directory.
 		targets, _ = absoluteTargets(cmd, targets)
 		executable, _ = filepath.Abs(executable)
-		cfg, err := runtime.Config.Load()
+		cfg, err := runtime.LoadConfiguration()
 		if err != nil {
 			return err
 		}
@@ -157,9 +158,9 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 // that a client could read, and its refusal, which names its fix, is the
 // error.
 func holdsToken(store secret.Store, provider string) (bool, error) {
-	observation, err := secret.ObserveToken(store, provider)
-	if err != nil {
-		return false, fmt.Errorf("Cannot inspect provider %q credential: %w", provider, err)
+	observation := secret.ObserveToken(store, provider)
+	if observation.Unobserved != nil {
+		return false, fmt.Errorf("Cannot inspect provider %q credential: %w", provider, observation.Unobserved)
 	}
 	if observation.Refusal != nil {
 		return false, observation.Refusal
@@ -243,7 +244,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 	}, RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
 		spec, _ := runtime.Clients.Admission().Spec(client)
-		cfg, err := runtime.Config.Load()
+		cfg, err := runtime.LoadConfiguration()
 		if err != nil {
 			return err
 		}
@@ -358,7 +359,7 @@ func renderDisabled(r *terminal.Renderer, spec domain.ClientSpec) {
 // targets for a client that reads none, so the edit names none for it.
 func editInstead(spec domain.ClientSpec, executable string, targets []string) string {
 	// Command accepts the values only when each runs as written.
-	if invocation.Command(append([]string{"client", "edit", spec.ID, executable}, targets...)...) == "" {
+	if platform.AIGWCommand(append([]string{"client", "edit", spec.ID, executable}, targets...)...) == "" {
 		return "aigw client edit " + spec.ID + " --executable <path>"
 	}
 	words := []string{"aigw client edit " + spec.ID, "--executable", executable}

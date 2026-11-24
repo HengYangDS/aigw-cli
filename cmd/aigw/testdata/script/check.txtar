@@ -245,7 +245,7 @@ sk-team-token-0001
 sk-once-token-0002
 -- once.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "depth": "endpoint",
   "model": "team/spare-model",
@@ -349,7 +349,7 @@ Fix
   aigw setup
 -- empty.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": false,
   "depth": "model",
   "clients": [],
@@ -388,7 +388,7 @@ Fix
 }
 -- local.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "depth": "local",
   "clients": [
@@ -534,7 +534,7 @@ Result
   ✓ No checked client failed
 -- native.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "depth": "model",
   "clients": [
@@ -568,10 +568,11 @@ Result
         {
           "name": "claude:files",
           "state": "passed",
-          "detail": "Match the selection; Claude Code keeps its own model preference"
+          "detail": "Match the selection; Claude Code keeps its own model preference, opus[1m]"
         }
       ],
       "native_model_preference": true,
+      "client_model": "opus[1m]",
       "next_action": "aigw check claude --depth client"
     }
   ],
@@ -649,7 +650,7 @@ Next
   aigw check claude-desktop
 -- down.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": false,
   "depth": "model",
   "clients": [
@@ -755,7 +756,7 @@ Next
 }
 -- disabled.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "depth": "client",
   "clients": [
@@ -839,7 +840,7 @@ Fix
 -- empty-file --
 -- no-model-list.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "depth": "endpoint",
   "clients": [
@@ -908,7 +909,7 @@ Fix
 }
 -- own-authentication.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "depth": "model",
   "clients": [
@@ -993,7 +994,7 @@ Fix
 }
 -- external-helper.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "depth": "model",
   "clients": [

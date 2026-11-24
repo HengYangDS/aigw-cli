@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 
@@ -139,44 +140,24 @@ type ownership struct {
 	ManagedDigest    string        `json:"managed_digest"`
 }
 
-// Prepare validates and prepares one projection or its withdrawal.
-func Prepare(path string, desired *Desired) (Plan, error) {
-	return prepare(path, desired, nil)
-}
-
-// PrepareAuthorizedSelection admits an explicit selection only when replacing
-// the selected tuple with the prior tuple proves all other managed state.
-func PrepareAuthorizedSelection(path string, desired, previous Desired) (Plan, error) {
-	return prepareSelection(path, desired, previous, false)
-}
-
-// PrepareAdoptedSelection prepares the projection after synchronization adopted
-// Hermes' own selection. It admits proved selection drift only when the same
-// observed file already selects the desired model, so it never replaces the
-// native choice.
-func PrepareAdoptedSelection(path string, desired, previous Desired) (Plan, error) {
-	return prepareSelection(path, desired, previous, true)
-}
-
-func prepareSelection(path string, desired, previous Desired, adopted bool) (Plan, error) {
-	if err := previous.Validate(); err != nil {
+// PrepareTransition prepares one projection or its withdrawal from a file
+// whose own selection may differ from AIGW's record while everything else
+// that AIGW owns matches it. shown is the selection that the transition
+// starts from: a file that shows it as a listed model of an owned entry
+// holds Hermes' own choice, which the configuration already follows.
+// explicit marks a selection that the operator named: it replaces whatever
+// model the file selects, but not an edited address or mode.
+func PrepareTransition(path string, desired *Desired, shown *Selection, explicit bool) (Plan, error) {
+	file, err := fileOf(path, desired != nil)
+	if err != nil {
 		return Plan{}, err
 	}
-	return prepareObserved(path, &desired, &previous, adopted)
-}
-
-func prepare(path string, desired, previous *Desired) (Plan, error) {
-	return prepareObserved(path, desired, previous, false)
-}
-
-func prepareObserved(path string, desired, previous *Desired, adopted bool) (Plan, error) {
-	plan := Plan{path: path, Action: "unchanged"}
-	var err error
+	plan := Plan{path: file, Action: "unchanged"}
 	plan.configBefore, err = adapter.CaptureTarget(path, desired != nil)
 	if err != nil {
 		return Plan{}, err
 	}
-	plan.stateBefore, err = adapter.CaptureTarget(path+adapter.StateSuffix, desired != nil)
+	plan.stateBefore, err = adapter.CaptureTarget(file+adapter.StateSuffix, desired != nil)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -190,10 +171,7 @@ func prepareObserved(path string, desired, previous *Desired, adopted bool) (Pla
 	if err != nil {
 		return Plan{}, err
 	}
-	if adopted && !desired.selects(root) {
-		return Plan{}, errExternalEdit
-	}
-	state, before, err := plan.readOwnership(root, desired, previous)
+	state, before, err := plan.readOwnership(root, desired, shown, explicit)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -270,7 +248,12 @@ func (plan *Plan) prepareDesired(root *yaml.Node, desired Desired, state ownersh
 	return nil
 }
 
-func (plan *Plan) readOwnership(root *yaml.Node, desired, previous *Desired) (ownership, []byte, error) {
+// readOwnership reads AIGW's record and the owned settings as they stand. A
+// file whose owned settings differ from the record is admitted when only its
+// selection moved: for an explicit selection, to anything but an edited
+// address or mode, since the selection is replaced; otherwise only to the
+// listed model that shown names, the choice that the transition starts from.
+func (plan *Plan) readOwnership(root *yaml.Node, desired *Desired, shown *Selection, explicit bool) (ownership, []byte, error) {
 	if !plan.stateBefore.Exists {
 		return initialOwnership(root, desired, plan.configBefore.Exists)
 	}
@@ -282,10 +265,25 @@ func (plan *Plan) readOwnership(root *yaml.Node, desired, previous *Desired) (ow
 	if err != nil {
 		return state, nil, err
 	}
-	if platform.SHA256(current) != state.ManagedDigest && !selectionOnlyDrift(root, state, previous) {
+	if platform.SHA256(current) != state.ManagedDigest && !selectionDriftAdmitted(root, state, shown, explicit) {
 		return state, nil, errExternalEdit
 	}
 	return state, current, nil
+}
+
+// selectionDriftAdmitted reports whether a file whose owned settings differ
+// from the record may be planned over: only its selection moved, and either
+// an explicit selection replaces it, unless its address or mode was edited,
+// or it shows the listed model that the transition starts from.
+func selectionDriftAdmitted(root *yaml.Node, state ownership, shown *Selection, explicit bool) bool {
+	if !onlySelectionDiffers(root, state) {
+		return false
+	}
+	_, kind := classifySelection(root, state)
+	if explicit {
+		return kind != kindEdited
+	}
+	return kind == kindListed && shown != nil && shown.selects(root)
 }
 
 func initialOwnership(root *yaml.Node, desired *Desired, filePresent bool) (ownership, []byte, error) {
@@ -342,6 +340,24 @@ func (desired Desired) providerIDs() []string {
 		ids = append(ids, provider.ID)
 	}
 	return ids
+}
+
+// fileOf is the file that Hermes's configuration path names, which AIGW
+// writes and beside which it keeps its record: path itself, or, when path is
+// a symbolic link, the file that the link leads to, in the one canonical form
+// (platform.CanonicalPath). A write replaces its file by a rename, which would
+// replace the link itself and leave the file that it names as it was. A link
+// that leads nowhere is refused, classified at path; kept says whether the
+// configuration after the change keeps the file.
+func fileOf(path string, kept bool) (string, error) {
+	if info, err := os.Lstat(path); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		return path, nil
+	}
+	file, err := platform.CanonicalPath(path)
+	if err != nil {
+		return "", &adapter.TargetError{Path: path, Desired: kept, Err: err}
+	}
+	return file, nil
 }
 
 // Apply commits the prepared projection while protecting newer edits.

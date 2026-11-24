@@ -441,7 +441,7 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 		if err := os.Symlink(path, path); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := normalizeCodexTargets([]TargetRef{HomeTarget(path)}, true); err == nil || !strings.Contains(err.Error(), "resolve Codex target symlinks") {
+		if _, err := normalizeCodexTargets([]TargetRef{HomeTarget(path)}, true); err == nil || !strings.Contains(err.Error(), "resolve symbolic links") {
 			t.Fatalf("normalizeCodexTargets() error = %v", err)
 		}
 	})

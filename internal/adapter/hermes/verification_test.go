@@ -19,7 +19,7 @@ func TestVerificationProjectsAnotherModelWithoutChangingOwnedFiles(t *testing.T)
 		t.Fatal(err)
 	}
 	desired := testDesired()
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestVerificationProjectsAnotherModelWithoutChangingOwnedFiles(t *testing.T)
 	}
 	desired.SelectedModel = "another-model"
 	desired.Providers[0].Models = append(desired.Providers[0].Models, Model{ID: desired.SelectedModel, ContextWindow: 256000})
-	plan, err = Prepare(path, &desired)
+	plan, err = prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestVerificationRejectsAmbiguousNativePolicy(t *testing.T) {
 				t.Fatal(err)
 			}
 			desired := testDesired()
-			plan, err := Prepare(path, &desired)
+			plan, err := prepare(path, &desired)
 			if err == nil {
 				_, err = plan.PrepareVerification()
 			}
@@ -102,7 +102,7 @@ func TestVerificationRejectsAmbiguousNativePolicy(t *testing.T) {
 func TestVerificationRequiresExistingNativeConfiguration(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing.yaml")
 	desired := testDesired()
-	plan, err := Prepare(path, &desired)
+	plan, err := prepare(path, &desired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestVerificationRequiresExistingNativeConfiguration(t *testing.T) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatalf("verification wrote a missing source: %v", err)
 	}
-	if _, err := Prepare(t.TempDir(), &desired); err == nil {
+	if _, err := prepare(t.TempDir(), &desired); err == nil {
 		t.Fatal("directory was accepted as native configuration")
 	}
 }

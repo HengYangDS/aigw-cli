@@ -41,6 +41,10 @@ evidence_class = "proof"
 trust_bearing = true
 writes_files = true
 network_policy = "offline"
+# ETHOS's default bound of 600 s is too close: the acceptance package alone took 361 s under
+# the race detector and coverage in the check of 5006895d4, and a slot runs at half the
+# machine's workers beside another ticket since the host's two slots of 2026-11-23.
+timeout_seconds = 1200
 
 [[proof.gates.native_outputs]]
 path = "go-junit.xml"
@@ -97,3 +101,6 @@ evidence_class = "proof"
 trust_bearing = true
 writes_files = true
 network_policy = "required"
+# The quality run includes the tagged selection-matrix gate (537 s in the proof of 7e64d0b7d); this
+# bound outlasts the gate's own, so a hang ends with Go's diagnostics.
+timeout_seconds = 3600

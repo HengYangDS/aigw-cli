@@ -85,8 +85,8 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 		applyCredentialFacts(&facts, activation, runtime.Secrets, clientID, clientRuntime.ProviderID, runtime.Host.Home)
 		state := domainreadiness.ClassifyClient(facts)
 		if adapterStatus.NativeModelOverride && state.State == domainreadiness.Configured {
-			state.NativeModelOverride = true
-			state.Detail = runtime.Clients.Admission().ProductName(clientID) + " uses a native model preference; its AIGW endpoint and credential helper remain configured"
+			state.NativeModelOverride, state.NativeModel = true, adapterStatus.NativeModel
+			state.Detail = runtime.Clients.Admission().ProductName(clientID) + " " + adapterStatus.NativeModelNote("uses a native") + "; its AIGW endpoint and credential helper remain configured"
 			state.NextAction = "aigw check " + clientID + " --depth client"
 		}
 		client := ClientStatus{
@@ -126,8 +126,8 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 		// The same observation as the activation's, so that a slot that
 		// holds nothing, or a Keychain item that macOS refuses AIGW, is no
 		// available Token here either, and the refusal is the error.
-		observation, err := secret.ObserveToken(store, accountID)
-		available, observationErr = observation.Usable(), err
+		observation := secret.ObserveToken(store, accountID)
+		available, observationErr = observation.Usable(), observation.Unobserved
 		if observation.Refusal != nil {
 			observationErr = observation.Refusal
 		}
@@ -135,7 +135,7 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 	facts.CredentialAvailable = available
 	if observationErr != nil {
 		facts.CredentialObservationIssue = "Credential metadata is unavailable"
-		if secret.NamesTokenFolder(observationErr) {
+		if secret.NamesItsFix(observationErr) {
 			cause, fix := secret.ObservationFailure(observationErr, platform.PathContext{Home: home, Check: true})
 			facts.CredentialObservationIssue, facts.CredentialObservationAction = cause, fix
 		}

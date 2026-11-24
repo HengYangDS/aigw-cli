@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 
 	"aigw-cli/internal/domain"
@@ -14,11 +13,14 @@ import (
 
 // PrepareSelection returns cfg with client's selection of the model that ref
 // names on protocol, or on the protocol that the configuration resolves when it is
-// empty, and the runtime that it resolves to, without changing cfg. Setting
+// empty, and the runtime that it resolves to, without changing cfg. The
+// client's binding is taken from the stored configuration first (see
+// FromStoredBinding), so the selection replaces what was saved and not a
+// model that the client's own file chose in between. Setting
 // the selection drops forwarding when the upstream endpoint changes and retry
 // budgets when the provider changes. The same result is used for credential
 // admission and commit.
-func (Synchronizer) PrepareSelection(cfg domain.Config, client string, ref domain.ModelRef, protocol domain.EndpointProtocol) (domain.Config, domain.Runtime, error) {
+func (s Synchronizer) PrepareSelection(cfg domain.Config, client string, ref domain.ModelRef, protocol domain.EndpointProtocol) (domain.Config, domain.Runtime, error) {
 	if protocol == "" {
 		resolved, err := cfg.ResolveRuntime(client, ref)
 		if err != nil {
@@ -26,7 +28,7 @@ func (Synchronizer) PrepareSelection(cfg domain.Config, client string, ref domai
 		}
 		protocol = resolved.Protocol
 	}
-	selected := cfg.Clone()
+	selected := s.FromStoredBinding(cfg, client)
 	selected.SetSelectedModel(client, ref, protocol)
 	if err := selected.Validate(); err != nil {
 		return domain.Config{}, domain.Runtime{}, err
@@ -36,6 +38,43 @@ func (Synchronizer) PrepareSelection(cfg domain.Config, client string, ref domai
 		return domain.Config{}, domain.Runtime{}, err
 	}
 	return selected, runtime, nil
+}
+
+// FromStoredBinding returns cfg with client's binding as the stored
+// configuration holds it. An explicit selection replaces the client's
+// selection, so it starts from what the operator last saved for the client and
+// not from a model that the client's own file chose in between: following
+// that choice has already dropped the forwarding and the retry budgets of the
+// stored selection, which selecting the stored model again must keep, and the
+// protocol that an explicit selection keeps by default is the stored one.
+// Without a stored binding, or without a store, cfg is used as it is.
+func (s Synchronizer) FromStoredBinding(cfg domain.Config, client string) domain.Config {
+	selected := cfg.Clone()
+	stored, read := s.stored(cfg)
+	if !read {
+		return selected
+	}
+	binding, bound := stored.Clients[client]
+	if _, held := selected.Models[binding.Model]; !bound || !held {
+		return selected
+	}
+	selected.Clients[client] = binding
+	return selected
+}
+
+// stored reads the stored configuration, which cfg, the configuration that
+// the command works from, was derived from. It reports false without a store
+// or when the stored configuration cannot be read.
+func (s Synchronizer) stored(cfg domain.Config) (domain.Config, bool) {
+	if s.Config == nil {
+		return domain.Config{}, false
+	}
+	snapshot, err := s.Config.CaptureSnapshot()
+	if err != nil {
+		return domain.Config{}, false
+	}
+	stored, exists, err := snapshot.Configuration(cfg.Admission())
+	return stored, exists && err == nil
 }
 
 // SelectModel commits after, which PrepareSelection made from before and may
@@ -86,11 +125,13 @@ func (s Synchronizer) selectModel(ctx context.Context, before, after domain.Conf
 	binding = after.Clients[client]
 	selector := s
 	selector.AuthorizedSelectionClient = client
-	projectionChanged, err = selector.commit(ctx, before, after, "client selection", true, selector.selectionClients(before, after, client)...)
+	result, err := selector.commit(ctx, before, after, "client selection", true, selector.selectionClients(before, after, client)...)
 	if err != nil {
 		return false, false, domain.ClientBinding{}, err
 	}
-	return !reflect.DeepEqual(before, after), projectionChanged, binding, nil
+	// The stored configuration also changes when the selection names the
+	// model that the client had chosen itself, which nothing had recorded.
+	return result.configuration, result.projection, binding, nil
 }
 
 // selectionClients returns the clients whose files a selection for client

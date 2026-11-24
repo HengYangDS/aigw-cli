@@ -504,7 +504,7 @@ func TestLockRefreshIsExplicitAndUsesOneNativeTask(t *testing.T) {
 	}
 	for platform, job := range map[string]gitLabJob{"darwin": gitlab.Darwin} {
 		// The native command runs the same opt-in task when AIGW_REFRESH_LOCKS is true.
-		if !slices.Contains(job.Script, "mise exec --locked -- go run ./tools/ci native --platform "+platform+" --from-env") {
+		if !slices.ContainsFunc(job.Script, isNativeJobCommand(platform)) {
 			t.Fatalf("GitLab %s lacks the same opt-in lock task", platform)
 		}
 	}

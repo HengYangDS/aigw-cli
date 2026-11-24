@@ -21,10 +21,10 @@ import (
 )
 
 // teamSchemaVersion is the version of `aigw setup --from`'s JSON document.
-// Version 4 adds the Token states rejected and unverified, a Token's reason,
+// Version 6 adds changed_windows; version 4 adds the Token states rejected and unverified, a Token's reason,
 // and the document's error and impact; version 3 replaced version 2, shared
 // with flag-driven setup, and `aigw config import`'s.
-const teamSchemaVersion = 4
+const teamSchemaVersion = 6
 
 // The states of a provider's Token after team setup, which it observes
 // without reading a Token: this run validated and stored it, the store held
@@ -80,11 +80,11 @@ func runTeamSetup(cmd *cobra.Command, runtime invocation.Context, request setupR
 	if err != nil {
 		return err
 	}
-	cfg, err := runtime.Config.Load()
+	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return err
 	}
-	merged, report, err := domain.MergeTeamFile(cfg, file, request.Prune)
+	merged, report, err := domain.MergeTeamFile(cfg, file, request.KeepLocal)
 	if err != nil {
 		if shared, ok := errors.AsType[*domain.SharedModelLabelError](err); ok {
 			return sharedLabelRefusal(shared, file, err)
@@ -342,7 +342,8 @@ func (t teamSetup) tokenProviders() []string {
 func (t teamSetup) tokenStates() (map[string]string, error) {
 	states := map[string]string{}
 	for _, id := range t.tokenProviders() {
-		observation, err := secret.ObserveToken(t.runtime.Secrets, id)
+		observation := secret.ObserveToken(t.runtime.Secrets, id)
+		err := observation.Unobserved
 		if observation.Refusal != nil {
 			// For the provider that the command names, the refusal ends the
 			// setup as a store that cannot tell does.

@@ -364,6 +364,14 @@ complete signatures/tag/provenance before extraction and cannot be combined with
 inputs scoped to `accept-native`, not the ordinary native suite. The candidate
 must be newer; an invalid explicit baseline fails, never selects a fixture.
 
+The real-client journeys behind `--clients` (`tools/release/clients_*_test.go`,
+build tag `client_acceptance`) read the product's JSON documents. Only this
+candidate acceptance and the hosted lifecycle runs compile them, so neither
+`mise run check` nor the proof does. A Change that renames or removes a field of
+a JSON document also searches `tools/release` for it; on 2026-11-24 the first
+0.10.0 candidate failed because the Hermes journey still read
+`adopted_selections`.
+
 All journeys use temporary homes and compare actual bytes. Retain enabled
 Adapters and configuration before sync. Disposable native-store opt-in is
 `AIGW_VERIFY_SYSTEM_KEYRING=1`; macOS additionally requires

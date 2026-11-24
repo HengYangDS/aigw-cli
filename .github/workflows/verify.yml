@@ -116,7 +116,7 @@ jobs:
   quality:
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Quality and governance' || 'Quality and governance' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 70
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || inputs.candidate_tag == '')
     env:
       MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee
@@ -244,7 +244,7 @@ jobs:
         shell: bash
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native macOS acceptance' || 'Native macOS acceptance' }}
     runs-on: macos-26
-    timeout-minutes: ${{ inputs.native_clients && 45 || 25 }}
+    timeout-minutes: 70
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'darwin')
     env:
       MISE_ENABLE_TOOLS: ${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || inputs.candidate_tag == '') && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab,github:indygreg/apple-platform-rs' || inputs.performance && 'go,gh,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine' || 'go,gh,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' }}${{ inputs.native_clients && ',node' || '' }}
@@ -286,13 +286,13 @@ jobs:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
         name: Run native macOS acceptance
         if: github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')
-        run: mise exec --locked -- go run ./tools/ci native --platform darwin
+        run: mise exec --locked -- go run ./tools/ci native --platform darwin --selection-matrix
       - env:
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
           CGO_ENABLED: "1"
         name: Qualify all repository tools on macOS
         if: github.event_name == 'workflow_dispatch' && inputs.full_quality
-        run: mise exec --locked -- go run ./tools/ci native --platform darwin --full-quality
+        run: mise exec --locked -- go run ./tools/ci native --platform darwin --selection-matrix --full-quality
       - name: Prepare official native clients
         if: github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''
         env:
@@ -372,7 +372,7 @@ jobs:
         shell: bash
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native Linux acceptance' || 'Native Linux acceptance' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ inputs.native_clients && 45 || 25 }}
+    timeout-minutes: 70
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
     env:
       MISE_ENABLE_TOOLS: ${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || inputs.candidate_tag == '') && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' || inputs.performance && 'go,gh,github:goreleaser/goreleaser,github:sharkdp/hyperfine' || 'go,gh,github:goreleaser/goreleaser' }}${{ inputs.native_clients && ',node' || '' }}
@@ -522,7 +522,7 @@ jobs:
         shell: pwsh
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native Windows acceptance' || 'Native Windows acceptance' }}
     runs-on: windows-2025
-    timeout-minutes: ${{ inputs.native_clients && 45 || 25 }}
+    timeout-minutes: 70
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
     env:
       MISE_ENABLE_TOOLS: ${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || inputs.candidate_tag == '') && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' || inputs.performance && 'go,gh,github:goreleaser/goreleaser,github:sharkdp/hyperfine' || 'go,gh,github:goreleaser/goreleaser' }}${{ inputs.native_clients && ',node' || '' }}
@@ -564,13 +564,13 @@ jobs:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
         name: Run native Windows acceptance
         if: github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')
-        run: mise exec --locked -- go run ./tools/ci native --platform windows
+        run: mise exec --locked -- go run ./tools/ci native --platform windows --selection-matrix
       - env:
           AIGW_VERIFY_SYSTEM_KEYRING: "1"
           CGO_ENABLED: "1"
         name: Qualify all repository tools on Windows
         if: github.event_name == 'workflow_dispatch' && inputs.full_quality
-        run: mise exec --locked -- go run ./tools/ci native --platform windows --full-quality
+        run: mise exec --locked -- go run ./tools/ci native --platform windows --selection-matrix --full-quality
       - name: Prepare official native clients
         if: github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''
         env:

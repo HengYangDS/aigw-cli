@@ -98,8 +98,8 @@ func (t teamSetup) askable(states map[string]string) []terminal.Choice {
 		}
 		state, observed := states[id]
 		if !observed {
-			observation, err := secret.ObserveToken(t.runtime.Secrets, id)
-			if err != nil || observation.Refusal != nil || observation.Usable() {
+			observation := secret.ObserveToken(t.runtime.Secrets, id)
+			if observation.State() != secret.TokenAbsent || observation.Refusal != nil {
 				continue
 			}
 			state = tokenMissing

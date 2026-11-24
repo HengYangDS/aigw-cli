@@ -98,6 +98,8 @@ type result struct {
 	// native marks a Claude Code that keeps its own model preference, whose
 	// model AIGW does not choose.
 	native bool
+	// nativeModel is the model that its settings name.
+	nativeModel string
 	// session is the identity of the client that a session ran.
 	session *adapter.Verification
 	// deeper is the check that proves what a depth that this one skipped

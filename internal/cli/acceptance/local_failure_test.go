@@ -20,6 +20,7 @@ import (
 // failed. In a fresh home a local check fails for want of a configuration, so
 // neither a team file that cannot be read nor AIGW's own folder names one.
 func TestALocalFileFailureNamesAFixThatRunsInAFreshHome(t *testing.T) {
+	t.Parallel()
 	missing := filepath.Join(t.TempDir(), "team.toml")
 	for name, test := range map[string]struct {
 		args []string
@@ -66,6 +67,7 @@ func TestALocalFileFailureNamesAFixThatRunsInAFreshHome(t *testing.T) {
 // setup, while a configuration without a recovery source keeps the local
 // check, which inspects it.
 func TestRollbackWithoutAConfigurationNamesSetup(t *testing.T) {
+	t.Parallel()
 	app, output, _, _, _ := testApp(t, "")
 	if err := cli.Execute(app, []string{"config", "rollback", "--json"}); err == nil {
 		t.Fatal("a rollback without a configuration passed")
@@ -102,6 +104,7 @@ func blockAIGWsFolder(t *testing.T, app *cli.App) string {
 // is named against the command's own home. Following the fix, the file moved
 // and the folder put back from a copy, lets each run.
 func TestAFileWhereAIGWsFolderBelongsToEveryCommand(t *testing.T) {
+	t.Parallel()
 	for _, args := range [][]string{
 		{"sync", "--json"},
 		{"use", "claude", "gateway/claude-test", "--json"},
@@ -164,6 +167,7 @@ func TestAFileWhereAIGWsFolderBelongsToEveryCommand(t *testing.T) {
 // cannot read names the read access to restore on every command that loads
 // it, never the file to move away, and following the fix lets each run.
 func TestAnUnreadableConfigurationFileNamesItsReadAccess(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows does not represent a file that its owner cannot read in a file's mode")
 	}

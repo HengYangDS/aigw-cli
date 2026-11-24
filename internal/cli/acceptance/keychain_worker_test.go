@@ -165,7 +165,7 @@ func withItemsOfAnotherProgram(t *testing.T, app *cli.App, slots ...string) *key
 		t.Fatal(err)
 	}
 	items := &keychain{root: t.TempDir()}
-	writeFile(t, items.worker(), worker, 0o755)
+	writeProgram(t, items.worker(), worker)
 	for _, folder := range []string{"own", "other"} {
 		if err := os.MkdirAll(filepath.Join(items.root, "keychain", folder), 0o700); err != nil {
 			t.Fatal(err)

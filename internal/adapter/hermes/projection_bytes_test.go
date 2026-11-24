@@ -9,7 +9,7 @@ package hermes
 //
 //   - config.yaml.golden: the configuration after the projection;
 //   - record.json.golden: the ownership record after the projection;
-//   - withdrawn.yaml.golden: the configuration that Prepare(path, nil) would
+//   - withdrawn.yaml.golden: the configuration that prepare(path, nil) would
 //     write after the projection was applied;
 //   - refusal.txt.golden: the refusal's text and one final newline, for a case
 //     that Prepare refuses.
@@ -274,7 +274,7 @@ func TestProjectionWritesPinnedBytes(t *testing.T) {
 				}
 			}
 			desired := testDesired()
-			plan, err := Prepare(path, &desired)
+			plan, err := prepare(path, &desired)
 			if pinned.refused {
 				if err == nil {
 					t.Fatalf("Prepare accepted the configuration: action %s", plan.Action)
@@ -293,7 +293,7 @@ func TestProjectionWritesPinnedBytes(t *testing.T) {
 			if _, err := plan.Apply(); err != nil {
 				t.Fatal(err)
 			}
-			withdrawal, err := Prepare(path, nil)
+			withdrawal, err := prepare(path, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

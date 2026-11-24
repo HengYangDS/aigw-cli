@@ -17,6 +17,7 @@ import (
 // never when the update installs one; an error that states its own fix
 // reaches the user unchanged.
 func TestUpdateFailureNamesTheFixOfItsCause(t *testing.T) {
+	t.Parallel()
 	ownFix := errors.New("release source is not configured; install an official release or use `aigw self update --archive <archive> --checksums <checksums>`")
 	for _, test := range []struct {
 		name, want, problem string
@@ -65,6 +66,7 @@ func (movedDirectoryError) NextAction() string {
 // Homebrew, and a portable installation from it names Homebrew's command too.
 // No updater runs for it.
 func TestHomebrewOwnedProgramNamesHomebrew(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		args []string
 		want string
@@ -97,6 +99,7 @@ func TestHomebrewOwnedProgramNamesHomebrew(t *testing.T) {
 // A refused rollback of a Homebrew-owned program is one JSON document that
 // says what did not change and carries Homebrew's operation as guidance.
 func TestHomebrewRollbackRefusalIsOneJSONDocument(t *testing.T) {
+	t.Parallel()
 	for _, args := range [][]string{{"self", "rollback", "--json"}, {"self", "rollback", "--dry-run", "--json"}} {
 		app, out, _, _, _ := testApp(t, "")
 		homebrewProgram(t, app)

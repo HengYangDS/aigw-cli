@@ -15,6 +15,7 @@ import (
 // that makes it so, instead of AIGW's folder, which holds nothing to change.
 // Once the file is readable again, the command that failed passes.
 func TestAnUnreadableClientFileNamesThatFile(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows does not represent a file that its owner cannot read in a file's mode")
 	}

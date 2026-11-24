@@ -34,6 +34,7 @@ func outputOf(t *testing.T, app *cli.App) *bytes.Buffer {
 // session and writes the verified snapshot, which records the depth that each
 // client reached and which a rollback reads.
 func TestCheckToTheClientDepthWritesTheVerifiedSnapshot(t *testing.T) {
+	t.Parallel()
 	app, runner := readyVerificationApp(t)
 	out := outputOf(t, app)
 	out.Reset()
@@ -52,6 +53,7 @@ func TestCheckToTheClientDepthWritesTheVerifiedSnapshot(t *testing.T) {
 // A client whose session warns stops at the client depth, and the check
 // writes no verified snapshot.
 func TestACheckWhoseSessionWarnsWritesNoSnapshot(t *testing.T) {
+	t.Parallel()
 	app, runner := readyVerificationApp(t)
 	runner.stderr = []byte("warning: native client capability is incomplete\n")
 	out := outputOf(t, app)
@@ -78,6 +80,7 @@ func TestACheckWhoseSessionWarnsWritesNoSnapshot(t *testing.T) {
 // content, and the snapshot of the older one is refused with the same check
 // as its fix.
 func TestCheckRefusesTheSnapshotOfAConfigurationThatChanged(t *testing.T) {
+	t.Parallel()
 	app, runner := readyVerificationApp(t)
 	app.Runner = verificationCompletionRunner{fakeRunner: runner, completed: func() {
 		cfg, err := app.Config.Load()

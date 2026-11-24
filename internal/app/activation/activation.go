@@ -2,6 +2,7 @@
 package activation
 
 import (
+	"maps"
 	"slices"
 	"strings"
 
@@ -62,6 +63,22 @@ func (a *Activation) CredentialAvailability(account string) (available bool, err
 		return false, result.refusal, observed
 	}
 	return result.available, result.err, observed
+}
+
+// UnobservedCredential returns the failure of a store that could not tell
+// whether the Token of an enabled client's provider is there, from the first
+// such provider by ID, or nil when every observation could tell. Such a
+// client waits for its Token, as for an absent one.
+func (a *Activation) UnobservedCredential() error {
+	if a == nil {
+		return nil
+	}
+	for _, account := range slices.Sorted(maps.Keys(a.observedCredentials)) {
+		if err := a.observedCredentials[account].err; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // NextActionFor selects one actionable continuation from activation metadata
@@ -164,8 +181,8 @@ func observeCredential(store secret.Store, observed map[string]credentialObserva
 	if !exists {
 		// A slot that holds no value holds no Token, and neither does an item
 		// that macOS refuses AIGW.
-		token, err := secret.ObserveToken(store, account)
-		observation = credentialObservation{available: token.Usable(), err: err, refusal: token.Refusal}
+		token := secret.ObserveToken(store, account)
+		observation = credentialObservation{available: token.Usable(), err: token.Unobserved, refusal: token.Refusal}
 		observed[account] = observation
 	}
 	return observation, true

@@ -102,6 +102,9 @@ type Synchronizer struct {
 	ResolveProgram            func() (secret.Program, error)
 	Files                     secret.Files
 	AuthorizedSelectionClient string
+	// Follows receives what a transition, or its preview, keeps of the
+	// clients' own choices, for the invocation's report.
+	Follows *Follows
 }
 
 // DesiredClientConfiguration discovers the requested clients and derives the
@@ -118,23 +121,6 @@ func (s Synchronizer) DesiredClientConfiguration(before domain.Config, clientIDs
 	}
 	after, err := s.registry().Converge(dependencies, before, discovered, clientIDs...)
 	return after, discovered, err
-}
-
-// AdoptNativeSelections returns before with each client's own selection inside
-// AIGW's projected catalog recorded as its Client Binding, and the adopted
-// Route per client. Only synchronization adopts: an explicit selection names
-// the Route that wins.
-func (s Synchronizer) AdoptNativeSelections(before domain.Config) (domain.Config, map[string]domain.ModelRef, error) {
-	after := before.Clone()
-	dependencies, err := s.clientDependencies(nil)
-	if err != nil {
-		return domain.Config{}, nil, err
-	}
-	adopted, err := s.registry().AdoptSelections(dependencies, &after)
-	if err != nil {
-		return domain.Config{}, nil, err
-	}
-	return after, adopted, nil
 }
 
 // DesiredSyncConfiguration activates unselected recommendations when a
@@ -229,9 +215,14 @@ func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...d
 }
 
 // credentialReadyClients excludes default-Token consumers only when their
-// selected Account has no Token that AIGW can use. Disabled and
-// external-credential clients remain eligible for withdrawal or independent
-// convergence.
+// selected Account has no Token that AIGW can use: none, an empty one, a
+// Keychain item that macOS refuses AIGW, or one that the store cannot
+// observe, as a locked keychain leaves it. Each leaves the client waiting for
+// its Token, as status and the local check report it, and none stops the
+// other clients: the client's files are not written to name a reader that
+// would return no Token. A preview presumes the Token that its command would
+// store, which its store answers for itself. Disabled and external-credential
+// clients remain eligible for withdrawal or independent convergence.
 func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...string) ([]string, error) {
 	if len(clientIDs) == 0 {
 		clientIDs = s.ClientIDs()
@@ -246,34 +237,11 @@ func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...str
 			projectable = append(projectable, clientID)
 			continue
 		}
-		ready := true
-		for _, account := range accounts {
-			usable, err := s.tokenUsable(account)
-			if err != nil {
-				return nil, fmt.Errorf("inspect provider %q Token availability: %w", account, err)
-			}
-			if !usable {
-				ready = false
-				break
-			}
-		}
-		if ready {
+		if !slices.ContainsFunc(accounts, func(account string) bool { return !secret.ObserveToken(s.Secrets, account).Usable() }) {
 			projectable = append(projectable, clientID)
 		}
 	}
 	return projectable, nil
-}
-
-// tokenUsable reports whether account has a Token that AIGW can use: its slot
-// is present, holds a value, and is no Keychain item that macOS refuses AIGW.
-// Each of the three leaves the client waiting for its Token, as status and
-// the local check report it, and none stops the other clients: the client's
-// files are not written to name a reader that would return no Token. A
-// preview presumes the Token that its command would store, which its store
-// answers for itself.
-func (s Synchronizer) tokenUsable(account string) (bool, error) {
-	observation, err := secret.ObserveToken(s.Secrets, account)
-	return observation.Usable(), err
 }
 
 func (s Synchronizer) credentialEntrypointProviders(cfg domain.Config, clientIDs ...string) ([]string, error) {

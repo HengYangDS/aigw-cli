@@ -59,6 +59,33 @@ type Dependencies struct {
 	// operation of this invocation goes through it.
 	Clients adapter.Registry
 	Updater Updater
+	// Follows collects what this invocation made of the clients' own
+	// choices, for the invocation's report; nil records nothing.
+	Follows *synchronization.Follows
+}
+
+// LoadConfiguration reads the configuration that every command works from:
+// the stored one with the model that each enabled client chose in its own
+// file recorded as that client's selection. The invocation's record keeps
+// those choices, which the stored configuration does not hold yet.
+func (d Dependencies) LoadConfiguration() (domain.Config, error) {
+	stored, err := d.Config.Load()
+	if err != nil {
+		return domain.Config{}, err
+	}
+	working, followed := d.Synchronizer().Working(stored)
+	d.Follows.Observe(followed)
+	return working, nil
+}
+
+// SaveVerifiedSnapshot records a completed check of cfg, the configuration
+// that the check read, while the stored configuration and the clients' own
+// files still give it.
+func (d Dependencies) SaveVerifiedSnapshot(ctx context.Context, cfg domain.Config, clients []store.VerifiedClient) error {
+	return d.Config.SaveVerifiedCheckpoint(ctx, cfg, clients, func(stored domain.Config) domain.Config {
+		working, _ := d.Synchronizer().Working(stored)
+		return working
+	})
 }
 
 // InspectClient observes one client's projection without changing it.
@@ -88,5 +115,6 @@ func (d Dependencies) Synchronizer() synchronization.Synchronizer {
 		ResolveCredentialPath: d.ResolveCredentialPath,
 		ResolveProgram:        d.ResolveProgram,
 		Files:                 d.Files,
+		Follows:               d.Follows,
 	}
 }

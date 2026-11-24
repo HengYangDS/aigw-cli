@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 
@@ -13,51 +14,143 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
-// Selection is Hermes' own selected provider and model.
+// Selection is Hermes' own selected provider entry and model.
 type Selection struct {
 	Provider string
 	Model    string
 }
 
-// ObserveSelection reports Hermes' own selection when the operator changed it to
-// another model in AIGW's projected catalog and nothing else that AIGW owns
-// changed. It reports nothing when the owned settings are unchanged or absent,
-// and refuses any other managed drift.
-func ObserveSelection(path string, current Desired) (Selection, bool, error) {
-	if err := current.Validate(); err != nil {
-		return Selection{}, false, err
+// selectionKind says what Hermes' own model block selects among the provider
+// entries that AIGW owns.
+type selectionKind int
+
+const (
+	// kindListed is an owned entry, with that entry's address and mode, and a
+	// model that the entry lists: a choice that AIGW can follow.
+	kindListed selectionKind = iota
+	// kindUnlisted is an owned entry, with that entry's address and mode, and
+	// a model that the entry does not list.
+	kindUnlisted
+	// kindEdited is an owned entry whose address or mode the block changed:
+	// an edit of an endpoint, not a choice of a model.
+	kindEdited
+	// kindForeign is no owned entry: another provider's selection, or no
+	// selection that AIGW can read.
+	kindForeign
+)
+
+// classifySelection reads Hermes' own selection and says what it selects.
+func classifySelection(root *yaml.Node, state ownership) (Selection, selectionKind) {
+	model := field(root, "model")
+	selection := Selection{Provider: scalar(field(model, "provider")), Model: scalar(field(model, "default"))}
+	if !slices.Contains(state.ProviderIDs, selection.Provider) {
+		return selection, kindForeign
 	}
+	provider := field(field(root, "providers"), selection.Provider)
+	for _, keys := range [][2]string{{"base_url", "base_url"}, {"api_mode", "transport"}} {
+		actual, owned := field(model, keys[0]), field(provider, keys[1])
+		if actual == nil || owned == nil || actual.Value != owned.Value {
+			return selection, kindEdited
+		}
+	}
+	models := field(provider, "models")
+	if field(model, "default") == nil || models == nil {
+		return selection, kindEdited
+	}
+	// An entry's models are a mapping from model ID, or a list of IDs in a file
+	// that an earlier release wrote; one reader serves both.
+	if slices.Contains(modelIDs(models), selection.Model) {
+		return selection, kindListed
+	}
+	return selection, kindUnlisted
+}
+
+// ObserveSelection reports Hermes' own selection when the operator changed it
+// to another listed model of a provider entry that AIGW owns and nothing else
+// that AIGW owns changed. It reports nothing when the owned settings are
+// unchanged or absent. A selection that is the only difference and that AIGW
+// cannot follow is an unfollowedSelectionError; any other difference, an
+// edited address or mode of the selection included, is an outside edit.
+func ObserveSelection(path string) (Selection, bool, error) {
+	file, err := observe(path)
+	return file.selection, file.changed, err
+}
+
+// observed is one reading of Hermes' file and of AIGW's record of it: the
+// choice that ObserveSelection reports, and for a write of the record alone
+// the file as parsed, the record, and the record's file as it was read.
+type observed struct {
+	selection Selection
+	changed   bool
+	root      *yaml.Node
+	state     ownership
+	record    platform.FileSnapshot
+}
+
+// observe reads Hermes' file at path and AIGW's record of it once, as
+// ObserveSelection reports them.
+func observe(path string) (observed, error) {
 	config, err := adapter.CaptureTarget(path, true)
 	if err != nil {
-		return Selection{}, false, err
+		return observed{}, err
 	}
-	stateSnapshot, err := adapter.CaptureTarget(path+adapter.StateSuffix, true)
-	if err != nil || !stateSnapshot.Exists {
-		return Selection{}, false, err
+	file, err := fileOf(path, true)
+	if err != nil {
+		return observed{}, err
+	}
+	record, err := adapter.CaptureTarget(file+adapter.StateSuffix, true)
+	if err != nil || !record.Exists {
+		return observed{}, err
 	}
 	if !config.Exists {
-		return Selection{}, false, missingWithRecord(path)
+		return observed{}, missingWithRecord(path)
 	}
 	root, err := parse(config.Data)
 	if err != nil {
-		return Selection{}, false, err
+		return observed{}, err
 	}
-	state, err := readOwnershipRecord(path, stateSnapshot.Data)
+	state, err := readOwnershipRecord(file, record.Data)
 	if err != nil {
-		return Selection{}, false, err
+		return observed{}, err
 	}
 	owned, err := managedBytes(root, state.ProviderIDs)
 	if err != nil {
-		return Selection{}, false, err
+		return observed{}, err
 	}
 	if platform.SHA256(owned) == state.ManagedDigest {
-		return Selection{}, false, nil
+		return observed{}, nil
 	}
-	if !selectionOnlyDrift(root, state, &current) {
-		return Selection{}, false, errExternalEdit
+	if !onlySelectionDiffers(root, state) {
+		return observed{}, errExternalEdit
 	}
-	model := field(root, "model")
-	return Selection{Provider: field(model, "provider").Value, Model: field(model, "default").Value}, true, nil
+	switch selection, kind := classifySelection(root, state); kind {
+	case kindListed:
+		return observed{selection: selection, changed: true, root: root, state: state, record: record}, nil
+	case kindUnlisted, kindForeign:
+		return observed{}, &unfollowedSelectionError{Selection: selection}
+	case kindEdited:
+	}
+	return observed{}, errExternalEdit
+}
+
+// unfollowedSelectionError reports that Hermes' own selection is the only
+// owned value that differs from the record, and that AIGW cannot follow it:
+// it names a model that its provider entry does not list, or a provider
+// entry that AIGW does not own.
+type unfollowedSelectionError struct {
+	Selection
+}
+
+func (e *unfollowedSelectionError) Error() string {
+	return fmt.Sprintf("Hermes selects model %q of provider %q, which AIGW's catalog does not list", e.Model, e.Provider)
+}
+
+// scalar is a node's value, or "" for an absent node.
+func scalar(node *yaml.Node) string {
+	if node == nil {
+		return ""
+	}
+	return node.Value
 }
 
 var errExternalEdit = adapter.NewConflictError(
@@ -92,31 +185,12 @@ func decodeOwnership(data []byte) (ownership, error) {
 	return state, nil
 }
 
-// selectionOnlyDrift proves that Hermes' selection names a model of an
-// AIGW-owned provider and that replacing it with some owned provider and model
-// reproduces the recorded owned settings, so only the selection moved. The
-// proof does not depend on the current binding, which may already name the
-// native choice. previous only authorizes the proof.
-func selectionOnlyDrift(root *yaml.Node, state ownership, previous *Desired) bool {
-	if previous == nil {
-		return false
-	}
+// onlySelectionDiffers proves that nothing but Hermes' selection differs from
+// the record: replacing the selection with some owned provider and model
+// reproduces the recorded owned settings. It says nothing about what the
+// selection itself names, which classifySelection reads.
+func onlySelectionDiffers(root *yaml.Node, state ownership) bool {
 	model := field(root, "model")
-	selected := field(model, "provider")
-	if selected == nil || !slices.Contains(state.ProviderIDs, selected.Value) {
-		return false
-	}
-	provider := field(field(root, "providers"), selected.Value)
-	for _, keys := range [][2]string{{"base_url", "base_url"}, {"api_mode", "transport"}} {
-		actual, owned := field(model, keys[0]), field(provider, keys[1])
-		if actual == nil || owned == nil || actual.Value != owned.Value {
-			return false
-		}
-	}
-	defaultModel := field(model, "default")
-	if defaultModel == nil || !slices.Contains(modelIDs(field(provider, "models")), defaultModel.Value) {
-		return false
-	}
 	defer setField(root, "model", model)
 	for _, providerID := range state.ProviderIDs {
 		owned := field(field(root, "providers"), providerID)
@@ -139,10 +213,9 @@ func selectionOnlyDrift(root *yaml.Node, state ownership, previous *Desired) boo
 	return false
 }
 
-// selects reports whether Hermes' selection already names the desired provider
+// selects reports whether the file's own selection names this provider entry
 // and model.
-func (desired Desired) selects(root *yaml.Node) bool {
+func (selection Selection) selects(root *yaml.Node) bool {
 	model := field(root, "model")
-	provider, defaultModel := field(model, "provider"), field(model, "default")
-	return provider != nil && defaultModel != nil && provider.Value == desired.SelectedProvider && defaultModel.Value == desired.SelectedModel
+	return scalar(field(model, "provider")) == selection.Provider && scalar(field(model, "default")) == selection.Model
 }

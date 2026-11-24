@@ -36,6 +36,7 @@ func editClaudeSettings(edit func(document, environment map[string]any)) func(*t
 // that refuses again, and that action lets synchronization and the local checks
 // pass.
 func TestClaudeOutsideEditRecoveryDoesNotLoop(t *testing.T) {
+	t.Parallel()
 	const undo = "Undo the outside edit to the AIGW-managed Claude Code settings, then run `aigw sync`"
 	const correct = "Correct the JSON in Claude Code's settings file, then run the same command again."
 	for _, test := range []struct {

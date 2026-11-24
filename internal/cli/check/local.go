@@ -207,14 +207,14 @@ func (c *checker) tokenCheck(r result) localCheck {
 		return skippedCheck(name, label, "An external credential helper gives "+c.admission().ProductName(r.spec.ID)+" its Token")
 	}
 	provider := r.runtime.ProviderID
-	observation, err := secret.ObserveToken(c.deps.Secrets, provider)
-	switch {
+	observation := secret.ObserveToken(c.deps.Secrets, provider)
+	switch err := observation.Unobserved; {
 	case observation.Refusal != nil:
 		return failedCheck(name, label, observation.Refusal.Title(), observation.Refusal.Fix(), domainreadiness.Unavailable)
 	case err != nil:
 		// A file in the way of the Token folder, or a link that leads nowhere,
 		// names that path and its one fix, as every surface does.
-		if secret.NamesTokenFolder(err) {
+		if secret.NamesItsFix(err) {
 			cause, fix := secret.ObservationFailure(err, platform.PathContext{Home: invocation.Home(c.deps.Dependencies), Check: true})
 			return failedCheck(name, label, cause, fix, domainreadiness.Unavailable)
 		}
@@ -252,8 +252,8 @@ func (c *checker) fileChecks(ctx context.Context, r *result, selected domain.Run
 	status := c.deps.InspectClient(ctx, c.cfg, r.spec.ID, selected)
 	check := passedCheck(name, label, "Match the selection")
 	if status.NativeModelOverride {
-		r.native = true
-		check.Detail = "Match the selection; " + c.admission().ProductName(r.spec.ID) + " keeps its own model preference"
+		r.native, r.nativeModel = true, status.NativeModel
+		check.Detail = "Match the selection; " + c.admission().ProductName(r.spec.ID) + " " + status.NativeModelNote("keeps its own")
 	}
 	if !status.Ready {
 		check = failedCheck(name, label, status.Issue, status.RepairAction, domainreadiness.Invalid)

@@ -168,7 +168,7 @@ native-darwin:
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
       esac
     - env GODEBUG=http2client=0 mise install --locked
-    - mise exec --locked -- go run ./tools/ci native --platform darwin --from-env
+    - mise exec --locked -- go run ./tools/ci native --platform darwin --selection-matrix --from-env
     - |-
       set -eu
       if [ -n "${CI_JOB_ID:-}" ]; then
@@ -273,7 +273,7 @@ native-darwin-review:
         *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
       esac
     - env GODEBUG=http2client=0 mise install --locked
-    - mise exec --locked -- go run ./tools/ci native --platform darwin --from-env
+    - mise exec --locked -- go run ./tools/ci native --platform darwin --selection-matrix --from-env
     - |-
       set -eu
       if [ -n "${CI_JOB_ID:-}" ]; then
@@ -374,7 +374,7 @@ native-windows:
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
       }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
-    - mise exec --locked -- go run ./tools/ci native --platform windows --from-env
+    - mise exec --locked -- go run ./tools/ci native --platform windows --selection-matrix --from-env
     - |-
       $ErrorActionPreference = 'Stop'
       $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
@@ -528,7 +528,7 @@ native-windows-review:
       $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
       }
     - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
-    - mise exec --locked -- go run ./tools/ci native --platform windows --from-env
+    - mise exec --locked -- go run ./tools/ci native --platform windows --selection-matrix --from-env
     - |-
       $ErrorActionPreference = 'Stop'
       $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"

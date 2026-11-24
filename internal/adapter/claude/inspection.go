@@ -17,6 +17,9 @@ import (
 // AIGW's sidecar-proven endpoint and credential-helper ownership.
 type SettingsInspection struct {
 	NativeModelOverride bool
+	// NativeModel is the model that the settings name in place of AIGW's,
+	// or "" when they name none.
+	NativeModel string
 }
 
 // ObservedCredentialExecutable reads the exact AIGW helper grammar without
@@ -113,7 +116,9 @@ func InspectSettings(path string, runtime domain.Runtime, executable string) (Se
 		previous["model"] = adapter.RawJSON(runtime.UpstreamModel)
 	}
 	if managedSettingsHash(previous) == expectedHash {
-		return SettingsInspection{NativeModelOverride: true}, nil
+		var native string
+		_ = json.Unmarshal(document["model"], &native)
+		return SettingsInspection{NativeModelOverride: true, NativeModel: native}, nil
 	}
 	return SettingsInspection{}, outsideEdit("Claude settings are not synchronized: managed connection changed outside AIGW")
 }

@@ -19,6 +19,7 @@ import (
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/app"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/check"
 	clientcli "aigw-cli/internal/cli/client"
 	completioncli "aigw-cli/internal/cli/completion"
@@ -72,13 +73,27 @@ type App struct {
 	Clients adapter.Registry
 	Updater app.Updater
 	output  *commandOutput
+	// follows is the running invocation's record of the clients' choices,
+	// and followed its report of them.
+	follows  *synchronization.Follows
+	followed *invocation.FollowedReport
 }
 
-// commandOutput owns write progress and the first failure for one invocation.
+// commandOutput owns write progress and the first failure for one invocation,
+// and the fields that the invocation adds to its command's document.
 type commandOutput struct {
 	writer  io.Writer
 	err     error
 	started bool
+	fields  func() []terminal.DocumentField
+}
+
+// DocumentFields are the invocation's own fields of the command's document.
+func (w *commandOutput) DocumentFields() []terminal.DocumentField {
+	if w.fields == nil {
+		return nil
+	}
+	return w.fields()
 }
 
 func (w *commandOutput) Write(data []byte) (int, error) {
@@ -112,6 +127,12 @@ func Execute(app *App, args []string) error {
 	app.output = output
 	defer func() { app.output = nil }()
 	var unlock func() error
+	// What the invocation makes of the clients' own choices: its command's
+	// document carries it, and its human output names it once.
+	app.follows = &synchronization.Follows{}
+	app.followed = invocation.NewFollowedReport(app.follows)
+	defer func() { app.follows, app.followed = nil, nil }()
+	output.fields = app.followed.Document
 	root := NewRoot(app)
 	root.PersistentPreRunE = func(command *cobra.Command, positional []string) error {
 		// Cobra normally validates flag relationships after this mutation boundary.
@@ -139,6 +160,11 @@ func Execute(app *App, args []string) error {
 	if err == nil {
 		command, err = root.ExecuteC()
 		err = refusal(root, command, args, err)
+		// A command that named no follow-up has not said what the
+		// invocation followed; its human output ends with it.
+		if jsonMode, _ := command.Flags().GetBool("json"); err == nil && !jsonMode && output.err == nil {
+			app.renderFollowed(output.started)
+		}
 	}
 	if output.err != nil && !errors.Is(err, output.err) {
 		err = errors.Join(err, output.err)
@@ -164,8 +190,24 @@ func Execute(app *App, args []string) error {
 	// never the process's.
 	at := platform.PathContext{Home: invocation.Home(app.invocationContext().Dependencies), Configuration: app.Config.Path(),
 		Rollback: command.CommandPath() == command.Root().Name()+" config rollback"}
+	// A command that failed recorded no choice; a report that failed still
+	// names what its configuration follows.
+	app.followed.Failed()
 	terminal.RenderError(renderer, terminal.LocalFailure(Version, at, invocation.TokenRejection(command, err)), jsonMode)
+	if !jsonMode {
+		app.followed.Render(renderer)
+	}
 	return terminal.Presented(errors.Join(err, renderer.Err()))
+}
+
+// renderFollowed ends the invocation's human output with what it followed,
+// unless the command's own output has said it ahead of its follow-up.
+func (a *App) renderFollowed(started bool) {
+	renderer := a.Renderer()
+	if started {
+		renderer.Continue()
+	}
+	a.followed.Render(renderer)
 }
 
 // refusedFlag marks a flag that command refused as a usage error, naming the
@@ -350,6 +392,7 @@ func (a *App) invocationContext() invocation.Context {
 		Color: a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
 		Discovery: a.Discovery, Clients: a.Clients, Updater: a.Updater,
+		Follows: a.follows, Followed: a.followed,
 	}
 }
 

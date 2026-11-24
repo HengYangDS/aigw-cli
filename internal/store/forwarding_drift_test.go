@@ -135,7 +135,7 @@ func TestForwardedCheckpointKeepsTheConfigurationThatWasChecked(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(context.Background(), cfg, sessions(ClientCodex)); err != nil {
+	if err := store.SaveVerifiedCheckpoint(context.Background(), cfg, sessions(ClientCodex), nil); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(store.verifiedPath())

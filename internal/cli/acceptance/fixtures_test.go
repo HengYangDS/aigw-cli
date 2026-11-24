@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
@@ -283,14 +286,68 @@ func synchronizeClaudeProjection(t *testing.T, app *cli.App, cfg domain.Config) 
 	}
 }
 
+// executableFixture is a client's executable for one test: a program that
+// exits at once with status 1 and writes nothing, so a probe of it fails as it
+// does for a client that is not there. A file that is not a program makes the
+// operating system refuse it as an invalid image, a path on which hosted
+// Windows Server 2025 ended the test binary with a fail fast (0xc0000409).
 func executableFixture(t *testing.T, name string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), executableName(name))
-	if err := os.WriteFile(path, []byte("native client fixture"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeSilentProgram(t, path)
 	return path
 }
+
+// writeSilentProgram writes the program of executableFixture at path, for a
+// test that names the folder of a client's executable itself.
+func writeSilentProgram(t *testing.T, path string) {
+	t.Helper()
+	program, err := silentProgram()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeProgram(t, path, program)
+}
+
+// writeProgram writes a program that a test then starts. The tests run in
+// parallel, so another test may start a process while this one writes: on
+// Unix the child holds every descriptor of this process until it runs its own
+// program, and Linux refuses to start a file that is open for writing
+// (ETXTBSY, https://go.dev/issue/22315). The file is written under
+// syscall.ForkLock, which every fork of this process holds for writing; on
+// Windows, where no descriptor is inherited so, the lock waits for nothing.
+func writeProgram(t *testing.T, path string, program []byte) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	syscall.ForkLock.RLock()
+	defer syscall.ForkLock.RUnlock()
+	if err := os.WriteFile(path, program, 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// silentProgram builds, once for the tests of one process, a program that
+// exits with status 1 and returns its bytes.
+var silentProgram = sync.OnceValues(func() ([]byte, error) {
+	folder, err := os.MkdirTemp("", "aigw-silent-client-")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.RemoveAll(folder) }()
+	source := filepath.Join(folder, "client.go")
+	if err := os.WriteFile(source, []byte("package main\n\nimport \"os\"\n\nfunc main() { os.Exit(1) }\n"), 0o600); err != nil {
+		return nil, err
+	}
+	program := filepath.Join(folder, executableName("client"))
+	build := exec.Command("go", "build", "-o", program, source)
+	build.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOWORK=off", "GOPROXY=off", "CGO_ENABLED=0")
+	if output, err := build.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("build the silent client: %w\n%s", err, output)
+	}
+	return os.ReadFile(program)
+})
 
 // wantNext reports whether a document's next step is want: a command that a
 // script can run as it stands is next_action, and anything else next_detail.
@@ -319,14 +376,56 @@ func blockRemoval(t *testing.T, path string) {
 		t.Cleanup(func() { _ = file.Close() })
 		return
 	}
-	if os.Geteuid() == 0 {
-		t.Skip("root removes files from a read-only directory")
+	readOnlyDirectory(t, filepath.Dir(path))
+}
+
+// blockFolder makes replacing or removing any file in folder fail until
+// release runs or the test ends: Windows refuses to replace a file that is
+// open, and POSIX refuses to change a directory without write permission. On
+// Windows a new file can still be created there, and a write that then fails
+// to replace its target must remove it.
+func blockFolder(t *testing.T, folder string) (release func()) {
+	t.Helper()
+	if runtime.GOOS != "windows" {
+		return readOnlyDirectory(t, folder)
 	}
-	directory := filepath.Dir(path)
+	entries, err := os.ReadDir(folder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var open []*os.File
+	for _, entry := range entries {
+		if !entry.Type().IsRegular() {
+			continue
+		}
+		file, err := os.Open(filepath.Join(folder, entry.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		open = append(open, file)
+	}
+	release = sync.OnceFunc(func() {
+		for _, file := range open {
+			_ = file.Close()
+		}
+	})
+	t.Cleanup(release)
+	return release
+}
+
+// readOnlyDirectory removes the write permission of directory until release
+// runs or the test ends. Root writes into it regardless, so the test skips.
+func readOnlyDirectory(t *testing.T, directory string) (release func()) {
+	t.Helper()
+	if os.Geteuid() == 0 {
+		t.Skip("root writes into a read-only directory")
+	}
 	if err := os.Chmod(directory, 0o500); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(directory, 0o700) })
+	release = sync.OnceFunc(func() { _ = os.Chmod(directory, 0o700) })
+	t.Cleanup(release)
+	return release
 }
 
 func saveCommandModel(t *testing.T, app *cli.App, endpoints domain.Endpoints, client, model string) {

@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	goruntime "runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -270,7 +271,7 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	if err := RunStatus(emptyRuntime, true); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(emptyOut.String(), `"models": 0`) || !strings.Contains(emptyOut.String(), `"schema_version": 3`) {
+	if !strings.Contains(emptyOut.String(), `"models": 0`) || !strings.Contains(emptyOut.String(), `"schema_version": `+strconv.Itoa(schemaVersion)) {
 		t.Fatalf("json status = %q", emptyOut.String())
 	}
 

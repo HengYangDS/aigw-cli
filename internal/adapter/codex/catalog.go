@@ -77,7 +77,7 @@ func rebaseCopiedCodexCatalog(source, target string, config, attribution platfor
 	if state.CatalogHash == "" {
 		return rebaseUserCatalogReference(source, config)
 	}
-	canonical, err := canonicalCodexTargetPath(target)
+	canonical, err := platform.CanonicalPath(target)
 	if err != nil {
 		return config, err
 	}
@@ -153,7 +153,7 @@ func recordedCatalog(path string, state codexState) ([]byte, error) {
 	// is the identity the projection transaction resolves targets to. Validation
 	// resolves the caller's path the same way, so a symlinked configuration
 	// directory does not read as a mismatch.
-	canonical, err := canonicalCodexTargetPath(path)
+	canonical, err := platform.CanonicalPath(path)
 	if err != nil {
 		return nil, err
 	}

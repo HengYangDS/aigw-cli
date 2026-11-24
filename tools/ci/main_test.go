@@ -65,6 +65,8 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^TestVerificationResourceCleanupStopsOwnedFixture$"},
 		{"go", "test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|MemoryRetainsInterruptedObservations|PerformanceCases|Attribution(KeepsTheProjectedReaderBoundary|SummaryRetainsItsNonqualifyingScope))$"},
 		{"go", "test", "-tags=dependency_acceptance", "./tools/ci", "-run", "^TestNativeDependencyEvidenceRetainsFindings$"},
+		// The selection matrix's own command and bound are declared once.
+		append([]string{selectionMatrixCommand.Name}, selectionMatrixCommand.Args...),
 		{"go", "run", "./tools/ci", "check-workflows", "."},
 		{"go", "run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"},
 	}

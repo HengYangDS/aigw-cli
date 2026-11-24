@@ -11,6 +11,7 @@ import (
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 )
@@ -208,7 +209,7 @@ func checkCommand(client string, model named, d depth) string {
 	if name := model.name(); name != "" {
 		words = append(words, name)
 	}
-	command := invocation.Command(words...)
+	command := platform.AIGWCommand(words...)
 	if command == "" {
 		return "Run the same check again with --depth " + string(d) + "."
 	}

@@ -128,6 +128,7 @@ func renameAway(t *testing.T, path string) {
 // missing. Followed literally, the folder put back from its copy, the fix lets
 // each command run, and a check pass after the sync that it names.
 func TestABlockedTokenFolderNamesItsFixOnEverySurface(t *testing.T) {
+	t.Parallel()
 	for _, blocking := range blockings {
 		for _, surface := range []struct {
 			command []string
@@ -186,6 +187,7 @@ func TestABlockedTokenFolderNamesItsFixOnEverySurface(t *testing.T) {
 // a new file. Followed literally, the folder put back from its copy, the
 // command runs.
 func TestALinkThatLeadsNowhereIsNoFirstRun(t *testing.T) {
+	t.Parallel()
 	for _, surface := range [][]string{
 		{"status", "--json"},
 		{"check", claude.ID, "--depth", "local", "--json"},

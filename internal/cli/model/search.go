@@ -52,7 +52,7 @@ func newSearchCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func runSearch(cmd *cobra.Command, runtime invocation.Context, words, providers []string, jsonMode bool) error {
-	cfg, err := runtime.Config.Load()
+	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return err
 	}

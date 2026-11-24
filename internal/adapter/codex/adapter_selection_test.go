@@ -3,6 +3,7 @@ package codex
 import (
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,14 +25,16 @@ func TestAdoptCodexSelectionRecordsTheOneMatchingModel(t *testing.T) {
 	}
 }
 
-func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
+// A model that Codex's provider has not added, on Codex's protocol, is not
+// followed: the refusal's next action restores the recorded selection, and
+// its message names the command that adds the model that Codex names.
+func TestAdoptCodexSelectionRefusesAModelThatWasNotAdded(t *testing.T) {
 	for _, test := range []struct {
 		name, model string
 		copy        bool
-		want        []string
 	}{
-		{name: "none", model: "gpt-luna", want: []string{"which provider \"gateway\" has not added", "`aigw use codex gateway/gpt-luna`"}},
-		{name: "on another protocol", model: "gpt-chat", copy: true, want: []string{"which provider \"gateway\" has not added", "`aigw use codex gateway/gpt-chat`"}},
+		{name: "none", model: "gpt-luna"},
+		{name: "on another protocol", model: "gpt-chat", copy: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cfg, targets := codexAdoptionFixture(t, 1)
@@ -42,8 +45,16 @@ func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
 			}
 			chooseCodexModel(t, targets[0], test.model)
 			_, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg)
-			for _, want := range test.want {
-				if err == nil || !strings.Contains(err.Error(), want) {
+			refusal, typed := errors.AsType[*adapter.SelectionError](err)
+			if !typed || refusal.NextAction() != "aigw use codex gateway/gpt-sol" {
+				t.Fatalf("adoption error = %v, want a refusal that restores gateway/gpt-sol", err)
+			}
+			for _, want := range []string{
+				`Codex selects model "` + test.model + `", which provider "gateway" has not added`,
+				"AIGW's selection for Codex is gateway/gpt-sol",
+				"`aigw use codex gateway/" + test.model + "` adds and selects the model that Codex names",
+			} {
+				if !strings.Contains(err.Error(), want) {
 					t.Fatalf("adoption error = %v, want %s", err, want)
 				}
 			}
@@ -58,11 +69,37 @@ func TestAdoptCodexSelectionRefusesDisagreeingTargets(t *testing.T) {
 	cfg, targets := codexAdoptionFixture(t, 2)
 	chooseCodexModel(t, targets[0], "gpt-terra")
 	chooseCodexModel(t, targets[1], "gpt-luna")
-	if _, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg); err == nil || !strings.Contains(err.Error(), "aigw use codex <provider/model>") {
+	_, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg)
+	refusal, typed := errors.AsType[*adapter.SelectionError](err)
+	if !typed || refusal.NextAction() != "aigw use codex gateway/gpt-sol" || !strings.Contains(err.Error(), `Codex has files that select different models, "gpt-terra" and "gpt-luna"`) {
 		t.Fatalf("disagreeing targets were adopted: %v", err)
 	}
 	if cfg.SelectedModel(ID) != domain.NewModelRef("gateway", "gpt-sol") {
 		t.Fatal("a refused adoption changed the Codex binding")
+	}
+}
+
+// An outside edit in any target is the plan's to refuse under its own name:
+// nothing is followed past it, and a model that was not added in another
+// target is not refused in its place.
+func TestAdoptCodexSelectionLeavesAnOutsideEditToThePlan(t *testing.T) {
+	for _, model := range []string{"gpt-terra", "gpt-luna"} {
+		cfg, targets := codexAdoptionFixture(t, 2)
+		chooseCodexModel(t, targets[0], model)
+		edited, err := os.ReadFile(targets[1])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(targets[1], []byte(strings.Replace(string(edited), `base_url = "https://gateway.test/v1"`, `base_url = "https://drift.test/v1"`, 1)), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if observed, err := observeSelection(targets[1]); err != nil || observed.state != selectionDrifted {
+			t.Fatalf("the edited target = %+v, %v", observed, err)
+		}
+		ref, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg)
+		if err != nil || !ref.IsZero() || cfg.SelectedModel(ID) != domain.NewModelRef("gateway", "gpt-sol") {
+			t.Fatalf("%s beside an outside edit: followed %q, %v", model, ref, err)
+		}
 	}
 }
 
@@ -145,4 +182,75 @@ func chooseCodexModel(t *testing.T, target, model string) string {
 		t.Fatal(err)
 	}
 	return native
+}
+
+// Inspection accepts a file that shows the followed choice only when nothing
+// else waits for a write: the configuration with the recorded model in the
+// selection's place must project what the file holds.
+func TestCodexInspectionOfAFollowedChoiceIsExact(t *testing.T) {
+	inspect := func(cfg domain.Config, reader string) adapter.Status {
+		runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		runtime.CredentialCommand = reader
+		return (codexAdapter{}).Inspect(t.Context(), adapter.Dependencies{}, cfg, runtime)
+	}
+	cfg, targets := codexAdoptionFixture(t, 1)
+	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The reader that the fixture projected, as the file names it.
+	command, err := ObservedCredentialCommand(targets[0], selected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status := inspect(cfg, command); !status.Ready {
+		t.Fatalf("the projected file: %+v", status)
+	}
+	chooseCodexModel(t, targets[0], "gpt-terra")
+	if status := inspect(cfg, command); status.Ready {
+		t.Fatalf("the recorded selection over a file that shows another model is ready: %+v", status)
+	}
+	followed := cfg.Clone()
+	if ref, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &followed); err != nil || ref != domain.NewModelRef("gateway", "gpt-terra") {
+		t.Fatalf("follow = %q, %v", ref, err)
+	}
+	if status := inspect(followed, command); !status.Ready {
+		t.Fatalf("the followed choice: %+v", status)
+	}
+	// A retry budget that the configuration holds and the file lacks waits
+	// for a write, with the choice as without it. The two cases share the
+	// file, which shows the choice here, so they run in this order: the
+	// recorded model is chosen back first, then the other model again.
+	for _, test := range []struct {
+		name    string
+		pending domain.Config
+	}{{"recorded", cfg.Clone()}, {"followed", followed.Clone()}} {
+		binding := test.pending.Clients[ID]
+		retries := uint64(2)
+		binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &retries}
+		test.pending.Clients[ID] = binding
+		if test.name == "recorded" {
+			chooseBack := strings.Replace(mustRead(t, targets[0]), `model = "gpt-terra"`, `model = "gpt-sol" # managed by AIGW`, 1)
+			if err := os.WriteFile(targets[0], []byte(chooseBack), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			chooseCodexModel(t, targets[0], "gpt-terra")
+		}
+		if status := inspect(test.pending, command); status.Ready || status.RepairAction != "aigw sync" {
+			t.Errorf("%s selection with a pending retry budget: %+v", test.name, status)
+		}
+	}
+}
+
+func mustRead(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }

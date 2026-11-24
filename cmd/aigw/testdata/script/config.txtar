@@ -228,6 +228,9 @@ AIGW  Rollback preview
 Restore source
   Configuration        Previous configuration
 
+Selections
+  Claude               No model, in place of team/team-model
+
 Client files
   $HOME/.claude/settings.json  restore
   ✓ Preview did not write configuration, credentials or client files
@@ -236,10 +239,16 @@ Next
   aigw config rollback --last-change
 -- rollback-preview.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "dry_run": true,
   "source": "previous_backup",
+  "selections": [
+    {
+      "client": "claude",
+      "replaces": "team/team-model"
+    }
+  ],
   "client_files": [
     {
       "client": "claude",
@@ -251,9 +260,15 @@ Next
 }
 -- rollback-restored.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "source": "previous_backup",
+  "selections": [
+    {
+      "client": "claude",
+      "replaces": "team/team-model"
+    }
+  ],
   "next_action": "aigw check --depth local"
 }
 -- rollback-refusal.json --
@@ -271,6 +286,9 @@ AIGW  Rollback preview
 
 Restore source
   Configuration        Previous configuration
+
+Selections
+  Claude               No model, in place of team/team-model
 
 Client files
   $HOME\.claude\settings.json  restore

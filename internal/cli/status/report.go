@@ -37,8 +37,11 @@ type clientState struct {
 	// FilesDeferred marks an enabled client whose files AIGW has not written,
 	// because the client was not installed when it was enabled, and
 	// NativeModel a Claude Code that keeps its own model preference.
-	FilesDeferred      bool                      `json:"client_files_deferred,omitempty"`
-	NativeModel        bool                      `json:"native_model_preference,omitempty"`
+	FilesDeferred bool `json:"client_files_deferred,omitempty"`
+	NativeModel   bool `json:"native_model_preference,omitempty"`
+	// ClientModel is the model that the client's own settings name in place
+	// of the selection.
+	ClientModel        string                    `json:"client_model,omitempty"`
 	Authentication     domain.Authentication     `json:"authentication"`
 	EndpointConfigured bool                      `json:"endpoint_configured"`
 	Transport          app.EndpointTransportKind `json:"transport,omitempty"`
@@ -55,7 +58,7 @@ func clientStates(cfg domain.Config, observed map[string]app.ClientStatus) map[s
 		states[id] = clientState{
 			State: status.State, Model: status.Model.String(), Provider: status.Provider,
 			Detail: status.Detail, NextAction: status.NextAction, NextDetail: status.NextDetail,
-			FilesDeferred: status.ProjectionDeferred, NativeModel: status.NativeModelOverride,
+			FilesDeferred: status.ProjectionDeferred, NativeModel: status.NativeModelOverride, ClientModel: status.NativeModel,
 			Authentication: status.Authentication, EndpointConfigured: status.EndpointConfigured, Transport: status.Transport,
 			FilesReady: status.ProjectionReady, QualifiedModes: status.QualifiedModes, QualifiedPlatforms: status.QualifiedPlatforms,
 		}

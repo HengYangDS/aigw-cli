@@ -27,6 +27,18 @@ func (s Synchronizer) CommitProjection(ctx context.Context, before, after domain
 	return err
 }
 
+// CommitRestore persists restored, a configuration that a rollback restores,
+// and reconciles every client whose selection the restore decides (see
+// restoredClients), so that a restored selection is written or recorded, or
+// the restore is refused, and is never silently set aside.
+func (s Synchronizer) CommitRestore(ctx context.Context, before, restored domain.Config, subject string) error {
+	clients := s.restoredClients(before, restored)
+	if len(clients) == 0 {
+		return s.Commit(ctx, before, restored, subject)
+	}
+	return s.CommitProjection(ctx, before, restored, subject, clients...)
+}
+
 // validateTransition refuses a configuration that cannot be saved before the
 // guards that assume a valid one, and before anything is written.
 func validateTransition(after domain.Config) error {
@@ -38,61 +50,84 @@ func validateTransition(after domain.Config) error {
 	return nil
 }
 
-func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, subject string, reconcileProjection bool, clientIDs ...string) (bool, error) {
+// PreflightError reports a transition that was refused before anything was
+// written, by a command or by its preview: the configuration and every
+// client file are as they were. It reads as the refusal behind it, which
+// names the step that resolves it; a presentation adds that nothing changed.
+type PreflightError struct {
+	Err error
+}
+
+// Error returns the refusal's own text.
+func (e *PreflightError) Error() string { return e.Err.Error() }
+
+// Unwrap returns the refusal.
+func (e *PreflightError) Unwrap() error { return e.Err }
+
+// Unchanged reports that the configuration and the client files are as they
+// were before the command.
+func (*PreflightError) Unchanged() bool { return true }
+
+// committed is what a transaction changed: a client file or AIGW's record of
+// one, and the stored configuration.
+type committed struct {
+	projection, configuration bool
+}
+
+func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, subject string, reconcileProjection bool, clientIDs ...string) (committed, error) {
 	if err := ctx.Err(); err != nil {
-		return false, err
+		return committed{}, err
 	}
 	if err := validateTransition(after); err != nil {
-		return false, err
+		return committed{}, err
 	}
 	configBefore, err := s.Config.CaptureSnapshot()
 	if err != nil {
-		return false, err
+		return committed{}, err
 	}
-	matched, err := configBefore.MatchesConfiguration(before)
-	if err != nil || !matched {
-		return false, errors.Join(errors.New("configuration preimage changed; refusing to overwrite newer state"), err)
+	// before is the working configuration that the command read: the stored
+	// one with the clients' own choices followed.
+	settled, err := s.settle(configBefore, before, after, reconcileProjection, clientIDs)
+	if !settled.matched {
+		return committed{}, errors.Join(errors.New("configuration preimage changed; refusing to overwrite newer state"), err)
 	}
-	var projectable []string
-	if reconcileProjection {
-		projectable, err = s.credentialReadyClients(after, clientIDs...)
-		if err != nil {
-			return false, fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)
-		}
+	if err != nil {
+		return committed{}, err
 	}
-	if len(projectable) > 0 {
-		dependencies, err := s.clientDependencies(projectable, before, after)
-		if err != nil {
-			return false, err
-		}
-		if _, err := s.registry().Plan(dependencies, before, after, projectable...); err != nil {
-			return false, fmt.Errorf("%s synchronization preflight failed; configuration and client files were unchanged: %w", subject, err)
-		}
+	after, followed := settled.after, settled.followed
+	projection, err := planned(s, before, after, settled.reconcile, settled.clients, settled.left)
+	if err != nil {
+		return committed{}, err
 	}
+	// The credential reader is prepared for the clients whose files are
+	// written; a client of which only AIGW's record is written reads none.
+	projectable := projection.Clients
 	if err := ctx.Err(); err != nil {
-		return false, err
+		return committed{}, err
 	}
 	var undoEntrypoint func() error
 	var entrypoint *secret.Entrypoint
 	if len(projectable) > 0 {
 		entrypoint, undoEntrypoint, err = s.prepareCredentialEntrypoint(after, projectable...)
 		if err != nil {
-			return false, err
+			return committed{}, err
 		}
 	}
 	if err := ctx.Err(); err != nil {
-		return false, errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
+		return committed{}, errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 	}
 	configAfter, err := s.Config.Commit(configBefore, after)
 	if err != nil {
-		return false, errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
+		return committed{}, errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 	}
-	if len(projectable) == 0 {
-		return false, nil
+	result := committed{configuration: !configAfter.Config.Equal(configBefore.Config)}
+	if len(s.reconciled(projection)) == 0 {
+		s.Follows.settle(s.keeps(followed, before, after))
+		return result, nil
 	}
-	receipt, projectionChanged, err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, projectable...)
+	receipt, projectionChanged, err := s.applyProjection(ctx, before, after, configBefore, configAfter, undoEntrypoint, projection)
 	if err != nil {
-		return false, fmt.Errorf("%s %w", subject, err)
+		return committed{}, fmt.Errorf("%s %w", subject, err)
 	}
 	if err := s.finalizeCredentialEntrypoint(entrypoint); err != nil {
 		projectionErr := receipt.Rollback()
@@ -105,17 +140,19 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 			entrypointErr = undoCreatedEntrypoint(undoEntrypoint)
 		}
 		if rollbackErr := errors.Join(projectionErr, configErr, entrypointErr); rollbackErr != nil {
-			return false, projectionError{
+			return committed{}, projectionError{
 				cause:    fmt.Errorf("%s credential entrypoint finalization failed: %w; compensation incomplete: %w", subject, err, rollbackErr),
 				restored: configErr == nil,
 			}
 		}
-		return false, projectionError{
+		return committed{}, projectionError{
 			cause:    fmt.Errorf("%s credential entrypoint finalization failed; configuration and client files were rolled back: %w", subject, err),
 			restored: true,
 		}
 	}
-	return projectionChanged, nil
+	result.projection = projectionChanged
+	s.Follows.settle(s.keeps(followed, before, after))
+	return result, nil
 }
 
 // finalizeCredentialEntrypoint confirms, after projection, the reader that this
@@ -132,13 +169,13 @@ func (s Synchronizer) applyProjection(
 	before, after domain.Config,
 	configBefore, configAfter store.Snapshot,
 	undoEntrypoint func() error,
-	clientIDs ...string,
+	projection Projection,
 ) (adapter.ProjectionReceipt, bool, error) {
-	dependencies, err := s.clientDependencies(clientIDs, before, after)
+	dependencies, err := s.projectionDependencies(projection, before, after)
 	var receipt adapter.ProjectionReceipt
 	var changed bool
 	if err == nil {
-		receipt, changed, err = s.registry().Apply(ctx, dependencies, before, after, clientIDs...)
+		receipt, changed, err = s.registry().Apply(ctx, dependencies, before, after, s.reconciled(projection)...)
 	}
 	if err != nil {
 		if rollbackErr := s.Config.RestoreSnapshot(configBefore, configAfter); rollbackErr != nil {

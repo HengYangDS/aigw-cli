@@ -14,6 +14,7 @@ import (
 )
 
 func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
+	t.Parallel()
 	app, output, secretStore, _, httpClient := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)
@@ -41,7 +42,7 @@ func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
 		t.Fatalf("sync after a native Codex model choice: %v\n%s", err, output)
 	}
 	var result struct {
-		Adopted map[string]string `json:"adopted_selections"`
+		Adopted followedModels `json:"followed_selections"`
 	}
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.Adopted[codex.ID] != "gateway/gpt-terra" {
 		t.Fatalf("adopted selections = %v, %v\n%s", result.Adopted, err, output)
@@ -61,7 +62,7 @@ func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
 			t.Fatalf("dry run after adoption: %v\n%s", err, output)
 		}
 		var preview struct {
-			Adopted map[string]string `json:"adopted_selections"`
+			Adopted followedModels `json:"followed_selections"`
 			Targets []struct {
 				Client string `json:"client"`
 				Action string `json:"action"`
@@ -82,6 +83,7 @@ func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
 }
 
 func TestCodexSyncRefusesAModelChoiceWithAnotherEdit(t *testing.T) {
+	t.Parallel()
 	app, output, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)

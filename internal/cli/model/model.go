@@ -45,7 +45,7 @@ func modelArgument(cmd *cobra.Command, args []string) error {
 // argument to the configured model. A given protocol must be one that the
 // model declares.
 func loadModel(runtime invocation.Context, text string, protocol domain.EndpointProtocol) (domain.Config, domain.Model, error) {
-	cfg, err := runtime.Config.Load()
+	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return domain.Config{}, domain.Model{}, err
 	}

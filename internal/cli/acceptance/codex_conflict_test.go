@@ -19,6 +19,7 @@ import (
 // can succeed on the refused state, so the operator is never sent to a command
 // that refuses again.
 func TestCodexOutsideRetryEditRecoveryDoesNotLoop(t *testing.T) {
+	t.Parallel()
 	const recovery = "Undo the outside edit to the AIGW-managed Codex settings, then run `aigw sync`"
 	app, output, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")

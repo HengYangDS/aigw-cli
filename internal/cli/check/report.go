@@ -15,7 +15,7 @@ import (
 // schemaVersion is the version of `aigw check`'s JSON document, which
 // replaces the documents of check, doctor, test and verify, the highest of
 // which was 2. Version 4 adds failure.client_report.
-const schemaVersion = 4
+const schemaVersion = 5
 
 // document is `aigw check`'s JSON document: the depth asked for, each checked
 // client's climb with its local checks, the checks that every client shares,
@@ -58,6 +58,7 @@ type clientDocument struct {
 	Checks                []localCheck              `json:"checks"`
 	Failure               *failureDocument          `json:"failure,omitempty"`
 	NativeModelPreference bool                      `json:"native_model_preference,omitempty"`
+	ClientModel           string                    `json:"client_model,omitempty"`
 	Session               *sessionDocument          `json:"session,omitempty"`
 	NextAction            string                    `json:"next_action,omitempty"`
 	NextDetail            string                    `json:"next_detail,omitempty"`
@@ -105,7 +106,7 @@ func (o outcome) documented(backend secret.BackendSelection, verbose bool) docum
 func (r *result) documented(verbose bool) clientDocument {
 	doc := clientDocument{
 		ID: r.spec.ID, Enabled: r.enabled, Model: r.model, State: domainreadiness.Configured, Depth: r.reached,
-		Skipped: append([]skip{}, r.skipped...), Checks: documentedChecks(r.checks), NativeModelPreference: r.native,
+		Skipped: append([]skip{}, r.skipped...), Checks: documentedChecks(r.checks), NativeModelPreference: r.native, ClientModel: r.nativeModel,
 	}
 	if r.resolved {
 		doc.Provider, doc.Protocol, doc.Authentication = r.runtime.ProviderID, r.runtime.Protocol.Name(), r.runtime.Authentication

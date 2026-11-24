@@ -31,7 +31,7 @@ func TestStoreAndManifestFollowTheInjectedAdmission(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(loaded.EnabledClientIDs(), []string{"future"}) {
 		t.Fatalf("Load() enabled %v, %v", loaded.EnabledClientIDs(), err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), loaded, sessions("future")); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), loaded, sessions("future"), nil); err != nil {
 		t.Fatal(err)
 	}
 	if checkpoint, err := store.LoadVerifiedCheckpoint(); err != nil || checkpoint.Config.SelectedModel("future") != domain.NewModelRef("gateway", "model") {

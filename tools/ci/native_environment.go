@@ -41,8 +41,11 @@ type nativeHost struct {
 	workdir  string
 	// session is set inside the job's private Secret Service session.
 	session bool
-	inquiry outputRunner
-	attach  commandRunner
+	// selectionMatrix is the pipeline's choice that this job runs the
+	// selection-matrix gate; the job's inputs do not change it.
+	selectionMatrix bool
+	inquiry         outputRunner
+	attach          commandRunner
 }
 
 // nativeJobFromEnvironment maps the GitLab job inputs to native acceptance. It
@@ -162,7 +165,11 @@ func runNativeJob(host nativeHost, stdout io.Writer, runner commandRunner) error
 		if err != nil {
 			return err
 		}
-		return host.attach(command{Name: "dbus-run-session", Args: []string{"--", self, "native", "--platform", host.platform, "--from-env", "--secret-service-session"}})
+		args := []string{"--", self, "native", "--platform", host.platform, "--from-env", "--secret-service-session"}
+		if host.selectionMatrix {
+			args = append(args, "--selection-matrix")
+		}
+		return host.attach(command{Name: "dbus-run-session", Args: args})
 	}
 	environment := nativeTrustDefaults(host.getenv)
 	if host.session {
@@ -183,7 +190,7 @@ func runNativeJob(host nativeHost, stdout io.Writer, runner commandRunner) error
 		setup = append(setup, command{Name: "mise", Args: []string{"run", "dependencies:resolve"}})
 	}
 	return runNativeRequest(nativeRequest{
-		platform: host.platform, fullQuality: job.fullQuality, protectedFile: job.protectedFile,
+		platform: host.platform, fullQuality: job.fullQuality, selectionMatrix: host.selectionMatrix, protectedFile: job.protectedFile,
 		release: job.arguments, environment: environment, setup: setup,
 	}, stdout, runner)
 }

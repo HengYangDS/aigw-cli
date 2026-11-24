@@ -138,13 +138,22 @@ An admitted client adapter writes and withdraws only AIGW's settings in its
 client's files; it does not own provider behavior. Missing and unselected
 clients remain untouched.
 
-`aigw sync` adopts a model chosen in Hermes or Codex when it names exactly one
-model of the selected provider and protocol and nothing else that AIGW owns in
-that client changed; the result reports the adopted model, and an unknown or
-ambiguous choice names `aigw use` commands instead. Explicit `use` replaces a
-native choice only after proving that the owned providers and credential
-commands are intact. Selection is not permission to overwrite a changed
-provider definition.
+A model chosen in Hermes or Codex is that client's selection for every
+command, when it is an added model within the client's reach and nothing else
+that AIGW owns in that client changed. Commands work from it; a command that
+saves the configuration records it together with AIGW's record of the client's
+file, and where the client's files cannot be written for lack of a Token, it
+brings AIGW's record of the file to the choice and leaves the file until the
+Token is stored; and commands and reports name what they follow, with
+the earlier selection and the command that returns to it. A model that AIGW has not added
+is not followed and not overwritten: the command names the `aigw use` that
+restores the recorded selection. Two commands replace a client's own choice,
+and each names what it replaces: an explicit `use`, only after proving that
+the owned providers and credential commands are intact, and
+`aigw config rollback`, which restores the selections of the configuration
+that it restores. Selection is not permission to overwrite a changed provider
+definition. Claude Code's own model preference stays in Claude Code;
+`aigw status` shows it.
 
 ## Endpoint
 
@@ -190,8 +199,9 @@ tools, continuation, or compaction.
 ## Team files
 
 `aigw setup --from` applies a token-free team file. For models, families and
-recommendations, what the file names wins, and local-only entries stay unless
-`--prune` removes the unused ones. A team file never changes an existing
+recommendations, what the file names wins, and the local-only entries that
+no client selects and no recommendation names are removed, together with the
+families that no remaining model uses; `--keep-local` keeps them instead. A team file never changes an existing
 provider's endpoints or Token and never replaces a client's selection: a
 differing endpoint stays local and is reported. `aigw provider edit` changes an
 endpoint deliberately.

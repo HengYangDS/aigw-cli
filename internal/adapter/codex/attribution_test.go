@@ -179,55 +179,6 @@ func TestValidateConfigRejectsForeignSidecarAttribution(t *testing.T) {
 	}
 }
 
-func TestCanonicalCodexTargetPathResolvesAbsoluteAndSymlinkPaths(t *testing.T) {
-	root := t.TempDir()
-	path := filepath.Join(root, "target.toml")
-
-	got, err := canonicalCodexTargetPath(path)
-	if err != nil || !filepath.IsAbs(got) {
-		t.Errorf("expected absolute path, got %q, err %v", got, err)
-	}
-
-	link := filepath.Join(root, "link.toml")
-	writeCodexFixture(t, path, "")
-	if err := os.Symlink(path, link); err != nil {
-		t.Fatal(err)
-	}
-
-	path, _ = canonicalCodexTargetPath(path)
-	got, err = canonicalCodexTargetPath(link)
-	if err != nil || got != path {
-		t.Errorf("expected resolved symlink %q, got %q, err %v", path, got, err)
-	}
-}
-
-func TestCanonicalCodexTargetPathIsStableBeforeCreation(t *testing.T) {
-	root := t.TempDir()
-	actual := filepath.Join(root, "real")
-	if err := os.Mkdir(actual, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	alias := filepath.Join(root, "alias")
-	if err := os.Symlink(actual, alias); err != nil {
-		t.Fatal(err)
-	}
-	target := filepath.Join(alias, "new", "config.toml")
-	before, err := canonicalCodexTargetPath(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(target, nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	after, err := canonicalCodexTargetPath(target)
-	if err != nil || before != after {
-		t.Fatalf("Codex target changed identity after creation: before %q, after %q, err %v", before, after, err)
-	}
-}
-
 func TestValidateDesiredCodexTargetRejectsUnknownSurface(t *testing.T) {
 	err := validateDesiredCodexTarget(TargetRef{SurfaceID: "invalid"})
 	if err == nil {

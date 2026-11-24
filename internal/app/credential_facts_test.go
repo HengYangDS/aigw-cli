@@ -23,8 +23,8 @@ type refusedToken struct {
 
 func (store refusedToken) Exists(string) (bool, error) { return true, nil }
 
-func (store refusedToken) ObserveToken(string) (secret.TokenObservation, error) {
-	return secret.TokenObservation{Present: true, Refusal: store.refusal}, nil
+func (store refusedToken) ObserveToken(string) secret.TokenObservation {
+	return secret.TokenObservation{Present: true, Refusal: store.refusal}
 }
 
 // An enabled client whose provider the activation did not observe is

@@ -40,6 +40,7 @@ type teamDocument struct {
 	ChangedLabels       []changedLabel                `json:"changed_labels,omitempty"`
 	ChangedWindows      []changedWindow               `json:"changed_windows,omitempty"`
 	Pruned              *teamEntries                  `json:"pruned,omitempty"`
+	KeptLocal           *teamEntries                  `json:"kept_local,omitempty"`
 	KeptEndpoints       []keptEndpoint                `json:"kept_endpoints,omitempty"`
 	KeptBalanceProbes   []keptProbe                   `json:"kept_balance_probes,omitempty"`
 	KeptModels          []keptModel                   `json:"kept_models,omitempty"`
@@ -180,7 +181,14 @@ func (t teamSetup) document(after domain.Config, states map[string]string, conne
 	for _, window := range report.ChangedWindows {
 		document.ChangedWindows = append(document.ChangedWindows, changedWindow{Model: window.Model.String(), Local: window.Local, File: window.File})
 	}
-	if t.request.Prune {
+	// What the import removed, or — with --keep-local — what it left in place
+	// instead, is always named when there is any: it is the part of a merge
+	// that a person most needs to see before and after the write.
+	if t.request.KeepLocal {
+		if len(report.KeptLocalModels)+len(report.KeptLocalFamilies) > 0 {
+			document.KeptLocal = &teamEntries{Providers: []string{}, Models: refs(report.KeptLocalModels), Families: nonNil(report.KeptLocalFamilies)}
+		}
+	} else if len(report.PrunedModels)+len(report.PrunedFamilies) > 0 {
 		document.Pruned = &teamEntries{Providers: []string{}, Models: refs(report.PrunedModels), Families: nonNil(report.PrunedFamilies)}
 	}
 	for _, kept := range report.KeptEndpoints {
@@ -304,6 +312,9 @@ func (t teamSetup) write(document teamDocument, ok bool) error {
 	renderWindows(r, document.ChangedWindows)
 	if document.Pruned != nil {
 		changed = renderEntries(r, "Pruned", *document.Pruned) || changed
+	}
+	if document.KeptLocal != nil {
+		renderEntries(r, "Kept local", *document.KeptLocal)
 	}
 	if !changed {
 		r.Section("Team file")

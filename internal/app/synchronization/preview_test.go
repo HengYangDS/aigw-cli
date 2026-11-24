@@ -59,16 +59,16 @@ func TestPresumedTokensAskOnlyOtherProvidersPresence(t *testing.T) {
 	// can use, and any other Account's is what the store shows.
 	store.asked = nil
 	for account, want := range map[string]bool{"new": true, "stored": true, "missing": false} {
-		if got, err := secret.ObserveToken(presumed, account); err != nil || got.Usable() != want {
-			t.Fatalf("ObserveToken(%s) = %+v, %v; want usable %v", account, got, err, want)
+		if got := secret.ObserveToken(presumed, account); got.Unobserved != nil || got.Usable() != want {
+			t.Fatalf("ObserveToken(%s) = %+v; want usable %v", account, got, want)
 		}
 	}
 	slices.Sort(store.asked)
 	if !slices.Equal(store.asked, []string{"missing", "stored"}) {
 		t.Fatalf("the observation asked the store about %q", store.asked)
 	}
-	if got, err := secret.ObserveToken(presumedTokens{providers: []string{"new"}}, "other"); err != nil || got.Present {
-		t.Fatalf("without a store, ObserveToken(other) = %+v, %v", got, err)
+	if got := secret.ObserveToken(presumedTokens{providers: []string{"new"}}, "other"); got != (secret.TokenObservation{}) {
+		t.Fatalf("without a store, ObserveToken(other) = %+v", got)
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 // write and says so; the client's file then reaches the edited endpoint
 // directly, and the client's retry budgets stay.
 func TestProviderEditClearsTheForwardingOfAMovedUpstream(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name      string
 		selection []string

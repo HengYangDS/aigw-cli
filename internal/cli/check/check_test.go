@@ -139,7 +139,7 @@ func TestCheckSkipsTheModelDepthOfAClientWithItsOwnModel(t *testing.T) {
 		t.Fatalf("check: %v\n%s", err, out)
 	}
 	client := decode(t, out).client(t, claude.ID)
-	if client.Depth != depthEndpoint || !client.NativeModelPreference || len(client.Skipped) != 1 || client.Skipped[0].Depth != depthModel ||
+	if client.Depth != depthEndpoint || !client.NativeModelPreference || client.ClientModel != "opus[1m]" || len(client.Skipped) != 1 || client.Skipped[0].Depth != depthModel ||
 		client.NextAction != "aigw check claude --depth client" || !slices.Equal(provider.requests, []string{"GET claude.example.test/v1/models"}) {
 		t.Fatalf("Claude Code with its own model = %+v; requests %q", client, provider.requests)
 	}

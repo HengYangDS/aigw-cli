@@ -59,7 +59,7 @@ Fix
   aigw setup
 -- preview.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "dry_run": true,
   "selections": {
@@ -92,7 +92,7 @@ Next
 }
 -- preview-windows.json --
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "ok": true,
   "dry_run": true,
   "selections": {

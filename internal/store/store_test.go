@@ -388,7 +388,7 @@ func TestCommitInvalidatesAndRestoreSnapshotRecoversVerifiedCheckpoint(t *testin
 	if err := store.Save(beforeConfig); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), beforeConfig, sessions(ClientClaude)); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), beforeConfig, sessions(ClientClaude), nil); err != nil {
 		t.Fatal(err)
 	}
 	before, err := store.CaptureSnapshot()
@@ -469,44 +469,6 @@ func TestLoadRefusesAConfigurationThroughAFile(t *testing.T) {
 	_, err := store.Load()
 	if err == nil || !errors.Is(err, platform.ErrFileAsFolder) || !strings.Contains(err.Error(), file) {
 		t.Fatalf("a configuration through a file = %v", err)
-	}
-}
-
-// A snapshot matches only the configuration that it holds: an absent file
-// the empty configuration, and a saved file the configuration that was saved.
-func TestSnapshotMatchesOnlyItsOwnConfiguration(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
-	absent, err := store.CaptureSnapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if matches, err := absent.MatchesConfiguration(domain.NewConfig(store.Admission())); err != nil || !matches {
-		t.Fatalf("an absent file does not match the empty configuration: %v", err)
-	}
-	cfg := validConfig()
-	if matches, err := absent.MatchesConfiguration(cfg); err != nil || matches {
-		t.Fatalf("an absent file matches a configuration: %v", err)
-	}
-	if err := store.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	saved, err := store.CaptureSnapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if matches, err := saved.MatchesConfiguration(cfg); err != nil || !matches {
-		t.Fatalf("a saved file does not match its configuration: %v", err)
-	}
-	changed := cfg.Clone()
-	provider := changed.Providers["dmx"]
-	provider.Label = "Changed"
-	changed.Providers["dmx"] = provider
-	if matches, err := saved.MatchesConfiguration(changed); err != nil || matches {
-		t.Fatalf("a saved file matches a changed configuration: %v", err)
-	}
-	saved.Config.Data = []byte("version = 8\n[[providers]\n")
-	if _, err := saved.MatchesConfiguration(cfg); err == nil {
-		t.Fatal("a file that does not parse matched")
 	}
 }
 

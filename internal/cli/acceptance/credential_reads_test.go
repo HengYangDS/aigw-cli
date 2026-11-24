@@ -61,6 +61,7 @@ primary = {model = "gateway/claude-team"}
 }
 
 func TestReaderCommandsReadEachAIGWExecutableOnce(t *testing.T) {
+	t.Parallel()
 	base, _, _, _, _ := testApp(t, "")
 	root := t.TempDir()
 	base.Executable = filepath.Join(root, "bin", executableName("aigw"))

@@ -156,7 +156,7 @@ func (plan teamManifestJourney) runProvider(t *testing.T, account string, client
 		requireNoActivationBeforeToken(t, journey)
 		journey.setEnvironment(secret.EnvironmentKey(account), "team-journey-token")
 	}
-	selected, _, err := domain.MergeTeamFile(domain.NewConfig(builtinclients.Admission()), plan.manifest, false)
+	selected, _, err := domain.MergeTeamFile(domain.NewConfig(builtinclients.Admission()), plan.manifest, true)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -54,7 +54,7 @@ func TestTeamManifestKeepsOneFamilyPerCuratedLine(t *testing.T) {
 	}
 	want := []string{
 		"claude/fable", "claude/haiku", "claude/opus", "claude/sonnet",
-		"gemini/argon", "gemini/carbon", "gemini/hydrogen",
+		"gemini/argon", "gemini/carbon", "gemini/hydrogen", "gemini/neon",
 		"gpt/astra", "gpt/luna", "gpt/sol", "gpt/terra",
 	}
 	if got := slices.Sorted(maps.Keys(lines)); !slices.Equal(got, want) {
@@ -123,7 +123,6 @@ func TestTeamManifestFrontierRefreshUsesQualifiedProviderProtocols(t *testing.T)
 		"dmxapi/hy4":                 {"hy4", "hy4", domain.ProtocolResponses},
 		"aihubmix/hy4":               {"hy4", "hy4", domain.ProtocolChat},
 		"dmxapi/LongCat-2.5":         {"longcat-2.5", "LongCat-2.5", domain.ProtocolResponses},
-		"dmxapi/step-5-preview":      {"step-5-preview", "step-5-preview", domain.ProtocolResponses},
 	}
 	for id, expected := range want {
 		route, ok := teamModel(t, manifest, id)
@@ -133,7 +132,7 @@ func TestTeamManifestFrontierRefreshUsesQualifiedProviderProtocols(t *testing.T)
 		}
 	}
 	for _, superseded := range []string{"aihubmix/gemini-3.8-flash", "dmxapi/gemini-3.8-flash", "ucloud/gemini-3.8-flash",
-		"dmxapi/hy4-preview", "dmxapi/longcat-2.5-preview", "dmxapi/doubao-seed-2-1-pro-260628"} {
+		"dmxapi/hy4-preview", "dmxapi/longcat-2.5-preview", "dmxapi/doubao-seed-2-1-pro-260628", "dmxapi/step-5-preview"} {
 		if _, retained := teamModel(t, manifest, superseded); retained {
 			t.Errorf("superseded Route %q remains in the shipped manifest", superseded)
 		}

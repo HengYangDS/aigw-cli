@@ -21,6 +21,7 @@ import (
 )
 
 func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
+	t.Parallel()
 	t.Run("disabled", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
 		cfg := domain.NewConfig(clients.Admission())
@@ -68,6 +69,7 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 }
 
 func TestCodexSyncReconcilesEachConfiguredHomeWithoutLoggingIn(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, runner, _ := testApp(t, "")
 	dir := t.TempDir()
 	targets := []string{filepath.Join(dir, "one", "configuration.toml"), filepath.Join(dir, "two", "configuration.toml")}
@@ -105,6 +107,7 @@ func TestCodexSyncReconcilesEachConfiguredHomeWithoutLoggingIn(t *testing.T) {
 }
 
 func TestSyncReconcilesCodexConfigWithoutRebindingCredentials(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, runner, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
@@ -138,10 +141,11 @@ func TestSyncReconcilesCodexConfigWithoutRebindingCredentials(t *testing.T) {
 }
 
 func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientState(t *testing.T) {
+	t.Parallel()
 	home := t.TempDir()
 	bin := filepath.Join(home, "bin")
 	for _, name := range []string{"aigw", claude.ID, codex.ID} {
-		writeFile(t, filepath.Join(bin, executableName(name)), []byte("native executable fixture"), 0o755)
+		writeSilentProgram(t, filepath.Join(bin, executableName(name)))
 	}
 
 	codexHome := filepath.Join(home, ".codex")
@@ -206,8 +210,16 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 		t.Fatal("Codex projection contains the Account Token")
 	}
 	requireFilesUnchanged(t, preserved)
+	requireClaudeSettingsKeptAndProjected(t, claudeSettings, after, app.Executable)
+}
+
+// requireClaudeSettingsKeptAndProjected requires Claude's settings to keep the
+// person's own keys and gain the selected model, the gateway's endpoint and
+// the absolute AIGW credential command, and no Token.
+func requireClaudeSettingsKeptAndProjected(t *testing.T, path string, after domain.Config, executable string) {
+	t.Helper()
 	var settings map[string]any
-	data := readFile(t, claudeSettings)
+	data := readFile(t, path)
 	if err := json.Unmarshal(data, &settings); err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +237,7 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(helper, app.Executable) || !strings.HasSuffix(helper, " credential claude "+projection.CredentialProjectionFingerprint(claude.ID)) {
+	if !strings.Contains(helper, executable) || !strings.HasSuffix(helper, " credential claude "+projection.CredentialProjectionFingerprint(claude.ID)) {
 		t.Fatalf("Claude helper is not the absolute AIGW credential command: %q", helper)
 	}
 	if strings.Contains(string(data), "plaintext-token-must-not-be-projected") {
@@ -252,6 +264,7 @@ func requireModelSelectionsUnchanged(t *testing.T, before, after domain.Config) 
 }
 
 func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, runner, _ := testApp(t, "")
 	settingsHome := t.TempDir()
 	settingsPath := filepath.Join(settingsHome, ".claude", "settings.json")
@@ -315,7 +328,13 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 	}
 }
 
-func TestSyncSurfacesCredentialObservationFailure(t *testing.T) {
+// A credential store that cannot tell whether the selected provider's Token
+// is there, as a locked keychain cannot, refuses no synchronization: the
+// client waits for its Token, as for an absent one, and the result names the
+// store's failure and the step that inspects it, without the store's own
+// words. Configuration and client files stay as they were.
+func TestSyncWaitsWhileTheStoreCannotTellWhetherTheTokenIsThere(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	saveCommandModel(t, app, domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
 	cfg, err := app.Config.Load()
@@ -326,28 +345,33 @@ func TestSyncSurfacesCredentialObservationFailure(t *testing.T) {
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
+	configuration := readFile(t, app.Config.Path())
 	want := errors.New("credential observation failed")
 	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: want}
 
-	if err := cli.Execute(app, []string{"sync"}); err == nil || err.Error() != "Synchronization prerequisites are unavailable" || !errors.Is(err, want) {
-		t.Fatalf("error = %v, want %v", err, want)
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatalf("sync = %v\n%s", err, out)
 	}
 	for _, expected := range []string{
-		"Synchronization prerequisites are unavailable",
-		"AIGW could not determine which clients' files it can write with the clients and credentials available now.",
-		"Configuration and client files are unchanged.",
+		"Synchronization completed",
+		"files wait for its Token",
+		"AIGW cannot tell whether its provider has a Token",
 		"aigw check --depth local",
 	} {
 		if !strings.Contains(out.String(), expected) {
 			t.Fatalf("output missing %q:\n%s", expected, out.String())
 		}
 	}
-	if strings.Contains(out.String(), want.Error()) {
-		t.Fatalf("output exposes implementation error:\n%s", out.String())
+	if strings.Contains(out.String(), want.Error()) || strings.Contains(out.String(), "aligned") {
+		t.Fatalf("output exposes the store's own words, or claims that the waiting client is aligned:\n%s", out.String())
+	}
+	if !bytes.Equal(readFile(t, app.Config.Path()), configuration) {
+		t.Fatal("sync changed the configuration of a client that waits for its Token")
 	}
 }
 
 func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, runner, _ := testApp(t, "")
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.toml")
@@ -427,6 +451,7 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 }
 
 func TestSyncDryRunRecommendsCheckWhenProjectionIsConverged(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Host = hostAt(t.TempDir())
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: "/usr/local/bin/claude"}}}

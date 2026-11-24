@@ -16,8 +16,9 @@ the operator did not say.
 selection and SHALL change only that client's selection and the client
 configuration files that AIGW owns for it, except that a model or protocol that
 it adds SHALL also update the files of other clients that list that provider's
-models, and the result SHALL name them. Several clients MAY use one model; each
-SHALL keep its own selection, and there SHALL be no global selection.
+models, and the result SHALL name them. Each client SHALL keep its own
+selection, without a global one; `client-chosen-model` owns a model chosen in
+another client.
 
 #### Scenario: Select a model for one client
 
@@ -478,58 +479,6 @@ configuration, Tokens, other clients and neighboring user state.
   configuration backup remain available, the backup only as an explicit
   rollback source
 - **AND** no verified snapshot continues to claim the withdrawn files.
-
-### Requirement: Synchronization adopts a Hermes or Codex model choice
-
-When Hermes's or Codex's own model selection changed to another added model,
-and nothing else that AIGW owns in that client's configuration changed,
-`aigw sync` SHALL record that model as the client's selection instead of
-refusing, and SHALL NOT rewrite the choice. The match SHALL use the model's
-exact ID and the provider and protocol of the Hermes provider entry, or those
-of Codex's selection.
-
-#### Scenario: The operator picks another listed model in Hermes
-
-- **GIVEN** AIGW wrote several models into Hermes' catalog
-- **WHEN** the operator selects another of them in Hermes and runs `aigw sync`
-- **THEN** Hermes's selection SHALL name the matching `provider/model`
-- **AND** Hermes SHALL keep the operator's choice
-- **AND** the result SHALL report the adopted model
-- **AND** other clients, credentials and Hermes sessions SHALL remain
-  unchanged.
-
-#### Scenario: The operator picks another model of the same provider in Codex
-
-- **GIVEN** AIGW wrote a model into Codex's configuration
-- **WHEN** the operator selects the ID of another added model of the same
-  provider and protocol in Codex and runs `aigw sync`
-- **THEN** Codex's selection SHALL name that model
-- **AND** Codex SHALL keep the operator's model
-- **AND** the result SHALL report the adopted model
-- **AND** a following preview SHALL report no change.
-
-#### Scenario: No added model matches the native choice
-
-- **WHEN** no added model has the chosen ID and the provider and protocol that
-  the match uses
-- **THEN** synchronization SHALL fail without changing configuration or client
-  files
-- **AND** its Fix SHALL be `aigw use <client> <provider>/<model>` for that
-  provider and the chosen ID.
-
-#### Scenario: Other managed settings changed
-
-- **WHEN** a managed Hermes provider entry, endpoint or credential command, or
-  Codex's provider selection, provider table, scheduler, catalog or credential
-  command changed outside AIGW, with or without a model change
-- **THEN** synchronization SHALL refuse without changing configuration or
-  client files.
-
-#### Scenario: An explicit selection names another model
-
-- **WHEN** the operator runs `aigw use <client> <provider/model>` for Hermes or
-  Codex after choosing a different model in that client
-- **THEN** AIGW SHALL write the named model, not the native choice.
 
 ### Requirement: Checking a named model leaves every selection unchanged
 

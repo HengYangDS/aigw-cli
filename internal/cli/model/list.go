@@ -40,7 +40,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 		},
 		ValidArgsFunction: invocation.CompleteNothing,
 		RunE: func(_ *cobra.Command, args []string) error {
-			cfg, err := runtime.Config.Load()
+			cfg, err := runtime.LoadConfiguration()
 			if err != nil {
 				return err
 			}

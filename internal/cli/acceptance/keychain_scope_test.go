@@ -296,6 +296,7 @@ func balanceCommands() []credentialCommand {
 // worker records what it was asked, so the rule is a count and not an
 // estimate.
 func TestACommandAsksEachFactOfACredentialOnce(t *testing.T) {
+	t.Parallel()
 	for _, command := range slices.Concat(tokenCommands(), balanceCommands()) {
 		for _, flag := range append([]string{""}, command.flags...) {
 			t.Run(strings.TrimSpace(command.name+" "+flag), func(t *testing.T) { command.run(t, flag) })
@@ -318,6 +319,7 @@ func useInATerminal(t *testing.T) (*cli.App, *bytes.Buffer, *keychain, []string)
 // then asks the worker again, finds the Token that it stored, and writes
 // Claude Code's file, whose reader reads that Token.
 func TestACommandAsksAgainAboutTheTokenThatItStored(t *testing.T) {
+	t.Parallel()
 	app, out, items, args := useInATerminal(t)
 	if err := cli.Execute(app, args); err != nil {
 		t.Fatalf("%v = %v\n%s", args, err, out)
@@ -352,6 +354,7 @@ func (d savingDiscovery) Discover(clients ...string) discovery.Result {
 // keyring where its probe passes, which is the product's default, and the
 // file backend where it fails.
 func TestACommandAsksAgainAboutTheTokenThatItRemoved(t *testing.T) {
+	t.Parallel()
 	const named, chosenKeyring, chosenFile = "the system keyring", "the system keyring that AIGW chooses", "the file backend that AIGW chooses"
 	for _, backend := range []string{named, chosenKeyring, chosenFile} {
 		t.Run(backend, func(t *testing.T) {
@@ -405,6 +408,7 @@ func TestACommandAsksAgainAboutTheTokenThatItRemoved(t *testing.T) {
 // in one process each ask the worker, and the second reports what the
 // keychain holds then: an item that lost its Token between them.
 func TestTheNextCommandAsksTheWorkerAgain(t *testing.T) {
+	t.Parallel()
 	app, out, items := claudeOnOneWithItsToken(t)
 	check := []string{"check", "--depth", "local"}
 	if err := cli.Execute(app, check); err != nil {

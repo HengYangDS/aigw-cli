@@ -392,7 +392,7 @@ func TestGitLabPerformanceUsesItsSelectedNativeClosure(t *testing.T) {
 			// The native command fences performance to manual pipelines and
 			// writes it under the physical checkout; its table tests cover both.
 			platform := strings.TrimSuffix(strings.TrimPrefix(name, "native-"), "-review")
-			if !slices.Contains(job.Script, "mise exec --locked -- go run ./tools/ci native --platform "+platform+" --from-env") {
+			if !slices.ContainsFunc(job.Script, isNativeJobCommand(platform)) {
 				t.Fatal("native performance command is missing")
 			}
 			if !slices.ContainsFunc(job.Rules, func(rule gitLabRule) bool {

@@ -21,7 +21,8 @@ func tokenMissing(runtime invocation.Context, selected domain.Runtime) (bool, er
 	if !selected.UsesAIGWCredentialStore() {
 		return false, nil
 	}
-	observation, err := secret.ObserveToken(runtime.Secrets, selected.ProviderID)
+	observation := secret.ObserveToken(runtime.Secrets, selected.ProviderID)
+	err := observation.Unobserved
 	// A blocked Token folder states its own fix, which the command's
 	// presentation renders.
 	if _, blocked := platform.BlockedPath(err); blocked {

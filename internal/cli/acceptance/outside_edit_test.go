@@ -59,6 +59,7 @@ func syncAndCheckPass(t *testing.T, app *cli.App, output interface {
 // recovery is named wherever the refusal is reported. A model chosen in Hermes
 // is not such an edit: synchronization adopts it.
 func TestHermesOutsideEditRecoveryDoesNotLoop(t *testing.T) {
+	t.Parallel()
 	const recovery = "Undo the outside edit to the AIGW-managed Hermes settings, then run `aigw sync`"
 	app, output, _, target := shippedHermesApp(t)
 	projected := readFile(t, target)
@@ -89,10 +90,10 @@ func TestHermesOutsideEditRecoveryDoesNotLoop(t *testing.T) {
 	output.Reset()
 	err := cli.Execute(app, []string{"check", hermes.ID, "--depth", "local", "--json"})
 	var checked struct {
-		NextAction string `json:"next_action"`
+		Followed followedModels `json:"followed_selections"`
 	}
-	if decodeErr := json.Unmarshal(output.Bytes(), &checked); decodeErr != nil || checked.NextAction != "aigw sync" {
-		t.Fatalf("a model chosen in Hermes: next step %q, %v (command error %v)\n%s", checked.NextAction, decodeErr, err, output)
+	if decodeErr := json.Unmarshal(output.Bytes(), &checked); err != nil || decodeErr != nil || checked.Followed[hermes.ID] != "dmxapi/claude-opus-5-5" {
+		t.Fatalf("a model chosen in Hermes: check follows %v, %v (command error %v)\n%s", checked.Followed, decodeErr, err, output)
 	}
 	if err := cli.Execute(app, []string{"sync", "--json"}); err != nil {
 		t.Fatalf("sync of a model chosen in Hermes: %v\n%s", err, output)
@@ -102,6 +103,7 @@ func TestHermesOutsideEditRecoveryDoesNotLoop(t *testing.T) {
 // Claude Desktop's refusal names each changed setting, and that step, not
 // synchronization alone, is the next step wherever the refusal is reported.
 func TestClaudeDesktopOutsideEditRecoveryDoesNotLoop(t *testing.T) {
+	t.Parallel()
 	const recovery = "Restore AIGW's value of gateway base URL in Claude Desktop, then run `aigw sync`"
 	app, output, secretStore, _, _ := testApp(t, "")
 	library := filepath.Join(t.TempDir(), "nested", "Claude-3p", "configLibrary")
@@ -154,6 +156,7 @@ func TestClaudeDesktopOutsideEditRecoveryDoesNotLoop(t *testing.T) {
 // A credential command that AIGW did not write fails the inspection of the
 // credential reader, and is still the outside edit that synchronization refuses.
 func TestCodexOutsideCredentialCommandRecoveryDoesNotLoop(t *testing.T) {
+	t.Parallel()
 	const recovery = "Undo the outside edit to the AIGW-managed Codex settings, then run `aigw sync`"
 	app, output, secretStore, _, _ := testApp(t, "")
 	bindCredentialReader(t, app)

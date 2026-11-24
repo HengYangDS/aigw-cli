@@ -74,6 +74,12 @@ label = 'DMXAPI · GPT-6.2 Astra · CDX'
 protocols = { responses = [] }
 
 [[providers.models]]
+id = 'gpt-6.2-astra-ssvip'
+family = 'gpt-6.2-astra'
+label = 'DMXAPI · GPT-6.2 Astra · SSVIP'
+protocols = { responses = [] }
+
+[[providers.models]]
 id = 'gpt-6.2-sol'
 family = 'gpt-6.2-sol'
 protocols = { responses = [] }
@@ -82,6 +88,12 @@ protocols = { responses = [] }
 id = 'gpt-6.2-sol-cdx'
 family = 'gpt-6.2-sol'
 label = 'DMXAPI · GPT-6.2 Sol · CDX'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gpt-6.2-sol-ssvip'
+family = 'gpt-6.2-sol'
+label = 'DMXAPI · GPT-6.2 Sol · SSVIP'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -128,6 +140,17 @@ label = 'DMXAPI · Gemini 4 Argon · SSVIP'
 protocols = { responses = [] }
 
 [[providers.models]]
+id = 'gemini-4-carbon'
+family = 'gemini-4-carbon'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'gemini-4-carbon-ssvip'
+family = 'gemini-4-carbon'
+label = 'DMXAPI · Gemini 4 Carbon · SSVIP'
+protocols = { responses = [] }
+
+[[providers.models]]
 id = 'gemini-4-hydrogen'
 family = 'gemini-4-hydrogen'
 protocols = { responses = [] }
@@ -159,23 +182,18 @@ family = 'longcat-2.5'
 protocols = { responses = [] }
 
 [[providers.models]]
+id = 'Ling-3.2-flash'
+family = 'ling-3.2-flash'
+protocols = { responses = [] }
+
+[[providers.models]]
 id = 'MiniMax-M3.1-Flash'
 family = 'minimax-m3.1-flash'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'muse-wonder'
-family = 'muse-wonder'
-protocols = { responses = [] }
-
-[[providers.models]]
 id = 'qwen4-max'
 family = 'qwen4-max'
-protocols = { responses = [] }
-
-[[providers.models]]
-id = 'step-5-preview'
-family = 'step-5-preview'
 protocols = { responses = [] }
 
 [[providers]]
@@ -255,18 +273,18 @@ family = 'minimax-m3.1-flash'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'muse-wonder-1.0'
-family = 'muse-wonder'
+id = 'qwen4-max'
+family = 'qwen4-max'
 protocols = { responses = [] }
+
+[[providers.models]]
+id = 'muse-spark-1.3'
+family = 'muse-spark-1.3'
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'gemini-4-argon'
 family = 'gemini-4-argon'
-protocols = { chat = [] }
-
-[[providers.models]]
-id = 'gemini-4-carbon'
-family = 'gemini-4-carbon'
 protocols = { chat = [] }
 
 [[providers.models]]
@@ -346,6 +364,11 @@ family = 'gemini-4-hydrogen'
 protocols = { chat = [] }
 
 [[providers.models]]
+id = 'gemini-4-neon'
+family = 'gemini-4-neon'
+protocols = { responses = [] }
+
+[[providers.models]]
 id = 'glm-5.3'
 family = 'glm-5.3'
 protocols = { responses = [] }
@@ -362,9 +385,9 @@ family = 'minimax-m3.1-flash'
 protocols = { responses = [] }
 
 [[providers.models]]
-id = 'muse-wonder'
-family = 'muse-wonder'
-protocols = { responses = [] }
+id = 'muse-spark-1.3'
+family = 'muse-spark-1.3'
+protocols = { chat = [] }
 
 [[providers.models]]
 id = 'qwen4-max'
@@ -399,12 +422,6 @@ protocols = { chat = [] }
 context_window = 256000
 
 [[providers.models]]
-id = 'mercury-2.5'
-family = 'mercury-2.5'
-protocols = { chat = [] }
-context_window = 260000
-
-[[providers.models]]
 id = 'mistral-large-3'
 family = 'mistral-large-3'
 protocols = { chat = [] }
@@ -421,11 +438,6 @@ id = 'solar-pro4'
 family = 'solar-pro4'
 protocols = { chat = [] }
 context_window = 512000
-
-[[providers.models]]
-id = 'step-5-preview'
-family = 'step-5-preview'
-protocols = { chat = [] }
 
 [[providers]]
 id = 'suheai'
@@ -602,6 +614,10 @@ id = 'gemini-4-hydrogen'
 label = 'Gemini 4 Hydrogen'
 
 [[families]]
+id = 'gemini-4-neon'
+label = 'Gemini 4 Neon'
+
+[[families]]
 id = 'glm-5.3'
 label = 'GLM 5.3'
 
@@ -626,12 +642,12 @@ id = 'ling-3.0-flash'
 label = 'Ling 3.0 Flash'
 
 [[families]]
-id = 'longcat-2.5'
-label = 'LongCat 2.5'
+id = 'ling-3.2-flash'
+label = 'Ling 3.2 Flash'
 
 [[families]]
-id = 'mercury-2.5'
-label = 'Mercury 2.5'
+id = 'longcat-2.5'
+label = 'LongCat 2.5'
 
 [[families]]
 id = 'mimo-v2.6-pro'
@@ -642,12 +658,12 @@ id = 'minimax-m3.1-flash'
 label = 'MiniMax M3.1 Flash'
 
 [[families]]
-id = 'mistral-large-3'
-label = 'Mistral Large 3'
+id = 'muse-spark-1.3'
+label = 'Muse Spark 1.3'
 
 [[families]]
-id = 'muse-wonder'
-label = 'Muse Wonder'
+id = 'mistral-large-3'
+label = 'Mistral Large 3'
 
 [[families]]
 id = 'nemotron-3-ultra-550b-a55b'
@@ -660,10 +676,6 @@ label = 'Qwen4-Max'
 [[families]]
 id = 'solar-pro4'
 label = 'Solar Pro 4'
-
-[[families]]
-id = 'step-5-preview'
-label = 'Step 5 Preview'
 
 [[families]]
 id = 'deepseek-v4.1-flash'

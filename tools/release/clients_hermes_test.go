@@ -63,11 +63,18 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 	target := j.clientProjectionPaths(hermes.ID)[0]
 	j.runWith(executable, "config", "set", "model.default", alternative.UpstreamModel)
 	nativeBefore, stateBefore := readFile(j.testing, target), readFile(j.testing, target+".aigw-state.json")
-	var adoption struct {
-		AdoptedSelections map[string]string `json:"adopted_selections"`
+	type followedSelection struct {
+		Client string `json:"client"`
+		Model  string `json:"model"`
 	}
-	if err := json.Unmarshal(j.run("sync", "--dry-run", "--json"), &adoption); err != nil || adoption.AdoptedSelections[hermes.ID] != alternative.Model.String() {
-		j.testing.Fatalf("synchronization preview did not adopt the native selection: %v, %v", adoption.AdoptedSelections, err)
+	var followed struct {
+		Selections []followedSelection `json:"followed_selections"`
+	}
+	err = json.Unmarshal(j.run("sync", "--dry-run", "--json"), &followed)
+	if err != nil || !slices.ContainsFunc(followed.Selections, func(entry followedSelection) bool {
+		return entry.Client == hermes.ID && entry.Model == alternative.Model.String()
+	}) {
+		j.testing.Fatalf("synchronization preview did not follow the native selection: %v, %v", followed.Selections, err)
 	}
 	args := []string{"use", hermes.ID, j.modelName(alternative.Model), "--protocol", alternative.Protocol.Name()}
 	j.run(append(slices.Clone(args), "--dry-run", "--json")...)

@@ -3,7 +3,6 @@ package domain
 import (
 	"cmp"
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 )
@@ -13,7 +12,10 @@ import (
 // every list follows the file. The store records it as it reads the file
 // through the Append methods. An entry that a command adds to a map directly
 // comes after the recorded ones, in identity order, so that no list depends
-// on map order.
+// on map order. No recorded list names an identity twice: each writer records
+// a list that these methods returned, that list with one identity that it does
+// not hold, or (a team file's merge) one such list followed by the entries of
+// another that it does not hold.
 type displayOrder struct {
 	providers []string
 	families  []string
@@ -42,7 +44,7 @@ func (c *Config) ModelRefs() []ModelRef {
 	for index, id := range c.ProviderIDs() {
 		rank[id] = index
 	}
-	slices.SortStableFunc(refs, func(left, right ModelRef) int {
+	byProvider := func(left, right ModelRef) int {
 		leftRank, leftKnown := rank[left.provider]
 		rightRank, rightKnown := rank[right.provider]
 		switch {
@@ -58,7 +60,12 @@ func (c *Config) ModelRefs() []ModelRef {
 		default:
 			return strings.Compare(left.provider, right.provider)
 		}
-	})
+	}
+	// A recorded order that an Append wrote is grouped by provider already; it
+	// is sorted only when an entry that a command set directly breaks that.
+	if !slices.IsSortedFunc(refs, byProvider) {
+		slices.SortStableFunc(refs, byProvider)
+	}
 	return refs
 }
 
@@ -138,6 +145,15 @@ func nilWhenEmpty[T any](values []T) []T {
 // its order, then the others sorted by compare.
 func inDisplayOrder[K comparable, V any](recorded []K, entries map[K]V, compare func(K, K) int) []K {
 	ordered := make([]K, 0, len(entries))
+	// A recorded order as long as the entries that names none that is gone
+	// names each of them once, since no recorded list repeats an identity: it
+	// is the order, as it is after every read of a file and append.
+	if len(recorded) == len(entries) && !slices.ContainsFunc(recorded, func(key K) bool {
+		_, exists := entries[key]
+		return !exists
+	}) {
+		return append(ordered, recorded...)
+	}
 	listed := make(map[K]bool, len(entries))
 	for _, key := range recorded {
 		if _, exists := entries[key]; exists && !listed[key] {
@@ -145,8 +161,16 @@ func inDisplayOrder[K comparable, V any](recorded []K, entries map[K]V, compare 
 			listed[key] = true
 		}
 	}
-	rest := slices.SortedFunc(maps.Keys(entries), compare)
-	return append(ordered, slices.DeleteFunc(rest, func(key K) bool { return listed[key] })...)
+	// Only the entries that no order recorded are sorted: a configuration read
+	// from its file records every entry, and an Append reads the whole order.
+	var rest []K
+	for key := range entries {
+		if !listed[key] {
+			rest = append(rest, key)
+		}
+	}
+	slices.SortFunc(rest, compare)
+	return append(ordered, rest...)
 }
 
 func compareModelRefs(left, right ModelRef) int {

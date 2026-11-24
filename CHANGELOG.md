@@ -23,11 +23,13 @@ signing, and GA status remain separate evidence.
   bounds. `aigw model show` reports every model's window, and
   `aigw model list` shows a window that differs from the default. In JSON,
   each model of `aigw model list`, `show`, `add`, `edit` and `remove` gains
-  `context_window`, and those documents move to `schema_version` 3.
-  `aigw.toml` holds the field only for a model that declares it.
+  `context_window`. `list` and `show` move to `schema_version` 3, and `add`,
+  `edit` and `remove` to 4. `aigw.toml` holds the field only for a model that
+  declares it.
 - `aigw setup --from` names each model whose context window the team file
   changes, with the window before and after, in its preview and its result,
-  under "Context windows"; its JSON gains `changed_windows`. The file's
+  under "Context windows"; its JSON gains `changed_windows` and moves to
+  `schema_version` 6. The file's
   definition of a model still wins, so applying a team file again replaces a
   window that you declared for a model that the file defines.
 
@@ -35,11 +37,11 @@ signing, and GA status remain separate evidence.
 
 - **Breaking:** a configuration, a team file or an `aigw config export` in
   which a model declares `context_window` needs this release or later. It is
-  still `version = 8`, and 0.9.0 refuses it as it refuses any field that it
+  still `version = 8`, and 0.10.0 refuses it as it refuses any field that it
   does not define: a team file with "schema 8 does not define the field
-  providers.models.context_window". So a member still on 0.9.0 cannot apply
+  providers.models.context_window". So a member still on 0.10.0 cannot apply
   the shipped team file, which now declares windows, and `aigw self rollback`
-  to 0.9.0 stops before it changes anything while a model declares a window.
+  to 0.10.0 stops before it changes anything while a model declares a window.
   Remove the declarations first with
   `aigw model edit --default-context-window`, or restore a configuration
   without them with `aigw config rollback`.
@@ -60,14 +62,14 @@ signing, and GA status remain separate evidence.
   as its own `context_length`, and the entry's `models` is a mapping from model
   ID where it was a list of IDs. AIGW still reads a file in the earlier form
   and rewrites it at the next synchronization. A reorder of an entry's models
-  in Hermes's file is refused as an outside edit, as 0.9.0 refused a reordered
+  in Hermes's file is refused as an outside edit, as 0.10.0 refused a reordered
   list. When Hermes starts compression inside the window stays Hermes's own
   setting.
 - The team rollout guide no longer advises keeping the installed client's model
   metadata until the provider's larger limit is verified: AIGW now gives Codex
   the selected model's declared window and Hermes every listed model's.
-- The shipped team file declares a window below 1,000,000 for eight families:
-  seven whose vendor documents one, from Ernie 5.1 at 128,000 to Solar Pro 4 at
+- The shipped team file declares a window below 1,000,000 for seven families:
+  six whose vendor documents one, from Ernie 5.1 at 128,000 to Solar Pro 4 at
   512,000, and MiniMax M2.5, which its vendor has retired, at the 204,800 of
   Hermes's own table. The dated qualification evidence names each source.
   Apply the file again with `aigw setup --from` to take these windows; until
@@ -78,6 +80,127 @@ signing, and GA status remain separate evidence.
   `-context-window`, proves that the entry which Codex renders for the model
   carries that window, and also verifies a model that is itself an entry of
   Codex's table.
+
+## [0.10.0] - 2026-11-23
+
+### Changed
+
+- **Breaking:** a model chosen inside Codex or Hermes is that client's
+  selection for every command, not for `aigw sync` alone. Commands work from
+  it; a command that saves the configuration records it, together with AIGW's
+  record of the client's file, and keeps its own change; and
+  `aigw client disable` and `aigw self uninstall` withdraw after such a
+  choice. When the chosen model's provider has no Token that AIGW can use,
+  the choice is recorded all the same: AIGW moves its record of the client's
+  file to it and leaves the file until the Token is stored. `aigw status` and
+  `aigw check` report the chosen model as
+  configured, where they reported drift. A command that records a choice, its
+  preview, `aigw status`, `aigw check` and bare `aigw` name what they follow:
+  a section "Followed selection" ahead of the next step in text and
+  `followed_selections` in JSON. An entry has `client`, `model` and `earlier`;
+  for Hermes also `protocol` and `earlier_protocol`; `returns_with`, the
+  command that selects the earlier model again, while the configuration holds
+  that model;
+  and `forwarding_cleared` or `retries_cleared` when the client's forwarding
+  or retry budgets ended with the earlier provider. `aigw sync --json` no
+  longer writes `adopted_selections`.
+- **Breaking:** when a client's file names a model that AIGW has not added,
+  the Fix restores the recorded selection, from `aigw sync`, any command that
+  writes that client's files, `aigw status` and `aigw check`:
+  `aigw use <client> <provider/model>`. The failure's text names the command
+  that adds and selects the named model. The Fix was the adding command for
+  Codex and "Undo the outside edit" for Hermes, where no command restored the
+  selection. `aigw use hermes` now replaces a selection that names such a
+  model.
+- `aigw config rollback` names the selections that it restores, each with the
+  model that it replaces: a section "Selections" in text and `selections` in
+  JSON, with `client`, `model` and `replaces`, in its preview and its result.
+  A model chosen in the client since the restored configuration is replaced
+  too, and named, where the rollback writes that client's file.
+- A change that is refused before anything was written says so. Its problem
+  is the refusal's own text, without the words "synchronization preflight
+  failed"; its impact is "Configuration and client files are unchanged."; and
+  a command and its preview read alike. `aigw config rollback` shows such a
+  refusal with its own Fix, where it reported "Configuration rollback did not
+  complete".
+- `aigw use --json` reports `changed` as whether the stored configuration
+  changes, in its preview as in its result.
+- `aigw status` and `aigw check` name the model that Claude Code's own
+  settings select, in text and as `client_model`.
+- **Breaking:** a command that names a client whose provider has no Token now
+  checks that client's files as it does with the Token, without writing them.
+  `aigw sync`, which names every client, and `aigw client edit` refuse when a
+  file of that client is missing where AIGW does not create it, has no
+  readable record, was edited outside AIGW, or selects a different model than
+  another file; they passed over such a client before. The refusal and its
+  Fix are the ones that the same files give with the Token.
+- `aigw config rollback` to the model that the client itself chose stores
+  that selection, or is refused when a file of the client is; it reported
+  success before while the replaced selection stayed stored.
+- `aigw use` after a model was chosen in the client takes the protocol that
+  it keeps by default from the stored selection, and says
+  `forwarding_cleared` or `retries_cleared` when the stored forwarding or
+  retry budgets end.
+- `aigw client edit --target` changes a client's configuration files without a
+  Token. Naming the files that the client has, or adding one, is saved on the
+  model chosen in the client and writes no file, and AIGW's record of each
+  file follows it. An edit that drops a file is no longer refused: AIGW
+  removes its settings and its record from each file that the edit drops,
+  which needs no Token, and the files that the client keeps wait for the
+  Token, whose step the edit names next. Whether the edit is saved no longer
+  depends on the Token.
+- A Token whose presence cannot be observed, as a locked keychain or a Token
+  file that the file store refuses leaves it, no longer refuses a command: the
+  clients that use it wait for it as they do for an absent Token, and the
+  model chosen in a client's file is recorded. `aigw sync` and its preview,
+  which were refused with "Synchronization prerequisites are unavailable",
+  write the other clients and report the state `unavailable`; the next step is
+  the store's own fix where it names one, such as a file in the way of the
+  Token folder, and `aigw check --depth local` otherwise. Hermes leaves out
+  the models of another provider whose Token cannot be observed, as it leaves
+  out those of a provider without a Token; a command that wrote Hermes's file
+  was refused, and other commands left AIGW's record of that file behind a
+  model chosen in Hermes.
+- `aigw config rollback` restores the files that it drops while the client's
+  provider has no Token that AIGW can use, instead of leaving AIGW's settings
+  and record in a file that the client no longer has; the files that the
+  client keeps wait for its Token as before.
+- A model picked in Codex's file is read as TOML, whatever its spelling. A
+  pick written as a literal string (`model = 'gpt-terra'`) was not followed:
+  `aigw status` reported drift and `aigw sync` refused it as an outside edit.
+- `aigw client edit` after a model was chosen in the client is judged
+  against the stored selection and saves the choice with its own change.
+  `aigw client edit hermes --direct` after a choice that ended the stored
+  forwarding reported "Nothing to change" and left the forwarding stored, so
+  it came back with the stored model.
+- `aigw model remove` of the model that a client's stored selection names,
+  while a file of that client is refused and its own choice cannot be
+  recorded, is refused with that file's refusal and its Fix. It was refused
+  with "refuse invalid config" and `aigw check` as the next step.
+- **Breaking:** `aigw setup --from` now leaves only the configuration that the
+  team file describes. The local-only models that no client selects and no
+  recommendation names are removed in the same transaction as the merge, and
+  then the families that no remaining model uses, so importing the file on a
+  machine that has collected older families beside their successors leaves the
+  file's models plus whatever a client or a recommendation uses. The preview
+  and the result name every model and family that the import removes.
+  Providers, their endpoints and Tokens, and every client's selection are
+  unchanged, and `aigw config rollback --last-change` restores a removal.
+- **Breaking:** the `--prune` flag is removed, because the import now prunes by
+  default; `aigw setup --prune` fails as an unknown option. `--keep-local`
+  keeps the local-only models and families that the import would otherwise
+  remove, which is what `--from` did before this change.
+- The shipped team file follows each provider's lines and vendors as of 2026-11-23. Gemini 4 Neon joins on
+  AIHubMix, Gemini 4 Carbon on DMXAPI, Qwen4-Max on UCloud, DMXAPI's SSVIP channels of GPT-6.2 Astra and Sol, and
+  Ling-3.2-Flash on DMXAPI. Muse Spark 1.3 replaces the Muse Wonder preview; the Step 5 preview leaves. UCloud's
+  Gemini 4 Carbon and AIHubMix's Mercury 2.5 leave, since those providers no longer list them. Applying the file
+  keeps your clients' explicit selections of a model that leaves.
+- These documents move up one `schema_version` for the fields above:
+  `aigw status` 4, `aigw check` 5, `aigw sync` 4, `aigw use` 4,
+  `aigw setup --from` 5, `aigw config rollback` 3, `aigw self uninstall` 3,
+  `aigw provider add` and `edit` 3, `aigw provider remove` 2, `aigw model add`,
+  `edit` and `remove` 3, `aigw client enable` and `disable` 3, and
+  `aigw client edit` 2.
 
 ## [0.9.0] - 2026-11-21
 

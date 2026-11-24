@@ -9,14 +9,16 @@ import (
 // `aigw route list` and `aigw route show`, add, edit and remove replace those
 // of the route writes, and search replaces those of `aigw catalog` and
 // `aigw models`, so each continues from its predecessors' schema_version 1.
-// The documents that hold a model moved to 3 when the model gained
-// context_window.
+// add, edit and remove moved to 3 when they began to name followed
+// selections (0.10.0); every document that holds a model moved up one more
+// when the model gained context_window: list and show to 3, add, edit and
+// remove to 4.
 const (
 	listSchemaVersion   = 3
 	showSchemaVersion   = 3
-	addSchemaVersion    = 3
-	editSchemaVersion   = 3
-	removeSchemaVersion = 3
+	addSchemaVersion    = 4
+	editSchemaVersion   = 4
+	removeSchemaVersion = 4
 	searchSchemaVersion = 2
 )
 

@@ -127,10 +127,14 @@ exitcode 1 aigw setup --from team.toml --provider team --provider spare --token-
 normalize stdout two-providers.out
 cmp two-providers.out two-providers.json
 fixloop -input stdout aigw setup --from team.toml --provider team --provider spare --token-stdin --json
-exitcode 1 aigw setup --prune --json
+exitcode 1 aigw setup --keep-local --json
 normalize stdout prune-alone.out
 cmp prune-alone.out prune-alone.json
-fixloop -input stdout aigw setup --prune --json
+fixloop -input stdout aigw setup --keep-local --json
+
+# A flag of the surface that is no longer declared is refused as unknown.
+exitcode 1 aigw setup --from team.toml --prune --json
+stdout 'unknown option --prune'
 
 # A Token that the provider rejects leaves its provider without a Token: the
 # team file is applied, and the command fails so that the script sees it.
@@ -163,7 +167,7 @@ exec aigw model show team/team-model --json
 stdout '"label": "Team Gateway Again · Team Model Again"'
 exec aigw status --json
 stdout '"claude": \{\n\s+"state": "configured"'
-exec aigw setup --from again.toml --prune --json
+exec aigw setup --from again.toml --json
 normalize stdout pruned.out
 cmp pruned.out pruned.json
 # A file whose model would take the protocol of Claude's selection keeps the
@@ -351,8 +355,8 @@ Options
       --from string                Apply a team file: its providers, models, families and recommendations
   -h, --help[=true|false]          help for setup
       --json[=true|false]          Write the setup result as JSON
+      --keep-local[=true|false]    With --from, keep the local-only models and families that the import would otherwise remove
       --provider stringArray       With --from, a provider whose Token to read, at a prompt or from --token-stdin, unless one is stored; repeatable
-      --prune[=true|false]         With --from, remove the local models that no client selects and no recommendation names, and unused families
       --token-stdin[=true|false]   With --from, read the one --provider's Token from standard input
 -- team.in --
 version = 8
@@ -475,7 +479,7 @@ anthropic = "https://team.invalid"
 -- empty-file --
 -- team-preview.json --
 {
-  "schema_version": 4,
+  "schema_version": 6,
   "ok": true,
   "dry_run": true,
   "added": {
@@ -559,12 +563,12 @@ Next
 {
   "schema_version": 3,
   "ok": false,
-  "error": "--provider, --prune and --token-stdin apply a team file, so they need --from; run `aigw setup --help`",
+  "error": "--provider, --keep-local and --token-stdin apply a team file, so they need --from; run `aigw setup --help`",
   "next_action": "aigw setup --help"
 }
 -- team-rejected.json --
 {
-  "schema_version": 4,
+  "schema_version": 6,
   "ok": false,
   "added": {
     "providers": [
@@ -619,7 +623,7 @@ Next
 }
 -- team-connected.json --
 {
-  "schema_version": 4,
+  "schema_version": 6,
   "ok": true,
   "added": {
     "providers": [],
@@ -667,7 +671,7 @@ Next
 }
 -- again-preview.json --
 {
-  "schema_version": 4,
+  "schema_version": 6,
   "ok": true,
   "dry_run": true,
   "added": {
@@ -701,6 +705,13 @@ Next
       "file": "Team Model Again"
     }
   ],
+  "pruned": {
+    "providers": [],
+    "models": [
+      "spare/spare-model"
+    ],
+    "families": []
+  },
   "kept_endpoints": [
     {
       "provider": "team",
@@ -771,7 +782,7 @@ Next
 }
 -- again.json --
 {
-  "schema_version": 4,
+  "schema_version": 6,
   "ok": true,
   "added": {
     "providers": [],
@@ -804,6 +815,13 @@ Next
       "file": "Team Model Again"
     }
   ],
+  "pruned": {
+    "providers": [],
+    "models": [
+      "spare/spare-model"
+    ],
+    "families": []
+  },
   "kept_endpoints": [
     {
       "provider": "team",
@@ -893,7 +911,7 @@ Next
   aigw check
 -- pruned.json --
 {
-  "schema_version": 4,
+  "schema_version": 6,
   "ok": true,
   "added": {
     "providers": [],
@@ -903,13 +921,6 @@ Next
   "changed": {
     "providers": [],
     "models": [],
-    "families": []
-  },
-  "pruned": {
-    "providers": [],
-    "models": [
-      "spare/spare-model"
-    ],
     "families": []
   },
   "kept_endpoints": [
@@ -975,7 +986,7 @@ Next
 }
 -- deferred.json --
 {
-  "schema_version": 4,
+  "schema_version": 6,
   "ok": true,
   "added": {
     "providers": [
@@ -1027,7 +1038,7 @@ Next
 }
 -- deferred-empty.json --
 {
-  "schema_version": 4,
+  "schema_version": 6,
   "ok": true,
   "added": {
     "providers": [],
@@ -1068,7 +1079,7 @@ Next
 }
 -- away.json --
 {
-  "schema_version": 4,
+  "schema_version": 6,
   "ok": true,
   "added": {
     "providers": [],

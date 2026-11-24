@@ -384,8 +384,9 @@ func TestCommitProjectionPreservesConfigurationWhenPreflightFails(t *testing.T) 
 		t.Fatal(err)
 	}
 	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target)}
-	if err := syncer.CommitProjection(context.Background(), before, after, "sync"); err == nil || !strings.Contains(err.Error(), "preflight") || strings.Contains(err.Error(), "rolled back") {
-		t.Fatalf("preflight failure must not claim rollback: %v", err)
+	err = syncer.CommitProjection(context.Background(), before, after, "sync")
+	if _, refused := errors.AsType[*PreflightError](err); !refused || strings.Contains(err.Error(), "rolled back") {
+		t.Fatalf("a refusal before any write must be one, and claim no rollback: %v", err)
 	}
 	restored, err := os.ReadFile(configPath)
 	if err != nil {
@@ -502,8 +503,8 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	}
 	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Host: hostAt(dir), AIGWExecutable: "/usr/local/bin/aigw"}
 	err := syncer.Commit(context.Background(), before, after, "enable Claude")
-	if err == nil || !strings.Contains(err.Error(), "preflight") || strings.Contains(err.Error(), "rolled back") {
-		t.Fatalf("Commit() error = %v", err)
+	if _, refused := errors.AsType[*PreflightError](err); !refused || strings.Contains(err.Error(), "rolled back") {
+		t.Fatalf("Commit() error = %v, want a refusal before any write", err)
 	}
 	stored, loadErr := configStore.Load()
 	if loadErr != nil || stored.Clients[claude.ID].Enabled {
