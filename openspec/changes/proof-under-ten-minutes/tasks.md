@@ -20,7 +20,7 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Pass `mise run check` on the lane head.
+- [x] 3.1 Pass `mise run check` on the lane head (`db14ca778`; the later commits change OpenSpec records only).
 - [x] 3.2 A fresh review of the lane's whole change by a reviewer who has not seen it. Done when its findings are
       answered in code or in this design.
 - [x] 3.4 Pass the proposal's hosted checks on both forges.
