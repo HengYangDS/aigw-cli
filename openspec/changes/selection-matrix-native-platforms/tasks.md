@@ -12,7 +12,7 @@
 
 ## 2. Verification
 
-- [ ] 2.1 Pass `mise run check` on the lane head.
+- [x] 2.1 Pass `mise run check` on the lane head (`bfd889b82`; the later commits change OpenSpec records only).
 - [x] 2.2 A fresh review of the lane's whole change by a reviewer who has not seen it. Done when its findings are
       answered in code or in this design.
 - [x] 2.3 Pass the proposal's hosted checks on both Forges, with the matrix's tests in the macOS and Windows native
