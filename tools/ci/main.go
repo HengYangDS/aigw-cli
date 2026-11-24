@@ -167,7 +167,7 @@ func resolveTagCommit(tag string, inquiry outputRunner) (string, error) {
 	return commit, nil
 }
 
-const nativeUsage = "usage: ci native [--platform <darwin|linux|windows>] [--full-quality] [--protected-file <path>] [-- <release accept-native arguments>] | ci native [--platform <darwin|linux|windows>] --from-env"
+const nativeUsage = "usage: ci native [--platform <darwin|linux|windows>] [--selection-matrix] [--full-quality] [--protected-file <path>] [-- <release accept-native arguments>] | ci native [--platform <darwin|linux|windows>] [--selection-matrix] --from-env"
 
 func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 	request := nativeRequest{}
@@ -180,6 +180,7 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 	flags.StringVar(&request.platform, "platform", runtime.GOOS, "darwin, linux, or windows")
 	flags.BoolVar(&request.fullQuality, "full-quality", false, "Qualify every repository quality tool on this host before native acceptance")
 	flags.StringVar(&request.protectedFile, "protected-file", "", "Qualify denial and no elevation grant for an exact native review resource")
+	flags.BoolVar(&request.selectionMatrix, "selection-matrix", false, "Run the quality graph's selection-matrix gate, on a platform where no quality job of the pipeline runs it")
 	fromEnvironment := flags.Bool("from-env", false, "Derive the native job from its GitLab inputs")
 	session := flags.Bool("secret-service-session", false, "Run the derived job inside its private Secret Service session")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || !supportedNativePlatform(request.platform) ||
@@ -196,19 +197,22 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 	if err != nil {
 		return err
 	}
-	host := nativeHost{getenv: os.Getenv, platform: request.platform, workdir: workdir, session: *session, inquiry: systemOutputRunner, attach: runAttached}
+	host := nativeHost{getenv: os.Getenv, platform: request.platform, workdir: workdir, session: *session, selectionMatrix: request.selectionMatrix, inquiry: systemOutputRunner, attach: runAttached}
 	return runNativeJob(host, stdout, runner)
 }
 
 // nativeRequest is one native acceptance invocation. Every command inherits
 // environment; setup runs before source qualification only.
 type nativeRequest struct {
-	platform      string
-	fullQuality   bool
-	protectedFile string
-	release       []string
-	environment   []string
-	setup         []command
+	platform    string
+	fullQuality bool
+	// selectionMatrix adds the quality graph's selection-matrix gate where the
+	// pipeline runs no quality job; the full quality graph already holds it.
+	selectionMatrix bool
+	protectedFile   string
+	release         []string
+	environment     []string
+	setup           []command
 }
 
 func runNativeRequest(request nativeRequest, stdout io.Writer, runner commandRunner) (result error) {
@@ -234,6 +238,13 @@ func runNativeRequest(request nativeRequest, stdout io.Writer, runner commandRun
 			return err
 		}
 		commands = append(slices.Clone(qualityCommands), commands[1:]...)
+	}
+	if request.selectionMatrix && !request.fullQuality && len(commands) != 0 {
+		matrix, ok := repositoryQualityGraph.gate(selectionMatrixGate)
+		if !ok {
+			return fmt.Errorf("quality graph has no %s gate", selectionMatrixGate)
+		}
+		commands = slices.Insert(commands, 1, matrix.Command)
 	}
 	if os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {
 		for index := range commands {

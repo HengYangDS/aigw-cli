@@ -89,7 +89,7 @@ var repositoryQualityGraph = qualityGraph{
 		{ID: "dependency-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=dependency_acceptance", "./tools/ci", "-run", "^TestNativeDependencyEvidenceRetainsFindings$"}}, Concerns: []qualityConcern{qualityTest, qualitySecurity}},
 		// The exhaustive tests of a client's own choice: every command in every state of the files. They run without
 		// the race detector and coverage, whose run they would carry past its package limit.
-		{ID: "selection-matrix", Command: command{Name: "go", Args: []string{"test", "-tags=selection_matrix", "-count=1", "-timeout=1h", "./internal/cli/acceptance", "-run", "^TestMatrix"}}, Concerns: []qualityConcern{qualityTest}},
+		{ID: selectionMatrixGate, Command: command{Name: "go", Args: []string{"test", "-tags=selection_matrix", "-count=1", "-timeout=1h", "./internal/cli/acceptance", "-run", "^TestMatrix"}}, Concerns: []qualityConcern{qualityTest}},
 		{ID: "workflow-lint", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-workflows", "."}}, Concerns: []qualityConcern{qualityLint, qualitySchema, qualityWorkflow}},
 		{ID: "coverage", Command: command{Name: "go", Args: []string{"run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"}}, Concerns: []qualityConcern{qualityTest}, SourceOnly: true},
 	},
@@ -113,6 +113,19 @@ var repositoryQualityGraph = qualityGraph{
 		{Class: "toolchain", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"format", "spelling", "toml", "npm-signatures", "go-module-tidy", "go-module-integrity", "vulnerabilities", "dependency-acceptance", "toolchain", "coverage"}},
 		{Class: "repository-metadata", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture, qualitySchema}, Gates: []string{"format", "spelling", "release-sources", "coverage"}},
 	},
+}
+
+// selectionMatrixGate names the gate of the exhaustive selection tests, which
+// a native job also runs on a platform where its pipeline runs no quality job.
+const selectionMatrixGate = "selection-matrix"
+
+// gate returns the graph's gate of the identity, and whether the graph has one.
+func (graph qualityGraph) gate(id string) (qualityGate, bool) {
+	at := slices.IndexFunc(graph.Gates, func(gate qualityGate) bool { return gate.ID == id })
+	if at < 0 {
+		return qualityGate{}, false
+	}
+	return graph.Gates[at], true
 }
 
 func (graph qualityGraph) commands(source bool) []command {
