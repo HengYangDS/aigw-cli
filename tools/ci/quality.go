@@ -89,7 +89,7 @@ var repositoryQualityGraph = qualityGraph{
 		{ID: "dependency-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=dependency_acceptance", "./tools/ci", "-run", "^TestNativeDependencyEvidenceRetainsFindings$"}}, Concerns: []qualityConcern{qualityTest, qualitySecurity}},
 		// The exhaustive tests of a client's own choice: every command in every state of the files. They run without
 		// the race detector and coverage, whose run they would carry past its package limit.
-		{ID: "selection-matrix", Command: command{Name: "go", Args: []string{"test", "-tags=selection_matrix", "-count=1", "-timeout=1h", "./internal/cli/acceptance", "-run", "^Test(EveryCommandLeavesEachRecordNamingWhatItsFileSelects|ZZ11)"}}, Concerns: []qualityConcern{qualityTest}},
+		{ID: "selection-matrix", Command: command{Name: "go", Args: []string{"test", "-tags=selection_matrix", "-count=1", "-timeout=1h", "./internal/cli/acceptance", "-run", "^TestMatrix"}}, Concerns: []qualityConcern{qualityTest}},
 		{ID: "workflow-lint", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-workflows", "."}}, Concerns: []qualityConcern{qualityLint, qualitySchema, qualityWorkflow}},
 		{ID: "coverage", Command: command{Name: "go", Args: []string{"run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"}}, Concerns: []qualityConcern{qualityTest}, SourceOnly: true},
 	},

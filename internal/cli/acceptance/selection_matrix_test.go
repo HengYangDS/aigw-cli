@@ -8,6 +8,8 @@ package cli_test
 // the race detector and coverage: under the race detector they take about six times
 // as long and ran past the coverage run's package limit (full checks of 2026-11-22
 // and 2026-11-23). The ordinary tests of the same rules stay in the untagged files.
+// Every test here begins with TestMatrix, the gate's whole selection, so that it
+// runs none of the untagged tests, which go-behavior runs.
 
 import (
 	"slices"
@@ -23,55 +25,55 @@ import (
 // path on which a record stayed behind a file; these tests run the product of
 // states and commands instead of the paths that a reviewer happens to pick.
 // There is one test for each client's matrix, so that each runs alone.
-func TestEveryCommandLeavesEachRecordNamingWhatItsFileSelectsCodexOneFile(t *testing.T) {
+func TestMatrixEveryCommandLeavesEachRecordNamingWhatItsFileSelectsCodexOneFile(t *testing.T) {
 	codexOneFileMatrix().run(t)
 }
 
 // The matrix of Codex on two files.
-func TestEveryCommandLeavesEachRecordNamingWhatItsFileSelectsCodexTwoFiles(t *testing.T) {
+func TestMatrixEveryCommandLeavesEachRecordNamingWhatItsFileSelectsCodexTwoFiles(t *testing.T) {
 	codexTwoFilesMatrix().run(t)
 }
 
 // The matrix of Hermes.
-func TestEveryCommandLeavesEachRecordNamingWhatItsFileSelectsHermes(t *testing.T) {
+func TestMatrixEveryCommandLeavesEachRecordNamingWhatItsFileSelectsHermes(t *testing.T) {
 	hermesMatrix().run(t)
 }
 
 // Every command of zz11CodexCommands in every state of Codex on one file,
 // with the Token and without it: the rule, judged by zz11Judge.
-func TestZZ11CommandsOutsideTheMatrixCodexOneFile(t *testing.T) {
+func TestMatrixCommandsOutsideTheMatrixCodexOneFile(t *testing.T) {
 	zz11Sweep(t, zz11CodexStates(1), zz11CodexCommands())
 }
 
 // The same for Codex on two files, in four parts, so that each run stays
 // inside the time that a run may take.
-func TestZZ11CommandsOutsideTheMatrixCodexTwoFilesFirst(t *testing.T) {
+func TestMatrixCommandsOutsideTheMatrixCodexTwoFilesFirst(t *testing.T) {
 	zz11Sweep(t, zz11Part(zz11CodexStates(2), 4, 0), zz11CodexCommands())
 }
 
-func TestZZ11CommandsOutsideTheMatrixCodexTwoFilesSecond(t *testing.T) {
+func TestMatrixCommandsOutsideTheMatrixCodexTwoFilesSecond(t *testing.T) {
 	zz11Sweep(t, zz11Part(zz11CodexStates(2), 4, 1), zz11CodexCommands())
 }
 
-func TestZZ11CommandsOutsideTheMatrixCodexTwoFilesThird(t *testing.T) {
+func TestMatrixCommandsOutsideTheMatrixCodexTwoFilesThird(t *testing.T) {
 	zz11Sweep(t, zz11Part(zz11CodexStates(2), 4, 2), zz11CodexCommands())
 }
 
-func TestZZ11CommandsOutsideTheMatrixCodexTwoFilesFourth(t *testing.T) {
+func TestMatrixCommandsOutsideTheMatrixCodexTwoFilesFourth(t *testing.T) {
 	zz11Sweep(t, zz11Part(zz11CodexStates(2), 4, 3), zz11CodexCommands())
 }
 
 // Every command of zz11HermesSweepCommands in every state of Hermes, with
 // each Token and without it, in three parts.
-func TestZZ11CommandsOutsideTheMatrixHermesFirst(t *testing.T) {
+func TestMatrixCommandsOutsideTheMatrixHermesFirst(t *testing.T) {
 	zz11Sweep(t, zz11Part(zz11HermesStates(), 3, 0), zz11HermesSweepCommands())
 }
 
-func TestZZ11CommandsOutsideTheMatrixHermesSecond(t *testing.T) {
+func TestMatrixCommandsOutsideTheMatrixHermesSecond(t *testing.T) {
 	zz11Sweep(t, zz11Part(zz11HermesStates(), 3, 1), zz11HermesSweepCommands())
 }
 
-func TestZZ11CommandsOutsideTheMatrixHermesThird(t *testing.T) {
+func TestMatrixCommandsOutsideTheMatrixHermesThird(t *testing.T) {
 	zz11Sweep(t, zz11Part(zz11HermesStates(), 3, 2), zz11HermesSweepCommands())
 }
 
@@ -90,7 +92,7 @@ func TestZZ11CommandsOutsideTheMatrixHermesThird(t *testing.T) {
 //   - A pick of the model that the last change added, which a rollback takes
 //     out of the configuration again.
 //   - Two files of which one lost its model line and the other chose.
-func TestZZ11TheMatrixsCommandsInFurtherStatesCodex(t *testing.T) {
+func TestMatrixCommandsInFurtherStatesCodex(t *testing.T) {
 	states := map[string]func(t *testing.T) selectionWorld{
 		plainState: func(t *testing.T) selectionWorld { return codexWorld(t, 1) },
 		"a third model picked while the stored selection waits": func(t *testing.T) selectionWorld {
@@ -138,7 +140,7 @@ func TestZZ11TheMatrixsCommandsInFurtherStatesCodex(t *testing.T) {
 //   - A last change that changes what Hermes's file holds without another
 //     binding: the chosen entry's endpoint.
 //   - A pick of the model that the last change added.
-func TestZZ11TheMatrixsCommandsInFurtherStatesHermes(t *testing.T) {
+func TestMatrixCommandsInFurtherStatesHermes(t *testing.T) {
 	states := map[string]func(t *testing.T) selectionWorld{
 		plainState: hermesPlain,
 		"a third model picked while the stored selection waits": func(t *testing.T) selectionWorld {
@@ -175,7 +177,7 @@ func TestZZ11TheMatrixsCommandsInFurtherStatesHermes(t *testing.T) {
 // follows from it: the person selects gpt-6.2-sol again, in the same spelling,
 // the Token is there, and `aigw sync` must leave that last pick stored and in
 // the file, or refuse and change nothing.
-func TestZZ11AHermesPickInFurtherSpellingsIsRecordedOrRefused(t *testing.T) {
+func TestMatrixAHermesPickInFurtherSpellingsIsRecordedOrRefused(t *testing.T) {
 	t.Parallel()
 	const earlier, chosen = "aigw-dmxapi-responses/gpt-6.2-sol", "aigw-dmxapi-anthropic/claude-opus-5-5"
 	for _, pick := range zz11HermesPicks() {
