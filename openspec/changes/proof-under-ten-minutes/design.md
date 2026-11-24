@@ -88,6 +88,13 @@ package; the figures are in the proposal.
 - **Applies to:** `internal/cli/acceptance/fixtures_test.go`, `keychain_worker_test.go`, `sync_test.go`,
   `client_test.go`.
 
+## Acceptance
+
+The Change's goal, a full proof of 600 s or less on this host, is measured by the one full proof that its archive
+commit needs before it lands; a task cannot record it, because that proof comes after the archive. Its record holds
+the proof's time from admission to release and the 1-minute load at admission. If it takes longer, the remaining
+cost and the matrix's place in the proof go to the owner as a decision.
+
 ## Risks / Trade-offs
 
 - Parallel tests can expose shared state that serial runs hid; the race detector and the hosted platforms are the

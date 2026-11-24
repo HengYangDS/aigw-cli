@@ -23,7 +23,4 @@
 - [ ] 3.1 Pass `mise run check` on the lane head.
 - [x] 3.2 A fresh review of the lane's whole change by a reviewer who has not seen it. Done when its findings are
       answered in code or in this design.
-- [ ] 3.3 A full proof of the lane head held 600 s or less on this host, with its admission load recorded. Done when
-      the proof record shows it; if it does not, the remaining cost and the matrix's place in the proof go to the owner
-      as a decision.
 - [x] 3.4 Pass the proposal's hosted checks on both forges.
