@@ -101,6 +101,6 @@ evidence_class = "proof"
 trust_bearing = true
 writes_files = true
 network_policy = "required"
-# The quality run includes the tagged selection-matrix gate, which took 620 s in the check of
-# 5006895d4; the proof of eb5fb89d0 met ETHOS's default bound of 600 s inside it.
-timeout_seconds = 2400
+# The quality run includes the tagged selection-matrix gate (537 s in the proof of 7e64d0b7d), whose
+# own bound is 45 minutes; this bound outlasts it, so a hang ends with Go's diagnostics.
+timeout_seconds = 3600

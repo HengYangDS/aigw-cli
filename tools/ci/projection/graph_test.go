@@ -175,14 +175,14 @@ func TestFullNativeQualityIsExplicitAndUsesTheExistingEntryPoint(t *testing.T) {
 	for _, platform := range []string{"darwin", "linux", "windows"} {
 		ordinary, full := 0, 0
 		for _, step := range github.Jobs["native-"+platform].Steps {
-			base := "mise exec --locked -- go run ./tools/ci native --platform " + platform
-			switch step.Run {
-			case base:
+			flags, native := nativeCommandFlags(step.Run, platform)
+			switch {
+			case native && len(flags) == 0:
 				ordinary++
 				if step.If != "github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')" {
 					t.Fatalf("%s ordinary native selection = %q", platform, step.If)
 				}
-			case base + " --full-quality":
+			case native && slices.Equal(flags, []string{"--full-quality"}):
 				full++
 				if step.If != "github.event_name == 'workflow_dispatch' && inputs.full_quality" || step.Env["CGO_ENABLED"] != "1" {
 					t.Fatalf("%s full native selection or compiler capability is incomplete: %#v", platform, step)
@@ -209,8 +209,7 @@ func TestGitLabFullNativeQualityUsesTheExistingEntryPoint(t *testing.T) {
 		}
 		platform := strings.TrimSuffix(strings.TrimPrefix(name, "native-"), "-review")
 		// The native command maps AIGW_FULL_NATIVE_QUALITY to its own --full-quality flag.
-		want := "mise exec --locked -- go run ./tools/ci native --platform " + platform + " --from-env"
-		if !slices.Contains(job.Script, want) {
+		if !slices.ContainsFunc(job.Script, isNativeJobCommand(platform)) {
 			t.Fatalf("GitLab %s lacks the same explicit native-quality entrypoint", name)
 		}
 	}

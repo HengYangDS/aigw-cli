@@ -18,7 +18,7 @@ import (
 // test that both gates select runs twice in every proof.
 func TestSelectionMatrixGateSelectsOnlyItsOwnTag(t *testing.T) {
 	index := slices.IndexFunc(repositoryQualityGraph.Gates, func(gate qualityGate) bool {
-		return gate.ID == "selection-matrix"
+		return gate.ID == selectionMatrixGate
 	})
 	if index < 0 {
 		t.Fatal("the quality graph has no selection-matrix gate")

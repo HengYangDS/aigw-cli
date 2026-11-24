@@ -352,7 +352,7 @@ func checkGitLabNativeToolClosure(t *testing.T, content string) {
 			t.Errorf("GitLab %s Darwin signer presence = %t", name, hasDarwinSigner)
 		}
 		// The native command bootstraps locked dependencies before source qualification.
-		native := slices.Index(job.Script, "mise exec --locked -- go run ./tools/ci native --platform "+strings.TrimPrefix(name, "native-")+" --from-env")
+		native := slices.IndexFunc(job.Script, isNativeJobCommand(strings.TrimPrefix(name, "native-")))
 		if native < 0 || native >= len(job.Script)-1 {
 			t.Errorf("GitLab %s must prepare locked dependencies before native acceptance", name)
 		}
@@ -467,8 +467,7 @@ func TestGitLabNativeAcceptanceForwardsPeerLocalArtifactAndClientInputs(t *testi
 		// The native command maps every declared release input and fences
 		// diagnostics; its table tests cover each input.
 		platform := strings.TrimSuffix(strings.TrimPrefix(name, "native-"), "-review")
-		native := "mise exec --locked -- go run ./tools/ci native --platform " + platform + " --from-env"
-		if strings.Contains(strings.Join(job.Script, "\n"), "gh release download") || !slices.Contains(job.Script, native) {
+		if strings.Contains(strings.Join(job.Script, "\n"), "gh release download") || !slices.ContainsFunc(job.Script, isNativeJobCommand(platform)) {
 			t.Errorf("%s must use its own peer and the existing native controller", name)
 		}
 	}

@@ -243,8 +243,8 @@ productEvidence: native: ["darwin", "linux", "windows"]
 
 gitlabControlPlatform: #OperatingSystem & "darwin"
 
-// Both Forges' quality jobs run the whole quality graph, on this platform's
-// runners and with its toolchain.
+// Both Forges' quality jobs run the whole quality graph on this platform's
+// runners; their toolchain setup is written for Linux.
 qualityPlatform: #OperatingSystem & "linux"
 
 // This map owns native execution evidence only. Product release targets remain
@@ -531,8 +531,10 @@ _gitLabEvidenceExpiry: "\(evidenceRetentionDays) days"
 	if _platform != "windows" {defaults: run: shell: "bash"}
 	if _platform == "windows" {defaults: run: shell: "pwsh"}
 
-	// Supplying real clients adds their installation to the journey.
-	"timeout-minutes": "${{ inputs.native_clients && 60 || 40 }}"
+	// One budget for every native path: the longest, the selection matrix
+	// (its own bound 45 minutes) after the source check, and the official
+	// clients' journeys, which run no matrix, fit inside it.
+	"timeout-minutes": 60
 	// A manual run selects its native platform, from a tag ref too.
 	if: "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
 	env: MISE_ENABLE_TOOLS: "${{ (\(_sourceCondition)) && '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' || inputs.performance && '\(nativeArtifactToolchain.github[_platform].MISE_ENABLE_TOOLS),\(strings.Join(toolchainTools.performance, ","))' || '\(nativeArtifactToolchain.github[_platform].MISE_ENABLE_TOOLS)' }}\(_clientTools)"
@@ -1038,9 +1040,10 @@ githubVerify: {
 			]
 		}
 		quality: {
-			name:              "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph.quality.name)' || '\(graph.quality.name)' }}"
-			"runs-on":         nativeEvidence[qualityPlatform].github.runner
-			"timeout-minutes": 25
+			name:      "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph.quality.name)' || '\(graph.quality.name)' }}"
+			"runs-on": nativeEvidence[qualityPlatform].github.runner
+			// The quality graph holds the selection matrix, bounded at 45 minutes.
+			"timeout-minutes": 60
 			if:                githubSourceVerificationCondition
 			env:               qualityToolchain
 			steps: [

@@ -11,7 +11,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/pelletier/go-toml/v2"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -24,15 +26,6 @@ func nativeMatrixEnvironment(t *testing.T) {
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 }
 
-// invocations reduces commands to what they run, without their environment.
-func invocations(calls []command) []command {
-	reduced := make([]command, 0, len(calls))
-	for _, call := range calls {
-		reduced = append(reduced, command{Name: call.Name, Args: call.Args})
-	}
-	return reduced
-}
-
 func recordNative(t *testing.T, args ...string) []command {
 	t.Helper()
 	var calls []command
@@ -42,37 +35,43 @@ func recordNative(t *testing.T, args ...string) []command {
 	}); err != nil {
 		t.Fatalf("native %v: %v", args, err)
 	}
-	return invocations(calls)
+	return calls
 }
 
-func selectionMatrixGateCommand(t *testing.T) command {
-	t.Helper()
-	gate, ok := repositoryQualityGraph.gate(selectionMatrixGate)
-	if !ok {
-		t.Fatal("the quality graph has no selection-matrix gate")
+func runsTheMatrix(calls []command) int {
+	want := commandArguments([]command{selectionMatrixCommand})[0]
+	count := 0
+	for _, call := range commandArguments(calls) {
+		if slices.Equal(call, want) {
+			count++
+		}
 	}
-	return gate.Command
+	return count
 }
 
-func TestNativeSelectionMatrixRunsTheQualityGraphsGateAfterTheSourceCheck(t *testing.T) {
+func TestNativeSelectionMatrixRunsAfterTheSourceCheckInTheTestsEnvironment(t *testing.T) {
 	nativeMatrixEnvironment(t)
-	plain := recordNative(t)
-	matrix := recordNative(t, "--selection-matrix")
-	want := slices.Insert(slices.Clone(plain), 1, selectionMatrixGateCommand(t))
-	if !reflect.DeepEqual(matrix, want) {
-		t.Fatalf("native --selection-matrix = %#v, want the gate between the source check and the tests: %#v", matrix, want)
+	plain := commandArguments(recordNative(t))
+	calls := recordNative(t, "--selection-matrix")
+	want := slices.Insert(slices.Clone(plain), 1, commandArguments([]command{selectionMatrixCommand})[0])
+	if got := commandArguments(calls); !reflect.DeepEqual(got, want) {
+		t.Fatalf("native --selection-matrix = %q, want the matrix between the source check and the tests: %q", got, want)
+	}
+	// The matrix sees the coverage run's isolated environment, never the job's
+	// own temporary folder or Forge credentials.
+	if matrix, tests := calls[1].Env, calls[len(calls)-1].Env; len(tests) == 0 || !slices.Equal(matrix, tests) {
+		t.Fatalf("matrix environment = %q, want the coverage run's %q", matrix, tests)
 	}
 }
 
 func TestNativeSelectionMatrixRunsOnceWithFullQuality(t *testing.T) {
 	nativeMatrixEnvironment(t)
-	full := recordNative(t, "--full-quality")
+	full := commandArguments(recordNative(t, "--full-quality"))
 	both := recordNative(t, "--selection-matrix", "--full-quality")
-	if !reflect.DeepEqual(both, full) {
-		t.Fatalf("full quality with the matrix flag = %#v, want the full quality run %#v", both, full)
+	if !reflect.DeepEqual(commandArguments(both), full) {
+		t.Fatalf("full quality with the matrix flag = %q, want the full quality run %q", commandArguments(both), full)
 	}
-	gate := selectionMatrixGateCommand(t)
-	if count := len(slices.DeleteFunc(slices.Clone(both), func(call command) bool { return !reflect.DeepEqual(call, gate) })); count != 1 {
+	if count := runsTheMatrix(both); count != 1 {
 		t.Fatalf("full quality ran the selection matrix %d times, want once", count)
 	}
 }
@@ -93,7 +92,7 @@ func TestNativeSelectionMatrixSkipsAnArtifactOnlyJourney(t *testing.T) {
 func TestNativeJobFromEnvironmentRunsTheSelectionMatrix(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	nativeJobEnvironment(t, map[string]string{"CI_PIPELINE_SOURCE": "push", "CI_PROJECT_URL": "https://gitlab.example/aigw", "AIGW_VERIFY_SYSTEM_KEYRING": "0"})
-	for _, selected := range []bool{false, true} {
+	for selected, want := range map[bool]int{false: 0, true: 1} {
 		var calls []command
 		host := nativeHost{getenv: os.Getenv, platform: runtime.GOOS, workdir: "/work", selectionMatrix: selected}
 		if err := runNativeJob(host, &bytes.Buffer{}, func(call command) error {
@@ -102,27 +101,27 @@ func TestNativeJobFromEnvironmentRunsTheSelectionMatrix(t *testing.T) {
 		}); err != nil {
 			t.Fatal(err)
 		}
-		gate := selectionMatrixGateCommand(t)
-		runs := slices.ContainsFunc(invocations(calls), func(call command) bool { return reflect.DeepEqual(call, gate) })
-		if runs != selected {
-			t.Fatalf("GitLab native job with selectionMatrix=%v ran the matrix: %v (%#v)", selected, runs, calls)
+		if got := runsTheMatrix(calls); got != want {
+			t.Fatalf("GitLab native job with selectionMatrix=%v ran the matrix %d times, want %d", selected, got, want)
 		}
 	}
 }
 
-func TestLinuxSecretServiceSessionKeepsTheSelectionMatrix(t *testing.T) {
+func TestLinuxSecretServiceSessionCarriesTheMatrixChoice(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	nativeJobEnvironment(t, map[string]string{"CI_PROJECT_URL": "https://gitlab.example/aigw", "AIGW_CANDIDATE_ARTIFACTS": "/candidate"})
-	var wrapped []command
-	host := nativeHost{getenv: os.Getenv, platform: "linux", workdir: "/work", selectionMatrix: true, attach: func(call command) error {
-		wrapped = append(wrapped, call)
-		return nil
-	}}
-	if err := runNativeJob(host, &bytes.Buffer{}, func(command) error { return nil }); err != nil {
-		t.Fatal(err)
-	}
-	if len(wrapped) != 1 || !slices.Contains(wrapped[0].Args, "--selection-matrix") {
-		t.Fatalf("private session = %#v, want the matrix flag carried into it", wrapped)
+	for _, selected := range []bool{false, true} {
+		var wrapped []command
+		host := nativeHost{getenv: os.Getenv, platform: "linux", workdir: "/work", selectionMatrix: selected, attach: func(call command) error {
+			wrapped = append(wrapped, call)
+			return nil
+		}}
+		if err := runNativeJob(host, &bytes.Buffer{}, func(command) error { return nil }); err != nil {
+			t.Fatal(err)
+		}
+		if len(wrapped) != 1 || slices.Contains(wrapped[0].Args, "--selection-matrix") != selected {
+			t.Fatalf("private session with selectionMatrix=%v = %#v", selected, wrapped)
+		}
 	}
 }
 
@@ -137,18 +136,18 @@ func TestNativeAcceptsTheSelectionMatrixWithItsGitLabForm(t *testing.T) {
 	}
 }
 
-func TestQualityGraphReportsAnUnknownGate(t *testing.T) {
-	if _, ok := (qualityGraph{}).gate(selectionMatrixGate); ok {
-		t.Fatal("an empty quality graph reported a selection-matrix gate")
-	}
-}
-
 var nativePlatformArgument = regexp.MustCompile(`\./tools/ci native --platform (\S+)`)
 
-// nativeMatrixPlacement maps each native job's platform to whether its command
-// runs the selection matrix, and checks that the jobs which do run on another
-// runner than the Forge's quality job.
-func nativeMatrixPlacement(t *testing.T, forge string, runner func(job map[string]any) string, commands func(job map[string]any) []string, jobs map[string]map[string]any) map[string]bool {
+// forgeJob is what the placement test reads of one job of a Forge.
+type forgeJob struct {
+	runner   string
+	commands []string
+}
+
+// nativeMatrixPlacement maps each native platform to whether its command runs
+// the selection matrix, and checks that exactly the native jobs on another
+// runner than the Forge's quality job run it.
+func nativeMatrixPlacement(t *testing.T, forge string, jobs map[string]forgeJob) map[string]bool {
 	t.Helper()
 	quality, ok := jobs["quality"]
 	if !ok {
@@ -156,14 +155,14 @@ func nativeMatrixPlacement(t *testing.T, forge string, runner func(job map[strin
 	}
 	placement := map[string]bool{}
 	for name, job := range jobs {
-		for _, line := range commands(job) {
+		for _, line := range job.commands {
 			match := nativePlatformArgument.FindStringSubmatch(line)
 			if match == nil {
 				continue
 			}
 			flagged := strings.Contains(line, "--selection-matrix")
-			if want := runner(job) != runner(quality); flagged != want {
-				t.Errorf("%s job %s runs the matrix: %v, want %v (its runner %q, quality's %q)", forge, name, flagged, want, runner(job), runner(quality))
+			if want := job.runner != quality.runner; flagged != want {
+				t.Errorf("%s job %s runs the matrix: %v, want %v (its runner %q, quality's %q)", forge, name, flagged, want, job.runner, quality.runner)
 			}
 			placement[match[1]] = flagged
 		}
@@ -171,59 +170,54 @@ func nativeMatrixPlacement(t *testing.T, forge string, runner func(job map[strin
 	return placement
 }
 
+type githubVerifyJob struct {
+	RunsOn  string `yaml:"runs-on"`
+	Timeout any    `yaml:"timeout-minutes"`
+	Steps   []struct {
+		Run string `yaml:"run"`
+	} `yaml:"steps"`
+}
+
+func readGitHubVerify(t *testing.T) map[string]githubVerifyJob {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".github", "workflows", "verify.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]githubVerifyJob `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(data, &workflow); err != nil {
+		t.Fatal(err)
+	}
+	return workflow.Jobs
+}
+
 func TestEachForgeRunsTheSelectionMatrixOnEveryPlatformWithoutItsQualityJob(t *testing.T) {
-	root := repositoryRoot(t)
-	read := func(relative string) []byte {
-		data, err := os.ReadFile(filepath.Join(root, relative))
-		if err != nil {
-			t.Fatal(err)
+	github := map[string]forgeJob{}
+	for name, job := range readGitHubVerify(t) {
+		var lines []string
+		for _, step := range job.Steps {
+			lines = append(lines, step.Run)
 		}
-		return data
+		github[name] = forgeJob{runner: job.RunsOn, commands: lines}
 	}
-	var github struct {
-		Jobs map[string]map[string]any `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal(read(".github/workflows/verify.yml"), &github); err != nil {
+	data, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".gitlab-ci.yml"))
+	if err != nil {
 		t.Fatal(err)
 	}
 	var document map[string]any
-	if err := yaml.Unmarshal(read(".gitlab-ci.yml"), &document); err != nil {
+	if err := yaml.Unmarshal(data, &document); err != nil {
 		t.Fatal(err)
 	}
-	gitlab := map[string]map[string]any{}
+	gitlab := map[string]forgeJob{}
 	for name, value := range document {
 		if job, ok := value.(map[string]any); ok {
-			gitlab[name] = job
+			gitlab[name] = forgeJob{runner: strings.Join(anyStrings(job["tags"]), ","), commands: anyStrings(job["script"])}
 		}
 	}
-	githubPlacement := nativeMatrixPlacement(t, "GitHub", func(job map[string]any) string {
-		runner, _ := job["runs-on"].(string)
-		return runner
-	}, func(job map[string]any) []string {
-		var lines []string
-		steps, _ := job["steps"].([]any)
-		for _, step := range steps {
-			if fields, ok := step.(map[string]any); ok {
-				if line, ok := fields["run"].(string); ok {
-					lines = append(lines, line)
-				}
-			}
-		}
-		return lines
-	}, github.Jobs)
-	gitlabPlacement := nativeMatrixPlacement(t, "GitLab", func(job map[string]any) string {
-		tags, _ := job["tags"].([]any)
-		return joinAny(tags)
-	}, func(job map[string]any) []string {
-		var lines []string
-		script, _ := job["script"].([]any)
-		for _, line := range script {
-			if text, ok := line.(string); ok {
-				lines = append(lines, text)
-			}
-		}
-		return lines
-	}, gitlab)
+	githubPlacement := nativeMatrixPlacement(t, "GitHub", github)
+	gitlabPlacement := nativeMatrixPlacement(t, "GitLab", gitlab)
 	if !reflect.DeepEqual(githubPlacement, gitlabPlacement) {
 		t.Fatalf("the Forges run the matrix on different platforms: GitHub %v, GitLab %v", githubPlacement, gitlabPlacement)
 	}
@@ -232,12 +226,71 @@ func TestEachForgeRunsTheSelectionMatrixOnEveryPlatformWithoutItsQualityJob(t *t
 	}
 }
 
-func joinAny(values []any) string {
-	parts := make([]string, 0, len(values))
-	for _, value := range values {
-		if text, ok := value.(string); ok {
-			parts = append(parts, text)
+func anyStrings(value any) []string {
+	items, _ := value.([]any)
+	texts := make([]string, 0, len(items))
+	for _, item := range items {
+		if text, ok := item.(string); ok {
+			texts = append(texts, text)
 		}
 	}
-	return strings.Join(parts, ",")
+	return texts
+}
+
+// Every GitHub job and proof gate that runs the selection matrix gives it more
+// time than the matrix's own bound, so a hang ends with Go's diagnostics before
+// the job or the gate is cut off.
+func TestEveryRunOfTheSelectionMatrixOutlastsItsBound(t *testing.T) {
+	at := slices.IndexFunc(selectionMatrixCommand.Args, func(arg string) bool { return strings.HasPrefix(arg, "-timeout=") })
+	if at < 0 {
+		t.Fatalf("the selection matrix has no bound: %q", selectionMatrixCommand.Args)
+	}
+	bound, err := time.ParseDuration(strings.TrimPrefix(selectionMatrixCommand.Args[at], "-timeout="))
+	if err != nil {
+		t.Fatal(err)
+	}
+	checked := 0
+	for name, job := range readGitHubVerify(t) {
+		runs := false
+		for _, step := range job.Steps {
+			runs = runs || strings.Contains(step.Run, "./tools/ci quality") || strings.Contains(step.Run, "--selection-matrix") || strings.Contains(step.Run, "--full-quality")
+		}
+		if !runs {
+			continue
+		}
+		checked++
+		if minutes, ok := job.Timeout.(int); !ok || time.Duration(minutes)*time.Minute <= bound {
+			t.Errorf("GitHub job %s gives the matrix %v minutes, not more than its bound %v", name, job.Timeout, bound)
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no GitHub job runs the selection matrix")
+	}
+	data, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".ethos", "profile.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var profile struct {
+		Proof struct {
+			Gates []struct {
+				Command []string `toml:"command"`
+				Timeout int      `toml:"timeout_seconds"`
+			} `toml:"gates"`
+		} `toml:"proof"`
+	}
+	if err := toml.Unmarshal(data, &profile); err != nil {
+		t.Fatal(err)
+	}
+	gates := 0
+	for _, gate := range profile.Proof.Gates {
+		if strings.Contains(strings.Join(gate.Command, " "), "./tools/ci quality") {
+			gates++
+			if time.Duration(gate.Timeout)*time.Second <= bound {
+				t.Errorf("the proof gate %q gives the matrix %d s, not more than its bound %v", gate.Command, gate.Timeout, bound)
+			}
+		}
+	}
+	if gates == 0 {
+		t.Fatal("no proof gate runs the quality graph")
+	}
 }

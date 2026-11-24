@@ -239,12 +239,11 @@ func runNativeRequest(request nativeRequest, stdout io.Writer, runner commandRun
 		}
 		commands = append(slices.Clone(qualityCommands), commands[1:]...)
 	}
-	if request.selectionMatrix && !request.fullQuality && len(commands) != 0 {
-		matrix, ok := repositoryQualityGraph.gate(selectionMatrixGate)
-		if !ok {
-			return fmt.Errorf("quality graph has no %s gate", selectionMatrixGate)
-		}
-		commands = slices.Insert(commands, 1, matrix.Command)
+	// The matrix runs between the source check and the coverage run, with the
+	// coverage run's isolated environment below.
+	matrix := request.selectionMatrix && !request.fullQuality && len(commands) != 0
+	if matrix {
+		commands = slices.Insert(commands, 1, selectionMatrixCommand)
 	}
 	if os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {
 		for index := range commands {
@@ -257,7 +256,11 @@ func runNativeRequest(request nativeRequest, stdout io.Writer, runner commandRun
 			return err
 		}
 		defer func() { result = errors.Join(result, robustio.RemoveAll(workspace)) }()
-		commands[len(commands)-1].Env = construction.NativeTestEnvironment(workspace, "", "")
+		isolated := construction.NativeTestEnvironment(workspace, "", "")
+		commands[len(commands)-1].Env = isolated
+		if matrix {
+			commands[1].Env = slices.Clone(isolated)
+		}
 		commands = append(slices.Clone(request.setup), commands...)
 	}
 	if input.UsesPrebuiltArtifacts() || input.BaselineTag != "" || os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {

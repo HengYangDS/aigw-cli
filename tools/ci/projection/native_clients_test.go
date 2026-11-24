@@ -53,7 +53,6 @@ func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {
 			{supply.Env["GIT_TERMINAL_PROMPT"], "0"},
 			{supply.Run, `mise exec --locked -- go run ./tools/ci native-clients supply --root "` + prefix + `RUNNER_TEMP" --github-env "` + prefix + `GITHUB_ENV" --codex 0.170.0 --claude 2.1.327` + pins},
 			{steps[cleanupIndex].Run, "mise exec --locked -- go run ./tools/ci native-clients retire"},
-			{job.TimeoutMinutes, "${{ inputs.native_clients && 45 || 25 }}"},
 		} {
 			if field.got != field.want {
 				t.Fatalf("%s official supply input = %q, want %q", platform, field.got, field.want)

@@ -58,7 +58,7 @@ func TestGitLabNativeReviewResourceBelongsToTheNativeCommand(t *testing.T) {
 		"native-linux": pipeline.Linux, "native-windows": pipeline.Windows,
 	} {
 		platform := strings.TrimSuffix(strings.TrimPrefix(name, "native-"), "-review")
-		if !slices.Contains(job.Script, "mise exec --locked -- go run ./tools/ci native --platform "+platform+" --from-env") {
+		if !slices.ContainsFunc(job.Script, isNativeJobCommand(platform)) {
 			t.Errorf("%s does not hand its inputs to the native command", name)
 		}
 		if strings.Contains(strings.Join(append(slices.Clone(job.BeforeScript), job.Script...), "\n"), "AIGW_REVIEW_PROTECTED_FILE") {
