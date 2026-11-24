@@ -41,6 +41,7 @@ func pendingHermes(t *testing.T) (*cli.App, *bytes.Buffer, string) {
 // model that AIGW names as selected, a command commits, the person picks the
 // earlier model again, the Token arrives.
 func TestRecordAPickOfTheStoredSelectionIsRecordedHermes(t *testing.T) {
+	t.Parallel()
 	app, output, target := pendingHermes(t)
 	hermesNativeSelection(t, target, "aigw-dmxapi-responses", "gpt-6.2-sol", nil)
 	record := readFile(t, target+".aigw-state.json")
@@ -66,6 +67,7 @@ func TestRecordAPickOfTheStoredSelectionIsRecordedHermes(t *testing.T) {
 
 // F1, Codex, one file, with no earlier choice in play.
 func TestRecordAPickOfTheStoredSelectionIsRecordedCodex(t *testing.T) {
+	t.Parallel()
 	app, output, targets := recCodexFiles(t, 1)
 	if err := cli.Execute(app, []string{"use", "codex", "gateway/gpt-terra"}); err != nil {
 		t.Fatalf("select: %v\n%s", err, output)
@@ -102,6 +104,7 @@ func TestRecordAPickOfTheStoredSelectionIsRecordedCodex(t *testing.T) {
 // Which commands bring the record up when the file shows the stored
 // selection and the record another model.
 func TestRecordWhatBringsTheRecordUp(t *testing.T) {
+	t.Parallel()
 	app, output, target := pendingHermes(t)
 	hermesNativeSelection(t, target, "aigw-dmxapi-responses", "gpt-6.2-sol", nil)
 	record := readFile(t, target+".aigw-state.json")
@@ -133,6 +136,7 @@ func TestRecordWhatBringsTheRecordUp(t *testing.T) {
 // Angle 2: a record-only write that fails, and a configuration that cannot
 // be saved, leave the records and the stored selection as they were.
 func TestRecordAFailedRecordOrSaveLeavesNothing(t *testing.T) {
+	t.Parallel()
 	for _, locked := range []int{0, 1} {
 		app, output, targets := recCodexFiles(t, 2)
 		if err := app.Secrets.Delete("gateway"); err != nil {
@@ -176,6 +180,7 @@ func TestRecordAFailedRecordOrSaveLeavesNothing(t *testing.T) {
 // ZZ3's question: is "drift" after the Token arrives particular to a choice,
 // or the state of any Codex selection that waited for its Token?
 func TestRecordCodexAfterTheTokenArrives(t *testing.T) {
+	t.Parallel()
 	// A choice recorded without the Token, one file.
 	app, output, targets := recCodexFiles(t, 1)
 	if err := app.Secrets.Delete("gateway"); err != nil {
@@ -229,6 +234,7 @@ func TestRecordCodexAfterTheTokenArrives(t *testing.T) {
 // ZZ11's question, other states of the sibling file that a projection
 // refuses: its record is unreadable, or gone.
 func TestRecordCodexSiblingThatAProjectionRefuses(t *testing.T) {
+	t.Parallel()
 	for name, damage := range map[string]func(t *testing.T, target string){
 		"record unreadable": func(t *testing.T, target string) { writeFile(t, target+".aigw-state.json", []byte("{"), 0o600) },
 		"record gone": func(t *testing.T, target string) {

@@ -33,6 +33,7 @@ func selDocument(t *testing.T, app *cli.App, output *bytes.Buffer, args ...strin
 // so? The entry of a followed selection is left out for the client that an
 // explicit selection names, so the selection's own document is the only place.
 func TestSelectionAnExplicitSelectionOfAnotherUpstreamAfterAChoiceSaysThatForwardingEnded(t *testing.T) {
+	t.Parallel()
 	for _, selects := range [][]string{
 		{"use", "hermes", "dmxapi/claude-opus-5-5", "--protocol", "anthropic", "--json"},
 		{"use", "hermes", "ucloud/claude-opus-5-5", "--protocol", "anthropic", "--json"},
@@ -66,6 +67,7 @@ func TestSelectionAnExplicitSelectionOfAnotherUpstreamAfterAChoiceSaysThatForwar
 // Ninth review, probe 7: after a choice was recorded without its Token, the
 // reports agree on Hermes's model and on that it waits for the Token.
 func TestSelectionReportsAgreeAfterARecordOnlyWrite(t *testing.T) {
+	t.Parallel()
 	app, output, target, chosen := waitingHermes(t)
 	if err := selRun(t, app, output, "sync", "--json"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, output)
@@ -141,6 +143,7 @@ func selOfHermes(entries []restoredSelection) []restoredSelection {
 // the Token: to the stored model, to the chosen model, and to a third model.
 // S, R and the report against the tables of versions eight and nine.
 func TestSelectionARollbackOverAChoiceByTheTable(t *testing.T) {
+	t.Parallel()
 	const stored, picked, third = selRollbackStored, selRollbackPicked, selRollbackThird
 	for _, scenario := range []selRollbackCase{
 		{"to the stored model", [][]string{{"provider", "edit", "ucloud", "--label", "Other"}}, stored},
@@ -267,6 +270,7 @@ func (counting selDiscovery) Discover(clients ...string) discovery.Result {
 // credential store nothing, and while no record is behind a command discovers
 // no more than it does on a converged client.
 func TestSelectionARecordAloneAsksTheCredentialStoreNothing(t *testing.T) {
+	t.Parallel()
 	counted := func(app *cli.App, output *bytes.Buffer, args ...string) ([]string, int) {
 		var asked []string
 		var discoveries int

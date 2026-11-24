@@ -14,6 +14,7 @@ import (
 )
 
 func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
+	t.Parallel()
 	app, output, secretStore, _, httpClient := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)
@@ -82,6 +83,7 @@ func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
 }
 
 func TestCodexSyncRefusesAModelChoiceWithAnotherEdit(t *testing.T) {
+	t.Parallel()
 	app, output, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)

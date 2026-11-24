@@ -161,7 +161,6 @@ func zz11Class(w selectionWorld, command zz11Command, run ranIn, choice string, 
 // compares holds that world's files alone; each state runs in parallel with
 // the others.
 func zz11Sweep(t *testing.T, states map[string]func(t *testing.T) selectionWorld, commands []zz11Command) {
-	t.Parallel()
 	for _, state := range slices.Sorted(mapKeys(states)) {
 		t.Run(state, func(t *testing.T) {
 			t.Parallel()
@@ -349,6 +348,7 @@ func zz11Part(states map[string]func(t *testing.T) selectionWorld, parts, part i
 // their columns prove nothing: each succeeds there, and each that is not
 // declared idle or a preview changes a path.
 func TestZZ11TheSweepsCommandsRunInThePlainState(t *testing.T) {
+	t.Parallel()
 	for client, sweep := range map[string]struct {
 		build    func(t *testing.T) selectionWorld
 		commands []zz11Command

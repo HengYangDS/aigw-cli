@@ -75,6 +75,7 @@ func requireObservedOnly(t *testing.T, items *keychain, args []string) {
 // the item is there and whether it is empty, and the credential reader that
 // it installs then reads the Token.
 func TestACommandForOneClientEndsWithTheRefusalOfItsProvidersItem(t *testing.T) {
+	t.Parallel()
 	for _, command := range []struct {
 		name    string
 		enabled bool
@@ -131,6 +132,7 @@ func TestACommandForOneClientEndsWithTheRefusalOfItsProvidersItem(t *testing.T) 
 // client enable` says that the provider is missing a Token. Neither reads a
 // Token or installs a reader for one that is not there.
 func TestACommandForOneClientCountsAnEmptyTokenAsMissing(t *testing.T) {
+	t.Parallel()
 	use := []string{"use", claude.ID, "one/claude-next"}
 	for _, test := range []struct {
 		name    string
@@ -220,6 +222,7 @@ func codexOnOne(t *testing.T, slots ...string) (app *cli.App, out *bytes.Buffer,
 // missing Token. The edit observes the Token and reads none. Followed as
 // printed, the item's fix lets `aigw sync` write the file that Codex moved to.
 func TestAClientEditWithdrawsTheDroppedFileWhileAIGWCannotUseTheToken(t *testing.T) {
+	t.Parallel()
 	for _, state := range []string{"an item of another program", "an empty Token"} {
 		for _, flag := range []string{"", "--json"} {
 			t.Run(strings.TrimSpace(state+" "+flag), func(t *testing.T) {

@@ -17,6 +17,7 @@ import (
 // earlier model in Codex would read as no choice, and synchronization would
 // write the recorded one over it.
 func TestARecordedChoiceKeepsAIGWsRecordOfTheFile(t *testing.T) {
+	t.Parallel()
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
 	edit := []string{"provider", "edit", "spare", "--label", "Other"}
@@ -63,6 +64,7 @@ func TestARecordedChoiceKeepsAIGWsRecordOfTheFile(t *testing.T) {
 // file, so that the earlier model, chosen in Hermes again, is followed and
 // kept.
 func TestARecordedHermesChoiceKeepsAIGWsRecordOfTheFile(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesApp(t)
 	hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-opus-5-5", nil)
 	if got := followedIn(t, app, output, "client", "edit", codex.ID, "--request-retries", "2", "--json"); !slices.Equal(got, hermesChoice) {

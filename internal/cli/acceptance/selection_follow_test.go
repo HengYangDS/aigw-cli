@@ -158,6 +158,7 @@ func selection(t *testing.T, app *cli.App, client string) domain.ClientBinding {
 // with its own edit, Codex keeps the model, the configuration names it, and
 // the result says so with the command that returns.
 func TestACommandThatWritesCodexFilesFollowsAModelChosenInCodex(t *testing.T) {
+	t.Parallel()
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
 	directory := filepath.Dir(target)
@@ -209,6 +210,7 @@ func TestACommandThatWritesCodexFilesFollowsAModelChosenInCodex(t *testing.T) {
 // names a followed selection. Naming the chosen model itself records it, and
 // says that the configuration changed.
 func TestAnExplicitSelectionWinsOverAModelChosenInCodex(t *testing.T) {
+	t.Parallel()
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
 	for _, command := range [][]string{
@@ -245,6 +247,7 @@ func TestAnExplicitSelectionWinsOverAModelChosenInCodex(t *testing.T) {
 // Hermes: a command that writes Hermes' file works from the listed model that
 // was chosen in Hermes, and keeps its own edit of Hermes' binding.
 func TestACommandThatWritesHermesFilesFollowsAModelChosenInHermes(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesApp(t)
 	hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-opus-5-5", nil)
 	if got := followedIn(t, app, output, "client", "edit", hermes.ID, "--via", "http://127.0.0.1:8792", "--json"); !slices.Equal(got, hermesChoice) {
@@ -263,6 +266,7 @@ func TestACommandThatWritesHermesFilesFollowsAModelChosenInHermes(t *testing.T) 
 // A choice of another provider's model in Hermes ends the forwarding that
 // belonged to the earlier upstream endpoint, and the result says so.
 func TestAFollowedChoiceSaysThatForwardingEnded(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesApp(t)
 	if err := cli.Execute(app, []string{"client", "edit", hermes.ID, "--via", "http://127.0.0.1:8792"}); err != nil {
 		t.Fatalf("forward Hermes: %v\n%s", err, output)
@@ -297,6 +301,7 @@ func TestAFollowedChoiceSaysThatForwardingEnded(t *testing.T) {
 // Synchronization says what it followed in the same words, ahead of its
 // follow-up command, and nothing once the choice is recorded.
 func TestSyncSaysWhatItFollowedAndHowToReturn(t *testing.T) {
+	t.Parallel()
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
 	for _, command := range [][]string{{"sync", "--dry-run"}, {"sync"}} {
@@ -316,6 +321,7 @@ func TestSyncSaysWhatItFollowedAndHowToReturn(t *testing.T) {
 // wrote, and so does the preview of an uninstall: the choice is no outside
 // edit to undo.
 func TestAClientIsWithdrawnAfterAModelWasChosenInIt(t *testing.T) {
+	t.Parallel()
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
 	for _, command := range [][]string{
@@ -342,6 +348,7 @@ func TestAClientIsWithdrawnAfterAModelWasChosenInIt(t *testing.T) {
 // selection, name it as followed with the earlier selection and the command
 // that returns, and write nothing; a check that fails says it too.
 func TestStatusAndCheckReportAModelChosenInTheClient(t *testing.T) {
+	t.Parallel()
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
 	before := ownedFileSnapshot(t, filepath.Dir(target), app.Config.Path())
@@ -398,6 +405,7 @@ func TestStatusAndCheckReportAModelChosenInTheClient(t *testing.T) {
 // run: not when the command itself removed that model, and as prose when the
 // model would need quoting in a shell.
 func TestTheReturningCommandIsNamedOnlyWhileItRuns(t *testing.T) {
+	t.Parallel()
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-terra")
 	removed := []followed{{Client: "codex", Model: "gateway/gpt-terra", Earlier: "gateway/gpt-sol"}}
@@ -429,6 +437,7 @@ func TestTheReturningCommandIsNamedOnlyWhileItRuns(t *testing.T) {
 // none of Claude Code's settings leaves it; what a rewrite of the settings
 // does to it belongs to a separate Change.
 func TestStatusNamesTheModelThatClaudeCodeItselfSelects(t *testing.T) {
+	t.Parallel()
 	app, output, credentials, _, _ := testApp(t, "")
 	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	if err := credentials.Set("one", "test-token"); err != nil {

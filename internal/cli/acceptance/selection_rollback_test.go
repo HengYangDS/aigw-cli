@@ -27,6 +27,7 @@ type restoredSelection struct {
 // and its result name the selection that it restores and the one that this
 // replaces, and neither reports the choice as followed.
 func TestRollbackNamesTheSelectionsThatItRestores(t *testing.T) {
+	t.Parallel()
 	app, output, target := codexChoiceApp(t)
 	if err := cli.Execute(app, []string{"client", "edit", codex.ID, "--request-retries", "2"}); err != nil {
 		t.Fatalf("change Codex's binding: %v\n%s", err, output)
@@ -74,6 +75,7 @@ func TestRollbackNamesTheSelectionsThatItRestores(t *testing.T) {
 // refused as every other command is: with the step that restores the recorded
 // selection, and nothing written.
 func TestRollbackPassesOnTheStepOfASelectionThatIsNotFollowed(t *testing.T) {
+	t.Parallel()
 	app, output, target := codexChoiceApp(t)
 	if err := cli.Execute(app, []string{"use", codex.ID, "gateway/gpt-terra"}); err != nil {
 		t.Fatalf("select another model: %v\n%s", err, output)
@@ -94,6 +96,7 @@ func TestRollbackPassesOnTheStepOfASelectionThatIsNotFollowed(t *testing.T) {
 // the Token is stored. Holds the cell chosen/restores of the lane's state
 // table.
 func TestRollbackOverAChoiceWithoutATokenSavesTheSelectionAndRecordsTheFile(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesAppWith(t, true)
 	if err := cli.Execute(app, []string{"provider", "edit", "ucloud", "--label", "Other"}); err != nil {
 		t.Fatalf("change the configuration: %v\n%s", err, output)

@@ -13,6 +13,7 @@ import (
 // Spec scenario "Another file of the client cannot be written", with and
 // without the Token: the choice stays in the file alone.
 func TestRecordCodexOtherFileMissing(t *testing.T) {
+	t.Parallel()
 	for _, token := range []bool{true, false} {
 		app, output, targets := recCodexFiles(t, 2)
 		if !token {
@@ -38,6 +39,7 @@ func TestRecordCodexOtherFileMissing(t *testing.T) {
 // A rollback to a configuration that does not hold the chosen model, with
 // and without the Token of the restored selection's provider.
 func TestRecordRollbackToAConfigurationWithoutTheChosenModel(t *testing.T) {
+	t.Parallel()
 	for _, token := range []bool{true, false} {
 		app, output, _, target := shippedHermesAppWith(t, true)
 		for _, args := range [][]string{
@@ -91,6 +93,7 @@ func TestRecordRollbackToAConfigurationWithoutTheChosenModel(t *testing.T) {
 // Codex, two files, no Token: a rollback to a third model while one file
 // shows a choice; then the Token.
 func TestRecordCodexRollbackToAThirdModelWithoutAToken(t *testing.T) {
+	t.Parallel()
 	app, output, targets := recCodexFiles(t, 2)
 	for _, args := range [][]string{{"use", "codex", "gateway/gpt-luna"}, {"use", "codex", "gateway/gpt-sol"}} {
 		if err := cli.Execute(app, args); err != nil {

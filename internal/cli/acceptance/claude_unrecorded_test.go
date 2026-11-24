@@ -15,6 +15,7 @@ import (
 // refuses, says what stays, and leaves every file as it was; with the record
 // restored as it says, the same command withdraws AIGW's settings.
 func TestDisablingClaudeCodeWithoutItsRecordSaysWhatStays(t *testing.T) {
+	t.Parallel()
 	client := projectedClients[claude.ID](t)
 	record := readFile(t, client.record)
 	if err := os.Remove(client.record); err != nil {

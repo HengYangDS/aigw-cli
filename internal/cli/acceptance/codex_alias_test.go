@@ -48,6 +48,7 @@ func aliasedCodex(t *testing.T, named func(file, alias string) []string) (*cli.A
 // alias named beside the file it links to converges into one target, which
 // ended the loop of a fix that sync refused again.
 func TestASymlinkedCodexTargetSynchronizesAndChecks(t *testing.T) {
+	t.Parallel()
 	for name, named := range map[string]func(file, alias string) []string{
 		"the alias alone":           func(_, alias string) []string { return []string{alias} },
 		"the alias beside its file": func(file, alias string) []string { return []string{file, alias} },

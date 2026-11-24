@@ -20,6 +20,7 @@ import (
 // A team file never redirects an existing provider: its endpoint and Token
 // stay, its label is the file's, and the client keeps its selection.
 func TestSetupFromKeepsAnExistingProvidersEndpointAndToken(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}}
@@ -74,6 +75,7 @@ primary = {model = "team/team-model"}
 // Team setup observes the presence of only the Tokens that a recommendation
 // needs, and reads none.
 func TestSetupFromObservesOnlyTheTokensThatARecommendationNeeds(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	store := &recordingCredentialStore[string]{backend: secret.NewMemoryStore()}
 	app.Secrets = store
@@ -93,6 +95,7 @@ func TestSetupFromObservesOnlyTheTokensThatARecommendationNeeds(t *testing.T) {
 }
 
 func TestConfigCommandIOFailures(t *testing.T) {
+	t.Parallel()
 	t.Run("path output", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		want := errors.New("output failed")
@@ -140,6 +143,7 @@ func TestConfigCommandIOFailures(t *testing.T) {
 }
 
 func TestSetupFromAndExportAreSecretFree(t *testing.T) {
+	t.Parallel()
 	app, out, secrets, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
 	manifest := `version = 8
@@ -183,6 +187,7 @@ primary = {model = "team/claude-model"}
 // A team file whose model would take the protocol that a client selects it on
 // keeps the local model, and the result says so.
 func TestSetupFromKeepsAModelWhoseChangeWouldMoveASelection(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team Gateway", Endpoints: domain.Endpoints{Responses: "https://team.example.test/v1"}}

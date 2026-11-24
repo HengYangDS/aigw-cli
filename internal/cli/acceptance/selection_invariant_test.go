@@ -217,7 +217,6 @@ type selectionCell struct {
 // parallel with the others; every world lives in temporary directories of its
 // own subtest.
 func (matrix selectionMatrix) run(t *testing.T) {
-	t.Parallel()
 	t.Logf("the matrix of %s: %d states, %d commands", matrix.client, len(matrix.states), len(matrix.commands))
 	for _, state := range slices.Sorted(mapKeys(matrix.states)) {
 		t.Run(state, func(t *testing.T) {

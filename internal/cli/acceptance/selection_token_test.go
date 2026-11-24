@@ -67,6 +67,7 @@ func (result rolledBack) restores(client string) bool {
 // the cell chosen/restores where the restored configuration selects the
 // file's model (the review's F1).
 func TestARollbackToAnUnpinnedSelectionOfTheChosenModelRecordsTheChoice(t *testing.T) {
+	t.Parallel()
 	app, output, secretStore, _, _ := testApp(t, "")
 	bindCredentialReader(t, app)
 	target := filepath.Join(t.TempDir(), "config.toml")
@@ -136,6 +137,7 @@ func TestARollbackToAnUnpinnedSelectionOfTheChosenModelRecordsTheChoice(t *testi
 // chosen/restores where the restored configuration selects another model
 // (the review's F2).
 func TestARollbackOverAChoiceDoesNotLoseTheNextChoice(t *testing.T) {
+	t.Parallel()
 	app, output, target, _ := chosenWithoutTokenAfter(t, "ucloud", "aigw-ucloud-anthropic", "claude-opus-5-5",
 		[]string{"use", "hermes", "dmxapi/claude-opus-5-5", "--protocol", "anthropic"},
 		[]string{"use", "hermes", "dmxapi/gpt-6.2-sol", "--protocol", "responses"})
@@ -167,6 +169,7 @@ func TestARollbackOverAChoiceDoesNotLoseTheNextChoice(t *testing.T) {
 // followed, the result saves it, and neither lists it among the restored
 // selections. Holds the cell chosen/restores (the review's F3).
 func TestARollbackNamesOnlyTheSelectionThatItSaves(t *testing.T) {
+	t.Parallel()
 	const chosenModel = "ucloud/claude-opus-5-5"
 	app, output, _, _ := chosenWithoutTokenAfter(t, "ucloud", "aigw-ucloud-anthropic", "claude-opus-5-5",
 		[]string{"use", "hermes", chosenModel, "--protocol", "anthropic"},
@@ -202,6 +205,7 @@ func TestARollbackNamesOnlyTheSelectionThatItSaves(t *testing.T) {
 // the edit's next step names. Holds the cell chosen/edits (the review's F4,
 // changed by the Change one-token-usability).
 func TestATargetEditOfAClientWithoutItsTokenLeavesNothingBehind(t *testing.T) {
+	t.Parallel()
 	const chosenModel = "ucloud/claude-opus-5-5"
 	app, output, target, _ := waitingHermes(t)
 	moved := filepath.Join(t.TempDir(), "hermes", "config.yaml")
@@ -228,6 +232,7 @@ func TestATargetEditOfAClientWithoutItsTokenLeavesNothingBehind(t *testing.T) {
 // names the Token that the client waits for; the model chosen in Hermes is no
 // outside edit. Holds the cell chosen/edits (the review's F5).
 func TestAnEditOfAClientWithoutItsTokenNamesTheTokenAsItsNextStep(t *testing.T) {
+	t.Parallel()
 	for _, edit := range [][]string{
 		{"client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json"},
 		{"client", "edit", "hermes", "--executable", executableFixture(t, "hermes"), "--json"},
@@ -250,6 +255,7 @@ func TestAnEditOfAClientWithoutItsTokenNamesTheTokenAsItsNextStep(t *testing.T) 
 // cell chosen/restores (the review's F6, which expected a refusal with a
 // step; without the stored selection put back there is none).
 func TestARollbackToTheChosenModelLetsTheEarlierModelGo(t *testing.T) {
+	t.Parallel()
 	const chosenModel = "ucloud/claude-opus-5-5"
 	gone := domain.NewModelRef("dmxapi", "zz-new")
 	app, output, target, chosen := chosenWithoutTokenAfter(t, "ucloud", "aigw-ucloud-anthropic", "claude-opus-5-5",
@@ -278,6 +284,7 @@ func TestARollbackToTheChosenModelLetsTheEarlierModelGo(t *testing.T) {
 // one that the working configuration gives, which follows the choice. Holds
 // the cell chosen/other for a command that stores a Token (the review's F7).
 func TestStoringTheTokenOfAChosenModelNamesAStep(t *testing.T) {
+	t.Parallel()
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
 	for _, command := range [][]string{
 		{"provider", "rotate", "ucloud", "--token-stdin", "--json"},
@@ -299,6 +306,7 @@ func TestStoringTheTokenOfAChosenModelNamesAStep(t *testing.T) {
 // names: there is one configuration. Holds the cell chosen/reports (the
 // review's F8).
 func TestSyncNamesTheModelThatStatusNames(t *testing.T) {
+	t.Parallel()
 	app, output, _, _ := waitingHermes(t)
 	var status struct {
 		Clients map[string]struct {

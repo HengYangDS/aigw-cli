@@ -19,6 +19,7 @@ import (
 )
 
 func TestStatusAndCheckHideUnreadableConfigDetails(t *testing.T) {
+	t.Parallel()
 	for _, command := range [][]string{{"status"}, {"check"}} {
 		t.Run(strings.Join(command, " "), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
@@ -53,6 +54,7 @@ type canonicalReadinessDocument struct {
 }
 
 func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
+	t.Parallel()
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://example.invalid"}}
@@ -113,6 +115,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 }
 
 func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		status    int
@@ -169,6 +172,7 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 }
 
 func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
+	t.Parallel()
 	for _, command := range []string{"status"} {
 		t.Run(command, func(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
@@ -235,6 +239,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 }
 
 func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
+	t.Parallel()
 	commands := []string{"status", "check"}
 	for _, command := range commands {
 		t.Run(command, func(t *testing.T) {
@@ -280,6 +285,7 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 }
 
 func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T) {
+	t.Parallel()
 	for _, command := range []string{"status"} {
 		t.Run(command, func(t *testing.T) {
 			app, _, secretStore, runner, httpClient := testApp(t, "")
@@ -356,6 +362,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 }
 
 func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(
@@ -402,6 +409,7 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 // synchronized, and check reads the Token and reaches the endpoint only then;
 // neither reads the Token while observing readiness.
 func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, endpoint := testApp(t, "")
 	app.Version = "1.0.0"
 	cfg := domain.NewConfig(clients.Admission())

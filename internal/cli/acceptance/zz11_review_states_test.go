@@ -234,6 +234,7 @@ func zz11Status(t *testing.T, w selectionWorld) string {
 // selects, it never succeeds with the record left behind the file, and the
 // Token decides none of this.
 func TestZZ11ACodexPickInFurtherSpellingsIsRecordedOrRefused(t *testing.T) {
+	t.Parallel()
 	for _, pick := range zz11CodexPicks() {
 		t.Run(pick.name, func(t *testing.T) {
 			t.Log(zz11Status(t, zz11WritePick(t, zz11Codex(codexWorld(t, 1)), 0, pick, "gpt-terra")))
@@ -276,6 +277,7 @@ func TestZZ11ACodexPickInFurtherSpellingsIsRecordedOrRefused(t *testing.T) {
 // synchronization is refused and changes nothing. It never writes gpt-sol
 // over the pick.
 func TestZZ11ACodexPickOfTheStoredModelInFurtherSpellingsIsRecorded(t *testing.T) {
+	t.Parallel()
 	for _, pick := range zz11CodexPicks() {
 		t.Run(pick.name, func(t *testing.T) {
 			for _, name := range []string{"another provider", "sync"} {
@@ -321,6 +323,7 @@ func TestZZ11ACodexPickOfTheStoredModelInFurtherSpellingsIsRecorded(t *testing.T
 // without it. The rule: S = gateway/gpt-luna and R = gpt-luna afterwards, F
 // kept; the Token decides neither.
 func TestZZ11AThirdModelPickedWhileTheStoredSelectionWaits(t *testing.T) {
+	t.Parallel()
 	for _, files := range []int{1, 2} {
 		for _, name := range slices.Sorted(mapKeys(zz11Commands())) {
 			classes := map[bool]string{}
@@ -361,6 +364,7 @@ func TestZZ11AThirdModelPickedWhileTheStoredSelectionWaits(t *testing.T) {
 // it, a command that writes Codex's files is refused and changes nothing, and
 // no command puts gpt-sol back without being asked.
 func TestZZ11ACodexFileWithoutARootModel(t *testing.T) {
+	t.Parallel()
 	shapes := map[string]func(lines []string, at int) string{
 		"the line removed": func(lines []string, at int) string {
 			return strings.Join(append(slices.Clone(lines[:at]), lines[at+1:]...), "\n")
@@ -412,6 +416,7 @@ func TestZZ11ACodexFileWithoutARootModel(t *testing.T) {
 // watches what AIGW reports and that no command removes the profile; whether
 // the profile's model is F is a question for the specification.
 func TestZZ11ACodexProfileThatNamesAnotherModel(t *testing.T) {
+	t.Parallel()
 	world := zz11Codex(codexWorld(t, 1))
 	lines, at := recCodexModelLine(t, world.files[0])
 	lines[at] += "\nprofile = \"mine\""

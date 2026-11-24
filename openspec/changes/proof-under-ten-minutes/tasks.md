@@ -12,9 +12,9 @@
 
 ## 2. Parallel acceptance tests
 
-- [ ] 2.1 Call `t.Parallel` first in every top-level test of the acceptance package that does not call `t.Setenv`.
+- [x] 2.1 Call `t.Parallel` first in every top-level test of the acceptance package that does not call `t.Setenv`.
       Done when the package passes under the race detector with coverage, as `go-behavior` runs it.
-- [ ] 2.2 Add a test of the package that reads its own test files and requires `t.Parallel` first in every top-level
+- [x] 2.2 Add a test of the package that reads its own test files and requires `t.Parallel` first in every top-level
       test unless the test calls `t.Setenv`. Done when it fails on a new test without `t.Parallel` and passes on the
       package.
 

@@ -15,6 +15,7 @@ import (
 // Codex. These commands name Codex (sync names every client; client edit
 // names it): what do they save while another file of Codex is missing?
 func TestSelectionANamedCommandWithAnotherCodexFileMissing(t *testing.T) {
+	t.Parallel()
 	for _, command := range [][]string{
 		{"sync", "--json"},
 		{"client", "edit", "codex", "--request-retries", "2", "--json"},
@@ -45,6 +46,7 @@ func TestSelectionANamedCommandWithAnotherCodexFileMissing(t *testing.T) {
 // that model, so nothing sees a choice, and the synchronization after the
 // Token writes the saved model over it.
 func TestSelectionAPickAfterANamedCommandWithAFileMissingIsWrittenOver(t *testing.T) {
+	t.Parallel()
 	app, output, targets := recCodexFiles(t, 2)
 	if err := app.Secrets.Delete("gateway"); err != nil {
 		t.Fatal(err)
@@ -79,6 +81,7 @@ func TestSelectionAPickAfterANamedCommandWithAFileMissingIsWrittenOver(t *testin
 // Ninth review, probe 1, the other states of a sibling file that a projection
 // refuses (its record gone, or unreadable), under a command that names Codex.
 func TestSelectionANamedCommandWithAnotherCodexRecordDamaged(t *testing.T) {
+	t.Parallel()
 	for name, damage := range map[string]func(t *testing.T, target string){
 		"record unreadable": func(t *testing.T, target string) { writeFile(t, target+".aigw-state.json", []byte("{"), 0o600) },
 		"record gone": func(t *testing.T, target string) {
@@ -112,6 +115,7 @@ func TestSelectionANamedCommandWithAnotherCodexRecordDamaged(t *testing.T) {
 // does not change Codex's binding against the working configuration: does it
 // save the selection of the configuration that it restores?
 func TestSelectionARollbackWithAnotherCodexFileMissing(t *testing.T) {
+	t.Parallel()
 	for _, scenario := range []struct {
 		name     string
 		prepare  [][]string

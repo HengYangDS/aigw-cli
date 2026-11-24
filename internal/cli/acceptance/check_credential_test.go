@@ -25,6 +25,7 @@ import (
 )
 
 func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	cfg, err := app.Config.Load()
@@ -64,6 +65,7 @@ func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
 // The environment backend cannot rotate a Token, so a rejected Token names the
 // variable that supplies it, in human and JSON output alike.
 func TestCheckNamesTheEnvironmentTokenForARejectedToken(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
@@ -116,6 +118,7 @@ func storeBytes(t *testing.T, root string) map[string]string {
 // whether the provider accepts the Token or rejects it, and the stored Token
 // was never replaced by it.
 func TestACheckWithAOneTimeTokenLeavesAFileStoreAsItWas(t *testing.T) {
+	t.Parallel()
 	for name, status := range map[string]int{"accepted": http.StatusOK, "rejected": http.StatusUnauthorized} {
 		t.Run(name, func(t *testing.T) {
 			client := newBlockedStoreClient(t)
@@ -143,6 +146,7 @@ func TestACheckWithAOneTimeTokenLeavesAFileStoreAsItWas(t *testing.T) {
 }
 
 func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		statuses   []int
@@ -271,6 +275,7 @@ func syncedCheckApp(t *testing.T, endpoints domain.Endpoints) (*cli.App, *bytes.
 // An endpoint check sends the Token only to the selected provider's origin:
 // a redirect elsewhere is a failure, never followed.
 func TestCheckKeepsTheTokenAtTheSelectedOrigin(t *testing.T) {
+	t.Parallel()
 	for _, client := range []string{codex.ID, claude.ID} {
 		t.Run(client, func(t *testing.T) {
 			var followed atomic.Int32
@@ -296,6 +301,7 @@ func TestCheckKeepsTheTokenAtTheSelectedOrigin(t *testing.T) {
 // An endpoint check authenticates with the Token and prints neither the
 // Token nor its header.
 func TestCheckAuthenticatesWithoutPrintingTheToken(t *testing.T) {
+	t.Parallel()
 	app, out := syncedCheckApp(t, domain.Endpoints{Responses: "https://example.test/v1", Anthropic: "https://example.test"})
 	httpClient := &fakeHTTP{status: http.StatusOK}
 	app.HTTP = httpClient
@@ -313,6 +319,7 @@ func TestCheckAuthenticatesWithoutPrintingTheToken(t *testing.T) {
 // A local check names a client Token in the environment without its value,
 // and a configuration that cannot be read without its path.
 func TestCheckNamesNeitherAnEnvironmentTokenNorTheConfigurationPath(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	const secret = "check-environment-token-must-not-appear"
 	app.Env = []string{"ANTHROPIC_AUTH_TOKEN=" + secret}

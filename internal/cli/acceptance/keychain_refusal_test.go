@@ -82,6 +82,7 @@ func requireRefusal(t *testing.T, args []string, err error, out *bytes.Buffer, j
 // is named as the same command. A team setup observes the item of the provider
 // that it names before it reads the Token, so it sends no request.
 func TestAKeychainItemOfAnotherProgramNamesItsFixWhereATokenIsStored(t *testing.T) {
+	t.Parallel()
 	teamFile := gatewayTeamFile(t)
 	for _, test := range []struct {
 		name     string
@@ -143,6 +144,7 @@ func setupLine(teamFile string) string {
 // because the observation of the item already tells. The provider is not
 // configured yet, so the last step of the fix is setup again.
 func TestGuidedSetupStopsAtAStoredTokenThatMacOSRefuses(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: executableFixture(t, "claude")}}}
@@ -175,6 +177,7 @@ func TestGuidedSetupStopsAtAStoredTokenThatMacOSRefuses(t *testing.T) {
 // that cannot be read or a rerun with --unlisted, which would fail on the
 // same item, and neither sends a request or changes the configuration.
 func TestAKeychainItemOfAnotherProgramNamesItsFixWhereACatalogIsRead(t *testing.T) {
+	t.Parallel()
 	for _, test := range [][]string{
 		{"model", "add", "one/claude-next"},
 		{"use", claude.ID, "one/claude-next"},
@@ -207,6 +210,7 @@ func TestAKeychainItemOfAnotherProgramNamesItsFixWhereACatalogIsRead(t *testing.
 // there, with the item's title and its fix, in text and as JSON, never a
 // credential backend that could not tell.
 func TestModelSearchNamesTheFixOfAKeychainItemThatMacOSRefuses(t *testing.T) {
+	t.Parallel()
 	fix := refusalFix("one", "`aigw provider rotate one`")
 	for _, jsonMode := range []bool{false, true} {
 		app, out, _, _, requests := testApp(t, "")
@@ -255,6 +259,7 @@ func TestModelSearchNamesTheFixOfAKeychainItemThatMacOSRefuses(t *testing.T) {
 // it had: no command tells the operator to delete an item that only needs its
 // keychain unlocked.
 func TestALockedKeychainDoesNotNameTheDeletionOfAnItem(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "fixture-token\n")
 	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	locked := fmt.Errorf("read %s/one from system keyring: %w", secret.Service, &native.KeychainError{Status: -25293})

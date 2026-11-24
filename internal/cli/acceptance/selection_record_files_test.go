@@ -10,6 +10,7 @@ import (
 // files and no Token: file A's choice is recorded by the record-only write,
 // the person sets the same model in file B, then picks a third model in A.
 func TestRecordCodexAStaleRecordMakesTheNextPickUnfollowable(t *testing.T) {
+	t.Parallel()
 	app, output, targets := recCodexFiles(t, 2)
 	if err := app.Secrets.Delete("gateway"); err != nil {
 		t.Fatal(err)

@@ -57,6 +57,7 @@ func zz11RequiresFault(t *testing.T, what string, faults []string, want string) 
 // records the choice and saves no retry budget; the checker is then asked
 // about `aigw client edit codex --request-retries 2`.
 func TestZZ11HoldsRejectsAnOwnSettingThatWasNotSaved(t *testing.T) {
+	t.Parallel()
 	world := codexOneFileMatrix().states["chosen"](t)
 	before := world.snapshot(t)
 	world.run(t, "sync")
@@ -72,6 +73,7 @@ func TestZZ11HoldsRejectsAnOwnSettingThatWasNotSaved(t *testing.T) {
 // the Token is the real command; the run without it is made by `aigw sync`,
 // which saves no retry budget.
 func TestZZ11TwinnedRejectsAnEditThatTheTokenDecides(t *testing.T) {
+	t.Parallel()
 	command := zz11MatrixCommand(t, codexCommands(), "own setting")
 	build := codexOneFileMatrix().states["chosen"]
 	with := selectionRun{done: true}
@@ -97,6 +99,7 @@ func TestZZ11TwinnedRejectsAnEditThatTheTokenDecides(t *testing.T) {
 // change. The wrong outcome is a file written beside the configuration, as a
 // preview that wrote a backup would leave one.
 func TestZZ11HoldsRejectsAPreviewThatWritesAnotherPath(t *testing.T) {
+	t.Parallel()
 	world := codexOneFileMatrix().states["chosen"](t)
 	before := world.snapshot(t)
 	stray := filepath.Join(filepath.Dir(world.app.Config.Path()), "written-by-a-preview")
@@ -113,6 +116,7 @@ func TestZZ11HoldsRejectsAPreviewThatWritesAnotherPath(t *testing.T) {
 // for gateway; by hand spare/gpt-terra is stored and the record names
 // gpt-terra.
 func TestZZ11HoldsRejectsAChoiceStoredForAnotherProvider(t *testing.T) {
+	t.Parallel()
 	world := codexOneFileMatrix().states["chosen"](t)
 	before := world.snapshot(t)
 	cfg, err := world.app.Config.Load()
@@ -147,6 +151,7 @@ func TestZZ11HoldsRejectsAChoiceStoredForAnotherProvider(t *testing.T) {
 // in every state. The wrong outcome: the file is removed by hand and nothing
 // else changes.
 func TestZZ11HoldsRejectsACommandThatRemovesTheFile(t *testing.T) {
+	t.Parallel()
 	world := codexOneFileMatrix().states["chosen"](t)
 	before := world.snapshot(t)
 	if err := os.Remove(world.files[0]); err != nil {
@@ -164,6 +169,7 @@ func TestZZ11HoldsRejectsACommandThatRemovesTheFile(t *testing.T) {
 // forwarding edit itself is the last change, and a "rollback" that restores
 // nothing of it is made by `aigw use hermes` of the stored model.
 func TestZZ11HoldsRejectsARollbackThatKeepsWhatTheLastChangeSet(t *testing.T) {
+	t.Parallel()
 	world := hermesForwarding(t)
 	before := world.snapshot(t)
 	if before.binding.ForwardingEndpoint == "" {
@@ -186,6 +192,7 @@ func TestZZ11HoldsRejectsARollbackThatKeepsWhatTheLastChangeSet(t *testing.T) {
 // The wrong outcome is a real `aigw client disable`, after which the client is
 // enabled again by hand in the stored configuration.
 func TestZZ11HoldsRejectsAWithdrawalThatLeavesTheClientEnabled(t *testing.T) {
+	t.Parallel()
 	world := codexOneFileMatrix().states["chosen"](t)
 	before := world.snapshot(t)
 	world.run(t, "client", "disable", "codex")
@@ -209,6 +216,7 @@ func TestZZ11HoldsRejectsAWithdrawalThatLeavesTheClientEnabled(t *testing.T) {
 // probe only shows what the matrix's escape "blocked and untouched" covers
 // there: every command of the matrix that succeeds leaves Codex untouched.
 func TestZZ11WhatTheBlockedStatesLetThrough(t *testing.T) {
+	t.Parallel()
 	for name, build := range codexTwoFilesMatrix().states {
 		declared := build(t)
 		if declared.blocked == "" {

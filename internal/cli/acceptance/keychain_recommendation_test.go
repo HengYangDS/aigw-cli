@@ -89,6 +89,7 @@ func applyTeamFile(t *testing.T, app *cli.App, out *bytes.Buffer, teamFile strin
 // refusal. Followed as printed, the fix stores the Token, and the surface no
 // longer names the item.
 func TestTheNextStepWithNoClientEnabledIsTheFixOfARecommendedProvidersItem(t *testing.T) {
+	t.Parallel()
 	fix := refusalFix("gateway", "`aigw provider rotate gateway`")
 	for _, surface := range [][]string{{"setup"}, {"status"}, {"sync"}, {"check", "--depth", "local"}} {
 		for _, flag := range []string{"", "--json"} {
@@ -149,6 +150,7 @@ var chosenCommand = regexp.MustCompile(`Choose one compatible provider: (aigw pr
 // provider a Token, after which the status names the team file again and no
 // item.
 func TestTheNextStepNamesAMissingTokenAndARefusedItemEachWithItsStep(t *testing.T) {
+	t.Parallel()
 	want := "Choose one compatible provider: aigw provider rotate spare. " + refusalTitle("gateway") + ": " +
 		refusalFix("gateway", "`aigw provider rotate gateway`")
 	for _, followed := range []string{"the command of the provider without a Token", "the fix of the refused item"} {
@@ -209,6 +211,7 @@ func TestTheNextStepNamesAMissingTokenAndARefusedItemEachWithItsStep(t *testing.
 // provider and stores its Token, and the same preview no longer meets the
 // item.
 func TestTheFixOfASetupPreviewForAProviderThatOnlyTheTeamFileHoldsRunsAsPrinted(t *testing.T) {
+	t.Parallel()
 	const asked, piped = "`aigw setup --from <file> --provider gateway`", "`aigw setup --from <file> --provider gateway --token-stdin`"
 	for _, test := range []struct {
 		name string

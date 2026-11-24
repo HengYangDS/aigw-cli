@@ -26,54 +26,65 @@ import (
 // states and commands instead of the paths that a reviewer happens to pick.
 // There is one test for each client's matrix, so that each runs alone.
 func TestMatrixEveryCommandLeavesEachRecordNamingWhatItsFileSelectsCodexOneFile(t *testing.T) {
+	t.Parallel()
 	codexOneFileMatrix().run(t)
 }
 
 // The matrix of Codex on two files.
 func TestMatrixEveryCommandLeavesEachRecordNamingWhatItsFileSelectsCodexTwoFiles(t *testing.T) {
+	t.Parallel()
 	codexTwoFilesMatrix().run(t)
 }
 
 // The matrix of Hermes.
 func TestMatrixEveryCommandLeavesEachRecordNamingWhatItsFileSelectsHermes(t *testing.T) {
+	t.Parallel()
 	hermesMatrix().run(t)
 }
 
 // Every command of zz11CodexCommands in every state of Codex on one file,
 // with the Token and without it: the rule, judged by zz11Judge.
 func TestMatrixCommandsOutsideTheMatrixCodexOneFile(t *testing.T) {
+	t.Parallel()
 	zz11Sweep(t, zz11CodexStates(1), zz11CodexCommands())
 }
 
 // The same for Codex on two files, in four parts, so that each run stays
 // inside the time that a run may take.
 func TestMatrixCommandsOutsideTheMatrixCodexTwoFilesFirst(t *testing.T) {
+	t.Parallel()
 	zz11Sweep(t, zz11Part(zz11CodexStates(2), 4, 0), zz11CodexCommands())
 }
 
 func TestMatrixCommandsOutsideTheMatrixCodexTwoFilesSecond(t *testing.T) {
+	t.Parallel()
 	zz11Sweep(t, zz11Part(zz11CodexStates(2), 4, 1), zz11CodexCommands())
 }
 
 func TestMatrixCommandsOutsideTheMatrixCodexTwoFilesThird(t *testing.T) {
+	t.Parallel()
 	zz11Sweep(t, zz11Part(zz11CodexStates(2), 4, 2), zz11CodexCommands())
 }
 
 func TestMatrixCommandsOutsideTheMatrixCodexTwoFilesFourth(t *testing.T) {
+	t.Parallel()
 	zz11Sweep(t, zz11Part(zz11CodexStates(2), 4, 3), zz11CodexCommands())
 }
 
 // Every command of zz11HermesSweepCommands in every state of Hermes, with
 // each Token and without it, in three parts.
 func TestMatrixCommandsOutsideTheMatrixHermesFirst(t *testing.T) {
+	t.Parallel()
 	zz11Sweep(t, zz11Part(zz11HermesStates(), 3, 0), zz11HermesSweepCommands())
 }
 
 func TestMatrixCommandsOutsideTheMatrixHermesSecond(t *testing.T) {
+	t.Parallel()
 	zz11Sweep(t, zz11Part(zz11HermesStates(), 3, 1), zz11HermesSweepCommands())
 }
 
 func TestMatrixCommandsOutsideTheMatrixHermesThird(t *testing.T) {
+	t.Parallel()
 	zz11Sweep(t, zz11Part(zz11HermesStates(), 3, 2), zz11HermesSweepCommands())
 }
 
@@ -93,6 +104,7 @@ func TestMatrixCommandsOutsideTheMatrixHermesThird(t *testing.T) {
 //     out of the configuration again.
 //   - Two files of which one lost its model line and the other chose.
 func TestMatrixCommandsInFurtherStatesCodex(t *testing.T) {
+	t.Parallel()
 	states := map[string]func(t *testing.T) selectionWorld{
 		plainState: func(t *testing.T) selectionWorld { return codexWorld(t, 1) },
 		"a third model picked while the stored selection waits": func(t *testing.T) selectionWorld {
@@ -141,6 +153,7 @@ func TestMatrixCommandsInFurtherStatesCodex(t *testing.T) {
 //     binding: the chosen entry's endpoint.
 //   - A pick of the model that the last change added.
 func TestMatrixCommandsInFurtherStatesHermes(t *testing.T) {
+	t.Parallel()
 	states := map[string]func(t *testing.T) selectionWorld{
 		plainState: hermesPlain,
 		"a third model picked while the stored selection waits": func(t *testing.T) selectionWorld {

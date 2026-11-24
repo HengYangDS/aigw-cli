@@ -37,6 +37,7 @@ import (
 // gpt-sol in that file was then no choice, and the synchronization wrote
 // gpt-terra over it.
 func TestReviewTenALiteralStringPickBesideABasicOneIsRecorded(t *testing.T) {
+	t.Parallel()
 	for _, command := range [][]string{
 		{"sync", "--json"},
 		{"provider", "edit", "spare", "--label", "Other", "--json"},
@@ -73,6 +74,7 @@ func TestReviewTenALiteralStringPickBesideABasicOneIsRecorded(t *testing.T) {
 // gpt-terra was then no choice, and the synchronization wrote gpt-sol over
 // it.
 func TestReviewTenALiteralStringPickOfTheStoredModelIsRecorded(t *testing.T) {
+	t.Parallel()
 	for _, command := range [][]string{
 		{"sync", "--json"},
 		{"provider", "edit", "spare", "--label", "Other", "--json"},
@@ -128,6 +130,7 @@ func recordedThenPicked(t *testing.T, world selectionWorld, command []string, re
 // literal string as no model, status reported drift with `aigw sync` as the
 // next step, and `aigw sync` refused the file as edited outside AIGW.
 func TestReviewTenAPickWrittenAsALiteralStringIsFollowed(t *testing.T) {
+	t.Parallel()
 	for _, token := range []bool{true, false} {
 		t.Run(fmt.Sprintf("token=%t", token), func(t *testing.T) {
 			world := codexWorld(t, 1)
@@ -186,6 +189,7 @@ func TestReviewTenAPickWrittenAsALiteralStringIsFollowed(t *testing.T) {
 // the file nor what to do about it. The wording of the refusal is not held
 // here, only that it names both.
 func TestReviewTenRemovingTheStoredModelBesideAChoiceThatCannotBeRecorded(t *testing.T) {
+	t.Parallel()
 	for _, state := range []string{"chosen, the other file missing", "chosen, the other record missing"} {
 		for _, token := range []bool{true, false} {
 			t.Run(fmt.Sprintf("%s/token=%t", state, token), func(t *testing.T) {

@@ -86,6 +86,7 @@ func consumeAnswer(answers *[]string, kind string) (string, error) {
 }
 
 func TestPromptConsumesOnlyDeclaredAnswers(t *testing.T) {
+	t.Parallel()
 	for name, prompt := range map[string]*scriptedPrompt{
 		"secret":    {secrets: []string{"synthetic"}},
 		"text":      {texts: []string{"synthetic"}},
@@ -124,6 +125,7 @@ func choiceValues(choices []terminal.Choice) []string {
 }
 
 func TestUseWithoutNameSelectsModelAndCollectsMissingToken(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	if err := app.Config.Save(twoModelConfig()); err != nil {
 		t.Fatal(err)
@@ -142,6 +144,7 @@ func TestUseWithoutNameSelectsModelAndCollectsMissingToken(t *testing.T) {
 }
 
 func TestUseWithoutModelRequiresInteractiveTerminal(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
@@ -157,6 +160,7 @@ func TestUseWithoutModelRequiresInteractiveTerminal(t *testing.T) {
 }
 
 func TestUseWithoutModelPromptsInteractively(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
@@ -182,6 +186,7 @@ func TestUseWithoutModelPromptsInteractively(t *testing.T) {
 }
 
 func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
@@ -200,6 +205,7 @@ func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
 }
 
 func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
@@ -215,6 +221,7 @@ func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 }
 
 func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
@@ -232,6 +239,7 @@ func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 }
 
 func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
@@ -254,6 +262,7 @@ func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 }
 
 func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
@@ -277,6 +286,7 @@ func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 // the endpoint's protocol, for a model ID, which a catalog that lists none
 // leaves to the person; it saves them in one transaction and checks Codex.
 func TestSetupAtATerminalRunsTheWizard(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, runner, _ := testApp(t, "")
 	app.Interactive = true
 	prompt := &scriptedPrompt{
@@ -329,6 +339,7 @@ func guidedCodexTarget(t *testing.T, app *cli.App) string {
 // adds the provider with its Token and stops before a model, naming the
 // client list.
 func TestGuidedSetupStopsBeforeAModelWithoutAnInstalledClient(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		protocol domain.EndpointProtocol
 		endpoint string
@@ -357,6 +368,7 @@ func TestGuidedSetupStopsBeforeAModelWithoutAnInstalledClient(t *testing.T) {
 
 // Guided setup seeds no provider, endpoint or Token of its own.
 func TestFirstRunCreatesExplicitGenericProviderWithoutBundledProviderDefault(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{
@@ -382,6 +394,7 @@ func TestFirstRunCreatesExplicitGenericProviderWithoutBundledProviderDefault(t *
 // Guided setup on Claude Code checks it as `aigw check claude` does, after
 // saving.
 func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: executableFixture(t, "claude")}}}
@@ -409,6 +422,7 @@ func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 // Guided setup runs again on a configured home: it offers the provider, keeps
 // its stored Token, and leaves the client's selection of the same model.
 func TestGuidedSetupRunsAgainOnAConfiguredHome(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: executableFixture(t, "claude")}}}
@@ -443,6 +457,7 @@ func TestGuidedSetupRunsAgainOnAConfiguredHome(t *testing.T) {
 // A guided setup that cannot write a client's files stores no Token, writes
 // no configuration and leaves the client's file as it was.
 func TestWizardFailureLeavesNoModelSecretOrClientProjection(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{
@@ -471,6 +486,7 @@ func TestWizardFailureLeavesNoModelSecretOrClientProjection(t *testing.T) {
 // TestBareAigwAtATerminalNamesSetup: bare aigw at a terminal in an empty
 // home is aigw status, which names `aigw setup` and asks nothing.
 func TestBareAigwAtATerminalNamesSetup(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	app.Interactive, app.Prompt = true, &scriptedPrompt{}
 	if err := cli.Execute(app, nil); err != nil || !strings.Contains(out.String(), "Not configured") || !strings.Contains(out.String(), "aigw setup") {
@@ -479,6 +495,7 @@ func TestBareAigwAtATerminalNamesSetup(t *testing.T) {
 }
 
 func TestNoArgsStaysNonInteractiveInPipelines(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	if err := cli.Execute(app, []string{}); err != nil {
 		t.Fatal(err)

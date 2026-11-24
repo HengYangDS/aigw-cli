@@ -51,6 +51,7 @@ func selRun(t *testing.T, app *cli.App, output *bytes.Buffer, args ...string) er
 // naming Hermes or not, with and without the Token, leaves the record at what
 // the file shows.
 func TestSelectionEveryCommitBringsUpARecordBehindTheStoredSelectionHermes(t *testing.T) {
+	t.Parallel()
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
 	for _, command := range [][]string{
 		{"provider", "edit", "ucloud", "--label", "Other", "--json"},
@@ -113,6 +114,7 @@ func selPendingCodex(t *testing.T, count int) (*cli.App, *bytes.Buffer, []string
 // Ninth review, probe 2, Codex with one file and with two: file A shows the
 // stored selection and its record an earlier model.
 func TestSelectionEveryCommitBringsUpARecordBehindTheStoredSelectionCodex(t *testing.T) {
+	t.Parallel()
 	for _, command := range [][]string{
 		{"provider", "edit", "spare", "--label", "Other", "--json"},
 		{"model", "remove", "gateway/gpt-luna", "--json"},
@@ -149,6 +151,7 @@ func TestSelectionEveryCommitBringsUpARecordBehindTheStoredSelectionCodex(t *tes
 // preview and a report write nothing: not the record, not the file, not the
 // stored configuration.
 func TestSelectionPreviewsAndReportsWriteNothingWhileARecordIsBehind(t *testing.T) {
+	t.Parallel()
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
 	app, output, target := pendingHermes(t)
 	hermesNativeSelection(t, target, "aigw-dmxapi-responses", "gpt-6.2-sol", nil)
@@ -214,6 +217,7 @@ func TestSelectionPreviewsAndReportsWriteNothingWhileARecordIsBehind(t *testing.
 // not name the client: the stored selection and the record move to the file
 // together.
 func TestSelectionACommandAboutSomethingElseRecordsAChoiceWithoutAToken(t *testing.T) {
+	t.Parallel()
 	for _, command := range [][]string{
 		{"client", "edit", "codex", "--request-retries", "2", "--json"},
 		{"use", "claude", "dmxapi/claude-sonnet-5-5", "--json"},
@@ -238,6 +242,7 @@ func TestSelectionACommandAboutSomethingElseRecordsAChoiceWithoutAToken(t *testi
 // `provider edit`: the command fails and leaves the record and the stored
 // configuration as they were.
 func TestSelectionAFailedRecordOnOtherPathsLeavesNothing(t *testing.T) {
+	t.Parallel()
 	for _, command := range [][]string{
 		{"sync", "--json"},
 		{"client", "edit", "codex", "--request-retries", "2", "--json"},
@@ -275,6 +280,7 @@ func TestSelectionAFailedRecordOnOtherPathsLeavesNothing(t *testing.T) {
 // selection moves to the choice together with the record of every file that
 // shows it.
 func TestSelectionACommandAboutSomethingElseRecordsACodexChoice(t *testing.T) {
+	t.Parallel()
 	for _, command := range [][]string{
 		{"provider", "edit", "spare", "--label", "Other", "--json"},
 		{"model", "remove", "spare/gpt-spare", "--json"},

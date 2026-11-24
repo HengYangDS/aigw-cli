@@ -27,6 +27,7 @@ func assertManifestSetupLeavesNoConfig(t *testing.T, app *cli.App) {
 }
 
 func TestSetupFromConfigurationManifestRejectsUnknownSelectedProviderBeforeMutation(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "sk-unread\n")
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
@@ -41,6 +42,7 @@ func TestSetupFromConfigurationManifestRejectsUnknownSelectedProviderBeforeMutat
 }
 
 func TestSetupAdmitsArgumentsBeforeCreatingConfiguration(t *testing.T) {
+	t.Parallel()
 	for _, args := range [][]string{
 		{"--from="},
 		{"--from", " "},
@@ -68,6 +70,7 @@ func TestSetupAdmitsArgumentsBeforeCreatingConfiguration(t *testing.T) {
 // A Token that setup reads is validated as `aigw provider add` validates one;
 // one that the provider rejects, the person skips, and the team file applies.
 func TestSetupFromATeamFileValidatesAPromptedToken(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	prompt := &scriptedPrompt{secrets: []string{"aigw-test-dmxapi-token"}, selections: []string{"skip"}}
@@ -96,6 +99,7 @@ func TestSetupFromATeamFileValidatesAPromptedToken(t *testing.T) {
 // Setup stores only the named provider's Token once the provider accepts it,
 // and the person skips one that an endpoint does not answer as one.
 func TestSetupFromATeamFileStoresOnlyTheNamedProvidersAcceptedToken(t *testing.T) {
+	t.Parallel()
 	for _, status := range []int{http.StatusOK, http.StatusFound, http.StatusNotFound} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			app, _, secretStore, _, _ := testApp(t, "")
@@ -120,6 +124,7 @@ func TestSetupFromATeamFileStoresOnlyTheNamedProvidersAcceptedToken(t *testing.T
 // In a terminal, setup asks which providers' Tokens the person holds and asks
 // only for those, and a provider that they do not choose is added without one.
 func TestSetupFromATeamFilePromptsOnlyForTheChosenProviders(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	prompt := &scriptedPrompt{multi: [][]string{{"used"}}, secrets: []string{"aigw-test-used-token"}}
@@ -163,6 +168,7 @@ primary = {model = "used/claude-test"}
 }
 
 func TestSetupFromConfigurationManifestRejectsModelWithoutID(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	manifestPath := writeConfigurationManifest(t, `version = 8
 
@@ -187,6 +193,7 @@ protocols = {anthropic = ["text"]}
 }
 
 func TestManifestSetupSurfacesManifestAndConfigFailures(t *testing.T) {
+	t.Parallel()
 	t.Run("read", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		if err := cli.Execute(app, []string{"setup", "--from", filepath.Join(t.TempDir(), "missing.toml")}); err == nil {
@@ -241,6 +248,7 @@ func TestManifestSetupSurfacesManifestAndConfigFailures(t *testing.T) {
 }
 
 func TestManifestDecodeFailureKeepsNativeTypesOutOfPublicOutput(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []struct {
 		name string
 		json bool

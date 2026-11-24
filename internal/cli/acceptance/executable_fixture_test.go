@@ -14,6 +14,7 @@ import (
 // whole test binary with a fail fast (0xc0000409 in KERNEL32) when several
 // tests started such files at once.
 func TestAnExecutableFixtureStartsAndSaysNothing(t *testing.T) {
+	t.Parallel()
 	command := exec.Command(executableFixture(t, "codex"), "--version")
 	output, err := command.Output()
 	if exit, exited := errors.AsType[*exec.ExitError](err); !exited || exit.ExitCode() == 0 {

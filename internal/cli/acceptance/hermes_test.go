@@ -22,6 +22,7 @@ import (
 )
 
 func TestHermesSetupDeferredSyncCredentialCheckAndWithdrawal(t *testing.T) {
+	t.Parallel()
 	app, output, credentials, runner, httpClient := testApp(t, "")
 	root := t.TempDir()
 	manifest := filepath.Join(root, "team.toml")
@@ -107,6 +108,7 @@ primary = {model = "team/model-test", protocol = "anthropic"}
 }
 
 func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
+	t.Parallel()
 	app, output, credentials, _, httpClient := testApp(t, "")
 	if err := credentials.Set("dmxapi", "fixture-token"); err != nil {
 		t.Fatal(err)
@@ -145,6 +147,7 @@ func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
 }
 
 func TestHermesExplicitSelectionAdoptsNativeSwitchThenSyncs(t *testing.T) {
+	t.Parallel()
 	app, output, credentials, _, httpClient := testApp(t, "")
 	for _, account := range []string{"dmxapi", "ucloud"} {
 		if err := credentials.Set(account, "fixture-token"); err != nil {
@@ -306,6 +309,7 @@ func hermesProjectedSelection(t *testing.T, target string) (provider, model stri
 }
 
 func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
+	t.Parallel()
 	app, output, httpClient, target := shippedHermesApp(t)
 	before, err := app.Config.Load()
 	if err != nil {
@@ -378,6 +382,7 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 // file keeps its bytes throughout. Holds the cell chosen/other of the lane's
 // state table.
 func TestHermesSyncRecordsAChoiceWithoutItsToken(t *testing.T) {
+	t.Parallel()
 	app, output, httpClient, target := shippedHermesAppWith(t, true)
 	drifted := hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
 	stateBefore := readFile(t, target+".aigw-state.json")
@@ -444,6 +449,7 @@ func TestHermesSyncRecordsAChoiceWithoutItsToken(t *testing.T) {
 }
 
 func TestHermesSyncRefusesChangedManagedProvider(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesApp(t)
 	before, err := app.Config.Load()
 	if err != nil {
@@ -472,6 +478,7 @@ func TestHermesSyncRefusesChangedManagedProvider(t *testing.T) {
 }
 
 func TestHermesExplicitSelectionOverridesNativeModelChoice(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesApp(t)
 	hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-opus-5-5", nil)
 	if err := cli.Execute(app, []string{"use", "hermes", "ucloud/gpt-6.2-sol", "--protocol", "responses"}); err != nil {

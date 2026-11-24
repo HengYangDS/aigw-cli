@@ -196,6 +196,7 @@ func zz11HermesReturn(t *testing.T, world selectionWorld, pick zz11HermesPick, e
 // A command that does not select for Hermes records it, with the Token and
 // without it: S = dmxapi/gpt-6.1-terra on the Responses protocol.
 func TestZZ11AHermesPickOfAnotherModelOfTheSameEntryIsRecorded(t *testing.T) {
+	t.Parallel()
 	const chosen = "aigw-dmxapi-responses/gpt-6.1-terra"
 	for _, command := range slices.Sorted(mapKeys(zz11HermesCommands())) {
 		for _, token := range []bool{true, false} {

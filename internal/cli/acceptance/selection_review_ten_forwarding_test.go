@@ -39,6 +39,7 @@ import (
 // choice had already ended the forwarding. The stored selection still
 // forwarded, so Hermes forwarded again after the person's return to it.
 func TestReviewTenEndingAForwardingAfterAChoiceIsSaved(t *testing.T) {
+	t.Parallel()
 	for _, token := range []bool{true, false} {
 		t.Run(fmt.Sprintf("token=%t", token), func(t *testing.T) {
 			world := forwardedThenChose(t, "ucloud")
@@ -129,6 +130,7 @@ func returnTo(t *testing.T, world selectionWorld, shown string, withEveryToken b
 // has run. The specification is narrowed to what the check does, and this
 // test holds the check to it.
 func TestReviewTenTheLocalCheckAfterAChoiceThatEndsAForwarding(t *testing.T) {
+	t.Parallel()
 	check := []string{"check", hermes.ID, "--depth", "local", "--json"}
 	for _, account := range []string{"ucloud", "dmxapi"} {
 		t.Run(account, func(t *testing.T) {

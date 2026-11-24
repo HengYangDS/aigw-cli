@@ -16,6 +16,7 @@ import (
 // the file keeps parsing, and either branch of the fix lets sync and the local
 // checks pass.
 func TestCodexWithoutItsRecordIsRefusedAndKeepsParsing(t *testing.T) {
+	t.Parallel()
 	const recovery = "Restore config.toml.aigw-state.json in its folder from a copy of it, or take the [model_providers.aigw] table and the lines marked \"# managed by AIGW\" out of config.toml, then run `aigw sync`"
 	for name, fix := range map[string]func(*testing.T, projectedClient, []byte, []byte){
 		"the record restored": func(t *testing.T, client projectedClient, _, record []byte) {

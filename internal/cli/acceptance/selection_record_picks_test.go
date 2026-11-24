@@ -146,6 +146,7 @@ func recCodexState(t *testing.T, app *cli.App, targets []string, at string) {
 // H1: Hermes. A pending selection (after a rollback over a choice without the
 // Token), picked in Hermes itself, then the earlier model picked again.
 func TestRecordHermesPickOfThePendingSelection(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesAppWith(t, true)
 	if err := cli.Execute(app, []string{"provider", "edit", "ucloud", "--label", "Other"}); err != nil {
 		t.Fatalf("change the configuration: %v\n%s", err, output)
@@ -192,6 +193,7 @@ func TestRecordHermesPickOfThePendingSelection(t *testing.T) {
 // H2: Codex, two files, no Token. One file chooses; the record-only write;
 // the other file chooses the same model; then goes back.
 func TestRecordCodexSecondFilePicksTheRecordedChoice(t *testing.T) {
+	t.Parallel()
 	app, output, targets := recCodexFiles(t, 2)
 	if err := app.Secrets.Delete("gateway"); err != nil {
 		t.Fatal(err)
@@ -235,6 +237,7 @@ func TestRecordCodexSecondFilePicksTheRecordedChoice(t *testing.T) {
 // The file that the choice was not made in is written at the next
 // synchronization, the ordinary state of a selection that waited for its Token.
 func TestRecordCodexRecordsThenTokenArrives(t *testing.T) {
+	t.Parallel()
 	app, output, targets := recCodexFiles(t, 2)
 	if err := app.Secrets.Delete("gateway"); err != nil {
 		t.Fatal(err)
@@ -267,6 +270,7 @@ func TestRecordCodexRecordsThenTokenArrives(t *testing.T) {
 // Codex, two files, no Token: after the record-only write the other file
 // picks a third model; then the withdrawal.
 func TestRecordCodexSecondFilePicksAThirdModel(t *testing.T) {
+	t.Parallel()
 	app, output, targets := recCodexFiles(t, 2)
 	if err := app.Secrets.Delete("gateway"); err != nil {
 		t.Fatal(err)

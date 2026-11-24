@@ -16,6 +16,7 @@ import (
 )
 
 func TestJSONCommandFailuresRemainMachineReadable(t *testing.T) {
+	t.Parallel()
 	for _, args := range [][]string{
 		{"status", "--json"},
 		{"sync", "--json"},
@@ -51,6 +52,7 @@ func TestJSONCommandFailuresRemainMachineReadable(t *testing.T) {
 }
 
 func TestFailureFormatUsesParsedJSONFlag(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	for _, test := range []struct {
 		args []string
@@ -84,6 +86,7 @@ func (out *interruptedOutput) Write(data []byte) (int, error) {
 }
 
 func TestJSONOutputFailureIsNeverFollowedByAnotherResult(t *testing.T) {
+	t.Parallel()
 	for _, failure := range []error{io.ErrClosedPipe, nil} {
 		app, _, _, _, _ := testApp(t, "")
 		out := &interruptedOutput{err: failure}
@@ -100,6 +103,7 @@ func TestJSONOutputFailureIsNeverFollowedByAnotherResult(t *testing.T) {
 }
 
 func TestOutputFailureDoesNotLeakIntoTheNextInvocation(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	app.Out = &interruptedOutput{err: io.ErrClosedPipe}
 	if err := cli.Execute(app, []string{"status", "--json"}); !errors.Is(err, io.ErrClosedPipe) {
@@ -112,6 +116,7 @@ func TestOutputFailureDoesNotLeakIntoTheNextInvocation(t *testing.T) {
 }
 
 func TestErrorRenderingPreservesCommandAndWriterFailures(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	app.Out = failingOutput{err: io.ErrClosedPipe}
 	err := cli.Execute(app, []string{"sync", "--json"})
@@ -121,6 +126,7 @@ func TestErrorRenderingPreservesCommandAndWriterFailures(t *testing.T) {
 }
 
 func TestUnconfiguredCommandsPointToSetupWithoutLoops(t *testing.T) {
+	t.Parallel()
 	for _, command := range [][]string{{"status"}, {"check"}, {"sync"}, {"model", "search"}} {
 		app, out, _, _, _ := testApp(t, "")
 		err := cli.Execute(app, command)
@@ -144,6 +150,7 @@ func TestUnconfiguredCommandsPointToSetupWithoutLoops(t *testing.T) {
 }
 
 func TestCommonCommandFailuresUseEnglishGuidance(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	for _, tc := range []struct {
 		args []string
@@ -161,6 +168,7 @@ func TestCommonCommandFailuresUseEnglishGuidance(t *testing.T) {
 }
 
 func TestUnknownCommandSuggestsTopLevelHelp(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	err := cli.Execute(app, []string{"not-a-command"})
 	if err == nil || !strings.Contains(out.String(), "unknown command") || !strings.Contains(out.String(), "aigw --help") {
@@ -177,6 +185,7 @@ func TestUnknownCommandSuggestsTopLevelHelp(t *testing.T) {
 // of the command that refused the flag, not top-level help or a readiness
 // check, and that a command that help does not list names top-level help.
 func TestFlagErrorsSuggestTheCommandHelp(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	for _, tc := range []struct {
 		args []string
@@ -217,6 +226,7 @@ func TestFlagErrorsSuggestTheCommandHelp(t *testing.T) {
 // show that one without a fix names the diagnostic, which does not fail the
 // same way.
 func TestUsageErrorsNameTheirHelpAndOtherFailuresTheDiagnostic(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	if err := app.Config.Save(twoModelConfig()); err != nil {
 		t.Fatal(err)
@@ -251,6 +261,7 @@ func TestUsageErrorsNameTheirHelpAndOtherFailuresTheDiagnostic(t *testing.T) {
 }
 
 func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	for _, tc := range []struct {
 		args []string
@@ -269,6 +280,7 @@ func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 }
 
 func TestExecuteReturnsHumanOutputFailure(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	want := errors.New("output is unavailable")
 	app.Out = failingOutput{err: want}
@@ -280,6 +292,7 @@ func TestExecuteReturnsHumanOutputFailure(t *testing.T) {
 }
 
 func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
+	t.Parallel()
 	for _, args := range [][]string{
 		{"status", "--json"},
 		{"check", "--json"},
@@ -310,6 +323,7 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 }
 
 func TestPublicMutationFailureDoesNotExposePrivatePath(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 	privatePath := app.Config.Path() + ".bak"
@@ -332,6 +346,7 @@ func TestPublicMutationFailureDoesNotExposePrivatePath(t *testing.T) {
 // groups: it shows the group's help and succeeds, and `aigw help <command>`
 // shows that command's help.
 func TestCommandGroupsShowTheirHelp(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		args []string
 		want string
@@ -356,6 +371,7 @@ func TestCommandGroupsShowTheirHelp(t *testing.T) {
 // any depth, and an unknown help topic to a refusal that names the help to
 // read, where Cobra would show a nested group's help and succeed.
 func TestUnknownCommandsRefuse(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		args []string
 		want string

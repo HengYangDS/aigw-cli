@@ -16,6 +16,7 @@ import (
 )
 
 func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryProviderChoices(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		endpoint string
@@ -76,6 +77,7 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryProviderChoices(t 
 }
 
 func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "local", "Local Endpoint", domain.Endpoints{Anthropic: "http://127.0.0.2:4567"}, claude.ID, "model-test")
@@ -103,6 +105,7 @@ func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *tes
 }
 
 func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "remote", "Remote Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "model-test")
@@ -124,6 +127,7 @@ func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T
 }
 
 func TestEndpointOnlyCheckUsesSelectedTLSOrLoopbackProvider(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name      string
 		newServer func(http.Handler) *httptest.Server

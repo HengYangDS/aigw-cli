@@ -19,6 +19,7 @@ import (
 )
 
 func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, runner, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
@@ -73,6 +74,7 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 }
 
 func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, runner, _ := testApp(t, "")
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath}); err != nil {
@@ -121,6 +123,7 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 }
 
 func TestSyncActivatesSelectedEnvironmentProviderAfterManifestSetup(t *testing.T) {
+	t.Parallel()
 	app, out, _, runner, _ := testApp(t, "")
 	tokens := map[string]string{}
 	app.Secrets = environmentBackend(func(key string) string { return tokens[key] })
@@ -212,6 +215,7 @@ func TestSyncActivatesSelectedEnvironmentProviderAfterManifestSetup(t *testing.T
 }
 
 func TestSyncActivatesLateTokenWithoutChangingIndependentModel(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, runner, _ := testApp(t, "")
 	app.Discovery = fakeDiscovery{}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
@@ -274,6 +278,7 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentModel(t *testing.T) {
 }
 
 func TestSyncDefersNewlyInstalledClientUntilItsProviderIsConnected(t *testing.T) {
+	t.Parallel()
 	app, _, _, runner, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {

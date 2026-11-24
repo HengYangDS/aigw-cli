@@ -50,6 +50,7 @@ func codexTargetIn(t *testing.T, client projectedClient, path string) string {
 // otherwise be its next failure, and a command runs again. Followed literally,
 // once, each fix lets the check pass after its sync and the command pass.
 func TestACodexTargetsFixRunsOnEverySurface(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name   string
 		break_ func(t *testing.T, folder string)
@@ -156,6 +157,7 @@ func createTarget(t *testing.T, folder string) {
 // by a command, and the folder alone does not let the same edit pass, since
 // AIGW creates no Codex file.
 func TestACodexTargetInAMissingFolderNamesTheFolderAndFile(t *testing.T) {
+	t.Parallel()
 	client := projectedClients[codex.ID](t)
 	gone := filepath.Join(t.TempDir(), "gone", "config.toml")
 	want := "Create " + gone + " and the folder that holds it, then run the same command again."

@@ -74,6 +74,7 @@ func storeTokenAsPrinted(t *testing.T, app *cli.App, out *bytes.Buffer, items *k
 // text and as JSON, and the check reads no Token. Followed as printed, the fix
 // lets the same check pass.
 func TestCheckNamesTheFixOfAKeychainItemOfAnotherProgramAtTheLocalDepth(t *testing.T) {
+	t.Parallel()
 	app, out, items := claudeOverAnItemOfAnotherProgram(t)
 	title, fix := refusalTitle("one"), refusalFix("one", "`aigw provider rotate one`")
 
@@ -135,6 +136,7 @@ func requireRefusedTokenCheck(t *testing.T, args []string, out *bytes.Buffer, ti
 // the item's fix as its next step, in text and as JSON; it reads no Token.
 // Followed as printed, the fix leaves the client configured.
 func TestStatusNamesTheFixOfAKeychainItemOfAnotherProgram(t *testing.T) {
+	t.Parallel()
 	app, out, items := claudeOverAnItemOfAnotherProgram(t)
 	title, fix := refusalTitle("one"), refusalFix("one", "`aigw provider rotate one`")
 
@@ -234,6 +236,7 @@ func requireWaitingRows(t *testing.T, args []string, out *bytes.Buffer, document
 // no Token. Followed as printed, the fix stores the Token, and the client's
 // local check passes.
 func TestASetupLeavesTheItemOfAProviderThatItDoesNotNameWaiting(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name  string
 		flags []string
@@ -296,6 +299,7 @@ func TestASetupLeavesTheItemOfAProviderThatItDoesNotNameWaiting(t *testing.T) {
 // the same command again. Followed as printed, the fix saves the provider and
 // stores its Token.
 func TestTheFixOfASetupForTheProviderThatItNamesRunsAsPrinted(t *testing.T) {
+	t.Parallel()
 	const piped = "`aigw setup --from <file> --provider gateway --token-stdin`"
 	for _, test := range []struct {
 		name  string

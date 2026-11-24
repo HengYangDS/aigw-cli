@@ -72,6 +72,7 @@ var hermesCommandsAfterAChoice = []commandAfterAChoice{
 // command of the table ends after a choice as it does without one, on a
 // fresh home each time.
 func TestEveryCommandEndsAfterAChoiceAsWithoutOne(t *testing.T) {
+	t.Parallel()
 	end := func(app *cli.App, output *bytes.Buffer, args []string) string {
 		output.Reset()
 		if err := cli.Execute(app, args); err != nil {
@@ -113,6 +114,7 @@ func TestEveryCommandEndsAfterAChoiceAsWithoutOne(t *testing.T) {
 // check of every client keeps its verified snapshot, which holds the chosen
 // model.
 func TestTheClientDepthCheckWorksFromAChoice(t *testing.T) {
+	t.Parallel()
 	app, output, targets := codexChoiceAppWith(t, "gpt-sol", 2)
 	slices.Sort(targets)
 	// The second file chose; the first still holds what AIGW last wrote.
@@ -143,6 +145,7 @@ func TestTheClientDepthCheckWorksFromAChoice(t *testing.T) {
 // record of the file move to it, and the file is left. Holds the cells
 // chosen/reports and chosen/other.
 func TestAChoiceIsRecordedWhileItsProviderWaitsForAToken(t *testing.T) {
+	t.Parallel()
 	app, output, target, chosen := waitingHermes(t)
 	record := readFile(t, target+".aigw-state.json")
 	choice := waitingHermesChoice()
@@ -214,6 +217,7 @@ func waitingHermesChoice() []followed {
 // the Token arrives with it, and synchronization writes the model chosen
 // last. Holds the cell chosen/other.
 func TestTheModelChosenAgainAfterARecordIsKept(t *testing.T) {
+	t.Parallel()
 	app, output, target, _ := waitingHermes(t)
 	if got := followedIn(t, app, output, "sync", "--json"); !slices.Equal(got, waitingHermesChoice()) {
 		t.Fatalf("synchronization follows %+v; want Hermes's choice recorded", got)
@@ -238,6 +242,7 @@ func TestTheModelChosenAgainAfterARecordIsKept(t *testing.T) {
 // record of the file moves with it, and the file is left. The synchronization
 // after the Token is stored writes the file. Holds the cell chosen/edits.
 func TestAnEditOfAClientThatWaitsForATokenRecordsTheChoiceWithTheEdit(t *testing.T) {
+	t.Parallel()
 	app, output, target, chosen := waitingHermes(t)
 	edit := []string{"client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json"}
 	if got := followedIn(t, app, output, edit...); len(got) != 1 || got[0].Client != hermes.ID || got[0].Model != "ucloud/claude-opus-5-5" {
@@ -319,6 +324,7 @@ func endsTheStoredForwarding(t *testing.T, app *cli.App, output *bytes.Buffer) {
 // the stored model, picked again, forwarded again. Holds the cell
 // chosen/edits.
 func TestAForwardingEditOfAClientThatWaitsForATokenActsOnTheChosenModel(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesAppWith(t, true)
 	if err := cli.Execute(app, []string{"client", "edit", "hermes", "--via", "http://127.0.0.1:9000"}); err != nil {
 		t.Fatalf("forward Hermes: %v\n%s", err, output)
@@ -362,6 +368,7 @@ func TestAForwardingEditOfAClientThatWaitsForATokenActsOnTheChosenModel(t *testi
 // that refuses it, and it records and writes the model that it selects.
 // Holds the cell chosen/selects.
 func TestAUseThatStoresTheTokenOfAWaitingChoiceIsNotRefused(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesAppWith(t, true)
 	if err := app.Secrets.Delete("ucloud"); err != nil {
 		t.Fatal(err)
@@ -385,6 +392,7 @@ func TestAUseThatStoresTheTokenOfAWaitingChoiceIsNotRefused(t *testing.T) {
 // stays in the file that shows it and the command succeeds as it does
 // without the choice.
 func TestACommandAboutSomethingElseIsNotStoppedByTheClientsOtherFile(t *testing.T) {
+	t.Parallel()
 	app, output, targets := codexChoiceAppWith(t, "gpt-sol", 2)
 	chooseInCodex(t, targets[0], "gpt-sol", "gpt-terra")
 	if err := os.Remove(targets[1]); err != nil {
@@ -406,6 +414,7 @@ func TestACommandAboutSomethingElseIsNotStoppedByTheClientsOtherFile(t *testing.
 // provider's catalog does not list, after the command's own preview had
 // planned to record Hermes' choice.
 func TestACommandThatFailsNamesNoFollowedSelection(t *testing.T) {
+	t.Parallel()
 	for _, mode := range [][]string{nil, {"--json"}} {
 		app, output, _, target := shippedHermesApp(t)
 		hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-opus-5-5", nil)

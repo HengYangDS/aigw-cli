@@ -82,6 +82,7 @@ const fixtureToken = "fixture-token"
 // refusal no longer meets it. `aigw provider add` stops before the provider is
 // saved and stores the Token itself, so its last step is itself.
 func TestTheFixOfARefusedProviderAddRunsAsPrinted(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, fixtureToken+"\n")
 	items := withItemsOfAnotherProgram(t, app, "team")
 	args := []string{"provider", "add", "team", "--endpoint", "anthropic=https://team.test", "--token-stdin"}
@@ -99,6 +100,7 @@ func TestTheFixOfARefusedProviderAddRunsAsPrinted(t *testing.T) {
 // `aigw setup --from` stops before it saves the provider of the team file, so
 // its last step is itself.
 func TestTheFixOfARefusedSetupRunsAsPrinted(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, fixtureToken+"\n")
 	items := withItemsOfAnotherProgram(t, app, "gateway")
 	teamFile := gatewayTeamFile(t)
@@ -144,6 +146,7 @@ label = "GPT Test"
 // before it reads a Token. `aigw provider rotate` knows such a provider, so
 // the fix ends with it and stores the Token, and the setup then runs.
 func TestTheFixOfASetupRefusedForAConfiguredProviderRunsAsPrinted(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, fixtureToken+"\n")
 	items := withItemsOfAnotherProgram(t, app, "gateway")
 	cfg := domain.NewConfig(clients.Admission())
@@ -186,6 +189,7 @@ func TestTheFixOfASetupRefusedForAConfiguredProviderRunsAsPrinted(t *testing.T) 
 // provider, so the fix ends with it; guided setup then uses the stored Token
 // without a prompt.
 func TestTheFixOfAGuidedSetupOfAConfiguredProviderRunsAsPrinted(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	app.Interactive = true
 	items := withItemsOfAnotherProgram(t, app, "gateway")
@@ -224,6 +228,7 @@ func TestTheFixOfAGuidedSetupOfAConfiguredProviderRunsAsPrinted(t *testing.T) {
 // provider rotate`, which asks for the Token at a terminal. Afterwards the
 // command reads the provider's catalog.
 func TestTheFixOfARefusedTokenRunsAsPrinted(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, requests := testApp(t, "")
 	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	requests.body = `{"data":[{"id":"claude-test"}]}`
@@ -252,6 +257,7 @@ func TestTheFixOfARefusedTokenRunsAsPrinted(t *testing.T) {
 // edit` with a user ID to fill in, which reads the balance token from
 // standard input. Afterwards the command reports the balance.
 func TestTheFixOfRefusedBalanceCredentialsRunsAsPrinted(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, requests := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"},

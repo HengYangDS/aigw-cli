@@ -15,6 +15,7 @@ import (
 
 // F1c: the Token is there when the unrelated command commits.
 func TestRecordHermesPendingPickedWithTokenThenUnrelatedCommand(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesAppWith(t, true)
 	if err := cli.Execute(app, []string{"provider", "edit", "ucloud", "--label", "Other"}); err != nil {
 		t.Fatalf("change the configuration: %v\n%s", err, output)
@@ -51,6 +52,7 @@ func TestRecordHermesPendingPickedWithTokenThenUnrelatedCommand(t *testing.T) {
 // An explicit selection of the stored model after a choice of another
 // provider's model: what becomes of the stored forwarding?
 func TestRecordExplicitReturnAndTheStoredForwarding(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesAppWith(t, true)
 	if err := cli.Execute(app, []string{"client", "edit", hermes.ID, "--via", "http://127.0.0.1:9000"}); err != nil {
 		t.Fatalf("forward Hermes: %v\n%s", err, output)
@@ -77,6 +79,7 @@ func TestRecordExplicitReturnAndTheStoredForwarding(t *testing.T) {
 // Reports and other commands' own results while Hermes's file shows a choice
 // whose provider has no Token.
 func TestRecordHermesReportsWithAChoiceAndNoToken(t *testing.T) {
+	t.Parallel()
 	app, output, target, chosen := waitingHermes(t)
 	record := readFile(t, target+".aigw-state.json")
 	for _, command := range [][]string{
@@ -119,6 +122,7 @@ func TestRecordHermesReportsWithAChoiceAndNoToken(t *testing.T) {
 
 // setup --from with a recommendation of another model for Hermes.
 func TestRecordTeamSetupWithAChoiceAndNoToken(t *testing.T) {
+	t.Parallel()
 	app, output, target, chosen := waitingHermes(t)
 	record := readFile(t, target+".aigw-state.json")
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
@@ -138,6 +142,7 @@ func TestRecordTeamSetupWithAChoiceAndNoToken(t *testing.T) {
 // The row unknown, and an outside edit, while the stored selection's provider
 // has no Token: nothing may be recorded.
 func TestRecordUnknownAndOutsideEditWithoutAToken(t *testing.T) {
+	t.Parallel()
 	for name, pick := range map[string]func(t *testing.T, target string){
 		"unlisted": func(t *testing.T, target string) {
 			hermesNativeSelection(t, target, "aigw-dmxapi-responses", "zz-not-listed", nil)
@@ -177,6 +182,7 @@ func TestRecordUnknownAndOutsideEditWithoutAToken(t *testing.T) {
 // Codex, one file, no Token: previews and refusals write nothing; removing the
 // earlier model records.
 func TestRecordCodexOneFileWithoutAToken(t *testing.T) {
+	t.Parallel()
 	app, output, targets := recCodexFiles(t, 1)
 	if err := app.Secrets.Delete("gateway"); err != nil {
 		t.Fatal(err)

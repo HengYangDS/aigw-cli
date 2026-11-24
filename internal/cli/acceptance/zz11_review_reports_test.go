@@ -167,6 +167,7 @@ func (c zz11Clients) run(t *testing.T, args ...string) zz11ClaudeRun {
 // forwarding) keeps "opus[1m]". Claude Desktop keeps no model of the person's
 // in a file: a command that names nothing of it leaves its files as they are.
 func TestZZ11ClaudeCodesOwnModelBesideEveryCommand(t *testing.T) {
+	t.Parallel()
 	type probe struct {
 		name string
 		args []string
@@ -232,6 +233,7 @@ func TestZZ11ClaudeCodesOwnModelBesideEveryCommand(t *testing.T) {
 // own model: `aigw use claude gateway/claude-two` over "opus[1m]" writes
 // "claude-two".
 func TestZZ11AnExplicitSelectionReplacesClaudeCodesOwnModel(t *testing.T) {
+	t.Parallel()
 	three := zz11ThreeClients(t)
 	three.choosingInClaude(t, "opus[1m]")
 	run := three.run(t, "use", "claude", "gateway/claude-two", "--json")
@@ -247,6 +249,7 @@ func TestZZ11AnExplicitSelectionReplacesClaudeCodesOwnModel(t *testing.T) {
 // The Change's requirement: no command changes Claude Code's own model except
 // an explicit `aigw use claude`.
 func TestZZ11ClaudeCodesOwnModelBesideARewriteOfItsSettings(t *testing.T) {
+	t.Parallel()
 	steps := map[string]func(t *testing.T, three zz11Clients) [][]string{
 		"the provider's endpoint": func(*testing.T, zz11Clients) [][]string {
 			return [][]string{{"provider", "edit", "gateway", "--endpoint", "anthropic=https://gateway-two.test", "--json"}}
@@ -314,6 +317,7 @@ func TestZZ11ClaudeCodesOwnModelBesideARewriteOfItsSettings(t *testing.T) {
 // protocol: the followed selection is named with forwarding_cleared, and the
 // status writes nothing.
 func TestZZ11StatusAfterAChoiceThatEndsAForwarding(t *testing.T) {
+	t.Parallel()
 	for _, account := range []string{"ucloud", "dmxapi"} {
 		t.Run(account, func(t *testing.T) {
 			world := forwardedThenChose(t, account)
@@ -350,6 +354,7 @@ func TestZZ11StatusAfterAChoiceThatEndsAForwarding(t *testing.T) {
 // every file shows its recorded model: `changed` is false, and no path
 // changes.
 func TestZZ11AnEditThatAsksForWhatIsStoredReportsNoChange(t *testing.T) {
+	t.Parallel()
 	for name, edit := range map[string]struct {
 		build func(t *testing.T) selectionWorld
 		args  func(t *testing.T, w selectionWorld) []string
@@ -380,6 +385,7 @@ func TestZZ11AnEditThatAsksForWhatIsStoredReportsNoChange(t *testing.T) {
 // Claude Desktop, so that the probes below are written against the files as
 // they are.
 func TestZZ11ShowTheClaudeFixtures(t *testing.T) {
+	t.Parallel()
 	three := zz11ThreeClients(t)
 	t.Logf("Claude Code's settings:\n%s", readFile(t, three.settings))
 	t.Logf("Claude Code's record:\n%s", readFile(t, three.settings+adapter.StateSuffix))

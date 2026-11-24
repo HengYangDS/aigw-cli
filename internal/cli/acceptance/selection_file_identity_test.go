@@ -208,6 +208,7 @@ func identityTwins(t *testing.T, prepare func(t *testing.T) (selectionWorld, sel
 // The twelfth review found the edit refused without the Token, because the
 // file in its old spelling read as dropped.
 func TestFileIdentityAnEditThatNamesTheFileAnotherWay(t *testing.T) {
+	t.Parallel()
 	eachRespelling(t, func(t *testing.T, client identityClient, spelling fileSpelling, change respelling, chosen bool) {
 		identityTwins(t, func(t *testing.T) (selectionWorld, selectionCommand) {
 			world := client.world(t)
@@ -244,6 +245,7 @@ func TestFileIdentityAnEditThatNamesTheFileAnotherWay(t *testing.T) {
 // no file and ends alike with the Token and without it: it is saved, and with
 // the Token the home is created as the default home.
 func TestFileIdentityAnEditThatNamesTheMissingDefaultHomeInAnotherSpelling(t *testing.T) {
+	t.Parallel()
 	spellings := map[string]func(t *testing.T, home string) string{
 		"through a linked folder": func(t *testing.T, home string) string {
 			return filepath.Join(symlinkTo(t, home), ".codex", "config.toml")
@@ -318,6 +320,7 @@ func TestFileIdentityAnEditThatNamesTheMissingDefaultHomeInAnotherSpelling(t *te
 // names what the file selects, and after the withdrawal neither AIGW's
 // settings nor its record.
 func TestFileIdentityHermesWritesThroughALinkToItsFile(t *testing.T) {
+	t.Parallel()
 	for _, token := range []bool{true, false} {
 		t.Run(fmt.Sprintf("token at the withdrawal=%t", token), func(t *testing.T) {
 			named := filepath.Join(t.TempDir(), "config.yaml")
@@ -360,6 +363,7 @@ func TestFileIdentityHermesWritesThroughALinkToItsFile(t *testing.T) {
 // had dropped: it removed AIGW's settings and record from it, and a model
 // chosen there was no longer seen as a choice.
 func TestFileIdentityARollbackToTheFileNamedAnotherWay(t *testing.T) {
+	t.Parallel()
 	eachRespelling(t, func(t *testing.T, client identityClient, spelling fileSpelling, change respelling, chosen bool) {
 		identityTwins(t, func(t *testing.T) (selectionWorld, selectionCommand) {
 			world := client.world(t)
@@ -386,6 +390,7 @@ func TestFileIdentityARollbackToTheFileNamedAnotherWay(t *testing.T) {
 // AIGW's part from B alone: B keeps neither AIGW's settings nor its record,
 // and A keeps both, with its record naming what A selects.
 func TestFileIdentityARollbackThatDropsOneCodexFileKeepsTheOther(t *testing.T) {
+	t.Parallel()
 	for _, change := range respellings {
 		t.Run(change.name, func(t *testing.T) {
 			t.Parallel()

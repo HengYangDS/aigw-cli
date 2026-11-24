@@ -14,6 +14,7 @@ import (
 // selection each say that nothing changed, name their command again and leave
 // the configuration as it was.
 func TestAccessiblePromptsChangeNothingAtTheEndOfInput(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		args       []string
 		configured bool

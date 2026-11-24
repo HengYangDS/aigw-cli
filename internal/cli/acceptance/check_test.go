@@ -20,6 +20,7 @@ import (
 )
 
 func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
@@ -42,6 +43,7 @@ func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 }
 
 func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name      string
 		body      string
@@ -85,6 +87,7 @@ func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
 }
 
 func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Responses: "https://example.test/v1", Anthropic: "https://example.test"}}
@@ -105,6 +108,7 @@ func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T)
 }
 
 func TestCheckJSONReportsOnlyActiveModels(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "claude-account", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
@@ -135,6 +139,7 @@ func TestCheckJSONReportsOnlyActiveModels(t *testing.T) {
 }
 
 func TestCheckJSONMakesMissingActiveCredentialActionable(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "claude-account", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
@@ -158,6 +163,7 @@ func TestCheckJSONMakesMissingActiveCredentialActionable(t *testing.T) {
 }
 
 func TestCheckJSONReportsPrerequisiteFailure(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name, version, problem, nextDetail string
 	}{
@@ -188,6 +194,7 @@ func TestCheckJSONReportsPrerequisiteFailure(t *testing.T) {
 }
 
 func TestCheckJSONKeepsConfigurationFailureMachineReadable(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	app.Version = "1.0.0"
 	if err := os.WriteFile(app.Config.Path(), []byte("version = ["), 0o600); err != nil {
@@ -217,6 +224,7 @@ func TestCheckJSONKeepsConfigurationFailureMachineReadable(t *testing.T) {
 }
 
 func TestCheckSurfacesMissingSelectedModelToken(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	cfg, err := app.Config.Load()
@@ -238,6 +246,7 @@ func TestCheckSurfacesMissingSelectedModelToken(t *testing.T) {
 }
 
 func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
@@ -259,6 +268,7 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 }
 
 func TestCheckRejectsAnEnabledClientModelWithoutItsProviderToken(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "claude-account", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
@@ -301,6 +311,7 @@ func TestCheckRejectsAnEnabledClientModelWithoutItsProviderToken(t *testing.T) {
 }
 
 func TestCheckProbesEveryEnabledClientModelAndIgnoresUnselectedModel(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, runner, httpClient := testApp(t, "")
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	writeFile(t, codexTarget, []byte("model_provider = \"native\"\n"), 0o600)
@@ -408,6 +419,7 @@ func TestCheckProbesEveryEnabledClientModelAndIgnoresUnselectedModel(t *testing.
 }
 
 func TestCheckEvaluatesModelsIndependentlyOfProgramVersion(t *testing.T) {
+	t.Parallel()
 	for _, version := range []string{"", "0.1.0-rc.44+local.test", "0.1.0-dev", "1.2.3"} {
 		for _, jsonMode := range []bool{false, true} {
 			t.Run(version+map[bool]string{false: "/human", true: "/json"}[jsonMode], func(t *testing.T) {
@@ -441,6 +453,7 @@ func TestCheckEvaluatesModelsIndependentlyOfProgramVersion(t *testing.T) {
 }
 
 func TestCheckKeepsGenericHealthAvailableWhenExactDiagnosticDriverIsNotBundled(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["future"] = domain.Provider{

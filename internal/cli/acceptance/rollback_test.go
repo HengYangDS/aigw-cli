@@ -16,6 +16,7 @@ import (
 )
 
 func TestRollbackReportsUnavailableRecoveryWithoutChangingCurrentConfiguration(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		args    []string
@@ -80,6 +81,7 @@ func TestRollbackReportsUnavailableRecoveryWithoutChangingCurrentConfiguration(t
 }
 
 func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	before := domain.NewConfig(clients.Admission())
 	addProviderModel(&before, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
@@ -103,6 +105,7 @@ func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
 }
 
 func TestRollbackUsesPreviousConfigurationWhenVerifiedRecoveryIsInvalid(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	previous := domain.NewConfig(clients.Admission())
 	addProviderModel(&previous, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-stable")
@@ -139,6 +142,7 @@ func TestRollbackUsesPreviousConfigurationWhenVerifiedRecoveryIsInvalid(t *testi
 // file is a directory, says what refused it and that nothing changed, as
 // every other command does, and the configuration stays as it was.
 func TestRollbackRefusedBeforeItWritesSaysThatNothingChanged(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	target := t.TempDir()
 	verified := domain.NewConfig(clients.Admission())
@@ -181,6 +185,7 @@ func TestRollbackRefusedBeforeItWritesSaysThatNothingChanged(t *testing.T) {
 }
 
 func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	verified := domain.NewConfig(clients.Admission())
 	verified.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Responses: "https://example.test/v1"}}

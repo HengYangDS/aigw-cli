@@ -30,6 +30,7 @@ import (
 // selects; the model that the person named in the setup is stored, as after
 // `aigw use`; and the Token decides neither.
 func TestZZ11GuidedSetupAfterAChoice(t *testing.T) {
+	t.Parallel()
 	for _, named := range []string{"gpt-sol", "gpt-terra", "gpt-luna"} {
 		outcomes := map[bool]string{}
 		for _, token := range []bool{true, false} {
@@ -88,6 +89,7 @@ func TestZZ11GuidedSetupAfterAChoice(t *testing.T) {
 // The case without a choice shows what the choice adds: without one the file
 // that Codex left keeps AIGW's settings too, and its record is not written.
 func TestZZ11ARollbackToOtherFilesOverAChoice(t *testing.T) {
+	t.Parallel()
 	type outcome struct {
 		refused bool
 		stored  string
@@ -158,6 +160,7 @@ func TestZZ11ARollbackToOtherFilesOverAChoice(t *testing.T) {
 // does (no record, none of AIGW's settings in the file), or it is refused and
 // changes nothing; alike with the Token and without it.
 func TestZZ11ARollbackToADisabledClientOverAChoice(t *testing.T) {
+	t.Parallel()
 	outcomes := map[bool]string{}
 	for _, token := range []bool{true, false} {
 		t.Run(fmt.Sprintf("token=%t", token), func(t *testing.T) {
@@ -197,6 +200,7 @@ func TestZZ11ARollbackToADisabledClientOverAChoice(t *testing.T) {
 // depend on a Token. Before: every file shows its recorded model (F = R = S),
 // or one file chose (F = gpt-terra, R = gpt-sol, S = gateway/gpt-sol).
 func TestZZ11TheSameFilesAreRefusedWithoutTheToken(t *testing.T) {
+	t.Parallel()
 	for name, build := range map[string]func(t *testing.T) selectionWorld{
 		"recorded": func(t *testing.T) selectionWorld { return codexWorld(t, 1) },
 		"chosen":   func(t *testing.T) selectionWorld { return codexWorld(t, 1).picking(t, 0, basicString, "gpt-terra") },
@@ -238,6 +242,7 @@ func zz11DeniedStore(t *testing.T, w selectionWorld, exists bool) {
 // Before: F = gpt-terra, R = gpt-sol, S = gateway/gpt-sol. The rule: a command
 // records the choice or is refused and changes nothing.
 func TestZZ11AChoiceWhileTheTokenCannotBeRead(t *testing.T) {
+	t.Parallel()
 	for _, exists := range []bool{false, true} {
 		for _, name := range slices.Sorted(mapKeys(zz11Commands())) {
 			t.Run(fmt.Sprintf("presence refused=%t/%s", exists, name), func(t *testing.T) {
@@ -268,6 +273,7 @@ func TestZZ11AChoiceWhileTheTokenCannotBeRead(t *testing.T) {
 // restores the snapshot, with the Token and without it. The rule: it stores
 // gateway/gpt-terra and the record names gpt-terra.
 func TestZZ11ARollbackToASnapshotThatACheckWroteOverAChoice(t *testing.T) {
+	t.Parallel()
 	for _, token := range []bool{true, false} {
 		t.Run(fmt.Sprintf("token=%t", token), func(t *testing.T) {
 			world := zz11Codex(codexWorld(t, 1)).picking(t, 0, basicString, "gpt-terra")
@@ -309,6 +315,7 @@ func TestZZ11ARollbackToASnapshotThatACheckWroteOverAChoice(t *testing.T) {
 // Before: F = gpt-terra, R = gpt-sol, S = gateway/gpt-sol, and Codex's file
 // names the earlier reader.
 func TestZZ11AChoiceBesideANewCredentialReader(t *testing.T) {
+	t.Parallel()
 	for _, name := range slices.Sorted(mapKeys(zz11Commands())) {
 		classes := map[bool]string{}
 		for _, token := range []bool{true, false} {
@@ -344,6 +351,7 @@ func TestZZ11AChoiceBesideANewCredentialReader(t *testing.T) {
 // probe shows what the command does; it fails only where a success leaves the
 // file that the client is no longer on with AIGW's settings.
 func TestZZ11EnablingAnEnabledClientAfterAChoice(t *testing.T) {
+	t.Parallel()
 	for _, other := range []bool{false, true} {
 		for _, token := range []bool{true, false} {
 			t.Run(fmt.Sprintf("another file=%t/token=%t", other, token), func(t *testing.T) {

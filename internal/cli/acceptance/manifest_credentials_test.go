@@ -19,6 +19,7 @@ import (
 )
 
 func TestSetupFromConfigurationManifestNamesEnvironmentTokensInsteadOfRotate(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	app.Secrets = environmentBackend(func(string) string { return "" })
 	app.Discovery = fakeDiscovery{}
@@ -49,6 +50,7 @@ func TestSetupFromConfigurationManifestNamesEnvironmentTokensInsteadOfRotate(t *
 }
 
 func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	app.Secrets = environmentBackend(func(string) string { return "" })
 	app.Discovery = fakeDiscovery{}
@@ -87,6 +89,7 @@ func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice
 // A provider that no recommendation names, whose Token the environment
 // supplies, is connected without selecting or configuring any client.
 func TestSetupFromTeamManifestConnectsExplicitManualProviderFromEnvironment(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	const token = "aigw-test-manual-token"
 	app.Secrets = environmentBackend(func(key string) string {
@@ -171,6 +174,7 @@ primary = {model = "used/claude-test"}
 }
 
 func TestSetupFromConfigurationManifestLeavesNoConfigWhenTokenStorageFails(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-dmxapi-token"}}
@@ -186,6 +190,7 @@ func TestSetupFromConfigurationManifestLeavesNoConfigWhenTokenStorageFails(t *te
 }
 
 func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	app.Secrets = environmentBackend(func(key string) string {
 		if key == secret.EnvironmentKey("dmxapi") {
@@ -326,6 +331,7 @@ func assertManifestSetupDoesNotLeakTokens(t *testing.T, app *cli.App, out *bytes
 }
 
 func TestSetupFromConfigurationManifestReusesEnvironmentTokensWithoutPrompting(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	app.Secrets = environmentBackend(func(key string) string {
 		switch key {
@@ -349,6 +355,7 @@ func TestSetupFromConfigurationManifestReusesEnvironmentTokensWithoutPrompting(t
 }
 
 func TestSetupFromConfigurationManifestRejectsCredentialsBeforePromptOrWrite(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	prompt := &scriptedPrompt{secrets: []string{"must-not-be-read"}}
@@ -366,6 +373,7 @@ func TestSetupFromConfigurationManifestRejectsCredentialsBeforePromptOrWrite(t *
 }
 
 func TestSetupFromConfigurationManifestRejectsStdinTokenWithoutProviderOwner(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "aigw-test-one-token\n")
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
@@ -380,6 +388,7 @@ func TestSetupFromConfigurationManifestRejectsStdinTokenWithoutProviderOwner(t *
 }
 
 func TestSetupFromConfigurationManifestPreservesClientOwnedCredentials(t *testing.T) {
+	t.Parallel()
 	app, _, _, runner, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-dmxapi-token"}}

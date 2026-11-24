@@ -21,6 +21,7 @@ import (
 // A sandbox, which raises the same EPERM with no flag, is covered by the
 // binary's own run under sandbox-exec, which a test process cannot enter.
 func TestALockFlagNamesTheEntryThatCarriesIt(t *testing.T) {
+	t.Parallel()
 	if os.Geteuid() == 0 {
 		t.Skip("the superuser is not refused by the uchg flag")
 	}
@@ -81,6 +82,7 @@ func TestALockFlagNamesTheEntryThatCarriesIt(t *testing.T) {
 // the flag is read on the file that the link leads to, named inside home, and
 // clearing it lets the same edit run.
 func TestALockFlagOnTheFileThatALinkLeadsTo(t *testing.T) {
+	t.Parallel()
 	if os.Geteuid() == 0 {
 		t.Skip("the superuser is not refused by the uchg flag")
 	}
@@ -128,6 +130,7 @@ func TestALockFlagOnTheFileThatALinkLeadsTo(t *testing.T) {
 // folder locked, rotate names that folder, and clearing its flag lets the
 // rotation run.
 func TestALockedTokenFolderNamesTheFolderNotAStagingFile(t *testing.T) {
+	t.Parallel()
 	if os.Geteuid() == 0 {
 		t.Skip("the superuser is not refused by the uchg flag")
 	}
@@ -159,6 +162,7 @@ func TestALockedTokenFolderNamesTheFolderNotAStagingFile(t *testing.T) {
 // that the write goes through, whose name changes with every run, and
 // clearing the folder's flag lets the same install run.
 func TestAnInstallIntoALockedFolderNamesTheFolder(t *testing.T) {
+	t.Parallel()
 	if os.Geteuid() == 0 {
 		t.Skip("the superuser is not refused by the uchg flag")
 	}

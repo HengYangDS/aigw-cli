@@ -24,6 +24,7 @@ import (
 )
 
 func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, runner, _ := testApp(t, "")
 	app.Discovery = fakeDiscovery{}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
@@ -62,6 +63,7 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 }
 
 func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutProviderToken(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	credentials := &recordingCredentialStore[string]{backend: secret.NewMemoryStore()}
 	app.Secrets = credentials
@@ -133,6 +135,7 @@ primary = {model = "aws/openai.gpt-5.6-sol", model_provider = "amazon-bedrock", 
 }
 
 func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	app.Discovery = fakeDiscovery{}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
@@ -170,6 +173,7 @@ func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *test
 }
 
 func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		installed map[string]string
@@ -237,6 +241,7 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 }
 
 func TestSetupFromConfigurationManifestAcceptsOneConnectedProvider(t *testing.T) {
+	t.Parallel()
 	app, out, store, _, _ := testApp(t, "")
 	if err := store.Set("dmxapi", "aigw-test-dmxapi-token"); err != nil {
 		t.Fatal(err)
@@ -259,6 +264,7 @@ func TestSetupFromConfigurationManifestAcceptsOneConnectedProvider(t *testing.T)
 }
 
 func TestSetupFromConfigurationManifestReportsInstalledClientWaitingForAProvider(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{claude.ID: "/opt/claude"},
@@ -274,6 +280,7 @@ func TestSetupFromConfigurationManifestReportsInstalledClientWaitingForAProvider
 }
 
 func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"environment", "prompt"} {
 		t.Run(backend, func(t *testing.T) {
 			app, _, _, runner, _ := testApp(t, "")
@@ -332,6 +339,7 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 }
 
 func TestSetupFromConfigurationManifestOutputFailureKeepsCommittedAutomaticBackendSelection(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "token\n")
 	secretsRoot := filepath.Join(t.TempDir(), "secrets")
 	secretStore, err := secret.Select(secret.Selection{
@@ -364,6 +372,7 @@ func TestSetupFromConfigurationManifestOutputFailureKeepsCommittedAutomaticBacke
 }
 
 func TestSetupFromConfigurationManifestProjectionFailureRestoresOwnedFiles(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, runner, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-dmxapi-token"}}

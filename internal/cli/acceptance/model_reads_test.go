@@ -22,6 +22,7 @@ import (
 // show`, in text and JSON, never ask the credential backend, name no client's
 // authentication, which belongs to the client, and write nothing.
 func TestModelReadsNeitherObserveCredentialsNorShowClientAuthentication(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["native"] = domain.Provider{Label: "Native", Endpoints: domain.Endpoints{Responses: "https://native.test/v1"}}
@@ -62,6 +63,7 @@ func TestModelReadsNeitherObserveCredentialsNorShowClientAuthentication(t *testi
 
 // An edit of the model that an enabled Codex uses writes Codex's files.
 func TestModelEditReachesTheFilesOfTheClientThatUsesIt(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {

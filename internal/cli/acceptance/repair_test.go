@@ -17,6 +17,7 @@ import (
 )
 
 func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := domain.NewConfig(clients.Admission())
@@ -47,6 +48,7 @@ func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 }
 
 func TestRepairCanRestoreClaudeWithoutAnyCodexModel(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := domain.NewConfig(clients.Admission())
@@ -74,6 +76,7 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexModel(t *testing.T) {
 }
 
 func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
+	t.Parallel()
 	t.Run("load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Config = store.NewStore(t.TempDir(), clients.Admission())
@@ -117,6 +120,7 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 }
 
 func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test", Responses: "https://dmx.test/v1"}, claude.ID, "claude-model")
@@ -153,6 +157,7 @@ func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 }
 
 func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, runner, _ := testApp(t, "")
 	trustedExecutable := executableFixture(t, "codex-trusted")
 	shadowExecutable := "/tmp/shadow/codex"
@@ -218,6 +223,7 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 }
 
 func TestRepairMigratesMissingClientExecutables(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	missingRoot := t.TempDir()
 	oldClaude := filepath.Join(missingRoot, "old-claude")
@@ -271,6 +277,7 @@ func TestRepairMigratesMissingClientExecutables(t *testing.T) {
 }
 
 func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {

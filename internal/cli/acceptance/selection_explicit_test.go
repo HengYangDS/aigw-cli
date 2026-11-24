@@ -16,6 +16,7 @@ import (
 // resolved before that, from the working configuration, which follows the
 // choice. The control is the same command without a choice in between.
 func TestSelectionAnExplicitReturnWithoutAProtocolAfterAChoiceOnAnotherProtocol(t *testing.T) {
+	t.Parallel()
 	for _, choice := range []bool{false, true} {
 		app, output, _, target := shippedHermesAppWith(t, true)
 		for _, args := range [][]string{
@@ -52,6 +53,7 @@ func TestSelectionAnExplicitReturnWithoutAProtocolAfterAChoiceOnAnotherProtocol(
 // choice whose provider has no Token: the stored selection and the record
 // move to the file together, and the file is left.
 func TestSelectionANamedCommandRecordsAHermesChoiceWithoutAToken(t *testing.T) {
+	t.Parallel()
 	for _, command := range [][]string{
 		{"sync", "--json"},
 		{"client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json"},
@@ -72,6 +74,7 @@ func TestSelectionANamedCommandRecordsAHermesChoiceWithoutAToken(t *testing.T) {
 // still work? (Logged, and asserted only that a failed command changes
 // nothing.)
 func TestSelectionAnUnwritableRecordAndCommandsAboutSomethingElse(t *testing.T) {
+	t.Parallel()
 	for _, command := range [][]string{
 		{"client", "edit", "codex", "--request-retries", "2", "--json"},
 		{"use", "claude", "ucloud/claude-opus-5-5", "--json"},

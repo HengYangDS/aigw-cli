@@ -16,6 +16,7 @@ import (
 )
 
 func TestUpdateCandidateRequiresChecksumManifest(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	app.Updater = &fakeUpdater{}
 	err := cli.Execute(app, []string{"self", "update", "--archive", "/tmp/aigw_0.2.0_darwin_arm64.tar.gz"})
@@ -25,6 +26,7 @@ func TestUpdateCandidateRequiresChecksumManifest(t *testing.T) {
 }
 
 func TestUpdateInvalidInputsLeaveOperationAndConfigurationUntouched(t *testing.T) {
+	t.Parallel()
 	for _, args := range [][]string{
 		{"--archive", ""},
 		{"--archive", "", "--checksums", ""},
@@ -52,6 +54,7 @@ func TestUpdateInvalidInputsLeaveOperationAndConfigurationUntouched(t *testing.T
 }
 
 func TestUpdateRollbackUsesLocalProgramRollbackOnly(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	updater := &fakeUpdater{rollbackResult: restored("restored the previous program version and retained the replaced program.")}
 	app.Updater = updater
@@ -70,6 +73,7 @@ func TestUpdateRollbackUsesLocalProgramRollbackOnly(t *testing.T) {
 }
 
 func TestUpdateWithoutRollbackKeepsNetworkUpdatePath(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	updater := &fakeUpdater{updateResult: updated("0.2.0", "updated to v0.2.0.")}
 	app.Updater = updater
@@ -82,6 +86,7 @@ func TestUpdateWithoutRollbackKeepsNetworkUpdatePath(t *testing.T) {
 }
 
 func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	cause := errors.New("read retained predecessor: permission denied")
 	app.Updater = &fakeUpdater{rollbackErr: cause}
@@ -108,6 +113,7 @@ func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
 }
 
 func TestUpdateRollbackExecutionFailureKeepsRollbackContext(t *testing.T) {
+	t.Parallel()
 	privatePath := filepath.Join(t.TempDir(), "previous")
 	permission := &os.PathError{Op: "fork/exec", Path: privatePath, Err: os.ErrPermission}
 	for _, test := range []struct {
@@ -134,6 +140,7 @@ func TestUpdateRollbackExecutionFailureKeepsRollbackContext(t *testing.T) {
 }
 
 func TestUpdateRollbackPreservesExactConfigurationOnIncompatibility(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	config := []byte("version = 3\n# Preserve exact user bytes.\n[recommended_routes]\nclaude = 'team'\n")
 	if err := os.WriteFile(app.Config.Path(), config, 0o600); err != nil {
@@ -159,6 +166,7 @@ func TestUpdateRollbackPreservesExactConfigurationOnIncompatibility(t *testing.T
 }
 
 func TestUpdateRollbackStopsBeforeUpdaterWhenConfigurationCannotBeRead(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	if err := os.Mkdir(app.Config.Path(), 0o700); err != nil {
 		t.Fatal(err)
@@ -189,6 +197,7 @@ func homebrewProgram(t *testing.T, app *cli.App) {
 // it restores and what its check stages. Each names what Homebrew does for a
 // program that it installed, where the command is refused.
 func TestSelfUpdateAndRollbackHelpDescribeTheProgramTransition(t *testing.T) {
+	t.Parallel()
 	for command, wants := range map[string][]string{
 		"update": {
 			"Homebrew upgrades a program that it installed",
@@ -217,6 +226,7 @@ func TestSelfUpdateAndRollbackHelpDescribeTheProgramTransition(t *testing.T) {
 }
 
 func TestUpdateWithoutUpdaterIsRejected(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	app.Updater = nil
 	if err := cli.Execute(app, []string{"self", "update"}); err == nil || !strings.Contains(err.Error(), "unavailable") {
@@ -225,6 +235,7 @@ func TestUpdateWithoutUpdaterIsRejected(t *testing.T) {
 }
 
 func TestUpdateCandidateUsesExplicitOfflineInputs(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	updater := &fakeUpdater{candidateResult: updated("0.2.0", "updated to v0.2.0 from a verified local candidate")}
 	app.Updater = updater
@@ -246,6 +257,7 @@ func TestUpdateCandidateUsesExplicitOfflineInputs(t *testing.T) {
 }
 
 func TestUpdateCandidateStartupFailureKeepsSafeDiagnosis(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	privatePath := filepath.Join(t.TempDir(), "candidate")
 	cause := &os.PathError{Op: "fork/exec", Path: privatePath, Err: os.ErrPermission}
@@ -266,6 +278,7 @@ func TestUpdateCandidateStartupFailureKeepsSafeDiagnosis(t *testing.T) {
 }
 
 func TestUpdatePreservesReleaseFailureAsItsCause(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	const canary = "TRACEBACK_CANARY /private/forge-only-canary"
 	cause := fmt.Errorf("release lookup failed: %w: %w: %s", program.ErrReleaseSource, errors.New("exit status 1"), canary)
@@ -281,6 +294,7 @@ func TestUpdatePreservesReleaseFailureAsItsCause(t *testing.T) {
 }
 
 func TestUpdateReportsCompletedReplacementWithIncompleteCleanup(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		args            []string
 		updater         *fakeUpdater
@@ -319,6 +333,7 @@ func TestUpdateReportsCompletedReplacementWithIncompleteCleanup(t *testing.T) {
 }
 
 func TestUpdateSameVersionIdentityConflictHasSafeDiagnosis(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	cause := program.ErrCandidateIdentity
 	app.Updater = &fakeUpdater{candidateErr: cause}

@@ -50,6 +50,7 @@ func runDocument(t *testing.T, app *cli.App, output *bytes.Buffer, document any,
 // configuration, and none names the stored selection as Hermes's. A reader
 // saves nothing. Holds the cell chosen/reports.
 func TestEveryReaderNamesTheModelOfAClientThatWaitsForItsToken(t *testing.T) {
+	t.Parallel()
 	app, output, target, chosen := waitingHermes(t)
 	const uses, stored = "ucloud/claude-opus-5-5", "dmxapi/gpt-6.2-sol"
 	var clients struct {
@@ -117,6 +118,7 @@ func TestEveryReaderNamesTheModelOfAClientThatWaitsForItsToken(t *testing.T) {
 // transaction, with no command that returns to a model that is gone, and the
 // file is left. Holds the cell chosen/removes.
 func TestTheChosenModelIsNotTakenAwayAndTheEarlierOneIsFreeToGo(t *testing.T) {
+	t.Parallel()
 	const chosenModel, storedModel = "ucloud/claude-opus-5-5", "dmxapi/gpt-6.2-sol"
 	for _, command := range [][]string{
 		{"model", "remove", chosenModel},
@@ -156,6 +158,7 @@ func TestTheChosenModelIsNotTakenAwayAndTheEarlierOneIsFreeToGo(t *testing.T) {
 // whatever the file selects and whether or not its provider has a Token.
 // Holds the cell chosen/withdraws.
 func TestAWithdrawalOfAClientThatWaitsForItsTokenRemovesAIGWsPart(t *testing.T) {
+	t.Parallel()
 	app, output, target, _ := waitingHermes(t)
 	if err := runDocument(t, app, output, nil, "client", "disable", "hermes", "--json"); err != nil {
 		t.Fatalf("client disable: %v\n%s", err, output)
@@ -172,6 +175,7 @@ func TestAWithdrawalOfAClientThatWaitsForItsTokenRemovesAIGWsPart(t *testing.T) 
 // clients whose files it changes, and writes nothing. Holds the cell
 // chosen/withdraws.
 func TestAnUninstallPlansTheFileOfAClientThatWaitsForItsToken(t *testing.T) {
+	t.Parallel()
 	app, output, target, chosen := waitingHermes(t)
 	var preview struct {
 		Files []struct {
@@ -200,6 +204,7 @@ func TestAnUninstallPlansTheFileOfAClientThatWaitsForItsToken(t *testing.T) {
 // Hermes again before the Token arrives, is a choice that synchronization
 // keeps. Holds the cell chosen/restores.
 func TestARollbackToTheChosenModelRecordsItAndKeepsTheNextChoice(t *testing.T) {
+	t.Parallel()
 	const chosenModel = "ucloud/claude-opus-5-5"
 	app, output, _, target := shippedHermesAppWith(t, true)
 	for _, args := range [][]string{

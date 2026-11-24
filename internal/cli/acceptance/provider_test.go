@@ -33,6 +33,7 @@ import (
 // when the endpoint did not answer, the endpoint's edit for any other status,
 // and the previous Token only when one exists.
 func TestProviderRotateNamesTheFixOfItsValidationFailure(t *testing.T) {
+	t.Parallel()
 	offline := func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") }
 	for _, test := range []struct {
 		name     string
@@ -87,6 +88,7 @@ func TestProviderRotateNamesTheFixOfItsValidationFailure(t *testing.T) {
 }
 
 func TestProviderRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "new-token\n")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
@@ -108,6 +110,7 @@ func TestProviderRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 }
 
 func TestProviderRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T) {
+	t.Parallel()
 	for _, hasTarget := range []bool{true, false} {
 		t.Run(fmt.Sprintf("target=%t", hasTarget), func(t *testing.T) {
 			app, out, secretStore, runner, _ := testApp(t, "new-token\n")
@@ -137,6 +140,7 @@ func TestProviderRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T
 }
 
 func TestProviderRotateValidationUsesCommandContext(t *testing.T) {
+	t.Parallel()
 	app, _, store, _, httpClient := testApp(t, "new-token\n")
 	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	ctx, cancel := context.WithCancel(t.Context())
@@ -158,6 +162,7 @@ func TestProviderRotateValidationUsesCommandContext(t *testing.T) {
 }
 
 func TestProviderRotateClaudeOnlyProviderDoesNotTouchCodexTargets(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, runner, httpClient := testApp(t, "new-claude-token\n")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["codex-account"] = domain.Provider{Label: "Codex", Endpoints: domain.Endpoints{Responses: "https://codex.test/v1"}}
@@ -196,6 +201,7 @@ func TestProviderRotateClaudeOnlyProviderDoesNotTouchCodexTargets(t *testing.T) 
 }
 
 func TestProviderBalanceKeepsDiagnosticCredentialsAtTheirOrigin(t *testing.T) {
+	t.Parallel()
 	var followed atomic.Int32
 	target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		followed.Add(1)
@@ -232,6 +238,7 @@ func TestProviderBalanceKeepsDiagnosticCredentialsAtTheirOrigin(t *testing.T) {
 }
 
 func TestProviderAddRefusesAnUnavailableLockBeforeCredentialAccess(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "token\n")
 	recorder := &recordingCredentialStore[string]{backend: secretStore}
 	app.Secrets = recorder

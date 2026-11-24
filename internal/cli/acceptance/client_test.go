@@ -22,6 +22,7 @@ import (
 )
 
 func TestAdapterEnableSurfacesCredentialObservationFailure(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	want := errors.New("credential observation failed")
@@ -34,6 +35,7 @@ func TestAdapterEnableSurfacesCredentialObservationFailure(t *testing.T) {
 }
 
 func TestAdapterEnableReportsConfigurationCommitFailure(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	if err := secretStore.Set("one", "token"); err != nil {
@@ -100,6 +102,7 @@ func TestClientDiscoveryBranches(t *testing.T) {
 }
 
 func TestAdapterValidationBranches(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name string
 		args []string
@@ -121,6 +124,7 @@ func TestAdapterValidationBranches(t *testing.T) {
 }
 
 func TestAdapterStateFailureBranches(t *testing.T) {
+	t.Parallel()
 	t.Run("enable already enabled", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
 		saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
@@ -178,6 +182,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 }
 
 func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := domain.NewConfig(clients.Admission())
@@ -226,6 +231,7 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 }
 
 func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
+	t.Parallel()
 	app, _, secretStore, runner, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "codex", "configuration.toml")
 	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
@@ -262,28 +268,13 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 }
 
 func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) {
+	t.Parallel()
 	app, _, store, runner, _ := testApp(t, "")
 	root := t.TempDir()
 	target := filepath.Join(root, "config.toml")
 	writeFile(t, target, []byte("model_provider = \"native\"\nforeign = true\n"), 0o600)
 	writeFile(t, claudeSettingsPath(t, app.Host), []byte(`{"theme":"dark","env":{"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS":"1"}}`), 0o600)
-	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	for _, id := range []string{claude.ID, codex.ID} {
-		executable := filepath.Join(root, id)
-		writeFile(t, executable, []byte("public fixture"), 0o700)
-		protocol := domain.ProtocolResponses
-		if id == claude.ID {
-			protocol = domain.ProtocolAnthropic
-		}
-		ref := domain.NewModelRef("gateway", "fixture-"+id)
-		cfg.Models[ref] = qualifiedModel(id, "gateway", "fixture-"+id, protocol)
-		cfg.SetSelectedModel(id, ref, "")
-		cfg.SetClientActivation(id, true, executable, nil)
-	}
-	clientAdapter := cfg.Clients[codex.ID]
-	clientAdapter.Targets = []string{target}
-	cfg.Clients[codex.ID] = clientAdapter
+	cfg := claudeAndCodexOnOneGateway(t, root, target)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -341,6 +332,31 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 	}
 }
 
+// claudeAndCodexOnOneGateway is a configuration with Claude and Codex both
+// enabled on one gateway, each with an executable fixture in root, and Codex
+// writing target.
+func claudeAndCodexOnOneGateway(t *testing.T, root, target string) domain.Config {
+	t.Helper()
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
+	for _, id := range []string{claude.ID, codex.ID} {
+		executable := filepath.Join(root, id)
+		writeFile(t, executable, []byte("public fixture"), 0o700)
+		protocol := domain.ProtocolResponses
+		if id == claude.ID {
+			protocol = domain.ProtocolAnthropic
+		}
+		ref := domain.NewModelRef("gateway", "fixture-"+id)
+		cfg.Models[ref] = qualifiedModel(id, "gateway", "fixture-"+id, protocol)
+		cfg.SetSelectedModel(id, ref, "")
+		cfg.SetClientActivation(id, true, executable, nil)
+	}
+	clientAdapter := cfg.Clients[codex.ID]
+	clientAdapter.Targets = []string{target}
+	cfg.Clients[codex.ID] = clientAdapter
+	return cfg
+}
+
 func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, target, command string) {
 	t.Helper()
 	for _, id := range []string{claude.ID, codex.ID} {
@@ -380,6 +396,7 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 }
 
 func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *testing.T) {
+	t.Parallel()
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://example.invalid"}}

@@ -68,6 +68,7 @@ func refusedWithRestoringCommand(t *testing.T, app *cli.App, output *bytes.Buffe
 // followed or overwritten; the Fix restores the recorded selection, and the
 // refusal names the command that adds the model that Codex names.
 func TestCodexModelThatWasNotAddedIsRefusedWithTheRestoringCommand(t *testing.T) {
+	t.Parallel()
 	app, output, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)
@@ -114,6 +115,7 @@ func TestCodexModelThatWasNotAddedIsRefusedWithTheRestoringCommand(t *testing.T)
 // this rule no command restored the selection: synchronization and an
 // explicit selection both refused it as an outside edit.
 func TestHermesModelThatIsNotListedIsRefusedWithTheRestoringCommand(t *testing.T) {
+	t.Parallel()
 	app, output, _, target := shippedHermesApp(t)
 	projected := readFile(t, target)
 	hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-unadded", nil)
@@ -137,6 +139,7 @@ func TestHermesModelThatIsNotListedIsRefusedWithTheRestoringCommand(t *testing.T
 // a choice of a model: nothing follows it, and an explicit selection does not
 // write over it either.
 func TestHermesEditedSelectionAddressStaysAnOutsideEdit(t *testing.T) {
+	t.Parallel()
 	const recovery = "Undo the outside edit to the AIGW-managed Hermes settings, then run `aigw sync`"
 	app, output, _, target := shippedHermesApp(t)
 	var document yaml.Node
@@ -166,6 +169,7 @@ func TestHermesEditedSelectionAddressStaysAnOutsideEdit(t *testing.T) {
 // refused: the problem in the refusal's own words, that nothing changed, and
 // the restoring command as the fix; status shows it on the client's row.
 func TestARefusedSelectionReadsTheSameOnEverySurface(t *testing.T) {
+	t.Parallel()
 	app, output, target := codexChoiceApp(t)
 	chooseInCodex(t, target, "gpt-sol", "gpt-ghost")
 	const refusal = `Codex selects model "gpt-ghost", which provider "gateway" has not added on OpenAI Responses; ` +
@@ -190,6 +194,7 @@ func TestARefusedSelectionReadsTheSameOnEverySurface(t *testing.T) {
 // the files: each one says to undo the edit. With the edit undone, the
 // restoring command is named, and it runs.
 func TestCodexFilesWithAnOutsideEditAreToldToUndoItFirst(t *testing.T) {
+	t.Parallel()
 	const undo = "Undo the outside edit to the AIGW-managed Codex settings, then run `aigw sync`"
 	for _, order := range []struct {
 		name          string
@@ -228,6 +233,7 @@ func TestCodexFilesWithAnOutsideEditAreToldToUndoItFirst(t *testing.T) {
 // that records it writes both files; two that name different added models
 // are no choice that AIGW can follow.
 func TestCodexFilesAreFollowedOnlyWhenTheyAgree(t *testing.T) {
+	t.Parallel()
 	app, output, targets := codexChoiceAppWith(t, "gpt-sol", 2)
 	chooseInCodex(t, targets[0], "gpt-sol", "gpt-terra")
 	// Until a command records the choice, the file that still holds what

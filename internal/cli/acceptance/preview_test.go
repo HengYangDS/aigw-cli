@@ -44,6 +44,7 @@ var errCredentialTouched = errors.New("a preview used the credential store")
 // Only team setup's preview observes whether its provider has a Token, from
 // the store's metadata, as the run does.
 func TestSetupPreviewsUseNoCredential(t *testing.T) {
+	t.Parallel()
 	manifest := recommendingManifest(t)
 	for _, test := range []struct {
 		name       string
@@ -137,6 +138,7 @@ primary = {model = "team/team-model"}
 // which plans as if every provider's Token were stored, and its refusals of
 // an unknown provider and of --token-stdin with a read-only backend.
 func TestSetupManifestPreviewInText(t *testing.T) {
+	t.Parallel()
 	manifest := recommendingManifest(t)
 	app, out, _, _, _ := testApp(t, "")
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: executableFixture(t, "claude")}}}
@@ -211,6 +213,7 @@ func TestSetupManifestPreviewInText(t *testing.T) {
 // provider add --dry-run refuses where provider add would: the read-only
 // environment backend has no Token for the new provider.
 func TestProviderAddPreviewRefusesAnEnvironmentWithoutTheToken(t *testing.T) {
+	t.Parallel()
 	app, _, _, _, _ := testApp(t, "")
 	app.Secrets = environmentBackend(func(string) string { return "" })
 	err := cli.Execute(app, []string{"provider", "add", "team", "--endpoint", "anthropic=https://team.test", "--dry-run"})
@@ -227,6 +230,7 @@ func TestProviderAddPreviewRefusesAnEnvironmentWithoutTheToken(t *testing.T) {
 // file and rollback copy that the update would write, and refuses to preview
 // a rollback.
 func TestUpdatePreviewInstallsNothing(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	writeFile(t, app.Executable, []byte("program"), 0o700)
 	updater := &fakeUpdater{previewResult: program.Transition{State: program.TransitionAvailable, Version: "0.2.0", Summary: "would update to v0.2.0"}}
@@ -271,6 +275,7 @@ func TestUpdatePreviewInstallsNothing(t *testing.T) {
 // preview with its rollback copy, a candidate preview that receives the
 // archive and installs nothing, and a failed preview that changed nothing.
 func TestUpdatePreviewInTextFromACandidateAndOnFailure(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	writeFile(t, app.Executable, []byte("program"), 0o700)
 	updater := &fakeUpdater{previewResult: program.Transition{State: program.TransitionAvailable, Version: "0.2.0", Summary: "would update to v0.2.0"}}
@@ -315,6 +320,7 @@ func TestUpdatePreviewInTextFromACandidateAndOnFailure(t *testing.T) {
 // the target nor its directory, and uninstall --dry-run keeps the program file
 // and its rollback copy that it names.
 func TestProgramPreviewsWriteNothing(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	writeFile(t, app.Executable, []byte("program"), 0o700)
 	if err := cli.Execute(app, []string{"self", "install", "--dry-run", "--json"}); err != nil {
@@ -348,6 +354,7 @@ func TestProgramPreviewsWriteNothing(t *testing.T) {
 // the client file that withdrawal would change, and changes neither that file,
 // the configuration nor the program.
 func TestUninstallPreviewNamesTheWithdrawal(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	writeFile(t, app.Executable, []byte("program"), 0o700)
 	codexTarget := filepath.Join(app.Host.Home, "work", "codex", "config.toml")
@@ -396,6 +403,7 @@ func TestUninstallPreviewNamesTheWithdrawal(t *testing.T) {
 // hid now fails as an unknown flag, naming the command's help, before the
 // command reads a Token or writes anything.
 func TestRemovedSpellingsAreUnknownFlags(t *testing.T) {
+	t.Parallel()
 	installed := filepath.Join(t.TempDir(), "aigw")
 	writeFile(t, installed, []byte("installed"), 0o700)
 	destination := filepath.Join(t.TempDir(), "aigw")

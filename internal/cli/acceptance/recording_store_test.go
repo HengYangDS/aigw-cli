@@ -58,6 +58,7 @@ func (store *recordingCredentialStore[T]) Exists(account string) (bool, error) {
 }
 
 func TestCredentialFixturePreservesRealStateAcrossInjectedFailures(t *testing.T) {
+	t.Parallel()
 	backend := secret.NewMemoryStore()
 	store := &recordingCredentialStore[string]{backend: backend}
 	if err := store.Set("account", "original"); err != nil {

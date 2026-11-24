@@ -148,6 +148,7 @@ func hermesEntries(t *testing.T, path string) []string {
 // aihubmix's models, as for a provider without a Token, and AIGW's record of
 // Hermes's file names the model that the file selects.
 func TestHermesLeavesOutAnotherProviderWhoseTokenCannotBeObserved(t *testing.T) {
+	t.Parallel()
 	commands := map[string][]string{
 		"another client": {"use", "claude", "ucloud/claude-opus-5-5", "--json"},
 		"names nothing":  {"provider", "add", "extra", "--endpoint", "responses=https://extra.test/v1", "--token-stdin", "--json"},
@@ -199,6 +200,7 @@ func TestHermesLeavesOutAnotherProviderWhoseTokenCannotBeObserved(t *testing.T) 
 // the unobservable twin names the store's failure, as the state unavailable,
 // and a next step for it, not the step that stores a missing Token.
 func TestSyncWaitsForASelectedTokenThatCannotBeObserved(t *testing.T) {
+	t.Parallel()
 	states := map[string]func(t *testing.T) selectionWorld{
 		"recorded": func(t *testing.T) selectionWorld { return codexWorld(t, 1) },
 		"chosen":   func(t *testing.T) selectionWorld { return codexWorld(t, 1).picking(t, 0, basicString, "gpt-terra") },
@@ -275,6 +277,7 @@ func holdToken(t *testing.T, w *selectionWorld, state string) {
 // AIGW's settings and record leave B, the record of each file that Codex
 // keeps names what the file selects, and the stored selection is the same.
 func TestAnEditThatDropsACodexFileWithdrawsWithoutTheToken(t *testing.T) {
+	t.Parallel()
 	for _, picked := range []bool{false, true} {
 		for _, adds := range []bool{false, true} {
 			t.Run(fmt.Sprintf("a choice=%t/adds a file=%t", picked, adds), func(t *testing.T) {
@@ -324,6 +327,7 @@ func TestAnEditThatDropsACodexFileWithdrawsWithoutTheToken(t *testing.T) {
 // observe, the edit is saved, AIGW's settings and record leave the dropped
 // file, Hermes is on the new file, and the stored selection is the same.
 func TestAnEditThatDropsTheHermesFileWithdrawsWithoutTheToken(t *testing.T) {
+	t.Parallel()
 	states := map[string]func(t *testing.T) selectionWorld{
 		"recorded": hermesPlain,
 		"chosen": func(t *testing.T) selectionWorld {
@@ -366,6 +370,7 @@ func TestAnEditThatDropsTheHermesFileWithdrawsWithoutTheToken(t *testing.T) {
 // cannot observe end alike, and neither is aligned (the fresh review of
 // 034296053, its first finding).
 func TestSyncIsAlignedOnlyWhileNoClientWaitsForItsToken(t *testing.T) {
+	t.Parallel()
 	for _, state := range tokenStates {
 		t.Run(state, func(t *testing.T) {
 			w := codexWorld(t, 1)
@@ -387,6 +392,7 @@ func TestSyncIsAlignedOnlyWhileNoClientWaitsForItsToken(t *testing.T) {
 // its mode as the next step of `aigw sync` and of `aigw check --depth local`,
 // never unlocking a store (the fresh review of 034296053, its second finding).
 func TestARefusedTokenFileNamesItsOwnFix(t *testing.T) {
+	t.Parallel()
 	kind := unobservableStores()[0]
 	for _, args := range [][]string{{"sync"}, {"check", "codex", "--depth", "local"}} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {

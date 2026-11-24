@@ -15,6 +15,7 @@ import (
 )
 
 func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name    string
 		args    []string
@@ -128,6 +129,7 @@ func assertClaudeNativePreferencePreview(t *testing.T, app *cli.App, out *bytes.
 }
 
 func TestRecoveryJSONSeparatesPreviewFromAppliedProjection(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		args       []string
 		dryRun     bool
@@ -193,6 +195,7 @@ func TestRecoveryJSONSeparatesPreviewFromAppliedProjection(t *testing.T) {
 }
 
 func TestRecoveryJSONOutputFailurePreservesCommittedProjection(t *testing.T) {
+	t.Parallel()
 	for _, command := range []string{"sync"} {
 		t.Run(command, func(t *testing.T) {
 			app, _, credentials, _, _ := testApp(t, "")
