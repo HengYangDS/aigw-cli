@@ -24,7 +24,9 @@ function read(text, declared = "0 hours") {
     timeout: 15_000,
   });
   assert.equal(result.error, undefined);
-  return { status: result.status, output: result.stdout + result.stderr };
+  // The reader names its verdict on stderr; stdout stays empty.
+  assert.equal(result.stdout, "");
+  return { status: result.status, output: result.stderr };
 }
 
 function refuses(text, expected, declared) {
@@ -70,6 +72,13 @@ test("the reader names a preset, which can bring an age of its own", () => {
       '  extends: ["config:recommended"],\n  vulnerabilityAlerts: {',
     ),
     "release_age_other_rule:/extends",
+  );
+});
+
+test("the reader names the legacy stabilityDays, which is an age of its own", () => {
+  refuses(
+    policy.replace("  vulnerabilityAlerts: {", "  stabilityDays: 3,\n  vulnerabilityAlerts: {"),
+    "release_age_other_rule:/stabilityDays",
   );
 });
 

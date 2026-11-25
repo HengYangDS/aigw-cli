@@ -36,4 +36,7 @@ Node file.
 
 ## Risks / Trade-offs
 
-- The two lists of Node test files must stay equal; this Change adds one name to each and does not merge them.
+- Adding a Node test file touches four places: the two commands and the two tests that pin them by value
+  (`tools/ci/main_test.go`, `tools/ci/quality_test.go`). `requireNodeAttempt` in `tools/ci/ethos_profile_test.go`
+  already fails while the two commands and the tracked `*.test.mjs` files differ, so the literal pin in
+  `quality_test.go` repeats that guard; removing it is left to a later change, since this one moves a test only.

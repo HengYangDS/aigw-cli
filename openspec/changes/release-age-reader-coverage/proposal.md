@@ -9,7 +9,10 @@ claims the reader.
 ## What Changes
 
 - A Node test, `tools/ci/test/release-age.test.mjs`, runs the reader the way the existing Node test runs its modules,
-  and the Go test that started the reader from Go is removed, so each case is tested once.
+  and the Go test that started the reader from Go is removed, so each of its seven cases is tested once. Three cases
+  are new: quoted keys with a comment and a preset under `extends`, which reach the reader's two branches that the
+  seven did not (13 of 13 with them, 11 without), and the legacy `stabilityDays`; the test also requires the verdict on
+  stderr and nothing on stdout.
 - The test joins the Node test command of the proof gate `node-behavior` and of the quality graph's `node-source` gate.
 
 Out of scope: any change of the product, of the reader's behavior or of the specifications.
