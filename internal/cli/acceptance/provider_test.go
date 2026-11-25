@@ -18,6 +18,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
@@ -93,7 +94,7 @@ func TestProviderRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
-	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{t.TempDir()})
+	cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), []string{t.TempDir()})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -121,10 +122,10 @@ func TestProviderRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T
 			cfg := domain.NewConfig(clients.Admission())
 			addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
 			cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
-			cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
+			cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), []string{target})
 			wantMessage := "a running client decides when that is"
 			if !hasTarget {
-				cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), nil)
+				cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), nil)
 			}
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)

@@ -17,6 +17,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
@@ -65,7 +66,7 @@ func TestDryRunUsesOneResolvedReaderWithoutWriting(t *testing.T) {
 	store, cfg := configuredRepairStore(t)
 	root := t.TempDir()
 	source, reader := filepath.Join(root, "source"), filepath.Join(root, "data", "credential", "reader")
-	cfg.SetClientActivation(claude.ID, true, fakeProgram("/opt/claude"), nil)
+	cfg.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/claude"), nil)
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +111,7 @@ func TestSyncMetadataObservationScopeExpiresWithCommand(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "source")
 	reader := filepath.Join(root, "data", "credential", "reader")
-	cfg.SetClientActivation(claude.ID, true, fakeProgram("/opt/claude"), nil)
+	cfg.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/claude"), nil)
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +238,7 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 		}
 		cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
-		cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{""})
+		cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), []string{""})
 		if err := configStore.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -265,7 +266,7 @@ func TestSyncRollsBackModelSelectionWhenProjectionFails(t *testing.T) {
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
-	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{t.TempDir()})
+	cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), []string{t.TempDir()})
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +300,7 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
-	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
+	cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), []string{target})
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

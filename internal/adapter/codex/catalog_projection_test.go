@@ -1,8 +1,10 @@
 package codex
 
 import (
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/platform"
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -243,32 +245,29 @@ func TestReconcileConfigsRebuildsTheCatalogAfterAClientUpgrade(t *testing.T) {
 	}
 
 	// The upgraded client's table becomes unreadable. The old snapshot describes
-	// a build that is gone, so the reference is withdrawn and reported.
+	// a build that is gone and no other can be produced, so Codex stops: its
+	// file, its record and the table stay as they were.
 	original := codexBundledCatalog
 	t.Cleanup(func() { codexBundledCatalog = original })
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 		return ExecutableIdentity{Version: "3.0.0", SHA256: "cccc"}, nil, fmt.Errorf("dump failed")
 	}
-	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
-		t.Fatal(err)
+	kept := [][]byte{}
+	for _, file := range []string{path, codexRecordPath(path), codexCatalogPath(path)} {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		kept = append(kept, data)
 	}
-	projected, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
+	_, err = ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig, runtimeConfig, false)
+	if stop, stopped := errors.AsType[*adapter.StopError](err); !stopped || stop.NextAction() != tableFix {
+		t.Fatalf("ReconcileConfigs() = %v, want Codex stopped for its table", err)
 	}
-	if strings.Contains(string(projected), "model_catalog_json") {
-		t.Fatalf("a stale catalog is still referenced:\n%s", projected)
-	}
-	if _, err := os.Stat(codexCatalogPath(path)); !os.IsNotExist(err) {
-		t.Fatalf("stale catalog file remains: %v", err)
-	}
-	state := readCodexSidecar(t, path)
-	if state.CatalogState != catalogStateStale || state.CatalogHash != "" {
-		t.Fatalf("sidecar does not record the withdrawal: %+v", state)
-	}
-	err = ValidateConfig(path, runtimeConfig)
-	if err == nil || !strings.Contains(err.Error(), "stale") {
-		t.Fatalf("ValidateConfig() error = %v, want a stale report", err)
+	for index, file := range []string{path, codexRecordPath(path), codexCatalogPath(path)} {
+		if data, err := os.ReadFile(file); err != nil || string(data) != string(kept[index]) {
+			t.Fatalf("a stopped Codex's %s changed: %v", file, err)
+		}
 	}
 }
 

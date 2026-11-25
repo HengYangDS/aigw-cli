@@ -203,6 +203,9 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 	targets, _ := absoluteTargets(cmd, options.targets)
 	if options.executable != "" {
 		options.executable, _ = filepath.Abs(options.executable)
+		if err := refuseExecutable(options.executable); err != nil {
+			return err
+		}
 	}
 	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
@@ -244,6 +247,9 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 	if !options.dryRun && document.Changed {
 		if err := runtime.Synchronizer().CommitProjection(cmd.Context(), before, cfg, "client edit", spec.ID); err != nil {
 			return targetFailure(spec.ID, targets, err)
+		}
+		if err := invocation.Stopped(runtime, "The client's settings were saved."); err != nil {
+			return err
 		}
 	}
 	pending := ""

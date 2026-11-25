@@ -62,6 +62,9 @@ type Dependencies struct {
 	// Follows collects what this invocation made of the clients' own
 	// choices, for the invocation's report; nil records nothing.
 	Follows *synchronization.Follows
+	// Stops collects the clients that this invocation's transitions stopped,
+	// for the invocation's report; nil records nothing.
+	Stops *synchronization.Stops
 }
 
 // LoadConfiguration reads the configuration that every command works from:
@@ -116,5 +119,6 @@ func (d Dependencies) Synchronizer() synchronization.Synchronizer {
 		ResolveProgram:        d.ResolveProgram,
 		Files:                 d.Files,
 		Follows:               d.Follows,
+		Stops:                 d.Stops,
 	}
 }

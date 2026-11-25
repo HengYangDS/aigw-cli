@@ -3,6 +3,7 @@ package codex
 import (
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"errors"
 	"os"
 	"path/filepath"
@@ -151,7 +152,7 @@ func codexAdoptionFixture(t *testing.T, count int) (domain.Config, []string) {
 		targets = append(targets, target)
 	}
 	cfg.SetSelectedModel(ID, domain.NewModelRef("gateway", "gpt-sol"), "")
-	cfg.SetClientActivation(ID, true, runnableProgram(t), targets)
+	cfg.SetClientActivation(ID, true, processtest.Program(t, "/opt/codex"), targets)
 	cfg.Normalize()
 	runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {

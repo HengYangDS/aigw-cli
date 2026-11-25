@@ -12,6 +12,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 )
 
 // The model commands own what `aigw route` covered beyond their own tests: a
@@ -72,7 +73,7 @@ func TestModelEditReachesTheFilesOfTheClientThatUsesIt(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt"), "")
-	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
+	cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

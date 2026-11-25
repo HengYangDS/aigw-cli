@@ -232,26 +232,48 @@ func (registry Registry) Converge(deps Dependencies, before domain.Config, disco
 }
 
 // Plan prepares requested adapters before any projection is written. An empty
-// client list selects every admitted adapter. An enabled client whose
-// configured program is missing is refused: its files wait for a program,
-// and nothing that it would produce without one is planned.
+// client list selects every admitted adapter. A client that stops (see
+// PlanStopping) refuses the plan with its StopError.
 func (registry Registry) Plan(deps Dependencies, before, after domain.Config, clientIDs ...string) ([]ProjectionPlan, error) {
+	plans, stops, err := registry.PlanStopping(deps, before, after, clientIDs...)
+	if err == nil && len(stops) > 0 {
+		return nil, stops[0]
+	}
+	return plans, err
+}
+
+// PlanStopping prepares the requested adapters as Plan does, and decides,
+// once for the operation, which clients stop: an enabled client whose
+// configured program is missing, or whose adapter cannot produce what its
+// files are to hold. A stopped client gets no plan and is returned among
+// stops, and the other clients are planned as they would be without it. A
+// client that the dependencies mark withdraw-only needs no program and never
+// stops.
+func (registry Registry) PlanStopping(deps Dependencies, before, after domain.Config, clientIDs ...string) ([]ProjectionPlan, []*StopError, error) {
 	adapters, err := registry.selectAdapters(clientIDs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	plans := make([]ProjectionPlan, 0)
+	var stops []*StopError
 	for _, adapter := range adapters {
-		if missing := stopped(after, adapter.Spec().ID); missing != nil {
-			return nil, missing
+		id := adapter.Spec().ID
+		withdrawing := slices.Contains(deps.WithdrawOnly, id)
+		if stop := stoppedProgram(after, id); stop != nil && !withdrawing {
+			stops = append(stops, stop)
+			continue
 		}
 		adapterPlans, err := planClient(deps, adapter, before, after)
+		if stop, stopped := errors.AsType[*StopError](err); stopped && !withdrawing {
+			stops = append(stops, stop)
+			continue
+		}
 		if err != nil {
-			return nil, namedTarget(adapter.Spec(), deps.Host.Home, unfollowed(deps, before, adapter, err))
+			return nil, nil, namedTarget(adapter.Spec(), deps.Host.Home, unfollowed(deps, before, adapter, err))
 		}
 		plans = append(plans, adapterPlans...)
 	}
-	return plans, nil
+	return plans, stops, nil
 }
 
 // Apply rechecks current plans and skips converged, unchanged configurations.
@@ -336,8 +358,8 @@ func (registry Registry) Inspect(ctx context.Context, deps Dependencies, cfg dom
 	if !ok {
 		return Status{Issue: fmt.Sprintf("client %q has no admitted operational adapter", clientID), RepairAction: "aigw sync"}
 	}
-	if missing := stopped(cfg, clientID); missing != nil {
-		return Status{Issue: missing.Error(), RepairAction: missing.NextAction()}
+	if stop := stoppedProgram(cfg, clientID); stop != nil {
+		return Status{Issue: stop.Error(), RepairAction: stop.NextAction()}
 	}
 	status := adapter.Inspect(ctx, deps, cfg, runtime)
 	if status.Ready {

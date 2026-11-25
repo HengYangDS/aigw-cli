@@ -14,6 +14,7 @@ import (
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 )
 
@@ -93,7 +94,7 @@ func TestUsePreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	run.Discovery = staticDiscovery{result: discovery.Result{
-		Executables: map[string]string{codex.ID: fakeProgram("/opt/codex")},
+		Executables: map[string]string{codex.ID: processtest.Program(t, "/opt/codex")},
 		Surfaces: []discovery.Surface{{
 			ID:         string(codex.HomeDefault),
 			ConfigPath: target, AutoManaged: true,

@@ -2,16 +2,16 @@
 
 ### Requirement: Codex's model table names the program that produced it
 
-AIGW's record of a Codex model table SHALL name the program that produced it: its path as configured, the version
-that it printed and the SHA-256 of its file. `aigw check --depth local` SHALL compare that program with the configured
-one by path, by digest and by the version that Codex's package manifest declares, when one is readable, without
-running a program, and SHALL fail with repair `aigw sync` on any difference.
+AIGW's record of a Codex model table SHALL name the program that produced it: its path as configured, the SHA-256 of
+its file and the version that its package manifest declares, when one is readable. `aigw check --depth local` SHALL
+compare that program with the configured one by path, digest and manifest version, running no program while they
+agree, and SHALL fail with repair `aigw sync` on any difference that a sync can repair.
 
 #### Scenario: Sync records the producer
 
 - **WHEN** `aigw sync` writes Codex's model table
-- **THEN** AIGW's record SHALL name the configured path, the version and the SHA-256 of the program that produced the
-  table.
+- **THEN** AIGW's record SHALL name the configured path, the SHA-256 and the package manifest's version of the program
+  that produced the table.
 
 #### Scenario: The program changes in place
 
@@ -19,7 +19,7 @@ running a program, and SHALL fail with repair `aigw sync` on any difference.
 - **WHEN** the file at the configured path is replaced by other bytes
 - **THEN** `aigw check --depth local` SHALL fail, saying that the table came from another program, with repair
   `aigw sync`
-- **AND** the check SHALL run no program.
+- **AND** the check SHALL run no program but the read-only probes that tell whether a sync can produce a table.
 
 #### Scenario: Another program is configured
 
@@ -28,7 +28,7 @@ running a program, and SHALL fail with repair `aigw sync` on any difference.
 
 #### Scenario: A launcher keeps its bytes while its package changes
 
-- **GIVEN** the package manifest beside the configured program declared the version that AIGW's record holds
+- **GIVEN** the configured program's package manifest declared the version that AIGW's record holds
 - **WHEN** the manifest declares another version while the program's file keeps its bytes
 - **THEN** `aigw check --depth local` SHALL fail with repair `aigw sync`.
 

@@ -336,11 +336,11 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 	}
 	selected := domain.Runtime{UpstreamModel: "openai.gpt-5.5", ContextWindow: domain.DefaultContextWindow}
 	variant := domain.Runtime{UpstreamModel: "openai.gpt-5.5-cdx", FamilyID: selected.UpstreamModel, ContextWindow: domain.DefaultContextWindow}
-	plan := codexCatalogProjection(target, variant, "", state, before)
+	plan, _ := codexCatalogProjection(target, variant, "", state, before)
 	if plan.state != catalogStateProjected || string(plan.data) != string(owned) {
 		t.Fatalf("same client, a model without an entry: plan = %+v", plan)
 	}
-	plan = codexCatalogProjection(target, selected, "", state, before)
+	plan, _ = codexCatalogProjection(target, selected, "", state, before)
 	reused, err := modelcatalog.Parse(plan.data)
 	if err != nil {
 		t.Fatalf("same client, the model's own entry: plan = %+v, %v", plan, err)
@@ -349,7 +349,8 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 		t.Fatalf("same client, the model's own entry: plan = %+v, want the declared window in both fields", plan)
 	}
 
-	// Upgraded client, regeneration unavailable: refuse the copy and report it.
+	// Upgraded client, regeneration unavailable: refuse the copy and stop the
+	// client, keeping its table, with the fix that names another Codex.
 	for _, live := range []ExecutableIdentity{
 		{Version: "1.1.0", SHA256: "aaaa"},
 		{Version: "1.0.0", SHA256: "bbbb"},
@@ -358,9 +359,10 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 		codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 			return live, nil, fmt.Errorf("dump failed")
 		}
-		plan = codexCatalogProjection(target, selected, "", state, before)
-		if plan.state != catalogStateStale || plan.data != nil || plan.path != "" {
-			t.Fatalf("changed client %+v: plan = %+v", live, plan)
+		var err error
+		plan, err = codexCatalogProjection(target, selected, "", state, before)
+		if stop, stopped := errors.AsType[*adapter.StopError](err); !stopped || stop.NextAction() != tableFix || !emptyCatalogPlan(plan) {
+			t.Fatalf("changed client %+v: plan = %+v, %v; want a stop", live, plan, err)
 		}
 	}
 
@@ -370,13 +372,13 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
 	}
 	edited := platform.FileSnapshot{Exists: true, Data: []byte("{}"), SHA256: platform.SHA256([]byte("{}")), Mode: 0o600}
-	if plan = codexCatalogProjection(target, selected, "", state, edited); plan.state != catalogStateStale {
-		t.Fatalf("edited catalog: plan = %+v", plan)
+	if _, err := codexCatalogProjection(target, selected, "", state, edited); !errors.As(err, new(*adapter.StopError)) {
+		t.Fatalf("edited catalog: %v, want a stop", err)
 	}
 
 	// Never owned a catalog here: nothing was lost, so nothing is reported.
-	if plan = codexCatalogProjection(target, selected, "", codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
-		t.Fatalf("never owned: plan = %+v", plan)
+	if plan, err := codexCatalogProjection(target, selected, "", codexState{}, platform.FileSnapshot{}); err != nil || !emptyCatalogPlan(plan) {
+		t.Fatalf("never owned: plan = %+v, %v", plan, err)
 	}
 }
 
@@ -434,7 +436,7 @@ func TestCodexCatalogProjectionKeepsAnExistingNativeWireModel(t *testing.T) {
 	}
 	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
 	selected := domain.Runtime{UpstreamModel: wire, FamilyID: canonical, ContextWindow: window}
-	plan := codexCatalogProjection(target, selected, "", codexState{}, platform.FileSnapshot{})
+	plan, _ := codexCatalogProjection(target, selected, "", codexState{}, platform.FileSnapshot{})
 	document, err := modelcatalog.Parse(plan.data)
 	if err != nil {
 		t.Fatal(err)

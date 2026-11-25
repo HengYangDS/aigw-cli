@@ -300,7 +300,10 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	// safe authorization to remove the file.
 	ownedCatalogHash := state.CatalogHash
 	provider := codexRuntimeProvider(runtime)
-	catalog := codexCatalogProjection(target.ref, runtime, base, state, catalogSnapshot)
+	catalog, err := codexCatalogProjection(target.ref, runtime, base, state, catalogSnapshot)
+	if err != nil {
+		return codexPreparedTarget{}, err
+	}
 	projection, err := projectCodex(base, block, runtime.UpstreamModel, catalog.path, provider)
 	if err != nil {
 		return codexPreparedTarget{}, err

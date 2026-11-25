@@ -15,6 +15,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/store"
 )
 
@@ -140,7 +141,7 @@ func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: claudeExecutable, codex.ID: fakeProgram("/opt/codex")}, Surfaces: []discovery.Surface{{
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: claudeExecutable, codex.ID: processtest.Program(t, "/opt/codex")}, Surfaces: []discovery.Surface{{
 		ID:          string(codex.HomeDefault),
 		ConfigPath:  target,
 		Present:     true,
@@ -150,7 +151,7 @@ func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := app.Config.Load()
-	if !got.Clients["claude"].Enabled || !got.Clients["codex"].Enabled || got.Clients["codex"].Executable != fakeProgram("/opt/codex") || len(runner.plans) != 0 {
+	if !got.Clients["claude"].Enabled || !got.Clients["codex"].Enabled || got.Clients["codex"].Executable != processtest.Program(t, "/opt/codex") || len(runner.plans) != 0 {
 		t.Fatalf("repair config=%#v plans=%#v", got, runner.plans)
 	}
 	if !strings.Contains(out.String(), "Synchronization completed") || !strings.Contains(out.String(), "Client configuration is aligned") {
@@ -267,7 +268,7 @@ func TestSyncKeepsMovedClientExecutables(t *testing.T) {
 	}}
 
 	err := cli.Execute(app, []string{"sync"})
-	if missing, stopped := errors.AsType[*adapter.MissingProgramError](err); !stopped || missing.NextAction() != "aigw client edit claude --executable <path>" {
+	if missing, stopped := errors.AsType[*adapter.StopError](err); !stopped || missing.NextAction() != "aigw client edit claude --executable <path>" {
 		t.Fatalf("sync after clients moved = %v, want the missing executables", err)
 	}
 	after, err := app.Config.Load()
@@ -295,7 +296,7 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "dmx", "DMXAPI", domain.Endpoints{Responses: "https://dmx.test/v1"}, codex.ID, "gpt-5.6-terra")
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-5.6-terra"), "")
-	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
+	cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -310,7 +311,7 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 	if err := os.WriteFile(target, []byte(strings.Replace(string(projected), "# <<< AIGW managed provider <<<\n", "", 1)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{codex.ID: fakeProgram("/opt/codex")}, Surfaces: []discovery.Surface{{
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{codex.ID: processtest.Program(t, "/opt/codex")}, Surfaces: []discovery.Surface{{
 		ID:          string(codex.HomeDefault),
 		ConfigPath:  target,
 		Present:     true,

@@ -12,6 +12,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/store"
 )
 
@@ -148,7 +149,7 @@ func TestRollbackRefusedBeforeItWritesSaysThatNothingChanged(t *testing.T) {
 	verified := domain.NewConfig(clients.Admission())
 	stable := addProviderModel(&verified, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-stable")
 	verified.SetSelectedModel(codex.ID, stable, "")
-	verified.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
+	verified.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), []string{target})
 	if err := app.Config.Save(verified); err != nil {
 		t.Fatal(err)
 	}

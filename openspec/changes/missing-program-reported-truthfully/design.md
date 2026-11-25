@@ -23,33 +23,43 @@ rule has one owner in `internal/adapter`; `client list` and every adapter call i
 deleted. Alternative rejected: keeping adoption on a dead path and reporting it, because the issue's user then gets
 another program silently, which is the defect.
 
-**D2. A missing program stops that client.** When the configured program is not runnable, `sync` changes none of that
-client's files, its model table or its record, reports the client as failed and exits non-zero; other clients
-continue as they do for any per-client failure. `check` reports the same failure. The repair in both is
-`aigw client edit <client> --executable <path>`, the existing command, for all four adapters. Each adapter's `Inspect`
-gives that repair for a missing program instead of `aigw sync`. The rule of what is missing has one owner in
-`internal/adapter`; synchronization leaves a stopped client out of every plan of every command, the adapter registry
-refuses to plan one and reports it before the client's own inspection, so the adapters keep no check of their own, and
-`aigw sync` reports it through the ordinary failure output, with no new JSON field. The texts name no path, because a
-local check never shows one; `aigw client list` shows the path.
+**D2. A missing program stops that client.** A client stops when its configured program is not runnable, or, the
+coordinator's ruling of 2026-11-26 after the independent review, when it runs and cannot produce what AIGW owns for
+the client: a Codex model table that it can neither regenerate nor prove to be its own. Every command that would write a
+stopped client's files (`sync`, `use`, `config rollback`, `client edit`, `client enable`) writes none of them, its
+model table or its record, writes the rest of its change, and exits non-zero through one reporting point,
+`invocation.Stopped`, with the cause and fix that `check` gives and a statement of what it wrote; the earlier reading
+that only `sync` exits non-zero is reversed by that ruling. The fix is `aigw client edit <client> --executable <path>`
+for a missing program and the same command, naming a Codex that prints `debug models --bundled`, for a table. A file
+that the change drops is withdrawn all the same, because withdrawal needs no program. The decision is made once per
+operation, in the adapter registry's plan (`PlanStopping`), and passed down: synchronization keeps the plan's stops in
+its projection, applies only the rest, and reports them through a per-invocation record (`synchronization.Stops`, beside
+`Follows`), not through the commit's error, so that a command that undoes a stored Token on a failed commit does not
+undo it after a commit that succeeded. `check` decides it in the registry's inspection, through the same function. A
+preview of `sync` lists the stopped clients beside the others' files (`stopped_clients`, `sync` schema 5) and fails.
+`client edit` and `client enable` refuse an `--executable` that is not an existing regular file with an execute bit,
+by stat alone. Setup counts a client as installed through the same rule as every command. The texts name no path,
+because a local check never shows one; `aigw client list` shows the path. A program that never produced a table keeps
+the earlier behavior: no table is written, and nothing stops.
 
-**D3. The table's producer.** Codex's record gains the producing program's path beside the version and digest it
-already keeps. `check --depth local` compares, without running any program, the configured program's path, the
-SHA-256 of its file and the version that Codex's package manifest declares (`codex-package.json`, read on 2026-11-25 in Homebrew's
-cask one directory above `bin/codex`, beside ChatGPT.app's `codex-cli/bin/codex` wrapper one level up, and beside the
-extension's `bin/<os>-<arch>/codex`; each layout's location is declared once), and fails with repair `aigw sync` when any
-differs. The manifest closes the case of a wrapper script that execs another file: its own digest stays across an
-upgrade, the manifest's version does not. A program without a readable manifest is compared by path and digest only,
-and the documentation says so. The record keeps the version as `--version` prints it, `codex-cli <version>`, and the
-manifest declares the bare version (both read on 2026-11-25 for 0.171.0-alpha.13.2 and 0.172.0), so the check compares
-the manifest's version with the last word of the recorded one. A record of an earlier release names no producer and
-fails the check until the next sync records one. The idea comes from magpie (`internal/agent/codex_async.go`, v0.1.4784), which reads
-the version this way; on 2026-11-25 ChatGPT.app's manifest read 0.171.0-alpha.13.2, the version that running the
-program printed in the committee's experiment 2.
+**D3. The table's producer.** Codex's record gains the producing program's path and the version that its package
+manifest (`codex-package.json`) declares, beside the digest it already keeps. `check --depth local` compares the
+configured program's path, the SHA-256 of its file and its manifest's version with the record, manifest with recorded
+manifest, never with `--version` output (the coordinator's ruling of 2026-11-26); a program without a manifest is
+compared by path and digest alone. The one declared manifest location is the one read on installations on 2026-11-25:
+one level above `bin/codex` in Homebrew's cask and in ChatGPT.app's `codex-cli`; the editor extension's location was
+read only in a downloaded package, not on an installation, so it is not declared and such a program has no manifest.
+The manifest closes the case of a wrapper script that execs another file: its own digest stays across an upgrade, the
+manifest's version does not. While the producer agrees, the check runs no program. When it differs, the check runs the
+same read-only probes as a sync's plan, so that it names the sync's own stop when the configured Codex cannot produce a
+table, and `aigw sync` otherwise. A record of an earlier release names no producer and fails the check until the next
+sync records one. The idea comes from magpie (`internal/agent/codex_async.go`, v0.1.4784), which reads the version this
+way.
 
-**D4. The real reason.** `check` names a stale table, a table whose producer differs, and a missing program as such;
-"does not match the selected model" stays for a real mismatch. Its requirement joins `client-adapters`, beside the
-missing program, because `projection-format` would pass the repository's 500-line limit for a specification.
+**D4. The real reason.** `check` names a table that an earlier release marked stale, a table whose producer differs, a
+program that cannot produce a table and a missing program as such; "does not match the selected model" stays for a real
+mismatch. Its requirement joins `client-adapters`, beside the missing program, because `projection-format` would pass
+the repository's 500-line limit for a specification.
 
 **D5. Dry run.** The dry-run documentation states that a dry run runs read-only probes of the client program in an
 isolated temporary directory, as Codex's plan already does.
@@ -59,8 +69,11 @@ isolated temporary directory, as Codex's plan already does.
 - A user who relied on the silent switch now gets a failed `sync` after an upgrade moves the program → the failure
   names the exact `client edit` command; the schema 9 Change removes the cause for extension directories.
 - Hashing a large program in `check --depth local` costs time → measured by the committee: 131 to 154 ms for a
-  285 to 291 MB program, warm cache; cold cache unmeasured.
+  285 to 291 MB program, warm cache; cold cache unmeasured. A check whose producer differs also runs the two read-only
+  probes, 99 to 196 ms for one identification in the committee's experiment 2.
+- A program that never produced a table and cannot produce one is not stopped (D2) → Codex runs without AIGW's table,
+  as before this Change; whether that case should stop too is left to the coordinator.
 
 ## Migration Plan
 
-None: the schema and keys are unchanged.
+None for `aigw.toml`: the schema and keys are unchanged. `sync --json` moves to schema 5 for `stopped_clients`.

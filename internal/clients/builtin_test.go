@@ -17,6 +17,7 @@ import (
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 )
 
@@ -40,11 +41,11 @@ func qualifiedModel(label, account, model string, protocols ...domain.EndpointPr
 	}
 }
 
-func codexConfiguration(target string) domain.Config {
+func codexConfiguration(t *testing.T, target string) domain.Config {
 	cfg := domain.NewConfig(Admission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
 	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
-	cfg.Clients[codex.ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Executable: fakeProgram("/opt/codex"), Targets: []string{target}}
+	cfg.Clients[codex.ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Executable: processtest.Program(t, "/opt/codex"), Targets: []string{target}}
 	return cfg
 }
 
@@ -81,13 +82,13 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 }
 
 func TestChangedClientsRetainsAdmissionOrderAndIndependentResults(t *testing.T) {
-	before := codexConfiguration("/target")
+	before := codexConfiguration(t, "/target")
 	account := before.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Providers["gateway"] = account
 	before.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
-	before.SetClientActivation(claude.ID, true, fakeProgram("/opt/claude"), nil)
+	before.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/claude"), nil)
 	after := before.Clone()
 	account.Endpoints = domain.Endpoints{Responses: "https://replacement.test/v1", Anthropic: "https://replacement.test"}
 	after.Providers["gateway"] = account
@@ -131,8 +132,8 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
 	before.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-test"), "")
 	after := before.Clone()
-	after.SetClientActivation(claude.ID, true, fakeProgram("/opt/claude"), nil)
-	after.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{codexTarget})
+	after.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/claude"), nil)
+	after.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), []string{codexTarget})
 	deps := adapter.Dependencies{
 		Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{
 			ID: "codex-home-default", ConfigPath: codexTarget, Present: true, AutoManaged: true,
@@ -198,8 +199,8 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 	before.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("direct", "claude-test"), "")
 	before.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-test"), "")
-	before.SetClientActivation(claude.ID, true, fakeProgram("/clients/claude"), nil)
-	before.SetClientActivation(codex.ID, true, fakeProgram("/clients/codex"), []string{"/clients/codex.toml"})
+	before.SetClientActivation(claude.ID, true, processtest.Program(t, "/clients/claude"), nil)
+	before.SetClientActivation(codex.ID, true, processtest.Program(t, "/clients/codex"), []string{"/clients/codex.toml"})
 	wantUnchanged := before.Clone()
 
 	after, err := registry.Converge(adapter.Dependencies{}, before, discovery.Result{}, future.Spec().ID)

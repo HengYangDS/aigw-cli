@@ -219,6 +219,9 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 					err,
 				)
 			}
+			if err := invocation.Stopped(runtime, "aigw.toml was restored, and the other clients' files were restored."); err != nil {
+				return err
+			}
 			next := nextAfterRollback(restored, runtime.Secrets)
 			if jsonMode {
 				document := rollbackDocument{Source: sourceID, Selections: selections}

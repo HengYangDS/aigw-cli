@@ -39,7 +39,7 @@ func codexWithReader(t *testing.T) (Synchronizer, domain.Config, string, secret.
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := testConfig(target)
+	cfg := testConfig(t, target)
 	other := cfg.Models[domain.NewModelRef("gateway", "gpt-test")]
 	other.ID, other.Family, other.Label = "gpt-other", "gpt-other", "Other"
 	cfg.Models[other.Ref()] = other

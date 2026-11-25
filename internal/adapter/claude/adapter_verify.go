@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"aigw-cli/internal/adapter"
-	"aigw-cli/internal/adapter/discovery"
 	clientverification "aigw-cli/internal/adapter/verification"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -43,13 +42,6 @@ func (claudeAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg 
 	}
 	if !clientAdapter.Enabled || clientAdapter.Executable == "" {
 		return adapter.Verification{}, fmt.Errorf("claude adapter is disabled; run `aigw sync`")
-	}
-	ready, err := discovery.ExecutableAvailable(clientAdapter.Executable)
-	if err != nil {
-		return adapter.Verification{}, fmt.Errorf("inspect Claude executable: %w", err)
-	}
-	if !ready {
-		return adapter.Verification{}, fmt.Errorf("claude executable is unavailable; run `aigw sync`")
 	}
 	settings, err := SettingsPath(deps.Host)
 	if err != nil {

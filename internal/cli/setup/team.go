@@ -8,6 +8,8 @@ import (
 	"os"
 	"slices"
 
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/discovery"
 	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
@@ -104,7 +106,7 @@ func runTeamSetup(cmd *cobra.Command, runtime invocation.Context, request setupR
 		return err
 	}
 	team := teamSetup{cmd: cmd, runtime: runtime, request: request, file: file, before: cfg, merged: merged, report: report,
-		installed: manifestSetupAvailableClients(cfg.Admission(), discovered.Executables), refused: map[string]*secret.KeychainItemRefusedError{},
+		installed: manifestSetupAvailableClients(cfg, discovered), refused: map[string]*secret.KeychainItemRefusedError{},
 		failed: map[string]error{}}
 	if request.DryRun {
 		return team.afterDeletion(team.preview())
@@ -453,12 +455,20 @@ func readOnlyTokenInput(id, then string) error {
 	return terminal.ProblemError("the environment backend reads the "+id+" Token from "+key+", and setup cannot store one", "", "Nothing changed.", fix, nil)
 }
 
-func manifestSetupAvailableClients(admission domain.Admission, executables map[string]string) map[string]bool {
-	available := make(map[string]bool, len(admission.IDs()))
-	for _, clientID := range admission.IDs() {
-		available[clientID] = executables[clientID] != ""
+// manifestSetupAvailableClients are the clients whose program runs, under the
+// one rule of adapter.ClientProgram: the configured program first, and the
+// one that discovery finds only when none is configured.
+func manifestSetupAvailableClients(cfg domain.Config, discovered discovery.Result) map[string]bool {
+	available := make(map[string]bool, len(cfg.Admission().IDs()))
+	for _, clientID := range cfg.Admission().IDs() {
+		available[clientID] = installedProgram(cfg, discovered, clientID)
 	}
 	return available
+}
+
+// installedProgram reports whether the program that the client uses runs.
+func installedProgram(cfg domain.Config, discovered discovery.Result, clientID string) bool {
+	return adapter.ClientProgram(cfg.Clients[clientID], discovered, clientID) != "" && adapter.MissingProgram(cfg, clientID) == nil
 }
 
 // manifestSetupSelectedClients are the installed, enabled clients whose

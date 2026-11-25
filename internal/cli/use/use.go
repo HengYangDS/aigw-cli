@@ -224,6 +224,9 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	if err != nil {
 		return tokenNotKept(operation, selected.ProviderID, token, err)
 	}
+	if err := invocation.Stopped(runtime, "The selection was saved, and the other clients' files were written."); err != nil {
+		return err
+	}
 	outcome.changed, outcome.tokenStored = changed, token != ""
 	return outcome.report(runtime, options)
 }

@@ -20,6 +20,7 @@ import (
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
@@ -374,7 +375,7 @@ func TestShippedTeamManifestMixedClientProjectionHasOneContinuation(t *testing.T
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{codex.ID: fakeProgram("/opt/codex")},
+		Executables: map[string]string{codex.ID: processtest.Program(t, "/opt/codex")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			ConfigPath:  target,

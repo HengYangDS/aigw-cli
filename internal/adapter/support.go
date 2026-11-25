@@ -39,11 +39,10 @@ func RawJSON(value any) json.RawMessage {
 // credential store holds a Token of the selected Account that AIGW can use
 // when the Route reads it from there. ready reports whether all of them are
 // present; when it is false, the adapter leaves the client's activation
-// unchanged. A configured program that is missing leaves the client unready
-// before the credential store is read: it stops the client (see
-// MissingProgram). A Token that the store cannot observe is no Token that
-// AIGW can use: the client is not ready, and the store's failure is no error
-// of the command.
+// unchanged. A configured program that is missing is kept, and the plan
+// stops the client (see Registry.PlanStopping). A Token that the store
+// cannot observe is no Token that AIGW can use: the client is not ready, and
+// the store's failure is no error of the command.
 func ConvergeBinding(deps Dependencies, cfg *domain.Config, discovered discovery.Result, clientID string) (binding domain.ClientBinding, executable string, ready bool, err error) {
 	runtime, err := cfg.ResolveRuntime(clientID, domain.ModelRef{})
 	if _, unselected := errors.AsType[*domain.RuntimeBindingUnselectedError](err); unselected {
@@ -57,7 +56,7 @@ func ConvergeBinding(deps Dependencies, cfg *domain.Config, discovered discovery
 		return domain.ClientBinding{}, "", false, nil
 	}
 	executable = ClientProgram(binding, discovered, clientID)
-	if executable == "" || MissingProgram(*cfg, clientID) != nil {
+	if executable == "" {
 		return domain.ClientBinding{}, "", false, nil
 	}
 	available := !runtime.UsesAIGWCredentialStore() || secret.ObserveToken(deps.Secrets, runtime.ProviderID).Usable()

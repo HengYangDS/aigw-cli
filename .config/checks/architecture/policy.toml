@@ -28,7 +28,7 @@ package_children."internal" = [
   "store",
   "terminal",
 ]
-package_children."internal/platform" = ["process"]
+package_children."internal/platform" = ["process", "processtest"]
 package_children."internal/app" = [
   "activation",
   "diagnostics",

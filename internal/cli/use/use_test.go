@@ -20,6 +20,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
@@ -120,7 +121,7 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 	if err := run.Secrets.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
+	cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), []string{target})
 	if err := run.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

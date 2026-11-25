@@ -105,6 +105,9 @@ type Synchronizer struct {
 	// Follows receives what a transition, or its preview, keeps of the
 	// clients' own choices, for the invocation's report.
 	Follows *Follows
+	// Stops receives the clients that a transition, or its preview, stopped,
+	// for the invocation's report.
+	Stops *Stops
 }
 
 // DesiredClientConfiguration discovers the requested clients and derives the

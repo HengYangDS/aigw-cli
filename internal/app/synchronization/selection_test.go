@@ -126,7 +126,7 @@ func TestModelSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 func TestModelSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 	for _, route := range []string{"unknown", "native"} {
 		t.Run(route, func(t *testing.T) {
-			cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
+			cfg := testConfig(t, filepath.Join(t.TempDir(), "config.toml"))
 			cfg.Models[domain.NewModelRef("gateway", "model")] = domain.Model{Label: "Native", Provider: "gateway", Family: "model", ID: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 			binding := cfg.Clients[codex.ID]
 			binding.ModelProvider = "provider"

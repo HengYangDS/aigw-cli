@@ -23,7 +23,7 @@ func projectedCodex(t *testing.T) (Synchronizer, domain.Config, string) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := testConfig(target)
+	cfg := testConfig(t, target)
 	other := cfg.Models[domain.NewModelRef("gateway", "gpt-test")]
 	other.ID, other.Family, other.Label = "gpt-other", "gpt-other", "Other"
 	cfg.Models[other.Ref()] = other
@@ -128,7 +128,7 @@ func TestATransitionRecordsAChoiceWithTheFilesRecord(t *testing.T) {
 // refusal: it has no credential to take back, and reads as its preview does.
 func TestSetupWithoutATokenFailsAsItsRefusal(t *testing.T) {
 	target := t.TempDir()
-	cfg := testConfig(target)
+	cfg := testConfig(t, target)
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)

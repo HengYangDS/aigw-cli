@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 )
 
@@ -165,7 +166,7 @@ func withItemsOfAnotherProgram(t *testing.T, app *cli.App, slots ...string) *key
 		t.Fatal(err)
 	}
 	items := &keychain{root: t.TempDir()}
-	writeProgram(t, items.worker(), worker)
+	processtest.Write(t, items.worker(), string(worker))
 	for _, folder := range []string{"own", "other"} {
 		if err := os.MkdirAll(filepath.Join(items.root, "keychain", folder), 0o700); err != nil {
 			t.Fatal(err)

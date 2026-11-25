@@ -56,7 +56,7 @@ func TestAMissingConfiguredProgramStopsEveryClient(t *testing.T) {
 			if err != nil || after.Clients[id].Executable != gone {
 				t.Fatalf("Converge() kept %q, %v; want the configured path", after.Clients[id].Executable, err)
 			}
-			missing, stopped := errors.AsType[*adapter.MissingProgramError](func() error {
+			missing, stopped := errors.AsType[*adapter.StopError](func() error {
 				_, err := registry.Plan(deps, cfg, after, id)
 				return err
 			}())
@@ -71,20 +71,26 @@ func TestAMissingConfiguredProgramStopsEveryClient(t *testing.T) {
 			if status := registry.Inspect(context.Background(), deps, cfg, id, runtime); status.Ready || status.Issue != missing.Error() || status.RepairAction != fix {
 				t.Fatalf("Inspect() = %+v, want the missing program and its fix", status)
 			}
-			if got := registry.MissingPrograms(cfg); len(got) != 1 || got[0].Client() != id {
-				t.Fatalf("MissingPrograms() = %v", got)
+			if _, stops, err := registry.PlanStopping(deps, cfg, after, id); err != nil || len(stops) != 1 || stops[0].Client() != id {
+				t.Fatalf("PlanStopping() = %v, %v; want the client stopped", stops, err)
 			}
-
+			// Withdrawing files needs no program, so it never stops.
+			withdrawing := deps
+			withdrawing.WithdrawOnly = []string{id}
+			if _, stops, err := registry.PlanStopping(withdrawing, cfg, after, id); err != nil || len(stops) != 0 {
+				t.Fatalf("PlanStopping() of a withdrawal = %v, %v; want no stop", stops, err)
+			}
 			disabled := cfg.Clone()
 			binding.Enabled = false
 			disabled.Clients[id] = binding
+			if _, stops, err := registry.PlanStopping(deps, disabled, disabled, id); err != nil || len(stops) != 0 {
+				t.Fatalf("PlanStopping() of a disabled client = %v, %v; want no stop", stops, err)
+			}
 			unconfigured := cfg.Clone()
 			binding.Enabled, binding.Executable = true, ""
 			unconfigured.Clients[id] = binding
-			for _, other := range []domain.Config{disabled, unconfigured} {
-				if got := registry.MissingPrograms(other); len(got) != 0 {
-					t.Fatalf("MissingPrograms() = %v, want none", got)
-				}
+			if missing := adapter.MissingProgram(unconfigured, id); missing != nil {
+				t.Fatalf("MissingProgram() = %v for a client that configures none", missing)
 			}
 		})
 	}

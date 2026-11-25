@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/platform/processtest"
 )
 
 // executableFixture writes a runnable file that stands for a client's
@@ -22,9 +22,7 @@ import (
 func executableFixture(t *testing.T, name string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
-	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	processtest.Write(t, path, processtest.Failing)
 	return path
 }
 
@@ -111,6 +109,27 @@ func TestListMarksAnEnabledClientThatIsNotInstalled(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "! Claude ") || !strings.Contains(out.String(), "gateway/claude-test · Enabled · Missing ") {
 		t.Fatalf("an enabled client whose executable is gone is not marked:\n%s", out)
+	}
+}
+
+// An enabled client with no executable at all, configured or discovered, is
+// marked as not installed.
+func TestListMarksAnEnabledClientWithoutAnExecutable(t *testing.T) {
+	runtime, out := listRuntime(t)
+	cfg, err := runtime.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.SetClientActivation(claude.ID, true, "", nil)
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	runtime.Discovery = adapterDiscovery{}
+	if err := executeAdapter(t, runtime, "list"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "! Claude ") || !strings.Contains(out.String(), "gateway/claude-test · Enabled · Not installed") {
+		t.Fatalf("an enabled client without an executable is not marked:\n%s", out)
 	}
 }
 

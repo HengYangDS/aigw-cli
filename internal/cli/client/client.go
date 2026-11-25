@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
@@ -112,6 +113,9 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		// names them absolute, so that they mean the same from any directory.
 		targets, _ = absoluteTargets(cmd, targets)
 		executable, _ = filepath.Abs(executable)
+		if err := refuseExecutable(executable); err != nil {
+			return err
+		}
 		cfg, err := runtime.LoadConfiguration()
 		if err != nil {
 			return err
@@ -137,6 +141,9 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		}
 		if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
 			return fmt.Errorf("Client enablement could not finish: %w", err)
+		}
+		if err := invocation.Stopped(runtime, spec.Label+" was enabled in the configuration."); err != nil {
+			return err
 		}
 		if jsonMode {
 			return terminal.WriteDocument(runtime.Out, enableSchemaVersion, true,
@@ -367,4 +374,14 @@ func editInstead(spec domain.ClientSpec, executable string, targets []string) st
 		words = append(words, "--target", target)
 	}
 	return strings.Join(words, " ")
+}
+
+// refuseExecutable refuses an --executable that is not a file that can run,
+// before anything is read or written: a regular file, or a link to one, with
+// an execute bit. Nothing is run.
+func refuseExecutable(path string) error {
+	if runnable, err := discovery.ExecutableAvailable(path); err != nil || !runnable {
+		return fmt.Errorf("--executable %s is not a file that can run; run `aigw client list`, which shows where each client is installed", path)
+	}
+	return nil
 }

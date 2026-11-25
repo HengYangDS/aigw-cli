@@ -77,6 +77,9 @@ type App struct {
 	// and followed its report of them.
 	follows  *synchronization.Follows
 	followed *invocation.FollowedReport
+	// stops is the running invocation's record of the clients that its
+	// transitions stopped.
+	stops *synchronization.Stops
 }
 
 // commandOutput owns write progress and the first failure for one invocation,
@@ -129,9 +132,9 @@ func Execute(app *App, args []string) error {
 	var unlock func() error
 	// What the invocation makes of the clients' own choices: its command's
 	// document carries it, and its human output names it once.
-	app.follows = &synchronization.Follows{}
+	app.follows, app.stops = &synchronization.Follows{}, &synchronization.Stops{}
 	app.followed = invocation.NewFollowedReport(app.follows)
-	defer func() { app.follows, app.followed = nil, nil }()
+	defer func() { app.follows, app.followed, app.stops = nil, nil, nil }()
 	output.fields = app.followed.Document
 	root := NewRoot(app)
 	root.PersistentPreRunE = func(command *cobra.Command, positional []string) error {
@@ -392,7 +395,7 @@ func (a *App) invocationContext() invocation.Context {
 		Color: a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
 		Discovery: a.Discovery, Clients: a.Clients, Updater: a.Updater,
-		Follows: a.follows, Followed: a.followed,
+		Follows: a.follows, Followed: a.followed, Stops: a.stops,
 	}
 }
 

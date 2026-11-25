@@ -14,6 +14,7 @@ import (
 	"aigw-cli/internal/app/activation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 )
 
@@ -83,7 +84,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			if err := os.WriteFile(target, original, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			selected := testConfig(target)
+			selected := testConfig(t, target)
 			selected.Providers[account] = selected.Providers["gateway"]
 			route := selected.Models[domain.NewModelRef("gateway", "gpt-test")]
 			route.Provider = account
@@ -111,7 +112,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			if !ok || configStore.commits != 0 {
 				t.Fatal("denied credential reader reached configuration commit")
 			}
-			deferred := testConfig(target)
+			deferred := testConfig(t, target)
 			deferred.Providers["missing"] = deferred.Providers["gateway"]
 			route = deferred.Models[domain.NewModelRef("gateway", "gpt-test")]
 			route.Provider = "missing"
@@ -129,7 +130,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(filepath.Dir(reader), "allow-reader"), nil, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			selected = testConfig(target)
+			selected = testConfig(t, target)
 			selected.Providers["blocked"] = domain.Provider{
 				Label: "Blocked", Endpoints: domain.Endpoints{Anthropic: "https://blocked.test"},
 			}
@@ -138,7 +139,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 			}
 			selected.SetSelectedModel(claude.ID, domain.NewModelRef("blocked", "claude-test"), "")
-			selected.SetClientActivation(claude.ID, true, clientProgram, nil)
+			selected.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/client"), nil)
 			if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), selected, "codex", codex.ID); err != nil {
 				t.Fatalf("unrelated Claude Token blocked a Codex-only projection: %v", err)
 			}
@@ -155,7 +156,7 @@ func TestKeyringReaderCopyVerifiesEachSelectedProviderOnce(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(filepath.Dir(reader), "allow-reader"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	requireSingleCopiedCredentialRead(t, syncer, reader, testConfig(target), "gateway")
+	requireSingleCopiedCredentialRead(t, syncer, reader, testConfig(t, target), "gateway")
 }
 
 func TestSyncObservesNativeAvailabilityOncePerInvocation(t *testing.T) {
@@ -167,7 +168,7 @@ func TestSyncObservesNativeAvailabilityOncePerInvocation(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(filepath.Dir(reader), "allow-reader"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	before := testConfig(target)
+	before := testConfig(t, target)
 	configStore, ok := syncer.Config.(*configStoreStub)
 	if !ok {
 		t.Fatal("native reader fixture has no owned configuration store")

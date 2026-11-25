@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 )
 
 func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryProviderChoices(t *testing.T) {
@@ -35,7 +36,7 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryProviderChoices(t 
 			cfg := domain.NewConfig(clients.Admission())
 			addProviderModel(&cfg, "provider", "Provider", domain.Endpoints{Responses: test.endpoint}, codex.ID, "gpt-test")
 			cfg.SetSelectedModel(codex.ID, domain.NewModelRef("provider", "gpt-test"), "")
-			cfg.SetClientActivation(codex.ID, true, fakeProgram("/usr/local/bin/codex"), []string{target})
+			cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/usr/local/bin/codex"), []string{target})
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -152,7 +153,7 @@ func TestEndpointOnlyCheckUsesSelectedTLSOrLoopbackProvider(t *testing.T) {
 			cfg := domain.NewConfig(clients.Admission())
 			addProviderModel(&cfg, "selected", "Selected", domain.Endpoints{Responses: server.URL + "/v1"}, codex.ID, "gpt-test")
 			cfg.SetSelectedModel(codex.ID, domain.NewModelRef("selected", "gpt-test"), "")
-			cfg.SetClientActivation(codex.ID, true, fakeProgram("/usr/local/bin/codex"), []string{target})
+			cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/usr/local/bin/codex"), []string{target})
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}

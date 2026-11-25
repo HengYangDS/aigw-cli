@@ -15,7 +15,7 @@ import (
 // the provider keeps them and its forwarding, and selecting another
 // provider's model clears both, without a refusal.
 func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
-	cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
+	cfg := testConfig(t, filepath.Join(t.TempDir(), "config.toml"))
 	zero, two := uint64(0), uint64(2)
 	binding := cfg.Clients[codex.ID]
 	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero, StreamMaxRetries: &two}

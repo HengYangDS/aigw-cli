@@ -14,7 +14,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
@@ -24,6 +23,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
@@ -304,25 +304,7 @@ func writeSilentProgram(t *testing.T, path string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeProgram(t, path, program)
-}
-
-// writeProgram writes a program that a test then starts. The tests run in
-// parallel, so another test may start a process while this one writes: on
-// Unix the child holds every descriptor of this process until it runs its own
-// program, and Linux refuses to start a file that is open for writing
-// (ETXTBSY, https://go.dev/issue/22315). The file is written under
-// syscall.ForkLock, which every fork of this process holds for writing.
-func writeProgram(t *testing.T, path string, program []byte) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	syscall.ForkLock.RLock()
-	defer syscall.ForkLock.RUnlock()
-	if err := os.WriteFile(path, program, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	processtest.Write(t, path, string(program))
 }
 
 // silentProgram builds, once for the tests of one process, a program that

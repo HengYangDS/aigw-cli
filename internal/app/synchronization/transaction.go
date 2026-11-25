@@ -99,6 +99,8 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 	if err != nil {
 		return committed{}, err
 	}
+	// The plan's stops are what the command reports once the rest is written.
+	s.Stops.record(projection.Stopped)
 	// The credential reader is prepared for the clients whose files are
 	// written; a client of which only AIGW's record is written reads none.
 	projectable := projection.Clients

@@ -103,13 +103,6 @@ func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
 	if _, err := (claudeAdapter{}).Verify(context.Background(), adapter.Dependencies{}, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "secret store is unavailable") {
 		t.Fatalf("Verify() error = %v", err)
 	}
-	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "inspect Claude executable") {
-		t.Fatalf("Verify() inspection error = %v", err)
-	}
-	cfg.SetClientActivation(ID, true, filepath.Join(t.TempDir(), "missing"), nil)
-	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "executable is unavailable") {
-		t.Fatalf("Verify() unavailable error = %v", err)
-	}
 }
 
 func TestFailedClaudeVerificationProjectionRemovesItsWorkspace(t *testing.T) {

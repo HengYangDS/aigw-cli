@@ -235,7 +235,7 @@ func (g guidedSetup) storedOrAsked(ctx context.Context, provider *guidedProvider
 func (g guidedSetup) installedClients(provider domain.Provider, discovered discovery.Result) []domain.ClientSpec {
 	var installed []domain.ClientSpec
 	for _, spec := range g.runtime.Clients.Admission().Specs() {
-		if discovered.Executables[spec.ID] != "" && len(spec.CompatibleProtocols(provider)) > 0 {
+		if installedProgram(g.before, discovered, spec.ID) && len(spec.CompatibleProtocols(provider)) > 0 {
 			installed = append(installed, spec)
 		}
 	}

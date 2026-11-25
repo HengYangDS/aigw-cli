@@ -12,6 +12,7 @@ import (
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 )
 
@@ -187,7 +188,7 @@ func recordedChoiceFixture(t *testing.T) (string, domain.Config, domain.Config) 
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://provider.test"}}
 	cfg.Models[domain.NewModelRef("team", "model-test")] = qualifiedModel("Test", "team", "model-test", domain.ProtocolAnthropic)
 	cfg.Models[chosen] = qualifiedModel("Other", "team", "model-other", domain.ProtocolAnthropic)
-	cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("team", "model-test"), Enabled: true, Protocol: domain.ProtocolAnthropic, Executable: runnableHermes(t), Targets: []string{path}}
+	cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("team", "model-test"), Enabled: true, Protocol: domain.ProtocolAnthropic, Executable: processtest.Program(t, "/opt/hermes"), Targets: []string{path}}
 	tokens := secret.NewMemoryStore()
 	if err := tokens.Set("team", "fixture-token"); err != nil {
 		t.Fatal(err)
@@ -256,15 +257,4 @@ func TestTheAdapterRecordsAChoiceWithoutAToken(t *testing.T) {
 	if _, err := PrepareRecord(path, Selection{Provider: "aigw-team-anthropic", Model: "model-test"}); !errors.As(err, &conflict) {
 		t.Fatalf("the refusal is %v, want a conflict with its recovery", err)
 	}
-}
-
-// runnableHermes writes a runnable file that stands for Hermes's configured
-// executable, without which the registry plans nothing for Hermes.
-func runnableHermes(t *testing.T) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "hermes")
-	if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return path
 }

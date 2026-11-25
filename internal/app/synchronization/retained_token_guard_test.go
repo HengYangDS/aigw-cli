@@ -11,6 +11,7 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 )
 
@@ -34,7 +35,7 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 	if err := os.WriteFile(target, []byte("# Existing native Codex home\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := testConfig(target)
+	cfg := testConfig(t, target)
 	runtime, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +59,7 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 	afterConfig.Providers["ready"] = domain.Provider{Label: "Ready", Endpoints: domain.Endpoints{Anthropic: "https://ready.test"}}
 	afterConfig.Models[domain.NewModelRef("ready", "claude-test")] = domain.Model{Label: "Claude", Provider: "ready", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	afterConfig.SetSelectedModel(claude.ID, domain.NewModelRef("ready", "claude-test"), "")
-	afterConfig.SetClientActivation(claude.ID, true, clientProgram, nil)
+	afterConfig.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/client"), nil)
 
 	workerSource := filepath.Join(root, "candidate.go")
 	if err := os.WriteFile(workerSource, []byte(`package main
@@ -109,7 +110,7 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	if err := os.WriteFile(target, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := testConfig(target)
+	cfg := testConfig(t, target)
 	codexBinding := cfg.Clients[codex.ID]
 	codexBinding.Authentication = domain.AuthenticationClientNative
 	codexBinding.ModelProvider = "amazon-bedrock"
@@ -117,7 +118,7 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	cfg.Providers["missing"] = domain.Provider{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
 	cfg.Models[domain.NewModelRef("missing", "claude-test")] = domain.Model{Label: "Claude", Provider: "missing", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("missing", "claude-test"), "")
-	cfg.SetClientActivation(claude.ID, true, clientProgram, nil)
+	cfg.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/client"), nil)
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}

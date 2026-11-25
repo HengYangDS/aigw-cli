@@ -14,6 +14,7 @@ import (
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 )
 
@@ -24,8 +25,8 @@ var unusableTokens = []string{"empty", "another-program"}
 
 // waitingCodex selects for Codex a model of account, whose Token the fixture
 // program holds in one of the unusable states.
-func waitingCodex(target, account string) domain.Config {
-	cfg := testConfig(target)
+func waitingCodex(t *testing.T, target, account string) domain.Config {
+	cfg := testConfig(t, target)
 	cfg.Providers[account] = cfg.Providers["gateway"]
 	route := cfg.Models[domain.NewModelRef("gateway", "gpt-test")]
 	route.Provider = account
@@ -36,7 +37,7 @@ func waitingCodex(target, account string) domain.Config {
 
 // withClaudeOnGateway adds Claude on provider gateway, whose Token the fixture
 // program returns.
-func withClaudeOnGateway(cfg domain.Config) domain.Config {
+func withClaudeOnGateway(t *testing.T, cfg domain.Config) domain.Config {
 	cfg = cfg.Clone()
 	gateway := cfg.Providers["gateway"]
 	gateway.Endpoints.Anthropic = "https://gateway.test"
@@ -46,7 +47,7 @@ func withClaudeOnGateway(cfg domain.Config) domain.Config {
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
-	cfg.SetClientActivation(claude.ID, true, clientProgram, nil)
+	cfg.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/client"), nil)
 	return cfg
 }
 
@@ -108,7 +109,7 @@ func TestAClientWaitsForATokenThatAIGWCannotUse(t *testing.T) {
 			if !ok {
 				t.Fatal("the fixture has no owned configuration store")
 			}
-			empty, waiting := domain.NewConfig(clients.Admission()), waitingCodex(target, account)
+			empty, waiting := domain.NewConfig(clients.Admission()), waitingCodex(t, target, account)
 
 			if err := syncer.CommitProjection(t.Context(), empty, waiting, "sync"); err != nil {
 				t.Fatalf("a commit for the client that waits = %v", err)
@@ -129,7 +130,7 @@ func TestAClientWaitsForATokenThatAIGWCannotUse(t *testing.T) {
 			}
 
 			allowReader(t, reader)
-			if err := syncer.CommitProjection(t.Context(), empty, withClaudeOnGateway(waiting), "sync"); err != nil {
+			if err := syncer.CommitProjection(t.Context(), empty, withClaudeOnGateway(t, waiting), "sync"); err != nil {
 				t.Fatalf("a commit for a client that waits and one that does not = %v", err)
 			}
 			if configStore.commits != 2 {
@@ -159,7 +160,7 @@ func TestAPreviewLeavesOutTheClientThatWaitsForItsToken(t *testing.T) {
 			target := filepath.Join(root, "codex.toml")
 			syncer, reader := newKeyringReaderFixture(t, target)
 			syncer.Host = hostAt(root)
-			empty, both := domain.NewConfig(clients.Admission()), withClaudeOnGateway(waitingCodex(target, account))
+			empty, both := domain.NewConfig(clients.Admission()), withClaudeOnGateway(t, waitingCodex(t, target, account))
 
 			projection, err := syncer.PreviewProjection(empty, both)
 			if err != nil || !slices.Contains(projection.Clients, claude.ID) || slices.Contains(projection.Clients, codex.ID) {
@@ -231,7 +232,7 @@ func TestAClientWaitsForAnEmptyTokenFile(t *testing.T) {
 	configStore := &configStoreStub{}
 	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: files, Discovery: targetDiscovery(target), Host: hostAt(root),
 		AIGWExecutable: program, ResolveCredentialPath: readerAt(reader)}
-	empty, both := domain.NewConfig(clients.Admission()), withClaudeOnGateway(waitingCodex(target, "empty"))
+	empty, both := domain.NewConfig(clients.Admission()), withClaudeOnGateway(t, waitingCodex(t, target, "empty"))
 
 	projection, err := syncer.PreviewProjection(empty, both)
 	if err != nil || !slices.Contains(projection.Clients, claude.ID) || slices.Contains(projection.Clients, codex.ID) {

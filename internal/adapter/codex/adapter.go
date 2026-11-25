@@ -227,7 +227,11 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 		// A file that shows the selection still holds a table of the program
 		// that produced it, which the configured one must be.
 		state, _ := codexStateForTarget(record)
-		return "", producerProblem(cfg.Clients[ID].Executable, state), repair, false
+		if problem := producerProblem(cfg.Clients[ID].Executable, state); problem != "" {
+			detail, fix := producerRepair(cfg.Clients[ID].Executable, problem)
+			return "", detail, fix, false
+		}
+		return "", "", repair, false
 	case tableProblem:
 		return "", table.Error(), repair, false
 	case errors.Is(err, os.ErrNotExist):

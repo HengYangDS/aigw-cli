@@ -51,7 +51,7 @@ func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *tes
 				t.Fatal(err)
 			}
 			syncer := Synchronizer{Registry: builtinClients, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
-			entrypoint, _, err := syncer.prepareCredentialEntrypoint(testConfig(filepath.Join(root, "codex.toml")), codex.ID)
+			entrypoint, _, err := syncer.prepareCredentialEntrypoint(testConfig(t, filepath.Join(root, "codex.toml")), codex.ID)
 			if err != nil || entrypoint == nil {
 				t.Fatalf("prepared reader = %v, %v", entrypoint, err)
 			}
@@ -64,7 +64,7 @@ func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *tes
 }
 
 func TestExplicitTokenVerificationRefusesUnresolvedReaderFromNativeBinding(t *testing.T) {
-	cfg := testConfig(filepath.Join(t.TempDir(), "codex.toml"))
+	cfg := testConfig(t, filepath.Join(t.TempDir(), "codex.toml"))
 	binding := cfg.Clients[codex.ID]
 	binding.Authentication = domain.AuthenticationClientNative
 	binding.ModelProvider = "amazon-bedrock"
@@ -91,7 +91,7 @@ func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
 	for _, empty := range []bool{false, true} {
 		t.Run(fmt.Sprint(empty), func(t *testing.T) {
 			root := t.TempDir()
-			cfg := testConfig(filepath.Join(root, "codex.toml"))
+			cfg := testConfig(t, filepath.Join(root, "codex.toml"))
 			store := &configStoreStub{}
 			store.bindConfiguration(t, cfg)
 			problem := errors.New("identity source unavailable")
@@ -239,7 +239,7 @@ func TestConvergedProjectionValidatesReaderWithoutApplying(t *testing.T) {
 				}
 			}
 			syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
-			cfg := testConfig(clientAdapter.target)
+			cfg := testConfig(t, clientAdapter.target)
 			store.bindConfiguration(t, cfg)
 			err = syncer.CommitProjection(t.Context(), cfg, cfg, "sync")
 			if wantError := tc.changedTarget != "" || tc.duringCommit; (err != nil) != wantError || store.commits != tc.commits || store.restores != tc.restores {
@@ -266,7 +266,7 @@ func TestConvergedProjectionRechecksTargetsAfterConfigurationCommit(t *testing.T
 			}
 			store := &configStoreStub{}
 			syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
-			cfg := testConfig(target)
+			cfg := testConfig(t, target)
 			store.bindConfiguration(t, cfg)
 			if err := syncer.CommitProjection(t.Context(), cfg, cfg, "initial sync"); err != nil {
 				t.Fatal(err)
@@ -322,7 +322,7 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	before := testConfig(target)
+	before := testConfig(t, target)
 	before.SetClientActivation(codex.ID, false, "", nil)
 	configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
@@ -334,7 +334,7 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 		t.Fatal(err)
 	}
 	syncer := Synchronizer{Config: configStore, Registry: registry, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
-	err = syncer.CommitProjection(t.Context(), before, testConfig(target), "sync")
+	err = syncer.CommitProjection(t.Context(), before, testConfig(t, target), "sync")
 	if err == nil {
 		t.Fatal("missing reader after projection was accepted")
 	}
@@ -387,7 +387,7 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 			}
 			store := &configStoreStub{restoreErr: tc.configErr}
 			syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
-			err = syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "sync")
+			err = syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(t, target), "sync")
 			var recovery interface{ ConfigurationRestored() bool }
 			if !errors.Is(err, cause) || !errors.As(err, &recovery) || recovery.ConfigurationRestored() != tc.restored || store.restores != 1 {
 				t.Fatalf("finalization outcome: restores=%d error=%v", store.restores, err)
@@ -407,7 +407,7 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 
 func TestPrepareCredentialEntrypointRejectsInvalidBindingBeforeReading(t *testing.T) {
 	root := t.TempDir()
-	cfg := testConfig(filepath.Join(root, "codex.toml"))
+	cfg := testConfig(t, filepath.Join(root, "codex.toml"))
 	delete(cfg.Models, domain.NewModelRef("gateway", "gpt-test"))
 	syncer := Synchronizer{Registry: builtinClients,
 		ResolveCredentialPath: readerAt(filepath.Join(root, "data", "credential", "aigw")),

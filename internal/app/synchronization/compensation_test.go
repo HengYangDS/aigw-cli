@@ -48,7 +48,7 @@ func TestFailedSelfCompensationPreservesTheReaderItProjected(t *testing.T) {
 	}
 	configStore := &configStoreStub{}
 	syncer := Synchronizer{Config: configStore, Registry: registry, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
-	err = syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "sync")
+	err = syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(t, target), "sync")
 	if !errors.Is(err, adapter.ErrProjectionRollbackFailed) || !errors.Is(err, platform.ErrCompensationIncomplete) {
 		t.Fatalf("incomplete self-compensation was not reported as a failed rollback: %v", err)
 	}

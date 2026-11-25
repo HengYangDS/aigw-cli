@@ -7,6 +7,7 @@ import (
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 )
 
@@ -25,7 +26,11 @@ type Projection struct {
 	// can use, and whose files the transition drops: the dropped files are
 	// restored, which needs no Token, and the files that the client keeps wait
 	// for it.
-	Withdrawn     []string
+	Withdrawn []string
+	// Stopped are the clients that the plan stopped, in admission order: none
+	// of their files is written, apart from the withdrawal of a file that the
+	// transition drops, which needs no program.
+	Stopped       []*adapter.StopError
 	Targets       []adapter.ProjectionPlan
 	Configuration bool
 }
@@ -131,8 +136,10 @@ func project(planner Synchronizer, before, after domain.Config, reconcile bool, 
 	if err != nil {
 		return Projection{}, err
 	}
-	// Only a preview that the run would not refuse says what it records.
+	// Only a preview that the run would not refuse says what it records, and
+	// what it stops.
 	planner.Follows.settle(planner.keeps(settled.followed, before, settled.after))
+	planner.Stops.record(projection.Stopped)
 	projection.Configuration = settled.saves
 	return projection, nil
 }
@@ -142,45 +149,79 @@ func project(planner Synchronizer, before, after domain.Config, reconcile bool, 
 // client when none is named, when reconcile is set; and, at every transition,
 // AIGW's record alone of each other client whose record is behind the
 // selection that its files show (see recordsAlone). left names the clients whose
-// choice the transition did not save. An enabled client whose configured
-// program is missing is stopped: nothing of it is planned, and the other
-// clients are planned as they would be without it. It writes nothing, so a
-// plan that is refused is a PreflightError, for a command and for its preview
-// alike.
+// choice the transition did not save. The registry's plan decides, once, which
+// clients stop (see adapter.Registry.PlanStopping): nothing of a stopped client
+// is planned but the withdrawal of the files that the transition drops, and
+// the other clients are planned as they would be without it. It writes
+// nothing, so a plan that is refused is a PreflightError, for a command and
+// for its preview alike.
 func planned(planner Synchronizer, before, after domain.Config, reconcile bool, clientIDs, left []string) (Projection, error) {
 	var projection Projection
-	stopped := make([]string, 0)
-	for _, missing := range planner.registry().MissingPrograms(after) {
-		stopped = append(stopped, missing.Client())
-	}
-	if len(clientIDs) == 0 {
-		clientIDs = planner.ClientIDs()
-	}
-	clientIDs = slices.DeleteFunc(slices.Clone(clientIDs), func(client string) bool { return slices.Contains(stopped, client) })
-	if reconcile && len(clientIDs) > 0 {
+	if reconcile {
 		ready, err := planner.credentialReadyClients(after, clientIDs...)
 		if err != nil {
 			return Projection{}, &PreflightError{Err: err}
 		}
 		projection.Clients = ready
 		projection.Withdrawn = planner.withdrawnClients(before, after, clientIDs, ready)
-		if err := planner.admitsWaiting(before, after, clientIDs, ready); err != nil {
+		if projection.Stopped, err = planner.admitsWaiting(before, after, clientIDs, ready); err != nil {
 			return Projection{}, &PreflightError{Err: err}
 		}
 	}
-	projection.Recorded = planner.recordsAlone(before, after, projection.Clients, slices.Concat(left, stopped))
+	projection.Recorded = planner.recordsAlone(before, after, projection.Clients, left)
 	if len(projection.Clients)+len(projection.Recorded)+len(projection.Withdrawn) == 0 {
-		return Projection{}, nil
+		return Projection{Stopped: projection.Stopped}, nil
 	}
-	dependencies, err := planner.projectionDependencies(projection, before, after)
+	plans, stops, err := planner.plan(projection, before, after, planner.reconciled(projection)...)
 	if err != nil {
 		return Projection{}, err
 	}
-	projection.Targets, err = planner.registry().Plan(dependencies, before, after, planner.reconciled(projection)...)
-	if err != nil {
-		return Projection{}, &PreflightError{Err: err}
+	projection.Stopped = slices.Concat(projection.Stopped, stops)
+	stopped := make([]string, 0, len(projection.Stopped))
+	for _, stop := range projection.Stopped {
+		stopped = append(stopped, stop.Client())
 	}
+	isStopped := func(client string) bool { return slices.Contains(stopped, client) }
+	projection.Clients = slices.DeleteFunc(projection.Clients, isStopped)
+	projection.Recorded = slices.DeleteFunc(projection.Recorded, isStopped)
+	var dropping []string
+	for _, client := range stopped {
+		if after.Clients[client].Enabled && !slices.Contains(projection.Withdrawn, client) &&
+			len(platform.DroppedFiles(before.Clients[client].Targets, after.Clients[client].Targets)) > 0 {
+			dropping = append(dropping, client)
+		}
+	}
+	if len(dropping) > 0 {
+		projection.Withdrawn = planner.inAdmissionOrder(slices.Concat(projection.Withdrawn, dropping))
+		withdrawals, _, err := planner.plan(projection, before, after, dropping...)
+		if err != nil {
+			return Projection{}, err
+		}
+		plans = slices.Concat(plans, withdrawals)
+	}
+	order := planner.ClientIDs()
+	slices.SortStableFunc(plans, func(left, right adapter.ProjectionPlan) int {
+		return slices.Index(order, left.Client) - slices.Index(order, right.Client)
+	})
+	slices.SortStableFunc(projection.Stopped, func(left, right *adapter.StopError) int {
+		return slices.Index(order, left.Client()) - slices.Index(order, right.Client())
+	})
+	projection.Targets = plans
 	return projection, nil
+}
+
+// plan is the registry's plan of the named clients of projection, with the
+// dependencies that its projection gets, and the clients that it stops.
+func (s Synchronizer) plan(projection Projection, before, after domain.Config, clientIDs ...string) ([]adapter.ProjectionPlan, []*adapter.StopError, error) {
+	dependencies, err := s.projectionDependencies(projection, before, after)
+	if err != nil {
+		return nil, nil, err
+	}
+	plans, stops, err := s.registry().PlanStopping(dependencies, before, after, clientIDs...)
+	if err != nil {
+		return nil, nil, &PreflightError{Err: err}
+	}
+	return plans, stops, nil
 }
 
 // errPresumedToken refuses a Token read or write during a preview.

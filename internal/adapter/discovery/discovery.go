@@ -82,7 +82,8 @@ func (s System) FilePresent(path string) bool {
 }
 
 // ExecutableAvailable reports whether path identifies a runnable executable on
-// the current platform.
+// the current platform: a regular file, or a link to one, with an execute
+// bit. It runs nothing.
 func ExecutableAvailable(path string) (bool, error) {
 	return executableAvailable(path)
 }
@@ -115,7 +116,7 @@ func executableAvailable(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if info.IsDir() {
+	if !info.Mode().IsRegular() {
 		return false, nil
 	}
 	return info.Mode().Perm()&0o111 != 0, nil

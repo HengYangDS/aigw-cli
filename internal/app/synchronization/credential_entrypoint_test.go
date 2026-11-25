@@ -12,6 +12,7 @@ import (
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
@@ -42,7 +43,7 @@ func TestCodexInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	if _, err := ensureReader(sources[0], retained); err != nil {
 		t.Fatal(err)
 	}
-	cfg := testConfig(target)
+	cfg := testConfig(t, target)
 	runtime, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)
@@ -138,7 +139,7 @@ func TestCancelledProjectionAfterVersionedReaderPreparationRestoresOwnedState(t 
 		cancel()
 	}}
 	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
-	if err := syncer.CommitProjection(ctx, domain.NewConfig(clients.Admission()), testConfig(target), "test"); !errors.Is(err, context.Canceled) {
+	if err := syncer.CommitProjection(ctx, domain.NewConfig(clients.Admission()), testConfig(t, target), "test"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled projection error = %v, want context cancellation", err)
 	}
 	if store.commits != 1 || store.restores != 1 {
@@ -179,7 +180,7 @@ func TestFailedSynchronizationRemovesOnlyItsNewCredentialEntrypoint(t *testing.T
 				}
 			}
 			syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, ResolveCredentialPath: readerAt(helper)}
-			cfg := testConfig(target)
+			cfg := testConfig(t, target)
 			err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), cfg, "test")
 			if err == nil {
 				t.Fatal("injected failure did not fail synchronization")
@@ -197,7 +198,7 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "codex.toml")
 	helper := filepath.Join(root, "data", "credential", "aigw")
-	cfg := testConfig(target)
+	cfg := testConfig(t, target)
 	syncer := Synchronizer{Registry: builtinClients, ResolveCredentialPath: readerAt(helper)}
 	if action, err := syncer.CredentialEntrypointPlan(cfg); err != nil || action != CredentialEntrypointInstall {
 		t.Fatalf("default Token client plan = %q, %v; want helper creation", action, err)
@@ -233,7 +234,7 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	otherActive.Providers["gateway"] = account
 	otherActive.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{Provider: "gateway", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	otherActive.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
-	otherActive.SetClientActivation(claude.ID, true, clientProgram, nil)
+	otherActive.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/client"), nil)
 	if action, err := syncer.CredentialEntrypointPlan(otherActive); err != nil || action != CredentialEntrypointUnchanged {
 		t.Fatalf("another default Token client plan = %q, %v; want retained helper", action, err)
 	}
@@ -269,7 +270,7 @@ func TestProjectionRejectsMissingCredentialSourceBeforeWriting(t *testing.T) {
 		t.Fatal(err)
 	}
 	syncer := Synchronizer{Registry: builtinClients, Config: &configStoreStub{}, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(root, "missing-aigw"), ResolveCredentialPath: readerAt(helper)}
-	if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "sync"); !errors.Is(err, os.ErrNotExist) {
+	if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(t, target), "sync"); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("missing source error = %v, want missing executable", err)
 	}
 	if got, err := os.ReadFile(target); err != nil || !bytes.Equal(got, original) {
@@ -292,7 +293,7 @@ func TestProjectionPreflightRejectsInvalidTargetBeforeEntrypointCreation(t *test
 		t.Fatal(err)
 	}
 	syncer := Synchronizer{Registry: builtinClients, Config: &configStoreStub{}, Discovery: targetDiscovery(target), AIGWExecutable: source, ResolveCredentialPath: readerAt(helper)}
-	if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "sync"); err == nil {
+	if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(t, target), "sync"); err == nil {
 		t.Fatal("invalid client target passed projection preflight")
 	}
 	if _, err := os.Lstat(helper); !os.IsNotExist(err) {
@@ -312,7 +313,7 @@ func TestDisablingLastTokenClientRetainsUnprovenCachedEntrypoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
-	before := testConfig(target)
+	before := testConfig(t, target)
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
@@ -350,13 +351,13 @@ func TestDisablingOneTokenClientRetainsEntrypointForAnother(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	before := testConfig(target)
+	before := testConfig(t, target)
 	account := before.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Providers["gateway"] = account
 	before.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{Provider: "gateway", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
-	before.SetClientActivation(claude.ID, true, clientProgram, nil)
+	before.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/client"), nil)
 	configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
@@ -386,13 +387,13 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	before := testConfig(target)
+	before := testConfig(t, target)
 	account := before.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Providers["gateway"] = account
 	before.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{Provider: "gateway", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
-	before.SetClientActivation(claude.ID, true, clientProgram, nil)
+	before.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/client"), nil)
 	binding := before.Clients[claude.ID]
 	binding.CredentialCommand = helper
 	before.Clients[claude.ID] = binding
@@ -427,7 +428,7 @@ func TestWithdrawingLastClientPreservesChangedCachedEntrypoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
-	before := testConfig(target)
+	before := testConfig(t, target)
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}

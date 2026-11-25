@@ -11,8 +11,9 @@ import (
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
+	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
-
 	"aigw-cli/internal/store"
 )
 
@@ -124,11 +125,25 @@ func TestManifestSetupAvailabilityFollowsTheAdmittedClientRegistry(t *testing.T)
 	for _, clientID := range clients.Admission().IDs() {
 		executables[clientID] = "/installed/" + clientID
 	}
-	available := manifestSetupAvailableClients(clients.Admission(), executables)
+	available := manifestSetupAvailableClients(domain.NewConfig(clients.Admission()), discovery.Result{Executables: executables})
 	for _, clientID := range clients.Admission().IDs() {
 		if !available[clientID] {
 			t.Fatalf("admitted installed client %q is unavailable: %#v", clientID, available)
 		}
+	}
+}
+
+// Setup takes a client's configured program first, as every command does: a
+// configured program that runs makes the client installed though discovery
+// finds none, and one that is gone leaves it uninstalled though discovery
+// finds another.
+func TestManifestSetupAvailabilityTakesTheConfiguredProgramFirst(t *testing.T) {
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.SetClientActivation("codex", true, processtest.Program(t, "/extension/codex"), nil)
+	cfg.SetClientActivation("claude", true, filepath.Join(t.TempDir(), "gone"), nil)
+	available := manifestSetupAvailableClients(cfg, discovery.Result{Executables: map[string]string{"claude": processtest.Program(t, "/usr/local/bin/claude")}})
+	if !available["codex"] || available["claude"] {
+		t.Fatalf("available = %#v, want Codex by its configured program and not Claude Code", available)
 	}
 }
 

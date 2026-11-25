@@ -18,6 +18,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 )
 
@@ -129,7 +130,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 			t.Fatal(err)
 		}
 		_ = secretStore.Set("one", "token")
-		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", "/new"})
+		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", processtest.Program(t, "/new")})
 		if err == nil || !strings.Contains(err.Error(), "already enabled") {
 			t.Fatalf("error = %v", err)
 		}
@@ -139,7 +140,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
 		saveCommandModel(t, app, domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
 		_ = secretStore.Set("one", "token")
-		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", "/x"})
+		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", processtest.Program(t, "/x")})
 		if err == nil || !strings.Contains(err.Error(), "no model selected for client \"claude\"") {
 			t.Fatalf("error = %v", err)
 		}
@@ -148,7 +149,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 	t.Run("enable missing token", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
-		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", "/x"})
+		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", processtest.Program(t, "/x")})
 		if err == nil || !strings.Contains(err.Error(), "is missing a Token") {
 			t.Fatalf("error = %v", err)
 		}
@@ -159,7 +160,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 		saveCommandModel(t, app, domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
 		_ = secretStore.Set("one", "token")
 		app.Discovery = nil
-		err := cli.Execute(app, []string{"client", "enable", "codex", "--executable", "/x", "--target", filepath.Join(t.TempDir(), "configuration.toml")})
+		err := cli.Execute(app, []string{"client", "enable", "codex", "--executable", processtest.Program(t, "/x"), "--target", filepath.Join(t.TempDir(), "configuration.toml")})
 		if err == nil || !strings.Contains(err.Error(), "discovery is unavailable") {
 			t.Fatalf("error = %v", err)
 		}
@@ -243,7 +244,7 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("team", "secret")
-	if err := cli.Execute(app, []string{"client", "enable", "codex", "--executable", fakeProgram("/opt/codex-real"), "--target", target}); err != nil {
+	if err := cli.Execute(app, []string{"client", "enable", "codex", "--executable", processtest.Program(t, "/opt/codex-real"), "--target", target}); err != nil {
 		t.Fatal(err)
 	}
 	if len(runner.plans) != 0 {

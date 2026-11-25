@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"bytes"
 	"encoding/json"
@@ -328,7 +329,7 @@ func TestCheckProbesEveryEnabledClientModelAndIgnoresUnselectedModel(t *testing.
 	}
 	cfg.Clients = map[string]domain.ClientBinding{
 		claude.ID: {Model: domain.NewModelRef("claude-account", "claude-test"), Enabled: true, Executable: executableFixture(t, "claude")},
-		codex.ID:  {Model: domain.NewModelRef("codex-account", "gpt-test"), Enabled: true, Executable: fakeProgram("/opt/codex"), Targets: []string{codexTarget}},
+		codex.ID:  {Model: domain.NewModelRef("codex-account", "gpt-test"), Enabled: true, Executable: processtest.Program(t, "/opt/codex"), Targets: []string{codexTarget}},
 	}
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {

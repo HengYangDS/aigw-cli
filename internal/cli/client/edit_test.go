@@ -19,6 +19,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
@@ -58,7 +59,7 @@ func enabledCodex(t *testing.T) (invocation.Context, *bytes.Buffer, string, *cou
 		t.Fatal(err)
 	}
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: target, Present: true}}}}
-	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", fakeProgram("/opt/codex"), "--target", target); err != nil {
+	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex"), "--target", target); err != nil {
 		t.Fatal(err)
 	}
 	counting := &countingSecretStore{}
@@ -222,7 +223,7 @@ func TestEditMovesTheConfigurationFileAndTheExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The executable is named relative to the working directory, where it runs.
-	t.Chdir(filepath.Dir(fakeProgram("/next/codex-next")))
+	t.Chdir(filepath.Dir(processtest.Program(t, "/next/codex-next")))
 	document := edited(t, runtime, out, codex.ID, "--target", moved, "--executable", "codex-next")
 	if want, _ := filepath.Abs("codex-next"); document.Executable != want || len(document.Targets) != 1 || document.Targets[0] != moved {
 		t.Fatalf("moved document = %#v", document)
@@ -306,7 +307,7 @@ func TestEditShowsTheClientsSettings(t *testing.T) {
 	if err := executeAdapter(t, runtime, "edit", codex.ID, "--stream-retries", "2"); err != nil {
 		t.Fatal(err)
 	}
-	executable, _ := filepath.Abs(fakeProgram("/opt/codex"))
+	executable, _ := filepath.Abs(processtest.Program(t, "/opt/codex"))
 	for _, want := range []string{"Client edited", "Codex", "gateway/codex-test", "Enabled", executable, target,
 		"None; the client reaches its provider's endpoint", "Request retries", "Stream retries", "Client files", "aigw check"} {
 		if !strings.Contains(out.String(), want) {
@@ -404,7 +405,7 @@ func TestClientCommandsCompleteOneClient(t *testing.T) {
 // configuration files, exactly when every word runs as written.
 func TestEnableOfAnEnabledClientNamesTheEdit(t *testing.T) {
 	runtime, _, target, _ := enabledCodex(t)
-	next := filepath.Join(t.TempDir(), "codex-next")
+	next := processtest.Program(t, "/next/codex-next")
 	err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", next, "--target", target)
 	if problem := terminal.ProblemFor(err); problem.Title != "Codex is already enabled, so its executable and configuration files change through client edit" ||
 		problem.Fix != "aigw client edit "+codex.ID+" --executable "+next+" --target "+target {
@@ -431,6 +432,7 @@ func TestEnableStoresAbsolutePathsAndRefusesTargetsThatMeanNothing(t *testing.T)
 	}
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: target, Present: true}}}}
 	t.Chdir(filepath.Dir(target))
+	processtest.Write(t, filepath.Join(filepath.Dir(target), "bin", "codex"), processtest.Failing)
 	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", filepath.Join("bin", "codex"), "--target", "config.toml"); err != nil {
 		t.Fatal(err)
 	}
@@ -447,12 +449,12 @@ func TestEnableStoresAbsolutePathsAndRefusesTargetsThatMeanNothing(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = executeAdapter(t, runtime, "enable", claude.ID, "--executable", fakeProgram("/opt/claude"), "--target", "settings.json")
+	err = executeAdapter(t, runtime, "enable", claude.ID, "--executable", processtest.Program(t, "/opt/claude"), "--target", "settings.json")
 	if problem := terminal.ProblemFor(err); problem.Title != "Claude has no configuration file to name; --target is for Claude Desktop, Codex and Hermes; run `aigw client enable --help`" ||
 		problem.Fix != "aigw client enable --help" {
 		t.Fatalf("enable of Claude Code with a target = %q, fix %q", problem.Title, problem.Fix)
 	}
-	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", fakeProgram("/opt/codex"), "--target", "a.toml", "--target", "./a.toml"); err == nil || !strings.Contains(err.Error(), "twice") {
+	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex"), "--target", "a.toml", "--target", "./a.toml"); err == nil || !strings.Contains(err.Error(), "twice") {
 		t.Fatalf("a file named twice = %v", err)
 	}
 	for _, client := range []string{hermes.ID, claudedesktop.ID} {
@@ -464,7 +466,7 @@ func TestEnableStoresAbsolutePathsAndRefusesTargetsThatMeanNothing(t *testing.T)
 		}
 	}
 	// A comma belongs to the path: --target names one file.
-	if err := executeAdapter(t, runtime, "enable", hermes.ID, "--executable", fakeProgram("/opt/hermes"), "--target", "a,b.yaml", "--dry-run"); err != nil &&
+	if err := executeAdapter(t, runtime, "enable", hermes.ID, "--executable", processtest.Program(t, "/opt/hermes"), "--target", "a,b.yaml", "--dry-run"); err != nil &&
 		strings.Contains(err.Error(), "takes one --target") {
 		t.Fatalf("a path with a comma was split: %v", err)
 	}

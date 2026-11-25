@@ -67,26 +67,30 @@ func (s Synchronizer) recordsAlone(before, after domain.Config, written, left []
 // files are refused with a Token and without one: a missing file, a missing
 // record, an outside edit, files that select different models. Without this
 // a command that names the client would save its change, and a choice that
-// the configuration follows with it, over files that nothing can record.
-func (s Synchronizer) admitsWaiting(before, after domain.Config, clientIDs, ready []string) error {
+// the configuration follows with it, over files that nothing can record. A
+// waiting client that the plan stops is returned with its stop.
+func (s Synchronizer) admitsWaiting(before, after domain.Config, clientIDs, ready []string) ([]*adapter.StopError, error) {
 	named := clientIDs
 	if len(named) == 0 {
 		named = s.ClientIDs()
 	}
+	var stopped []*adapter.StopError
 	for _, client := range named {
 		if slices.Contains(ready, client) || (!before.Clients[client].Enabled && !after.Clients[client].Enabled) {
 			continue
 		}
 		dependencies, err := s.clientDependencies([]string{client}, before, after)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		dependencies.Secrets = nil
-		if _, err := s.registry().Plan(dependencies, before, after, client); err != nil {
-			return err
+		_, stops, err := s.registry().PlanStopping(dependencies, before, after, client)
+		if err != nil {
+			return nil, err
 		}
+		stopped = append(stopped, stops...)
 	}
-	return nil
+	return stopped, nil
 }
 
 // withdrawnClients names, in admission order, the enabled clients among named

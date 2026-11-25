@@ -60,11 +60,11 @@ func TestCodexCatalogProjectionYieldsToUserAuthoredCatalog(t *testing.T) {
 	base := "model_catalog_json = \"/home/user/own-catalog.json\"\n"
 	for _, model := range []string{"openai.gpt-5.5", "gpt-6.1-sol"} {
 		selected := domain.Runtime{UpstreamModel: model, ContextWindow: domain.DefaultContextWindow}
-		if plan := codexCatalogProjection(target, selected, base, codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
+		if plan, err := codexCatalogProjection(target, selected, base, codexState{}, platform.FileSnapshot{}); err != nil || !emptyCatalogPlan(plan) {
 			t.Fatalf("user catalog was not respected for %q: plan = %+v", model, plan)
 		}
 	}
-	if plan := codexCatalogProjection(target, domain.Runtime{ContextWindow: domain.DefaultContextWindow}, "", codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
+	if plan, err := codexCatalogProjection(target, domain.Runtime{ContextWindow: domain.DefaultContextWindow}, "", codexState{}, platform.FileSnapshot{}); err != nil || !emptyCatalogPlan(plan) {
 		t.Fatalf("empty model produced a catalog: plan = %+v", plan)
 	}
 }
@@ -205,7 +205,7 @@ func TestCodexCatalogShowsTheChannelByItsOwnName(t *testing.T) {
 		UpstreamModel: "gpt-6.1-sol-cdx", FamilyID: "gpt-6.1-sol", ContextWindow: domain.DefaultContextWindow,
 	}
 	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
-	plan := codexCatalogProjection(target, runtime, "", codexState{}, platform.FileSnapshot{})
+	plan, _ := codexCatalogProjection(target, runtime, "", codexState{}, platform.FileSnapshot{})
 	var projected struct {
 		Models []map[string]json.RawMessage `json:"models"`
 	}
@@ -231,7 +231,7 @@ func TestCodexCatalogGivesAModelThatIsItsOwnFamilyNoAlias(t *testing.T) {
 	}
 	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
 	selected := domain.Runtime{UpstreamModel: model, FamilyID: model, ContextWindow: domain.DefaultContextWindow}
-	plan := codexCatalogProjection(target, selected, "", codexState{}, platform.FileSnapshot{})
+	plan, _ := codexCatalogProjection(target, selected, "", codexState{}, platform.FileSnapshot{})
 	if plan.state != catalogStateProjected || string(plan.data) != string(bundled) {
 		t.Fatalf("a model that is its own family got table metadata: plan = %+v", plan)
 	}

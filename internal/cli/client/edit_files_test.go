@@ -12,6 +12,7 @@ import (
 
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 )
@@ -72,8 +73,8 @@ func TestEditOfAClientWithoutFilesNamesTheStepThatWritesThem(t *testing.T) {
 		action, step string
 	}{
 		{budget: "1", step: "Install Codex if needed, then run `aigw sync`"},
-		{budget: "2", found: map[string]string{codex.ID: fakeProgram("/opt/codex")}, action: "aigw sync"},
-		{budget: "3", found: map[string]string{codex.ID: fakeProgram("/opt/codex")}, removeToken: true, step: "run `aigw provider rotate gateway`"},
+		{budget: "2", found: map[string]string{codex.ID: processtest.Program(t, "/opt/codex")}, action: "aigw sync"},
+		{budget: "3", found: map[string]string{codex.ID: processtest.Program(t, "/opt/codex")}, removeToken: true, step: "run `aigw provider rotate gateway`"},
 	} {
 		runtime.Discovery = adapterDiscovery{result: discovery.Result{Executables: test.found}}
 		if test.removeToken {
@@ -139,7 +140,7 @@ func TestAFailedWriteNamesTheFileAndWhatWasRestored(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", fakeProgram("/opt/codex"), "--target", files["o"]); err != nil {
+	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex"), "--target", files["o"]); err != nil {
 		t.Fatal(err)
 	}
 	before, err := runtime.Config.CaptureSnapshot()

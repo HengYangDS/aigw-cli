@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"bytes"
 	"encoding/json"
@@ -232,7 +233,7 @@ func TestSetupFromConfigurationManifestConnectsOneProviderAndKeepsItsTokenSecret
 	codexTarget := filepath.Join(t.TempDir(), "codex", "configuration.toml")
 	writeFile(t, codexTarget, []byte("model_provider = \"native\"\n"), 0o600)
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{claude.ID: fakeProgram("/opt/claude-real"), codex.ID: fakeProgram("/opt/codex-real")},
+		Executables: map[string]string{claude.ID: processtest.Program(t, "/opt/claude-real"), codex.ID: processtest.Program(t, "/opt/codex-real")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			ConfigPath:  codexTarget,
@@ -399,7 +400,7 @@ func TestSetupFromConfigurationManifestPreservesClientOwnedCredentials(t *testin
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{claude.ID: fakeProgram("/opt/claude-real"), codex.ID: fakeProgram("/opt/codex-real")},
+		Executables: map[string]string{claude.ID: processtest.Program(t, "/opt/claude-real"), codex.ID: processtest.Program(t, "/opt/codex-real")},
 		Surfaces: []discovery.Surface{{
 			ID:         string(codex.HomeDefault),
 			ConfigPath: codexTarget, AutoManaged: true,

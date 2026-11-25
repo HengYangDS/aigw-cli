@@ -52,7 +52,10 @@ type codexCatalogPlan struct {
 	data    []byte
 	client  ExecutableIdentity
 	program string
-	state   string
+	// pkg is the version that the program's package manifest declares, or
+	// nothing when no manifest is readable.
+	pkg   string
+	state string
 }
 
 func codexCatalogPath(configPath string) string { return configPath + ".aigw-model-catalog.json" }
@@ -213,14 +216,14 @@ func noTableReason(runtime domain.Runtime, ownLine string) string {
 // alias of its family's, carries the model's declared context window; a model
 // that the table describes by neither keeps the client's fallback rather than
 // a guessed entry. A model under another provider gets no table of AIGW's.
-func codexCatalogProjection(target TargetRef, selected domain.Runtime, base string, state codexState, before platform.FileSnapshot) codexCatalogPlan {
+func codexCatalogProjection(target TargetRef, selected domain.Runtime, base string, state codexState, before platform.FileSnapshot) (codexCatalogPlan, error) {
 	// A user-authored model_catalog_json is the user's own client policy. AIGW
 	// replaces the bundled table wholesale, so adopting that key here would
 	// silently drop models the user added.
 	selection, selectionErr := codexSelectionLine(base, "model_catalog_json")
 	model := selected.UpstreamModel
 	if model == "" || selectionErr != nil || noTableReason(selected, selection) != "" {
-		return codexCatalogPlan{}
+		return codexCatalogPlan{}, nil
 	}
 	live, bundled, err := codexBundledCatalog(target.Executable)
 	document, parseErr := modelcatalog.Parse(bundled)
@@ -232,7 +235,7 @@ func codexCatalogProjection(target TargetRef, selected domain.Runtime, base stri
 			// Codex to query provider-specific /models.
 			data = bundled
 		}
-		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, program: target.Executable, state: catalogStateProjected}
+		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, program: target.Executable, pkg: packageVersion(target.Executable), state: catalogStateProjected}, nil
 	}
 	// Regeneration failed. A previous copy is reusable only while it still
 	// describes the installed build: after an upgrade the old snapshot would
@@ -250,14 +253,17 @@ func codexCatalogProjection(target TargetRef, selected domain.Runtime, base stri
 				data = windowed
 			}
 		}
-		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: recorded, program: target.Executable, state: catalogStateProjected}
+		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: recorded, program: target.Executable, pkg: packageVersion(target.Executable), state: catalogStateProjected}, nil
 	}
 	if state.CatalogHash == "" && state.CatalogState == "" {
 		// AIGW never owned a catalog here, so nothing was lost and there is
 		// nothing to report; the client keeps the behavior it already had.
-		return codexCatalogPlan{}
+		return codexCatalogPlan{}, nil
 	}
-	return codexCatalogPlan{client: recorded, program: state.CatalogClientPath, state: catalogStateStale}
+	// AIGW owns a table that the configured program can neither produce
+	// again nor prove to be its own: the client stops, and its table stays,
+	// rather than being withdrawn for a sync that cannot produce another.
+	return codexCatalogPlan{}, tableStop(live, err, parseErr)
 }
 
 // codexCatalogDesiredSnapshot converts a catalog decision into the desired file
@@ -289,6 +295,7 @@ func codexCatalogDesiredSnapshot(plan codexCatalogPlan, before platform.FileSnap
 func applyCodexCatalogState(state *codexState, plan codexCatalogPlan) {
 	state.CatalogState = plan.state
 	state.CatalogClientPath = plan.program
+	state.CatalogClientPackage = plan.pkg
 	state.CatalogClientVersion = plan.client.Version
 	state.CatalogClientSHA256 = plan.client.SHA256
 	state.CatalogHash = ""

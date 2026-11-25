@@ -6,11 +6,8 @@
 package sync
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 
-	"aigw-cli/internal/adapter"
 	clientactivation "aigw-cli/internal/app/activation"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
@@ -23,8 +20,8 @@ import (
 )
 
 // schemaVersion is the version of `aigw sync`'s JSON document, which also
-// replaces `aigw repair`'s: both were at 2.
-const schemaVersion = 4
+// replaces `aigw repair`'s: both were at 2. Version 5 adds stopped_clients.
+const schemaVersion = 5
 
 // syncResult is `aigw sync`'s JSON document: each client's model as
 // provider/model, and in a preview the
@@ -34,10 +31,13 @@ type syncResult struct {
 	DryRun     bool              `json:"dry_run,omitempty"`
 	Selections map[string]string `json:"selections"`
 	invocation.Preview
-	EnabledClients int    `json:"enabled_clients"`
-	State          string `json:"state,omitempty"`
-	NextAction     string `json:"next_action,omitempty"`
-	NextDetail     string `json:"next_detail,omitempty"`
+	// StoppedClients are the clients that a preview's synchronization would
+	// stop, with each one's problem and fix.
+	StoppedClients []invocation.StoppedClient `json:"stopped_clients,omitempty"`
+	EnabledClients int                        `json:"enabled_clients"`
+	State          string                     `json:"state,omitempty"`
+	NextAction     string                     `json:"next_action,omitempty"`
+	NextDetail     string                     `json:"next_detail,omitempty"`
 	// next is the follow-up before it is split.
 	next string
 }
@@ -106,15 +106,16 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 			} else if err := synchronizer.CommitProjection(cmd.Context(), before, after, "sync"); err != nil {
 				return err
+			} else if err := invocation.Stopped(runtime, "AIGW synchronized the other clients."); err != nil {
+				return err
 			}
-			// A client whose configured program is missing was left as it
-			// was while the others were synchronized, or previewed.
-			if stopped := runtime.Clients.MissingPrograms(after); len(stopped) > 0 {
-				return stoppedClients(stopped, dryRun)
-			}
+			stopped := previewStopped(runtime)
 			if jsonMode {
 				result.NextAction, result.NextDetail = terminal.NextSteps(result.next)
-				return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
+				if err := terminal.WriteDocument(runtime.Out, schemaVersion, stopped == nil, result); err != nil {
+					return err
+				}
+				return stopped
 			}
 			r := invocation.Renderer(runtime)
 			if dryRun {
@@ -122,26 +123,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			} else {
 				r.ProductTitle("Synchronization completed")
 			}
-			outcome := []terminal.Field{}
-			switch {
-			case result.EnabledClients == 0:
-				// The activation decision names the continuation for the current backend.
-				outcome = append(outcome, terminal.Field{
-					State: terminal.Info, Label: "Client activation", Value: "No client is enabled",
-					Details: []string{"Authentication was unchanged"},
-				})
-			case activation.State == domainreadiness.Deferred:
-				outcome = append(outcome, terminal.Field{State: terminal.Info, Label: "Client activation", Value: "The selected client's files wait"})
-			case unobserved != nil:
-				outcome = append(outcome, terminal.Field{State: terminal.Warn, Label: "Client activation", Value: "A selected client's files wait for its Token",
-					Details: []string{unobservedCause}})
-			case waiting:
-				outcome = append(outcome, terminal.Field{State: terminal.Warn, Label: "Client activation", Value: "A selected client's files wait for its Token"})
-			}
+			outcome := activationOutcome(result.EnabledClients, activation.State, unobserved, unobservedCause, waiting)
 			if len(outcome) > 0 && dryRun {
 				r.Section("Activation")
 			}
 			r.Rows(outcome...)
+			renderStopped(r, after, result)
 			switch {
 			case dryRun:
 				r.Success("Preview did not write configuration, state files, authentication, or conversations")
@@ -149,7 +136,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				r.Success("Client configuration is aligned; authentication was unchanged")
 			}
 			r.Next(result.next)
-			return nil
+			if err := r.Err(); err != nil {
+				return err
+			}
+			return stopped
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the synchronization plan without writing configuration")
@@ -157,34 +147,63 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
-// stoppedClients is the failure of a synchronization that stopped each client
-// in stopped, whose configured program is missing: the first one's problem
-// and its fix, with the others named as evidence, after the other clients
-// were synchronized, or in a preview would be.
-func stoppedClients(stopped []*adapter.MissingProgramError, dryRun bool) error {
-	first, causes := stopped[0], make([]error, 0, len(stopped))
-	evidence := make([]string, 0, len(stopped)-1)
-	for _, missing := range stopped {
-		causes = append(causes, missing)
-		if missing != first {
-			evidence = append(evidence, missing.Error()+" too; its fix is `"+missing.NextAction()+"`.")
-		}
+// activationOutcome is the row that says why a selected client's files wait,
+// if one does: no client is enabled, the selection waits, or a Token is
+// missing or cannot be observed, with the store's failure.
+func activationOutcome(enabled int, state domainreadiness.State, unobserved error, unobservedCause string, waiting bool) []terminal.Field {
+	switch {
+	case enabled == 0:
+		// The activation decision names the continuation for the current backend.
+		return []terminal.Field{{
+			State: terminal.Info, Label: "Client activation", Value: "No client is enabled",
+			Details: []string{"Authentication was unchanged"},
+		}}
+	case state == domainreadiness.Deferred:
+		return []terminal.Field{{State: terminal.Info, Label: "Client activation", Value: "The selected client's files wait"}}
+	case unobserved != nil:
+		return []terminal.Field{{State: terminal.Warn, Label: "Client activation", Value: "A selected client's files wait for its Token",
+			Details: []string{unobservedCause}}}
+	case waiting:
+		return []terminal.Field{{State: terminal.Warn, Label: "Client activation", Value: "A selected client's files wait for its Token"}}
 	}
-	impact := "AIGW left the files of a client whose executable is missing, and its record of them, as they were, and synchronized the other clients."
-	if dryRun {
-		impact = "Nothing was written. A sync would leave the files of a client whose executable is missing, and its record of them, as they are, and synchronize the other clients."
+	return nil
+}
+
+// previewStopped is the failure of a preview whose synchronization would stop
+// a client, after the preview was reported; a sync that stopped one already
+// failed through invocation.Stopped.
+func previewStopped(runtime invocation.Context) error {
+	if stops := runtime.Stops.Stopped(); len(stops) > 0 {
+		return terminal.Presented(stops[0])
 	}
-	return terminal.ProblemError(first.Error(), strings.Join(evidence, " "), impact, first.NextAction(), errors.Join(causes...))
+	return nil
+}
+
+// renderStopped lists the clients that a preview's synchronization would
+// stop, each with its problem.
+func renderStopped(r *terminal.Renderer, after domain.Config, result syncResult) {
+	if len(result.StoppedClients) == 0 {
+		return
+	}
+	r.Section("Stopped clients")
+	for _, stop := range result.StoppedClients {
+		r.Rows(terminal.Field{State: terminal.Fail, Label: after.Admission().Label(stop.Client), Value: stop.Problem})
+	}
 }
 
 // prepareSyncPreview previews the synchronization as it would be committed,
-// refusing what the commit would refuse.
+// refusing what the commit would refuse, and names each client that it would
+// stop, whose fix becomes the next step.
 func prepareSyncPreview(runtime invocation.Context, before, after domain.Config, result *syncResult) error {
 	preview, err := invocation.PreviewProjection(runtime, before, after)
 	if err != nil {
 		return err
 	}
 	result.Preview = preview
+	if stops := runtime.Stops.Stopped(); len(stops) > 0 {
+		result.StoppedClients, result.next = invocation.StoppedClients(stops), stops[0].NextAction()
+		return nil
+	}
 	if preview.CredentialEntrypoint != nil && result.next == "aigw check" {
 		result.next = "aigw sync"
 	}

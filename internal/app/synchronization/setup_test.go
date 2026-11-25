@@ -58,7 +58,7 @@ func setupConfiguration() domain.Config {
 // changes no native credential when it is given none.
 func TestSetupPreservesAlreadyConfiguredState(t *testing.T) {
 	dir := t.TempDir()
-	cfg := testConfig(filepath.Join(dir, "config.toml"))
+	cfg := testConfig(t, filepath.Join(dir, "config.toml"))
 	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), builtinclients.Admission())
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)

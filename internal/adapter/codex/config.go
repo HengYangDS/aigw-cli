@@ -43,6 +43,7 @@ type codexState struct {
 	CatalogState                 string          `json:"catalog_state,omitempty"`
 	CatalogHash                  string          `json:"catalog_hash,omitempty"`
 	CatalogClientPath            string          `json:"catalog_client_path,omitempty"`
+	CatalogClientPackage         string          `json:"catalog_client_package_version,omitempty"`
 	CatalogClientVersion         string          `json:"catalog_client_version,omitempty"`
 	CatalogClientSHA256          string          `json:"catalog_client_sha256,omitempty"`
 	ProjectedProvider            string          `json:"projected_provider,omitempty"`

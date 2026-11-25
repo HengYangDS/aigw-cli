@@ -7,6 +7,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"encoding/json"
 	"errors"
@@ -26,7 +27,7 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{codex.ID: fakeProgram("/usr/local/bin/codex")},
+		Executables: map[string]string{codex.ID: processtest.Program(t, "/usr/local/bin/codex")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			ConfigPath:  target,
@@ -60,7 +61,7 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 		t.Fatal(err)
 	}
 	adapter := after.Clients[codex.ID]
-	if !adapter.Enabled || adapter.Executable != fakeProgram("/usr/local/bin/codex") || len(adapter.Targets) != 1 {
+	if !adapter.Enabled || adapter.Executable != processtest.Program(t, "/usr/local/bin/codex") || len(adapter.Targets) != 1 {
 		t.Fatalf("Codex adapter after sync = %#v", adapter)
 	}
 	assertSameExistingPath(t, adapter.Targets[0], target)
@@ -84,7 +85,7 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 	home := t.TempDir()
 	target := filepath.Join(home, ".codex", "config.toml")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{codex.ID: fakeProgram("/usr/local/bin/codex")},
+		Executables: map[string]string{codex.ID: processtest.Program(t, "/usr/local/bin/codex")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			ConfigPath:  target,
@@ -107,7 +108,7 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 		t.Fatal(err)
 	}
 	adapter := after.Clients[codex.ID]
-	if adapter.Model != domain.NewModelRef("dmxapi", "gpt-test") || !adapter.Enabled || adapter.Executable != fakeProgram("/usr/local/bin/codex") || len(adapter.Targets) != 1 {
+	if adapter.Model != domain.NewModelRef("dmxapi", "gpt-test") || !adapter.Enabled || adapter.Executable != processtest.Program(t, "/usr/local/bin/codex") || len(adapter.Targets) != 1 {
 		t.Fatalf("Codex adapter after sync = %#v", adapter)
 	}
 	if adapter.Targets[0] != target {
@@ -138,7 +139,7 @@ func TestSyncActivatesSelectedEnvironmentProviderAfterManifestSetup(t *testing.T
 	settingsPath := filepath.Join(settingsHome, ".claude", "settings.json")
 	app.Host = hostAt(settingsHome)
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{claude.ID: fakeProgram("/usr/local/bin/claude")},
+		Executables: map[string]string{claude.ID: processtest.Program(t, "/usr/local/bin/claude")},
 	}}
 	before, err := app.Config.Load()
 	if err != nil {
@@ -205,7 +206,7 @@ func TestSyncActivatesSelectedEnvironmentProviderAfterManifestSetup(t *testing.T
 		t.Fatalf("bindings = %#v, want selections %#v", after.Clients, wantModels)
 	}
 	adapter := after.Clients[claude.ID]
-	if !adapter.Enabled || adapter.Executable != fakeProgram("/usr/local/bin/claude") {
+	if !adapter.Enabled || adapter.Executable != processtest.Program(t, "/usr/local/bin/claude") {
 		t.Fatalf("Claude adapter after sync = %#v", adapter)
 	}
 	data := readFile(t, settingsPath)
@@ -285,7 +286,7 @@ func TestSyncDefersNewlyInstalledClientUntilItsProviderIsConnected(t *testing.T)
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{codex.ID: fakeProgram("/usr/local/bin/codex")},
+		Executables: map[string]string{codex.ID: processtest.Program(t, "/usr/local/bin/codex")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			ConfigPath:  target,

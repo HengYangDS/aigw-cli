@@ -9,6 +9,7 @@ import (
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/store"
 	"bytes"
 	"context"
@@ -98,12 +99,12 @@ func (s *configStoreStub) RestoreSnapshot(store.Snapshot, store.Snapshot) error 
 	return s.restoreErr
 }
 
-func testConfig(target string) domain.Config {
+func testConfig(t *testing.T, target string) domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
 	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = domain.Model{Label: "GPT", Provider: "gateway", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-test"), "")
-	cfg.SetClientActivation(codex.ID, true, clientProgram, []string{target})
+	cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/client"), []string{target})
 	return cfg
 }
 
@@ -153,7 +154,7 @@ func TestCommitRestoresTargetRemovedFromAdapter(t *testing.T) {
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	before := testConfig(target)
+	before := testConfig(t, target)
 	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
 	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target)}
 	if err := configStore.Save(before); err != nil {
@@ -189,7 +190,7 @@ func TestCancelledCommitPreservesConfiguration(t *testing.T) {
 	for _, operation := range []string{"commit", "projection", "repair"} {
 		t.Run(operation, func(t *testing.T) {
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
-			before := testConfig("")
+			before := testConfig(t, "")
 			before.Clients = map[string]domain.ClientBinding{}
 			if err := configStore.Save(before); err != nil {
 				t.Fatal(err)
@@ -275,9 +276,9 @@ func TestCommitCancellationAtPersistenceAndProjectionAdmission(t *testing.T) {
 			defer cancel()
 			root := t.TempDir()
 			target := filepath.Join(root, "config.toml")
-			before := testConfig(target)
+			before := testConfig(t, target)
 			before.Clients = map[string]domain.ClientBinding{}
-			after := testConfig(target)
+			after := testConfig(t, target)
 			configStore := cancellingConfigStore{Store: store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission()), phase: phase, cancel: cancel}
 			if err := configStore.Save(before); err != nil {
 				t.Fatal(err)
@@ -317,7 +318,7 @@ func TestCommitReportsSynchronizationRollbackFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := domain.NewConfig(clients.Admission())
-	after := testConfig(target)
+	after := testConfig(t, target)
 	want := errors.New("restore failed")
 	store := &configStoreStub{restoreErr: want, onCommit: func() {
 		if err := os.WriteFile(target, []byte("invalid TOML {"), 0o600); err != nil {
@@ -349,7 +350,7 @@ func TestCommitReportsConfigurationRestoredAfterProjectionFailure(t *testing.T) 
 	}}
 	err := (Synchronizer{Registry: builtinClients,
 		Config: store, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
-	}).Commit(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "change")
+	}).Commit(t.Context(), domain.NewConfig(clients.Admission()), testConfig(t, target), "change")
 	var recovery interface{ ConfigurationRestored() bool }
 	if !errors.As(err, &recovery) || !recovery.ConfigurationRestored() || store.commits != 1 || store.restores != 1 {
 		t.Fatalf("restored configuration was not typed accurately: commits=%d restores=%d error=%v", store.commits, store.restores, err)
@@ -359,7 +360,7 @@ func TestCommitReportsConfigurationRestoredAfterProjectionFailure(t *testing.T) 
 func TestCommitRejectsProjectionConflictBeforePersistence(t *testing.T) {
 	target := t.TempDir()
 	before := domain.NewConfig(clients.Admission())
-	after := testConfig(target)
+	after := testConfig(t, target)
 	store := &configStoreStub{}
 	err := (Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}).Commit(t.Context(), before, after, "route")
 	if err == nil || store.commits != 0 || store.restores != 0 || strings.Contains(err.Error(), "rolled back") {
@@ -369,7 +370,7 @@ func TestCommitRejectsProjectionConflictBeforePersistence(t *testing.T) {
 
 func TestCommitProjectionPreservesConfigurationWhenPreflightFails(t *testing.T) {
 	target := t.TempDir()
-	before := testConfig(target)
+	before := testConfig(t, target)
 	after := before.Clone()
 	account := after.Providers["gateway"]
 	account.Label = "Renamed gateway"
@@ -422,7 +423,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-team"), "")
 	after := before.Clone()
-	after.SetClientActivation(claude.ID, true, clientProgram, nil)
+	after.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/client"), nil)
 	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
@@ -496,7 +497,7 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-team"), "")
 	after := before.Clone()
-	after.SetClientActivation(claude.ID, true, clientProgram, nil)
+	after.SetClientActivation(claude.ID, true, processtest.Program(t, "/opt/client"), nil)
 	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)

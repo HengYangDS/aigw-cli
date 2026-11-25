@@ -9,6 +9,7 @@ import (
 
 	"aigw-cli/internal/adapter/codex"
 	domainreadiness "aigw-cli/internal/app/readiness"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 )
 
@@ -25,7 +26,7 @@ func TestStatusReportsAnEmptyTokenAsDeferred(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Secrets = files
-	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), nil)
+	cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

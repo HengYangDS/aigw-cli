@@ -25,27 +25,44 @@ exec aigw sync
 normalize stdout synced.out
 cmp synced.out synced.txt
 
-# Codex's configured executable is gone. Sync keeps it, synchronizes Claude
-# Code, leaves Codex's file as it was and fails with the fix that names
-# another executable, as its preview and a check do; a sync is no fix.
+# Codex's configured executable goes after a sync wrote its file. Sync keeps
+# the executable, synchronizes Claude Code, leaves Codex's file and AIGW's
+# record as they were and fails with the fix that names another executable,
+# as its preview and a check do; a sync is no fix. An --executable that is not
+# a file that can run is refused before anything changes.
 exec aigw provider edit team --endpoint responses=$UPSTREAM/v1
 exec aigw model edit team/team-model --protocol anthropic --protocol responses
 exec aigw use codex team/team-model
 mkdir $WORK/codex
 cp codex-config.toml $WORK/codex/config.toml
-exec aigw client edit codex --target $WORK/codex/config.toml --executable $WORK/gone/codex
+exitcode 1 aigw client edit codex --target $WORK/codex/config.toml --executable $WORK/gone/codex
+stdout 'is not a file that can run'
 cmp $WORK/codex/config.toml codex-config.toml
+mkdir $WORK/gone
+cp codex-program $WORK/gone/codex
+chmod 0755 $WORK/gone/codex
+exec aigw client edit codex --target $WORK/codex/config.toml --executable $WORK/gone/codex
+grep 'AIGW managed provider' $WORK/codex/config.toml
+cp $WORK/codex/config.toml synced.toml
+cp $WORK/codex/config.toml.aigw-state.json synced-record.json
+rm $WORK/gone
 exitcode 1 aigw sync --json
 stdout '"error": "Codex executable is missing"'
 stdout '"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
 ! stdout '"next_action"'
+exitcode 1 aigw sync
+stdout 'Codex executable is missing'
 exitcode 1 aigw sync --dry-run --json
-stdout '"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
+stdout '"stopped_clients": \[\n\s+\{\n\s+"client": "codex",\n\s+"problem": "Codex executable is missing",\n\s+"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
+stdout '"client": "claude"'
 exitcode 1 aigw check codex --depth local --json
 stdout '"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
-cmp $WORK/codex/config.toml codex-config.toml
-! exists $WORK/codex/config.toml.aigw-state.json
+cmp $WORK/codex/config.toml synced.toml
+cmp $WORK/codex/config.toml.aigw-state.json synced-record.json
 
+-- codex-program --
+#!/bin/sh
+exit 1
 -- codex-config.toml --
 model_provider = "native"
 -- token.txt --
@@ -81,7 +98,7 @@ Fix
   aigw setup
 -- preview.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "dry_run": true,
   "selections": {
