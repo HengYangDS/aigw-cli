@@ -81,6 +81,17 @@ func releaseAge(root string, runner commandRunner, write bool) error {
 	if !write {
 		return fmt.Errorf("release_age_differs:%s: run `mise run fix`", strings.Join(differing, ","))
 	}
+	// Open every target for writing before the first write, so that a file that cannot be
+	// written leaves the other one as it was.
+	for _, path := range differing {
+		file, err := os.OpenFile(filepath.Join(root, filepath.FromSlash(path)), os.O_WRONLY, 0)
+		if err != nil {
+			return err
+		}
+		if err := file.Close(); err != nil {
+			return err
+		}
+	}
 	for _, path := range differing {
 		target := filepath.Join(root, filepath.FromSlash(path))
 		info, err := os.Stat(target)
@@ -138,7 +149,7 @@ func npmAgeLine(hours int) string {
 	if hours == 0 {
 		return ""
 	}
-	return "min-release-age=" + strconv.Itoa((hours+releaseAgeDayHours-1)/releaseAgeDayHours)
+	return "min-release-age=" + strconv.Itoa(hours/releaseAgeDayHours+min(hours%releaseAgeDayHours, 1))
 }
 
 // fillNPMAge puts npm's age line in place of the one that the file holds, or

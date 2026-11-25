@@ -27,9 +27,10 @@
   ignoreUnstable: true,
   // The repository's release age, declared once and in hours: how old a
   // stable release must be before a proposal takes it, whatever its source.
-  // Zero takes it at publication. To hold releases longer, change this one
-  // value; no rule below declares an age of its own. With an age above zero,
-  // a release whose registry publishes no time stays held.
+  // Mise's `minimum_release_age` declares it and `mise run fix` fills this
+  // line: edit that, not this one. No rule below declares an age of its own.
+  // With an age above zero, a release whose registry publishes no time stays
+  // held.
   minimumReleaseAge: "24 hours",
   minimumReleaseAgeBehaviour: "timestamp-required",
   internalChecksFilter: "strict",

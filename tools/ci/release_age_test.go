@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 const releaseAgeRenovateFixture = `{
   minimumReleaseAge: "0 hours",
   minimumReleaseAgeBehaviour: "timestamp-required",
+  internalChecksFilter: "strict",
   vulnerabilityAlerts: {
     minimumReleaseAge: "0 hours",
   },
@@ -150,6 +152,32 @@ func TestReleaseAgeFillWritesNothingWhenTheReaderRefuses(t *testing.T) {
 	}
 }
 
+func TestReleaseAgeFillWritesNothingWhenAFileCannotBeWritten(t *testing.T) {
+	root := releaseAgeCheckout(t, strconv.Quote("48h"), releaseAgeRenovateFixture, releaseAgeNPMFixture)
+	npm := filepath.Join(root, filepath.FromSlash(releaseAgeNPM))
+	if err := os.Chmod(npm, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(npm, 0o600) })
+	if file, err := os.OpenFile(npm, os.O_WRONLY, 0); err == nil {
+		_ = file.Close()
+		t.Skip("this process can write a read-only file, so the case cannot be made")
+	}
+	if err := fillReleaseAge(root, acceptingRunner); err == nil {
+		t.Fatal("the fill reported success although a target cannot be written")
+	}
+	if releaseAgeFile(t, root, releaseAgeRenovate) != releaseAgeRenovateFixture || releaseAgeFile(t, root, releaseAgeNPM) != releaseAgeNPMFixture {
+		t.Fatal("a fill that could not write one file wrote the other")
+	}
+}
+
+func TestReleaseAgeNPMDaysDoNotWrapForALargeDeclaration(t *testing.T) {
+	const want = math.MaxInt/releaseAgeDayHours + 1
+	if got := npmAgeLine(math.MaxInt); got != "min-release-age="+strconv.Itoa(want) {
+		t.Fatalf("npmAgeLine(MaxInt) = %q, want the %d days that cover it", got, want)
+	}
+}
+
 func TestReleaseAgeReaderNamesWhatRenovateReadsAsItsParserDoes(t *testing.T) {
 	root := repositoryRoot(t)
 	reader := filepath.Join(root, "tools", "ci", releaseAgeReader)
@@ -162,6 +190,9 @@ func TestReleaseAgeReaderNamesWhatRenovateReadsAsItsParserDoes(t *testing.T) {
 		{"another root age", releaseAgeRenovateFixture, "24 hours", "release_age_differs:/minimumReleaseAge"},
 		{"a security fix held by the age", securityHeld, "0 hours", "release_age_security_fix_not_skipped"},
 		{"an age of a rule's own", ownRule, "0 hours", "release_age_other_rule:/packageRules[]/minimumReleaseAge"},
+		{"a behaviour that does not hold a release without a time", strings.Replace(releaseAgeRenovateFixture, `"timestamp-required"`, `"timestamp-optional"`, 1), "0 hours", "release_age_behaviour_not_timestamp_required"},
+		{"checks that do not hold a release inside the age", strings.Replace(releaseAgeRenovateFixture, `internalChecksFilter: "strict"`, `internalChecksFilter: "none"`, 1), "0 hours", "release_age_internal_checks_not_strict"},
+		{"the root age declared twice", strings.Replace(releaseAgeRenovateFixture, "  internalChecksFilter: \"strict\",\n", "  internalChecksFilter: \"strict\",\n  minimumReleaseAge: \"0 hours\",\n", 1), "0 hours", "release_age_declared_twice:/minimumReleaseAge"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
