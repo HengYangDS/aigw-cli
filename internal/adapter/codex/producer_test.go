@@ -263,6 +263,42 @@ func TestACodexThatCannotProduceItsTableStops(t *testing.T) {
 	}
 }
 
+// A Codex whose configured executable runs and has never produced a model
+// table for AIGW, and cannot, is no loop: each sync succeeds without a table,
+// the second writes nothing, and each check passes and names no repair, so
+// no check sends the operator to a sync that cannot carry it out. This pins
+// the narrow form of the stop that design's Risks names: such a Codex is not
+// stopped.
+func TestACodexThatNeverProducedATableIsNoLoop(t *testing.T) {
+	fixture := newCodexProgram(t, caskLayout)
+	if err := os.Remove(filepath.Join(filepath.Dir(fixture.program), "models.json")); err != nil {
+		t.Fatal(err)
+	}
+	var first []byte
+	for round := range 2 {
+		if _, err := fixture.sync(t); err != nil {
+			t.Fatalf("sync %d = %v, want no stop", round+1, err)
+		}
+		if state := readCodexSidecar(t, fixture.home); state.CatalogHash != "" || state.CatalogState != "" {
+			t.Fatalf("sync %d recorded a table: %+v", round+1, state)
+		}
+		if _, err := os.Stat(codexCatalogPath(fixture.home)); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("sync %d wrote a table: %v", round+1, err)
+		}
+		config, err := os.ReadFile(fixture.home)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if round == 1 && !slices.Equal(config, first) {
+			t.Fatal("the second sync changed Codex's file")
+		}
+		first = config
+		if status := fixture.inspect(t, fixture.cfg); !status.Ready || status.RepairAction != "" {
+			t.Fatalf("check %d = %+v, want a pass that names no repair", round+1, status)
+		}
+	}
+}
+
 // A file whose settings are not what AIGW writes for the selected model is
 // still reported as not matching it, with a sync as its fix.
 func TestACheckSaysThatAFileDoesNotMatchTheSelectedModel(t *testing.T) {

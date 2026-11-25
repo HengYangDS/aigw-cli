@@ -80,7 +80,7 @@ func TestPreviewsRefuseWhatTheirChangesRefuse(t *testing.T) {
 	route := invalid.Models[domain.NewModelRef("team", "claude-test")]
 	route.Provider = "missing"
 	invalid.Models[domain.NewModelRef("team", "claude-test")] = route
-	syncer := Synchronizer{Registry: builtinClients}
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients}
 	if _, err := syncer.Preview(before, invalid); err == nil {
 		t.Fatal("Preview admitted an invalid configuration")
 	}

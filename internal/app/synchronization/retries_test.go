@@ -40,7 +40,7 @@ func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			before := cfg.Clone()
-			after, runtime, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, codex.ID, test.route, "")
+			after, runtime, err := (Synchronizer{Stops: &Stops{}, Registry: builtinClients}).PrepareSelection(cfg, codex.ID, test.route, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -96,7 +96,7 @@ func TestRetryConnectionTransitionGenericProviderCommit(t *testing.T) {
 				account.Endpoints.Responses = "https://replacement.test/v1"
 			}
 			after.Providers["one"] = account
-			if err := (Synchronizer{Registry: builtinClients, Config: configStore}).Commit(t.Context(), before, after, "provider edit"); err != nil {
+			if err := (Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore}).Commit(t.Context(), before, after, "provider edit"); err != nil {
 				t.Fatal(err)
 			}
 			observed, err := configStore.Load()

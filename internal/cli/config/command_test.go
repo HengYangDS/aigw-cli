@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -30,14 +31,14 @@ func executeManifestCommand(command *cobra.Command) error {
 // TestCommandIsAGroup holds bare `aigw config` to the other command groups,
 // which show their help: the group itself runs nothing.
 func TestCommandIsAGroup(t *testing.T) {
-	command := NewCommand(invocation.Context{Clients: clients.Registry(), Out: io.Discard})
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Out: io.Discard})
 	if command.Runnable() {
 		t.Fatal("the config group runs a command of its own")
 	}
 }
 
 func TestConfigurationCommandTreeMatchesItsManifestResponsibility(t *testing.T) {
-	command := NewCommand(invocation.Context{Clients: clients.Registry(), Out: io.Discard})
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Out: io.Discard})
 	var names []string
 	for _, child := range command.Commands() {
 		names = append(names, child.Name())
@@ -53,7 +54,7 @@ func TestConfigurationCommandTreeMatchesItsManifestResponsibility(t *testing.T) 
 func TestPathPrintsTheConfiguredStorePath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	out := &bytes.Buffer{}
-	command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: store.NewStore(path, clients.Admission()), Out: out})
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: store.NewStore(path, clients.Admission()), Out: out})
 	command.SetArgs([]string{"path"})
 	if err := executeManifestCommand(command); err != nil {
 		t.Fatal(err)
@@ -73,7 +74,7 @@ func TestPathPrintsTheConfiguredStorePath(t *testing.T) {
 }
 
 func TestPathReturnsOutputFailure(t *testing.T) {
-	command := newPathCommand(invocation.Context{Clients: clients.Registry(), Config: store.NewStore("configuration.toml", clients.Admission()), Out: failingWriter{}})
+	command := newPathCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: store.NewStore("configuration.toml", clients.Admission()), Out: failingWriter{}})
 	if err := executeManifestCommand(command); err == nil || !strings.Contains(err.Error(), "write refused") {
 		t.Fatalf("error = %v", err)
 	}
@@ -110,7 +111,7 @@ func TestExportSurfacesLoadAndOutputFailures(t *testing.T) {
 		if err := os.WriteFile(path, []byte("not = [valid"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		command := newExportCommand(invocation.Context{Clients: clients.Registry(), Config: store.NewStore(path, clients.Admission()), Out: io.Discard})
+		command := newExportCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: store.NewStore(path, clients.Admission()), Out: io.Discard})
 		if err := executeManifestCommand(command); err == nil {
 			t.Fatal("expected malformed configuration to fail")
 		}
@@ -130,7 +131,7 @@ func TestExportSurfacesLoadAndOutputFailures(t *testing.T) {
 func TestExportWritesAManifestForAConfigurationWithoutModels(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission())
 	out := &bytes.Buffer{}
-	command := newExportCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out})
+	command := newExportCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: configStore, Out: out})
 	if err := executeManifestCommand(command); err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +148,7 @@ func savedRuntime(t *testing.T, cfg domain.Config) (invocation.Context, string, 
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	return invocation.Context{Clients: clients.Registry(),
+	return invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{},
 		Config:  configStore,
 		Secrets: secret.NewMemoryStore(),
 		Out:     out,

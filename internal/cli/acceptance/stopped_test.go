@@ -200,3 +200,93 @@ func TestUseAndRollbackReportAStoppedCodex(t *testing.T) {
 		}
 	}
 }
+
+// A provider edit that moves Codex's endpoint while Codex is stopped saves the
+// edit, keeps Codex's files and fails with the stop. A provider added then has
+// no model, so it changes no client's files and stops none: it succeeds, and
+// Codex's files stay as they were.
+func TestProviderCommandsReportAStoppedCodex(t *testing.T) {
+	t.Parallel()
+	app, _, _, pkg, target := syncedCodex(t)
+	if err := os.RemoveAll(pkg); err != nil {
+		t.Fatal(err)
+	}
+	files := codexFiles(t, target)
+	before := read(t, files)
+	app.In = strings.NewReader("other-token\n")
+	if err := cli.Execute(app, []string{"provider", "add", "other", "--endpoint", "anthropic=https://other.test", "--token-stdin"}); err != nil {
+		t.Fatalf("provider add = %v, want a success that stops no client", err)
+	}
+	problem := stoppedFor(t, "provider edit", cli.Execute(app, []string{"provider", "edit", "gateway", "--endpoint", "responses=https://moved.gateway.test/v1"}))
+	if !strings.HasPrefix(problem.Impact, "The edit of provider gateway was saved.") {
+		t.Fatalf("provider edit impact = %q", problem.Impact)
+	}
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, added := cfg.Providers["other"]; !added || cfg.Providers["gateway"].Endpoints.Responses != "https://moved.gateway.test/v1" {
+		t.Fatalf("the provider commands saved %+v", cfg.Providers)
+	}
+	if after := read(t, files); !slices.EqualFunc(after, before, bytes.Equal) {
+		t.Fatal("a provider command changed Codex's files")
+	}
+}
+
+// A team file applied while Codex is stopped saves what it changes, keeps
+// Codex's files as they were though the file renames Codex's model, and fails
+// with the stop.
+func TestSetupReportsAStoppedCodex(t *testing.T) {
+	t.Parallel()
+	app, _, _, pkg, target := syncedCodex(t)
+	if err := os.RemoveAll(pkg); err != nil {
+		t.Fatal(err)
+	}
+	team := filepath.Join(t.TempDir(), "team.toml")
+	writeFile(t, team, []byte(`version = 8
+
+[[providers]]
+id = "gateway"
+label = "Gateway"
+endpoints = {responses = "https://moved.gateway.test/v1"}
+
+[[providers.models]]
+id = "gpt-test"
+family = "gpt-test"
+label = "GPT Test"
+protocols = {responses = []}
+
+[[providers.models]]
+id = "gpt-other"
+family = "gpt-other"
+label = "GPT Other"
+protocols = {responses = []}
+
+[[families]]
+id = "gpt-test"
+label = "GPT Test"
+
+[[families]]
+id = "gpt-other"
+label = "GPT Other"
+
+[recommendations.codex]
+primary = {model = "gateway/gpt-test"}
+`), 0o600)
+	files := codexFiles(t, target)
+	before := read(t, files)
+	problem := stoppedFor(t, "setup", cli.Execute(app, []string{"setup", "--from", team}))
+	if !strings.HasPrefix(problem.Impact, "Setup saved the configuration") {
+		t.Fatalf("setup impact = %q", problem.Impact)
+	}
+	cfg, err := app.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if label := cfg.Models[domain.NewModelRef("gateway", "gpt-test")].Label; label != "GPT Test" {
+		t.Fatalf("setup saved the label %q, want the team file's", label)
+	}
+	if after := read(t, files); !slices.EqualFunc(after, before, bytes.Equal) {
+		t.Fatal("setup changed Codex's files")
+	}
+}

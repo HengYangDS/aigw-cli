@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -85,7 +86,7 @@ func adapterRuntime(t *testing.T, cfg domain.Config) (invocation.Context, *bytes
 	out := &bytes.Buffer{}
 	secretStore := secret.NewMemoryStore()
 	runner := &adapterRunner{}
-	return invocation.Context{Clients: clients.Registry(),
+	return invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{},
 		Executable: filepath.Join(t.TempDir(), "aigw"),
 		Config:     configStore,
 		Host:       hostAt(t.TempDir()),
@@ -435,7 +436,7 @@ func TestDisableCodexRestoresProjection(t *testing.T) {
 
 func TestCommandsPropagateConfigurationLoadErrors(t *testing.T) {
 	badPath := t.TempDir()
-	runtime := invocation.Context{Clients: clients.Registry(),
+	runtime := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{},
 		Config:    store.NewStore(badPath, clients.Admission()),
 		Secrets:   secret.NewMemoryStore(),
 		Out:       &bytes.Buffer{},

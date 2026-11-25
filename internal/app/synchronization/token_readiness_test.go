@@ -230,7 +230,7 @@ func TestAClientWaitsForAnEmptyTokenFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	configStore := &configStoreStub{}
-	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: files, Discovery: targetDiscovery(target), Host: hostAt(root),
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Secrets: files, Discovery: targetDiscovery(target), Host: hostAt(root),
 		AIGWExecutable: program, ResolveCredentialPath: readerAt(reader)}
 	empty, both := domain.NewConfig(clients.Admission()), withClaudeOnGateway(t, waitingCodex(t, target, "empty"))
 

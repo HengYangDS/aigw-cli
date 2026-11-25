@@ -286,6 +286,9 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		if err := runtime.Synchronizer().CommitProjection(cmd.Context(), before, cfg, "client disable", client); err != nil {
 			return err
 		}
+		if err := invocation.Stopped(runtime, spec.Label+" was disabled in the configuration."); err != nil {
+			return err
+		}
 		if jsonMode {
 			return terminal.WriteDocument(runtime.Out, disableSchemaVersion, true,
 				newProjectionDocument(client, "disabled", spec.RestartAfterProjection, disabledNext(spec)))

@@ -78,6 +78,9 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 	if err := ctx.Err(); err != nil {
 		return committed{}, err
 	}
+	if s.Stops == nil {
+		return committed{}, errNoStopsRecord
+	}
 	if err := validateTransition(after); err != nil {
 		return committed{}, err
 	}

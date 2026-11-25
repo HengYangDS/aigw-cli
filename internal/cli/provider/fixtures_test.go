@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -162,7 +163,7 @@ func newFixture(t *testing.T) *fixture {
 	out := &bytes.Buffer{}
 	fake := &fakeHTTP{status: map[string]int{}, failures: map[string]error{}}
 	return &fixture{
-		runtime: invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secrets, Providers: diagnostics, HTTP: fake, Out: out, In: strings.NewReader("")},
+		runtime: invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: configStore, Secrets: secrets, Providers: diagnostics, HTTP: fake, Out: out, In: strings.NewReader("")},
 		out:     out, http: fake, path: path,
 	}
 }

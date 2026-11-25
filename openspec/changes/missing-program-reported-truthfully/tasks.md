@@ -26,17 +26,20 @@
       Claude Code, Claude Desktop and Hermes (D2). Done when a test of each client's check passes.
 - [x] 3.4 Stop a Codex whose configured executable runs and can neither produce nor reuse the model table that AIGW
       owns, keeping its files, with the same problem and fix in sync and check (D2). Done when
-      `TestACodexThatCannotProduceItsTableStops` passes.
+      `TestACodexThatCannotProduceItsTableStops` passes, and `TestACodexThatNeverProducedATableIsNoLoop` pins that a Codex
+      that never produced a table is no loop.
 - [x] 3.5 Withdraw a file that the change drops from a stopped client (D2). Done when
       `TestADroppedFileIsWithdrawnWhileCodexIsStopped` passes.
-- [x] 3.6 Report each stop through one point in `sync`, `use`, `config rollback`, `client edit` and `client enable`,
-      with what they wrote, exiting non-zero, and list the stopped clients in a sync preview (D2). Done when
-      `TestUseAndRollbackReportAStoppedCodex`, `TestASyncedCodexWhoseExecutableGoesStopsUntilAnotherIsNamed` and the
-      `internal/cli/sync` tests pass.
+- [x] 3.6 Report each stop through one point in every command that commits a projection, with what it wrote, exiting
+      non-zero, and list the stopped clients in a sync preview (D2). Done when
+      `TestUseAndRollbackReportAStoppedCodex`, `TestProviderCommandsReportAStoppedCodex`, `TestSetupReportsAStoppedCodex`,
+      `TestASyncedCodexWhoseExecutableGoesStopsUntilAnotherIsNamed` and the `internal/cli/sync` tests pass.
 - [x] 3.7 Refuse at input an `--executable` that is not a regular file with an execute bit, by stat alone (D2). Done when
       `TestAnExecutableThatCannotRunIsRefused` and `sync.txtar` pass.
 - [x] 3.8 Count a client as installed in setup through the one rule of D1. Done when
       `TestManifestSetupAvailabilityTakesTheConfiguredProgramFirst` passes.
+- [x] 3.9 Refuse a commit or a preview that has no record of the clients that it stops (D2). Done when the package tests
+      of `internal/app/synchronization` and `internal/cli/...` pass with the record given by every test context.
 
 ## 4. The model table's producer
 

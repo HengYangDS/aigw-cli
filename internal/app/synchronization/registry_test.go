@@ -21,5 +21,5 @@ func TestSynchronizerWithoutRegistryRefusesToGuessClients(t *testing.T) {
 			t.Fatalf("recovered = %v, want the missing client registry refusal", recovered)
 		}
 	}()
-	Synchronizer{}.ClientIDs()
+	Synchronizer{Stops: &Stops{}}.ClientIDs()
 }

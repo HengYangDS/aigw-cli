@@ -17,6 +17,7 @@ import (
 	"aigw-cli/internal/adapter/claudedesktop"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -533,5 +534,5 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	return invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out, Width: 120, Discovery: staticDiscovery{}}, cfg, out
+	return invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: configStore, Out: out, Width: 120, Discovery: staticDiscovery{}}, cfg, out
 }

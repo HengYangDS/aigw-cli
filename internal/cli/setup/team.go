@@ -239,6 +239,9 @@ func (t teamSetup) apply(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := invocation.Stopped(t.runtime, "Setup saved the configuration and the Tokens it connected."); err != nil {
+		return err
+	}
 	document := t.document(after, states, connected)
 	activation := clientactivation.AssessActivation(after, t.runtime.Secrets)
 	document.NextAction = activation.NextActionFor(nil)

@@ -51,7 +51,7 @@ func codexWithReader(t *testing.T) (Synchronizer, domain.Config, string, secret.
 	if err := tokens.Set("gateway", "fixture-token"); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{
+	syncer := Synchronizer{Stops: &Stops{},
 		Registry: builtinClients, Config: configStore, Secrets: tokens, Discovery: targetDiscovery(target),
 		AIGWExecutable: source, ResolveCredentialPath: readerAt(reader), Follows: &Follows{},
 	}

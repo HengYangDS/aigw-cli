@@ -58,7 +58,7 @@ func TestSyncStopsAClientWhoseExecutableIsMissing(t *testing.T) {
 				t.Fatal(err)
 			}
 			out := &bytes.Buffer{}
-			runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Executable: source, Secrets: tokens, Out: out, Discovery: staticDiscovery{}, Host: hostAt(root), Stops: &synchronization.Stops{}}
+			runtime := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: configStore, Executable: source, Secrets: tokens, Out: out, Discovery: staticDiscovery{}, Host: hostAt(root)}
 			cmd := NewCommand(runtime)
 			cmd.SilenceErrors, cmd.SilenceUsage = true, true
 			args := []string{"--json"}

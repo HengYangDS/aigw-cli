@@ -9,6 +9,7 @@ import (
 
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -78,7 +79,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 		t.Fatal(err)
 	}
 	target := filepath.Join(root, "codex.toml")
-	runtime := invocation.Context{Clients: clients.Registry(),
+	runtime := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{},
 		Executable: source, ResolveCredentialPath: func() (string, error) { return reader, nil }, Secrets: secretStore,
 		Config: store.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission()),
 		Discovery: setupDiscovery{result: discovery.Result{

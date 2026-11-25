@@ -72,7 +72,7 @@ func TestSetupPreservesAlreadyConfiguredState(t *testing.T) {
 		t.Fatal(err)
 	}
 	credentials := &setupCredentials{Store: memory}
-	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials,
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Secrets: credentials,
 		Discovery: setupDiscovery(func() { t.Fatal("setup discovered clients in an already configured installation") }),
 		Runner: runnerFunc(func(context.Context, process.Plan) error {
 			t.Fatal("setup changed existing native client credentials")
@@ -108,7 +108,7 @@ func TestCancelledSetupPreservesCredentialsAndConfiguration(t *testing.T) {
 			} else {
 				discoverySource = setupDiscovery(cancel)
 			}
-			runtime := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials, Discovery: discoverySource}
+			runtime := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Secrets: credentials, Discovery: discoverySource}
 			_, err := runtime.Setup(ctx, domain.NewConfig(builtinclients.Admission()), setupConfiguration(), map[string]string{"team": "new-token"}, claude.ID)
 			if !errors.Is(err, context.Canceled) {
 				t.Errorf("setup error = %v, want cancellation", err)
@@ -131,7 +131,7 @@ func TestSetupRejectsInvalidConfigurationBeforeCredentialMutation(t *testing.T) 
 	credentials := setupTokenStore(t, "original")
 	after := setupConfiguration()
 	after.SetSelectedModel(claude.ID, domain.NewModelRef("team", "missing"), "")
-	_, err := (Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials}).Setup(t.Context(), domain.NewConfig(builtinclients.Admission()), after, map[string]string{"team": "replacement"})
+	_, err := (Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Secrets: credentials}).Setup(t.Context(), domain.NewConfig(builtinclients.Admission()), after, map[string]string{"team": "replacement"})
 	if err == nil {
 		t.Fatal("setup accepted an unresolved route")
 	}
@@ -155,7 +155,7 @@ func TestSetupAdmitsCredentialOwnershipAndClientScopeBeforeWriting(t *testing.T)
 			} else {
 				clients = []string{"unknown"}
 			}
-			syncer := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials, Discovery: setupDiscovery(nil)}
+			syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Secrets: credentials, Discovery: setupDiscovery(nil)}
 			_, err := syncer.Setup(t.Context(), domain.NewConfig(builtinclients.Admission()), setupConfiguration(), tokens, clients...)
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid %s: error = %v, credential writes = %d", boundary, err, credentials.writes)
@@ -189,7 +189,7 @@ func TestSetupCommitReportsBackendSelectionFailureWithoutErasingForeignState(t *
 			if err := os.Mkdir(configPath, 0o700); err != nil {
 				t.Fatal(err)
 			}
-			run := Synchronizer{Registry: builtinClients,
+			run := Synchronizer{Stops: &Stops{}, Registry: builtinClients,
 				Config: store.NewStore(configPath, builtinclients.Admission()), Secrets: secretStore,
 				Discovery: setupDiscovery(replaceBackend),
 			}
@@ -219,7 +219,7 @@ func TestSetupCommitReportsBackendSelectionFailureWithoutErasingForeignState(t *
 // Setup reconciles the clients that it activates and every other client whose
 // files change; a preview of an unchanged home without clients plans none.
 func TestSetupReconcilesTheActivatedAndTheChangedClients(t *testing.T) {
-	syncer := Synchronizer{Registry: builtinClients}
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients}
 	cfg := setupConfiguration()
 	if got := syncer.setupClients(cfg, cfg, nil); len(got) != 0 {
 		t.Fatalf("an unchanged home reconciles %q", got)

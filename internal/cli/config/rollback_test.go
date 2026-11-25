@@ -12,6 +12,7 @@ import (
 
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -46,7 +47,7 @@ func TestRollbackFailureReportsVerifiedConfigurationRecovery(t *testing.T) {
 
 func TestRollbackCoversLoadSnapshotAndBackupFailures(t *testing.T) {
 	run := func(configStore store.Store, args ...string) error {
-		command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configStore})
+		command := NewCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: configStore})
 		command.SetArgs(append([]string{"rollback"}, args...))
 		return executeManifestCommand(command)
 	}
@@ -183,7 +184,7 @@ func TestRollbackPrefersTheVerifiedSnapshot(t *testing.T) {
 // configuration, naming setup, and a configuration without a backup, naming
 // the local check; neither changes anything.
 func TestRollbackWithoutARecoverySourceNamesWhatHelps(t *testing.T) {
-	empty := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()),
+	empty := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()),
 		Secrets: secret.NewMemoryStore(), Out: io.Discard}
 	err := runRollback(empty)
 	if problem := terminal.ProblemFor(err); problem.Title != "Configuration rollback is unavailable" || problem.Fix != "aigw setup" {

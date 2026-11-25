@@ -26,7 +26,7 @@ func TestModelSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 		t.Fatal(err)
 	}
 	credentials := setupTokenStore(t, "existing-token")
-	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials, Discovery: setupDiscovery(nil)}
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Secrets: credentials, Discovery: setupDiscovery(nil)}
 	changed, _, _, err := selectModel(t.Context(), syncer, before, claude.ID, domain.NewModelRef("team", "claude-next"), "")
 	if err != nil || !changed {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
@@ -75,7 +75,7 @@ func TestModelSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 			if err := cfg.Validate(); err != nil {
 				t.Fatal(err)
 			}
-			proposed, selected, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, hermes.ID, test.route, test.protocol)
+			proposed, selected, err := (Synchronizer{Stops: &Stops{}, Registry: builtinClients}).PrepareSelection(cfg, hermes.ID, test.route, test.protocol)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -100,7 +100,7 @@ func TestModelSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 			failure := errors.New("configuration write failed")
 			store := &configStoreStub{commitErr: failure}
 			store.bindConfiguration(t, before)
-			syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
+			syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
 			switch phase {
 			case "cancelled":
 				cancel()
@@ -142,7 +142,7 @@ func TestModelSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 			if route == "native" {
 				ref = domain.NewModelRef("gateway", "model")
 			}
-			_, _, _, err := selectModel(t.Context(), Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials}, cfg, client, ref, "token")
+			_, _, _, err := selectModel(t.Context(), Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Secrets: credentials}, cfg, client, ref, "token")
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid selection reached credential mutation: writes=%d, error=%v", credentials.writes, err)
 			}

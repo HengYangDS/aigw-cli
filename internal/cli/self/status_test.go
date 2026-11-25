@@ -1,15 +1,17 @@
 package self
 
 import (
-	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/clients"
-	"aigw-cli/internal/program"
 	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/app/synchronization"
+	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
+	"aigw-cli/internal/program"
 )
 
 func TestInstallationCommandReportsHumanStateAndOutputFailures(t *testing.T) {
@@ -22,7 +24,7 @@ func TestInstallationCommandReportsHumanStateAndOutputFailures(t *testing.T) {
 	}
 	for _, retained := range []bool{true, false} {
 		out := new(bytes.Buffer)
-		command := newStatusCommand(invocation.Context{Clients: clients.Registry(), Executable: executable, Version: "1.2.3", Out: out})
+		command := newStatusCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: executable, Version: "1.2.3", Out: out})
 		command.SetArgs(nil)
 		if err := command.Execute(); err != nil {
 			t.Fatal(err)
@@ -52,13 +54,13 @@ func TestInstallationCommandReportsHumanStateAndOutputFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{nil, {"--json"}} {
-		command := newStatusCommand(invocation.Context{Clients: clients.Registry(), Executable: executable, Out: closed})
+		command := newStatusCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: executable, Out: closed})
 		command.SetArgs(args)
 		if err := command.Execute(); !errors.Is(err, os.ErrClosed) {
 			t.Fatalf("output error = %v", err)
 		}
 	}
-	command := newStatusCommand(invocation.Context{Clients: clients.Registry(), Executable: root, Out: new(bytes.Buffer)})
+	command := newStatusCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: root, Out: new(bytes.Buffer)})
 	command.SetArgs(nil)
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "current portable program") {
 		t.Fatalf("invalid installation observation = %v", err)

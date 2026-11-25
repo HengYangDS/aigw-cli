@@ -31,7 +31,7 @@ func projectedCodex(t *testing.T) (Synchronizer, domain.Config, string) {
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
 	if err := syncer.CommitProjection(context.Background(), cfg, cfg, "sync"); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestSetupWithoutATokenFailsAsItsRefusal(t *testing.T) {
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
 	_, err := syncer.Setup(context.Background(), cfg, cfg.Clone(), nil, codex.ID)
 	if _, refused := errors.AsType[*PreflightError](err); !refused || strings.Contains(err.Error(), "credentials were rolled back") {
 		t.Fatalf("setup = %v, want the refusal before any write, without a credential rollback", err)

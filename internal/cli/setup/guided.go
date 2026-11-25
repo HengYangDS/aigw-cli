@@ -104,6 +104,9 @@ func (g guidedSetup) run() error {
 	if _, _, _, err := synchronizer.SelectModel(g.cmd.Context(), g.before, after, spec.ID, provider.token); err != nil {
 		return err
 	}
+	if err := invocation.Stopped(g.runtime, "Setup saved the provider, its Token and the selection."); err != nil {
+		return err
+	}
 	if err := g.renderSaved(provider, spec, selected, wasDisabled); err != nil {
 		return err
 	}
@@ -253,6 +256,9 @@ func (g guidedSetup) stopWithoutClient(ctx context.Context, provider guidedProvi
 	}
 	if provider.added {
 		if err := g.runtime.Synchronizer().Commit(ctx, g.before, g.withProvider(provider), "setup"); err != nil {
+			return err
+		}
+		if err := invocation.Stopped(g.runtime, "Setup saved the provider and its Token."); err != nil {
 			return err
 		}
 	}

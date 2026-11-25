@@ -14,6 +14,7 @@ import (
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/app"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -45,7 +46,7 @@ func TestDryRunPreservesUnusedChangedCredentialEntrypointWithoutWriting(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime := invocation.Context{Clients: clients.Registry(), Executable: source, ResolveCredentialPath: func() (string, error) { return helper, nil }, Config: store, Discovery: staticDiscovery{}, Out: &bytes.Buffer{}}
+	runtime := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: source, ResolveCredentialPath: func() (string, error) { return helper, nil }, Config: store, Discovery: staticDiscovery{}, Out: &bytes.Buffer{}}
 	cmd := NewCommand(runtime)
 	cmd.SilenceErrors, cmd.SilenceUsage = true, true
 	cmd.SetArgs([]string{"--dry-run", "--json"})
@@ -80,7 +81,7 @@ func TestDryRunUsesOneResolvedReaderWithoutWriting(t *testing.T) {
 	if err := tokens.Set("one", "synthetic-fixture"); err != nil {
 		t.Fatal(err)
 	}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: store, Executable: source, Secrets: tokens, Out: out, Discovery: staticDiscovery{}, Host: hostAt(root), ResolveCredentialPath: sync.OnceValues(func() (string, error) {
+	runtime := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: store, Executable: source, Secrets: tokens, Out: out, Discovery: staticDiscovery{}, Host: hostAt(root), ResolveCredentialPath: sync.OnceValues(func() (string, error) {
 		calls++
 		return reader, nil
 	})}
@@ -123,7 +124,7 @@ func TestSyncMetadataObservationScopeExpiresWithCommand(t *testing.T) {
 		}
 		return ""
 	})
-	runtime := invocation.Context{Clients: clients.Registry(),
+	runtime := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{},
 		Config: store, Executable: source, Secrets: tokens, Out: &bytes.Buffer{}, Discovery: staticDiscovery{},
 		Host: hostAt(root), ResolveCredentialPath: func() (string, error) { return reader, nil },
 	}
@@ -152,7 +153,7 @@ func TestDryRunRefusesWhatSynchronizationRefuses(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	execute := func(args ...string) (string, error) {
 		out := &bytes.Buffer{}
-		command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Discovery: syncDiscovery{}, Out: out})
+		command := NewCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: configStore, Discovery: syncDiscovery{}, Out: out})
 		command.SilenceErrors, command.SilenceUsage = true, true
 		command.SetArgs(args)
 		err := command.Execute()
@@ -174,7 +175,7 @@ func TestDryRunRefusesWhatSynchronizationRefuses(t *testing.T) {
 
 func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 	t.Run("configuration load", func(t *testing.T) {
-		command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: store.NewStore(t.TempDir(), clients.Admission())})
+		command := NewCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: store.NewStore(t.TempDir(), clients.Admission())})
 		command.SilenceErrors = true
 		command.SilenceUsage = true
 		if err := command.Execute(); err == nil {
@@ -204,7 +205,7 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 			}
 			out := &bytes.Buffer{}
 			errOut := &bytes.Buffer{}
-			command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out})
+			command := NewCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: configStore, Out: out})
 			command.SilenceErrors = true
 			command.SilenceUsage = true
 			command.SetOut(out)
@@ -242,7 +243,7 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 		if err := configStore.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
-		command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
+		command := NewCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: configStore, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
 		command.SilenceErrors = true
 		command.SilenceUsage = true
 		command.SetArgs([]string{"--dry-run"})
@@ -274,7 +275,7 @@ func TestSyncRollsBackModelSelectionWhenProjectionFails(t *testing.T) {
 	if err := secretStore.Set("two", "token"); err != nil {
 		t.Fatal(err)
 	}
-	command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: configStore, Secrets: secretStore, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 
@@ -304,7 +305,7 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: configStore, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	if err := command.Execute(); err == nil {

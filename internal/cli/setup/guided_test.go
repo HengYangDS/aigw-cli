@@ -15,9 +15,11 @@ import (
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/adapter/hermes"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
@@ -106,9 +108,9 @@ func newGuidedHome(t *testing.T, installed ...string) *guidedHome {
 	home := &guidedHome{out: &bytes.Buffer{}, secrets: secret.NewMemoryStore(), status: http.StatusOK, models: `{"data":[{"id":"team-model"},{"id":"spare-model"}]}`}
 	executables := map[string]string{}
 	for _, client := range installed {
-		executables[client] = filepath.Join(t.TempDir(), client)
+		executables[client] = processtest.Program(t, "/installed/"+client)
 	}
-	home.runtime = invocation.Context{Clients: clients.Registry(),
+	home.runtime = invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{},
 		Executable: filepath.Join(t.TempDir(), "aigw"),
 		Config:     store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()),
 		Secrets:    home.secrets,

@@ -11,6 +11,7 @@ import (
 
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -31,7 +32,7 @@ func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing
 		t.Fatal(err)
 	}
 	out := new(bytes.Buffer)
-	command := newUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: target, Out: out})
+	command := newUninstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: target, Out: out})
 	command.SetArgs(nil)
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
@@ -43,7 +44,7 @@ func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing
 		!strings.Contains(out.String(), "credential readers were kept") {
 		t.Fatalf("output = %q", out.String())
 	}
-	command = newUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: ""})
+	command = newUninstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: ""})
 	command.SetArgs(nil)
 	if err := command.Execute(); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "target is empty") {
 		t.Fatalf("empty target error = %v", err)
@@ -53,7 +54,7 @@ func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing
 func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T) {
 	t.Run("configuration load", func(t *testing.T) {
 		root := t.TempDir()
-		command := newUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: filepath.Join(root, "aigw"), Config: store.NewStore(root, clients.Admission())})
+		command := newUninstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: filepath.Join(root, "aigw"), Config: store.NewStore(root, clients.Admission())})
 		command.SetArgs(nil)
 		if err := command.Execute(); err == nil {
 			t.Fatal("uninstall succeeded despite an unreadable configuration path")
@@ -66,7 +67,7 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		if err := os.WriteFile(target, []byte("current"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		command := newUninstallCommand(invocation.Context{Clients: clients.Registry(),
+		command := newUninstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{},
 			Executable: target,
 			Config:     store.NewStore(filepath.Join(root, "invalid")+"\x00configuration.toml", clients.Admission()),
 		})
@@ -101,7 +102,7 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		if err := os.MkdirAll(filepath.Join(blockedHome, ".claude", "settings.json"), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		command := newUninstallCommand(invocation.Context{Clients: clients.Registry(),
+		command := newUninstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{},
 			Executable: target,
 			Config:     configStore,
 			Host:       hostAt(blockedHome),
@@ -158,7 +159,7 @@ func TestUninstallPreservesEveryVersionedReader(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	command := newUninstallCommand(invocation.Context{Clients: clients.Registry(),
+	command := newUninstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{},
 		Executable: invoker, ResolveCredentialPath: func() (string, error) { return invokerReader, nil },
 		Config: store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission()),
 	})
@@ -205,7 +206,7 @@ func TestUninstallPreservesReaderSharedByIdenticalInstallations(t *testing.T) {
 	if _, err := ensureReader(invoker, invokerReader); err != nil {
 		t.Fatal(err)
 	}
-	command := newUninstallCommand(invocation.Context{Clients: clients.Registry(),
+	command := newUninstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{},
 		Executable: invoker, ResolveCredentialPath: func() (string, error) { return invokerReader, nil },
 		Config: store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission()),
 	})

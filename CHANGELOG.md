@@ -82,13 +82,15 @@ signing, and GA status remain separate evidence.
   Codex's table.
 - **Breaking:** AIGW never replaces the executable that `aigw.toml` names for
   a client, and a client whose executable is gone, or whose Codex runs and
-  cannot produce the model table that AIGW owns for it, stops. `aigw sync`,
-  `aigw use`, `aigw config rollback`, `aigw client edit` and
-  `aigw client enable` no longer switch to another executable that they find,
-  and no longer withdraw Codex's model table and report success: they leave
+  cannot produce the model table that AIGW owns for it, stops. Every command
+  that writes client files (`aigw sync`, `aigw use`, `aigw config rollback`,
+  `aigw client edit`, `enable` and `disable`, `aigw provider add`, `edit` and
+  `remove`, the `aigw model` changes, `aigw setup` and `aigw self uninstall`)
+  no longer switches to another executable that it finds, and no longer
+  withdraws Codex's model table and reports success: it leaves
   the stopped client's files, its model table and AIGW's record of them as
-  they are, withdraw a file that the change drops, write the rest, and exit 1
-  with the cause, what they wrote and the fix
+  they are, withdraws a file that the change drops, writes the rest, and exits
+  1 with the cause, what it wrote and the fix
   `aigw client edit <client> --executable <path>`, in JSON as `next_detail`.
   `aigw sync --dry-run` lists the other clients' files and each stopped
   client, and exits 1; its JSON gains `stopped_clients` and moves to

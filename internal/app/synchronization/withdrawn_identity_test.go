@@ -16,7 +16,7 @@ import (
 // Token that AIGW can use, is. Case is the judgement's own concern and is
 // tested in internal/platform.
 func TestWithdrawnClientsJudgesDroppedFilesByOneIdentity(t *testing.T) {
-	syncer := Synchronizer{Registry: builtinClients}
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients}
 	root := t.TempDir()
 	folder := filepath.Join(root, "codex")
 	if err := os.MkdirAll(folder, 0o700); err != nil {

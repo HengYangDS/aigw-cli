@@ -47,7 +47,7 @@ func TestFailedSelfCompensationPreservesTheReaderItProjected(t *testing.T) {
 		t.Fatal(err)
 	}
 	configStore := &configStoreStub{}
-	syncer := Synchronizer{Config: configStore, Registry: registry, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
+	syncer := Synchronizer{Stops: &Stops{}, Config: configStore, Registry: registry, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
 	err = syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(t, target), "sync")
 	if !errors.Is(err, adapter.ErrProjectionRollbackFailed) || !errors.Is(err, platform.ErrCompensationIncomplete) {
 		t.Fatalf("incomplete self-compensation was not reported as a failed rollback: %v", err)
@@ -76,7 +76,7 @@ func TestFailedUndosStayRecognizable(t *testing.T) {
 	failure := errors.New("configuration write failed")
 	store := &configStoreStub{commitErr: failure}
 	store.bindConfiguration(t, before)
-	syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: undoRefusingStore{secret.NewMemoryStore()}, Discovery: setupDiscovery(nil)}
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: store, Secrets: undoRefusingStore{secret.NewMemoryStore()}, Discovery: setupDiscovery(nil)}
 	_, _, _, err := selectModel(t.Context(), syncer, before, claude.ID, domain.NewModelRef("team", "claude-test"), "new-token")
 	undo, recognized := errors.AsType[*platform.RestoreError](err)
 	if !errors.Is(err, failure) || !recognized || undo.Undo != "removing the Token that this command stored for provider team" {

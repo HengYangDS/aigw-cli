@@ -1,14 +1,16 @@
 package self
 
 import (
-	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/clients"
-	"aigw-cli/internal/program"
-	"aigw-cli/internal/store"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/app/synchronization"
+	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
+	"aigw-cli/internal/program"
+	"aigw-cli/internal/store"
 )
 
 func TestPortableInstallAndUninstallPreserveHomebrewOwnership(t *testing.T) {
@@ -28,7 +30,7 @@ func TestPortableInstallAndUninstallPreserveHomebrewOwnership(t *testing.T) {
 		"install":   func() error { return program.Install(source, target) },
 		"uninstall": func() error { return program.Uninstall(target) },
 		"command": func() error {
-			command := newUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: target, Config: store.NewStore("invalid\x00config", clients.Admission())})
+			command := newUninstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: target, Config: store.NewStore("invalid\x00config", clients.Admission())})
 			command.SetArgs(nil)
 			return command.Execute()
 		},

@@ -120,6 +120,9 @@ func (s Synchronizer) PreviewSelection(before, after domain.Config, client strin
 // reconcile is set, with every client whose own choice the commit would
 // record, and their projections.
 func project(planner Synchronizer, before, after domain.Config, reconcile bool, clientIDs ...string) (Projection, error) {
+	if planner.Stops == nil {
+		return Projection{}, errNoStopsRecord
+	}
 	// Without a store, as in a plan that nothing saves, the transition is
 	// what the command gave.
 	settled := transition{after: after, clients: clientIDs, reconcile: reconcile, saves: !reflect.DeepEqual(before, after)}

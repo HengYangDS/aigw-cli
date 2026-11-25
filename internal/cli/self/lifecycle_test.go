@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -67,7 +68,7 @@ func lifecycleRuntime(t *testing.T, updater *fakeUpdater) (invocation.Context, *
 	writeProgram(t, executable, "current")
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{
-		Clients: clients.Registry(), Executable: executable, InstallTarget: executable, Version: "0.1.0",
+		Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: executable, InstallTarget: executable, Version: "0.1.0",
 		Config: store.NewStore(filepath.Join(root, "config", "aigw.toml"), clients.Admission()), Secrets: secret.NewMemoryStore(), Out: out, Width: 120,
 	}
 	if updater != nil {
@@ -115,7 +116,7 @@ func runSelf(runtime invocation.Context, args ...string) error {
 }
 
 func TestSelfGroupsTheLifecycleCommands(t *testing.T) {
-	command := NewCommand(invocation.Context{Clients: clients.Registry()})
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}})
 	var names []string
 	for _, child := range command.Commands() {
 		names = append(names, child.Name())

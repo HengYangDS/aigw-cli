@@ -1,11 +1,6 @@
 package setup
 
 import (
-	"aigw-cli/internal/adapter"
-	"aigw-cli/internal/adapter/codex"
-	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/clients"
-
 	"context"
 	"errors"
 	"io"
@@ -16,9 +11,15 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/app/synchronization"
+	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
@@ -183,12 +184,12 @@ primary = {model = "team/gpt-test"}
 			}
 		},
 	}
-	runtime := invocation.Context{Clients: clients.Registry(),
+	runtime := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{},
 		Executable: filepath.Join(t.TempDir(), "aigw"),
 		Config:     store.NewStore(configPath, clients.Admission()),
 		Secrets:    secretStore,
 		Discovery: setupDiscovery{result: discovery.Result{
-			Executables: map[string]string{codex.ID: "/opt/codex"},
+			Executables: map[string]string{codex.ID: processtest.Program(t, "/opt/codex")},
 			Surfaces: []discovery.Surface{{
 				ID:          string(codex.HomeDefault),
 				ConfigPath:  filepath.Join(t.TempDir(), "codex", "configuration.toml"),

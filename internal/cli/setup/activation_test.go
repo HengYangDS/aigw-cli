@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	clientactivation "aigw-cli/internal/app/activation"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -24,7 +25,7 @@ func TestTeamSetupOffersEqualCompatibleProvidersWithoutTokens(t *testing.T) {
 	recommendation := cfg.Recommendations[claude.ID]
 	recommendation.Alternatives = []domain.ClientSelection{{Model: domain.NewModelRef("dmx", "fable")}}
 	cfg.Recommendations[claude.ID] = recommendation
-	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}
+	runtime := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Secrets: secret.NewMemoryStore()}
 	team := teamSetup{runtime: runtime, merged: cfg}
 	document := team.document(cfg, map[string]string{"dmx": tokenMissing, "ucloud": tokenMissing}, nil)
 	for _, token := range document.Tokens {
@@ -43,7 +44,7 @@ func TestTeamSetupOffersEqualCompatibleProvidersWithoutTokens(t *testing.T) {
 // its installation, because a client installed later reads it.
 func TestTeamSetupReportsTheTokenBeforeTheClient(t *testing.T) {
 	cfg := manifestSetupConfig()
-	team := teamSetup{runtime: invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}, merged: cfg}
+	team := teamSetup{runtime: invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Secrets: secret.NewMemoryStore()}, merged: cfg}
 	spec, _ := cfg.Admission().Spec(codex.ID)
 	if item := team.client(cfg, spec, nil, nil); item.State != clientWaitsForToken || item.NextDetail != "aigw provider rotate team" {
 		t.Fatalf("client without a Token = %+v", item)

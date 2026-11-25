@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/app"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -129,7 +130,7 @@ func newSearchFixture(t *testing.T) searchFixture {
 	}
 	out := &bytes.Buffer{}
 	return searchFixture{
-		runtime: invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secrets, HTTP: catalogs, Out: out},
+		runtime: invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: configStore, Secrets: secrets, HTTP: catalogs, Out: out},
 		out:     out, catalogs: catalogs,
 	}
 }

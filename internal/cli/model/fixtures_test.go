@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -79,7 +80,7 @@ func newFixture(t *testing.T) fixture {
 	out := &bytes.Buffer{}
 	catalog := &catalogServer{ids: []string{"team-model", "spare-model"}}
 	return fixture{
-		runtime: invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secrets, HTTP: catalog, Out: out},
+		runtime: invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Config: configStore, Secrets: secrets, HTTP: catalog, Out: out},
 		out:     out, catalog: catalog,
 	}
 }

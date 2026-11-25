@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/program"
@@ -28,7 +29,7 @@ func TestInstallCommandUsesPlatformDefaultTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := new(bytes.Buffer)
-	command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target, Out: out})
+	command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: source, InstallTarget: target, Out: out})
 	command.SetArgs(nil)
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
@@ -51,12 +52,12 @@ func TestInstallCommandReportsUnavailableTargetAndCopyFailure(t *testing.T) {
 	if err := os.WriteFile(source, []byte("current"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Executable: source})
+	command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: source})
 	command.SetArgs(nil)
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "target is unavailable") {
 		t.Fatalf("missing target error = %v", err)
 	}
-	command = newInstallCommand(invocation.Context{Clients: clients.Registry(), Executable: filepath.Join(root, "missing"), InstallTarget: filepath.Join(root, "bin", "aigw")})
+	command = newInstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: filepath.Join(root, "missing"), InstallTarget: filepath.Join(root, "bin", "aigw")})
 	command.SetArgs(nil)
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "read portable") {
 		t.Fatalf("copy failure = %v", err)
@@ -76,7 +77,7 @@ func TestHomebrewSourceCannotCreatePortableInstallation(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target})
+	command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: source, InstallTarget: target})
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "Homebrew") {
 		t.Fatalf("managed source escaped ownership: %v", err)
 	}
@@ -96,7 +97,7 @@ func TestInstallCommandNamesAnotherFileForItsOwnPath(t *testing.T) {
 	if err := os.WriteFile(source, []byte("current"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: source, Out: new(bytes.Buffer)})
+	command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: source, InstallTarget: source, Out: new(bytes.Buffer)})
 	command.SilenceErrors, command.SilenceUsage = true, true
 	command.SetArgs(nil)
 	if problem := terminal.ProblemFor(command.Execute()); !strings.Contains(problem.Fix, "--path naming another file") {
@@ -118,7 +119,7 @@ func TestInstallCommandNamesTheTargetThatItCannotUse(t *testing.T) {
 	}
 	target := filepath.Join(blocked, "aigw")
 	for _, args := range [][]string{nil, {"--dry-run"}} {
-		command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target, Out: new(bytes.Buffer)})
+		command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: source, InstallTarget: target, Out: new(bytes.Buffer)})
 		command.SilenceErrors, command.SilenceUsage = true, true
 		command.SetArgs(args)
 		err := command.Execute()
@@ -152,7 +153,7 @@ func TestInstallPreviewNamesTheFolderAsGiven(t *testing.T) {
 		root + separator + separator + "new" + separator + "aigw": filepath.Join(root, "new"),
 	} {
 		out := new(bytes.Buffer)
-		command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target, Out: out})
+		command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: source, InstallTarget: target, Out: out})
 		command.SetArgs([]string{"--dry-run", "--json"})
 		if err := command.Execute(); err != nil {
 			t.Fatal(err)
@@ -178,7 +179,7 @@ func TestInstallPreviewSaysThatItCreatesAMissingFolder(t *testing.T) {
 	target := filepath.Join(root, "new", "bin", "aigw")
 	for _, args := range [][]string{{"--dry-run"}, {"--dry-run", "--json"}} {
 		out := new(bytes.Buffer)
-		command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target, Out: out})
+		command := newInstallCommand(invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Executable: source, InstallTarget: target, Out: out})
 		command.SetArgs(args)
 		if err := command.Execute(); err != nil {
 			t.Fatalf("%v: %v", args, err)

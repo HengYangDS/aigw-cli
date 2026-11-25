@@ -100,19 +100,10 @@ func newUninstallCommand(runtime invocation.Context) *cobra.Command {
 			}
 			withdrawn := []string{}
 			if statErr == nil {
-				before, err := runtime.LoadConfiguration()
-				if err != nil {
+				var err error
+				if withdrawn, err = withdrawEveryClient(cmd, runtime); err != nil {
 					return err
 				}
-				after := before.Clone()
-				synchronizer := runtime.Synchronizer()
-				if err := synchronizer.Withdraw(&after); err != nil {
-					return err
-				}
-				if err := synchronizer.CommitProjection(cmd.Context(), before, after, "uninstall"); err != nil {
-					return err
-				}
-				withdrawn = before.EnabledClientIDs()
 			}
 			if err := program.Uninstall(target); err != nil {
 				return incompleteUninstall(runtime, target, programFound, withdrawn, statErr == nil, jsonMode, err)
@@ -199,4 +190,27 @@ func previewUninstall(cmd *cobra.Command, runtime invocation.Context, target str
 	r.Rows(rows...)
 	invocation.RenderPreview(r, document.Preview, apply)
 	return nil
+}
+
+// withdrawEveryClient withdraws every client's AIGW-owned configuration, as
+// uninstall does before it removes the program, and returns the clients that
+// were enabled. A client that the withdrawal stops is reported as every
+// command that commits a projection reports one.
+func withdrawEveryClient(cmd *cobra.Command, runtime invocation.Context) ([]string, error) {
+	before, err := runtime.LoadConfiguration()
+	if err != nil {
+		return nil, err
+	}
+	after := before.Clone()
+	synchronizer := runtime.Synchronizer()
+	if err := synchronizer.Withdraw(&after); err != nil {
+		return nil, err
+	}
+	if err := synchronizer.CommitProjection(cmd.Context(), before, after, "uninstall"); err != nil {
+		return nil, err
+	}
+	if err := invocation.Stopped(runtime, "Every client was withdrawn from the configuration; the program was not removed."); err != nil {
+		return nil, err
+	}
+	return before.EnabledClientIDs(), nil
 }

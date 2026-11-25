@@ -33,6 +33,8 @@ func (c change) apply(cmd *cobra.Command, runtime invocation.Context, args []str
 		c.next = invocation.ApplyCommand(cmd, args)
 	} else if err := runtime.Synchronizer().Commit(cmd.Context(), c.before, c.after, c.subject); err != nil {
 		return err
+	} else if err := invocation.Stopped(runtime, "The change was saved."); err != nil {
+		return err
 	}
 	c.document.DryRun = dryRun
 	c.document.ClientFiles = invocation.ClientFiles(runtime, preview)

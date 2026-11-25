@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
-
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret/probe"
 )
@@ -43,7 +43,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 
 	t.Run("network", func(t *testing.T) {
 		want := errors.New("network failed")
-		app := invocation.Context{Clients: clients.Registry(), HTTP: setupHTTPClient(func(*http.Request) (*http.Response, error) { return nil, want })}
+		app := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, HTTP: setupHTTPClient(func(*http.Request) (*http.Response, error) { return nil, want })}
 		if err := probe.Validate(context.Background(), app.HTTP, clients.Admission(), account, "token", codex.ID); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
@@ -51,7 +51,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 
 	t.Run("body read", func(t *testing.T) {
 		want := errors.New("read failed")
-		app := invocation.Context{Clients: clients.Registry(), HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
+		app := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: setupResponseBody{Reader: errorReader{err: want}}, Request: request}, nil
 		})}
 		if err := probe.Validate(context.Background(), app.HTTP, clients.Admission(), account, "token", codex.ID); !errors.Is(err, want) {
@@ -61,7 +61,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 
 	t.Run("body close", func(t *testing.T) {
 		want := errors.New("close failed")
-		app := invocation.Context{Clients: clients.Registry(), HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
+		app := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: setupResponseBody{Reader: strings.NewReader("ok"), closeErr: want}, Request: request}, nil
 		})}
 		if err := probe.Validate(context.Background(), app.HTTP, clients.Admission(), account, "token", codex.ID); !errors.Is(err, want) {
@@ -71,7 +71,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 
 	t.Run("duplicate client", func(t *testing.T) {
 		calls := 0
-		app := invocation.Context{Clients: clients.Registry(), HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
+		app := invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			calls++
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
 		})}

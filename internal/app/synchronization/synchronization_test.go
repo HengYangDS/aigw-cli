@@ -128,7 +128,7 @@ func targetDiscovery(target string) staticDiscovery {
 }
 
 func TestWithdrawDefaultsToEveryAdmittedClientAndRejectsUnknownClients(t *testing.T) {
-	syncer := Synchronizer{Registry: builtinClients}
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients}
 	cfg := domain.NewConfig(clients.Admission())
 	for _, clientID := range syncer.ClientIDs() {
 		cfg.SetClientActivation(clientID, true, "", nil)
@@ -156,7 +156,7 @@ func TestCommitRestoresTargetRemovedFromAdapter(t *testing.T) {
 	}
 	before := testConfig(t, target)
 	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
-	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target)}
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target)}
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestCancelledCommitPreservesConfiguration(t *testing.T) {
 			}
 			after := before.Clone()
 			after.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-			syncer := Synchronizer{Registry: builtinClients, Config: configStore}
+			syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore}
 			ctx, cancel := context.WithCancel(t.Context())
 			cancel()
 			switch operation {
@@ -240,7 +240,7 @@ func TestCommitPersistenceFailureBoundaries(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if err := (Synchronizer{Registry: builtinClients, Config: test.store}).Commit(context.Background(), before, after, "test"); !errors.Is(err, want) {
+			if err := (Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: test.store}).Commit(context.Background(), before, after, "test"); !errors.Is(err, want) {
 				t.Fatalf("Commit() error = %v", err)
 			}
 		})
@@ -292,7 +292,7 @@ func TestCommitCancellationAtPersistenceAndProjectionAdmission(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(root, "aigw")}
+			syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(root, "aigw")}
 			if phase == "preflight" {
 				discovered := targetDiscovery(target)
 				discovered.onDiscover = cancel
@@ -325,7 +325,7 @@ func TestCommitReportsSynchronizationRollbackFailure(t *testing.T) {
 			t.Fatal(err)
 		}
 	}}
-	err := (Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}).Commit(context.Background(), before, after, "change")
+	err := (Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}).Commit(context.Background(), before, after, "change")
 	if err == nil || !strings.Contains(err.Error(), "synchronization failed") || !strings.Contains(err.Error(), "rollback also failed") {
 		t.Fatalf("Commit() error = %v", err)
 	}
@@ -348,7 +348,7 @@ func TestCommitReportsConfigurationRestoredAfterProjectionFailure(t *testing.T) 
 			t.Fatal(err)
 		}
 	}}
-	err := (Synchronizer{Registry: builtinClients,
+	err := (Synchronizer{Stops: &Stops{}, Registry: builtinClients,
 		Config: store, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
 	}).Commit(t.Context(), domain.NewConfig(clients.Admission()), testConfig(t, target), "change")
 	var recovery interface{ ConfigurationRestored() bool }
@@ -362,7 +362,7 @@ func TestCommitRejectsProjectionConflictBeforePersistence(t *testing.T) {
 	before := domain.NewConfig(clients.Admission())
 	after := testConfig(t, target)
 	store := &configStoreStub{}
-	err := (Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}).Commit(t.Context(), before, after, "route")
+	err := (Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}).Commit(t.Context(), before, after, "route")
 	if err == nil || store.commits != 0 || store.restores != 0 || strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("preflight must reject without writes or compensation: commits=%d restores=%d error=%v", store.commits, store.restores, err)
 	}
@@ -384,7 +384,7 @@ func TestCommitProjectionPreservesConfigurationWhenPreflightFails(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target)}
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target)}
 	err = syncer.CommitProjection(context.Background(), before, after, "sync")
 	if _, refused := errors.AsType[*PreflightError](err); !refused || strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("a refusal before any write must be one, and claim no rollback: %v", err)
@@ -434,7 +434,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	if err := credentials.Set("gateway", accountToken); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials, Host: hostAt(dir), AIGWExecutable: aigwExecutable}
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Secrets: credentials, Host: hostAt(dir), AIGWExecutable: aigwExecutable}
 	if err := syncer.Commit(t.Context(), before, after, "enable Claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -502,7 +502,7 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Host: hostAt(dir), AIGWExecutable: "/usr/local/bin/aigw"}
+	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Host: hostAt(dir), AIGWExecutable: "/usr/local/bin/aigw"}
 	err := syncer.Commit(context.Background(), before, after, "enable Claude")
 	if _, refused := errors.AsType[*PreflightError](err); !refused || strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("Commit() error = %v, want a refusal before any write", err)
