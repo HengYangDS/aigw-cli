@@ -25,6 +25,7 @@ type changedWindow struct {
 // name each model whose window changes with the window before and after; a
 // second apply of the file names none.
 func TestSetupFromNamesEveryWindowThatTheTeamFileChanges(t *testing.T) {
+	t.Parallel()
 	app, out := windowApp(t)
 	team := writeConfigurationManifest(t, exportedTeamFile(t, app, out))
 	declare := func() {

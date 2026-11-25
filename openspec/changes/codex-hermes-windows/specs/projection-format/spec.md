@@ -28,6 +28,14 @@ them. For each Codex target, `aigw check codex` SHALL report the window that Cod
 - **THEN** a check of its own SHALL pass and report that entry's context window
 - **AND** it SHALL name the target as the other local checks of that target do.
 
+#### Scenario: A check finds a window other than the declared one
+
+- **GIVEN** the table that AIGW wrote for a Codex target holds an entry for the selected model whose
+  `context_window` or `max_context_window` is not the model's declared context window
+- **WHEN** `aigw check codex` runs
+- **THEN** the check of its own SHALL fail and report both fields as the table carries them beside the declared window
+- **AND** its repair SHALL be `aigw sync`, which writes the table again.
+
 #### Scenario: The client's table does not hold the model's family
 
 - **WHEN** the selected model's family is not in the client's bundled table

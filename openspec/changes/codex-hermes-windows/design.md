@@ -43,7 +43,7 @@ full window.
   window is byte for byte what the previous release writes and reads. Only a configuration that uses the field is
   refused by a release that does not define it, by the field's name and line, and the rollback admission already
   stops a program rollback over such a configuration with the configuration untouched. A team file or an export is
-  read the same way: one that declares a window stays version 8, so 0.7.0 to 0.9.0 refuse it by the field's name and
+  read the same way: one that declares a window stays version 8, so 0.7.0 to 0.10.0 refuse it by the field's name and
   line rather than by the version refusal, which the CHANGELOG and the team rollout guide state as a breaking change.
 - **Applies to:** `modelDocument` in `internal/store`, and a store test that a model without a window encodes no
   such key.
@@ -102,12 +102,12 @@ full window.
   release acceptance rolls back with these written. A mapping's digest does not see the order of its keys, and the
   record cannot hold an order that the previous release does not read, so the projection compares the order of an
   entry's models itself, against the order of the configuration before the command, which is the order that AIGW
-  wrote: a reorder in Hermes's file is refused as an outside edit, as 0.9.0 refused a reordered list, and a reorder of
+  wrote: a reorder in Hermes's file is refused as an outside edit, as 0.10.0 refused a reordered list, and a reorder of
   the configuration is written. Provider entries keep their earlier behavior: a changed order is written.
 
 ### The shipped team file lowers a window only on a documented number
 
-- **Rests on:** each vendor's own page, fetched on 2026-11-22: seven families of the file document a window below
+- **Rests on:** each vendor's own page, fetched on 2026-11-22: six families of the file document a window below
   1,000,000 (128,000 to 512,000), and one retired family, MiniMax M2.5, has no vendor page left, so its number is
   Hermes's own table's, which the delta allows where no vendor document remains.
 - **Considered:** the lower of window and largest input for families whose largest input is just under 1,000,000;
@@ -133,6 +133,7 @@ full window.
 - Codex's window fields are client metadata that a Codex release may rename → the catalog projection already
   refuses a table that it cannot parse and falls back to Codex's own; a test fails when the two fields are absent
   from the bundled table.
+- Hermes's list of what AIGW wrote is empty when the catalog of the configuration before the command cannot be built, and the reorder refusal then does not apply → a configuration is validated before it is saved or planned (`validateTransition`), and a model resolves on every protocol that its provider serves and the client admits, so that catalog cannot fail on a valid configuration; the refusal itself is tested through synchronization, the planned projection and the inspection.
 - The owner's installed configuration declares no window, so Hermes runs the seven families at 1,000,000 until the
   shipped team file is applied again.
 

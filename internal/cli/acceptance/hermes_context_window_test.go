@@ -37,12 +37,73 @@ func hermesWindows(t *testing.T, target, entry string) map[string]int {
 	return windows
 }
 
+// A model chosen in Hermes, then an edit of a window: the command works from
+// the configuration that follows the choice, so the window lands under the
+// chosen model and Hermes keeps its own selection.
+func TestModelEditAfterAModelChosenInHermesKeepsTheChoice(t *testing.T) {
+	t.Parallel()
+	app, output, _, target := shippedHermesApp(t)
+	const entry = "aigw-dmxapi-anthropic"
+	// The chosen model is the first model, by ID, that the entry lists.
+	chosen := ""
+	for id := range hermesWindows(t, target, entry) {
+		if chosen == "" || id < chosen {
+			chosen = id
+		}
+	}
+	if chosen == "" {
+		t.Fatalf("Hermes' entry %s lists no model", entry)
+	}
+	hermesNativeSelection(t, target, entry, chosen, nil)
+	output.Reset()
+	if err := cli.Execute(app, []string{"model", "edit", "dmxapi/" + chosen, "--context-window", "512000"}); err != nil {
+		t.Fatalf("model edit after a model chosen in Hermes: %v\n%s", err, output)
+	}
+	if provider, model := hermesProjectedSelection(t, target); provider != entry || model != chosen {
+		t.Fatalf("the edit replaced the model chosen in Hermes: %s %s", provider, model)
+	}
+	if got := hermesWindows(t, target, entry)[chosen]; got != 512000 {
+		t.Fatalf("Hermes' window for the chosen model = %d, want 512000", got)
+	}
+	cfg, err := app.Config.Load()
+	if err != nil || cfg.SelectedModel(hermes.ID) != domain.NewModelRef("dmxapi", chosen) {
+		t.Fatalf("Hermes binding after the edit: %#v, %v", cfg.Clients, err)
+	}
+	output.Reset()
+	if err := cli.Execute(app, []string{"sync", "--dry-run", "--json"}); err != nil {
+		t.Fatalf("sync --dry-run --json after the edit: %v\n%s", err, output)
+	}
+	var preview struct {
+		Files []struct {
+			Client string `json:"client"`
+			Action string `json:"action"`
+		} `json:"client_files"`
+	}
+	if err := json.Unmarshal(output.Bytes(), &preview); err != nil {
+		t.Fatalf("the preview: %v\n%s", err, output)
+	}
+	planned := 0
+	for _, file := range preview.Files {
+		if file.Client != hermes.ID {
+			continue
+		}
+		planned++
+		if file.Action != "unchanged" {
+			t.Fatalf("the preview after the edit plans %s for Hermes' file", file.Action)
+		}
+	}
+	if planned != 1 {
+		t.Fatalf("the preview names %d files of Hermes, want one:\n%s", planned, output)
+	}
+}
+
 // Scenario "The declared window changes" of the requirement "Hermes runs each
 // model at its declared context window": `aigw model edit --context-window`
 // writes the new number under the model's ID in the file of an enabled Hermes,
 // for the selected model and for another model that the entry lists, and the
 // preview of a synchronization then plans no change.
 func TestModelEditWritesTheWindowIntoHermesFile(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "hermes", "config.yaml")
 	executable := executableFixture(t, "hermes")

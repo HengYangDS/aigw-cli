@@ -89,12 +89,17 @@ func carried(name string, tokens int) string {
 // windowReaches reports whether a changed context window of the selected model
 // can change a file of Codex's at one of targets. It can where the table that
 // AIGW wrote for a target describes the model, by its ID or by its family, and
-// it is taken to where that table cannot be read; a table that describes the
+// it is taken to where that table cannot be read, unless AIGW writes no table for
+// the target (see tableLeftOut); a table that describes the
 // model by neither carries no window for it.
 func windowReaches(targets []string, runtime domain.Runtime) bool {
 	return slices.ContainsFunc(targets, func(target string) bool {
 		table, owned := ownedCatalog(target)
-		return !owned || table.DescribedBy(runtime.UpstreamModel, runtime.FamilyID) != ""
+		if !owned {
+			// Where AIGW writes no table for the target, no window reaches it.
+			return tableLeftOut(target, runtime) == ""
+		}
+		return table.DescribedBy(runtime.UpstreamModel, runtime.FamilyID) != ""
 	})
 }
 

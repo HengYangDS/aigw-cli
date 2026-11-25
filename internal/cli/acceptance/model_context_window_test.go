@@ -141,6 +141,7 @@ func exportedTeamFile(t *testing.T, app *cli.App, out *bytes.Buffer) string {
 // Scenario "A model declares no window": the reports give it the default,
 // and neither aigw.toml nor `aigw config export` holds a window for it.
 func TestAModelThatDeclaresNoWindowHasTheDefault(t *testing.T) {
+	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, "claude", "plain")
@@ -169,6 +170,7 @@ func TestAModelThatDeclaresNoWindowHasTheDefault(t *testing.T) {
 // beside it keeps the default, and human output of the list shows the window
 // that differs.
 func TestATeamFileDeclaresALowerWindow(t *testing.T) {
+	t.Parallel()
 	app, out := windowApp(t)
 	if got := declaredWindow(t, app, "team/small"); got != 256000 {
 		t.Fatalf("the configuration declares %d for team/small, want 256000", got)
@@ -197,6 +199,7 @@ func TestATeamFileDeclaresALowerWindow(t *testing.T) {
 // declares a window, another removes the declaration, and an addition
 // declares one, each in the configuration, in its own document and in text.
 func TestAnOperatorSetsAWindowAndReturnsToTheDefault(t *testing.T) {
+	t.Parallel()
 	app, out := windowApp(t)
 	edited := runWindowJSON(t, app, out, "model", "edit", "team/large", "--context-window", "512000", "--json")
 	if edited.ContextWindow == nil || *edited.ContextWindow != 512000 || declaredWindow(t, app, "team/large") != 512000 {
@@ -252,6 +255,7 @@ func requireNoDeclaredWindow(t *testing.T, app *cli.App, out *bytes.Buffer) {
 // is and removes another model's declaration, an addition at the default
 // declares none, and each command's own output still shows the window.
 func TestACommandThatSetsTheDefaultWindowDeclaresNone(t *testing.T) {
+	t.Parallel()
 	app, out := windowApp(t)
 	window := strconv.Itoa(domain.DefaultContextWindow)
 	before := readFile(t, app.Config.Path())
@@ -279,6 +283,7 @@ func TestACommandThatSetsTheDefaultWindowDeclaresNone(t *testing.T) {
 // default, and an aigw.toml that holds it, give the model no declaration, and
 // the next write of the configuration holds no window for it.
 func TestAFileThatHoldsTheDefaultWindowDeclaresNone(t *testing.T) {
+	t.Parallel()
 	window := strconv.Itoa(domain.DefaultContextWindow)
 	app, out, _, _, _ := testApp(t, "")
 	if err := cli.Execute(app, []string{"setup", "--from", writeConfigurationManifest(t, fmt.Sprintf(windowTeamFile, window))}); err != nil {
@@ -316,6 +321,7 @@ func windowBounds(value string) string {
 // number names both bounds, and the configuration and the file of the client
 // that uses the model stay as they were.
 func TestAWindowThatIsNotAWholeNumberWithinTheBoundsIsRefused(t *testing.T) {
+	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
@@ -401,6 +407,7 @@ func TestAWindowThatIsNotAWholeNumberWithinTheBoundsIsRefused(t *testing.T) {
 // With only one of the two flags, `aigw model edit` has an edit to make, and
 // without any flag its refusal names both.
 func TestModelEditNamesItsContextWindowFlags(t *testing.T) {
+	t.Parallel()
 	app, out := windowApp(t)
 	out.Reset()
 	if err := cli.Execute(app, []string{"model", "edit", "team/small"}); err == nil ||

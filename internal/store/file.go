@@ -262,7 +262,7 @@ func newDocument(cfg domain.Config) document {
 			declared := modelDocument{
 				ID: model.ID, Family: model.Family, Label: model.Label, Protocols: protocols, Deprecated: model.Deprecated,
 			}
-			if window := model.Window(); window != domain.DefaultContextWindow {
+			if window := domain.DeclaredContextWindow(model.Window()); window != 0 {
 				declared.ContextWindow = &window
 			}
 			entry.Models = append(entry.Models, declared)

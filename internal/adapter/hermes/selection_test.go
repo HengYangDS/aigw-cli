@@ -91,6 +91,13 @@ func TestObserveSelectionReportsOnlyAProvedNativeChoice(t *testing.T) {
 			if err != nil || !changed || selection != (Selection{Provider: "other", Model: "other-model"}) {
 				t.Fatalf("native choice = %+v, %v, %v", selection, changed, err)
 			}
+			// The empty ID is the value of every node that is not a scalar.
+			for _, unlisted := range []string{"unlisted-model", ""} {
+				foreign := projectedSelectionIn(t, desired, shape.rewrite, "other", unlisted)
+				if _, _, err := ObserveSelection(foreign); err == nil {
+					t.Fatalf("the model %q outside the projected catalog was observed as a choice", unlisted)
+				}
+			}
 			if err := os.WriteFile(chosen+adapter.StateSuffix, []byte("{}\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}

@@ -201,7 +201,7 @@ A member on 0.6.1 or earlier cannot read a version 8 team file: that release
 refuses it as an unsupported manifest version, so everyone upgrades first. A
 team file or an `aigw config export` in which a model declares
 `context_window`, as the shipped file does, also needs the release that
-introduced the field or later. It is still version 8, and 0.9.0 refuses it with
+introduced the field or later. It is still version 8, and 0.10.0 refuses it with
 "schema 8 does not define the field providers.models.context_window". Then
 each member:
 

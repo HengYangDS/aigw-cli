@@ -85,7 +85,8 @@ Mercury 2.5; both leave.
 AIGW tells Hermes each listed model's context window and Codex the selected model's. A model that declares none has
 1,000,000 tokens; the team file declares a lower number for a family whose vendor documents one, and for a retired
 family whose vendor page is gone, on the named source below. Each vendor's own page was fetched on November 22 for
-every family of the file. The numbers of Baidu and xAI were read as raw page text; those of Cohere, Ant Ling, Mistral
+every family that the file then held; Gemini 4 Neon, Ling 3.2 Flash and Muse Spark 1.3 joined it on
+November 23, and their vendors' pages were not read. The numbers of Baidu and xAI were read as raw page text; those of Cohere, Ant Ling, Mistral
 and Upstage were relayed by the fetch tool's summarising model, one step further from the page. Where a
 page gives a rounded figure such as 256k, the file declares the
 decimal reading, the lower of the two, so a declared window is never above the documented one. MiniMax retired M2.5 on
@@ -107,7 +108,7 @@ is not established, and no session near any of these limits was run. Raw results
 ¹ The page names no `cohere-command-a`; the file's ID is matched to `command-a-03-2025` by inference. If the provider
 serves another Command A model under that ID, its documented window may be 128k.
 
-Every other family of the file documents 1,000,000 tokens or more, or "1M" without a figure, and declares nothing.
+Every other family that November 22 covered documents 1,000,000 tokens or more, or "1M" without a figure, and declares nothing.
 One of them rests on a deployment: NVIDIA's hosted catalog gives Nemotron 3 Ultra 1,048,576 tokens, and its
 self-hosting guide a native 262,144 that a longer window must be configured over, so the window that a provider
 serves depends on how it deployed the model.

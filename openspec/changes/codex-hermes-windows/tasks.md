@@ -1,7 +1,7 @@
 ## 1. The declaration
 
 - [x] 1.1 Give a model an optional `context_window` with one default constant of 1,000,000 in the domain, carry it
-      into the resolved runtime, and refuse a value that is not above zero. Done when domain tests cover a model
+      into the resolved runtime, and refuse a value outside 64,000 to 100,000,000 tokens. Done when domain tests cover a model
       without a declaration, with one, and an invalid one.
 - [x] 1.2 Store the field in schema 8 only when declared, in `aigw.toml`, the team file and `aigw config export`.
       Done when a store test shows that a model without a window encodes no such key, that a declared one round
