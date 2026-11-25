@@ -151,7 +151,7 @@ func codexAdoptionFixture(t *testing.T, count int) (domain.Config, []string) {
 		targets = append(targets, target)
 	}
 	cfg.SetSelectedModel(ID, domain.NewModelRef("gateway", "gpt-sol"), "")
-	cfg.SetClientActivation(ID, true, "/opt/codex", targets)
+	cfg.SetClientActivation(ID, true, runnableProgram(t), targets)
 	cfg.Normalize()
 	runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {

@@ -45,12 +45,14 @@ var removeCatalogProbe = robustio.RemoveAll
 
 // codexCatalogPlan is the catalog decision for one target: the path the
 // configuration should reference, the bytes AIGW should own, the client identity
-// the bytes came from, and the ownership state recorded in the sidecar.
+// the bytes came from and the configured path of that program, and the
+// ownership state recorded in the sidecar.
 type codexCatalogPlan struct {
-	path   string
-	data   []byte
-	client ExecutableIdentity
-	state  string
+	path    string
+	data    []byte
+	client  ExecutableIdentity
+	program string
+	state   string
 }
 
 func codexCatalogPath(configPath string) string { return configPath + ".aigw-model-catalog.json" }
@@ -230,7 +232,7 @@ func codexCatalogProjection(target TargetRef, selected domain.Runtime, base stri
 			// Codex to query provider-specific /models.
 			data = bundled
 		}
-		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, state: catalogStateProjected}
+		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, program: target.Executable, state: catalogStateProjected}
 	}
 	// Regeneration failed. A previous copy is reusable only while it still
 	// describes the installed build: after an upgrade the old snapshot would
@@ -248,14 +250,14 @@ func codexCatalogProjection(target TargetRef, selected domain.Runtime, base stri
 				data = windowed
 			}
 		}
-		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: recorded, state: catalogStateProjected}
+		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: recorded, program: target.Executable, state: catalogStateProjected}
 	}
 	if state.CatalogHash == "" && state.CatalogState == "" {
 		// AIGW never owned a catalog here, so nothing was lost and there is
 		// nothing to report; the client keeps the behavior it already had.
 		return codexCatalogPlan{}
 	}
-	return codexCatalogPlan{client: recorded, state: catalogStateStale}
+	return codexCatalogPlan{client: recorded, program: state.CatalogClientPath, state: catalogStateStale}
 }
 
 // codexCatalogDesiredSnapshot converts a catalog decision into the desired file
@@ -286,6 +288,7 @@ func codexCatalogDesiredSnapshot(plan codexCatalogPlan, before platform.FileSnap
 
 func applyCodexCatalogState(state *codexState, plan codexCatalogPlan) {
 	state.CatalogState = plan.state
+	state.CatalogClientPath = plan.program
 	state.CatalogClientVersion = plan.client.Version
 	state.CatalogClientSHA256 = plan.client.SHA256
 	state.CatalogHash = ""

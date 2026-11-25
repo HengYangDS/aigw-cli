@@ -80,6 +80,32 @@ signing, and GA status remain separate evidence.
   `-context-window`, proves that the entry which Codex renders for the model
   carries that window, and also verifies a model that is itself an entry of
   Codex's table.
+- **Breaking:** AIGW never replaces the executable that `aigw.toml` names for
+  a client. When it is gone, `aigw sync` no longer switches to another one
+  that it finds, and no longer withdraws Codex's model table and reports
+  success: it leaves that client's files, Codex's model table and AIGW's
+  record of them as they are, synchronizes the other clients, and exits 1
+  with the fix `aigw client edit <client> --executable <path>`, in JSON as
+  `next_detail`; its preview fails the same way. `aigw check` and
+  `aigw status` give that fix for Codex, Claude Code, Claude Desktop and
+  Hermes, where they advised `aigw sync`. `aigw client list` shows the
+  configured path as missing, and `installed` false in JSON, where it showed
+  another executable or "Not installed". A client without a configured
+  executable still takes the one that discovery finds.
+- AIGW's record of Codex's model table names the executable that produced
+  it, beside its version and digest. `aigw check --depth local` compares that
+  executable with the configured one by path, by the SHA-256 of its file and
+  by the version that Codex's package manifest, `codex-package.json`,
+  declares, without running it, and fails with the fix `aigw sync` on any
+  difference. An executable without a readable manifest is compared by path
+  and digest only. A record that an earlier release wrote names no
+  executable, so the first check after the upgrade asks for one `aigw sync`.
+- `aigw check` names a stale Codex model table, and a table that another
+  executable produced, as such, where it said that Codex's file does not
+  match the selected model.
+- The terminal experience guide states what a dry run runs: read-only probes
+  of a client's executable, such as Codex's `--version` and
+  `debug models --bundled`, in a temporary directory of its own.
 
 ### Removed
 

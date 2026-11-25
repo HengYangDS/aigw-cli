@@ -32,7 +32,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, client := range []string{claude.ID, codex.ID} {
-		cfg.SetClientActivation(client, true, "/opt/"+client, nil)
+		cfg.SetClientActivation(client, true, fakeProgram("/opt/"+client), nil)
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -92,7 +92,7 @@ func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.SetClientActivation(claude.ID, true, "", nil)
-	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{"/opt/codex/config.toml"})
+	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{"/opt/codex/config.toml"})
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -417,7 +417,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
 	codexBinding := cfg.Clients[codex.ID]
 	codexBinding.Enabled = true
-	codexBinding.Executable = "/opt/codex"
+	codexBinding.Executable = fakeProgram("/opt/codex")
 	codexBinding.ModelProvider = "amazon-bedrock"
 	codexBinding.Authentication = domain.AuthenticationClientNative
 	cfg.Clients[codex.ID] = codexBinding
@@ -487,7 +487,7 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(codex.ID, true, "codex", nil)
+	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

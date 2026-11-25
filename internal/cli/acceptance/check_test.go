@@ -102,8 +102,8 @@ func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T)
 	}
 
 	err := cli.Execute(app, []string{"check"})
-	if err == nil || !strings.Contains(out.String(), "Claude executable is unavailable") || !strings.Contains(out.String(), "aigw sync") {
-		t.Fatalf("check did not block on an unavailable Claude executable; err=%v output=%s", err, out.String())
+	if err == nil || !strings.Contains(out.String(), "Claude Code executable is missing") || !strings.Contains(out.String(), "Fix: aigw client edit claude --executable <path>") {
+		t.Fatalf("check did not block on a missing Claude executable; err=%v output=%s", err, out.String())
 	}
 }
 
@@ -328,7 +328,7 @@ func TestCheckProbesEveryEnabledClientModelAndIgnoresUnselectedModel(t *testing.
 	}
 	cfg.Clients = map[string]domain.ClientBinding{
 		claude.ID: {Model: domain.NewModelRef("claude-account", "claude-test"), Enabled: true, Executable: executableFixture(t, "claude")},
-		codex.ID:  {Model: domain.NewModelRef("codex-account", "gpt-test"), Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}},
+		codex.ID:  {Model: domain.NewModelRef("codex-account", "gpt-test"), Enabled: true, Executable: fakeProgram("/opt/codex"), Targets: []string{codexTarget}},
 	}
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {

@@ -72,7 +72,7 @@ func TestModelEditReachesTheFilesOfTheClientThatUsesIt(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt"), "")
-	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
+	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -76,6 +76,10 @@ exec aigw provider edit team --endpoint responses=$UPSTREAM/v1
 exec aigw model edit team/team-model --protocol anthropic --protocol responses
 exec aigw use codex team/team-model
 
+# The script codex stands for Codex's executable, which the edits below name
+# with Codex's configuration file.
+chmod 0755 codex
+
 # Previews write nothing below the private home.
 snapshot $HOME edit-before.txt
 exec aigw client edit codex --via http://127.0.0.1:8792/v1 --dry-run --json
@@ -125,7 +129,7 @@ stdout '"targets": \[\n\s+"[^"]+config\.toml"\n\s+\]'
 stdout '"file": "~/.codex/config.toml",\n\s+"action": "initial_project"'
 grep 'AIGW managed provider' $HOME/.codex/config.toml
 exec aigw client list
-stdout 'Codex +team/team-model · Enabled · Not installed'
+stdout 'Codex +team/team-model · Enabled · .+codex\n'
 
 # Codex moves to a configuration file in its own folder, which is then
 # deleted, file and record together, leaving nothing to withdraw. AIGW does
@@ -503,5 +507,8 @@ Next
   "client_files": [],
   "next_detail": "Install Codex if needed, then run `aigw sync`"
 }
+-- codex --
+#!/bin/sh
+exit 1
 -- codex-config.toml --
 model = "other"

@@ -410,7 +410,7 @@ func TestUseRollsBackModelWhenAdapterSyncFails(t *testing.T) {
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-one")
 	addProviderModel(&cfg, "two", "Two", domain.Endpoints{Responses: "https://two.test/v1"}, codex.ID, "gpt-two")
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-one"), "")
-	cfg.SetClientActivation(codex.ID, true, "/missing/codex", []string{target})
+	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func TestUseCodexModelOnSameProviderDoesNotRebindCredentials(t *testing.T) {
 	cfg.Models[domain.NewModelRef("dmx", "gpt-5.6-sol")] = qualifiedModel("Sol", "dmx", "gpt-5.6-sol", domain.ProtocolResponses)
 	cfg.Models[domain.NewModelRef("dmx", "gpt-5.6-terra")] = qualifiedModel("Terra", "dmx", "gpt-5.6-terra", domain.ProtocolResponses)
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-5.6-sol"), "")
-	cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
+	cfg.SetClientActivation(codex.ID, true, fakeProgram("/usr/local/bin/codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

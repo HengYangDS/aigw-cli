@@ -232,7 +232,9 @@ func (registry Registry) Converge(deps Dependencies, before domain.Config, disco
 }
 
 // Plan prepares requested adapters before any projection is written. An empty
-// client list selects every admitted adapter.
+// client list selects every admitted adapter. An enabled client whose
+// configured program is missing is refused: its files wait for a program,
+// and nothing that it would produce without one is planned.
 func (registry Registry) Plan(deps Dependencies, before, after domain.Config, clientIDs ...string) ([]ProjectionPlan, error) {
 	adapters, err := registry.selectAdapters(clientIDs)
 	if err != nil {
@@ -240,6 +242,9 @@ func (registry Registry) Plan(deps Dependencies, before, after domain.Config, cl
 	}
 	plans := make([]ProjectionPlan, 0)
 	for _, adapter := range adapters {
+		if missing := stopped(after, adapter.Spec().ID); missing != nil {
+			return nil, missing
+		}
 		adapterPlans, err := planClient(deps, adapter, before, after)
 		if err != nil {
 			return nil, namedTarget(adapter.Spec(), deps.Host.Home, unfollowed(deps, before, adapter, err))
@@ -324,10 +329,15 @@ func (registry Registry) ChangedClients(before, after domain.Config) []string {
 
 // Inspect observes one client without mutating it. Unknown clients are reported
 // as an unavailable status so read-only callers need no parallel error path.
+// An enabled client whose configured program is missing is reported as that,
+// with its one fix, before its files are inspected.
 func (registry Registry) Inspect(ctx context.Context, deps Dependencies, cfg domain.Config, clientID string, runtime domain.Runtime) Status {
 	adapter, ok := registry.byID[clientID]
 	if !ok {
 		return Status{Issue: fmt.Sprintf("client %q has no admitted operational adapter", clientID), RepairAction: "aigw sync"}
+	}
+	if missing := stopped(cfg, clientID); missing != nil {
+		return Status{Issue: missing.Error(), RepairAction: missing.NextAction()}
 	}
 	status := adapter.Inspect(ctx, deps, cfg, runtime)
 	if status.Ready {

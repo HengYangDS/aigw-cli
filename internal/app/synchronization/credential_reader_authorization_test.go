@@ -138,7 +138,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 			}
 			selected.SetSelectedModel(claude.ID, domain.NewModelRef("blocked", "claude-test"), "")
-			selected.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+			selected.SetClientActivation(claude.ID, true, clientProgram, nil)
 			if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), selected, "codex", codex.ID); err != nil {
 				t.Fatalf("unrelated Claude Token blocked a Codex-only projection: %v", err)
 			}

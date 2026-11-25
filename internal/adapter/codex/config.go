@@ -4,6 +4,7 @@
 package codex
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,6 +42,7 @@ type codexState struct {
 	ProjectedSchedulerHash       string          `json:"projected_scheduler_hash,omitempty"`
 	CatalogState                 string          `json:"catalog_state,omitempty"`
 	CatalogHash                  string          `json:"catalog_hash,omitempty"`
+	CatalogClientPath            string          `json:"catalog_client_path,omitempty"`
 	CatalogClientVersion         string          `json:"catalog_client_version,omitempty"`
 	CatalogClientSHA256          string          `json:"catalog_client_sha256,omitempty"`
 	ProjectedProvider            string          `json:"projected_provider,omitempty"`
@@ -193,18 +195,32 @@ func validateConfig(path string, runtime domain.Runtime, shown string) error {
 	return validateCodexCatalog(path, text, state)
 }
 
+// tableError is a problem of the model table that AIGW keeps for a Codex
+// file, which a check names as it is rather than as a file that does not match
+// the selected model.
+type tableError struct{ problem string }
+
+func (e *tableError) Error() string { return e.problem }
+
 // validateCodexCatalog verifies the model catalog AIGW owns for one target. A
 // withdrawn catalog is reported rather than passed over: routing still works, so
 // nothing else would notice that the client has silently returned to fallback
 // metadata for a provider-prefixed model.
 func validateCodexCatalog(path, text string, state codexState) error {
 	if state.CatalogState == catalogStateStale {
-		return fmt.Errorf("Codex model catalog is stale: it was copied from Codex %q and no longer matches the installed client; run aigw sync", state.CatalogClientVersion)
+		producer := "an earlier Codex"
+		if state.CatalogClientVersion != "" {
+			producer = state.CatalogClientVersion
+		}
+		return &tableError{problem: "Codex's model table is stale: the configured executable could not produce one at the last sync, so AIGW withdrew the table that " + producer + " produced"}
 	}
 	if err := validateCodexCatalogReference(path, text, state); err != nil {
 		return err
 	}
 	_, err := recordedCatalog(path, state)
+	if _, conflict := errors.AsType[*adapter.ConflictError](err); err != nil && !conflict {
+		return &tableError{problem: err.Error()}
+	}
 	return err
 }
 

@@ -383,6 +383,13 @@ aigw check
 aigw check <client> --depth client
 ```
 
+AIGW keeps the executable that it adopted for a client, or that you named with
+`aigw client edit <client> --executable`, and never swaps in another. When that
+file goes, as an editor extension's versioned folder does after an upgrade,
+`aigw sync` leaves that client's files as they are, synchronizes the other
+clients and exits 1. `aigw client list` shows the path that AIGW kept; name the
+client's executable again with `aigw client edit <client> --executable <path>`.
+
 `aigw status` observes selections and client-file readiness without client
 execution or Token reads. `aigw check` adds one bounded inference request per
 checked client by default; `--depth endpoint` keeps the model-free

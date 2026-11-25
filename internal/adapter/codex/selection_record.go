@@ -85,7 +85,7 @@ func followedRecords(deps adapter.Dependencies, followed domain.Config) ([]codex
 	if err != nil {
 		return nil, err
 	}
-	targets, err := targetRefs(discovered, binding.Targets, bindingExecutable(discovered, binding))
+	targets, err := targetRefs(discovered, binding.Targets, adapter.ClientProgram(binding, discovered, ID))
 	if err != nil {
 		return nil, err
 	}

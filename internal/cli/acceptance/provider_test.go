@@ -93,7 +93,7 @@ func TestProviderRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
-	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{t.TempDir()})
+	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{t.TempDir()})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -121,10 +121,10 @@ func TestProviderRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T
 			cfg := domain.NewConfig(clients.Admission())
 			addProviderModel(&cfg, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-test")
 			cfg.SetSelectedModel(codex.ID, domain.NewModelRef("one", "gpt-test"), "")
-			cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
+			cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
 			wantMessage := "a running client decides when that is"
 			if !hasTarget {
-				cfg.SetClientActivation(codex.ID, true, "/opt/codex", nil)
+				cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), nil)
 			}
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)

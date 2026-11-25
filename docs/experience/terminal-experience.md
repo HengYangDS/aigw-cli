@@ -108,12 +108,17 @@ stdout carries only the requested credential, never root-level diagnostics.
 
 ## Interaction
 
-| Context                            | Behavior                                                |
-| ---------------------------------- | ------------------------------------------------------- |
-| Interactive, missing arguments     | Prompt only for missing values                          |
-| Non-interactive, missing arguments | Fail immediately with an actionable message             |
-| `--dry-run`                        | No mutation lock, credential write, or client execution |
-| `--json`                           | Machine-readable output; execution behavior unchanged   |
+| Context                            | Behavior                                                                                        |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Interactive, missing arguments     | Prompt only for missing values                                                                  |
+| Non-interactive, missing arguments | Fail immediately with an actionable message                                                     |
+| `--dry-run`                        | No mutation lock, credential write or client session; read-only probes of a client's executable |
+| `--json`                           | Machine-readable output; execution behavior unchanged                                           |
+
+A dry run plans what the command would write. To plan Codex's model table it
+runs Codex's executable as a sync does, with `--version` and
+`debug models --bundled` only, in a temporary directory of its own that it
+removes; no session starts, and nothing in your Codex home changes.
 
 ## Troubleshooting journey
 

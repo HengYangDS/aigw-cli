@@ -46,7 +46,7 @@ func withClaudeOnGateway(cfg domain.Config) domain.Config {
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
-	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+	cfg.SetClientActivation(claude.ID, true, clientProgram, nil)
 	return cfg
 }
 

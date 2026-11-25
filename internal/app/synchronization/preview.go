@@ -142,11 +142,22 @@ func project(planner Synchronizer, before, after domain.Config, reconcile bool, 
 // client when none is named, when reconcile is set; and, at every transition,
 // AIGW's record alone of each other client whose record is behind the
 // selection that its files show (see recordsAlone). left names the clients whose
-// choice the transition did not save. It writes nothing, so a plan that is
-// refused is a PreflightError, for a command and for its preview alike.
+// choice the transition did not save. An enabled client whose configured
+// program is missing is stopped: nothing of it is planned, and the other
+// clients are planned as they would be without it. It writes nothing, so a
+// plan that is refused is a PreflightError, for a command and for its preview
+// alike.
 func planned(planner Synchronizer, before, after domain.Config, reconcile bool, clientIDs, left []string) (Projection, error) {
 	var projection Projection
-	if reconcile {
+	stopped := make([]string, 0)
+	for _, missing := range planner.registry().MissingPrograms(after) {
+		stopped = append(stopped, missing.Client())
+	}
+	if len(clientIDs) == 0 {
+		clientIDs = planner.ClientIDs()
+	}
+	clientIDs = slices.DeleteFunc(slices.Clone(clientIDs), func(client string) bool { return slices.Contains(stopped, client) })
+	if reconcile && len(clientIDs) > 0 {
 		ready, err := planner.credentialReadyClients(after, clientIDs...)
 		if err != nil {
 			return Projection{}, &PreflightError{Err: err}
@@ -157,7 +168,7 @@ func planned(planner Synchronizer, before, after domain.Config, reconcile bool, 
 			return Projection{}, &PreflightError{Err: err}
 		}
 	}
-	projection.Recorded = planner.recordsAlone(before, after, projection.Clients, left)
+	projection.Recorded = planner.recordsAlone(before, after, projection.Clients, slices.Concat(left, stopped))
 	if len(projection.Clients)+len(projection.Recorded)+len(projection.Withdrawn) == 0 {
 		return Projection{}, nil
 	}

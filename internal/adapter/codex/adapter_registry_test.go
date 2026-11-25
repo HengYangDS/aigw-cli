@@ -69,7 +69,9 @@ func TestCodexProjectionTreatsInvalidRuntimeAndTargetChangesAsChanged(t *testing
 	})
 }
 
-func TestCodexConvergenceRefusesAnUninspectableConfiguredExecutable(t *testing.T) {
+// A configured executable that cannot be inspected is kept as it is, as one
+// that is gone is: AIGW never replaces a configured executable.
+func TestCodexConvergenceKeepsAnUninspectableConfiguredExecutable(t *testing.T) {
 	cfg := codexConfiguration("/target")
 	cfg.SetSelectedModel(ID, domain.NewModelRef("gateway", "gpt-test"), "")
 	loop := filepath.Join(t.TempDir(), "loop")
@@ -78,8 +80,8 @@ func TestCodexConvergenceRefusesAnUninspectableConfiguredExecutable(t *testing.T
 	}
 	cfg.SetClientActivation(ID, true, loop, []string{"/target"})
 	discovered := discovery.Result{Executables: map[string]string{ID: "/replacement/codex"}}
-	if _, err := codexRegistry().Converge(adapter.Dependencies{}, cfg, discovered, ID); err == nil || !strings.Contains(err.Error(), "inspect configured codex executable") {
-		t.Fatalf("Converge(codex) error = %v", err)
+	if after, err := codexRegistry().Converge(adapter.Dependencies{}, cfg, discovered, ID); err != nil || after.Clients[ID].Executable != loop {
+		t.Fatalf("Converge(codex) = %q, %v", after.Clients[ID].Executable, err)
 	}
 }
 

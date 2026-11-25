@@ -374,7 +374,7 @@ func TestShippedTeamManifestMixedClientProjectionHasOneContinuation(t *testing.T
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{codex.ID: "/opt/codex"},
+		Executables: map[string]string{codex.ID: fakeProgram("/opt/codex")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			ConfigPath:  target,

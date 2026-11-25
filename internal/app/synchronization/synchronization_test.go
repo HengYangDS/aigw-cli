@@ -103,7 +103,7 @@ func testConfig(target string) domain.Config {
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
 	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = domain.Model{Label: "GPT", Provider: "gateway", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("gateway", "gpt-test"), "")
-	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
+	cfg.SetClientActivation(codex.ID, true, clientProgram, []string{target})
 	return cfg
 }
 
@@ -422,7 +422,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-team"), "")
 	after := before.Clone()
-	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+	after.SetClientActivation(claude.ID, true, clientProgram, nil)
 	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
@@ -496,7 +496,7 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-team"), "")
 	after := before.Clone()
-	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+	after.SetClientActivation(claude.ID, true, clientProgram, nil)
 	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)

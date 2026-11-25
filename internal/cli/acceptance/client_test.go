@@ -243,7 +243,7 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("team", "secret")
-	if err := cli.Execute(app, []string{"client", "enable", "codex", "--executable", "/opt/codex-real", "--target", target}); err != nil {
+	if err := cli.Execute(app, []string{"client", "enable", "codex", "--executable", fakeProgram("/opt/codex-real"), "--target", target}); err != nil {
 		t.Fatal(err)
 	}
 	if len(runner.plans) != 0 {

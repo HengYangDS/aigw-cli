@@ -25,7 +25,7 @@ func TestStatusReportsAnEmptyTokenAsDeferred(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Secrets = files
-	cfg.SetClientActivation(codex.ID, true, "codex", nil)
+	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

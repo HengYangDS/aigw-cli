@@ -148,7 +148,7 @@ func TestRollbackRefusedBeforeItWritesSaysThatNothingChanged(t *testing.T) {
 	verified := domain.NewConfig(clients.Admission())
 	stable := addProviderModel(&verified, "one", "One", domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt-stable")
 	verified.SetSelectedModel(codex.ID, stable, "")
-	verified.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
+	verified.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
 	if err := app.Config.Save(verified); err != nil {
 		t.Fatal(err)
 	}

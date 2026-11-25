@@ -93,7 +93,7 @@ func TestUsePreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	run.Discovery = staticDiscovery{result: discovery.Result{
-		Executables: map[string]string{codex.ID: filepath.Join(t.TempDir(), "codex")},
+		Executables: map[string]string{codex.ID: fakeProgram("/opt/codex")},
 		Surfaces: []discovery.Surface{{
 			ID:         string(codex.HomeDefault),
 			ConfigPath: target, AutoManaged: true,

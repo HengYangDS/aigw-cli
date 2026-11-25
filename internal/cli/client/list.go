@@ -3,6 +3,7 @@ package client
 import (
 	"strings"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
@@ -43,29 +44,19 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
-// describe reports one client as list does: the executable that synchronization
-// keeps for it, whether it is enabled, and its model.
+// describe reports one client as list does: the executable that the client
+// uses under the one rule of adapter.ClientProgram, whether it is there,
+// whether the client is enabled, and its model. A configured executable that
+// is gone is reported as it is configured, never replaced by a discovered one.
 func describe(cfg domain.Config, discovered discovery.Result, id string) clientItem {
 	binding := cfg.Clients[id]
-	item := clientItem{ID: id, Executable: installedExecutable(binding.Executable, discovered.Executable(id)), Enabled: binding.Enabled}
-	item.Installed = item.Executable != ""
+	item := clientItem{ID: id, Executable: adapter.ClientProgram(binding, discovered, id), Enabled: binding.Enabled}
+	item.Installed = item.Executable != "" && adapter.MissingProgram(cfg, id) == nil
 	// A loaded configuration is valid, so a selection names a model.
 	if model, selected := cfg.Models[cfg.SelectedModel(id)]; selected {
 		item.Model = model.Ref().String()
 	}
 	return item
-}
-
-// installedExecutable is the client's executable as synchronization keeps it:
-// the configured one while it is still there, otherwise the one that discovery
-// finds, and nothing when neither exists.
-func installedExecutable(configured, discovered string) string {
-	if configured != "" {
-		if available, err := discovery.ExecutableAvailable(configured); err == nil && available {
-			return configured
-		}
-	}
-	return discovered
 }
 
 func renderList(runtime invocation.Context, document listDocument) error {
@@ -84,6 +75,9 @@ func renderList(runtime invocation.Context, document listDocument) error {
 		installed := item.Executable
 		if !item.Installed {
 			installed = "Not installed"
+			if item.Executable != "" {
+				installed = "Missing " + item.Executable
+			}
 			if item.Enabled {
 				state = terminal.Warn
 			}

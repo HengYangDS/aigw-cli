@@ -55,9 +55,10 @@ type listDocument struct {
 	Clients []clientItem `json:"clients"`
 }
 
-// clientItem is one client as list reports it: whether it is installed and
-// where, whether it is enabled, and its model as provider/model, absent when
-// it selects none.
+// clientItem is one client as list reports it: whether its executable is
+// there and where, whether it is enabled, and its model as provider/model,
+// absent when it selects none. A configured executable that is gone keeps its
+// path, with installed false.
 type clientItem struct {
 	ID         string `json:"id"`
 	Installed  bool   `json:"installed"`

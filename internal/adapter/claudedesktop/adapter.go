@@ -64,7 +64,7 @@ func (claudeDesktopAdapter) Discover(source adapter.DiscoverySource) discovery.R
 }
 
 func (claudeDesktopAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
-	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID, false)
+	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID)
 	if err != nil || !ready {
 		return err
 	}
@@ -127,9 +127,10 @@ func (claudeDesktopAdapter) Inspect(ctx context.Context, deps adapter.Dependenci
 	if !binding.Enabled {
 		return adapter.Status{Issue: "Claude Desktop adapter is disabled", RepairAction: "aigw sync"}
 	}
-	available, err := discovery.ExecutableAvailable(binding.Executable)
-	if err != nil || !available {
-		return adapter.Status{Issue: "Claude Desktop executable is unavailable", RepairAction: "aigw sync"}
+	// A configured executable that is missing is the registry's to report,
+	// with its own fix, before the client's files are inspected.
+	if binding.Executable == "" {
+		return adapter.Status{Issue: "Claude Desktop executable is not configured", RepairAction: "aigw sync"}
 	}
 	if len(binding.Targets) != 1 {
 		return adapter.Status{Issue: "Claude Desktop configuration library is missing", RepairAction: "aigw sync"}

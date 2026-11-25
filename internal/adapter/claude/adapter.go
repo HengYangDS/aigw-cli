@@ -34,7 +34,7 @@ func (claudeAdapter) Discover(source adapter.DiscoverySource) discovery.Result {
 }
 
 func (claudeAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
-	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID, false)
+	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID)
 	if err != nil || !ready {
 		return err
 	}
@@ -104,13 +104,8 @@ func (claudeAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg d
 	if clientAdapter.Executable == "" {
 		return adapter.Status{Issue: "Claude executable is not configured", RepairAction: "aigw sync"}
 	}
-	ready, err := discovery.ExecutableAvailable(clientAdapter.Executable)
-	if err != nil {
-		return adapter.Status{Issue: "Cannot inspect Claude executable", RepairAction: "aigw sync"}
-	}
-	if !ready {
-		return adapter.Status{Issue: "Claude executable is unavailable", RepairAction: "aigw sync"}
-	}
+	// A configured executable that is missing is the registry's to report,
+	// with its own fix, before the client's files are inspected.
 	settings, err := SettingsPath(deps.Host)
 	if err != nil {
 		return adapter.Status{Issue: "Claude settings are not synchronized with the selected model", RepairAction: "aigw sync"}

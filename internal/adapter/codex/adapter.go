@@ -75,7 +75,7 @@ func (codexAdapter) ValidateTarget(discovered discovery.Result, path string) err
 }
 
 func (codexAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
-	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID, false)
+	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID)
 	if err != nil || !ready {
 		return err
 	}
@@ -203,13 +203,14 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 			return "", status.Issue, status.RepairAction, false
 		}
 	}
-	if _, err := adapter.CaptureTarget(codexRecordPath(target), true); err != nil {
+	record, err := adapter.CaptureTarget(codexRecordPath(target), true)
+	if err != nil {
 		if status, unreadable := adapter.UnreadableStatus(err, codexRecordPath(target), deps.Host.Home); unreadable {
 			return "", status.Issue, status.RepairAction, false
 		}
 	}
 	observed, readerErr := retainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
-	err := showsSelection(cfg, observed, target)
+	err = showsSelection(cfg, observed, target)
 	if refused, ok := errors.AsType[*adapter.ConflictError](err); ok {
 		// Synchronization refuses an outside edit, so advising it alone would
 		// send the operator back to the same refusal. A credential command
@@ -220,9 +221,15 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 	if readerErr != nil {
 		return issue, "Codex credential reader cannot be inspected", repair, false
 	}
+	table, tableProblem := errors.AsType[*tableError](err)
 	switch {
 	case err == nil, awaitsRecord(cfg, observed, target):
-		return issue, "", repair, false
+		// A file that shows the selection still holds a table of the program
+		// that produced it, which the configured one must be.
+		state, _ := codexStateForTarget(record)
+		return "", producerProblem(cfg.Clients[ID].Executable, state), repair, false
+	case tableProblem:
+		return "", table.Error(), repair, false
 	case errors.Is(err, os.ErrNotExist):
 		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, platform.ClassifyPath(target, platform.FileExpected, err)), false
 	default:
@@ -294,11 +301,11 @@ func reconciliationInputs(deps adapter.Dependencies, before, after domain.Config
 	if slices.Contains(deps.WithdrawOnly, ID) {
 		beforeTargets, afterTargets = platform.DroppedFiles(beforeTargets, afterTargets), nil
 	}
-	beforeRefs, err := targetRefs(discovered, beforeTargets, bindingExecutable(discovered, beforeBinding))
+	beforeRefs, err := targetRefs(discovered, beforeTargets, adapter.ClientProgram(beforeBinding, discovered, ID))
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
-	afterRefs, err := targetRefs(discovered, afterTargets, bindingExecutable(discovered, afterBinding))
+	afterRefs, err := targetRefs(discovered, afterTargets, adapter.ClientProgram(afterBinding, discovered, ID))
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
@@ -324,13 +331,6 @@ func discover(deps adapter.Dependencies) (discovery.Result, error) {
 		return discovery.Result{}, fmt.Errorf("codex surface discovery is unavailable")
 	}
 	return deps.Discovery.Discover(ID), nil
-}
-
-func bindingExecutable(discovered discovery.Result, binding domain.ClientBinding) string {
-	if binding.Executable != "" {
-		return binding.Executable
-	}
-	return discovered.Executable(ID)
 }
 
 func targetRefs(discovered discovery.Result, paths []string, executable string) ([]TargetRef, error) {

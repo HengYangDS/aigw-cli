@@ -197,7 +197,7 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	before.Models[domain.NewModelRef("gateway", "claude-team")] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-team", ID: "claude-team", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-team"), "")
 	after := before.Clone()
-	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+	after.SetClientActivation(claude.ID, true, clientProgram, nil)
 	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
@@ -229,7 +229,7 @@ func TestCommitProjectionPreservesClaudeModelAcrossHelperChange(t *testing.T) {
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Models[domain.NewModelRef("gateway", "claude-opus-5-5")] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-opus-5-5", ID: "claude-opus-5-5", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-opus-5-5"), "")
-	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+	cfg.SetClientActivation(claude.ID, true, clientProgram, nil)
 	syncer := Synchronizer{Registry: builtinClients,
 		Config:    store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission()),
 		Discovery: staticDiscovery{}, Host: hostAt(root),
@@ -280,7 +280,7 @@ func TestPlanReportsClaudePlanningFailures(t *testing.T) {
 	before.Models[domain.NewModelRef("gateway", "claude-team")] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-team", ID: "claude-team", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-team"), "")
 	after := before.Clone()
-	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+	after.SetClientActivation(claude.ID, true, clientProgram, nil)
 
 	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}}).PreviewProjection(before, after); err == nil || !strings.Contains(err.Error(), "settings path") {
 		t.Fatalf("missing settings path error = %v", err)
@@ -309,7 +309,7 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 			before.Providers["gateway"] = account
 			before.Models[domain.NewModelRef("gateway", "claude-original")] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-original", ID: "claude-original", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 			before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-original"), "")
-			before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+			before.SetClientActivation(claude.ID, true, clientProgram, nil)
 			configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
 			syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(targets[codex.ID]), Host: hostAt(root), AIGWExecutable: filepath.Join(root, "aigw")}
 			if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), before, "initial projection"); err != nil {

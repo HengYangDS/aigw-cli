@@ -34,16 +34,17 @@ func RawJSON(value any) json.RawMessage {
 }
 
 // ConvergeBinding is the start that every client adapter's Converge shares.
-// It resolves the client's selected Route, its enabled Client Binding and the
-// executable to keep, and checks that AIGW's credential store holds a Token of
-// the selected Account that AIGW can use when the Route reads it from there.
-// ready reports whether all of them are present; when it is false, the adapter
-// leaves the client's activation unchanged. A Token that the store cannot
-// observe is no Token that AIGW can use: the client is not ready, and the
-// store's failure is no error of the command. With requireRunnable, an
-// executable that is not runnable is not ready, and the credential store is
-// not read.
-func ConvergeBinding(deps Dependencies, cfg *domain.Config, discovered discovery.Result, clientID string, requireRunnable bool) (binding domain.ClientBinding, executable string, ready bool, err error) {
+// It resolves the client's selected Route, its enabled Client Binding and its
+// program under the one rule of ClientProgram, and checks that AIGW's
+// credential store holds a Token of the selected Account that AIGW can use
+// when the Route reads it from there. ready reports whether all of them are
+// present; when it is false, the adapter leaves the client's activation
+// unchanged. A configured program that is missing leaves the client unready
+// before the credential store is read: it stops the client (see
+// MissingProgram). A Token that the store cannot observe is no Token that
+// AIGW can use: the client is not ready, and the store's failure is no error
+// of the command.
+func ConvergeBinding(deps Dependencies, cfg *domain.Config, discovered discovery.Result, clientID string) (binding domain.ClientBinding, executable string, ready bool, err error) {
 	runtime, err := cfg.ResolveRuntime(clientID, domain.ModelRef{})
 	if _, unselected := errors.AsType[*domain.RuntimeBindingUnselectedError](err); unselected {
 		return domain.ClientBinding{}, "", false, nil
@@ -55,31 +56,12 @@ func ConvergeBinding(deps Dependencies, cfg *domain.Config, discovered discovery
 	if !configured || !binding.Enabled {
 		return domain.ClientBinding{}, "", false, nil
 	}
-	executable, err = resolveExecutable(clientID, binding.Executable, discovered.Executable(clientID))
-	if err != nil {
-		return domain.ClientBinding{}, "", false, err
-	}
-	if requireRunnable {
-		runnable, err := discovery.ExecutableAvailable(executable)
-		if err != nil || !runnable {
-			return domain.ClientBinding{}, "", false, err
-		}
+	executable = ClientProgram(binding, discovered, clientID)
+	if executable == "" || MissingProgram(*cfg, clientID) != nil {
+		return domain.ClientBinding{}, "", false, nil
 	}
 	available := !runtime.UsesAIGWCredentialStore() || secret.ObserveToken(deps.Secrets, runtime.ProviderID).Usable()
-	return binding, executable, executable != "" && available, nil
-}
-
-// resolveExecutable keeps a configured executable that is still available and
-// otherwise adopts the discovered one.
-func resolveExecutable(clientID, configured, discovered string) (string, error) {
-	available, err := discovery.ExecutableAvailable(configured)
-	if err != nil {
-		return "", fmt.Errorf("inspect configured %s executable: %w", clientID, err)
-	}
-	if available || discovered == "" {
-		return configured, nil
-	}
-	return discovered, nil
+	return binding, executable, available, nil
 }
 
 // RetainedDefaultReader returns the credential reader that a client's native

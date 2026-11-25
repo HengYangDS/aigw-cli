@@ -120,7 +120,7 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 	if err := run.Secrets.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
+	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
 	if err := run.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

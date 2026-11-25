@@ -330,7 +330,7 @@ func TestAWindowThatIsNotAWholeNumberWithinTheBoundsIsRefused(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "team", "Team", domain.Endpoints{Responses: "https://team.test/v1", Anthropic: "https://team.test"}, codex.ID, "small")
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("team", "small"), "")
-	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
+	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

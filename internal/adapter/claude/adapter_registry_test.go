@@ -57,12 +57,12 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 	if err := os.Symlink(loop, loop); err != nil {
 		t.Skipf("symbolic link unavailable: %v", err)
 	}
+	// A configured executable that cannot be inspected is kept as it is, as
+	// one that is gone is: AIGW never replaces a configured executable.
 	cfg.SetClientActivation(ID, true, loop, nil)
 	discovered := discovery.Result{Executables: map[string]string{ID: "/replacement/claude"}}
-	for _, clientID := range []string{ID} {
-		if _, err := claudeRegistry().Converge(adapter.Dependencies{}, cfg, discovered, clientID); err == nil || !strings.Contains(err.Error(), "inspect configured "+clientID+" executable") {
-			t.Fatalf("Converge(%q) error = %v", clientID, err)
-		}
+	if after, err := claudeRegistry().Converge(adapter.Dependencies{}, cfg, discovered, ID); err != nil || after.Clients[ID].Executable != loop {
+		t.Fatalf("an uninspectable configured executable = %q, %v", after.Clients[ID].Executable, err)
 	}
 }
 

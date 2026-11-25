@@ -73,10 +73,10 @@ func TestConvergenceLeavesAClientWithoutAUsableTokenAsItWas(t *testing.T) {
 		} {
 			t.Run(id+"/"+test.name, func(t *testing.T) {
 				cfg, deps, discovered := configuredClient(t, id)
-				// The configured executable is gone, so a client that is ready
-				// takes the one that discovery found.
+				// No executable is configured, so a client that is ready takes
+				// the one that discovery found.
 				binding := cfg.Clients[id]
-				binding.Executable = filepath.Join(t.TempDir(), "gone")
+				binding.Executable = ""
 				cfg.Clients[id] = binding
 				deps.Secrets = test.store
 				after, err := registry.Converge(deps, cfg, discovered, id)

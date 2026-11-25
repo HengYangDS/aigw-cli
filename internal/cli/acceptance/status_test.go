@@ -54,8 +54,8 @@ func TestStatusWarnsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "Claude executable is unavailable") || !strings.Contains(text, "aigw sync") {
-		t.Fatalf("status did not surface the unavailable Claude executable:\n%s", text)
+	if !strings.Contains(text, "Claude Code executable is missing") || !strings.Contains(text, "aigw client edit claude --executable <path>") {
+		t.Fatalf("status did not surface the missing Claude executable:\n%s", text)
 	}
 }
 
@@ -173,8 +173,8 @@ func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 	if err := cli.Execute(app, []string{"status"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Claude executable is unavailable") || !strings.Contains(out.String(), "aigw sync") {
-		t.Fatalf("status did not surface the unavailable Claude executable:\n%s", out.String())
+	if !strings.Contains(out.String(), "Claude Code executable is missing") || !strings.Contains(out.String(), "aigw client edit claude --executable <path>") {
+		t.Fatalf("status did not surface the missing Claude executable:\n%s", out.String())
 	}
 }
 

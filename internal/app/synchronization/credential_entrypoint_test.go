@@ -233,7 +233,7 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	otherActive.Providers["gateway"] = account
 	otherActive.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{Provider: "gateway", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	otherActive.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
-	otherActive.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+	otherActive.SetClientActivation(claude.ID, true, clientProgram, nil)
 	if action, err := syncer.CredentialEntrypointPlan(otherActive); err != nil || action != CredentialEntrypointUnchanged {
 		t.Fatalf("another default Token client plan = %q, %v; want retained helper", action, err)
 	}
@@ -356,7 +356,7 @@ func TestDisablingOneTokenClientRetainsEntrypointForAnother(t *testing.T) {
 	before.Providers["gateway"] = account
 	before.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{Provider: "gateway", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
-	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+	before.SetClientActivation(claude.ID, true, clientProgram, nil)
 	configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
@@ -392,7 +392,7 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	before.Providers["gateway"] = account
 	before.Models[domain.NewModelRef("gateway", "claude-test")] = domain.Model{Provider: "gateway", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedModel(claude.ID, domain.NewModelRef("gateway", "claude-test"), "")
-	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+	before.SetClientActivation(claude.ID, true, clientProgram, nil)
 	binding := before.Clients[claude.ID]
 	binding.CredentialCommand = helper
 	before.Clients[claude.ID] = binding

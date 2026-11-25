@@ -58,7 +58,7 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 	afterConfig.Providers["ready"] = domain.Provider{Label: "Ready", Endpoints: domain.Endpoints{Anthropic: "https://ready.test"}}
 	afterConfig.Models[domain.NewModelRef("ready", "claude-test")] = domain.Model{Label: "Claude", Provider: "ready", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	afterConfig.SetSelectedModel(claude.ID, domain.NewModelRef("ready", "claude-test"), "")
-	afterConfig.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+	afterConfig.SetClientActivation(claude.ID, true, clientProgram, nil)
 
 	workerSource := filepath.Join(root, "candidate.go")
 	if err := os.WriteFile(workerSource, []byte(`package main
@@ -117,7 +117,7 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	cfg.Providers["missing"] = domain.Provider{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
 	cfg.Models[domain.NewModelRef("missing", "claude-test")] = domain.Model{Label: "Claude", Provider: "missing", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedModel(claude.ID, domain.NewModelRef("missing", "claude-test"), "")
-	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+	cfg.SetClientActivation(claude.ID, true, clientProgram, nil)
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}

@@ -1,12 +1,14 @@
 package cli_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
@@ -138,7 +140,7 @@ func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: claudeExecutable, codex.ID: "/opt/codex"}, Surfaces: []discovery.Surface{{
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: claudeExecutable, codex.ID: fakeProgram("/opt/codex")}, Surfaces: []discovery.Surface{{
 		ID:          string(codex.HomeDefault),
 		ConfigPath:  target,
 		Present:     true,
@@ -148,7 +150,7 @@ func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := app.Config.Load()
-	if !got.Clients["claude"].Enabled || !got.Clients["codex"].Enabled || got.Clients["codex"].Executable != "/opt/codex" || len(runner.plans) != 0 {
+	if !got.Clients["claude"].Enabled || !got.Clients["codex"].Enabled || got.Clients["codex"].Executable != fakeProgram("/opt/codex") || len(runner.plans) != 0 {
 		t.Fatalf("repair config=%#v plans=%#v", got, runner.plans)
 	}
 	if !strings.Contains(out.String(), "Synchronization completed") || !strings.Contains(out.String(), "Client configuration is aligned") {
@@ -222,7 +224,10 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 	}
 }
 
-func TestRepairMigratesMissingClientExecutables(t *testing.T) {
+// A client whose configured executable moved keeps it: sync never swaps in the
+// one that discovery finds, writes none of that client's files, and fails
+// with the fix that names another executable.
+func TestSyncKeepsMovedClientExecutables(t *testing.T) {
 	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	missingRoot := t.TempDir()
@@ -261,18 +266,22 @@ func TestRepairMigratesMissingClientExecutables(t *testing.T) {
 		}},
 	}}
 
-	if err := cli.Execute(app, []string{"sync"}); err != nil {
-		t.Fatalf("repair after clients moved: %v", err)
+	err := cli.Execute(app, []string{"sync"})
+	if missing, stopped := errors.AsType[*adapter.MissingProgramError](err); !stopped || missing.NextAction() != "aigw client edit claude --executable <path>" {
+		t.Fatalf("sync after clients moved = %v, want the missing executables", err)
 	}
 	after, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := after.Clients[claude.ID].Executable; got != newClaude {
-		t.Fatalf("Claude executable = %q, want %q", got, newClaude)
+	if got := after.Clients[claude.ID].Executable; got != oldClaude {
+		t.Fatalf("Claude executable = %q, want %q", got, oldClaude)
 	}
-	if got := after.Clients[codex.ID].Executable; got != newCodex {
-		t.Fatalf("Codex executable = %q, want %q", got, newCodex)
+	if got := after.Clients[codex.ID].Executable; got != oldCodex {
+		t.Fatalf("Codex executable = %q, want %q", got, oldCodex)
+	}
+	if data, err := os.ReadFile(target); err != nil || string(data) != "model_provider = \"native\"\n" {
+		t.Fatalf("sync wrote Codex's file: %q, %v", data, err)
 	}
 }
 
@@ -286,7 +295,7 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addProviderModel(&cfg, "dmx", "DMXAPI", domain.Endpoints{Responses: "https://dmx.test/v1"}, codex.ID, "gpt-5.6-terra")
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("dmx", "gpt-5.6-terra"), "")
-	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
+	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +310,7 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 	if err := os.WriteFile(target, []byte(strings.Replace(string(projected), "# <<< AIGW managed provider <<<\n", "", 1)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{codex.ID: "/opt/codex"}, Surfaces: []discovery.Surface{{
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{codex.ID: fakeProgram("/opt/codex")}, Surfaces: []discovery.Surface{{
 		ID:          string(codex.HomeDefault),
 		ConfigPath:  target,
 		Present:     true,

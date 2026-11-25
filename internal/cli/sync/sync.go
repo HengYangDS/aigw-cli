@@ -6,8 +6,11 @@
 package sync
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
+	"aigw-cli/internal/adapter"
 	clientactivation "aigw-cli/internal/app/activation"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
@@ -104,6 +107,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			} else if err := synchronizer.CommitProjection(cmd.Context(), before, after, "sync"); err != nil {
 				return err
 			}
+			// A client whose configured program is missing was left as it
+			// was while the others were synchronized, or previewed.
+			if stopped := runtime.Clients.MissingPrograms(after); len(stopped) > 0 {
+				return stoppedClients(stopped, dryRun)
+			}
 			if jsonMode {
 				result.NextAction, result.NextDetail = terminal.NextSteps(result.next)
 				return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
@@ -147,6 +155,26 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the synchronization plan without writing configuration")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the synchronization preview or result as JSON")
 	return cmd
+}
+
+// stoppedClients is the failure of a synchronization that stopped each client
+// in stopped, whose configured program is missing: the first one's problem
+// and its fix, with the others named as evidence, after the other clients
+// were synchronized, or in a preview would be.
+func stoppedClients(stopped []*adapter.MissingProgramError, dryRun bool) error {
+	first, causes := stopped[0], make([]error, 0, len(stopped))
+	evidence := make([]string, 0, len(stopped)-1)
+	for _, missing := range stopped {
+		causes = append(causes, missing)
+		if missing != first {
+			evidence = append(evidence, missing.Error()+" too; its fix is `"+missing.NextAction()+"`.")
+		}
+	}
+	impact := "AIGW left the files of a client whose executable is missing, and its record of them, as they were, and synchronized the other clients."
+	if dryRun {
+		impact = "Nothing was written. A sync would leave the files of a client whose executable is missing, and its record of them, as they are, and synchronize the other clients."
+	}
+	return terminal.ProblemError(first.Error(), strings.Join(evidence, " "), impact, first.NextAction(), errors.Join(causes...))
 }
 
 // prepareSyncPreview previews the synchronization as it would be committed,

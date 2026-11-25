@@ -25,6 +25,29 @@ exec aigw sync
 normalize stdout synced.out
 cmp synced.out synced.txt
 
+# Codex's configured executable is gone. Sync keeps it, synchronizes Claude
+# Code, leaves Codex's file as it was and fails with the fix that names
+# another executable, as its preview and a check do; a sync is no fix.
+exec aigw provider edit team --endpoint responses=$UPSTREAM/v1
+exec aigw model edit team/team-model --protocol anthropic --protocol responses
+exec aigw use codex team/team-model
+mkdir $WORK/codex
+cp codex-config.toml $WORK/codex/config.toml
+exec aigw client edit codex --target $WORK/codex/config.toml --executable $WORK/gone/codex
+cmp $WORK/codex/config.toml codex-config.toml
+exitcode 1 aigw sync --json
+stdout '"error": "Codex executable is missing"'
+stdout '"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
+! stdout '"next_action"'
+exitcode 1 aigw sync --dry-run --json
+stdout '"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
+exitcode 1 aigw check codex --depth local --json
+stdout '"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
+cmp $WORK/codex/config.toml codex-config.toml
+! exists $WORK/codex/config.toml.aigw-state.json
+
+-- codex-config.toml --
+model_provider = "native"
 -- token.txt --
 sk-team-token-0001
 -- help.txt --

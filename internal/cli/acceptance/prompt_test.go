@@ -329,7 +329,7 @@ func guidedCodexTarget(t *testing.T, app *cli.App) string {
 	codexTarget := filepath.Join(t.TempDir(), "codex", "configuration.toml")
 	writeFile(t, codexTarget, []byte("model_provider = \"native\"\n"), 0o600)
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{claude.ID: "/opt/claude-real", codex.ID: "/opt/codex-real"},
+		Executables: map[string]string{claude.ID: fakeProgram("/opt/claude-real"), codex.ID: fakeProgram("/opt/codex-real")},
 		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: codexTarget, Present: true, AutoManaged: true}},
 	}}
 	return codexTarget

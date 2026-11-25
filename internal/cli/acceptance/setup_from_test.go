@@ -179,9 +179,9 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 		installed map[string]string
 	}{
 		{name: "neither client", installed: map[string]string{}},
-		{name: "Claude only", installed: map[string]string{claude.ID: "/opt/claude"}},
-		{name: "Codex only", installed: map[string]string{codex.ID: "/opt/codex"}},
-		{name: "both clients", installed: map[string]string{claude.ID: "/opt/claude", codex.ID: "/opt/codex"}},
+		{name: "Claude only", installed: map[string]string{claude.ID: fakeProgram("/opt/claude")}},
+		{name: "Codex only", installed: map[string]string{codex.ID: fakeProgram("/opt/codex")}},
+		{name: "both clients", installed: map[string]string{claude.ID: fakeProgram("/opt/claude"), codex.ID: fakeProgram("/opt/codex")}},
 	}
 
 	for _, test := range tests {
@@ -267,7 +267,7 @@ func TestSetupFromConfigurationManifestReportsInstalledClientWaitingForAProvider
 	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{claude.ID: "/opt/claude"},
+		Executables: map[string]string{claude.ID: fakeProgram("/opt/claude")},
 	}}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
@@ -302,7 +302,7 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 				filepath.Join(t.TempDir(), "two", "configuration.toml"),
 			}
 			app.Discovery = fakeDiscovery{result: discovery.Result{
-				Executables: map[string]string{codex.ID: "/opt/codex"},
+				Executables: map[string]string{codex.ID: fakeProgram("/opt/codex")},
 				Surfaces: []discovery.Surface{
 					{ID: string(codex.HomeDefault), ConfigPath: targets[0], Present: true, AutoManaged: true},
 					{ID: string(codex.HomeExplicit("second")), ConfigPath: targets[1], Present: true, AutoManaged: true},
@@ -400,7 +400,7 @@ func TestSetupFromConfigurationManifestProjectionFailureRestoresOwnedFiles(t *te
 		}
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{claude.ID: claudeExecutable, codex.ID: "/opt/codex-real"},
+		Executables: map[string]string{claude.ID: claudeExecutable, codex.ID: fakeProgram("/opt/codex-real")},
 		Surfaces: []discovery.Surface{{
 			ID:         string(codex.HomeDefault),
 			ConfigPath: codexTarget, Present: true, AutoManaged: true,

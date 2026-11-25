@@ -47,7 +47,7 @@ func TestEnvironmentCheckNamesACompetingVariableAsTheClientReadsIt(t *testing.T)
 // other client's executable or files, although Claude Code is enabled too,
 // and sends no request for a client whose local depth failed.
 func TestOneClientCheckDiscoversThatClientAlone(t *testing.T) {
-	for _, executable := range []string{"", "/opt/codex"} {
+	for _, executable := range []string{"", fakeProgram("/opt/codex")} {
 		t.Run("executable="+executable, func(t *testing.T) {
 			runtime, cfg, _ := configuredRuntime(t)
 			cfg.SetClientActivation(codex.ID, true, executable, []string{filepath.Join(t.TempDir(), "missing", "config.toml")})
@@ -93,7 +93,7 @@ func TestCheckWithoutAClientNamesTheBackendItCannotObserve(t *testing.T) {
 // denial fix naming the folder, not a request to unlock a credential store.
 func TestCheckNamesADeniedTokenFolder(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
-	cfg.SetClientActivation(codex.ID, true, "/opt/codex", nil)
+	cfg.SetClientActivation(codex.ID, true, fakeProgram("/opt/codex"), nil)
 	save(t, runtime, cfg)
 	runtime.Discovery = recordingDiscovery{calls: new([][]string)}
 	tokens := filepath.Join(runtime.Host.Home, "aigw", "secrets", "tokens")

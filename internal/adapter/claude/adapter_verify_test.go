@@ -86,9 +86,17 @@ func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
 	if err := os.Symlink(loop, loop); err != nil {
 		t.Skipf("symbolic link unavailable: %v", err)
 	}
+	// A configured executable that cannot be inspected, or that is gone, is
+	// reported with the one fix that can help: another executable.
 	cfg.SetClientActivation(ID, true, loop, nil)
-	status := (claudeAdapter{}).Inspect(context.Background(), adapter.Dependencies{}, cfg, domain.Runtime{})
-	if status.Ready || status.Issue != "Cannot inspect Claude executable" {
+	status := claudeRegistry().Inspect(context.Background(), adapter.Dependencies{}, cfg, ID, domain.Runtime{})
+	if status.Ready || status.Issue != "Claude Code executable cannot be inspected" || status.RepairAction != "aigw client edit claude --executable <path>" {
+		t.Fatalf("status = %#v", status)
+	}
+	gone := cfg.Clone()
+	gone.SetClientActivation(ID, true, filepath.Join(t.TempDir(), "gone"), nil)
+	status = claudeRegistry().Inspect(context.Background(), adapter.Dependencies{}, gone, ID, domain.Runtime{})
+	if status.Ready || status.Issue != "Claude Code executable is missing" || status.RepairAction != "aigw client edit claude --executable <path>" {
 		t.Fatalf("status = %#v", status)
 	}
 

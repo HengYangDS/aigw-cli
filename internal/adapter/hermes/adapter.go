@@ -60,9 +60,7 @@ func homeDirectory(host discovery.Host) string {
 }
 
 func (hermesAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
-	// Hermes activates only a runnable executable, which it checks before it
-	// reads the secret store.
-	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID, true)
+	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID)
 	if err != nil || !ready {
 		return err
 	}
@@ -367,9 +365,10 @@ func (hermesAdapter) Inspect(ctx context.Context, deps adapter.Dependencies, cfg
 	if err := ctx.Err(); err != nil {
 		return adapter.Status{Issue: err.Error()}
 	}
+	// A configured executable that is missing is the registry's to report,
+	// with its own fix, before the client's files are inspected.
 	clientAdapter := cfg.Clients[ID]
-	available, err := discovery.ExecutableAvailable(clientAdapter.Executable)
-	if err != nil || !clientAdapter.Enabled || !available || len(clientAdapter.Targets) != 1 {
+	if !clientAdapter.Enabled || clientAdapter.Executable == "" || len(clientAdapter.Targets) != 1 {
 		return adapter.Status{Issue: "Hermes executable or configuration home is unavailable", RepairAction: "aigw sync"}
 	}
 	plan, err := hermesInspectionPlan(deps, cfg, selected, clientAdapter.Targets[0])
