@@ -157,11 +157,19 @@ func npmAgeLine(hours int) string {
 // that holds or admits releases, and a second age line, which npm's readers
 // treat differently.
 func fillNPMAge(text string, hours int) (string, []string) {
+	if strings.TrimSpace(text) == "" {
+		if line := npmAgeLine(hours); line != "" {
+			return line + "\n", nil
+		}
+		return "", nil
+	}
 	var kept, problems []string
 	line, placed, ages := npmAgeLine(hours), false, 0
 	for entry := range strings.SplitSeq(strings.TrimRight(text, "\n"), "\n") {
 		key, _, _ := strings.Cut(entry, "=")
 		key = strings.TrimSuffix(strings.Trim(strings.TrimSpace(key), `"'`), "[]")
+		// Whether npm reads an underscored key as the hyphenated one is not measured; both count as one.
+		key = strings.ReplaceAll(key, "_", "-")
 		switch {
 		case key == "min-release-age":
 			ages++

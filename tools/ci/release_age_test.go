@@ -152,6 +152,21 @@ func TestReleaseAgeFillWritesNothingWhenTheReaderRefuses(t *testing.T) {
 	}
 }
 
+func TestReleaseAgeNPMFillHandlesABlankFileAndAnUnderscoredSpelling(t *testing.T) {
+	if got, problems := fillNPMAge("", 24); got != "min-release-age=1\n" || len(problems) != 0 {
+		t.Fatalf("a blank file at 24h = %q, %v", got, problems)
+	}
+	if got, problems := fillNPMAge("", 0); got != "" || len(problems) != 0 {
+		t.Fatalf("a blank file at 0h = %q, %v", got, problems)
+	}
+	if got, problems := fillNPMAge("min_release_age=3\n", 24); got != "min-release-age=1\n" || len(problems) != 0 {
+		t.Fatalf("an underscored age line = %q, %v", got, problems)
+	}
+	if _, problems := fillNPMAge("min_release_age_exclude=prettier\n", 24); len(problems) != 1 || !strings.Contains(problems[0], "min-release-age-exclude") {
+		t.Fatalf("an underscored exemption = %v", problems)
+	}
+}
+
 func TestReleaseAgeFillWritesNothingWhenAFileCannotBeWritten(t *testing.T) {
 	root := releaseAgeCheckout(t, strconv.Quote("48h"), releaseAgeRenovateFixture, releaseAgeNPMFixture)
 	npm := filepath.Join(root, filepath.FromSlash(releaseAgeNPM))

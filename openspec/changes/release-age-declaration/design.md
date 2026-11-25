@@ -58,6 +58,9 @@ Every option was checked against these before the decision.
 - npm knows no advisory: under the age, `npm audit fix` keeps a vulnerable version, warns and exits non-zero when the fix is younger (documentation, read 2026-11-25). A security fix younger than the age is taken in its own change, which says so; Renovate's security rule stays at 0 hours.
 - `npm ci --ignore-scripts` under the filled line ran once on 2026-11-25 at 09:50 in an owned scratch folder holding the lane's `package.json` and `package-lock.json`, with an empty cache. `npm config get min-release-age` read 1 through the lane's Mise environment; the install added 116 packages, found 0 vulnerabilities and exited 0. A passing `npm ci` says nothing about the lock's age (ETHOS session 97f828, 2026-11-18, relayed), so this shows only that the line does not break the install.
 - Above zero, Renovate adds a buffer of 30 minutes (the proxy's governance document, read 2026-11-25); the accepted scenario `A registry publishes no release time` covers a registry without release times.
+- npm has no security skip, so a security fix younger than the age is held there while Renovate proposes it at once; the requirement and the scenario `A security fix is younger than the declared age` say so, and a change that takes such a fix sooner says so too.
+- The gate reads Renovate's policy and npm's configuration only. An age rule kept elsewhere in Mise's configuration is not scanned, and `min_version` is a reader floor: the setting was measured on Mise 2026.11.13, not on the floor release. Whether npm reads an underscored key as the hyphenated one is not measured, so the fill treats both spellings as one key.
+- The commit that moved the dependency maintenance section to its own document also rewrote the one paragraph that said the age is zero; every other line moved as it was.
 
 ## Open Questions
 

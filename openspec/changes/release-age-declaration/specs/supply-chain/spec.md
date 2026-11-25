@@ -4,7 +4,7 @@
 
 AIGW SHALL lock current stable Go, tool, Action, and release dependencies
 through one repository-owned authority for each ecosystem. Mise's `minimum_release_age` SHALL declare the one release age, in whole hours;
-every other source SHALL hold it, and only a security fix skips it. The declared Go toolchain and resolver SHALL own
+every other source SHALL hold it; Renovate skips it for a security fix. The declared Go toolchain and resolver SHALL own
 transitive closure; local verification and both Forge projections SHALL consume
 those declarations rather than duplicate version literals or compatibility
 fallbacks.
@@ -138,6 +138,13 @@ fallbacks.
   out
 - **THEN** the repository's dependency checks SHALL fail and name that file
 - **AND** `mise run fix` SHALL write the declared age into it.
+
+#### Scenario: A security fix is younger than the declared age
+
+- **WHEN** a security fix is published inside the declared age
+- **THEN** Renovate's security rule SHALL propose it without waiting
+- **AND** npm SHALL hold it for the age, because the repository admits no npm
+  exemption, and a change that takes it sooner SHALL say so.
 
 #### Scenario: A registry publishes no release time
 
