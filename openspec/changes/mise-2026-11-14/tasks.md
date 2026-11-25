@@ -19,21 +19,36 @@
 
 ## 2. Host
 
-- [ ] 2.1 Install the verified 2026.11.14 executable as
+- [x] 2.1 Install the verified 2026.11.14 executable as
       `/opt/mise-aigw-cli/2026.11.14/bin/mise` on the GitLab macOS ARM64 host,
       beside the earlier release, root-owned and not writable by the runner
-      accounts, before the proposal's first GitLab pipeline; its digest and
-      version match the CUE pins. Owner: the owner of the CI hosts.
+      accounts, before the proposal's first GitLab pipeline; under both AIGW
+      runner accounts, `ci-aigw-review` and `ci-aigw-protected`, the path's
+      `shasum -a 256` and `--version` equal the CUE pins. Owner:
+      `ETHOS 仓库纳管`. Done 2026-11-26 06:35, by that session's relayed
+      reading (design.md, Verification of the new release).
 
 ## 3. Verification
 
 - [ ] 3.1 `mise run check` and `mise run dependencies:check` pass on the lane
       head.
-- [ ] 3.2 The hosted graph passes at the proposal head, with every GitLab macOS
-      job printing the verified Mise 2026.11.14.
+- [ ] 3.2 The hosted graph passes at the proposal head, where
+      `native-darwin-review` is the only macOS job and runs under the review
+      account; it prints the verified Mise 2026.11.14.
 
 ## Workflow follow-up
 
-- Once dev and main carry this Change and no open proposal runs an earlier
-  declaration, the owner of the CI hosts removes `/opt/mise-aigw-cli/bin`
-  (design.md, Migration Plan).
+- The protected account's macOS jobs print the verified Mise 2026.11.14 where
+  they first run after landing: `native-darwin` in the dev push pipeline,
+  `accepted-ref-parity` in the main push pipeline and `release-version` in the
+  next tag pipeline.
+- `ETHOS 仓库纳管` removes `/opt/mise-aigw-cli/bin` (owner on the
+  coordinator's word; review date 2026-12-03) once, after a fetch,
+  `git merge-base --is-ancestor <landed commit> gitlab/dev` and the same check
+  against `gitlab/main` succeed, and the open merge requests (`glab mr list`)
+  hold no proposal without the landed commit. Until it carries this Change, a
+  ref still verifies the earlier path and fails at its preflight after the
+  removal: every tag of an earlier commit and a retry of its pipeline, open
+  proposals, and unpublished lanes such as `20261125-program-truth` at
+  `4c76b25cb`. For a later release, the step removes the whole
+  `/opt/mise-aigw-cli/<earlier release>` directory (design.md, Migration Plan).

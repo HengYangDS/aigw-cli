@@ -87,6 +87,13 @@ published on 2026-11-21, older than the release age.
 - The release notes of 2026.11.8 to 2026.11.14 name one breaking change, to
   Temurin version names, which AIGW does not lock. `mise lock` may now write an
   `unsupported_platforms` list; a locked install writes no lock.
+- On the GitLab macOS host, `/opt/mise-aigw-cli/2026.11.14/bin/mise` is
+  root:wheel with mode 0755, 146,963,104 bytes, digest `ad39dddb…` and
+  TeamIdentifier 4993Y37DX6; under both AIGW runner accounts, `ci-aigw-review`
+  and `ci-aigw-protected`, `--version` prints
+  `2026.11.14 macos-arm64 (2026-11-24)`, and neither account can write it;
+  `/opt/mise-aigw-cli/bin/mise` is unchanged. This is the relayed reading of
+  `ETHOS 仓库纳管` at 2026-11-26 06:35, not one of this lane.
 
 ## Risks / Trade-offs
 
@@ -96,21 +103,28 @@ published on 2026-11-21, older than the release age.
 - [The earlier directory goes while a job of an earlier head still runs] → That
   job fails closed at the same step. Removal waits until no job consumes the
   earlier declaration.
-- The host holds two releases, 146,963,104 bytes each, until the removal.
+- The host holds both releases, 146,963,104 and 142,892,304 bytes, until the
+  removal.
 
 ## Migration Plan
 
 The cutover, in order:
 
-1. The owner of the CI hosts installs the verified executable as
-   `/opt/mise-aigw-cli/2026.11.14/bin/mise`, root-owned and not writable by the
-   runner accounts, beside `/opt/mise-aigw-cli/bin/mise`. No AIGW job reads the
-   new path yet, so this needs no window.
-2. The proposal's GitLab pipeline runs, and each macOS job prints the release
-   it verified.
+1. `ETHOS 仓库纳管`, the owner of the CI hosts, installs the verified
+   executable as `/opt/mise-aigw-cli/2026.11.14/bin/mise`, root-owned and not
+   writable by the runner accounts, beside `/opt/mise-aigw-cli/bin/mise`, and
+   reads it back under both AIGW runner accounts. No AIGW job reads the new
+   path yet, so this needs no window.
+2. The proposal's GitLab pipeline runs. Its only macOS job is
+   `native-darwin-review`, under the review account, and it prints the release
+   it verified. The protected account's jobs first run after landing:
+   `native-darwin` in the dev push pipeline, the other two in the main push
+   and tag pipelines.
 3. This Change lands.
 4. Once dev and main carry this Change and no open proposal runs an earlier
-   declaration, the owner of the CI hosts removes `/opt/mise-aigw-cli/bin`.
+   declaration, `ETHOS 仓库纳管` removes `/opt/mise-aigw-cli/bin`; the check,
+   the refs that still verify the earlier path and the review date are in the
+   tasks' Workflow follow-up.
 
 Before step 4 a rollback is a revert of the declaration alone, since the
 earlier executable is still in place. Each later release follows the same

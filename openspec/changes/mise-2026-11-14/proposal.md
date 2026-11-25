@@ -19,6 +19,9 @@ without AIGW jobs.
   declaration, so no move needs a window without jobs.
 - Take jdx/mise-action v5.3.0, pinned by its commit.
 - Keep the repository Mise floor at 2026.10.25.
+- Drop the Windows shim wording left in the scenario `A runner owns its Mise`
+  and in the dependency maintenance guide; since Windows support ended, no
+  runner-owned Mise has a shim executable.
 
 No product behavior changes, and nothing breaks for users.
 

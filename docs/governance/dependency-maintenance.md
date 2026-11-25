@@ -46,9 +46,11 @@ Use a runnable upstream CI image (`mise-debian`) with a complete immutable
 multi-platform reference; do not compensate for scratch images with entrypoint
 hacks. Derive its projections from CUE's one version/digest literal. On GitLab's
 macOS runner, runner ownership provides AIGW's own Mise executable in a directory
-named by its release; each job verifies its digest and version, makes the word
-`mise` run it, then confines config/cache/state/installs to private job state,
-and exact cleanup must succeed under both review and protected identities. The
+named by its release; each job verifies its digest and version and makes the
+word `mise` run it. Every GitLab job points Mise's global and system
+configuration at the checkout's `.config/mise/external`; only with
+`AIGW_TOOL_SOURCE=peer` do Mise's data and cache move to a job-owned directory,
+whose exact cleanup must succeed under both review and protected identities. The
 host holds a new release beside the current one before the declaration moves
 to it, and removes the earlier release once no job runs its declaration.
 
