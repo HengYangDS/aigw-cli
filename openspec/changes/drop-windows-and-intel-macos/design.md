@@ -92,7 +92,8 @@ name. Each requirement stays within 500 characters and each delta within the 500
 required checks of `dev` and `main` (owner, 14:52), and both are read back. Before the first GitLab push, ETHOS
 仓库纳管 confirms that aigw-cli's macOS runners carry the new tags (asked 16:4x); the old tags are dropped by it
 after `main` is published. After the Change is on `dev` and `main` of both forges, ETHOS 仓库纳管 is told, for the
-Windows guest step of its decision D54.
+Windows guest step of its decision D54. Those two steps follow the publication, so they are the keeper's follow-ups,
+not tasks of this Change. The inventory under `build/evidence/` stays as the evidence this design cites.
 
 ## Risks / Trade-offs
 

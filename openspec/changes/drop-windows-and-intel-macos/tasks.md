@@ -74,26 +74,24 @@
 
 ## 10. Hosted CI
 
-- [ ] 10.1 Pass the proposal's GitHub checks `Native macOS acceptance`, `Native Linux acceptance`,
+- [x] 10.1 Pass the proposal's GitHub checks `Native macOS acceptance`, `Native Linux acceptance`,
       `Linux Secret Service` and `Quality and governance`, and read the macOS version and architecture from the
-      first macOS job's log.
-- [ ] 10.2 Pass the proposal's GitLab pipeline on the macOS runners tagged `macos-latest` and `review` and on the
-      Linux runner.
+      first macOS job's log. Passed on PR 286 (2026-11-25 21:5x); `macos-latest` ran `macos-26-arm64`, image
+      20261117.0516.
+- [x] 10.2 Pass the proposal's GitLab pipeline on the macOS runners tagged `macos-latest` and `review` and on the
+      Linux runner. Pipeline 18131 passed at 21:58 with no Windows job.
 
 ## 11. Publication
 
-- [ ] 11.1 Before the first `dev` push to GitHub, remove `Native Windows acceptance` from the required checks of
+- [x] 11.1 Before the first `dev` push to GitHub, remove `Native Windows acceptance` from the required checks of
       `dev` and `main` (owner, 14:52), keeping the other check names. Done when both protections are read back.
-- [ ] 11.2 Before the first GitLab push, obtain ETHOS 仓库纳管's confirmation that aigw-cli's macOS runners carry
-      `macos-latest` with `review` and with `protected`.
-- [ ] 11.3 After `main` is published on GitLab, ask ETHOS 仓库纳管 to drop the old macOS runner tags. Done when it
-      confirms them dropped.
-- [ ] 11.4 Tell ETHOS 仓库纳管 when this Change is on `dev` and `main` of both Forges, for the Windows guest step of
-      its decision D54.
+      Removed and read back at 22:0x: four checks remain on each.
+- [x] 11.2 Before the first GitLab push, obtain ETHOS 仓库纳管's confirmation that aigw-cli's macOS runners carry
+      `macos-latest` with `review` and with `protected`. Confirmed at 16:4x and read back at 18:4x.
 
 ## 12. Housekeeping
 
-- [ ] 12.1 Read GitLab's package registry for the Windows client supplier packages that the removed Windows job
-      downloaded, and retire each one. Done when the registry lists none.
-- [ ] 12.2 Retire `build/evidence/windows-removal-inventory-20261125.md` in the main checkout once the review of
-      task 8.3 has used it. Done when the file is absent.
+- [x] 12.1 Read GitLab's package registry for the Windows client supplier packages that the removed Windows job
+      downloaded, and retire each one. Done when the registry lists none. Read at 21:5x: 36 packages, all named
+      `aigw` (one per release); no client supplier package; the releases' own Windows archives are release history
+      and stay.
