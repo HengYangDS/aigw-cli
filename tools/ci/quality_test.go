@@ -130,6 +130,7 @@ func TestRepositoryQualityGraphRunsNativeTextChecks(t *testing.T) {
 	if gate.Command.Name != "node" || !slices.Equal(gate.Command.Args, []string{
 		"--test",
 		"tools/ci/test/text.test.mjs",
+		"tools/ci/test/release-age.test.mjs",
 	}) {
 		t.Fatalf("native text command = %#v", gate.Command)
 	}

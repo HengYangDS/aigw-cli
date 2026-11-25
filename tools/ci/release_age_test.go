@@ -1,16 +1,13 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 )
 
 // releaseAgeRenovateFixture is a policy that holds its root age at zero and
@@ -190,41 +187,5 @@ func TestReleaseAgeNPMDaysDoNotWrapForALargeDeclaration(t *testing.T) {
 	const want = math.MaxInt/releaseAgeDayHours + 1
 	if got := npmAgeLine(math.MaxInt); got != "min-release-age="+strconv.Itoa(want) {
 		t.Fatalf("npmAgeLine(MaxInt) = %q, want the %d days that cover it", got, want)
-	}
-}
-
-func TestReleaseAgeReaderNamesWhatRenovateReadsAsItsParserDoes(t *testing.T) {
-	root := repositoryRoot(t)
-	reader := filepath.Join(root, "tools", "ci", releaseAgeReader)
-	securityHeld := strings.Replace(releaseAgeRenovateFixture, `    minimumReleaseAge: "0 hours"`, `    minimumReleaseAge: "24 hours"`, 1)
-	ownRule := strings.Replace(releaseAgeRenovateFixture, `  vulnerabilityAlerts: {`, `  packageRules: [{ minimumReleaseAge: "72 hours" }],`+"\n"+`  vulnerabilityAlerts: {`, 1)
-	for _, test := range []struct {
-		name, policy, declared, want string
-	}{
-		{"the declared root age", releaseAgeRenovateFixture, "0 hours", ""},
-		{"another root age", releaseAgeRenovateFixture, "24 hours", "release_age_differs:/minimumReleaseAge"},
-		{"a security fix held by the age", securityHeld, "0 hours", "release_age_security_fix_not_skipped"},
-		{"an age of a rule's own", ownRule, "0 hours", "release_age_other_rule:/packageRules[]/minimumReleaseAge"},
-		{"a behaviour that does not hold a release without a time", strings.Replace(releaseAgeRenovateFixture, `"timestamp-required"`, `"timestamp-optional"`, 1), "0 hours", "release_age_behaviour_not_timestamp_required"},
-		{"checks that do not hold a release inside the age", strings.Replace(releaseAgeRenovateFixture, `internalChecksFilter: "strict"`, `internalChecksFilter: "none"`, 1), "0 hours", "release_age_internal_checks_not_strict"},
-		{"the root age declared twice", strings.Replace(releaseAgeRenovateFixture, "  internalChecksFilter: \"strict\",\n", "  internalChecksFilter: \"strict\",\n  minimumReleaseAge: \"0 hours\",\n", 1), "0 hours", "release_age_declared_twice:/minimumReleaseAge"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
-			defer cancel()
-			call := exec.CommandContext(ctx, "node", reader, test.declared)
-			call.Dir = root
-			call.Stdin = strings.NewReader(test.policy)
-			output, err := call.CombinedOutput()
-			if test.want == "" {
-				if err != nil || len(output) != 0 {
-					t.Fatalf("the reader refused a policy that holds the declared age: %v\n%s", err, output)
-				}
-				return
-			}
-			if err == nil || !strings.Contains(string(output), test.want) {
-				t.Fatalf("the reader's verdict = %v\n%s\nwant it to hold %q", err, output, test.want)
-			}
-		})
 	}
 }

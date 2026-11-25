@@ -73,6 +73,7 @@ command = [
   "--test-reporter=lcov",
   "--test-reporter-destination={native_output}/node.lcov",
   "tools/ci/test/text.test.mjs",
+  "tools/ci/test/release-age.test.mjs",
 ]
 verification_providers = ["ethos.adapters.gates.code_quality:behavior_report"]
 dimensions = ["behavior", "test", "coverage"]

@@ -59,7 +59,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "run", "./tools/release", "validate-release-sources"},
 		{"go", "run", "./tools/release", "validate-changelog"},
 		{"go", "run", "./tools/architecture", "--root", "."},
-		{"node", "--test", "tools/ci/test/text.test.mjs"},
+		{"node", "--test", "tools/ci/test/text.test.mjs", "tools/ci/test/release-age.test.mjs"},
 		{"go", "run", "./tools/ci", "check-source-size", "."},
 		{"go", "run", "./tools/ci", "check-go", "."},
 		{"go", "test", "-tags=client_acceptance", "./tools/release", "-run", "^(TestNativeClient(Inputs|StreamEnvelope|InferenceEnvelope|FilePreservation)|TestCodexToolLoopStopsAfterUnsuccessfulToolResult)$"},

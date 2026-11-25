@@ -95,7 +95,7 @@ var repositoryQualityGraph = qualityGraph{
 		{ID: "release-sources", Command: command{Name: "go", Args: []string{"run", "./tools/release", "validate-release-sources"}}, Concerns: []qualityConcern{qualitySchema, qualityProjection}},
 		{ID: "changelog", Command: command{Name: "go", Args: []string{"run", "./tools/release", "validate-changelog"}}, Concerns: []qualityConcern{qualityDocumentation, qualitySchema}},
 		{ID: "architecture", Command: command{Name: "go", Args: []string{"run", "./tools/architecture", "--root", "."}}, Concerns: []qualityConcern{qualityArchitecture}},
-		{ID: "node-source", Command: command{Name: "node", Args: []string{"--test", "tools/ci/test/text.test.mjs"}}, Concerns: []qualityConcern{qualityTest, qualitySchema}},
+		{ID: "node-source", Command: command{Name: "node", Args: []string{"--test", "tools/ci/test/text.test.mjs", "tools/ci/test/release-age.test.mjs"}}, Concerns: []qualityConcern{qualityTest, qualitySchema}},
 		{ID: "source-size", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-source-size", "."}}, Concerns: []qualityConcern{qualityArchitecture}},
 		{ID: "go-analysis", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}}, Concerns: []qualityConcern{qualityFormat, qualityLint, qualityType, qualitySecurity}},
 		{ID: "client-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^(TestNativeClient(Inputs|StreamEnvelope|InferenceEnvelope|FilePreservation)|TestCodexToolLoopStopsAfterUnsuccessfulToolResult)$"}}, Concerns: []qualityConcern{qualityTest}},
