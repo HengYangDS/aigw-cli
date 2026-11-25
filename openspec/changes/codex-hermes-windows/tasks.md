@@ -56,8 +56,9 @@
       Hermes's own command in that home and require the next synchronization to follow it.
 - [ ] 5.2 Run the published previous release (`v0.10.0`) through the lifecycle journey after a rollback from this
       program, with Hermes and Codex enabled, and require both to synchronize without a refusal. Done when
-      `go run ./tools/release accept-native --baseline-tag v0.10.0 --peer github --repository HengYangDS/aigw-cli`
-      passes once as it is and once with `--clients`, each as one host ticket on the lane head.
+      a manual `verify.yml` run on the proposal head with `baseline_tag=v0.10.0` and `native_clients=true` passes
+      its native jobs; the one `accept-native` there runs the lifecycle, the published predecessor journey and the
+      real clients together (first run: 45534917075).
 - [x] 5.3 Pass `mise run check` on the lane head (`184f0900d`).
 - [x] 5.4 Pass the proposal's hosted checks on both forges (`885d3c2cd`: GitLab pipeline 17898, GitHub PR 284).
 
