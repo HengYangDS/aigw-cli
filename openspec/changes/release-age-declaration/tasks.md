@@ -14,4 +14,4 @@
 - [x] 3.1 Run `npm ci --ignore-scripts` in a scratch copy of the lane under the filled npm line and state the result in the design. Done when the design holds the measured outcome.
 - [x] 3.2 Pass `mise run check` on the lane head (`fd04e2c4`).
 - [x] 3.3 A fresh review of the lane's whole change by a reviewer who has not seen it. Done when its findings are answered in code or in this design. Findings answered in `411e34e15` and `d8d3015c0`.
-- [ ] 3.4 Pass the proposal's hosted checks on both Forges.
+- [x] 3.4 Pass the proposal's hosted checks on both Forges (`7ee7f4fd`: GitLab pipeline 17950, GitHub PR 285).
