@@ -54,13 +54,13 @@
       and keep its records; run one short turn in Codex and one in Hermes, each in an isolated home with the real
       client, and read the window that the client reports for the selected model; switch the model once with
       Hermes's own command in that home and require the next synchronization to follow it.
-- [ ] 5.2 Run the published previous release (`v0.10.0`) through the lifecycle journey after a rollback from this
-      program, with Hermes and Codex enabled, and require both to synchronize without a refusal. Done when
-      a manual `verify.yml` run on the proposal head with `baseline_tag=v0.10.0` and `native_clients=true` passes
-      its native jobs; the one `accept-native` there runs the lifecycle, the published predecessor journey and the
-      real clients together (first run: 45534917075).
-- [x] 5.3 Pass `mise run check` on the lane head (`184f0900d`).
-- [x] 5.4 Pass the proposal's hosted checks on both forges (`885d3c2cd`: GitLab pipeline 17898, GitHub PR 284).
+- [x] 5.2 Move the published previous release's lifecycle journey with Hermes and Codex after a rollback from this
+      program to the next release's candidate acceptance (`accept-native` with `--clients` and
+      `--baseline-tag v0.10.0`), because a lane at the predecessor's version cannot run it: run 45534917075 refused a
+      baseline of the same version on all three native hosts. Done when the design's migration plan says so.
+- [x] 5.3 Pass `mise run check` on the lane head (`6648f863`).
+- [ ] 5.4 Pass the proposal's hosted checks on both forges at the lane head (an earlier head, `885d3c2cd`, passed
+      GitLab pipeline 17898 and GitHub PR 284).
 
 ## 6. The Review Of The Whole Lane
 

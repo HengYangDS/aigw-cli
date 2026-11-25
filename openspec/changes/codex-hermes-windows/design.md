@@ -141,8 +141,10 @@ full window.
 ## Migration Plan
 
 The next synchronization writes the windows. A configuration that declares no window stays readable by the previous
-release. Before landing, the published previous release runs the lifecycle journey with Hermes and Codex after a
-rollback from this program: it must synchronize both without a refusal.
+release. The published previous release runs the lifecycle journey with Hermes and Codex after a rollback from this
+program, and must synchronize both without a refusal, in the next release's candidate acceptance (`accept-native` with `--clients` and `--baseline-tag v0.10.0`), the first place where this program's version differs from
+the predecessor's. A lane at the predecessor's version cannot run it: run 45534917075 on 2026-11-25 refused a baseline
+of the same version on all three native hosts (`TestNativeProductJourney`, `TestNativeRollbackConfigurationAdmission`).
 
 ## Open Questions
 
