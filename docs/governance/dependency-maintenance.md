@@ -45,11 +45,12 @@ The host-container recipe has macOS evidence.
 Use a runnable upstream CI image (`mise-debian`) with a complete immutable
 multi-platform reference; do not compensate for scratch images with entrypoint
 hacks. Derive its projections from CUE's one version/digest literal. On GitLab's
-macOS runner, runner ownership provides the installed Mise executable; each job verifies
-its exact release/shim hashes, version and identity, then confines config/cache/
-state/installs to private job state. Read/copy/remove shim admission and exact
-cleanup must succeed under both review and protected identities. Update the shared
-binary only in a verified zero-job window.
+macOS runner, runner ownership provides AIGW's own Mise executable in a directory
+named by its release; each job verifies its digest and version, makes the word
+`mise` run it, then confines config/cache/state/installs to private job state,
+and exact cleanup must succeed under both review and protected identities. The
+host holds a new release beside the current one before the declaration moves
+to it, and removes the earlier release once no job runs its declaration.
 
 Tool acquisition defaults to locked official upstreams. On GitLab only,
 `AIGW_TOOL_SOURCE=peer` selects that registry's checksum-verified copies; it is

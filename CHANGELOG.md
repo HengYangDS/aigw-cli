@@ -80,6 +80,11 @@ signing, and GA status remain separate evidence.
   `-context-window`, proves that the entry which Codex renders for the model
   carries that window, and also verifies a model that is itself an entry of
   Codex's table.
+- CI runs Mise 2026.11.14 in every job on both Forges, and GitHub's jobs
+  install it with mise-action 5.3.0. AIGW's own Mise on GitLab's macOS runner
+  host now lives in a directory named by its release, so the next release can
+  be installed beside the current one before CI moves to it. The released
+  program does not change.
 
 ### Removed
 

@@ -125,16 +125,16 @@ native-darwin:
   script:
     - |-
       set -eu
-      mise='/opt/mise-aigw-cli/bin/mise'
+      mise='/opt/mise-aigw-cli/2026.11.14/bin/mise'
       if [ ! -x "$mise" ]; then printf '%s\n' 'Runner-owned Mise is missing.' >&2; exit 1; fi
       digest="$(shasum -a 256 "$mise")"
-      if [ "${digest%% *}" != '0f7cb85b5c17208cb67088105bd1754c38314cb824cc97d109631b6df638f6fc' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
+      if [ "${digest%% *}" != 'ad39dddb61236cc546ecbd0294aa3fc72a5ae7f1f8c7e6dc6fd4211f99eb3b79' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
       mise_version="$("$mise" --version)" || { printf '%s\n' 'Runner-owned Mise does not run.' >&2; exit 1; }
       case "$mise_version" in
-        '2026.11.7 '*) ;;
+        '2026.11.14 '*) ;;
         *) printf '%s\n' 'Runner-owned Mise version differs from the admitted release.' >&2; exit 1 ;;
       esac
-      export PATH="/opt/mise-aigw-cli/bin:$PATH"
+      export PATH="/opt/mise-aigw-cli/2026.11.14/bin:$PATH"
       unset -f mise 2>/dev/null || :
       hash -r 2>/dev/null || :
       if [ "$(command -v mise)" != "$mise" ]; then printf '%s\n' 'The word mise does not run the runner-owned Mise.' >&2; exit 1; fi
@@ -231,16 +231,16 @@ native-darwin-review:
   script:
     - |-
       set -eu
-      mise='/opt/mise-aigw-cli/bin/mise'
+      mise='/opt/mise-aigw-cli/2026.11.14/bin/mise'
       if [ ! -x "$mise" ]; then printf '%s\n' 'Runner-owned Mise is missing.' >&2; exit 1; fi
       digest="$(shasum -a 256 "$mise")"
-      if [ "${digest%% *}" != '0f7cb85b5c17208cb67088105bd1754c38314cb824cc97d109631b6df638f6fc' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
+      if [ "${digest%% *}" != 'ad39dddb61236cc546ecbd0294aa3fc72a5ae7f1f8c7e6dc6fd4211f99eb3b79' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
       mise_version="$("$mise" --version)" || { printf '%s\n' 'Runner-owned Mise does not run.' >&2; exit 1; }
       case "$mise_version" in
-        '2026.11.7 '*) ;;
+        '2026.11.14 '*) ;;
         *) printf '%s\n' 'Runner-owned Mise version differs from the admitted release.' >&2; exit 1 ;;
       esac
-      export PATH="/opt/mise-aigw-cli/bin:$PATH"
+      export PATH="/opt/mise-aigw-cli/2026.11.14/bin:$PATH"
       unset -f mise 2>/dev/null || :
       hash -r 2>/dev/null || :
       if [ "$(command -v mise)" != "$mise" ]; then printf '%s\n' 'The word mise does not run the runner-owned Mise.' >&2; exit 1; fi
@@ -370,7 +370,7 @@ stages:
   - verify
   - release
 .linux-toolchain:
-  image: docker.io/jdxcode/mise:2026.11.7-debian@sha256:0e4c7634244a6e09b99bf2b5aa2934d29837c400a6af53dd6fb3690b92b1d31f
+  image: docker.io/jdxcode/mise:2026.11.14-debian@sha256:a7df8beaeca2fc6d2e829278e5eef253330db5cde50bb196462616573107b120
   variables:
     AIGW_MISE_DATA_ROOT: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE
     MISE_DATA_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE
@@ -380,7 +380,7 @@ stages:
       files:
         - .config/mise/config.toml
         - .config/mise/mise.lock
-      prefix: mise-linux-0e4c7634244a6e09b99bf2b5aa2934d29837c400a6af53dd6fb3690b92b1d31f-build-runtime-tool-cache-.mise-$AIGW_TOOL_SOURCE-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME
+      prefix: mise-linux-a7df8beaeca2fc6d2e829278e5eef253330db5cde50bb196462616573107b120-build-runtime-tool-cache-.mise-$AIGW_TOOL_SOURCE-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME
     paths:
       - build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE/installs/
       - build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE/cache/
@@ -482,16 +482,16 @@ accepted-ref-parity:
   script:
     - |-
       set -eu
-      mise='/opt/mise-aigw-cli/bin/mise'
+      mise='/opt/mise-aigw-cli/2026.11.14/bin/mise'
       if [ ! -x "$mise" ]; then printf '%s\n' 'Runner-owned Mise is missing.' >&2; exit 1; fi
       digest="$(shasum -a 256 "$mise")"
-      if [ "${digest%% *}" != '0f7cb85b5c17208cb67088105bd1754c38314cb824cc97d109631b6df638f6fc' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
+      if [ "${digest%% *}" != 'ad39dddb61236cc546ecbd0294aa3fc72a5ae7f1f8c7e6dc6fd4211f99eb3b79' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
       mise_version="$("$mise" --version)" || { printf '%s\n' 'Runner-owned Mise does not run.' >&2; exit 1; }
       case "$mise_version" in
-        '2026.11.7 '*) ;;
+        '2026.11.14 '*) ;;
         *) printf '%s\n' 'Runner-owned Mise version differs from the admitted release.' >&2; exit 1 ;;
       esac
-      export PATH="/opt/mise-aigw-cli/bin:$PATH"
+      export PATH="/opt/mise-aigw-cli/2026.11.14/bin:$PATH"
       unset -f mise 2>/dev/null || :
       hash -r 2>/dev/null || :
       if [ "$(command -v mise)" != "$mise" ]; then printf '%s\n' 'The word mise does not run the runner-owned Mise.' >&2; exit 1; fi
@@ -605,16 +605,16 @@ release-version:
   script:
     - |-
       set -eu
-      mise='/opt/mise-aigw-cli/bin/mise'
+      mise='/opt/mise-aigw-cli/2026.11.14/bin/mise'
       if [ ! -x "$mise" ]; then printf '%s\n' 'Runner-owned Mise is missing.' >&2; exit 1; fi
       digest="$(shasum -a 256 "$mise")"
-      if [ "${digest%% *}" != '0f7cb85b5c17208cb67088105bd1754c38314cb824cc97d109631b6df638f6fc' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
+      if [ "${digest%% *}" != 'ad39dddb61236cc546ecbd0294aa3fc72a5ae7f1f8c7e6dc6fd4211f99eb3b79' ]; then printf '%s\n' 'Runner-owned Mise digest differs from the admitted release.' >&2; exit 1; fi
       mise_version="$("$mise" --version)" || { printf '%s\n' 'Runner-owned Mise does not run.' >&2; exit 1; }
       case "$mise_version" in
-        '2026.11.7 '*) ;;
+        '2026.11.14 '*) ;;
         *) printf '%s\n' 'Runner-owned Mise version differs from the admitted release.' >&2; exit 1 ;;
       esac
-      export PATH="/opt/mise-aigw-cli/bin:$PATH"
+      export PATH="/opt/mise-aigw-cli/2026.11.14/bin:$PATH"
       unset -f mise 2>/dev/null || :
       hash -r 2>/dev/null || :
       if [ "$(command -v mise)" != "$mise" ]; then printf '%s\n' 'The word mise does not run the runner-owned Mise.' >&2; exit 1; fi
