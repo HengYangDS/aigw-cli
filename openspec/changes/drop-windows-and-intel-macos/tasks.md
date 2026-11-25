@@ -62,10 +62,10 @@
 
 ## 8. Local gates
 
-- [ ] 8.1 Pass `mise run check` on the lane head, in the host queue.
+- [x] 8.1 Pass `mise run check` on the lane head, in the host queue. Passed on `fb03546ef` (2026-11-25 20:42).
 - [ ] 8.2 Pass `mise run native` on the macOS host on the lane head, in the host queue.
-- [ ] 8.3 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered
-      in code or in the design.
+- [x] 8.3 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered
+      in code or in the design. Five findings, answered in `e6f78dca3` and `fb03546ef`.
 
 ## 9. Exact-HEAD proof
 
