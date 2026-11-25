@@ -186,7 +186,7 @@ over Node's bundled npm. Commit Mise-generated `.config/mise/locks/` sidecars wi
 lock digest, without reformatting or manually translating fields. These are the
 tool producer's dependency inputs, not another application manifest.
 
-The [dependency policy](docs/governance/change-and-release-policy.md#dependency-maintenance)
+The [dependency policy](docs/governance/dependency-maintenance.md)
 owns freshness, age admission and reproducibility. Use native resolution for a
 reviewed upgrade, then restore locked operation; preserve the startup boundary above.
 

@@ -7,7 +7,7 @@
 
 ## 2. Documents
 
-- [ ] 2.1 Say in `docs/governance/change-and-release-policy.md` where the age is declared and that `mise run fix` fills Renovate's and npm's settings from it. Done when the documentation tests pass. The changelog keeps user-visible changes of the product, so it gets no entry.
+- [ ] 2.1 Move the dependency maintenance section of `docs/governance/change-and-release-policy.md` to `docs/governance/dependency-maintenance.md`, because the policy stands at its 500-line ceiling; say there where the age is declared and that `mise run fix` fills Renovate's and npm's settings from it, and point `CONTRIBUTING.md` and `docs/governance/README.md` at it. Done when the readiness proof reports no document-length gap and the documentation tests pass. The changelog keeps user-visible changes of the product, so it gets no entry.
 
 ## 3. Verification
 

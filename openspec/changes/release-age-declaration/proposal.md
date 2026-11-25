@@ -25,7 +25,7 @@ None.
 
 ## Impact
 
-`.config/mise/config.toml`, `.config/npm/npmrc`, `.config/checks/renovate/renovate.json5`, `tools/ci` (the check, the quality graph, the `fix` task and their tests), `docs/governance/change-and-release-policy.md`, and the accepted `supply-chain` specification. The design records what Mise and npm do under the age, measured in a scratch copy before the two lines are written.
+`.config/mise/config.toml`, `.config/npm/npmrc`, `.config/checks/renovate/renovate.json5`, `tools/ci` (the check, the quality graph, the `fix` task and their tests), `docs/governance/dependency-maintenance.md` (the dependency maintenance section moves there from `docs/governance/change-and-release-policy.md`, which stands at the 500-line ceiling) with the links to it in `docs/governance/README.md` and `CONTRIBUTING.md`, and the accepted `supply-chain` specification. The design records what Mise and npm do under the age, measured in a scratch copy before the two lines are written.
 
 Reuse: the proxy's form is taken over, its Python module is not, because `tools/ci` is Go and Renovate's policy here is JSON5 with unquoted keys.
 
