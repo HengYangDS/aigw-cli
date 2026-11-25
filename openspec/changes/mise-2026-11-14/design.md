@@ -50,12 +50,13 @@ of landing.
 `min_version` is the oldest Mise that may read the repository's configuration,
 not the release that runs (`docs/governance/dependency-maintenance.md`). Mise
 treats a plain `min_version` as a hard minimum: an older release stops with an
-error (Mise's configuration reference at v2026.11.14). The floor is therefore
-bounded by the oldest Mise that reads this configuration, including the Mise
-that ETHOS's CI supply runs for commit admission, which this Change does not
-move. The supply-chain requirement raises the floor with the pin only when a
+error (Mise's configuration reference at v2026.11.14). No AIGW CI job installs
+ETHOS's own Mise (every job runs the declared release through the image, the
+runner-owned Mise or mise-action), so nothing in CI bounds the floor from below.
+The supply-chain requirement raises the floor with the pin only when a
 repository test asserts a diagnostic of the newer release, and no test asserts
-a Mise diagnostic that 2026.11.8 to 2026.11.14 introduced.
+a Mise diagnostic that 2026.11.8 to 2026.11.14 introduced; the floor therefore
+stays.
 
 ### mise-action v5.3.0
 
