@@ -21,11 +21,13 @@ registration; the release that ships the Change; unifying declarations that this
 **D1. The supported set.** Releases publish `darwin-arm64`, `linux-arm64`, `linux-amd64`. The release matrix is
 declared in `.config/release/goreleaser/.goreleaser.yaml` (what GoReleaser builds) and in
 `internal/program/artifact/identity.go` (what the program and its acceptance accept); both drop to the three
-targets in the same commit, and the existing tests that enumerate targets follow. The cask's only macOS archive is
-ARM64 because the matrix has no other; GoReleaser's cask configuration offers no architecture dependency (it carries a TODO for
-it). Alternative rejected: keeping
-`darwin-amd64` as a cross-compiled artifact, because a published artifact needs native execution of its lifecycle
-(`AGENTS.md`, engineering quality) and no runner remains for it.
+targets in the same commit, and the existing tests that enumerate targets follow. With one macOS archive, GoReleaser
+2.20.2, the locked release, writes `depends_on arch: :arm64` into the cask's macOS block by itself: its
+`macos_packages` template does so when the only macOS archive is ARM64 (read from the locked executable on
+2026-11-25). `requireHomebrewProjection` asserts that the cask depends on the architecture of its only macOS archive.
+Homebrew's refusal on an Intel Mac is not run here. Alternative rejected: keeping `darwin-amd64` as a cross-compiled
+artifact, because a published artifact needs native execution of its lifecycle (`AGENTS.md`, engineering quality)
+and no runner remains for it.
 
 **D2. Native evidence per operating system.** The CUE graph keeps one native job per operating system: macOS and
 Linux. GitHub runs them on `macos-latest` and `ubuntu-24.04`; GitLab on its ARM64 macOS guest (tags `macos-latest`
@@ -49,15 +51,22 @@ operating-system parameters, `process.Plan.DebugProcess`, `tools/release/perform
 The darwin Keychain, the Linux Secret Service and the file backend stay unchanged.
 
 **D5. Bounds derived from the Windows job.** `tools/ci`'s selection-matrix bound and `matrixJobMinutes` were set
-from the Windows run. Each is re-derived from the slowest remaining native job, citing its measured run, and tests
-pin the derivation, not the number. The figures come from the design of the archived Change
-`selection-matrix-native-platforms` (2026-11-24): the slowest measured macOS run of the matrix took 655 s, and the
-longest measured work before the matrix in a native job was the macOS run step, 976 s, with setup under 2 minutes.
-The bound is three times that run, rounded up to whole five minutes: 3 × 655 s = 1,965 s, so 35 minutes. Each
-GitHub job that runs the matrix gets that work, setup and bound, rounded up to the next ten minutes: 976 s + 120 s
+from the Windows run. Both are now derived from the slowest remaining native job, and each number has one owner. The
+figures come from the design of the archived Change `selection-matrix-native-platforms` (2026-11-24): the slowest
+measured macOS run of the matrix took 655 s, and the longest measured work before the matrix in a native job was the
+macOS run step, 976 s, with setup under 2 minutes.
 
-- 35 minutes ≈ 53 minutes, so 60. The proof's static gate keeps its 3,600 s, which still exceeds 35 minutes plus the
-  83 s before the matrix.
+- `tools/ci/projection` owns the matrix's run and its bound (`SelectionMatrixSlowestRun`, `SelectionMatrixBound`):
+  the quality graph runs the matrix within that bound, locally and on both Forges, and `ci project` hands it to the
+  CUE graph. The bound is three times that run, rounded up to whole five minutes: three times 655 s is 1,965 s, so
+  35 minutes.
+- The CUE graph owns the work before the matrix (`selectionMatrixPrecedingWork`: the 976 s run step and a 120 s
+  setup allowance) and derives `matrixJobMinutes` from the preceding work and the supplied bound, rounded up to
+  whole ten minutes: 976 s and 120 s and 35 minutes come to about 53 minutes, so 60. A slower measured run raises the
+  bound and, with it, the budget.
+- Tests pin both rules and no number: the bound is at least three runs, less than three runs and five minutes, and a
+  multiple of five minutes; the budget equals the rounded sum for the real bound and for a bound an hour larger.
+- The proof's static gate keeps its 3,600 s, which still exceeds 35 minutes and the 83 s before the matrix.
 
 **D6. Toolchain.** The Mise lock keeps the rows of macOS ARM64, Linux ARM64 and Linux AMD64. The rows are removed
 by Mise's own lock command restricted to those platforms; the diff of the lock removes rows and changes no

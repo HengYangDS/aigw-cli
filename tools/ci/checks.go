@@ -181,9 +181,6 @@ func requireTrackedLinkTargets(root string, files []string) error {
 			return fmt.Errorf("parse extracted link: %w", err)
 		}
 		file := filepath.FromSlash(target.Path)
-		if strings.HasPrefix(file, string(filepath.Separator)) && filepath.VolumeName(file[1:]) != "" {
-			file = file[1:]
-		}
 		relative, err := filepath.Rel(localRoot, file)
 		if err != nil || target.Host != "" || !tracked[relative] {
 			return fmt.Errorf("link target is not Git-tracked repository content: %s; link to committed content or a published artifact", link)

@@ -234,7 +234,7 @@ Syft catalogs every native binary, including platform dependencies, through the 
 [policy](../../.config/release/syft/.syft.yaml), not ambient user config, module caches, remote
 lookups or vendor enrichment. Tests bind every reported path/digest to the generated
 matrix. Normalize paths through a root-confined handle; actual SHA-256 integrity and
-[SPDX-required SHA-1 metadata](https://spdx.github.io/spdx-spec/v2.3/file-information/#84-file-checksum-field) are computed, not guessed. Either path separator/one leading
+[SPDX-required SHA-1 metadata](https://spdx.github.io/spdx-spec/v2.3/file-information/#84-file-checksum-field) are computed, not guessed. One leading
 root separator is accepted; traversal, network paths and duplicate normalized names
 fail. This addresses [Syft's directory-digest gap](https://github.com/anchore/syft/issues/4564)
 without weakening scanner coverage. SBOM runtime discovery does not replace
@@ -301,7 +301,7 @@ Warm cache is neither offline proof nor independent cold acquisition.
 
 AIGW supports macOS on ARM64 and Linux on ARM64 and AMD64. Releases publish the
 `darwin-arm64`, `linux-arm64` and `linux-amd64` archives, and the Homebrew cask names
-`darwin-arm64` as its only macOS archive. Windows and Intel macOS are not supported; 0.10.0 is the
+`darwin-arm64` as its only macOS archive and depends on ARM64. Windows and Intel macOS are not supported; 0.10.0 is the
 last release that published their archives.
 
 Support needs native macOS and Linux evidence. The one [CUE graph](../../.config/ci/pipeline.cue)
@@ -382,15 +382,15 @@ Trials covered macOS arm64, Linux amd64 and Windows amd64 product/tests/tools (W
 `drop-windows-and-intel-macos`). Retained
 limits are a reasoned trade-off, not a universal optimum or test-volume claim:
 
-| Trial                  | Decision and reason                                                                                                             |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Cyclop 20 then 15      | Keep 25: atomic manifest/ACL admission and complete lifecycle assertions do not justify blanket forwarding extraction           |
-| Cognitive 40           | Keep 45: bootstrap/recovery/native acceptance combine ownership and cleanup                                                     |
-| Span 110/statements 55 | Keep 120/60: explicit input/data and complete journeys remain inspectable                                                       |
-| Arguments 6            | Keep 7: provider/model and before/after artifacts are real distinct inputs; bags alone remove no knowledge                      |
-| Nestif below 4         | Adopt: early terminal paths and shared metadata deletion remove real nesting; positive 3/failing 4 fixtures cover product/tests |
-| Maintidx 30            | Keep 25: vocabulary/data cost remains bounded by independent size/nesting/decisions                                             |
-| Clone 80               | Keep 100 tokens: DPAPI protect/unprotect and distinct assertions are separate operations                                        |
+| Trial                  | Decision and reason                                                                                                              |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Cyclop 20 then 15      | Keep 25: atomic manifest/ACL admission and complete lifecycle assertions do not justify blanket forwarding extraction            |
+| Cognitive 40           | Keep 45: bootstrap/recovery/native acceptance combine ownership and cleanup                                                      |
+| Span 110/statements 55 | Keep 120/60: explicit input/data and complete journeys remain inspectable                                                        |
+| Arguments 6            | Keep 7: provider/model and before/after artifacts are real distinct inputs; bags alone remove no knowledge                       |
+| Nestif below 4         | Adopt: early terminal paths and shared metadata deletion remove real nesting; positive 3/failing 4 fixtures cover product/tests  |
+| Maintidx 30            | Keep 25: vocabulary/data cost remains bounded by independent size/nesting/decisions                                              |
+| Clone 80               | Keep 100 tokens: distinct assertions are separate operations; the trial's other case, DPAPI protect/unprotect, left with Windows |
 
 Machine values remain solely in native policy. The October 1 Cyclop recalibration
 is closed: retain 25 across product, tools and tests, not as a universal optimum.

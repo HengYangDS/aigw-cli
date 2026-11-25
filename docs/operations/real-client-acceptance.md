@@ -38,10 +38,11 @@ It borrows committed dependencies without provisioning; boot records stay privat
 Cleanup leaves native configuration, installation facts, boot records and launchers
 unchanged.
 
-The isolated Codex fixture runs in `read-only` mode; a permissions label without
-an active native backend cannot qualify tool execution. This test-only setting
-neither changes operator configuration nor chooses a production sandbox mode.
-Denied tool output remains a failure even when Codex returns the final marker.
+The isolated Codex fixture runs Codex in its `read-only` sandbox mode. That
+choice belongs to the fixture: it neither changes operator configuration nor
+chooses a production sandbox mode, and a permissions label without an active
+native backend cannot qualify tool execution. Denied tool output remains a
+failure even when Codex returns the final marker.
 
 For focused retry-policy source acceptance, supply an explicit source-built
 program, a portable predecessor fixture and the actual Codex distribution:

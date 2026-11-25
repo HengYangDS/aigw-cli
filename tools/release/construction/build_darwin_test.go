@@ -335,4 +335,9 @@ func requireHomebrewProjection(t *testing.T, stage, version string) {
 			t.Fatalf("Homebrew projection missing %q", expected)
 		}
 	}
+	// With one macOS archive the cask depends on its architecture, so Homebrew
+	// refuses it on another Mac instead of installing a program that cannot run.
+	if targets := darwinTargets(); len(targets) != 1 || !strings.Contains(string(cask), "depends_on arch: :"+targets[0].Arch) {
+		t.Fatalf("Homebrew projection does not depend on the architecture of its only macOS archive %v", targets)
+	}
 }

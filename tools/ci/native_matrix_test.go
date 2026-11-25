@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"aigw-cli/tools/ci/projection"
+
 	"github.com/pelletier/go-toml/v2"
 	"go.yaml.in/yaml/v4"
 )
@@ -266,15 +268,16 @@ func selectionMatrixTimeout(t *testing.T) time.Duration {
 // The matrix's bound is three times its slowest measured run, rounded up to
 // whole five minutes; the rule is pinned here, not its result.
 func TestSelectionMatrixBoundIsThreeSlowestRuns(t *testing.T) {
-	bound, floor := selectionMatrixTimeout(t), 3*selectionMatrixSlowestRun
+	bound, floor := selectionMatrixTimeout(t), 3*projection.SelectionMatrixSlowestRun
 	if bound < floor || bound >= floor+5*time.Minute || bound%(5*time.Minute) != 0 {
-		t.Fatalf("the selection matrix's bound %v is not three times its slowest run %v rounded up to five minutes", bound, selectionMatrixSlowestRun)
+		t.Fatalf("the selection matrix's bound %v is not three times its slowest run %v rounded up to five minutes", bound, projection.SelectionMatrixSlowestRun)
 	}
 }
 
 // Every GitHub job and proof gate that runs the selection matrix has a budget
-// above the matrix's own bound. This is the necessary condition only; the time
-// that a job spends before the matrix is measured, not tested (the design).
+// above the matrix's own bound. The CUE graph derives each GitHub budget from
+// that bound and the measured work before the matrix; the projection's tests
+// pin that rule.
 func TestEveryBudgetAroundTheSelectionMatrixExceedsItsBound(t *testing.T) {
 	bound := selectionMatrixTimeout(t)
 	checked := 0

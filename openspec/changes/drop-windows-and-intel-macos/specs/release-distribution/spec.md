@@ -71,6 +71,14 @@ identity.
   SHALL be built, signed or published
 - **AND** the Homebrew cask SHALL name `darwin-arm64` as its only macOS archive.
 
+#### Scenario: A Mac without ARM64 installs the cask
+
+- **WHEN** a user installs the Homebrew cask on a Mac whose processor is not
+  ARM64
+- **THEN** the cask SHALL declare that it depends on ARM64, so that Homebrew
+  refuses the installation
+- **AND** no AIGW program SHALL be installed on that Mac.
+
 ### Requirement: Native released-artifact lifecycle acceptance
 
 On macOS and Linux, AIGW SHALL prove the public installed-program

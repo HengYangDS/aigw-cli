@@ -34,7 +34,7 @@ installationEnvironment: GODEBUG: "http2client=0"
 	...
 }
 
-// Git source acquisition must admit the same paths as native tool caches.
+// Git in every CI job names a new repository's first branch main.
 gitEnvironment: {
 	GIT_CONFIG_COUNT:   "1"
 	GIT_CONFIG_KEY_0:   "init.defaultBranch"
@@ -245,14 +245,24 @@ gitlabControlPlatform: #OperatingSystem & "darwin"
 // runners; their toolchain setup is written for Linux.
 qualityPlatform: #OperatingSystem & "linux"
 
-// The budget of every GitHub job that runs the selection matrix: the quality
-// job and each native job. It holds the matrix's own bound after the job's
-// longest measured work counted as if all of it ran first, rounded up to the
-// next ten minutes: the macOS run step (976 s) and setup (under 2 minutes)
-// before the 35-minute bound is about 53 minutes. The design of
-// drop-windows-and-intel-macos (D5) gives the figures. GitLab jobs take the
-// project's limit.
-matrixJobMinutes: 60
+// The selection matrix's own bound in whole minutes. tools/ci/projection
+// derives it from the matrix's slowest measured run (SelectionMatrixBound), the
+// quality graph runs the matrix within it, and `ci project` supplies it here.
+selectionMatrixBoundMinutes: int & >0
+
+// The longest measured work of a native job before the selection matrix: the
+// macOS run step and the setup before it, counted as if all of it ran first.
+// The design of drop-windows-and-intel-macos (D5) gives the runs.
+selectionMatrixPrecedingWork: {
+	runStepSeconds: 976
+	setupSeconds:   120
+}
+
+// The budget of every GitHub job that runs the selection matrix, the quality
+// job and each native job: the preceding work and the matrix's bound, rounded
+// up to whole ten minutes, so a slower measured run raises it. GitLab jobs take
+// the project's limit.
+matrixJobMinutes: div(selectionMatrixPrecedingWork.runStepSeconds+selectionMatrixPrecedingWork.setupSeconds+selectionMatrixBoundMinutes*60+599, 600) * 10
 
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser/.goreleaser.yaml.

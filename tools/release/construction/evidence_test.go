@@ -211,8 +211,8 @@ func TestSPDXBindingRequiresOwnedBytes(t *testing.T) {
 	}{
 		{"missing checksum", `[{"fileName":"aigw"}]`, true},
 		{"scan root path", `[{"fileName":"/aigw"}]`, true},
-		{"network path", `[{"fileName":"\\\\host\\aigw"}]`, false},
-		{"root-relative duplicate", `[{"fileName":"aigw"},{"fileName":"\\aigw"}]`, false},
+		{"network path", `[{"fileName":"//host/aigw"}]`, false},
+		{"root-relative duplicate", `[{"fileName":"aigw"},{"fileName":"/aigw"}]`, false},
 		{"measured checksum", `[{"fileName":"aigw","checksums":` + matching + `}]`, true},
 		{"mismatch", `[{"fileName":"aigw","checksums":[{"algorithm":"SHA256","checksumValue":"wrong"}]}]`, false},
 		{"foreign path", `[{"fileName":"../aigw"}]`, false},

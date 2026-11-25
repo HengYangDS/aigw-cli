@@ -80,6 +80,22 @@ rather than narrow the journey.
 - **AND** a process that still names the supply SHALL keep
   the directory and fail the job.
 
+### Requirement: Platform-specific code builds only for its platform
+
+Code that only one supported platform runs, such as macOS Keychain or Linux
+Secret Service access, SHALL sit in files whose build constraints select that
+platform, with a counterpart on the other platform where a shared caller needs
+one. Each native job's statement coverage SHALL count only code that its host
+can run.
+
+#### Scenario: Each platform's credential store is measured on its own host
+
+- **WHEN** the macOS and the Linux native job measure statement coverage
+- **THEN** the macOS job SHALL count the Keychain code and not the Secret
+  Service code
+- **AND** the Linux job SHALL count the Secret Service code and not the
+  Keychain code.
+
 ## MODIFIED Requirements
 
 ### Requirement: Latest stable repository-owned supply chain
@@ -271,6 +287,6 @@ fallbacks.
 
 ### Requirement: Host-specific tooling builds only for its hosts
 
-**Reason**: Every supported host is POSIX, so no host family needs its own counterpart or a coverage exception.
+**Reason**: Its Windows counterpart and its Windows coverage scenario leave with Windows support.
 
-**Migration**: None; the process inventory builds for every supported host.
+**Migration**: "Platform-specific code builds only for its platform" keeps the build-constraint and coverage obligations for macOS and Linux.

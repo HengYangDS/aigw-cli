@@ -17,16 +17,13 @@ import (
 )
 
 func TestGoReleaserStagePreservesPaths(t *testing.T) {
-	for _, stage := range []string{`/tmp/native release/goreleaser`, `C:\Users\runner\AppData\Local\Temp\native release\goreleaser`} {
-		t.Run(stage, func(t *testing.T) {
-			config, err := renderGoReleaserConfig(releaseRoot(t), t.TempDir(), stage)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := goReleaserStage(t, []string{"--config", config}); got != stage {
-				t.Fatalf("GoReleaser stage = %q, want %q", got, stage)
-			}
-		})
+	stage := `/tmp/native release/goreleaser`
+	config, err := renderGoReleaserConfig(releaseRoot(t), t.TempDir(), stage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := goReleaserStage(t, []string{"--config", config}); got != stage {
+		t.Fatalf("GoReleaser stage = %q, want %q", got, stage)
 	}
 }
 

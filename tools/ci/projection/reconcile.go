@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 // Reconcile renders the repository's CUE model and either verifies or updates
@@ -70,15 +72,25 @@ func renderProjections(root string) ([]projection, error) {
 }
 
 func projectionCommand(root, expression string) *exec.Cmd {
+	return exportCommand(root, expression, SelectionMatrixBound)
+}
+
+// exportCommand evaluates one expression of the CUE graph, unified on standard
+// input with the selection matrix's bound that the graph derives its job
+// budgets from.
+func exportCommand(root, expression string, matrixBound time.Duration) *exec.Cmd {
 	process := exec.Command(
 		"cue",
 		"export",
 		filepath.FromSlash(".config/ci/pipeline.cue"),
+		"cue:",
+		"-",
 		"--expression",
 		expression,
 		"--out",
 		"yaml",
 	)
 	process.Dir = root
+	process.Stdin = strings.NewReader(selectionMatrixValue(matrixBound))
 	return process
 }

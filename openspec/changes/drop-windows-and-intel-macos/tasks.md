@@ -7,9 +7,12 @@
 ## 2. Release matrix
 
 - [x] 2.1 Reduce `.config/release/goreleaser/.goreleaser.yaml` and `internal/program/artifact/identity.go` to
-      `darwin-arm64`, `linux-arm64` and `linux-amd64`, with a cask whose only macOS archive is ARM64 and no zip or `.exe` path, and make
-      the tests that enumerate targets follow (D1). Done when GoReleaser's `check` accepts the configuration and the
-      package tests of `internal/program/...` and `tools/release/...` that read the matrix pass.
+      `darwin-arm64`, `linux-arm64` and `linux-amd64`, with a cask whose only macOS archive is ARM64 and no zip or
+      `.exe` path, and make the tests that enumerate targets follow (D1). Done when GoReleaser's `check` accepts the
+      configuration and the package tests of `internal/program/...` and `tools/release/...` that read the matrix pass.
+- [ ] 2.2 Assert in `requireHomebrewProjection` that the cask depends on the architecture of its only macOS archive
+      (D1). Done when `TestNativeReleaseArchivesHaveDeterministicLocalSignatures` passes; it starts GoReleaser
+      builds, so it runs in task 8.2.
 
 ## 3. Product code
 
@@ -29,9 +32,9 @@
       collapse `tools/release/performance.ObserveCurrent` and `tools/ci`'s `supplyInUse` and
       `qualifyProtectedResource` (D4). Done when the package tests of those tools pass on macOS and no Go file under
       `tools/` holds a Windows code path, build constraint or test case.
-- [x] 4.2 Re-derive the selection-matrix bound and `matrixJobMinutes` from the slowest remaining native job, citing
-      its measured run, with tests that pin the derivation and not the number (D5). Done when the `tools/ci` tests
-      pass.
+- [x] 4.2 Derive the selection-matrix bound from the slowest measured run in the quality graph and
+      `matrixJobMinutes` in the CUE graph from the declared work before the matrix and that bound, with tests that
+      pin both rules and no number (D5). Done when the `tools/ci` and `tools/ci/projection` tests pass.
 
 ## 5. CI declaration
 
