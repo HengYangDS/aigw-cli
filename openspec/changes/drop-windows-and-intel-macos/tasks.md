@@ -49,11 +49,11 @@
 
 ## 7. Documents and records
 
-- [ ] 7.1 State the supported set once in the release policy, link to it from each document that names the
+- [x] 7.1 State the supported set once in the release policy, link to it from each document that names the
       supported platforms, remove Windows and Intel macOS from the current documents, and make `AGENTS.md`'s
       platform rule macOS and Linux with the per-forge runners of D2 (D7). Done when no current document names Windows or Intel macOS as supported and
       the prose and Markdown gates pass.
-- [ ] 7.2 Add a dated amendment line naming this Change to each decision record that names Windows as current
+- [x] 7.2 Add a dated amendment line naming this Change to each decision record that names Windows as current
       behavior, and a breaking entry under `## Unreleased` in `CHANGELOG.md` (D7). Done when
       `go run ./tools/release validate-changelog` passes.
 
