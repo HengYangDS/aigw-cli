@@ -64,9 +64,9 @@ them. For each Codex target, `aigw check codex` SHALL report the window that Cod
 AIGW SHALL atomically prepare and validate selected client targets, mutate only
 owned projections, compensate failures only while postimages remain
 transaction-owned, and expose credential-free, side-effect-free dry runs. For a
-Codex model whose family is in Codex's bundled table and whose ID is not itself
-an entry of it, it SHALL derive an alias of that family's entry bound to client
-version and digest, preserve the wire model ID, and update all three
+Codex model whose family, not its ID, is in Codex's bundled table, it SHALL
+derive an alias of that family's entry bound to client version and digest,
+preserve the wire model ID, and update all three
 atomically. Foreign or user-authored catalogs MUST remain untouched.
 
 #### Scenario: Multi-target projection fails
