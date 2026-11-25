@@ -535,13 +535,11 @@ copying or owning them.
 #### Scenario: The operator's Codex catalog is not an absolute path
 
 - **WHEN** the operator's own `model_catalog_json` is relative to the Codex
-  configuration that names it, or on Windows rooted without a drive, such as
-  `\catalogs\models.json`
+  configuration that names it
 - **THEN** the private client configuration SHALL name that file by its
-  absolute path, on the drive of that configuration for a rooted path
-- **AND** a reference that names a drive without a root, such as
-  `D:models.json`, the catalog and the operator's configuration SHALL stay
-  unchanged, and AIGW SHALL NOT take ownership of the catalog.
+  absolute path, joined to the directory of that configuration
+- **AND** the catalog and the operator's configuration SHALL stay unchanged,
+  and AIGW SHALL NOT take ownership of the catalog.
 
 #### Scenario: A client reports a warning or an error
 

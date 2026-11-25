@@ -48,7 +48,7 @@ Forge platform is unavailable.
 
 The repository SHALL define its semantic CI graph once and deterministically
 project it to GitHub and GitLab. Each selected Forge SHALL run its own required
-macOS, Linux, and Windows native jobs for the exact product commit. Projection
+macOS and Linux native jobs for the exact product commit. Projection
 differences SHALL be limited to provider syntax, runner selectors, and
 platform-specific shell commands. Neither Forge's result SHALL substitute for
 a required job on the other Forge.
@@ -138,7 +138,7 @@ a required job on the other Forge.
 - **WHEN** GitLab downloads and verifies the complete released artifact matrix
 - **THEN** its OS-independent verifier runs on the Linux container selector,
   not the persistent macOS Shell selector that also accepts review code
-- **AND** macOS and Windows native evidence remains required on their own jobs
+- **AND** macOS native evidence remains required on its own job
 - **AND** this relocation does not by itself prove Shell runner isolation for
   review, tag, or other protected work.
 
@@ -157,7 +157,7 @@ a required job on the other Forge.
   are unavailable, the other peer has no restored tool cache, and a new product
   SHA requires its complete CI graph
 - **THEN** the other peer SHALL reconstruct its locked tool closure without
-  that unavailable platform and execute its required macOS, Linux, and Windows
+  that unavailable platform and execute its required macOS and Linux
   jobs for that exact SHA
 - **AND** a warm cache, another peer's result, or a partial matrix SHALL NOT
   substitute for this cold-cache evidence

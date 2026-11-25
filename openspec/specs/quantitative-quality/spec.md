@@ -116,7 +116,7 @@ owned by the same authority.
 
 #### Scenario: Native platform source is checked
 
-- **WHEN** native acceptance runs on macOS, Linux, or Windows
+- **WHEN** native acceptance runs on macOS or Linux
 - **THEN** the shared Go static-quality policy SHALL execute against that
   host's platform-selected product, tool and test sources before behavioral
   tests and release acceptance

@@ -79,8 +79,8 @@ platforms again.
 **D7. Records.** Documents state the supported set once, in the release policy, and link to it. A decision record is
 a dated record: where one names Windows as current behavior, it gets a dated amendment line naming this Change, and
 its history stays. The two records amended so are DR-0005
-([admitted client adapter boundary](../../../docs/decisions/dr-0005-admitted-client-adapter-boundary.md)) and DR-0011
-([single portable Token backend](../../../docs/decisions/dr-0011-single-portable-token-backend.md)).
+([admitted client adapter boundary](../../../../docs/decisions/dr-0005-admitted-client-adapter-boundary.md)) and DR-0011
+([single portable Token backend](../../../../docs/decisions/dr-0011-single-portable-token-backend.md)).
 `CHANGELOG.md` records the breaking removal under the next release; earlier entries stay.
 
 **D8. Specifications.** A requirement that exists only for Windows is REMOVED with a one-sentence reason. A

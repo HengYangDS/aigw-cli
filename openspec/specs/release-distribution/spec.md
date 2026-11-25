@@ -59,7 +59,7 @@ SHALL choose the SemVer increment from public compatibility impact.
 Version parsing SHALL NOT establish distribution trust. Credential-free macOS
 builds SHALL retain ad-hoc signatures, Hardened Runtime, and release-epoch
 timestamps. Public macOS distribution requires Developer ID signing and
-accepted notarization before publication; Windows Authenticode status remains explicit.
+accepted notarization before publication.
 Reproducibility, publisher trust, notarization, and credential authorization
 SHALL remain separate claims. Consumers require no publisher secret or
 developer membership.
@@ -104,7 +104,7 @@ identity.
 
 #### Scenario: Native acceptance builds its asset
 
-- **WHEN** native acceptance runs on macOS, Linux, or Windows without Apple
+- **WHEN** native acceptance runs on macOS or Linux without Apple
   signing credentials
 - **THEN** it SHALL build only its current operating system's declared targets
 - **AND** full release construction SHALL still require the complete matrix
@@ -115,6 +115,23 @@ identity.
 - **WHEN** GitLab and GitHub publish one accepted product release
 - **THEN** their immutable asset bytes and manifests SHALL agree
 - **AND** their supported-platform semantics SHALL be equivalent.
+
+#### Scenario: The complete matrix is constructed
+
+- **WHEN** full release construction emits the archive matrix
+- **THEN** it SHALL contain exactly the `darwin-arm64`, `linux-arm64` and
+  `linux-amd64` archives with their checksums and provenance
+- **AND** no Windows archive, zip archive, `.exe` or `darwin-amd64` archive
+  SHALL be built, signed or published
+- **AND** the Homebrew cask SHALL name `darwin-arm64` as its only macOS archive.
+
+#### Scenario: A Mac without ARM64 installs the cask
+
+- **WHEN** a user installs the Homebrew cask on a Mac whose processor is not
+  ARM64
+- **THEN** the cask SHALL declare that it depends on ARM64, so that Homebrew
+  refuses the installation
+- **AND** no AIGW program SHALL be installed on that Mac.
 
 ### Requirement: Package installation preserves ownership
 
@@ -336,7 +353,7 @@ until proved.
 
 ### Requirement: Native released-artifact lifecycle acceptance
 
-On macOS, Linux, and Windows, AIGW SHALL prove the public installed-program
+On macOS and Linux, AIGW SHALL prove the public installed-program
 lifecycle using portable archives and checksums shaped like release assets:
 install the older program, update, roll back, recover forward, and uninstall.
 The journey MUST preserve declared configuration and credentials and finish
@@ -518,7 +535,7 @@ dependencies and file digests in one SPDX document without a custom SBOM merger.
 
 ### Requirement: Native release targets are independent of the build host
 
-macOS AMD64 and ARM64 artifacts SHALL retain the declared macOS 13 deployment
+The macOS ARM64 artifact SHALL retain the declared macOS 13 deployment
 floor supported by the locked Go toolchain and selected native APIs. A newer
 build host or SDK SHALL NOT silently raise that floor. Native artifact evidence
 SHALL inspect the linked executable, not infer compatibility from configuration
@@ -527,7 +544,7 @@ or successful execution on the build host.
 #### Scenario: A newer SDK links the native credential implementation
 
 - **WHEN** macOS construction uses external linking for the native credential API
-- **THEN** both architecture archives SHALL declare macOS 13.0 as their minimum
+- **THEN** the macOS archive SHALL declare macOS 13.0 as its minimum
 - **AND** cached CGO objects compiled for a newer target SHALL NOT cause deployment warnings
 - **AND** native signature and deterministic archive validation SHALL remain required
 - **AND** linked-header acceptance SHALL NOT imply execution on an older OS.
@@ -538,7 +555,7 @@ or successful execution on the build host.
 - **THEN** the matching host architecture SHALL rebuild through the declared native release configuration
 - **AND** its actual CPU, deployment floor and signature SHALL be verified without deployment warnings
 - **AND** warmup and rebuild SHALL retain one original bounded deadline and no operator signing or Forge credentials
-- **AND** the independent full-matrix journey SHALL retain both architecture archives and deterministic signatures.
+- **AND** the independent full-matrix journey SHALL retain the macOS archive and its deterministic signature.
 
 ### Requirement: The Hermes release journey resumes its session natively
 

@@ -9,70 +9,6 @@ native operation.
 
 ## Requirements
 
-### Requirement: Native credential service failure has a portable outcome
-
-On supported platforms, automatic resolution SHALL honor an existing backend
-choice. Only an unrecorded choice MAY probe native metadata and select the
-platform-safe file fallback on failure. The probe SHALL not read Tokens or
-claim future read/write permission. Unix fallback SHALL use owner-only storage;
-Windows fallback SHALL protect values with current-user DPAPI.
-
-#### Scenario: Headless Linux has no usable credential service
-
-- **WHEN** no backend is recorded and native metadata probing fails on Linux
-- **THEN** AIGW selects the secure file backend
-- **AND** setup can persist one supplied provider Token
-
-#### Scenario: macOS credential service is unavailable
-
-- **WHEN** no backend is recorded and native metadata probing fails on macOS
-- **THEN** AIGW selects the secure file backend without prompting through a client application
-
-#### Scenario: Explicit keyring selection fails closed
-
-- **WHEN** the operator explicitly selects the native credential service
-- **AND** that service is unavailable
-- **THEN** AIGW reports the backend failure
-- **AND** does not silently select the file backend
-
-#### Scenario: Windows automatic selection
-
-- **WHEN** Windows resolves an unrecorded automatic backend
-- **THEN** successful native metadata probing SHALL select Credential Manager
-- **AND** a failed probe SHALL select the current-user DPAPI file backend
-- **AND** only a credential mutation SHALL persist that automatic choice
-
-### Requirement: Native availability observation is non-interactive
-
-AIGW SHALL use value-free native metadata operations to observe credentials on
-macOS, Linux, and Windows. Observation SHALL NOT request secret disclosure or
-open a credential-access prompt.
-
-#### Scenario: macOS Keychain observation
-
-- **WHEN** AIGW observes a generic-password item on macOS
-- **THEN** it queries item metadata without requesting password data
-
-#### Scenario: Linux Secret Service observation
-
-- **WHEN** AIGW observes a Secret Service item on Linux
-- **THEN** it searches item attributes without opening a secret session or
-  requesting secret bytes
-
-#### Scenario: Linux Secret Service is unavailable
-
-- **WHEN** an explicitly selected or already persisted native backend cannot
-  connect to Secret Service while observing a credential on Linux
-- **THEN** it reports the connection failure
-- **AND** it does not read credential values, select another backend, or open an
-  interactive prompt
-
-#### Scenario: Windows Credential Manager observation
-
-- **WHEN** AIGW observes a generic credential on Windows
-- **THEN** it uses credential metadata to determine presence without exposing
-  the credential blob to AIGW
-
 ### Requirement: Native credential qualification owns real store access
 
 Ordinary source tests SHALL use provider doubles and avoid host credential
@@ -212,7 +148,7 @@ or timing SHALL NOT prove later authorization.
 
 - **WHEN** a native credential subprocess, or a client credential command that
   AIGW runs, exits as soon as it starts or starts its own children at once
-- **THEN** it SHALL already belong to the process group or Job that owns its
+- **THEN** it SHALL already belong to the process group that owns its
   cleanup before it runs any code, and its start SHALL succeed
 - **AND** a subprocess that cannot be contained SHALL be stopped, with the
   cause reported.
@@ -231,9 +167,7 @@ or timing SHALL NOT prove later authorization.
 AIGW SHALL list the provider IDs of a service's Tokens from item names or
 attributes alone, in the same bounded private subprocess as other native
 operations. The listing SHALL read no value, prompt for nothing and pass only
-provider IDs across the subprocess boundary. An API that returns values with
-the names, as Windows Credential Manager does, SHALL have them zeroed unread
-inside the subprocess.
+provider IDs across the subprocess boundary.
 
 #### Scenario: A store needs a person to list
 
@@ -246,8 +180,8 @@ inside the subprocess.
 ### Requirement: A native credential deadline names where the operation stood
 
 A native credential operation that reaches its deadline SHALL report, without Token or item data, the deadline and
-which steps ended within it: its subprocess was created, and its subprocess was started inside the process group or
-Job that owns it. It SHALL give the time from the operation's start at which each of those steps ended and, when
+which steps ended within it: its subprocess was created, and its subprocess was started inside the process group
+that owns it. It SHALL give the time from the operation's start at which each of those steps ended and, when
 known, the time at which the step that missed the deadline ended. The failure SHALL remain a deadline to every caller
 that tests for one.
 
@@ -276,3 +210,53 @@ that tests for one.
 - **THEN** its problem SHALL show where the operation stood as its evidence
 - **AND** its Fix SHALL name the credential service only when the subprocess was started within the deadline, and
   otherwise SHALL say that the subprocess was not started in time.
+
+### Requirement: An unrecorded backend falls back to the owner-only file
+
+On supported platforms, automatic resolution SHALL honor an existing backend
+choice. Only an unrecorded choice MAY probe native metadata and select the
+platform-safe file fallback on failure. The probe SHALL not read Tokens or
+claim future read/write permission. The fallback SHALL use owner-only storage.
+
+#### Scenario: Headless Linux has no usable credential service
+
+- **WHEN** no backend is recorded and native metadata probing fails on Linux
+- **THEN** AIGW selects the secure file backend
+- **AND** setup can persist one supplied provider Token
+
+#### Scenario: macOS credential service is unavailable
+
+- **WHEN** no backend is recorded and native metadata probing fails on macOS
+- **THEN** AIGW selects the secure file backend without prompting through a client application
+
+#### Scenario: Explicit keyring selection fails closed
+
+- **WHEN** the operator explicitly selects the native credential service
+- **AND** that service is unavailable
+- **THEN** AIGW reports the backend failure
+- **AND** does not silently select the file backend
+
+### Requirement: Native availability is observed without interaction
+
+AIGW SHALL use value-free native metadata operations to observe credentials on
+macOS and Linux. Observation SHALL NOT request secret disclosure or
+open a credential-access prompt.
+
+#### Scenario: macOS Keychain observation
+
+- **WHEN** AIGW observes a generic-password item on macOS
+- **THEN** it queries item metadata without requesting password data
+
+#### Scenario: Linux Secret Service observation
+
+- **WHEN** AIGW observes a Secret Service item on Linux
+- **THEN** it searches item attributes without opening a secret session or
+  requesting secret bytes
+
+#### Scenario: Linux Secret Service is unavailable
+
+- **WHEN** an explicitly selected or already persisted native backend cannot
+  connect to Secret Service while observing a credential on Linux
+- **THEN** it reports the connection failure
+- **AND** it does not read credential values, select another backend, or open an
+  interactive prompt

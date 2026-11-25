@@ -87,7 +87,7 @@ Repository configuration, tools, source, tests, documentation, and release asset
 
 #### Scenario: Contributor uses another host
 
-- **WHEN** the repository is verified on macOS, Linux, or Windows
+- **WHEN** the repository is verified on macOS or Linux
 - **THEN** repository-owned Go commands and declarative configuration provide the same contract
 - **AND** shell-specific behavior is not required for product or CI correctness.
 
@@ -419,7 +419,7 @@ name a client.
 Each top-level command SHALL be implemented by one package named after it.
 Acceptance scripts SHALL run the program in its own process for every
 command's help, a representative success, a representative refusal and its
-JSON output on macOS, Linux and Windows.
+JSON output on macOS and Linux.
 
 #### Scenario: A command has no package or script
 
@@ -540,7 +540,7 @@ policy. Compatibility facades and duplicate policy owners SHALL not be retained.
 #### Scenario: Foreign-host absolute path enters policy
 
 - **WHEN** policy contains an absolute or parent-traversing path in another host's syntax
-- **THEN** validation SHALL reject it identically on macOS, Linux, and Windows.
+- **THEN** validation SHALL reject it identically on macOS and Linux.
 
 #### Scenario: No admitted branch authority exists
 
@@ -629,17 +629,6 @@ parallel claim-digest registry.
 - **AND** the native measurement owner SHALL retain the raw failure rather than
   manufacture missing facts in a second record.
 
-### Requirement: Native client fixtures are repository-controlled
-
-Cross-platform tests SHALL construct client executables from test-owned
-fixtures rather than borrowing unrelated host toolchain executables.
-
-#### Scenario: Windows tests an unreadable Claude executable
-
-- **WHEN** native Windows verification exercises client-executable read failures
-- **THEN** the fixture SHALL be an isolated executable controlled by the test
-- **AND** the result SHALL not depend on the installed Go toolchain path or contents.
-
 ### Requirement: Native Markdown formatting preserves semantic containers
 
 Current authored Markdown SHALL use the locked original Prettier formatter with
@@ -687,3 +676,14 @@ clone's Git configuration.
 - **WHEN** a branch or tag is published to a peer
 - **THEN** its repository SHALL come from the clone's Git configuration
 - **AND** tracked configuration SHALL name only the peer's Git remote.
+
+### Requirement: Client executable fixtures are test-owned
+
+Native tests SHALL construct client executables from test-owned
+fixtures rather than borrowing unrelated host toolchain executables.
+
+#### Scenario: A test exercises an unreadable client executable
+
+- **WHEN** native verification exercises client-executable read failures
+- **THEN** the fixture SHALL be an isolated executable controlled by the test
+- **AND** the result SHALL not depend on the installed Go toolchain path or contents.

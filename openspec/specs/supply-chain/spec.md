@@ -39,7 +39,7 @@ fallbacks.
 #### Scenario: A runner-owned tool advances with its declaration
 
 - **WHEN** a refreshed declaration moves a tool whose executable a CI runner
-  owns, such as the Windows ARM64 Mise
+  owns, such as GitLab's macOS ARM64 Mise
 - **THEN** the CUE authority SHALL pin that release's version and executable
   digests from the verified upstream release
 - **AND** the runner's executable SHALL be replaced in a window without running
@@ -86,8 +86,7 @@ fallbacks.
 - **WHEN** the admitted native client releases advance past their pinned
   versions and the repository's minimum release age
 - **THEN** the CUE authority SHALL pin the exact new versions once, and both
-  Forge projections, every native host's client supply and the Windows client
-  supplier name SHALL follow from it
+  Forge projections and every native host's client supply SHALL follow from it
 - **AND** the native client journey of each supplying host SHALL pass with the
   new versions before the forges integrate them.
 
@@ -181,101 +180,6 @@ fallbacks.
 - **THEN** the declaration and its lock SHALL advance to that tool release as for
   an advisory that names the tool itself.
 
-### Requirement: Native verification runs the declared Mise release
-
-Local verification and every Forge job SHALL run the Mise release that the
-repository declares. A Mise release whose diagnostics the repository's tests
-assert SHALL become the CUE pin and the repository floor together, and a
-runner-owned Mise SHALL be replaced before a job consumes that declaration.
-
-#### Scenario: A Mise release changes an asserted diagnostic
-
-- **WHEN** a repository test asserts a diagnostic that only a newer Mise release
-  prints
-- **THEN** the CUE pin, the generated Forge projections and the repository Mise
-  floor SHALL name that release
-- **AND** the hosted native jobs SHALL pass with it before integration.
-
-#### Scenario: A runner owns its Mise
-
-- **WHEN** the declared Mise advances while a runner owns its Mise executable,
-  such as GitLab's Windows ARM64 or macOS ARM64 runner
-- **THEN** that runner's Mise executable, and its shim where the release ships
-  one, SHALL be replaced with the verified release before any of its jobs
-  consumes the declaration.
-
-#### Scenario: Projects share a Windows runner host
-
-- **WHEN** the runners of several projects share a Windows ARM64 host
-- **THEN** AIGW's jobs SHALL run the Mise executable and shim from a directory
-  that only AIGW's declaration updates
-- **AND** replacing AIGW's Mise SHALL leave the other projects' Mise unchanged.
-
-#### Scenario: Projects share a macOS runner host
-
-- **WHEN** the runners of several projects share a macOS ARM64 host whose shared
-  Mise no single project's declaration governs
-- **THEN** each of AIGW's GitLab jobs there SHALL verify the digest and version
-  of a Mise executable in a directory that only AIGW's declaration updates,
-  before any locked tool runs, and SHALL print the release it verified
-- **AND** the word `mise` SHALL run that executable for the rest of the job,
-  whatever the runner account's shell profile defines
-- **AND** a missing executable, another digest or another version SHALL fail the
-  job before the locked toolchain installs.
-
-### Requirement: Real-client acceptance supplies each host's official clients
-
-Real-client acceptance on a native host SHALL first supply exactly the clients
-that the release owner declares for that platform, from their official
-distributions at the pinned releases, and export each client's explicit
-executable. Supply state SHALL stay in one job-owned directory that every
-outcome removes. A missing or unverifiable distribution SHALL fail the supply
-rather than narrow the journey.
-
-#### Scenario: A Linux or macOS job requests real clients
-
-- **WHEN** a GitHub native Linux or macOS job runs the retained-predecessor
-  journey with real clients
-- **THEN** it SHALL supply Codex and Claude Code from their official npm
-  platform packages, and Hermes from its official release installer after that
-  installer's pinned checksum matches
-- **AND** the installed Hermes checkout SHALL be the unmodified pinned commit
-  with its published launcher
-- **AND** a Linux job SHALL first install the sandbox prerequisites that Codex
-  documents for its host, the distribution's bubblewrap and its AppArmor
-  profile, without lifting the host's user-namespace restriction.
-
-#### Scenario: A Windows job requests real clients
-
-- **WHEN** a GitHub native Windows job runs the same journey with real clients
-- **THEN** it SHALL supply Codex and Claude Code from the same pinned releases
-  with Git Bash for Claude
-- **AND** it SHALL refuse Hermes inputs, because that host's journeys omit
-  Hermes.
-
-#### Scenario: A supply fails or is interrupted
-
-- **WHEN** an installation step fails, a pinned identity does not match, or the
-  job is interrupted during supply
-- **THEN** the supply SHALL stop the running installer and every process it
-  started, without their cooperation
-- **AND** it SHALL export no client and SHALL remove its directory.
-
-#### Scenario: The job environment names other client state
-
-- **WHEN** the job environment sets a client's home or tool directory, such as
-  `HERMES_RUNTIME_DIR`
-- **THEN** the official installer SHALL still keep its homes, tools, caches and
-  launcher inside the supply.
-
-#### Scenario: The job retires its supply
-
-- **WHEN** the native job ends after acceptance, whatever its outcome
-- **THEN** retirement SHALL remove only the recorded supply directory and prove
-  it absent
-- **AND** on Linux and macOS a process that still names the supply SHALL keep
-  the directory and fail the job.
-
 ### Requirement: A vulnerable exact transitive pin is overridden
 
 When a direct dependency pins a transitive release that a published advisory
@@ -350,22 +254,6 @@ construction.
   the SBOM carries exactly one package of the main module that `go.mod`
   declares and exactly one standard library, at that version, as a dependency
   of that same program's main-module package.
-
-### Requirement: Host-specific tooling builds only for its hosts
-
-Repository tooling SHALL place behavior that only one family of hosts runs, such
-as a POSIX process inventory, in files whose build constraints select those
-hosts, with an explicit counterpart for the other hosts. Each native job's
-statement coverage SHALL count only code that its host can run.
-
-#### Scenario: Native client retirement checks for processes
-
-- **WHEN** native client retirement checks whether a process still uses the
-  supply
-- **THEN** its `ps` inventory SHALL build only for Linux and macOS
-- **AND** Windows SHALL build its own counterpart, which makes no inventory
-- **AND** the Windows native job's coverage SHALL not count the POSIX
-  inventory.
 
 ### Requirement: A dependency scan exit needs a normalized advisory
 
@@ -460,3 +348,99 @@ supply chain SHALL NOT be described as current while a pin is unread.
 - **THEN** the candidate calculation SHALL NOT report that tag as an update
 - **AND** the repository's dependency checks SHALL fail while the rule that
   reads the client's release tag admits such a tag.
+
+### Requirement: Every native job runs the declared Mise release
+
+Local verification and every Forge job SHALL run the Mise release that the
+repository declares. A Mise release whose diagnostics the repository's tests
+assert SHALL become the CUE pin and the repository floor together, and a
+runner-owned Mise SHALL be replaced before a job consumes that declaration.
+
+#### Scenario: A Mise release changes an asserted diagnostic
+
+- **WHEN** a repository test asserts a diagnostic that only a newer Mise release
+  prints
+- **THEN** the CUE pin, the generated Forge projections and the repository Mise
+  floor SHALL name that release
+- **AND** the hosted native jobs SHALL pass with it before integration.
+
+#### Scenario: A runner owns its Mise
+
+- **WHEN** the declared Mise advances while a runner owns its Mise executable,
+  such as GitLab's macOS ARM64 runner
+- **THEN** that runner's Mise executable, and its shim where the release ships
+  one, SHALL be replaced with the verified release before any of its jobs
+  consumes the declaration.
+
+#### Scenario: Projects share a macOS runner host
+
+- **WHEN** the runners of several projects share a macOS ARM64 host whose shared
+  Mise no single project's declaration governs
+- **THEN** each of AIGW's GitLab jobs there SHALL verify the digest and version
+  of a Mise executable in a directory that only AIGW's declaration updates,
+  before any locked tool runs, and SHALL print the release it verified
+- **AND** the word `mise` SHALL run that executable for the rest of the job,
+  whatever the runner account's shell profile defines
+- **AND** a missing executable, another digest or another version SHALL fail the
+  job before the locked toolchain installs.
+
+### Requirement: Each native host supplies its official clients
+
+Real-client acceptance on a native host SHALL first supply exactly the clients
+that the release owner declares for that platform, from their official
+distributions at the pinned releases, and export each client's explicit
+executable. Supply state SHALL stay in one job-owned directory that every
+outcome removes. A missing or unverifiable distribution SHALL fail the supply
+rather than narrow the journey.
+
+#### Scenario: A Linux or macOS job requests real clients
+
+- **WHEN** a GitHub native Linux or macOS job runs the retained-predecessor
+  journey with real clients
+- **THEN** it SHALL supply Codex and Claude Code from their official npm
+  platform packages, and Hermes from its official release installer after that
+  installer's pinned checksum matches
+- **AND** the installed Hermes checkout SHALL be the unmodified pinned commit
+  with its published launcher
+- **AND** a Linux job SHALL first install the sandbox prerequisites that Codex
+  documents for its host, the distribution's bubblewrap and its AppArmor
+  profile, without lifting the host's user-namespace restriction.
+
+#### Scenario: A supply fails or is interrupted
+
+- **WHEN** an installation step fails, a pinned identity does not match, or the
+  job is interrupted during supply
+- **THEN** the supply SHALL stop the running installer and every process it
+  started, without their cooperation
+- **AND** it SHALL export no client and SHALL remove its directory.
+
+#### Scenario: The job environment names other client state
+
+- **WHEN** the job environment sets a client's home or tool directory, such as
+  `HERMES_RUNTIME_DIR`
+- **THEN** the official installer SHALL still keep its homes, tools, caches and
+  launcher inside the supply.
+
+#### Scenario: The job retires its supply
+
+- **WHEN** the native job ends after acceptance, whatever its outcome
+- **THEN** retirement SHALL remove only the recorded supply directory and prove
+  it absent
+- **AND** a process that still names the supply SHALL keep
+  the directory and fail the job.
+
+### Requirement: Platform-specific code builds only for its platform
+
+Code that only one supported platform runs, such as macOS Keychain or Linux
+Secret Service access, SHALL sit in files whose build constraints select that
+platform, with a counterpart on the other platform where a shared caller needs
+one. Each native job's statement coverage SHALL count only code that its host
+can run.
+
+#### Scenario: Each platform's credential store is measured on its own host
+
+- **WHEN** the macOS and the Linux native job measure statement coverage
+- **THEN** the macOS job SHALL count the Keychain code and not the Secret
+  Service code
+- **AND** the Linux job SHALL count the Secret Service code and not the
+  Keychain code.

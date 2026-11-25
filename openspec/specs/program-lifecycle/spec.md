@@ -8,22 +8,6 @@ the program and reconciling clients.
 
 ## Requirements
 
-### Requirement: Windows path derivation preserves the selected namespace
-
-Derived configuration, data, credential, client-settings and installation paths
-SHALL retain the namespace of the explicitly supplied Windows base. Appending
-AIGW-owned path components MUST NOT collapse a UNC or extended-length prefix
-into a drive-rooted path. Derivation SHALL remain independent of the observer's
-operating system and SHALL NOT access a network share to construct its name.
-
-#### Scenario: A user directory is on a network share
-
-- **WHEN** Windows environment paths identify a UNC share or an extended-length
-  UNC or drive namespace
-- **THEN** every derived AIGW path retains that namespace and base location
-- **AND** native Windows path construction agrees with the derived result for
-  the supported base forms.
-
 ### Requirement: Portable installation describes its own current files
 
 `aigw self status` SHALL describe the invoked portable program from current

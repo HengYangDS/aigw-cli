@@ -91,48 +91,6 @@ explicit verifier, and cross-compilation SHALL prove artifacts only.
 - **AND** a targeted platform dispatch SHALL remain diagnostic rather than
   complete review or release evidence.
 
-### Requirement: portable repository text
-
-Tracked text SHALL use deterministic encoding and line-ending semantics across
-supported hosts. Repository-owned verification SHALL express host-independent
-behavior with one semantic contract on macOS, Linux, and Windows. A test SHALL
-not infer a portable I/O failure from POSIX permission bits when the target host
-does not implement that permission model.
-
-#### Scenario: a native test proves a filesystem error boundary
-
-- **WHEN** repository verification must exercise a filesystem operation failure
-- **THEN** the fixture SHALL construct that failure deterministically on every supported host
-- **AND** the same production error path SHALL be asserted without a platform skip
-
-#### Scenario: text contains a byte-level defect
-
-- **WHEN** tracked text contains CR line endings, trailing whitespace, or lacks a final newline
-- **THEN** repository quality SHALL report the exact file and line
-
-#### Scenario: a contributor uses another supported host
-
-- **WHEN** the repository is cloned under another operating system, user, directory, or Forge
-- **THEN** checkout, verification, build, installation, and release contracts SHALL remain discoverable and executable from repository-owned inputs
-
-#### Scenario: a contributor uses another operating system
-
-- **WHEN** Git checks out tracked text
-- **THEN** line endings and executable semantics SHALL remain deterministic
-
-#### Scenario: Native Windows renders the CI projection
-
-- **WHEN** the repository and a test fixture reside on different Windows volumes
-- **THEN** CUE SHALL evaluate the CI authority from the selected repository root
-- **AND** generated Forge paths SHALL resolve within that root
-- **AND** the same focused contracts SHALL pass on macOS, Linux, and Windows
-
-#### Scenario: valid text uses a different readable spacing style
-
-- **WHEN** Markdown or configuration uses semantically valid blank-line spacing
-- **THEN** the repository-wide byte checker SHALL not reject it
-- **AND** formatters, serializers, and review SHALL retain their own scoped authority
-
 ### Requirement: actor-independent contribution policy
 
 The repository SHALL require structured commit messages and trusted signatures
@@ -416,39 +374,9 @@ installed tools stay in use and the caller's tool store stays unchanged.
 #### Scenario: A hosted job selects Mise's tool directories
 
 - **WHEN** a hosted job directs Mise's data and cache directories into
-  job-owned directories, as GitLab's Linux and Windows jobs do
+  job-owned directories, as GitLab's Linux jobs do
 - **THEN** a test that isolates Mise's configuration SHALL run the tools
   installed there and install none.
-
-### Requirement: Native tests pass on every hosted platform
-
-The repository's tests SHALL pass on every host whose native job runs them,
-including GitLab's Linux, Windows and macOS ARM64 hosts. A test of
-host-specific behavior SHALL verify the outcome that the specification
-declares for the host where it runs. A bound on a helper process SHALL stop a
-hang, not a slow host.
-
-#### Scenario: A host has no declared client layout
-
-- **WHEN** a native client supply test runs on a host for which the repository
-  declares no official client layout, such as GitLab's Linux ARM64 runner
-- **THEN** it SHALL verify that the supply refuses the host before it creates
-  a supply directory or exports a client
-- **AND** a test that needs the supply's installers to start SHALL skip on that
-  host and name the refusal.
-
-#### Scenario: Windows briefly holds a readiness record
-
-- **WHEN** a test reads the record that a helper process published to signal
-  its readiness on Windows, and the host still holds the file
-- **THEN** the read SHALL retry within a bounded time before the test fails.
-
-#### Scenario: A loaded host slows a helper process
-
-- **WHEN** a helper process that a test starts completes its work later on a
-  loaded host than on an idle one
-- **THEN** the test SHALL accept the helper's result within a bound that stops
-  only a hang.
 
 ### Requirement: Hang bounds tolerate a shared CI host
 
@@ -503,8 +431,8 @@ that pipeline.
 
 #### Scenario: A Forge verifies a commit
 
-- **WHEN** a Forge's pipeline verifies a pushed commit, a merge or pull request, or a tag on its macOS, Linux and
-  Windows hosts
+- **WHEN** a Forge's pipeline verifies a pushed commit, a merge or pull request, or a tag on its macOS and Linux
+  hosts
 - **THEN** each of those hosts SHALL run the exhaustive selection tests exactly once in that pipeline
 - **AND** the same platforms SHALL run them on the other Forge, generated from the same pipeline declaration
 
@@ -517,3 +445,62 @@ that pipeline.
 
 - **WHEN** a native job accepts prebuilt release artifacts without source tests
 - **THEN** it SHALL NOT run the exhaustive selection tests
+
+### Requirement: Repository text is portable across supported hosts
+
+Tracked text SHALL use deterministic encoding and line-ending semantics across
+supported hosts. Repository-owned verification SHALL express host-independent
+behavior with one semantic contract on macOS and Linux. A test SHALL
+not infer a portable I/O failure from POSIX permission bits when the target host
+does not implement that permission model.
+
+#### Scenario: a native test proves a filesystem error boundary
+
+- **WHEN** repository verification must exercise a filesystem operation failure
+- **THEN** the fixture SHALL construct that failure deterministically on every supported host
+- **AND** the same production error path SHALL be asserted without a platform skip
+
+#### Scenario: text contains a byte-level defect
+
+- **WHEN** tracked text contains CR line endings, trailing whitespace, or lacks a final newline
+- **THEN** repository quality SHALL report the exact file and line
+
+#### Scenario: a contributor uses another supported host
+
+- **WHEN** the repository is cloned under another operating system, user, directory, or Forge
+- **THEN** checkout, verification, build, installation, and release contracts SHALL remain discoverable and executable from repository-owned inputs
+
+#### Scenario: a contributor uses another operating system
+
+- **WHEN** Git checks out tracked text
+- **THEN** line endings and executable semantics SHALL remain deterministic
+
+#### Scenario: valid text uses a different readable spacing style
+
+- **WHEN** Markdown or configuration uses semantically valid blank-line spacing
+- **THEN** the repository-wide byte checker SHALL not reject it
+- **AND** formatters, serializers, and review SHALL retain their own scoped authority
+
+### Requirement: Native tests pass on every hosted macOS and Linux runner
+
+The repository's tests SHALL pass on every host whose native job runs them,
+including GitLab's Linux and macOS ARM64 hosts. A test of
+host-specific behavior SHALL verify the outcome that the specification
+declares for the host where it runs. A bound on a helper process SHALL stop a
+hang, not a slow host.
+
+#### Scenario: A host has no declared client layout
+
+- **WHEN** a native client supply test runs on a host for which the repository
+  declares no official client layout, such as GitLab's Linux ARM64 runner
+- **THEN** it SHALL verify that the supply refuses the host before it creates
+  a supply directory or exports a client
+- **AND** a test that needs the supply's installers to start SHALL skip on that
+  host and name the refusal.
+
+#### Scenario: A loaded host slows a helper process
+
+- **WHEN** a helper process that a test starts completes its work later on a
+  loaded host than on an idle one
+- **THEN** the test SHALL accept the helper's result within a bound that stops
+  only a hang.

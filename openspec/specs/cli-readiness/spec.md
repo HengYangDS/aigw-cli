@@ -413,23 +413,6 @@ private path.
   outside the home directory
 - **AND** neither human nor JSON output contains the file's path.
 
-### Requirement: Local checks know a target on another volume is outside home
-
-When the home directory and a target are absolute paths on different volumes,
-local checks SHALL label the target as outside the home directory. A relative
-or invalid home directory SHALL leave the target's location unknown.
-
-#### Scenario: A Windows target is on another drive or share
-
-- **WHEN** HOME is on one drive and the Codex target is on another drive or a
-  UNC share
-- **THEN** local checks SHALL label the target as outside the home directory.
-
-#### Scenario: Volume names differ only in letter case
-
-- **WHEN** both paths name the same drive in different letter case
-- **THEN** local checks SHALL treat them as one volume.
-
 ### Requirement: A check lists stored Tokens that no provider uses
 
 `aigw check` without a named client SHALL list, by provider ID, each stored
