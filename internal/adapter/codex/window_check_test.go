@@ -234,7 +234,8 @@ func TestCodexInspectionSaysWhereAIGWWritesNoTable(t *testing.T) {
 		"a model table of the user's own": {
 			config: func(t *testing.T) string {
 				own := writeCodexTestConfig(t, `{"models":[{"slug":"mine"}]}`)
-				return "model_catalog_json = \"" + own + "\"\nmodel_provider = \"native\"\n"
+				// A Windows path holds backslashes, which a TOML string must spell escaped; %q does.
+				return fmt.Sprintf("model_catalog_json = %q\nmodel_provider = \"native\"\n", own)
 			},
 			edit:   func(cfg domain.Config) domain.Config { return declareWindow(cfg, 400_000) },
 			reason: "this configuration names its own model table in model_catalog_json, which AIGW leaves alone",
