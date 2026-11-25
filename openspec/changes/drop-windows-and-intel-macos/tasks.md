@@ -70,7 +70,8 @@
 
 ## 9. Exact-HEAD proof
 
-- [ ] 9.1 Pass the ETHOS full proof of the lane head.
+- [x] 9.1 Pass the ETHOS full proof of the lane head. Passed on `3a9023dd6` (2026-11-25 21:27); the commits after it
+      change only this Change's records.
 
 ## 10. Hosted CI
 
