@@ -7,11 +7,11 @@
 
 ## 2. Documents
 
-- [ ] 2.1 Move the dependency maintenance section of `docs/governance/change-and-release-policy.md` to `docs/governance/dependency-maintenance.md`, because the policy stands at its 500-line ceiling; say there where the age is declared and that `mise run fix` fills Renovate's and npm's settings from it, and point `CONTRIBUTING.md` and `docs/governance/README.md` at it. Done when the readiness proof reports no document-length gap and the documentation tests pass. The changelog keeps user-visible changes of the product, so it gets no entry.
+- [x] 2.1 Move the dependency maintenance section of `docs/governance/change-and-release-policy.md` to `docs/governance/dependency-maintenance.md`, because the policy stands at its 500-line ceiling; say there where the age is declared and that `mise run fix` fills Renovate's and npm's settings from it, and point `CONTRIBUTING.md` and `docs/governance/README.md` at it. Done when the readiness proof reports no document-length gap and the documentation tests pass. The changelog keeps user-visible changes of the product, so it gets no entry.
 
 ## 3. Verification
 
 - [x] 3.1 Run `npm ci --ignore-scripts` in a scratch copy of the lane under the filled npm line and state the result in the design. Done when the design holds the measured outcome.
-- [ ] 3.2 Pass `mise run check` on the lane head.
+- [x] 3.2 Pass `mise run check` on the lane head (`fd04e2c4`).
 - [ ] 3.3 A fresh review of the lane's whole change by a reviewer who has not seen it. Done when its findings are answered in code or in this design.
 - [ ] 3.4 Pass the proposal's hosted checks on both Forges.
