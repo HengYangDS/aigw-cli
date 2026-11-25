@@ -255,9 +255,11 @@ func codexCatalogProjection(target TargetRef, selected domain.Runtime, base stri
 		}
 		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: recorded, program: target.Executable, pkg: packageVersion(target.Executable), state: catalogStateProjected}, nil
 	}
-	if state.CatalogHash == "" && state.CatalogState == "" {
-		// AIGW never owned a catalog here, so nothing was lost and there is
-		// nothing to report; the client keeps the behavior it already had.
+	if state.CatalogHash == "" {
+		// AIGW owns no table here, so nothing was lost and there is nothing to
+		// report; the client keeps the behavior it already had. A record that
+		// an earlier release marked stale, with no table, owns none either, and
+		// the empty plan clears its mark.
 		return codexCatalogPlan{}, nil
 	}
 	// AIGW owns a table that the configured program can neither produce

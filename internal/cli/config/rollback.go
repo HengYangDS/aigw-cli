@@ -219,9 +219,6 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 					err,
 				)
 			}
-			if err := invocation.Stopped(runtime, "aigw.toml was restored, and the other clients' files were restored."); err != nil {
-				return err
-			}
 			next := nextAfterRollback(restored, runtime.Secrets)
 			if jsonMode {
 				document := rollbackDocument{Source: sourceID, Selections: selections}
@@ -233,7 +230,13 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 			r.Section("Restore source")
 			r.Rows(terminal.Field{Label: "Configuration", Value: source})
 			renderRestoredSelections(r, runtime, selections)
-			r.Success("Client selections and files were restored; clients were not restarted.")
+			// A client that the restore stopped keeps its files, which the
+			// invocation's report of the stop names after this one.
+			if len(runtime.Stops.Stopped()) > 0 {
+				r.Success("aigw.toml was restored; clients were not restarted.")
+			} else {
+				r.Success("Client selections and files were restored; clients were not restarted.")
+			}
 			r.Next(next)
 			return nil
 		},

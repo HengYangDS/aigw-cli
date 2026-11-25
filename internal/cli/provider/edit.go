@@ -282,7 +282,7 @@ func applyEdit(cmd *cobra.Command, runtime invocation.Context, args []string, op
 	if err := runtime.Synchronizer().Commit(cmd.Context(), before, after, "provider edit"); err != nil {
 		return saveFailure(err, changes, "the edit of provider "+provider.ID+" was not saved", invocation.Retry(cmd, args))
 	}
-	return invocation.Stopped(runtime, "The edit of provider "+provider.ID+" was saved.")
+	return nil
 }
 
 // changeBalance stores or removes the provider's balance credentials, as the

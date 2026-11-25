@@ -47,13 +47,13 @@ cp $WORK/codex/config.toml synced.toml
 cp $WORK/codex/config.toml.aigw-state.json synced-record.json
 rm $WORK/gone
 exitcode 1 aigw sync --json
-stdout '"error": "Codex executable is missing"'
-stdout '"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
-! stdout '"next_action"'
+stdout '"ok": false'
+stdout '"enabled_clients": 2'
+stdout '"problem": "Codex executable is missing",\n\s+"files": "left as they were",\n\s+"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
 exitcode 1 aigw sync
 stdout 'Codex executable is missing'
 exitcode 1 aigw sync --dry-run --json
-stdout '"stopped_clients": \[\n\s+\{\n\s+"client": "codex",\n\s+"problem": "Codex executable is missing",\n\s+"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
+stdout '"stopped_clients": \[\n\s+\{\n\s+"client": "codex",\n\s+"problem": "Codex executable is missing",\n\s+"files": "left as they are",\n\s+"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
 stdout '"client": "claude"'
 exitcode 1 aigw check codex --depth local --json
 stdout '"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
@@ -98,7 +98,7 @@ Fix
   aigw setup
 -- preview.json --
 {
-  "schema_version": 5,
+  "schema_version": 4,
   "ok": true,
   "dry_run": true,
   "selections": {

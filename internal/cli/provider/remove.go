@@ -278,7 +278,7 @@ func commitRemoval(cmd *cobra.Command, runtime invocation.Context, before, after
 	if err := runtime.Synchronizer().Commit(cmd.Context(), before, after, "provider remove"); err != nil {
 		return saveFailure(err, changes, "provider "+id+" was not removed", "aigw provider remove "+id)
 	}
-	return invocation.Stopped(runtime, "Provider "+id+" was removed.")
+	return nil
 }
 
 func renderRemoval(runtime invocation.Context, document removeDocument, next string) error {

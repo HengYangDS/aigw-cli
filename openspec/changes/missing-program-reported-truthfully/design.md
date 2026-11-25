@@ -28,9 +28,13 @@ coordinator's ruling of 2026-11-26 after the independent review, when it runs an
 the client: a Codex model table that it can neither regenerate nor prove to be its own. Every command that commits a projection
 (`sync`, `use`, `config rollback`, `client edit`, `client enable`, `client disable`, `provider add`, `provider edit`,
 `provider remove`, the `model` changes, `setup` and `self uninstall`, the coordinator's rulings of 2026-11-26) writes
-none of a stopped client's files, its model table or its record, writes the rest of its change, and exits non-zero
-through one reporting point, `invocation.Stopped`, with the cause and fix that `check` gives and a statement of what it
-wrote; the earlier reading that only `sync` exits non-zero is reversed by those rulings. The fix is `aigw client edit <client> --executable <path>`
+none of a stopped client's files, its model table or its record, writes the rest of its change, and exits non-zero;
+the earlier reading that only `sync` exits non-zero is reversed by those rulings. The report has one owner, the
+invocation's `invocation.StopReport`, beside the report of followed selections: the command's own report stays whole,
+and the stop follows it, in JSON as `stopped_clients` with `ok` false and in text as a section after the command's
+own, with the cause and fix that `check` gives. What it says of the files comes from what the transition recorded
+with its stops, the clients that it wrote and the stopped clients' withdrawn files, and nothing else. A preview that
+records a stop, `sync --dry-run` or another command's, names it and exits 1 in the same way. The fix is `aigw client edit <client> --executable <path>`
 for a missing program and the same command, naming a Codex that prints `debug models --bundled`, for a table. A file
 that the change drops is withdrawn all the same, because withdrawal needs no program. The decision is made once per
 operation, in the adapter registry's plan (`PlanStopping`), and passed down: synchronization keeps the plan's stops in
@@ -38,7 +42,8 @@ its projection, applies only the rest, and reports them through a per-invocation
 `Follows`), not through the commit's error, so that a command that undoes a stored Token on a failed commit does not
 undo it after a commit that succeeded. The record fails closed: a commit or a preview without one refuses before it plans,
 with an error that names it, rather than drop a stop. `check` decides it in the registry's inspection, through the same function. A
-preview of `sync` lists the stopped clients beside the others' files (`stopped_clients`, `sync` schema 5) and fails.
+preview of `sync` lists the stopped clients beside the others' files and fails; `stopped_clients` is a field of the
+invocation, as `followed_selections` is, so no command's own document changes.
 `client edit` and `client enable` refuse an `--executable` that is not an existing regular file with an execute bit,
 by stat alone. Setup counts a client as installed through the same rule as every command. The texts name no path,
 because a local check never shows one; `aigw client list` shows the path. A program that never produced a table and
@@ -54,15 +59,17 @@ one level above `bin/codex` in Homebrew's cask and in ChatGPT.app's `codex-cli`;
 read only in a downloaded package, not on an installation, so it is not declared and such a program has no manifest.
 The manifest closes the case of a wrapper script that execs another file: its own digest stays across an upgrade, the
 manifest's version does not. The check runs no program while the producer agrees with the record. When it differs,
-the check runs the same read-only probes as a sync's plan, once per change of the program, so that it names the sync's own stop when the configured Codex cannot produce a
+every `check`, `status` and bare `aigw` runs the same read-only probes as a sync's plan, one `--version` and one
+`debug models --bundled` for each Codex file, each bounded by the probe timeout, until a sync records the producer, so that it names the sync's own stop when the configured Codex cannot produce a
 table, and `aigw sync` otherwise. A record of an earlier release names no producer and fails the check until the next
 sync records one. The idea comes from magpie (`internal/agent/codex_async.go`, v0.1.4784), which reads the version this
 way.
 
 **D4. The real reason.** `check` names a table that an earlier release marked stale, a table whose producer differs, a
 program that cannot produce a table and a missing program as such; "does not match the selected model" stays for a real
-mismatch. Its requirement joins `client-adapters`, beside the missing program, because `projection-format` would pass
-the repository's 500-line limit for a specification.
+mismatch. Its requirement belongs to `cli-readiness`, the owner of what a local check says, which the proposal now
+lists: it first joined `client-adapters` because `projection-format` would pass the repository's 500-line limit for a
+specification, and on 2026-11-26 `client-adapters` reached that limit too.
 
 **D5. Dry run.** The dry-run documentation states that a dry run runs read-only probes of the client program in an
 isolated temporary directory, as Codex's plan already does.
@@ -74,6 +81,12 @@ isolated temporary directory, as Codex's plan already does.
 - Hashing a large program in `check --depth local` costs time → measured by the committee: 131 to 154 ms for a
   285 to 291 MB program, warm cache; cold cache unmeasured. A check whose producer differs also runs the two read-only
   probes, 99 to 196 ms for one identification in the committee's experiment 2.
+- A program whose path, digest and package manifest are unchanged but which no longer runs, such as a launcher whose
+  target is gone, stops every sync while `check --depth local` and `status` pass, because they run no program while
+  the producer agrees with the record → only `aigw check --depth client`, which runs the program, catches it;
+  `TestAnUnchangedLauncherWhoseProgramIsGoneStopsSyncWhileCheckPasses` pins this limit.
+- A record that v0.10.0 marked stale holds no table, so AIGW owns none and does not stop: a sync clears the mark
+  (`TestAStaleRecordOfAnEarlierReleaseIsClearedBySync`).
 - A program that never produced a table and cannot produce one is not stopped (D2) → Codex runs without AIGW's table,
   as before this Change. It is no loop: `TestACodexThatNeverProducedATableIsNoLoop` runs sync, check, sync and check,
   and each sync succeeds without a table while each check passes and names no repair, so the narrow form stays (the
@@ -81,4 +94,5 @@ isolated temporary directory, as Codex's plan already does.
 
 ## Migration Plan
 
-None for `aigw.toml`: the schema and keys are unchanged. `sync --json` moves to schema 5 for `stopped_clients`.
+None for `aigw.toml`: the schema and keys are unchanged. No command's own JSON document changes; the invocation adds
+`stopped_clients` to the document of a command whose transition stopped a client.

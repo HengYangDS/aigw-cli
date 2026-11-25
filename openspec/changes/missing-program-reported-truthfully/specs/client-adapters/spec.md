@@ -68,7 +68,8 @@ change, and SHALL exit non-zero with the cause and fix that the client's local c
 
 #### Scenario: Codex cannot produce its model table
 
-- **GIVEN** a sync wrote Codex's model table with a program that then still runs but prints no table
+- **GIVEN** a sync wrote Codex's model table with a program whose file then changes into one that runs and prints no
+  table
 - **WHEN** `aigw sync` runs, and runs again
 - **THEN** each run SHALL leave Codex's file, AIGW's record and the table byte-identical and exit non-zero
 - **AND** each run and `aigw check --depth local` SHALL say that the configured executable cannot produce its model
@@ -84,7 +85,8 @@ change, and SHALL exit non-zero with the cause and fix that the client's local c
 
 - **WHEN** `aigw use codex <provider/model>` runs while Codex's configured program is missing
 - **THEN** the selection SHALL be saved and Codex's files SHALL stay as they were
-- **AND** the command SHALL exit non-zero with the missing program, its fix and what it saved.
+- **AND** the command SHALL keep its own report, its JSON fields among them, and then exit non-zero with the missing
+  program, its fix and what became of Codex's files.
 
 #### Scenario: A rollback meets a stopped client
 
@@ -95,32 +97,13 @@ change, and SHALL exit non-zero with the cause and fix that the client's local c
 
 #### Scenario: A preview names the stopped clients
 
-- **WHEN** `aigw sync --dry-run` runs while Codex's configured program is missing
-- **THEN** it SHALL report the other clients' files and Codex's problem and fix, write nothing and exit non-zero.
+- **WHEN** `aigw sync --dry-run`, or the preview of another command that writes client files, runs while Codex's
+  configured program is missing
+- **THEN** it SHALL report its own plan of the other clients' files and then Codex's problem and fix, write nothing and
+  exit non-zero.
 
 #### Scenario: The repair refuses a program that cannot run
 
 - **WHEN** `aigw client edit` or `aigw client enable` names an `--executable` that is not an existing regular file with
   an execute bit
 - **THEN** it SHALL refuse before anything changes, without running that file.
-
-### Requirement: A check names why Codex's files fall short
-
-`aigw check` SHALL name a Codex model table that an earlier release marked stale, a table that another program
-produced, a configured program that cannot produce a table and a missing configured program each as such. It SHALL say
-that a Codex configuration file does not match the selected model only when the file's settings differ from what AIGW
-writes for that model.
-
-#### Scenario: Another program produced the table
-
-- **GIVEN** the file at Codex's configured path changed after it produced the model table, and the new file can
-  produce one
-- **WHEN** `aigw check --depth local` runs
-- **THEN** Codex's problem SHALL say that its configured executable changed after it produced the table, and not that
-  its file does not match the selected model.
-
-#### Scenario: The selected model changed after the last sync
-
-- **GIVEN** the selected model's endpoint changed after the last sync
-- **WHEN** `aigw check --depth local` runs
-- **THEN** Codex's problem SHALL say that its configuration file does not match the selected model.

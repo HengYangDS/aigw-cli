@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -15,7 +16,6 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/processtest"
-	"aigw-cli/internal/terminal"
 )
 
 // fakeCodex stands for Codex: it prints its version and a model table that
@@ -91,16 +91,31 @@ func read(t *testing.T, paths []string) [][]byte {
 	return contents
 }
 
-// stoppedFor requires err to be Codex's stop for its missing executable, with
-// the fix that names another one.
-func stoppedFor(t *testing.T, command string, err error) terminal.Problem {
+// stoppedFor requires err to fail the invocation for Codex's missing
+// executable, and out, which it reads and empties, to end the command's own
+// report with the stop: the problem and the fix that names another
+// executable. It returns what the invocation wrote.
+func stoppedFor(t *testing.T, out *bytes.Buffer, command string, err error) string {
 	t.Helper()
+	text := out.String()
+	out.Reset()
 	stop, stopped := errors.AsType[*adapter.StopError](err)
-	problem := terminal.ProblemFor(err)
-	if !stopped || stop.Client() != codex.ID || problem.Title != "Codex executable is missing" || problem.Fix != "aigw client edit codex --executable <path>" {
-		t.Fatalf("%s = %v (%+v), want Codex stopped for its missing executable", command, err, problem)
+	if !stopped || stop.Client() != codex.ID || stop.Error() != "Codex executable is missing" || !strings.Contains(text, "Stopped clients") ||
+		!strings.Contains(text, "Codex executable is missing") || !strings.Contains(text, "aigw client edit codex --executable <path>") {
+		t.Fatalf("%s = %v, want Codex stopped for its missing executable after the command's report:\n%s", command, err, text)
 	}
-	return problem
+	return text
+}
+
+// requireLine requires text to hold want as a whole line, indentation aside.
+func requireLine(t *testing.T, text, want string) {
+	t.Helper()
+	for line := range strings.SplitSeq(text, "\n") {
+		if strings.TrimSpace(line) == want {
+			return
+		}
+	}
+	t.Fatalf("no line reads %q in:\n%s", want, text)
 }
 
 // After a sync, Codex's executable goes. Two syncs in a row each fail with
@@ -117,7 +132,7 @@ func TestASyncedCodexWhoseExecutableGoesStopsUntilAnotherIsNamed(t *testing.T) {
 	files := codexFiles(t, target)
 	before := read(t, files)
 	for attempt := range 2 {
-		stoppedFor(t, "sync", cli.Execute(app, []string{"sync"}))
+		stoppedFor(t, out, "sync", cli.Execute(app, []string{"sync"}))
 		if after := read(t, files); !slices.EqualFunc(after, before, bytes.Equal) {
 			t.Fatalf("sync %d changed Codex's files", attempt+2)
 		}
@@ -133,11 +148,9 @@ func TestASyncedCodexWhoseExecutableGoesStopsUntilAnotherIsNamed(t *testing.T) {
 	if err := cli.Execute(app, []string{"client", "edit", "codex", "--executable", next}); err != nil {
 		t.Fatalf("client edit with a runnable executable: %v", err)
 	}
-	if err := cli.Execute(app, []string{"sync"}); err != nil {
-		t.Fatalf("sync after the edit: %v", err)
-	}
+	// The edit itself synchronizes Codex with the new executable.
 	if record := read(t, files[1:2])[0]; !strings.Contains(string(record), `"catalog_client_path": "`+next+`"`) {
-		t.Fatalf("the record does not name the new executable:\n%s", record)
+		t.Fatalf("the record does not name the new executable after the edit:\n%s", record)
 	}
 }
 
@@ -147,7 +160,7 @@ func TestASyncedCodexWhoseExecutableGoesStopsUntilAnotherIsNamed(t *testing.T) {
 // stop.
 func TestADroppedFileIsWithdrawnWhileCodexIsStopped(t *testing.T) {
 	t.Parallel()
-	app, _, _, pkg, target := syncedCodex(t)
+	app, out, _, pkg, target := syncedCodex(t)
 	if err := os.RemoveAll(pkg); err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +169,8 @@ func TestADroppedFileIsWithdrawnWhileCodexIsStopped(t *testing.T) {
 		t.Fatal(err)
 	}
 	old := codexFiles(t, target)
-	stoppedFor(t, "client edit", cli.Execute(app, []string{"client", "edit", "codex", "--target", moved}))
+	text := stoppedFor(t, out, "client edit", cli.Execute(app, []string{"client", "edit", "codex", "--target", moved}))
+	requireLine(t, text, "AIGW withdrew its settings from the files of Codex that the change drops and left the others as they were.")
 	if contents := read(t, old); string(contents[0]) != "model_provider = \"native\"\n" || contents[1] != nil || contents[2] != nil {
 		t.Fatalf("the dropped file keeps AIGW's settings: %q, record %t, table %t", contents[0], contents[1] != nil, contents[2] != nil)
 	}
@@ -165,40 +179,61 @@ func TestADroppedFileIsWithdrawnWhileCodexIsStopped(t *testing.T) {
 	}
 }
 
-// A selection and a rollback that would write a stopped Codex's files save
-// the configuration, keep Codex's files and fail with the stop, saying what
-// they wrote.
+// A selection, its preview and a rollback that would write a stopped Codex's
+// files keep their own reports, the selection's JSON fields among them, keep
+// Codex's files, and are followed by the stop, which says only what the
+// record holds, here that Codex's files were left as they were, and fails.
 func TestUseAndRollbackReportAStoppedCodex(t *testing.T) {
 	t.Parallel()
-	app, _, _, pkg, target := syncedCodex(t)
+	app, out, _, pkg, target := syncedCodex(t)
 	if err := os.RemoveAll(pkg); err != nil {
 		t.Fatal(err)
 	}
 	files := codexFiles(t, target)
 	before := read(t, files)
-	for _, step := range []struct {
-		command []string
-		model   string
-		impact  string
-	}{
-		{command: []string{"use", "codex", "gateway/gpt-other"}, model: "gpt-other", impact: "The selection was saved"},
-		{command: []string{"config", "rollback", "--last-change"}, model: "gpt-test", impact: "aigw.toml was restored"},
-	} {
-		problem := stoppedFor(t, strings.Join(step.command[:2], " "), cli.Execute(app, step.command))
-		if !strings.HasPrefix(problem.Impact, step.impact) || !strings.Contains(problem.Impact, "The files of Codex were not written") {
-			t.Fatalf("%v impact = %q", step.command, problem.Impact)
-		}
+	selected := func(model string) {
+		t.Helper()
 		cfg, err := app.Config.Load()
 		if err != nil {
 			t.Fatal(err)
 		}
-		if selected := cfg.SelectedModel(codex.ID); selected != domain.NewModelRef("gateway", step.model) {
-			t.Fatalf("%v left the selection %s, want gateway/%s", step.command, selected, step.model)
+		if got := cfg.SelectedModel(codex.ID); got != domain.NewModelRef("gateway", model) {
+			t.Fatalf("the selection is %s, want gateway/%s", got, model)
 		}
 		if after := read(t, files); !slices.EqualFunc(after, before, bytes.Equal) {
-			t.Fatalf("%v changed Codex's files", step.command)
+			t.Fatal("a command changed Codex's files")
 		}
 	}
+
+	err := cli.Execute(app, []string{"use", "codex", "gateway/gpt-other", "--json"})
+	var document struct {
+		OK      bool   `json:"ok"`
+		Model   string `json:"model"`
+		Stopped []struct {
+			Client     string `json:"client"`
+			Problem    string `json:"problem"`
+			Files      string `json:"files"`
+			NextDetail string `json:"next_detail"`
+		} `json:"stopped_clients"`
+	}
+	if decodeErr := json.Unmarshal(out.Bytes(), &document); decodeErr != nil || !errors.As(err, new(*adapter.StopError)) {
+		t.Fatalf("use --json = %v, %v:\n%s", err, decodeErr, out)
+	}
+	out.Reset()
+	if document.OK || document.Model == "" || len(document.Stopped) != 1 || document.Stopped[0].Client != codex.ID ||
+		document.Stopped[0].Files != "left as they were" || document.Stopped[0].NextDetail != "aigw client edit codex --executable <path>" {
+		t.Fatalf("use --json = %+v, want its own fields and Codex stopped", document)
+	}
+	selected("gpt-other")
+
+	text := stoppedFor(t, out, "use --dry-run", cli.Execute(app, []string{"use", "codex", "gateway/gpt-test", "--dry-run"}))
+	requireLine(t, text, "A run would leave the files of Codex as they are.")
+	selected("gpt-other")
+
+	text = stoppedFor(t, out, "config rollback", cli.Execute(app, []string{"config", "rollback", "--last-change"}))
+	requireLine(t, text, "✓ aigw.toml was restored; clients were not restarted.")
+	requireLine(t, text, "AIGW left the files of Codex as they were.")
+	selected("gpt-test")
 }
 
 // A provider edit that moves Codex's endpoint while Codex is stopped saves the
@@ -207,7 +242,7 @@ func TestUseAndRollbackReportAStoppedCodex(t *testing.T) {
 // Codex's files stay as they were.
 func TestProviderCommandsReportAStoppedCodex(t *testing.T) {
 	t.Parallel()
-	app, _, _, pkg, target := syncedCodex(t)
+	app, out, _, pkg, target := syncedCodex(t)
 	if err := os.RemoveAll(pkg); err != nil {
 		t.Fatal(err)
 	}
@@ -217,10 +252,10 @@ func TestProviderCommandsReportAStoppedCodex(t *testing.T) {
 	if err := cli.Execute(app, []string{"provider", "add", "other", "--endpoint", "anthropic=https://other.test", "--token-stdin"}); err != nil {
 		t.Fatalf("provider add = %v, want a success that stops no client", err)
 	}
-	problem := stoppedFor(t, "provider edit", cli.Execute(app, []string{"provider", "edit", "gateway", "--endpoint", "responses=https://moved.gateway.test/v1"}))
-	if !strings.HasPrefix(problem.Impact, "The edit of provider gateway was saved.") {
-		t.Fatalf("provider edit impact = %q", problem.Impact)
-	}
+	out.Reset()
+	text := stoppedFor(t, out, "provider edit", cli.Execute(app, []string{"provider", "edit", "gateway", "--endpoint", "responses=https://moved.gateway.test/v1"}))
+	requireLine(t, text, "✓ Saved; the provider's Token is unchanged")
+	requireLine(t, text, "AIGW left the files of Codex as they were.")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -238,7 +273,7 @@ func TestProviderCommandsReportAStoppedCodex(t *testing.T) {
 // with the stop.
 func TestSetupReportsAStoppedCodex(t *testing.T) {
 	t.Parallel()
-	app, _, _, pkg, target := syncedCodex(t)
+	app, out, _, pkg, target := syncedCodex(t)
 	if err := os.RemoveAll(pkg); err != nil {
 		t.Fatal(err)
 	}
@@ -275,9 +310,9 @@ primary = {model = "gateway/gpt-test"}
 `), 0o600)
 	files := codexFiles(t, target)
 	before := read(t, files)
-	problem := stoppedFor(t, "setup", cli.Execute(app, []string{"setup", "--from", team}))
-	if !strings.HasPrefix(problem.Impact, "Setup saved the configuration") {
-		t.Fatalf("setup impact = %q", problem.Impact)
+	text := stoppedFor(t, out, "setup", cli.Execute(app, []string{"setup", "--from", team}))
+	if !strings.Contains(text, "Team file applied") || strings.Index(text, "Team file applied") > strings.Index(text, "Stopped clients") {
+		t.Fatalf("setup's own report does not come first:\n%s", text)
 	}
 	cfg, err := app.Config.Load()
 	if err != nil {

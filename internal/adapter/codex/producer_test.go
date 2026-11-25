@@ -2,6 +2,7 @@ package codex
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -295,6 +296,95 @@ func TestACodexThatNeverProducedATableIsNoLoop(t *testing.T) {
 		first = config
 		if status := fixture.inspect(t, fixture.cfg); !status.Ready || status.RepairAction != "" {
 			t.Fatalf("check %d = %+v, want a pass that names no repair", round+1, status)
+		}
+	}
+}
+
+// A record that v0.10.0 marked stale, after it withdrew a table that it could
+// not produce again, holds no table, so AIGW owns none: a check names the
+// stale mark with a sync as its fix, the sync succeeds with a Codex that
+// prints no table and clears the mark, the check then passes, and a second
+// sync writes nothing.
+func TestAStaleRecordOfAnEarlierReleaseIsClearedBySync(t *testing.T) {
+	fixture := newCodexProgram(t, caskLayout)
+	if err := os.Remove(filepath.Join(filepath.Dir(fixture.program), "models.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.sync(t); err != nil {
+		t.Fatal(err)
+	}
+	record := codexRecordPath(fixture.home)
+	data, err := os.ReadFile(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(data, &fields); err != nil {
+		t.Fatal(err)
+	}
+	fields["catalog_state"], fields["catalog_client_version"], fields["catalog_client_sha256"] = "stale", "codex-cli 0.9.0", "aaaa"
+	stale, err := adapter.EncodeJSON(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeTo(t, record, string(stale))
+	if status := fixture.inspect(t, fixture.cfg); status.Ready || !strings.HasPrefix(status.Issue, "Codex's model table is stale: ") || status.RepairAction != "aigw sync" {
+		t.Fatalf("check of the stale record = %+v, want the stale mark and a sync", status)
+	}
+	if _, err := fixture.sync(t); err != nil {
+		t.Fatalf("sync of the stale record = %v, want a success", err)
+	}
+	if state := readCodexSidecar(t, fixture.home); state.CatalogState != "" || state.CatalogHash != "" || state.CatalogClientVersion != "" {
+		t.Fatalf("the sync kept the stale mark: %+v", state)
+	}
+	if status := fixture.inspect(t, fixture.cfg); !status.Ready {
+		t.Fatalf("check after the sync = %+v, want ready", status)
+	}
+	before := [][]byte{}
+	for _, path := range []string{fixture.home, record} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		before = append(before, data)
+	}
+	if _, err := fixture.sync(t); err != nil {
+		t.Fatal(err)
+	}
+	for index, path := range []string{fixture.home, record} {
+		if data, err := os.ReadFile(path); err != nil || !slices.Equal(data, before[index]) {
+			t.Fatalf("the second sync changed %s: %v", path, err)
+		}
+	}
+}
+
+// The limit that design's Risks names: a launcher whose path, digest and
+// package manifest stay as they were while the program that it starts is
+// gone. Each sync stops Codex, keeping its files, while a local check runs no
+// program, since the producer agrees with the record, and passes; only
+// `aigw check --depth client` runs the program.
+func TestAnUnchangedLauncherWhoseProgramIsGoneStopsSyncWhileCheckPasses(t *testing.T) {
+	fixture := newCodexProgram(t, caskLayout)
+	target := filepath.Join(filepath.Dir(fixture.program), "real-codex")
+	processtest.Write(t, target, fakeCodexScript)
+	processtest.Write(t, fixture.program, "#!/bin/sh\nexec \"$(dirname \"$0\")/real-codex\" \"$@\"\n")
+	if _, err := fixture.sync(t); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	before := fixture.files(t)
+	for attempt := range 2 {
+		_, err := fixture.sync(t)
+		if stop, stopped := errors.AsType[*adapter.StopError](err); !stopped || stop.NextAction() != tableFix {
+			t.Fatalf("sync %d = %v, want Codex stopped for its table", attempt+2, err)
+		}
+		if after := fixture.files(t); !slices.EqualFunc(after, before, slices.Equal) {
+			t.Fatalf("sync %d changed Codex's files", attempt+2)
+		}
+		if status := fixture.inspect(t, fixture.cfg); !status.Ready {
+			t.Fatalf("check %d = %+v, want the pass that runs no program", attempt+2, status)
 		}
 	}
 }

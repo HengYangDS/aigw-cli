@@ -142,7 +142,7 @@ func project(planner Synchronizer, before, after domain.Config, reconcile bool, 
 	// Only a preview that the run would not refuse says what it records, and
 	// what it stops.
 	planner.Follows.settle(planner.keeps(settled.followed, before, settled.after))
-	planner.Stops.record(projection.Stopped)
+	planner.Stops.record(projection, true)
 	projection.Configuration = settled.saves
 	return projection, nil
 }
@@ -179,11 +179,16 @@ func planned(planner Synchronizer, before, after domain.Config, reconcile bool, 
 	if err != nil {
 		return Projection{}, err
 	}
-	projection.Stopped = slices.Concat(projection.Stopped, stops)
-	stopped := make([]string, 0, len(projection.Stopped))
-	for _, stop := range projection.Stopped {
-		stopped = append(stopped, stop.Client())
+	// A client that the plan of a waiting client and the projection both stop
+	// is named once.
+	stopped := make([]string, 0, len(projection.Stopped)+len(stops))
+	unique := make([]*adapter.StopError, 0, cap(stopped))
+	for _, stop := range slices.Concat(projection.Stopped, stops) {
+		if !slices.Contains(stopped, stop.Client()) {
+			stopped, unique = append(stopped, stop.Client()), append(unique, stop)
+		}
 	}
+	projection.Stopped = unique
 	isStopped := func(client string) bool { return slices.Contains(stopped, client) }
 	projection.Clients = slices.DeleteFunc(projection.Clients, isStopped)
 	projection.Recorded = slices.DeleteFunc(projection.Recorded, isStopped)

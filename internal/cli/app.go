@@ -72,44 +72,15 @@ type App struct {
 	// Clients is the composition root's adapter registry.
 	Clients adapter.Registry
 	Updater app.Updater
-	output  *commandOutput
+	output  *invocation.Output
 	// follows is the running invocation's record of the clients' choices,
 	// and followed its report of them.
 	follows  *synchronization.Follows
 	followed *invocation.FollowedReport
 	// stops is the running invocation's record of the clients that its
-	// transitions stopped.
-	stops *synchronization.Stops
-}
-
-// commandOutput owns write progress and the first failure for one invocation,
-// and the fields that the invocation adds to its command's document.
-type commandOutput struct {
-	writer  io.Writer
-	err     error
-	started bool
-	fields  func() []terminal.DocumentField
-}
-
-// DocumentFields are the invocation's own fields of the command's document.
-func (w *commandOutput) DocumentFields() []terminal.DocumentField {
-	if w.fields == nil {
-		return nil
-	}
-	return w.fields()
-}
-
-func (w *commandOutput) Write(data []byte) (int, error) {
-	if w.err != nil {
-		return 0, w.err
-	}
-	count, writeErr := w.writer.Write(data)
-	w.started = w.started || count > 0
-	if writeErr == nil && count != len(data) {
-		writeErr = io.ErrShortWrite
-	}
-	w.err = writeErr
-	return count, writeErr
+	// transitions stopped, and stopped its report of them.
+	stops   *synchronization.Stops
+	stopped *invocation.StopReport
 }
 
 func (a *App) outputWriter() io.Writer {
@@ -126,7 +97,7 @@ func (a *App) Renderer() *terminal.Renderer {
 
 // Execute runs one argument vector, serializing mutations and returning any command or output failure.
 func Execute(app *App, args []string) error {
-	output := &commandOutput{writer: app.Out}
+	output := &invocation.Output{Writer: app.Out}
 	app.output = output
 	defer func() { app.output = nil }()
 	var unlock func() error
@@ -134,8 +105,14 @@ func Execute(app *App, args []string) error {
 	// document carries it, and its human output names it once.
 	app.follows, app.stops = &synchronization.Follows{}, &synchronization.Stops{}
 	app.followed = invocation.NewFollowedReport(app.follows)
-	defer func() { app.follows, app.followed, app.stops = nil, nil, nil }()
-	output.fields = app.followed.Document
+	// The clients that its transition stops follow the command's own report,
+	// and fail the invocation.
+	app.stopped = invocation.NewStopReport(app.stops, app.Clients.Admission())
+	defer func() { app.follows, app.followed, app.stops, app.stopped = nil, nil, nil, nil }()
+	output.Fields = func() []terminal.DocumentField {
+		return append(app.followed.Document(), app.stopped.Document()...)
+	}
+	output.Failed = func() bool { return app.stopped.Failed() }
 	root := NewRoot(app)
 	root.PersistentPreRunE = func(command *cobra.Command, positional []string) error {
 		// Cobra normally validates flag relationships after this mutation boundary.
@@ -165,12 +142,13 @@ func Execute(app *App, args []string) error {
 		err = refusal(root, command, args, err)
 		// A command that named no follow-up has not said what the
 		// invocation followed; its human output ends with it.
-		if jsonMode, _ := command.Flags().GetBool("json"); err == nil && !jsonMode && output.err == nil {
-			app.renderFollowed(output.started)
+		if jsonMode, _ := command.Flags().GetBool("json"); err == nil && !jsonMode && output.Err() == nil {
+			app.renderFollowed(output.Started())
+			app.stopped.Render(app.continued(output.Started()))
 		}
 	}
-	if output.err != nil && !errors.Is(err, output.err) {
-		err = errors.Join(err, output.err)
+	if output.Err() != nil && !errors.Is(err, output.Err()) {
+		err = errors.Join(err, output.Err())
 	}
 	err = finishExecution(err, unlock)
 	if err != nil && credentialInvocation(args) {
@@ -178,14 +156,19 @@ func Execute(app *App, args []string) error {
 		terminal.RenderCredentialError(renderer, err)
 		return terminal.Presented(errors.Join(err, renderer.Err()))
 	}
-	if err == nil || output.err != nil {
+	if err == nil {
+		// A command that succeeded while its transition stopped a client
+		// fails, after its report and the stop's.
+		return app.stopped.Err()
+	}
+	if output.Err() != nil {
 		return err
 	}
 	jsonMode, _ := command.Flags().GetBool("json")
 	// Cobra stops at the flag or word that it refuses, so a --json after it,
 	// or at the root, which has no such flag, is read from the arguments.
 	jsonMode = jsonMode || terminal.IsUsage(err) && jsonRequested(args)
-	if jsonMode && output.started {
+	if jsonMode && output.Started() {
 		return err
 	}
 	renderer := app.Renderer()
@@ -196,6 +179,8 @@ func Execute(app *App, args []string) error {
 	// A command that failed recorded no choice; a report that failed still
 	// names what its configuration follows.
 	app.followed.Failed()
+	// A command that failed reports no stop of its transition.
+	app.stopped = nil
 	terminal.RenderError(renderer, terminal.LocalFailure(Version, at, invocation.TokenRejection(command, err)), jsonMode)
 	if !jsonMode {
 		app.followed.Render(renderer)
@@ -206,11 +191,17 @@ func Execute(app *App, args []string) error {
 // renderFollowed ends the invocation's human output with what it followed,
 // unless the command's own output has said it ahead of its follow-up.
 func (a *App) renderFollowed(started bool) {
+	a.followed.Render(a.continued(started))
+}
+
+// continued is the invocation's renderer, continuing the output that the
+// command started, if it started one.
+func (a *App) continued(started bool) *terminal.Renderer {
 	renderer := a.Renderer()
 	if started {
 		renderer.Continue()
 	}
-	a.followed.Render(renderer)
+	return renderer
 }
 
 // refusedFlag marks a flag that command refused as a usage error, naming the

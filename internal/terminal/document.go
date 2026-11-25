@@ -28,10 +28,18 @@ type documentExtender interface {
 	DocumentFields() []DocumentField
 }
 
+// documentOutcome is an invocation's output that knows the invocation failed
+// beside the command's result, such as a client that its transition stopped:
+// the document then reports ok as false, whatever the command reported.
+type documentOutcome interface {
+	DocumentFailed() bool
+}
+
 // WriteDocument writes document as one indented JSON object headed by its
 // command's schema version and outcome, followed by document's own fields in
 // their order and then by the fields that out adds as the invocation's
-// output. document must encode as an object that names neither
+// output, and out's failure, when it reports one, makes ok false. document
+// must encode as an object that names neither
 // schema_version nor ok, nor a field that the invocation adds.
 func WriteDocument(out io.Writer, version int, ok bool, document any) error {
 	body, err := json.Marshal(document)
@@ -49,6 +57,9 @@ func WriteDocument(out io.Writer, version int, ok bool, document any) error {
 		if _, found := fields[name]; found {
 			return fmt.Errorf("a JSON document must not name its own %s", name)
 		}
+	}
+	if outcome, reports := out.(documentOutcome); reports && outcome.DocumentFailed() {
+		ok = false
 	}
 	head, err := json.Marshal(documentHeader{SchemaVersion: version, OK: ok})
 	if err != nil {

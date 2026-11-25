@@ -16,19 +16,23 @@ declaration.
 - A program that was configured and is gone stays configured. AIGW no longer swaps in another discovered program for
   it, in `sync`, `client list` or anywhere else; one rule decides which program a client uses. A client without a
   configured program still adopts the one that discovery finds, as today.
-- When the configured program is missing, `sync` leaves that client's files, model table and record unchanged and
-  exits non-zero; `sync` and `check` give the same repair, `aigw client edit <client> --executable <path>`, for Codex,
-  Claude Code, Claude Desktop and Hermes, never `aigw sync`.
-- Codex's record of the model table names the program that produced it (its path beside the version and digest it
-  already keeps). `check --depth local` compares that program with the one now configured, by path and file digest,
-  without running it, and fails with repair `aigw sync` when they differ.
+- When the configured program is missing, or a Codex whose program changed cannot produce the model table that AIGW
+  owns, every command that writes client files leaves that client's files, model table and record unchanged, writes
+  the rest, adds the stop to its own report and exits non-zero; those commands and `check` give the same repair,
+  `aigw client edit <client> --executable <path>`, for Codex, Claude Code, Claude Desktop and Hermes, never `aigw sync`.
+- Codex's record of the model table names the program that produced it: its path and its package manifest's version
+  beside the digest it already keeps. `check --depth local` compares that program with the one now configured, by
+  path, file digest and manifest version, running no program while they agree; when they differ it runs the read-only
+  probes of a sync's plan, so that it names the sync's own stop when the program cannot produce a table, and
+  `aigw sync` otherwise.
 - `check` states the real reason for a stale or unproducible Codex table instead of "does not match the selected
   model".
 - The dry-run documentation says that a dry run runs read-only probes of the client program in an isolated temporary
   directory.
 
 Not breaking for configuration: `aigw.toml` keeps schema 8 and its keys. Output changes: the new reasons and repairs,
-and `client list` reports a configured program that is missing instead of another one.
+`stopped_clients` in the document of a command that stopped a client, its exit status 1, and `client list` reports a
+configured program that is missing instead of another one.
 
 ## Capabilities
 
@@ -42,6 +46,7 @@ None.
 - `projection-format`: Codex's model table records its producing program, and check compares it.
 - `secret-storage` (its check scenario of a missing executable) and `client-verification`: the repair for a missing
   program.
+- `cli-readiness`: the local check names why Codex's files fall short.
 
 ## Impact
 

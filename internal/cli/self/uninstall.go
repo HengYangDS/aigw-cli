@@ -209,8 +209,5 @@ func withdrawEveryClient(cmd *cobra.Command, runtime invocation.Context) ([]stri
 	if err := synchronizer.CommitProjection(cmd.Context(), before, after, "uninstall"); err != nil {
 		return nil, err
 	}
-	if err := invocation.Stopped(runtime, "Every client was withdrawn from the configuration; the program was not removed."); err != nil {
-		return nil, err
-	}
 	return before.EnabledClientIDs(), nil
 }

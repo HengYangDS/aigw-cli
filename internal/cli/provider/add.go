@@ -105,9 +105,6 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 		if stored, err = connect(cmd, runtime, args, options, before, cfg, id); err != nil {
 			return err
 		}
-		if err := invocation.Stopped(runtime, "Provider "+id+" was added."); err != nil {
-			return err
-		}
 		validated = true
 	}
 	return result{

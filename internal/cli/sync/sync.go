@@ -20,8 +20,8 @@ import (
 )
 
 // schemaVersion is the version of `aigw sync`'s JSON document, which also
-// replaces `aigw repair`'s: both were at 2. Version 5 adds stopped_clients.
-const schemaVersion = 5
+// replaces `aigw repair`'s: both were at 2.
+const schemaVersion = 4
 
 // syncResult is `aigw sync`'s JSON document: each client's model as
 // provider/model, and in a preview the
@@ -31,13 +31,10 @@ type syncResult struct {
 	DryRun     bool              `json:"dry_run,omitempty"`
 	Selections map[string]string `json:"selections"`
 	invocation.Preview
-	// StoppedClients are the clients that a preview's synchronization would
-	// stop, with each one's problem and fix.
-	StoppedClients []invocation.StoppedClient `json:"stopped_clients,omitempty"`
-	EnabledClients int                        `json:"enabled_clients"`
-	State          string                     `json:"state,omitempty"`
-	NextAction     string                     `json:"next_action,omitempty"`
-	NextDetail     string                     `json:"next_detail,omitempty"`
+	EnabledClients int    `json:"enabled_clients"`
+	State          string `json:"state,omitempty"`
+	NextAction     string `json:"next_action,omitempty"`
+	NextDetail     string `json:"next_detail,omitempty"`
 	// next is the follow-up before it is split.
 	next string
 }
@@ -106,16 +103,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 			} else if err := synchronizer.CommitProjection(cmd.Context(), before, after, "sync"); err != nil {
 				return err
-			} else if err := invocation.Stopped(runtime, "AIGW synchronized the other clients."); err != nil {
-				return err
 			}
-			stopped := previewStopped(runtime)
 			if jsonMode {
 				result.NextAction, result.NextDetail = terminal.NextSteps(result.next)
-				if err := terminal.WriteDocument(runtime.Out, schemaVersion, stopped == nil, result); err != nil {
-					return err
-				}
-				return stopped
+				return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 			}
 			r := invocation.Renderer(runtime)
 			if dryRun {
@@ -128,18 +119,14 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				r.Section("Activation")
 			}
 			r.Rows(outcome...)
-			renderStopped(r, after, result)
 			switch {
 			case dryRun:
 				r.Success("Preview did not write configuration, state files, authentication, or conversations")
-			case result.EnabledClients != 0 && activation.State != domainreadiness.Deferred && !waiting:
+			case result.EnabledClients != 0 && activation.State != domainreadiness.Deferred && !waiting && len(runtime.Stops.Stopped()) == 0:
 				r.Success("Client configuration is aligned; authentication was unchanged")
 			}
 			r.Next(result.next)
-			if err := r.Err(); err != nil {
-				return err
-			}
-			return stopped
+			return r.Err()
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the synchronization plan without writing configuration")
@@ -169,41 +156,14 @@ func activationOutcome(enabled int, state domainreadiness.State, unobserved erro
 	return nil
 }
 
-// previewStopped is the failure of a preview whose synchronization would stop
-// a client, after the preview was reported; a sync that stopped one already
-// failed through invocation.Stopped.
-func previewStopped(runtime invocation.Context) error {
-	if stops := runtime.Stops.Stopped(); len(stops) > 0 {
-		return terminal.Presented(stops[0])
-	}
-	return nil
-}
-
-// renderStopped lists the clients that a preview's synchronization would
-// stop, each with its problem.
-func renderStopped(r *terminal.Renderer, after domain.Config, result syncResult) {
-	if len(result.StoppedClients) == 0 {
-		return
-	}
-	r.Section("Stopped clients")
-	for _, stop := range result.StoppedClients {
-		r.Rows(terminal.Field{State: terminal.Fail, Label: after.Admission().Label(stop.Client), Value: stop.Problem})
-	}
-}
-
 // prepareSyncPreview previews the synchronization as it would be committed,
-// refusing what the commit would refuse, and names each client that it would
-// stop, whose fix becomes the next step.
+// refusing what the commit would refuse.
 func prepareSyncPreview(runtime invocation.Context, before, after domain.Config, result *syncResult) error {
 	preview, err := invocation.PreviewProjection(runtime, before, after)
 	if err != nil {
 		return err
 	}
 	result.Preview = preview
-	if stops := runtime.Stops.Stopped(); len(stops) > 0 {
-		result.StoppedClients, result.next = invocation.StoppedClients(stops), stops[0].NextAction()
-		return nil
-	}
 	if preview.CredentialEntrypoint != nil && result.next == "aigw check" {
 		result.next = "aigw sync"
 	}

@@ -26,12 +26,15 @@
       Claude Code, Claude Desktop and Hermes (D2). Done when a test of each client's check passes.
 - [x] 3.4 Stop a Codex whose configured executable runs and can neither produce nor reuse the model table that AIGW
       owns, keeping its files, with the same problem and fix in sync and check (D2). Done when
-      `TestACodexThatCannotProduceItsTableStops` passes, and `TestACodexThatNeverProducedATableIsNoLoop` pins that a Codex
-      that never produced a table is no loop.
+      `TestACodexThatCannotProduceItsTableStops` passes, `TestACodexThatNeverProducedATableIsNoLoop` pins that a Codex
+      that never produced a table is no loop, `TestAStaleRecordOfAnEarlierReleaseIsClearedBySync` that a hashless stale
+      record of 0.10.0 stops nothing, and `TestAnUnchangedLauncherWhoseProgramIsGoneStopsSyncWhileCheckPasses` the limit
+      that only the client depth catches.
 - [x] 3.5 Withdraw a file that the change drops from a stopped client (D2). Done when
       `TestADroppedFileIsWithdrawnWhileCodexIsStopped` passes.
-- [x] 3.6 Report each stop through one point in every command that commits a projection, with what it wrote, exiting
-      non-zero, and list the stopped clients in a sync preview (D2). Done when
+- [x] 3.6 Report each stop through the invocation's one report after the command's own, in every command that commits a
+      projection and every preview, saying of the files only what the transition recorded, exiting non-zero (D2). Done
+      when
       `TestUseAndRollbackReportAStoppedCodex`, `TestProviderCommandsReportAStoppedCodex`, `TestSetupReportsAStoppedCodex`,
       `TestASyncedCodexWhoseExecutableGoesStopsUntilAnotherIsNamed` and the `internal/cli/sync` tests pass.
 - [x] 3.7 Refuse at input an `--executable` that is not a regular file with an execute bit, by stat alone (D2). Done when

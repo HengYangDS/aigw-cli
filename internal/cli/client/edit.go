@@ -248,9 +248,6 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 		if err := runtime.Synchronizer().CommitProjection(cmd.Context(), before, cfg, "client edit", spec.ID); err != nil {
 			return targetFailure(spec.ID, targets, err)
 		}
-		if err := invocation.Stopped(runtime, "The client's settings were saved."); err != nil {
-			return err
-		}
 	}
 	pending := ""
 	if document.Changed && !options.dryRun && !preview.Projects(spec.ID) {

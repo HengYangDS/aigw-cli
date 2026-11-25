@@ -142,9 +142,6 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
 			return fmt.Errorf("Client enablement could not finish: %w", err)
 		}
-		if err := invocation.Stopped(runtime, spec.Label+" was enabled in the configuration."); err != nil {
-			return err
-		}
 		if jsonMode {
 			return terminal.WriteDocument(runtime.Out, enableSchemaVersion, true,
 				newProjectionDocument(client, "enabled", spec.RestartAfterProjection, enabledNext(spec)))
@@ -284,9 +281,6 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 			return writeProjectionPreview(runtime, disableSchemaVersion, jsonMode, spec, "disabled", preview, invocation.ApplyCommand(cmd, args))
 		}
 		if err := runtime.Synchronizer().CommitProjection(cmd.Context(), before, cfg, "client disable", client); err != nil {
-			return err
-		}
-		if err := invocation.Stopped(runtime, spec.Label+" was disabled in the configuration."); err != nil {
 			return err
 		}
 		if jsonMode {

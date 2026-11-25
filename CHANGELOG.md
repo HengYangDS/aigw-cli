@@ -89,14 +89,19 @@ signing, and GA status remain separate evidence.
   no longer switches to another executable that it finds, and no longer
   withdraws Codex's model table and reports success: it leaves
   the stopped client's files, its model table and AIGW's record of them as
-  they are, withdraws a file that the change drops, writes the rest, and exits
-  1 with the cause, what it wrote and the fix
-  `aigw client edit <client> --executable <path>`, in JSON as `next_detail`.
-  `aigw sync --dry-run` lists the other clients' files and each stopped
-  client, and exits 1; its JSON gains `stopped_clients` and moves to
-  `schema_version` 5. `aigw check` and `aigw status` give the same cause and
-  fix for Codex, Claude Code, Claude Desktop and Hermes, where they advised
-  `aigw sync`. `aigw client edit` and `aigw client enable` refuse an
+  they are, withdraws a file that the change drops, writes the rest, keeps its
+  own report and then names each stopped client with its cause, what became
+  of its files and the fix `aigw client edit <client> --executable <path>`,
+  and exits 1. In JSON the invocation adds `stopped_clients` to the command's
+  document, as it adds `followed_selections`, and `ok` is false; no command's
+  own fields change. A preview that would stop a client, `aigw sync --dry-run`
+  or another command's, names it the same way and exits 1. `aigw check` and
+  `aigw status` give the same cause and fix for a missing executable of
+  Codex, Claude Code, Claude Desktop and Hermes, where they advised
+  `aigw sync`; for a Codex that cannot produce its table they give it only
+  when its executable's file changed since the last sync, and an unchanged
+  executable that no longer runs is caught only by
+  `aigw check --depth client`. `aigw client edit` and `aigw client enable` refuse an
   `--executable` that is not a file that can run. `aigw client list` shows the
   configured path as missing, and `installed` false in JSON, where it showed
   another executable or "Not installed". A client without a configured
@@ -106,11 +111,16 @@ signing, and GA status remain separate evidence.
   `codex-package.json`, declares. `aigw check --depth local` compares the
   configured executable with it, the manifest with the recorded manifest, and
   fails on any difference, with the fix `aigw sync` or, when the configured
-  Codex cannot produce a table, the fix that names another. An executable
-  without a readable manifest is compared by path and digest only. A record
-  that an earlier release wrote names no executable, so the first check after
-  the upgrade fails for every Codex with a model table, until one
-  `aigw sync`.
+  Codex cannot produce a table, the fix that names another. It runs no
+  program while the executable agrees with the record; while it differs,
+  until a sync records it, every `aigw check`, `aigw status` and bare `aigw`
+  runs one `--version` and one `debug models --bundled` for each Codex file,
+  each bounded by the probe timeout. An executable without a readable
+  manifest is compared by path and digest only. A record that an earlier
+  release wrote names no executable, so the first check after the upgrade
+  fails for every Codex with a model table, until one `aigw sync`. A record
+  that 0.10.0 marked stale holds no table and stops nothing; the next sync
+  clears the mark.
 - `aigw check` names a stale Codex model table, a table that another
   executable produced and a Codex that cannot produce one as such, where it
   said that Codex's file does not match the selected model.

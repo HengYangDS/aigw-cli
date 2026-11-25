@@ -105,7 +105,7 @@ func TestAProgramThatCannotBeInspectedIsMissing(t *testing.T) {
 	}
 	loop := filepath.Join(t.TempDir(), "loop")
 	if err := os.Symlink(loop, loop); err != nil {
-		t.Skipf("symbolic link unavailable: %v", err)
+		t.Fatal(err)
 	}
 	binding := cfg.Clients["codex"]
 	binding.Executable = loop
