@@ -32,14 +32,14 @@ Every option was checked against these before the decision.
 - **Rests on:** npm 12.2.3 defines `min-release-age` as null or Number, counted in days (its definitions and documentation, read 2026-11-25). `npm config get` prints 1, 0 and 1.5 unchanged, so npm checks no unit, and with the value 1 it writes nothing to stderr (measured 2026-11-25, disposable folder). The conversion from hours to days is therefore this repository's rule.
 - **Considered:** a test that compares authored numbers (a second number to keep equal); Mise `[env]` entries, which reach npm only under Mise and leave Renovate out; filling by hand.
 - **Chosen because:** one function gives each setting's line for a number of hours, and the fix and the check both use it, so the check cannot drift from the fill. Renovate takes `<hours> hours`; npm takes the days that cover the hours, rounded up, which never takes a release that the declared hours hold; an age of zero leaves npm's line out.
-- **Applies to:** `tools/ci` (the `release-age` subcommand), the `fix` task of `.config/mise/config.toml`.
+- **Applies to:** `tools/ci` (the `release-age` fill and the `check-release-age` check), the `fix` task of `.config/mise/config.toml`.
 
 ### Renovate's JSON5 is read by the parser the tests already use
 
 - **Rests on:** `go.mod` has no JSON5 reader; `tools/ci/dependencies_test.go` reads the policy with Prettier's JSON5 parser through Node, and `tools/ci/format.mjs` and `tools/ci/markdown/lint.mjs` are Node helpers that Go starts (read 2026-11-25). The policy's keys are unquoted; its root age stands on one line at two spaces (`renovate.json5:33`) and the security-fix rule's own age is nested deeper (`:42`).
 - **Considered:** a Go JSON5 dependency (new supply for one value); a regular expression alone, which cannot show that Renovate reads the line as the root value; an own parser.
-- **Chosen:** Go replaces the one root line; a Node reader, `tools/ci/release_age.mjs`, takes the text on stdin and prints the root age and the security-fix rule's age as the JSON5 parser reads them; Go compares them with the declaration. The fill reads every file, fills it in memory and reads the result again before the first write, so a refusal writes nothing.
-- **Applies to:** `tools/ci/release_age.mjs`, `tools/ci`.
+- **Chosen:** Go replaces the one root line; a Node reader, `tools/ci/release-age.mjs`, takes the declared hours as its argument and the filled text on stdin, reads the root age, the security-fix rule's age and every other age or `extends` entry as the JSON5 parser does, and prints each difference from the declaration on stderr. The fill reads every file, fills it in memory and has the reader read the result before the first write, so a refusal writes nothing.
+- **Applies to:** `tools/ci/release-age.mjs`, `tools/ci`.
 
 ### A file that carries another release rule is refused
 
@@ -56,7 +56,7 @@ Every option was checked against these before the decision.
 ## Risks / Trade-offs
 
 - npm knows no advisory: under the age, `npm audit fix` keeps a vulnerable version, warns and exits non-zero when the fix is younger (documentation, read 2026-11-25). A security fix younger than the age is taken in its own change, which says so; Renovate's security rule stays at 0 hours.
-- `npm ci` under the filled line is not measured; a passing `npm ci` says nothing about the lock's age (ETHOS session 97f828, 2026-11-18, relayed). Task 3.1 runs it in a scratch copy.
+- `npm ci --ignore-scripts` under the filled line ran once on 2026-11-25 at 09:50 in an owned scratch folder holding the lane's `package.json` and `package-lock.json`, with an empty cache. `npm config get min-release-age` read 1 through the lane's Mise environment; the install added 116 packages, found 0 vulnerabilities and exited 0. A passing `npm ci` says nothing about the lock's age (ETHOS session 97f828, 2026-11-18, relayed), so this shows only that the line does not break the install.
 - Above zero, Renovate adds a buffer of 30 minutes (the proxy's governance document, read 2026-11-25); the accepted scenario `A registry publishes no release time` covers a registry without release times.
 
 ## Open Questions

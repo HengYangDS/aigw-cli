@@ -54,9 +54,12 @@ Its [native mise manager](https://docs.renovatebot.com/modules/manager/mise/) an
 excludes disposable snapshots. Declarative extractors read authored Actions,
 images and exact npm client pins in CUE, not generated peer workflows. Native
 client proposals keep deliberate admission.
-The policy declares the repository's release age once, in hours, for every
-source; it is zero today, so a stable release may be taken at publication, and
-one value raises it. Only a security fix skips the age. With an age above zero,
+The repository's release age is declared once, in whole hours, as
+`minimum_release_age` in the [mise configuration](../../.config/mise/config.toml);
+`mise run fix` fills Renovate's root `minimumReleaseAge` and npm's
+`min-release-age` from it, and the `release-age` quality gate fails while either
+holds another age or another release rule of its own. One edited line changes the
+age for every source. Only a security fix skips the age. With an age above zero,
 a registry that publishes no release time leaves its release held until the
 publisher's release record dates it.
 `min_version` is a reader floor, not the executed

@@ -55,6 +55,7 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "run", "./tools/release", "scan-dependencies", ".", "build/verification/dependencies"},
 		{"go", "run", "./tools/ci", "check-secrets", "."},
 		{"go", "run", "./tools/release", "validate-toolchain", "go.mod"},
+		{"go", "run", "./tools/ci", "check-release-age", "."},
 		{"go", "run", "./tools/release", "validate-release-sources"},
 		{"go", "run", "./tools/release", "validate-changelog"},
 		{"go", "run", "./tools/architecture", "--root", "."},

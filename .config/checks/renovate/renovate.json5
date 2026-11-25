@@ -30,7 +30,7 @@
   // Zero takes it at publication. To hold releases longer, change this one
   // value; no rule below declares an age of its own. With an age above zero,
   // a release whose registry publishes no time stays held.
-  minimumReleaseAge: "0 hours",
+  minimumReleaseAge: "24 hours",
   minimumReleaseAgeBehaviour: "timestamp-required",
   internalChecksFilter: "strict",
   prCreation: "immediate",
