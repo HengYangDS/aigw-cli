@@ -10,9 +10,9 @@
       `darwin-arm64`, `linux-arm64` and `linux-amd64`, with a cask whose only macOS archive is ARM64 and no zip or
       `.exe` path, and make the tests that enumerate targets follow (D1). Done when GoReleaser's `check` accepts the
       configuration and the package tests of `internal/program/...` and `tools/release/...` that read the matrix pass.
-- [ ] 2.2 Assert in `requireHomebrewProjection` that the cask depends on the architecture of its only macOS archive
+- [x] 2.2 Assert in `requireHomebrewProjection` that the cask depends on the architecture of its only macOS archive
       (D1). Done when `TestNativeReleaseArchivesHaveDeterministicLocalSignatures` passes; it starts GoReleaser
-      builds, so it runs in task 8.2.
+      builds, so it runs in task 8.2. Passed there.
 
 ## 3. Product code
 
@@ -63,7 +63,8 @@
 ## 8. Local gates
 
 - [x] 8.1 Pass `mise run check` on the lane head, in the host queue. Passed on `fb03546ef` (2026-11-25 20:42).
-- [ ] 8.2 Pass `mise run native` on the macOS host on the lane head, in the host queue.
+- [x] 8.2 Pass `mise run native` on the macOS host on the lane head, in the host queue. Passed on `999c4f359`
+      (2026-11-25 20:55).
 - [x] 8.3 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered
       in code or in the design. Five findings, answered in `e6f78dca3` and `fb03546ef`.
 
