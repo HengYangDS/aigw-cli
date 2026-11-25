@@ -56,23 +56,19 @@ func windowCheck(index int, target string, runtime domain.Runtime) (adapter.Chec
 }
 
 // tableLeftOut names why AIGW writes no model table for the Codex file at
-// target, for the two reasons on which the projection writes none
-// (codexCatalogProjection): the model runs under a model provider of Codex's
-// own, or the file names a model table that AIGW did not write. It names
-// nothing for any other file, or one that it cannot read.
+// target, for the two reasons of noTableReason, on which the projection
+// (codexCatalogProjection) writes none. The projection reads the text it
+// starts from, which holds no line of AIGW's; this reads the file itself, where
+// a line that AIGW wrote is not the user's own table. A line that it cannot
+// read counts as none.
 func tableLeftOut(target string, runtime domain.Runtime) string {
-	if provider := codexRuntimeProvider(runtime); provider != modelProviderAIGW {
-		return "the model runs under Codex's model provider " + provider + ", for which AIGW writes no model table"
+	own := ""
+	if text, readErr := os.ReadFile(target); readErr == nil {
+		if line, lineErr := codexSelectionLine(string(text), "model_catalog_json"); lineErr == nil && !managedLine(line) {
+			own = line
+		}
 	}
-	text, err := os.ReadFile(target)
-	if err != nil {
-		return ""
-	}
-	line, err := codexSelectionLine(string(text), "model_catalog_json")
-	if err != nil || line == "" || managedLine(line) {
-		return ""
-	}
-	return "this configuration names its own model table in model_catalog_json, which AIGW leaves alone"
+	return noTableReason(runtime, own)
 }
 
 // carried words what an entry carries in the window field that a sentence

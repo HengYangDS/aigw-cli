@@ -134,6 +134,7 @@ full window.
   refuses a table that it cannot parse and falls back to Codex's own; a test fails when the two fields are absent
   from the bundled table.
 - Hermes's list of what AIGW wrote is empty when the catalog of the configuration before the command cannot be built, and the reorder refusal then does not apply → a configuration is validated before it is saved or planned (`validateTransition`), and a model resolves on every protocol that its provider serves and the client admits, so that catalog cannot fail on a valid configuration; the refusal itself is tested through synchronization, the planned projection and the inspection.
+- The projection and the window check ask one function, `noTableReason`, why AIGW writes no model table: the model runs under a model provider of Codex's own, or the configuration names a table that AIGW did not write. Each keeps its own reading of the line, because the projection starts from a text that holds no line of AIGW's, while the check reads the file on disk, where a line that AIGW wrote is not the user's own table; a line that cannot be read stops the projection and leaves the check to the target's own check. The two conditions were read as equal before the extraction, not measured; the tests of both reasons in `internal/adapter/codex` are what holds them equal now.
 - The owner's installed configuration declares no window, so Hermes runs the seven families at 1,000,000 until the
   shipped team file is applied again.
 

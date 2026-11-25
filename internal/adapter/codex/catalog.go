@@ -187,6 +187,23 @@ func recordedCatalog(path string, state codexState) ([]byte, error) {
 	return data, nil
 }
 
+// noTableReason names why AIGW writes no model table for a model that runs as
+// runtime, given the model_catalog_json line of the configuration that the
+// projection starts from: the model runs under a model provider of Codex's own,
+// or that line names a table that AIGW did not write. It is empty where AIGW
+// writes a table. The projection and the window check both ask it, so the two
+// cannot disagree; each reads its own text for the line and decides what a line
+// that it cannot read means.
+func noTableReason(runtime domain.Runtime, ownLine string) string {
+	if provider := codexRuntimeProvider(runtime); provider != modelProviderAIGW {
+		return "the model runs under Codex's model provider " + provider + ", for which AIGW writes no model table"
+	}
+	if ownLine != "" {
+		return "this configuration names its own model table in model_catalog_json, which AIGW leaves alone"
+	}
+	return ""
+}
+
 // codexCatalogProjection decides what AIGW owns for one target without writing
 // anything. For the selected model under AIGW's custom provider it pins the
 // installed client's complete table, even for a known base model: otherwise
@@ -201,7 +218,7 @@ func codexCatalogProjection(target TargetRef, selected domain.Runtime, base stri
 	// silently drop models the user added.
 	selection, selectionErr := codexSelectionLine(base, "model_catalog_json")
 	model := selected.UpstreamModel
-	if model == "" || codexRuntimeProvider(selected) != modelProviderAIGW || selectionErr != nil || selection != "" {
+	if model == "" || selectionErr != nil || noTableReason(selected, selection) != "" {
 		return codexCatalogPlan{}
 	}
 	live, bundled, err := codexBundledCatalog(target.Executable)
