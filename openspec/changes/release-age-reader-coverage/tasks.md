@@ -7,9 +7,9 @@
 
 ## 2. Verification
 
-- [ ] 2.1 Pass `mise run check` on the lane head.
+- [x] 2.1 Pass `mise run check` on the lane head (`1ab4be1a`).
 - [x] 2.2 A fresh review of this Change by a reviewer who has not seen it. Done when its findings are answered in code
       or in this design. Four findings: the proposal and tasks now name the three new cases, the
       design names the existing guard, and the test covers `stabilityDays` and the stderr verdict; the test names are
       left as they are.
-- [ ] 2.3 Pass the proposal's hosted checks on both Forges.
+- [x] 2.3 Pass the proposal's hosted checks on both Forges (`1ab4be1a`: GitLab pipeline 17999, GitHub PR 285).
