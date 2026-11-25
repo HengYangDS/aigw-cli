@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -96,7 +95,7 @@ func rebaseCopiedCodexCatalog(source, target string, config, attribution platfor
 // rebaseUserCatalogReference keeps a user-owned catalog reachable from a copy
 // in another Codex home. Codex resolves a relative model_catalog_json from the
 // directory of the configuration that names it, so the copy names the same file
-// by its absolute path; resolveCatalogReference holds the platform's rules. A
+// by its absolute path, joined to that directory. A
 // reference that starts with ~ stays as it is: the copy keeps HOME, and whether
 // Codex expands it is unproved.
 func rebaseUserCatalogReference(source string, config platform.FileSnapshot) (platform.FileSnapshot, error) {
@@ -112,7 +111,7 @@ func rebaseUserCatalogReference(source string, config platform.FileSnapshot) (pl
 	if reference == "" || filepath.IsAbs(reference) || strings.HasPrefix(reference, "~") {
 		return config, nil
 	}
-	quoted, err := codexTOMLString(resolveCatalogReference(filepath.Dir(source), reference))
+	quoted, err := codexTOMLString(filepath.Join(filepath.Dir(source), reference))
 	if err != nil {
 		return config, err
 	}
@@ -171,7 +170,7 @@ func recordedCatalog(path string, state codexState) ([]byte, error) {
 	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("Codex model catalog is not a regular file: %s", info.Mode())
 	}
-	if catalogModeIsEnforceable() && info.Mode().Perm() != 0o600 {
+	if info.Mode().Perm() != 0o600 {
 		return nil, fmt.Errorf("Codex model catalog is not owner-only: %s", info.Mode().Perm())
 	}
 	data, err := os.ReadFile(catalogPath)
@@ -277,30 +276,12 @@ func codexCatalogDesiredSnapshot(plan codexCatalogPlan, before platform.FileSnap
 		// The catalog carries the resolved account's model metadata, so its mode
 		// is part of what AIGW owns rather than a user preference: a mode that
 		// drifted wider converges back instead of being carried forward.
-		return platform.NewFileSnapshot(plan.data, ownerOnlyCatalogMode(before)), nil
+		return platform.NewFileSnapshot(plan.data, 0o600), nil
 	}
 	if owned {
 		return platform.FileSnapshot{}, nil
 	}
 	return before, nil
-}
-
-// ownerOnlyCatalogMode is the mode an AIGW-owned catalog converges to. Windows
-// cannot express owner-only in a file mode — Go reports 0666 for any writable
-// file there — so on that platform the mode already on disk is left alone
-// instead of being fought with on every sync.
-func ownerOnlyCatalogMode(before platform.FileSnapshot) os.FileMode {
-	if runtime.GOOS == "windows" && before.Exists {
-		return before.Mode
-	}
-	return os.FileMode(0o600)
-}
-
-// catalogModeIsEnforceable reports whether the platform represents owner-only
-// permissions in a file mode, and therefore whether a mode read back from disk
-// can be held to the contract.
-func catalogModeIsEnforceable() bool {
-	return runtime.GOOS != "windows"
 }
 
 func applyCodexCatalogState(state *codexState, plan codexCatalogPlan) {

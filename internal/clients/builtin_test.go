@@ -27,7 +27,7 @@ func (discoverer fixedDiscoverer) Discover(...string) discovery.Result { return 
 // hostAt observes home as the user's home directory, so Claude Code's settings
 // file is home/.claude/settings.json.
 func hostAt(home string) discovery.Host {
-	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home}}
 }
 
 func qualifiedModel(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
@@ -254,19 +254,16 @@ func TestRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 // native paths, and it reports Claude Code's missing input before Claude
 // Desktop's.
 func TestBuiltInClientsRefuseAHostWithoutTheirNativePaths(t *testing.T) {
-	roaming, local, profile := `C:\Users\alex\AppData\Roaming`, `C:\Users\alex\AppData\Local`, `C:\Users\alex`
 	for _, test := range []struct {
 		name string
 		env  map[string]string
 		want string
 	}{
-		{name: "complete", env: map[string]string{"APPDATA": roaming, "LOCALAPPDATA": local, "USERPROFILE": profile}},
-		{name: "without USERPROFILE", env: map[string]string{"APPDATA": roaming, "LOCALAPPDATA": local}, want: "USERPROFILE is not set"},
-		{name: "without LOCALAPPDATA", env: map[string]string{"APPDATA": roaming, "USERPROFILE": profile}, want: "LOCALAPPDATA is not set"},
-		{name: "without either", env: map[string]string{"APPDATA": roaming}, want: "USERPROFILE is not set"},
+		{name: "complete", env: map[string]string{"HOME": "/home/alex"}},
+		{name: "without HOME", env: map[string]string{"XDG_CONFIG_HOME": "/cfg"}, want: "HOME is not set"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			err := Registry().ValidateHost(discovery.Host{GOOS: "windows", Env: test.env})
+			err := Registry().ValidateHost(discovery.Host{GOOS: "linux", Env: test.env})
 			if (err == nil) != (test.want == "") || err != nil && err.Error() != test.want {
 				t.Fatalf("ValidateHost() = %v, want %q", err, test.want)
 			}

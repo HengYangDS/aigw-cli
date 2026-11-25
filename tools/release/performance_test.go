@@ -143,23 +143,12 @@ func writeNativePerformanceSummary(t *testing.T, output, hyperfine string, summa
 		t.Logf("%s/%s/%s block=%d p95=%.3fms budget=%.0fms", row.Variant, row.Backend, row.Case, row.Block, row.P95*1000, row.Budget*1000)
 	}
 	summary.Scope, summary.OS, summary.Arch, summary.Tool = "full-performance", runtime.GOOS, runtime.GOARCH, tool
-	summary.Controllers, summary.ControllerExecution = make(map[string]performance.Identity), make(map[string][]performance.Execution)
-	summary.IdentityScope = "Immutable selected files; Windows controller and descendant image, machine, creation time and parent ownership observed through untimed native create events and retained handles"
-	summary.MemoryScope = "Configured status: per-child wait4 on macOS, GNU time on Linux, retained-handle peak working set on Windows; bytes, no periodic sampling; calibrated against a large parent"
+	summary.Controllers = make(map[string]performance.Identity)
+	summary.IdentityScope = "Immutable selected files"
+	summary.MemoryScope = "Configured status: per-child wait4 on macOS, GNU time on Linux; bytes, no periodic sampling; calibrated against a large parent"
 	summary.ClientScope, summary.Pooled = "controlled client discovery; native projected helper; no Provider inference", pooled
 	if os.Getenv("AIGW_PERFORMANCE_FORWARDING") == "1" {
 		summary.Scope = "forwarding-performance"
-	}
-	current, err := performance.ObserveCurrent()
-	if err != nil {
-		t.Error(err)
-	}
-	summary.ControllerExecution["verifier"] = current
-	for _, row := range summary.Blocks {
-		if len(row.ControllerExecution) != 0 {
-			summary.ControllerExecution["hyperfine"] = row.ControllerExecution
-			break
-		}
 	}
 	verifier, err := os.Executable()
 	if err != nil {
@@ -195,15 +184,13 @@ func nativePerformanceJourney(t *testing.T, program, credentialWorker, backend, 
 	t.Helper()
 	const account, token = "native-system-keyring-probe", "synthetic-performance-token"
 	j := newNativeJourney(t, program, endpoint, true)
-	if runtime.GOOS != "windows" {
-		// Hyperfine's untimed preparation resolves sh even with --shell=none.
-		shell, err := exec.LookPath("sh")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Symlink(shell, filepath.Join(j.clientBin, "sh")); err != nil {
-			t.Fatal(err)
-		}
+	// Hyperfine's untimed preparation resolves sh even with --shell=none.
+	shell, err := exec.LookPath("sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(shell, filepath.Join(j.clientBin, "sh")); err != nil {
+		t.Fatal(err)
 	}
 	manifest := []byte(nativeCurrentSchemaManifest(endpoint) + `
 [[providers.models]]
@@ -304,19 +291,12 @@ func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, 
 		mode = "forwarding"
 	}
 	scope := resolved.CredentialProjectionFingerprint(claude.ID)
-	reader, err := secret.ExecutableFromCommand(helperCommand, claude.ID, scope, runtime.GOOS)
+	reader, err := secret.ExecutableFromCommand(helperCommand, claude.ID, scope)
 	if err != nil {
 		return nil, err
 	}
 	shell := "/bin/sh"
 	helper := []string{shell, "-c", helperCommand}
-	if runtime.GOOS == "windows" {
-		shell = os.Getenv("ComSpec")
-		if err := os.WriteFile(filepath.Join(j.root, "credential.cmd"), []byte("@echo off\r\n"+helperCommand+"\r\n"), 0o600); err != nil {
-			return nil, err
-		}
-		helper = []string{shell, "/d", "/c", "credential.cmd"}
-	}
 	attribution := os.Getenv("AIGW_PERFORMANCE_ATTRIBUTION") == "1"
 	cases := j.performanceCases(helper, preparer, resolved)
 	selected := map[string]string{"credential": shell}
@@ -438,20 +418,18 @@ func (j *journeyFixture) measureNativeCommand(hyperfine, output string, row perf
 	}
 	command := performance.Command{Tool: hyperfine, Directory: j.root, Output: output,
 		Arguments: workload.Arguments(output), Environment: j.environment, Sensitive: j.sensitiveInputs, Measurement: row}
-	var err error
-	row.Execution, row.ControllerExecution, err = performance.ObserveCommand(j.testing.Context(), command, workload)
-	if err != nil {
+	if err := performance.ObserveCommand(j.testing.Context(), command, workload); err != nil {
 		return row, err
 	}
 	command.Measurement = row
-	row, err = performance.Measure(j.testing.Context(), command)
+	row, err := performance.Measure(j.testing.Context(), command)
 	if workload.Mode == "forwarding" {
 		err = errors.Join(err, j.reviewPerformanceBinding(workload.Runtime))
 	}
 	return row, err
 }
 
-// Hyperfine shell=none uses shell_words on every OS, including Windows.
+// Hyperfine shell=none uses shell_words on every OS.
 func TestNativePerformanceCases(t *testing.T) {
 	journey := &journeyFixture{root: "owned root", binary: "installed program", config: filepath.Join("owned config directory", "aigw.toml"), settings: filepath.Join("owned settings directory", "settings.json"), manifest: "team manifest"}
 	reset := []string{journey.binary, "use", "claude", "native-system-keyring-probe/claude-test"}

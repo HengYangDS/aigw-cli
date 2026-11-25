@@ -39,12 +39,9 @@ type NativeAcceptance struct {
 
 // NativeAcceptanceClients owns the client journeys supported on each native host.
 func NativeAcceptanceClients(platform string) []string {
-	clients := []string{claude.ID, codex.ID}
 	switch platform {
-	case "windows":
-		return clients
 	case "darwin", "linux":
-		return append(clients, hermes.ID)
+		return []string{claude.ID, codex.ID, hermes.ID}
 	default:
 		return nil
 	}
@@ -459,11 +456,7 @@ func preparePublishedBaseline(ctx context.Context, root, directory, tag, stage s
 	if err := prepareNativeBinary(stage, version); err != nil {
 		return "", err
 	}
-	name := "aigw"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	return filepath.Join(stage, fmt.Sprintf("aigw_%s_%s_%s", version, target.OS, target.Arch), name), nil
+	return filepath.Join(stage, fmt.Sprintf("aigw_%s_%s_%s", version, target.OS, target.Arch), "aigw"), nil
 }
 
 func prepareNativeBinary(stage, version string) error {
@@ -476,11 +469,7 @@ func prepareNativeBinary(stage, version string) error {
 	if err := os.MkdirAll(directory, 0o700); err != nil {
 		return err
 	}
-	name := "aigw"
-	if target.OS == "windows" {
-		name += ".exe"
-	}
-	return os.WriteFile(filepath.Join(directory, name), program, 0o700)
+	return os.WriteFile(filepath.Join(directory, "aigw"), program, 0o700)
 }
 
 func verifySignedArchives(request buildRequest, stage string, run toolRunner) (result error) {

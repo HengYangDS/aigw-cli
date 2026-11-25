@@ -138,39 +138,6 @@ func TestInstallCommandNamesTheTargetThatItCannotUse(t *testing.T) {
 
 // A preview into a folder that does not exist yet says that installing
 // creates it, as the write does, and creates nothing.
-// The folder that a preview creates keeps the operator's own spelling, as its
-// path and rollback copy do, never the host's: on Windows a --path that names
-// its folders with "/" would otherwise come back with "\\". Windows' rule is
-// given here as its separators, so this host checks it too.
-func TestGivenFolderKeepsTheOperatorsSpelling(t *testing.T) {
-	posix := func(c uint8) bool { return c == '/' }
-	windows := func(c uint8) bool { return c == '/' || c == '\\' }
-	for _, test := range []struct {
-		name, target, folder, want string
-		isSeparator                func(uint8) bool
-	}{
-		{"posix", "/w/preview/aigw", "/w/preview", "/w/preview", posix},
-		{"posix, relative", "preview/aigw", "preview", "preview", posix},
-		{"windows, folders named with /", `C:\w/preview/aigw.exe`, `C:\w\preview`, `C:\w/preview`, windows},
-		{"windows, native", `C:\w\preview\aigw.exe`, `C:\w\preview`, `C:\w\preview`, windows},
-		{"a prefix that names another folder", "/w/preview/aigw", "/elsewhere", "/elsewhere", posix},
-		// A prefix that is not clean names another folder once links resolve.
-		{"a doubled separator", "/w//preview/aigw", "/w/preview", "/w/preview", posix},
-		{"a dot segment", "/w/./preview/aigw", "/w/preview", "/w/preview", posix},
-		{"a link before ..", "/w/link/../preview/aigw", "/w/preview", "/w/preview", posix},
-		// A volume root is a root only with its separator; C: is the drive's
-		// current folder.
-		{"a drive root", `C:\aigw.exe`, `C:\`, `C:\`, windows},
-		{"a drive root named with /", `C:/aigw.exe`, `C:\`, `C:\`, windows},
-		{"a long-path drive root", `\\?\C:\aigw.exe`, `\\?\C:\`, `\\?\C:\`, windows},
-		{"the posix root", "/aigw", "/", "/", posix},
-	} {
-		if got := givenFolder(test.target, test.folder, test.isSeparator); got != test.want {
-			t.Errorf("%s: givenFolder(%q, %q) = %q, want %q", test.name, test.target, test.folder, got, test.want)
-		}
-	}
-}
-
 // The preview's document names the folder that it creates as the --path spells
 // it when that spelling is clean, and as the install creates it otherwise.
 func TestInstallPreviewNamesTheFolderAsGiven(t *testing.T) {

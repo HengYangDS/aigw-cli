@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -370,15 +369,12 @@ func newFixture(t *testing.T, breaks string) Fixture {
 
 // Each case keeps or breaks one seam promise. refused maps every invariant that
 // must reject the case to a phrase of its reason; the other invariants pass.
-// Windows file modes record only the read-only attribute, so the mode cases run
-// on macOS and Linux.
 func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 	observation, plans, withdrawal := invariants[0].name, invariants[1].name, invariants[2].name
 	unlisted := "which no plan lists"
 	for _, test := range []struct {
-		breaks    string
-		posixOnly bool
-		refused   map[string]string
+		breaks  string
+		refused map[string]string
 	}{
 		{breaks: keepsEveryPromise},
 		{breaks: listsItsCompanion},
@@ -408,13 +404,13 @@ func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 		{breaks: convergedRollbackWrites, refused: map[string]string{plans: "rolling back a converged projection changed"}},
 		{breaks: rollbackKeeps, refused: map[string]string{plans: "rollback changed [planned.txt]"}},
 		{breaks: rollbackCreatesDirectory, refused: map[string]string{plans: "rollback changed [.backup]"}},
-		{breaks: rollbackKeepsMode, posixOnly: true, refused: map[string]string{plans: "rollback changed [planned.txt]", withdrawal: "withdrawal changed [planned.txt]"}},
-		{breaks: changesDirectoryMode, posixOnly: true, refused: map[string]string{plans: "Apply changed existing, " + unlisted, withdrawal: "withdrawal changed [existing]"}},
+		{breaks: rollbackKeepsMode, refused: map[string]string{plans: "rollback changed [planned.txt]", withdrawal: "withdrawal changed [planned.txt]"}},
+		{breaks: changesDirectoryMode, refused: map[string]string{plans: "Apply changed existing, " + unlisted, withdrawal: "withdrawal changed [existing]"}},
 		{breaks: withdrawalKeepsCompanion, refused: map[string]string{withdrawal: "withdrawal changed [companion.txt]"}},
 		{breaks: withdrawalCreatesDirectory, refused: map[string]string{withdrawal: "Apply changed .withdrawn, " + unlisted}},
-		{breaks: withdrawalChangesItsMode, posixOnly: true, refused: map[string]string{withdrawal: "Apply changed .tool, " + unlisted}},
-		{breaks: withdrawalChangesListed, posixOnly: true, refused: map[string]string{withdrawal: "withdrawal changed [.tool]"}},
-		{breaks: rollbackChangesItsMode, posixOnly: true, refused: map[string]string{plans: "rollback changed [.tool]"}},
+		{breaks: withdrawalChangesItsMode, refused: map[string]string{withdrawal: "Apply changed .tool, " + unlisted}},
+		{breaks: withdrawalChangesListed, refused: map[string]string{withdrawal: "withdrawal changed [.tool]"}},
+		{breaks: rollbackChangesItsMode, refused: map[string]string{plans: "rollback changed [.tool]"}},
 		{breaks: withdrawalRollbackDrops, refused: map[string]string{withdrawal: "rolling back a withdrawal changed [.tool]"}},
 		{breaks: withdrawalRollbackKeeps, refused: map[string]string{withdrawal: "rolling back a withdrawal changed"}},
 		{breaks: withdrawalReturnsNoReceipt, refused: map[string]string{withdrawal: "returned no receipt"}},
@@ -425,9 +421,6 @@ func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 			name = "keeps every promise"
 		}
 		t.Run(name, func(t *testing.T) {
-			if test.posixOnly && runtime.GOOS == "windows" {
-				t.Skip("Windows file modes record only the read-only attribute")
-			}
 			for _, property := range invariants {
 				err := property.check(t.Context(), newFixture(t, test.breaks))
 				want, refused := test.refused[property.name]

@@ -50,7 +50,7 @@ func configuredClient(t *testing.T, id string) (domain.Config, adapter.Dependenc
 		clientAdapter.Targets = []string{target}
 	}
 	cfg.Clients[id] = clientAdapter
-	deps := adapter.Dependencies{AIGWExecutable: filepath.Join(root, "aigw"), Host: discovery.Host{GOOS: runtime.GOOS, Home: root, Env: map[string]string{"HOME": root, "USERPROFILE": root}}}
+	deps := adapter.Dependencies{AIGWExecutable: filepath.Join(root, "aigw"), Host: discovery.Host{GOOS: runtime.GOOS, Home: root, Env: map[string]string{"HOME": root}}}
 	discovered := discovery.Result{
 		Executables: map[string]string{id: executable},
 		Surfaces:    []discovery.Surface{{ID: "codex-home-default", ConfigPath: target, AutoManaged: true}, {ID: "hermes-home-default", ConfigPath: target}},
@@ -204,12 +204,6 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 			if id == claudedesktop.ID {
 				if err == nil || !strings.Contains(err.Error(), "explicit native Chat, Cowork, or Code acceptance") || runner.calls != 0 {
 					t.Fatalf("Claude Desktop verification = %v, calls = %d", err, runner.calls)
-				}
-				return
-			}
-			if id == hermes.ID && runtime.GOOS == "windows" {
-				if err == nil || strings.Contains(err.Error(), "public-secret-canary") || !strings.Contains(err.Error(), "cannot isolate") || runner.calls != 0 {
-					t.Fatalf("Windows Hermes verification = %v, calls = %d", err, runner.calls)
 				}
 				return
 			}

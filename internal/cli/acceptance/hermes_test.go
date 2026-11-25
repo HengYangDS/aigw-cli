@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -68,12 +67,7 @@ primary = {model = "team/model-test", protocol = "anthropic"}
 	for _, args := range [][]string{{"sync"}, {"status", "--json"}, {"check"}, {"check", "hermes", "--depth", "endpoint"}, {"check", "hermes", "--depth", "client"}} {
 		output.Reset()
 		err := cli.Execute(app, args)
-		if slices.Contains(args, "client") && runtime.GOOS == "windows" {
-			// Installed Windows Hermes ignores the verification-only launcher opt-out.
-			if err == nil || !strings.Contains(err.Error()+output.String(), "cannot isolate") {
-				t.Fatalf("%v: Windows verification was not refused: %v\n%s", args, err, output.String())
-			}
-		} else if err != nil {
+		if err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, output.String())
 		}
 		if strings.Contains(output.String(), "public-fixture-token") {
@@ -81,9 +75,6 @@ primary = {model = "team/model-test", protocol = "anthropic"}
 		}
 	}
 	wantPlans := 2
-	if runtime.GOOS == "windows" {
-		wantPlans = 0
-	}
 	if len(runner.plans) != wantPlans {
 		t.Fatalf("native verification invocation count = %d, want %d", len(runner.plans), wantPlans)
 	}

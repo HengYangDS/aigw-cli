@@ -1,4 +1,4 @@
-//go:build native_hermes && !windows
+//go:build native_hermes
 
 package hermes
 
@@ -18,7 +18,7 @@ func TestHermesNativeVerificationBootIsolation(t *testing.T) {
 	_, python := nativeHermesExecutables(t)
 	osHome := t.TempDir()
 	owner, project := filepath.Join(osHome, ".hermes"), filepath.Join(osHome, "payload")
-	env := map[string]string{"HOME": osHome, "USERPROFILE": osHome, "LOCALAPPDATA": osHome, "HERMES_HOME": owner, "HERMES_BOOT_TEST_ROOT": project}
+	env := map[string]string{"HOME": osHome, "HERMES_HOME": owner, "HERMES_BOOT_TEST_ROOT": project}
 	output := runHermesNativeScript(t, python, osHome, env, `
 import json, os
 from pathlib import Path
@@ -133,7 +133,7 @@ func TestHermesNativeVerificationRetainsDependencyMembers(t *testing.T) {
 	if err := os.Symlink(owner, filepath.Join(profiles, "default")); err != nil {
 		t.Fatal(err)
 	}
-	env := map[string]string{"HOME": osHome, "USERPROFILE": osHome, "LOCALAPPDATA": osHome, "HERMES_HOME": owner}
+	env := map[string]string{"HOME": osHome, "HERMES_HOME": owner}
 	probe := `
 import json
 from pm.workspace import enabled_member_dirs, members_stamp

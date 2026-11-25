@@ -10,11 +10,8 @@ type Plan struct {
 	Args       []string
 	Env        []string
 	Stdin      string
-	// DebugProcess enables native Windows debug events for an untimed observer.
-	// The observer must drain or detach its events before returning.
-	DebugProcess bool
-	// OnCreated runs once the operating system has created the process, before
-	// the runner owns it: on Windows it is then suspended and outside its Job.
+	// OnCreated runs once the operating system has created the process in its
+	// own process group, before the runner observes it through OnStart.
 	// It must return at once and must not panic.
 	OnCreated func()
 	// OnStart observes the exact owned process before waiting; refusal still reclaims it.

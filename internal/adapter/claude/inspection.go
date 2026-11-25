@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"runtime"
 	"strings"
 
 	"aigw-cli/internal/adapter"
@@ -37,7 +36,7 @@ func ObservedCredentialExecutable(path string, selected domain.Runtime) (string,
 	if err := json.Unmarshal(document["apiKeyHelper"], &command); err != nil {
 		return "", fmt.Errorf("decode Claude credential helper: %w", err)
 	}
-	return secret.ExecutableFromCommand(command, ID, selected.CredentialProjectionFingerprint(ID), runtime.GOOS)
+	return secret.ExecutableFromCommand(command, ID, selected.CredentialProjectionFingerprint(ID))
 }
 
 // InspectSettings checks Claude's owned connection without writing settings,

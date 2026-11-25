@@ -75,18 +75,18 @@ func fixtureReleaseFor(host string) clientRelease {
 	return release
 }
 
-func TestPosixClientEnvironmentNamesTheMissingTool(t *testing.T) {
+func TestClientEnvironmentNamesTheMissingTool(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("PATH", root)
 	layout := clientLayouts["linux/amd64"]
-	if _, err := posixClientEnvironment(root, layout, nil); err == nil || !strings.Contains(err.Error(), "locate Node.js") {
-		t.Fatalf("POSIX clients without Node.js = %v", err)
+	if _, err := clientEnvironment(root, layout, nil); err == nil || !strings.Contains(err.Error(), "locate Node.js") {
+		t.Fatalf("clients without Node.js = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "node"+executableSuffix()), []byte("inert fixture"), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "node"), []byte("inert fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := posixClientEnvironment(root, layout, nil); err == nil || !strings.Contains(err.Error(), "locate Git") {
-		t.Fatalf("POSIX clients without Git = %v", err)
+	if _, err := clientEnvironment(root, layout, nil); err == nil || !strings.Contains(err.Error(), "locate Git") {
+		t.Fatalf("clients without Git = %v", err)
 	}
 }
 
@@ -94,7 +94,7 @@ func TestClientSupplyFollowsTheReleaseOwnersJourneys(t *testing.T) {
 	for host, layout := range clientLayouts {
 		t.Run(host, func(t *testing.T) {
 			root := t.TempDir()
-			gitBin, bash, nodeDirectory := windowsClientTools(t, root)
+			gitBin, nodeDirectory := clientTools(t, root)
 			githubEnvironment := filepath.Join(root, "github-env")
 			var calls []command
 			var stdout bytes.Buffer
@@ -109,13 +109,7 @@ func TestClientSupplyFollowsTheReleaseOwnersJourneys(t *testing.T) {
 				t.Fatalf("client supply is not recorded before installation: %q", lines)
 			}
 			platform, _, _ := strings.Cut(host, "/")
-			var want []string
-			if platform == "windows" {
-				want = expectedWindowsClientEnvironment(supply, gitBin, bash, nodeDirectory)
-			} else {
-				want = expectedPosixClientEnvironment(supply, layout, gitBin, nodeDirectory)
-			}
-			if !slices.Equal(lines[1:], want) {
+			if want := expectedClientEnvironment(supply, layout, gitBin, nodeDirectory); !slices.Equal(lines[1:], want) {
 				t.Fatalf("%s client environment = %q, want %q", host, lines[1:], want)
 			}
 			var supplied []string
@@ -141,7 +135,7 @@ func TestClientSupplyFollowsTheReleaseOwnersJourneys(t *testing.T) {
 }
 
 func TestClientSupplyRefusesAnUnsupportedHostBeforeAnyEffect(t *testing.T) {
-	for _, host := range []string{"linux/arm64", "freebsd/amd64", "windows/arm64"} {
+	for _, host := range []string{"linux/arm64", "freebsd/amd64", "darwin/amd64"} {
 		root := t.TempDir()
 		err := supplyClients(host, root, filepath.Join(root, "github-env"), fixtureRelease(), &bytes.Buffer{}, func(call command) error {
 			t.Fatalf("%s reached %s", host, call.Name)
@@ -167,12 +161,11 @@ func TestClientSupplyRequiresExactReleasePins(t *testing.T) {
 		release clientRelease
 		problem string
 	}{
-		"missing Codex":           {"linux/amd64", inexact(func(r *clientRelease) { r.codex = "" }), "exact Codex and Claude releases"},
-		"ranged Claude":           {"darwin/arm64", inexact(func(r *clientRelease) { r.claude = "^2.1.302" }), "exact Codex and Claude releases"},
-		"missing Hermes commit":   {"linux/amd64", inexact(func(r *clientRelease) { r.hermesCommit = "" }), "exact release commit and installer checksum"},
-		"abbreviated commit":      {"darwin/arm64", inexact(func(r *clientRelease) { r.hermesCommit = "bf0203a7" }), "exact release commit and installer checksum"},
-		"uppercase checksum":      {"linux/amd64", inexact(func(r *clientRelease) { r.hermesInstaller = strings.ToUpper(r.hermesInstaller) }), "exact release commit and installer checksum"},
-		"Hermes outside journeys": {"windows/amd64", fixtureRelease(), "Hermes is not part of this host's native client journeys"},
+		"missing Codex":         {"linux/amd64", inexact(func(r *clientRelease) { r.codex = "" }), "exact Codex and Claude releases"},
+		"ranged Claude":         {"darwin/arm64", inexact(func(r *clientRelease) { r.claude = "^2.1.302" }), "exact Codex and Claude releases"},
+		"missing Hermes commit": {"linux/amd64", inexact(func(r *clientRelease) { r.hermesCommit = "" }), "exact release commit and installer checksum"},
+		"abbreviated commit":    {"darwin/arm64", inexact(func(r *clientRelease) { r.hermesCommit = "bf0203a7" }), "exact release commit and installer checksum"},
+		"uppercase checksum":    {"linux/amd64", inexact(func(r *clientRelease) { r.hermesInstaller = strings.ToUpper(r.hermesInstaller) }), "exact release commit and installer checksum"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
@@ -192,7 +185,7 @@ func TestClientSupplyRequiresExactReleasePins(t *testing.T) {
 
 func TestHermesSupplyRunsOnlyThePinnedOfficialInstaller(t *testing.T) {
 	root := t.TempDir()
-	windowsClientTools(t, root)
+	clientTools(t, root)
 	// Job settings that the official installer would otherwise follow.
 	t.Setenv("HERMES_RUNTIME_DIR", filepath.Join(root, "job", "tools"))
 	t.Setenv("HERMES_REPO_URL", "https://example.invalid/fork.git")
@@ -280,7 +273,7 @@ func TestHermesSupplyRetiresEveryUnverifiedInstallation(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
-			windowsClientTools(t, root)
+			clientTools(t, root)
 			layout := clientLayouts["linux/amd64"]
 			var calls []command
 			supply := recordingSupply(&calls, layout)
@@ -311,7 +304,7 @@ func TestClientSupplyRetiresAnInterruptedSupply(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
-			windowsClientTools(t, root)
+			clientTools(t, root)
 			layout := clientLayouts["linux/amd64"]
 			interrupted := make(chan os.Signal, 1)
 			var calls []command
@@ -343,7 +336,7 @@ func TestNativeClientsCommandSuppliesAndRetiresThisHost(t *testing.T) {
 	host := runtime.GOOS + "/" + runtime.GOARCH
 	layout, supported := clientLayouts[host]
 	root := t.TempDir()
-	windowsClientTools(t, root)
+	clientTools(t, root)
 	githubEnvironment := filepath.Join(root, "github-env")
 	release := fixtureReleaseFor(host)
 	arguments := []string{"native-clients", "supply", "--root", root, "--github-env", githubEnvironment, "--codex", release.codex, "--claude", release.claude}
@@ -353,8 +346,8 @@ func TestNativeClientsCommandSuppliesAndRetiresThisHost(t *testing.T) {
 	var calls []command
 	err := run(arguments, &bytes.Buffer{}, recordingSupply(&calls, layout))
 	if !supported {
-		// A host without a declared layout, such as GitLab's Linux and Windows
-		// ARM64 runners, is refused before any effect.
+		// A host without a declared layout, such as GitLab's Linux ARM64
+		// runner, is refused before any effect.
 		left, _ := filepath.Glob(filepath.Join(root, clientSupplyPrefix+"*"))
 		_, exported := os.Lstat(githubEnvironment)
 		if err == nil || !strings.Contains(err.Error(), "no official native client distribution for "+host) ||
@@ -381,6 +374,10 @@ func TestNativeClientSupplyRefusesAClientWithoutAnOfficialDistribution(t *testin
 	if err == nil || !strings.Contains(err.Error(), "no official supply for native client cursor") {
 		t.Fatalf("supply of a client without an official distribution = %v", err)
 	}
+	// Hermes pins without a Hermes journey are refused.
+	if err := fixtureRelease().validate([]string{claude.ID, codexclient.ID}); err == nil || !strings.Contains(err.Error(), "Hermes is not part of this host's native client journeys") {
+		t.Fatalf("Hermes pins without a Hermes journey = %v", err)
+	}
 }
 
 // The supply creates the private Hermes homes itself, so an entry that already
@@ -406,7 +403,7 @@ func recordingSupply(calls *[]command, layout clientLayout) commandRunner {
 		switch {
 		case call.Name == "mise" && slices.Contains(call.Args, "install"):
 			prefix := call.Args[slices.Index(call.Args, "--prefix")+1]
-			for path, data := range map[string]string{layout.codexRoot() + "/bin/codex" + layout.suffix: "codex fixture", layout.claudeExecutable(): "claude fixture"} {
+			for path, data := range map[string]string{layout.codexRoot() + "/bin/codex": "codex fixture", layout.claudeExecutable(): "claude fixture"} {
 				if err := writeFixture(filepath.Join(prefix, filepath.FromSlash(path)), data); err != nil {
 					return err
 				}
@@ -432,7 +429,7 @@ func writeFixture(path, data string) error {
 	return os.WriteFile(path, []byte(data), 0o700)
 }
 
-func expectedPosixClientEnvironment(supply string, layout clientLayout, gitBin, nodeDirectory string) []string {
+func expectedClientEnvironment(supply string, layout clientLayout, gitBin, nodeDirectory string) []string {
 	codex := filepath.Join(supply, filepath.FromSlash(layout.codexRoot()))
 	return []string{
 		"AIGW_ACCEPTANCE_CODEX=" + filepath.Join(codex, "bin", "codex"),

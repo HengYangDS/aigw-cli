@@ -7,17 +7,17 @@ import (
 	"testing"
 )
 
-// HomeDirectory reads the home from either variable that names it, and none
-// when both are empty or absent.
+// HomeDirectory reads the home from HOME, and none when it is empty or
+// absent.
 func TestHomeDirectoryReadsTheHomeFromItsVariables(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "home")
 	if err := os.MkdirAll(home, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	for env, want := range map[string]string{
-		"PATH=/bin\x00USERPROFILE=" + home:   home,
-		"HOME=" + home + "\x00USERPROFILE=x": home,
-		"HOME=\x00PATH=/bin":                 "",
+		"PATH=/bin\x00HOME=" + home: home,
+		"HOME=\x00PATH=/bin":        "",
+		"PATH=/bin":                 "",
 	} {
 		if got := HomeDirectory(strings.Split(env, "\x00")); got != want {
 			t.Errorf("HomeDirectory(%q) = %q, want %q", env, got, want)

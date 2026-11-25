@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	goruntime "runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -222,9 +221,6 @@ func configuredCodexVerification(t *testing.T, targets ...string) (domain.Config
 		}
 	}
 	executable := filepath.Join(t.TempDir(), "codex")
-	if goruntime.GOOS == "windows" {
-		executable += ".exe"
-	}
 	if err := os.WriteFile(executable, []byte("codex fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}

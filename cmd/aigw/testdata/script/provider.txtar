@@ -188,7 +188,7 @@ fixloop -did 'moved Claude to spare/team-model' remove-selected.json aigw provid
 # model, the clients then select nothing and name how to select one, and
 # the last model and the last provider may go.
 mkdir $WORK/fresh
-env HOME=$WORK/fresh USERPROFILE=$WORK/fresh XDG_CONFIG_HOME=$WORK/fresh XDG_DATA_HOME=$WORK/fresh APPDATA=$WORK/fresh LOCALAPPDATA=$WORK/fresh
+env HOME=$WORK/fresh XDG_CONFIG_HOME=$WORK/fresh XDG_DATA_HOME=$WORK/fresh
 env AIGW_SECRET_BACKEND=file
 stdin first-token.txt
 exec aigw provider add first --endpoint anthropic=$UPSTREAM --token-stdin
@@ -207,7 +207,7 @@ cmp stdout fresh-empty.txt
 # provider without one the file's. fixloop cannot pipe the balance token to
 # the edit after it runs the export, so the script follows the fix itself.
 mkdir $WORK/probe
-env HOME=$WORK/probe USERPROFILE=$WORK/probe XDG_CONFIG_HOME=$WORK/probe XDG_DATA_HOME=$WORK/probe APPDATA=$WORK/probe LOCALAPPDATA=$WORK/probe
+env HOME=$WORK/probe XDG_CONFIG_HOME=$WORK/probe XDG_DATA_HOME=$WORK/probe
 stdin spare-token.txt
 exec aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --token-stdin
 stdin system.txt

@@ -18,8 +18,7 @@ fixloop -did 'added team with a model for Claude, as aigw setup does' empty-prev
 snapshot $HOME before.txt
 exec aigw sync --dry-run --json
 normalize stdout preview.out
-[!windows] cmp preview.out preview.json
-[windows] cmp preview.out preview-windows.json
+cmp preview.out preview.json
 snapshot $HOME after.txt
 cmp after.txt before.txt
 exec aigw sync
@@ -89,22 +88,4 @@ Next
   "error": "Not configured",
   "evidence": "No provider has been added.",
   "next_detail": "aigw setup"
-}
--- preview-windows.json --
-{
-  "schema_version": 4,
-  "ok": true,
-  "dry_run": true,
-  "selections": {
-    "claude": "team/team-model"
-  },
-  "client_files": [
-    {
-      "client": "claude",
-      "file": "~/.claude/settings.json",
-      "action": "already_converged"
-    }
-  ],
-  "enabled_clients": 1,
-  "next_action": "aigw check"
 }

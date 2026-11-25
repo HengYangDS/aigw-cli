@@ -90,7 +90,7 @@ func TestGitLabCLIUsesSelectedOriginDespiteAmbientConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	for key, value := range map[string]string{
-		"HOME": root, "USERPROFILE": root, "GLAB_CONFIG_DIR": root,
+		"HOME": root, "GLAB_CONFIG_DIR": root,
 		"GITLAB_TOKEN": "synthetic-loopback-only", "USE_KEYRING": "false",
 		"GITLAB_HOST": ambient.URL, "GITLAB_URI": ambient.URL, "GL_HOST": ambient.URL,
 		"GITLAB_API_HOST": ambient.Listener.Addr().String(), "API_PROTOCOL": "http", "GITLAB_SUBFOLDER": "legacy",

@@ -31,14 +31,29 @@ func TestPublisherSigningIdentityIsExplicitAndNative(t *testing.T) {
 		}
 	}
 	request.MacOSSigningIdentity = identity
-	request.TargetOS = "windows"
+	request.TargetOS = "linux"
 	if err := validateRequest(request); err == nil {
-		t.Fatal("irrelevant signing identity accepted for Windows-only build")
+		t.Fatal("irrelevant signing identity accepted for a Linux-only build")
 	}
 }
 
+// darwinTargets are the macOS archives of the release matrix.
+func darwinTargets() []artifact.Target {
+	var targets []artifact.Target
+	for _, target := range artifact.Targets() {
+		if target.OS == "darwin" {
+			targets = append(targets, target)
+		}
+	}
+	return targets
+}
+
 func TestSignedArchiveVerificationPreservesExactIdentityAndFailure(t *testing.T) {
-	for _, failure := range []string{"", "amd64", "arm64", "missing"} {
+	failures := []string{"", "missing"}
+	for _, target := range darwinTargets() {
+		failures = append(failures, target.Arch)
+	}
+	for _, failure := range failures {
 		t.Run(failure, func(t *testing.T) {
 			stage := t.TempDir()
 			writeMacOSArchiveFixtures(t, stage, failure != "missing")
@@ -63,12 +78,10 @@ func TestSignedArchiveVerificationPreservesExactIdentityAndFailure(t *testing.T)
 			if (err == nil) != (failure == "") {
 				t.Fatalf("verification failure=%s: %v", failure, err)
 			}
-			if failure == "amd64" || failure == "arm64" {
-				if !errors.Is(err, sentinel) {
-					t.Fatalf("lost verifier cause: %v", err)
-				}
+			if failure != "" && failure != "missing" && !errors.Is(err, sentinel) {
+				t.Fatalf("lost verifier cause: %v", err)
 			}
-			if failure == "" && len(paths) != 2 {
+			if failure == "" && len(paths) != len(darwinTargets()) {
 				t.Fatalf("verified paths: %v", paths)
 			}
 			for _, path := range paths {
@@ -94,8 +107,9 @@ func TestSignedConstructionRequiresArchiveVerification(t *testing.T) {
 func writeMacOSArchiveFixtures(t *testing.T, stage string, includeChecksums bool) {
 	t.Helper()
 	var checksums strings.Builder
-	for _, arch := range []string{"amd64", "arm64"} {
-		name := (artifact.Target{OS: "darwin", Arch: arch}).ArchiveName("1.2.3")
+	for _, target := range darwinTargets() {
+		arch := target.Arch
+		name := target.ArchiveName("1.2.3")
 		path := filepath.Join(stage, name)
 		var data bytes.Buffer
 		gz := gzip.NewWriter(&data)

@@ -3,7 +3,6 @@ package codex
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"aigw-cli/internal/adapter/discovery"
@@ -51,9 +50,6 @@ func TestTargetsAreOneFileOnlyWhenTheSystemSaysSo(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			other := filepath.Join(t.TempDir(), "other.toml")
 			if err := makeLink(other); err != nil {
-				if runtime.GOOS == "windows" {
-					t.Skipf("this account cannot create %s: %v", name, err)
-				}
 				t.Fatal(err)
 			}
 			if targets := convergedTargets(discovered, []string{other, first}); len(targets) != 1 {
@@ -90,9 +86,6 @@ func TestAMissingTargetThroughALinkedFolderIsOneFileForEveryDecision(t *testing.
 	}
 	link := filepath.Join(root, "linked")
 	if err := os.Symlink(folder, link); err != nil {
-		if runtime.GOOS == "windows" {
-			t.Skipf("this account cannot create a symbolic link: %v", err)
-		}
 		t.Fatal(err)
 	}
 	through, resolved := filepath.Join(link, "config.toml"), filepath.Join(resolvedFolder, "config.toml")
@@ -119,9 +112,6 @@ func TestACodexCatalogIsTheFilesOwnInEverySpelling(t *testing.T) {
 	path := writeCodexTestConfig(t, "approval_policy = \"on-request\"\n")
 	link := filepath.Join(t.TempDir(), "linked")
 	if err := os.Symlink(filepath.Dir(path), link); err != nil {
-		if runtime.GOOS == "windows" {
-			t.Skipf("this account cannot create a symbolic link: %v", err)
-		}
 		t.Fatal(err)
 	}
 	spellings := map[string]string{"a link to its folder": filepath.Join(link, filepath.Base(path))}

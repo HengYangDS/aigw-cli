@@ -31,10 +31,10 @@ func TestUpdateInvalidInputsLeaveOperationAndConfigurationUntouched(t *testing.T
 		{"--archive", ""},
 		{"--archive", "", "--checksums", ""},
 		{"--archive", " ", "--checksums", "checksums.txt"},
-		{"--archive", "archive.zip", "--checksums", "\t"},
-		{"--archive", "archive.zip"},
+		{"--archive", "archive.tar.gz", "--checksums", "\t"},
+		{"--archive", "archive.tar.gz"},
 		{"--checksums", "checksums.txt"},
-		{"--rollback", "--archive", "archive.zip", "--checksums", "checksums.txt"},
+		{"--rollback", "--archive", "archive.tar.gz", "--checksums", "checksums.txt"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")

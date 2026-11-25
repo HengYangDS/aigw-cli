@@ -22,10 +22,7 @@ func TestVersionedEntrypointPathRejectsInvalidInputsWithoutWrites(t *testing.T) 
 	if err := os.WriteFile(source, content, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	nonregular := ""
-	if runtime.GOOS != "windows" {
-		nonregular = "not a regular executable"
-	}
+	nonregular := "not a regular executable"
 	for _, tc := range []struct {
 		name, data, source, installName, problem string
 	}{
@@ -108,9 +105,6 @@ func TestVersionedEntrypointFailureRemovesCreatedDirectoryChain(t *testing.T) {
 }
 
 func TestVersionedEntrypointRejectsWritableDataDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows data-directory rights are represented by ACLs")
-	}
 	root := t.TempDir()
 	source := filepath.Join(root, "source")
 	data := filepath.Join(root, "data")
@@ -402,9 +396,6 @@ func TestRetainedEntrypointRequiresTheSameIntactVersionedNamespace(t *testing.T)
 }
 
 func TestRetainedEntrypointRejectsRedirectedCurrentNamespace(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows native reparse-point fixtures require their own OS contract")
-	}
 	root := t.TempDir()
 	paths := make([]string, 0, 2)
 	for _, version := range []string{"predecessor", "successor"} {

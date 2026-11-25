@@ -1,4 +1,4 @@
-//go:build client_acceptance && !windows
+//go:build client_acceptance
 
 package main
 

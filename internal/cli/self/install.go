@@ -3,7 +3,6 @@ package self
 import (
 	"errors"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -116,7 +115,7 @@ func previewInstall(cmd *cobra.Command, runtime invocation.Context, target strin
 	// The write creates a missing folder, so the preview says that it will.
 	creates := ""
 	if folder := filepath.Dir(target); !folderExists(folder) {
-		creates = givenFolder(target, folder, os.IsPathSeparator)
+		creates = folder
 	}
 	if jsonMode {
 		document := installDocument{DryRun: true, Path: target, Version: runtime.Version, Rollback: rollback, Unchanged: plan.Unchanged, CreatesFolder: creates, NextDetail: next}
@@ -141,37 +140,6 @@ func previewInstall(cmd *cobra.Command, runtime invocation.Context, target strin
 	r.Success("Preview did not write the program, a rollback copy or a directory")
 	r.Text(next)
 	return nil
-}
-
-// givenFolder spells folder, the folder of target that filepath derives, as
-// the operator spelled it in target, as RollbackPath keeps the operator's
-// separators: target up to its last separator, which isSeparator tells, when
-// that prefix is already clean and names folder with every separator alike. A
-// prefix with "." or ".." segments or doubled separators names another folder
-// once a link precedes "..", and a volume root such as C:\ or \\?\C:\ is
-// only a root with its separator, while C: is the drive's current folder, so
-// both keep the derived folder.
-func givenFolder(target, folder string, isSeparator func(uint8) bool) string {
-	slashed := func(value string) string {
-		spelled := []byte(value)
-		for index := range spelled {
-			if isSeparator(spelled[index]) {
-				spelled[index] = '/'
-			}
-		}
-		return string(spelled)
-	}
-	for index := len(target) - 1; index > 0; index-- {
-		if !isSeparator(target[index]) {
-			continue
-		}
-		given := target[:index]
-		if clean := slashed(given); path.Clean(clean) == clean && clean == slashed(folder) {
-			return given
-		}
-		break
-	}
-	return folder
 }
 
 // folderExists reports whether path names a folder.

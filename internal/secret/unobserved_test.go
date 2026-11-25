@@ -55,7 +55,7 @@ func TestObservationFailureNamesABlockedTokenFolder(t *testing.T) {
 	}
 }
 
-// A Token folder outside the home directory, as on Linux or Windows when
+// A Token folder outside the home directory, as on Linux when
 // AIGW's folder lies elsewhere, is not named: the sentence says that AIGW's
 // Token folder cannot be used, and the fix points to `aigw config path`.
 func TestObservationFailureOfATokenFolderOutsideHome(t *testing.T) {

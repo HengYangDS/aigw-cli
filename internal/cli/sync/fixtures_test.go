@@ -16,7 +16,7 @@ type staticDiscovery struct{ result discovery.Result }
 // hostAt observes home as the user's home directory, so Claude Code's settings
 // file is home/.claude/settings.json.
 func hostAt(home string) discovery.Host {
-	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home}}
 }
 
 func (candidate staticDiscovery) Discover(...string) discovery.Result { return candidate.result }

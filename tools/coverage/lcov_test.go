@@ -30,7 +30,7 @@ func TestListSourcesClassifiesEverySelectedProductionFile(t *testing.T) {
 		sourcePackage{
 			ImportPath: "example/a", Dir: filepath.Join(root, "a"),
 			GoFiles: []string{"a.go"}, CgoFiles: []string{"c.go"},
-			IgnoredGoFiles: []string{"a_windows.go", "a_windows_test.go"},
+			IgnoredGoFiles: []string{"a_freebsd.go", "a_freebsd_test.go"},
 		},
 		sourcePackage{ImportPath: "example/onlytests", Dir: filepath.Join(root, "onlytests")},
 	)}
@@ -47,7 +47,7 @@ func TestListSourcesClassifiesEverySelectedProductionFile(t *testing.T) {
 			t.Fatalf("compiled = %v, want %v", inventory.compiled, want)
 		}
 	}
-	if !slices.Equal(inventory.excluded, []string{"a/a_windows.go"}) {
+	if !slices.Equal(inventory.excluded, []string{"a/a_freebsd.go"}) {
 		t.Fatalf("excluded = %v, want the non-test platform file only", inventory.excluded)
 	}
 	if !slices.Equal(runner.calls[0], []string{"list", "-json", "-tags=native", "./..."}) {
@@ -88,7 +88,7 @@ func writeProfile(t *testing.T, body string) string {
 func TestLineCountsDeriveLinesFromTheSameStatementBlocks(t *testing.T) {
 	inventory := sourceInventory{
 		compiled: map[string]string{"example/a/a.go": "a/a.go", "example/a/types.go": "a/types.go", "example/b/b.go": "b/b.go"},
-		excluded: []string{"a/a_windows.go"},
+		excluded: []string{"a/a_freebsd.go"},
 	}
 	profile := writeProfile(t, "mode: atomic\n"+
 		"example/a/a.go:3.10,5.2 2 4\n"+
@@ -102,7 +102,7 @@ func TestLineCountsDeriveLinesFromTheSameStatementBlocks(t *testing.T) {
 	want := map[string]map[int]int{
 		"a/a.go":         {3: 4, 4: 4, 5: 4, 6: 0},
 		"a/types.go":     {},
-		"a/a_windows.go": {},
+		"a/a_freebsd.go": {},
 		"b/b.go":         {1: 0, 2: 0},
 	}
 	if len(records) != len(want) {
@@ -125,7 +125,7 @@ func TestLineCountsDeriveLinesFromTheSameStatementBlocks(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantReport := "SF:a/a.go\nDA:3,4\nDA:4,4\nDA:5,4\nDA:6,0\nLF:4\nLH:3\nend_of_record\n" +
-		"SF:a/a_windows.go\nLF:0\nLH:0\nend_of_record\n" +
+		"SF:a/a_freebsd.go\nLF:0\nLH:0\nend_of_record\n" +
 		"SF:a/types.go\nLF:0\nLH:0\nend_of_record\n" +
 		"SF:b/b.go\nDA:1,0\nDA:2,0\nLF:2\nLH:0\nend_of_record\n"
 	if report.String() != wantReport {

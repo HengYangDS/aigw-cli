@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -18,9 +17,6 @@ import (
 func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 	root := t.TempDir()
 	installName := "aigw"
-	if runtime.GOOS == "windows" {
-		installName += ".exe"
-	}
 	oldSource := filepath.Join(root, "old-"+installName)
 	if err := os.WriteFile(oldSource, []byte("intact predecessor reader"), 0o700); err != nil {
 		t.Fatal(err)

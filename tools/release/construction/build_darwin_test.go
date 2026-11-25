@@ -99,9 +99,9 @@ func TestNativeReleaseUsesCacheSignificantDeploymentTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantCPU := map[string]macho.Cpu{"amd64": macho.CpuAmd64, "arm64": macho.CpuArm64}[runtime.GOARCH]
-	if header.Cpu != wantCPU {
-		t.Fatalf("native cache target CPU = %s, expected %s", header.Cpu, wantCPU)
+	// The release builds macOS for ARM64 alone, the only macOS host it supports.
+	if header.Cpu != macho.CpuArm64 {
+		t.Fatalf("native cache target CPU = %s, expected %s", header.Cpu, macho.CpuArm64)
 	}
 	requireNativeReleaseSignature(t, program)
 }
@@ -123,20 +123,21 @@ func TestNativeReleaseArchivesHaveDeterministicLocalSignatures(t *testing.T) {
 			t.Fatalf("locally signed archive matrix is not reproducible: %v\nfirst:\n%s\nsecond:\n%s", err, previous, checksums)
 		}
 		previous = checksums
-		for _, platform := range []string{"darwin", "linux", "windows"} {
-			for _, arch := range []string{"amd64", "arm64"} {
-				target := artifact.Target{OS: platform, Arch: arch}
-				program, err := target.ReadProgram(filepath.Join(stage, target.ArchiveName(request.Version)), filepath.Join(stage, "checksums.txt"), request.Version)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if platform == "darwin" {
-					requireNativeReleaseSignature(t, program)
-				}
+		for _, target := range artifact.Targets() {
+			program, err := target.ReadProgram(filepath.Join(stage, target.ArchiveName(request.Version)), filepath.Join(stage, "checksums.txt"), request.Version)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if target.OS == "darwin" {
+				requireNativeReleaseSignature(t, program)
 			}
 		}
 	}
-	for _, platform := range []string{"darwin", "linux", "windows"} {
+	byPlatform := map[string][]artifact.Target{}
+	for _, target := range artifact.Targets() {
+		byPlatform[target.OS] = append(byPlatform[target.OS], target)
+	}
+	for platform, targets := range byPlatform {
 		t.Run(platform+" without macOS credentials", func(t *testing.T) {
 			request.TargetOS = platform
 			stage, err := buildArchives(request, t.TempDir(), executeTool(t.Context()))
@@ -144,11 +145,10 @@ func TestNativeReleaseArchivesHaveDeterministicLocalSignatures(t *testing.T) {
 				t.Fatal(err)
 			}
 			checksums, err := os.ReadFile(filepath.Join(stage, "checksums.txt"))
-			if err != nil || len(strings.Fields(string(checksums))) != 4 {
-				t.Fatalf("native %s build must contain exactly two architecture archives: %v", platform, err)
+			if err != nil || len(strings.Fields(string(checksums))) != 2*len(targets) {
+				t.Fatalf("native %s build must contain exactly its %d declared archives: %v", platform, len(targets), err)
 			}
-			for _, arch := range []string{"amd64", "arm64"} {
-				target := artifact.Target{OS: platform, Arch: arch}
+			for _, target := range targets {
 				if _, err := target.ReadProgram(filepath.Join(stage, target.ArchiveName(request.Version)), filepath.Join(stage, "checksums.txt"), request.Version); err != nil {
 					t.Fatal(err)
 				}
@@ -315,8 +315,8 @@ func requireHomebrewProjection(t *testing.T, stage, version string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, arch := range []string{"amd64", "arm64"} {
-		name := (artifact.Target{OS: "darwin", Arch: arch}).ArchiveName(version)
+	for _, target := range darwinTargets() {
+		name := target.ArchiveName(version)
 		archive, err := os.ReadFile(filepath.Join(stage, name))
 		if err != nil {
 			t.Fatal(err)

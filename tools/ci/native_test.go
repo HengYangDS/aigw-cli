@@ -14,7 +14,7 @@ import (
 )
 
 func TestNativeSourceQualificationUsesCanonicalCoverage(t *testing.T) {
-	for _, platform := range []string{"darwin", "linux", "windows"} {
+	for _, platform := range []string{"darwin", "linux"} {
 		t.Run(platform, func(t *testing.T) {
 			calls := nativeCommands(platform)
 			quality := command{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}}
@@ -46,9 +46,6 @@ func TestNativeReviewProtectedResourceRefusesUnprovedDenial(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var stdout bytes.Buffer
 			problem := test.problem
-			if runtime.GOOS == "windows" {
-				problem = "protected-file qualification requires a Unix host"
-			}
 			if err := qualifyProtectedResource(test.path, &stdout, func(command) ([]byte, error) {
 				t.Fatal("unproved resource reached privilege inquiry")
 				return nil, nil
@@ -71,9 +68,6 @@ func TestNativeReviewProtectedResourceRefusesUnprovedDenial(t *testing.T) {
 }
 
 func TestNativeReviewProtectedResourceRequiresNoElevationGrant(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := filepath.Join(t.TempDir(), "manager-config")
 	if err := os.WriteFile(path, []byte("fixture-only"), 0o000); err != nil {
 		t.Fatal(err)
@@ -110,9 +104,6 @@ func TestNativeReviewProtectedResourceRequiresNoElevationGrant(t *testing.T) {
 }
 
 func TestNativeReviewProtectedResourceBehindClosedDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	if os.Geteuid() == 0 {
 		t.Skip("Root cannot represent a denied native review identity")
 	}
@@ -319,11 +310,8 @@ func TestNativeAcceptanceRefusesARepositoryWithoutVersionTruth(t *testing.T) {
 }
 
 func TestNativeCommandsRequireCoverageOnEveryPlatform(t *testing.T) {
-	for _, platform := range []string{"darwin", "linux", "windows"} {
-		want := []string{"run", "./tools/coverage", "--tags=native_resource_acceptance"}
-		if platform != "windows" {
-			want = append(want, "--race")
-		}
+	for _, platform := range []string{"darwin", "linux"} {
+		want := []string{"run", "./tools/coverage", "--tags=native_resource_acceptance", "--race"}
 		evidence := filepath.Join("build", "verification", "coverage")
 		want = append(want, "--profile-output", filepath.Join(evidence, "profile.out"), "--junit-output", filepath.Join(evidence, "junit.xml"))
 		name := "go"

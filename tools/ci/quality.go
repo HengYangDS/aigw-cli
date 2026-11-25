@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -62,12 +63,20 @@ type qualityGraph struct {
 // a native job also runs on a platform where its pipeline runs no quality job.
 const selectionMatrixGate = "selection-matrix"
 
-// selectionMatrixCommand runs the exhaustive selection tests. Its bound leaves
-// room for a host three times slower than a quiet run on the slowest platform
-// (Windows, 837 s on a hosted runner, 2026-11-24) and stays inside the time
-// budget of every job and proof gate that runs it, so a hang ends with Go's
-// diagnostics. The Change selection-matrix-native-platforms gives every run.
-var selectionMatrixCommand = command{Name: "go", Args: []string{"test", "-tags=selection_matrix", "-count=1", "-timeout=45m", "./" + selectionMatrixPackage, "-run", "^TestMatrix"}}
+// selectionMatrixSlowestRun is the slowest measured run of the exhaustive
+// selection tests on a supported native platform: macOS, 655 s (the design of
+// the Change selection-matrix-native-platforms gives every run; the design of
+// drop-windows-and-intel-macos, D5, derives the bounds from it).
+const selectionMatrixSlowestRun = 655 * time.Second
+
+// selectionMatrixBound leaves room for a host three times slower than that run,
+// rounded up to whole five minutes. It stays inside the time budget of every
+// job and proof gate that runs the matrix, so a hang ends with Go's diagnostics.
+var selectionMatrixBound = (3*selectionMatrixSlowestRun + 5*time.Minute - 1).Truncate(5 * time.Minute)
+
+// selectionMatrixCommand runs the exhaustive selection tests within their bound.
+var selectionMatrixCommand = command{Name: "go", Args: []string{"test", "-tags=selection_matrix", "-count=1",
+	fmt.Sprintf("-timeout=%dm", selectionMatrixBound/time.Minute), "./" + selectionMatrixPackage, "-run", "^TestMatrix"}}
 
 // selectionMatrixPackage holds the exhaustive selection tests.
 const selectionMatrixPackage = "internal/cli/acceptance"

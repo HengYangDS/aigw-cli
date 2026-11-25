@@ -30,7 +30,7 @@ func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {
 	}
 	const selection = "github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''"
 	const hermes = " --hermes-commit ae2a81ccc00e9b7c06301523e5bb09608397149c --hermes-installer-sha256 c73dad4dcf7c9ecadb98578e28cc763d23d7be3fa1b513545319038795493214"
-	for _, platform := range []string{"darwin", "linux", "windows"} {
+	for _, platform := range []string{"darwin", "linux"} {
 		job := workflow.Jobs["native-"+platform]
 		steps := job.Steps
 		supplyIndex := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Prepare official native clients" })
@@ -39,10 +39,7 @@ func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {
 		if supplyIndex < 0 || nativeIndex <= supplyIndex || cleanupIndex <= nativeIndex {
 			t.Fatalf("%s native supply ordering: supply=%d native=%d cleanup=%d", platform, supplyIndex, nativeIndex, cleanupIndex)
 		}
-		supply, prefix, deadline := steps[supplyIndex], "$", 20
-		if platform == "windows" {
-			prefix, deadline = "$env:", 12
-		}
+		supply, deadline := steps[supplyIndex], 20
 		pins := ""
 		if slices.Contains(construction.NativeAcceptanceClients(platform), hermesclient.ID) {
 			pins = hermes
@@ -50,7 +47,7 @@ func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {
 		for _, field := range []struct{ got, want string }{
 			{supply.If, selection}, {steps[cleanupIndex].If, "always() && " + selection},
 			{supply.Env["GIT_TERMINAL_PROMPT"], "0"},
-			{supply.Run, `mise exec --locked -- go run ./tools/ci native-clients supply --root "` + prefix + `RUNNER_TEMP" --github-env "` + prefix + `GITHUB_ENV" --codex 0.170.0 --claude 2.1.327` + pins},
+			{supply.Run, `mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.170.0 --claude 2.1.327` + pins},
 			{steps[cleanupIndex].Run, "mise exec --locked -- go run ./tools/ci native-clients retire"},
 		} {
 			if field.got != field.want {

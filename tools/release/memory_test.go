@@ -124,9 +124,6 @@ func (j *journeyFixture) measureWorkloadProcesses(parent context.Context, path s
 		return err
 	})
 	cpuScope := "completed process and waited-for descendants, as reported by native ProcessState"
-	if runtime.GOOS == "windows" {
-		cpuScope = "completed process only; descendant credential workers are excluded"
-	}
 	data, encodeErr := json.MarshalIndent(struct {
 		Qualification bool                  `json:"qualification"`
 		Scope         string                `json:"scope"`
@@ -160,9 +157,6 @@ func TestNativePreparedWorkloadRetainsCompletedProcessObservations(t *testing.T)
 		t.Fatal(err)
 	}
 	deadlineExit := -1
-	if runtime.GOOS == "windows" {
-		deadlineExit = 1
-	}
 	for _, test := range []struct {
 		phase       string
 		workload    string

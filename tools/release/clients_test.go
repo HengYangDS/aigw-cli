@@ -332,8 +332,6 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 model_context_window = 500000
 model_auto_compact_token_limit = 450000
 model_auto_compact_token_limit_scope = 'body_after_prefix'
-[windows]
-sandbox = 'unelevated'
 [features]
 plugins = false
 [features.multi_agent_v2]

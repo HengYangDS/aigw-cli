@@ -42,8 +42,7 @@ func TestRenderErrorDoesNotExposeLocalFilePath(t *testing.T) {
 		{&os.PathError{Op: "read", Path: privatePath, Err: os.ErrPermission}, "Local file access failed (read: permission denied)"},
 		{&os.LinkError{Op: "rename", Old: privatePath, New: privatePath + ".new", Err: os.ErrPermission}, "Local file access failed (rename: permission denied)"},
 		{&os.PathError{Op: "open", Path: privatePath, Err: os.ErrNotExist}, "Local file access failed (open: no such file or directory)"},
-		// One reason per condition on every platform, never the platform's
-		// own text, which on Windows says the file cannot be found.
+		// One reason per condition, never the operating system's own text.
 		{&os.PathError{Op: "stat", Path: privatePath, Err: syscall.ENOENT}, "Local file access failed (stat: no such file or directory)"},
 		{&os.PathError{Op: "mkdir", Path: privatePath, Err: fs.ErrExist}, "Local file access failed (mkdir: file exists)"},
 		{&os.PathError{Op: "mkdir", Path: privatePath, Err: errors.New(privatePath + " is a private detail")}, "Local file access failed (mkdir: unexpected error)"},
@@ -140,8 +139,8 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 
 // A file error's reason is one per condition on every platform, and a
 // permission error's is the operating system's error: an operation that a
-// flag forbids is not permitted, and any other is denied, as Windows'
-// ERROR_ACCESS_DENIED is. Any other error keeps its number's text.
+// flag forbids is not permitted, and any other is denied. Any other error
+// keeps its number's text.
 func TestAFileErrorReadsOneReasonPerCondition(t *testing.T) {
 	for err, want := range map[error]string{
 		&os.PathError{Op: "write", Path: "/private/x", Err: syscall.EPERM}:  "operation not permitted",
@@ -173,7 +172,7 @@ func TestLocalFailureKeepsOtherErrorsUnchanged(t *testing.T) {
 // A configuration that could not be read because a regular file stands where
 // AIGW's folder belongs names that file to move and how its folder comes back,
 // as ~/… inside the run's own home directory, and gives the reason not a
-// directory on every platform, though Windows reports the path as missing.
+// directory even when the operation reports the path as missing.
 func TestALoadFailureThroughAFileNamesTheFileToMove(t *testing.T) {
 	home := t.TempDir()
 	folder := filepath.Join(home, "aigw")
@@ -181,8 +180,8 @@ func TestALoadFailureThroughAFileNamesTheFileToMove(t *testing.T) {
 		t.Fatal(err)
 	}
 	config := filepath.Join(folder, "aigw.toml")
-	windows := &fs.PathError{Op: "open", Path: config, Err: fs.ErrNotExist}
-	err := &store.LoadError{Phase: store.LoadPhaseRead, Err: platform.ClassifyPath(config, platform.FileExpected, windows)}
+	missing := &fs.PathError{Op: "open", Path: config, Err: fs.ErrNotExist}
+	err := &store.LoadError{Phase: store.LoadPhaseRead, Err: platform.ClassifyPath(config, platform.FileExpected, missing)}
 	problem := ProblemFor(LocalFailure("9.8.7", platform.PathContext{Home: home, Configuration: config}, err))
 	if want := "Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again."; problem.Fix != want {
 		t.Fatalf("the fix = %q, want %q", problem.Fix, want)
@@ -221,7 +220,6 @@ func TestALocalFileFailureNamesItsPathAgainstTheRunsHome(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("USERPROFILE", t.TempDir())
 	err := fmt.Errorf("create config directory for lock: %w", &fs.PathError{Op: "mkdir", Path: folder, Err: syscall.ENOTDIR})
 	problem := ProblemFor(LocalFailure("9.8.7", platform.PathContext{Home: home, Configuration: filepath.Join(folder, "aigw.toml")}, err))
 	want := Problem{

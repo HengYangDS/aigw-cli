@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -146,9 +145,6 @@ func TestSecretScanStaysOutsideGoPackageDiscovery(t *testing.T) {
 }
 
 func TestSecretChecksPreserveNativeSymlinkScope(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink fixture requires privileges not granted to ordinary Windows users")
-	}
 	root, outside := newGitRepository(t), filepath.Join(t.TempDir(), "outside.txt")
 	if err := os.WriteFile(outside, []byte("outside repository"), 0o600); err != nil {
 		t.Fatal(err)

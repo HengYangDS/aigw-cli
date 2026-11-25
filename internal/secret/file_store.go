@@ -33,20 +33,10 @@ func (store *fileStore) get(kind Kind, account string) (string, error) {
 		return "", fmt.Errorf("read Token file: %w", err)
 	}
 	defer clear(value)
-	// Windows protects a stored value, and an empty file holds nothing to
-	// unprotect, so it is reported here on every platform.
 	if len(value) == 0 {
 		return "", ErrEmpty
 	}
-	plain, err := decodeCredential(value)
-	if err != nil {
-		return "", err
-	}
-	defer clear(plain)
-	if len(plain) == 0 {
-		return "", ErrEmpty
-	}
-	return string(plain), nil
+	return string(value), nil
 }
 
 func (store *fileStore) set(kind Kind, account, value string) error {
@@ -55,10 +45,7 @@ func (store *fileStore) set(kind Kind, account, value string) error {
 		return err
 	}
 	defer func() { _ = root.Close() }()
-	encoded, err := encodeCredential([]byte(value))
-	if err != nil {
-		return err
-	}
+	encoded := []byte(value)
 	defer clear(encoded)
 	if err := validateOptionalOwnedFile(root, slotName(kind, account)); err != nil {
 		return err

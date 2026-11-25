@@ -199,9 +199,8 @@ func TestRestoreSnapshotSurfacesBackupPostimageMismatch(t *testing.T) {
 
 func TestLockSurfacesUnwritableConfigDirectory(t *testing.T) {
 	// A regular file standing where the config directory must be created
-	// refuses MkdirAll identically on every platform: unlike a chmod-
-	// restricted directory, this is not a permission model Windows is
-	// free to ignore (see https://github.com/golang/go/issues/35042).
+	// refuses MkdirAll whatever the process's permissions, unlike a chmod-
+	// restricted directory, which root may write into.
 	base := t.TempDir()
 	blocked := filepath.Join(base, "blocked")
 	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
@@ -261,9 +260,8 @@ func TestSaveSurfacesUnwritableConfigDirectory(t *testing.T) {
 
 func TestSaveSurfacesBackupWriteFailures(t *testing.T) {
 	// An existing directory at the backup path refuses the atomic rename
-	// that finalizes the backup write on every platform: renaming a file
-	// onto an existing directory fails on POSIX (EISDIR) and on Windows
-	// (access denied), unlike a chmod-restricted parent directory.
+	// that finalizes the backup write: renaming a file onto an existing
+	// directory fails (EISDIR), unlike a chmod-restricted parent directory.
 	dir := t.TempDir()
 	path := filepath.Join(dir, " toml")
 	store := NewStore(path, testAdmission())

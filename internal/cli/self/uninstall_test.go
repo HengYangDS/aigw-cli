@@ -21,7 +21,7 @@ import (
 // hostAt observes home as the user's home directory, so Claude Code's settings
 // file is home/.claude/settings.json.
 func hostAt(home string) discovery.Host {
-	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home}}
 }
 
 func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing.T) {

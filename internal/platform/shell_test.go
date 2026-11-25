@@ -1,7 +1,6 @@
 package platform
 
 import (
-	"runtime"
 	"testing"
 )
 
@@ -24,10 +23,8 @@ func TestAIGWCommandNamesOnlyWordsThatNeedNoQuoting(t *testing.T) {
 			t.Errorf("AIGWCommand(%q) = %q, want %q", test.words, got, test.want)
 		}
 	}
-	// A backslash is a path separator in Windows shells and an escape in the
-	// others; a percent sign expands in Windows shells only.
-	windows := runtime.GOOS == "windows"
-	if PlainWord(`C:\Users\x`) != windows || PlainWord("100%") == windows {
-		t.Errorf("platform words: backslash plain = %t, percent plain = %t on %s", PlainWord(`C:\Users\x`), PlainWord("100%"), runtime.GOOS)
+	// A backslash is an escape in the shells; a percent sign is passed through.
+	if PlainWord(`a\b`) || !PlainWord("100%") {
+		t.Errorf("platform words: backslash plain = %t, percent plain = %t", PlainWord(`a\b`), PlainWord("100%"))
 	}
 }

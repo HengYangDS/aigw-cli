@@ -2,24 +2,14 @@ package platform
 
 import (
 	"regexp"
-	"runtime"
 	"slices"
 	"strings"
 )
 
 // plainWord matches a word that the platform's shells pass through
 // unchanged, so a command line of such words runs as written: it starts with
-// a letter, digit, dot or slash. Windows shells also pass a backslash
-// through, which a path holds there, and expand a percent sign.
-var plainWord = func() *regexp.Regexp {
-	first, rest := `A-Za-z0-9._/`, `A-Za-z0-9._/:@+=~`
-	if runtime.GOOS == "windows" {
-		first, rest = first+`\\`, rest+`\\`
-	} else {
-		rest += `%`
-	}
-	return regexp.MustCompile(`^[` + first + `][` + rest + `-]*$`)
-}()
+// a letter, digit, dot or slash.
+var plainWord = regexp.MustCompile(`^[A-Za-z0-9._/][A-Za-z0-9._/:@+=~%-]*$`)
 
 // shellTilde finds a tilde that a shell would expand after an equals sign or
 // a colon.

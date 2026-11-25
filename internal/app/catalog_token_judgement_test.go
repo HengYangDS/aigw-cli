@@ -16,9 +16,6 @@ import (
 // every other command does: an empty Token file is an absent Token, never a
 // credential backend that could not tell (the fresh review of 034296053).
 func TestTheCatalogJudgesAnEmptyTokenAsAbsent(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("the file store's empty slot is read by mode on Unix")
-	}
 	root := t.TempDir()
 	store, err := secret.Select(secret.Selection{Backend: "file", GOOS: runtime.GOOS, Root: root, Getenv: func(string) string { return "" }})
 	if err != nil {

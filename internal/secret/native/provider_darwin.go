@@ -2,25 +2,38 @@
 
 package native
 
-func observeCredential(service, account string) (bool, error) {
-	return observeCredentialInKeychain(service, account, "")
-}
+import (
+	"errors"
+	"strings"
+)
 
-func listCredentials(service string) ([]string, error) {
-	return listAccountsInKeychain(service, "")
-}
-
-func readCredential(service, account string) (string, error) {
-	value, err := readCredentialFromKeychain(service, account, "")
-	return string(value), err
-}
-
-func writeCredential(service, account string, value []byte) error {
-	return writeCredentialToKeychain(service, account, "", value)
-}
-
-func deleteCredential(service, account string) error {
-	return deleteCredentialFromKeychain(service, account, "")
+func queryCredential(operation, service, account string, input []byte) ([]byte, error) {
+	switch operation {
+	case readCommand:
+		return readCredentialFromKeychain(service, account, "")
+	case writeCommand:
+		return nil, writeCredentialToKeychain(service, account, "", input)
+	case deleteCommand:
+		err := deleteCredentialFromKeychain(service, account, "")
+		if errors.Is(err, ErrNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	case listCommand:
+		names, err := listAccountsInKeychain(service, "")
+		return []byte(strings.Join(names, "\n")), err
+	case existsCommand:
+		present, err := observeCredentialInKeychain(service, account, "")
+		if err != nil {
+			return nil, err
+		}
+		if present {
+			return []byte("1"), nil
+		}
+		return []byte("0"), nil
+	default:
+		return nil, ErrUnavailable
+	}
 }
 
 func nativeEnvironment(getenv func(string) string) []string {

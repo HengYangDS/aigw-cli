@@ -78,7 +78,7 @@ func TestEverySourceConsumerRetainsDependencyEvidenceOnFailure(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &github); err != nil {
 		t.Fatal(err)
 	}
-	for _, job := range []string{"quality", "native-darwin", "native-linux", "native-windows"} {
+	for _, job := range []string{"quality", "native-darwin", "native-linux"} {
 		var declared struct {
 			Artifacts struct {
 				When  string   `yaml:"when"`

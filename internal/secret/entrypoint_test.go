@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"aigw-cli/internal/platform"
@@ -82,9 +81,6 @@ func TestEntrypointRejectsUnknownOrChangedBytes(t *testing.T) {
 }
 
 func TestEntrypointRejectsPermissiveDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows ACLs are not represented by POSIX permission bits")
-	}
 	root := t.TempDir()
 	source := filepath.Join(root, "source")
 	parent := filepath.Join(root, "data", "credential")
@@ -103,9 +99,6 @@ func TestEntrypointRejectsPermissiveDirectory(t *testing.T) {
 }
 
 func TestEntrypointRejectsWritableDataDirectory(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows data-directory rights are represented by ACLs")
-	}
 	root := t.TempDir()
 	source := filepath.Join(root, "source")
 	data := filepath.Join(root, "data")
@@ -128,9 +121,6 @@ func TestEntrypointRejectsWritableDataDirectory(t *testing.T) {
 }
 
 func TestEntrypointRejectsMultiplyLinkedExecutable(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows file identity is validated through ACL and reparse checks")
-	}
 	root := t.TempDir()
 	source := filepath.Join(root, "source")
 	target := filepath.Join(root, "data", "credential", "aigw")
@@ -416,9 +406,6 @@ func TestEntrypointRejectsNonregularPaths(t *testing.T) {
 }
 
 func TestEntrypointRejectsPermissiveFileModes(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows executable rights are represented by ACLs")
-	}
 	for _, subject := range []string{"executable", "receipt"} {
 		t.Run(subject, func(t *testing.T) {
 			root := t.TempDir()

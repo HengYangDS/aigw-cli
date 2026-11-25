@@ -6,7 +6,6 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -86,7 +85,7 @@ func TestNativeJobSelectsPlatformBehaviorFromGitLabInputs(t *testing.T) {
 	}{
 		"plain source run": {platform: "linux"},
 		"full quality":     {platform: "darwin", env: map[string]string{"AIGW_FULL_NATIVE_QUALITY": "true"}, want: nativeMode{fullQuality: true}},
-		"lock refresh":     {platform: "windows", env: map[string]string{"AIGW_REFRESH_LOCKS": "true"}, want: nativeMode{refreshLocks: true}},
+		"lock refresh":     {platform: "linux", env: map[string]string{"AIGW_REFRESH_LOCKS": "true"}, want: nativeMode{refreshLocks: true}},
 		"macOS review probe": {
 			platform: "darwin", env: map[string]string{"CI_COMMIT_REF_PROTECTED": "false", "AIGW_REVIEW_PROTECTED_FILE": "/protected"},
 			want: nativeMode{protectedFile: "/protected"},
@@ -94,19 +93,17 @@ func TestNativeJobSelectsPlatformBehaviorFromGitLabInputs(t *testing.T) {
 		"macOS protected ref skips the probe": {
 			platform: "darwin", env: map[string]string{"CI_COMMIT_REF_PROTECTED": "true", "AIGW_REVIEW_PROTECTED_FILE": "/protected"},
 		},
-		"Windows has no review probe": {
-			platform: "windows", env: map[string]string{"CI_COMMIT_REF_PROTECTED": "false", "AIGW_REVIEW_PROTECTED_FILE": "/protected"},
+		"Linux has no review probe": {
+			platform: "linux", env: map[string]string{"CI_COMMIT_REF_PROTECTED": "false", "AIGW_REVIEW_PROTECTED_FILE": "/protected"},
 		},
 		"Linux release input runs in a private Secret Service": {
 			platform: "linux", env: map[string]string{"AIGW_BASELINE_ARTIFACTS": "/b"}, want: nativeMode{secretService: true},
 		},
 		"Linux source run stays outside the session": {platform: "linux", env: map[string]string{"AIGW_CANDIDATE_SOURCE": "abc"}},
 		"macOS release input needs no session":       {platform: "darwin", env: map[string]string{"AIGW_BASELINE_TAG": "v0.7.0"}},
-		"Windows input with clients supplies itself": {
-			platform: "windows", env: map[string]string{"AIGW_NATIVE_INPUT_PACKAGE": "pkg", "AIGW_NATIVE_CLIENTS": "true", "AIGW_BASELINE_TAG": "v0.7.0"},
-			want: nativeMode{windowsInput: true},
+		"macOS input with clients uses the package": {
+			platform: "darwin", env: map[string]string{"AIGW_NATIVE_INPUT_PACKAGE": "pkg", "AIGW_NATIVE_CLIENTS": "true", "AIGW_BASELINE_TAG": "v0.7.0"},
 		},
-		"Windows input without clients uses the package": {platform: "windows", env: map[string]string{"AIGW_NATIVE_INPUT_PACKAGE": "pkg"}},
 		"Linux input with clients uses the package": {
 			platform: "linux", env: map[string]string{"AIGW_NATIVE_INPUT_PACKAGE": "pkg", "AIGW_NATIVE_CLIENTS": "true", "AIGW_BASELINE_TAG": "v0.7.0"},
 			want: nativeMode{secretService: true},
@@ -121,22 +118,6 @@ func TestNativeJobSelectsPlatformBehaviorFromGitLabInputs(t *testing.T) {
 				t.Fatalf("job = %+v, want %+v", job.nativeMode, entry.want)
 			}
 		})
-	}
-}
-
-func TestWindowsInputWithClientsPassesTheVerifiedArchive(t *testing.T) {
-	project := filepath.Join(t.TempDir(), "aigw")
-	lookup := environmentLookup(map[string]string{
-		"CI_PROJECT_URL": "https://gitlab.example/aigw", "CI_PIPELINE_SOURCE": "api", "CI_PROJECT_DIR": project, "CI_JOB_ID": "77",
-	}, map[string]string{"AIGW_NATIVE_INPUT_PACKAGE": "pkg", "AIGW_NATIVE_INPUT_SHA256": "ff", "AIGW_NATIVE_DIAGNOSTIC_CLIENT": "codex"})
-	job, err := nativeJobFromEnvironment(lookup, "windows", "/work")
-	if err != nil {
-		t.Fatal(err)
-	}
-	archive := filepath.Join(filepath.Dir(project), "aigw-ci-mise-77", "native-input.tar")
-	want := []string{"--peer", "gitlab", "--repository", "https://gitlab.example/aigw", "--input-archive", archive, "--input-sha256", "ff", "--candidate", "--diagnostic-client", "codex"}
-	if !job.windowsInput || !slices.Equal(job.arguments, want) || windowsJobPath(lookup, "native-input.tar") != archive {
-		t.Fatalf("Windows input job = %+v, want arguments %q", job, want)
 	}
 }
 
@@ -272,65 +253,6 @@ func TestLinuxReleaseInputRunsInAPrivateSecretService(t *testing.T) {
 	}
 }
 
-func TestWindowsNativeJobSuppliesClientsWithDefaultedTrust(t *testing.T) {
-	t.Chdir(repositoryRoot(t))
-	job, archive, base := windowsPublicInput(t, officialClientMembers(t))
-	windowsClientTools(t, filepath.Dir(job))
-	selected := maps.Clone(base)
-	// GitLab supplies trust only as file variables; the job defaults the _FILE inputs from them.
-	selected["AIGW_RELEASE_ALLOWED_SIGNERS"] = selected["AIGW_RELEASE_ALLOWED_SIGNERS_FILE"]
-	selected["AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"] = selected["AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"]
-	delete(selected, "AIGW_RELEASE_ALLOWED_SIGNERS_FILE")
-	delete(selected, "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE")
-	maps.Copy(selected, map[string]string{"CI_PIPELINE_SOURCE": "api", "AIGW_NATIVE_DIAGNOSTIC_CLIENT": "codex", "AIGW_BASELINE_TAG": "v0.7.0"})
-	nativeJobEnvironment(t, selected)
-	var accepted []command
-	serve := servePublicInput(archive)
-	err := runNativeJob(nativeHost{getenv: os.Getenv, platform: "windows", workdir: "/work"}, &bytes.Buffer{}, func(call command) error {
-		if call.Name == "go" {
-			accepted = append(accepted, call)
-			return nil
-		}
-		return serve(call)
-	})
-	trust := "AIGW_RELEASE_ALLOWED_SIGNERS_FILE=" + selected["AIGW_RELEASE_ALLOWED_SIGNERS"]
-	if err != nil || len(accepted) != 1 || !slices.Contains(accepted[0].Env, trust) {
-		t.Fatalf("Windows supply with defaulted trust = %v, %#v", err, accepted)
-	}
-}
-
-func TestWindowsNativeJobRunsAcceptanceWithItsSuppliedClients(t *testing.T) {
-	t.Chdir(repositoryRoot(t))
-	job, archive, base := windowsPublicInput(t, officialClientMembers(t))
-	windowsClientTools(t, filepath.Dir(job))
-	selected := maps.Clone(base)
-	maps.Copy(selected, map[string]string{"CI_PIPELINE_SOURCE": "web", "AIGW_NATIVE_CLIENTS": "true", "AIGW_BASELINE_TAG": "v0.7.0"})
-	nativeJobEnvironment(t, selected)
-	host := nativeHost{getenv: os.Getenv, platform: "windows", workdir: "/work"}
-	var accepted []command
-	serve := servePublicInput(archive)
-	runner := func(call command) error {
-		if call.Name == "go" {
-			accepted = append(accepted, call)
-			return nil
-		}
-		return serve(call)
-	}
-	if err := runNativeJob(host, &bytes.Buffer{}, runner); err != nil {
-		t.Fatal(err)
-	}
-	archivePath := filepath.Join(job, "native-input.tar")
-	if len(accepted) != 1 || !slices.Contains(accepted[0].Args, "--input-archive") || !slices.Contains(accepted[0].Args, archivePath) ||
-		!slices.ContainsFunc(accepted[0].Env, func(entry string) bool { return strings.HasPrefix(entry, "AIGW_ACCEPTANCE_CODEX=") }) {
-		t.Fatalf("Windows input acceptance = %#v", accepted)
-	}
-	t.Setenv("AIGW_NATIVE_PLATFORM", "all")
-	accepted = nil
-	if err := runNativeJob(host, &bytes.Buffer{}, runner); err == nil || !strings.Contains(err.Error(), "requires the Windows platform") || len(accepted) != 0 {
-		t.Fatalf("Windows input outside its platform selection = %v, %#v", err, accepted)
-	}
-}
-
 func TestPrivateSessionReportsAFailedAlias(t *testing.T) {
 	err := openSecretServiceSession(func(call command) ([]byte, error) {
 		if slices.Contains(call.Args, "org.freedesktop.Secret.Service.SetAlias") {
@@ -347,9 +269,6 @@ func TestMacOSReviewJobProbesItsProtectedResource(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	nativeJobEnvironment(t, map[string]string{"CI_PROJECT_URL": "https://gitlab.test/team/aigw", "CI_COMMIT_REF_PROTECTED": "false", "AIGW_REVIEW_PROTECTED_FILE": "manager-config"})
 	problem := "exact absolute protected resource"
-	if runtime.GOOS == "windows" {
-		problem = "protected-file qualification requires a Unix host"
-	}
 	calls := 0
 	err := runNativeJob(nativeHost{getenv: os.Getenv, platform: "darwin", workdir: "/work"}, &bytes.Buffer{}, func(command) error { calls++; return nil })
 	if err == nil || !strings.Contains(err.Error(), problem) || calls != 0 {
@@ -408,7 +327,7 @@ func nativeJobEnvironment(t *testing.T, selected map[string]string) {
 		"AIGW_NATIVE_DIAGNOSTIC_CLIENT", "AIGW_NATIVE_CLIENTS", "AIGW_FULL_NATIVE_QUALITY", "AIGW_REFRESH_LOCKS",
 		"AIGW_REVIEW_PROTECTED_FILE", "AIGW_RELEASE_ALLOWED_SIGNERS", "AIGW_RELEASE_ALLOWED_SIGNERS_FILE",
 		"AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS", "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE", "AIGW_ACCEPTANCE_BASELINE",
-		"AIGW_NATIVE_PLATFORM", "AIGW_NATIVE_CLIENT_SUPPLIER", "AIGW_RELEASE_ARTIFACT_SIGNER", "AIGW_VERIFY_SYSTEM_KEYRING",
+		"AIGW_RELEASE_ARTIFACT_SIGNER", "AIGW_VERIFY_SYSTEM_KEYRING",
 	} {
 		t.Setenv(name, selected[name])
 	}
@@ -425,16 +344,15 @@ func environmentLookup(base, overrides map[string]string) func(string) string {
 
 func TestNativeJobRefusesAnOldPredecessorBeforeItsFirstToolCall(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
-	job, archive, base := windowsPublicInput(t, officialClientMembers(t))
-	windowsClientTools(t, filepath.Dir(job))
-	selected := maps.Clone(base)
-	maps.Copy(selected, map[string]string{"CI_PIPELINE_SOURCE": "web", "AIGW_NATIVE_CLIENTS": "true", "AIGW_BASELINE_TAG": "v0.6.1"})
-	nativeJobEnvironment(t, selected)
-	serve := servePublicInput(archive)
-	for _, platform := range []string{"windows", "linux"} {
+	nativeJobEnvironment(t, map[string]string{
+		"CI_PIPELINE_SOURCE": "web", "CI_PROJECT_URL": "https://gitlab.test/team/aigw", "AIGW_NATIVE_INPUT_PACKAGE": "fixture",
+		"AIGW_NATIVE_INPUT_SHA256": strings.Repeat("f", 64), "AIGW_CANDIDATE_SOURCE": strings.Repeat("a", 40),
+		"AIGW_NATIVE_CLIENTS": "true", "AIGW_BASELINE_TAG": "v0.6.1",
+	})
+	for _, platform := range []string{"darwin", "linux"} {
 		calls := 0
 		host := nativeHost{getenv: os.Getenv, platform: platform, workdir: "/work", attach: func(command) error { calls++; return nil }}
-		err := runNativeJob(host, &bytes.Buffer{}, func(call command) error { calls++; return serve(call) })
+		err := runNativeJob(host, &bytes.Buffer{}, func(command) error { calls++; return nil })
 		if err == nil || !strings.Contains(err.Error(), "0.7.0 is the oldest release a journey can start from") || calls != 0 {
 			t.Fatalf("%s job with a v0.6.1 predecessor = %v after %d tool calls", platform, err, calls)
 		}

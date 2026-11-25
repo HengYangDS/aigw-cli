@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -316,9 +315,6 @@ func TestReconcileConfigsKeepsUserAuthoredCatalogSelections(t *testing.T) {
 // this pins that a widened owned catalog really is written back owner-only, and
 // that `check` reports the drift while it lasts.
 func TestReconcileConfigsConvergesDriftedCatalogPermissions(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows does not represent owner-only permissions in a file mode")
-	}
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
 	target := HomeTarget(path)
@@ -398,14 +394,12 @@ func TestReconcileConfigsRefusesToAdoptAForeignCatalogFile(t *testing.T) {
 	if !bytes.Equal(current, foreign) {
 		t.Fatalf("the foreign catalog was overwritten:\n%s", current)
 	}
-	if runtime.GOOS != "windows" {
-		info, err := os.Lstat(catalogPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if info.Mode().Perm() != 0o644 {
-			t.Fatalf("the foreign catalog was re-permissioned to %v", info.Mode().Perm())
-		}
+	info, err := os.Lstat(catalogPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o644 {
+		t.Fatalf("the foreign catalog was re-permissioned to %v", info.Mode().Perm())
 	}
 	config, err := os.ReadFile(path)
 	if err != nil {

@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -105,8 +104,8 @@ func TestCaptureFileSnapshotOfMissingFileIsEmptyNotError(t *testing.T) {
 }
 
 // A snapshot of a path that runs through a regular file is a read failure, not
-// an optional sidecar that is absent: on Windows such a path reads as missing,
-// and a caller would then plan a write over a state that is not there.
+// an optional sidecar that is absent: a caller would then plan a write over a
+// state that is not there.
 func TestCaptureFileSnapshotRefusesAPathThroughAFile(t *testing.T) {
 	root := t.TempDir()
 	file := filepath.Join(root, "file")
@@ -119,11 +118,9 @@ func TestCaptureFileSnapshotRefusesAPathThroughAFile(t *testing.T) {
 }
 
 func TestCaptureFileSnapshotSurfacesReadErrors(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		dir := t.TempDir()
-		if _, err := platform.CaptureFileSnapshot(dir); err == nil || strings.Contains(err.Error(), "not exist") {
-			t.Fatalf("CaptureFileSnapshot(directory) error = %v", err)
-		}
+	dir := t.TempDir()
+	if _, err := platform.CaptureFileSnapshot(dir); err == nil || strings.Contains(err.Error(), "not exist") {
+		t.Fatalf("CaptureFileSnapshot(directory) error = %v", err)
 	}
 }
 
@@ -143,7 +140,7 @@ func TestWriteFileAtomicPreservesMode(t *testing.T) {
 	if string(data) != "new" {
 		t.Fatalf("content=%q", data)
 	}
-	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o640 {
+	if info.Mode().Perm() != 0o640 {
 		t.Fatalf("mode=%o", info.Mode().Perm())
 	}
 }
@@ -179,18 +176,15 @@ func TestRestoreFileAtomicIfPostimageRestoresExactPreimage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	postimage, err := platform.WriteFileAtomicIfUnchanged(path, before, []byte("projected"), 0o600)
-	if err != nil {
+	if _, err := platform.WriteFileAtomicIfUnchanged(path, before, []byte("projected"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(path, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		postimage, err = platform.CaptureFileSnapshot(path)
-		if err != nil {
-			t.Fatal(err)
-		}
+	if err := os.Chmod(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	postimage, err := platform.CaptureFileSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
 	}
 	if err := platform.RestoreFileAtomicIfPostimage(path, before, postimage); err != nil {
 		t.Fatal(err)
@@ -303,20 +297,15 @@ func TestWriteFileAtomicExactModeIfUnchangedCorrectsADriftedMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantMode := os.FileMode(0o600)
-	if runtime.GOOS == "windows" {
-		wantMode = 0o666
-	}
 	if !post.Exists || !bytes.Equal(post.Data, []byte("desired")) || post.Mode.Perm() != wantMode {
 		t.Fatalf("postimage = %#v", post)
 	}
-	if runtime.GOOS != "windows" {
-		info, err := os.Lstat(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if info.Mode().Perm() != wantMode {
-			t.Fatalf("mode on disk = %v, want %v", info.Mode().Perm(), wantMode)
-		}
+	info, err := os.Lstat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != wantMode {
+		t.Fatalf("mode on disk = %v, want %v", info.Mode().Perm(), wantMode)
 	}
 	// The preimage guard is not weakened by writing the mode exactly.
 	if err := os.WriteFile(path, []byte("newer"), 0o600); err != nil {
@@ -329,9 +318,6 @@ func TestWriteFileAtomicExactModeIfUnchangedCorrectsADriftedMode(t *testing.T) {
 }
 
 func TestWriteFileAtomicIfUnchangedRejectsUnreadableCurrentState(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := filepath.Join(t.TempDir(), "dir-as-file")
 	if err := os.Mkdir(path, 0o700); err != nil {
 		t.Fatal(err)
@@ -343,9 +329,6 @@ func TestWriteFileAtomicIfUnchangedRejectsUnreadableCurrentState(t *testing.T) {
 }
 
 func TestRemoveFileIfUnchangedRejectsUnreadableCurrentState(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := filepath.Join(t.TempDir(), "dir-as-file")
 	if err := os.Mkdir(path, 0o700); err != nil {
 		t.Fatal(err)
@@ -357,9 +340,6 @@ func TestRemoveFileIfUnchangedRejectsUnreadableCurrentState(t *testing.T) {
 }
 
 func TestRestoreFileAtomicIfPostimageRejectsUnreadableCurrentState(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	path := filepath.Join(t.TempDir(), "dir-as-file")
 	if err := os.Mkdir(path, 0o700); err != nil {
 		t.Fatal(err)

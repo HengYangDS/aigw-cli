@@ -107,9 +107,8 @@ func releaseAssetName(assetURL string) string {
 	if err != nil {
 		return ""
 	}
-	// A URL path always uses "/" regardless of the host OS, so the basename
-	// must come from the slash-based "path" package rather than
-	// "path/filepath", which would return "\\" for a root path on Windows.
+	// A URL path always uses "/", so the basename comes from the slash-based
+	// "path" package rather than "path/filepath".
 	name := path.Base(parsed.Path)
 	if name == "." || name == "/" || name == "" || path.Base(name) != name {
 		return ""

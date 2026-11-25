@@ -18,14 +18,13 @@ func TestNativePackageProjectionUsesOnePortableReleaseInputOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	var pipeline struct {
-		Darwin  gitLabJob `yaml:"native-darwin"`
-		Linux   gitLabJob `yaml:"native-linux"`
-		Windows gitLabJob `yaml:"native-windows"`
+		Darwin gitLabJob `yaml:"native-darwin"`
+		Linux  gitLabJob `yaml:"native-linux"`
 	}
 	if err := yaml.Unmarshal(data, &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	for platform, job := range map[string]gitLabJob{"darwin": pipeline.Darwin, "linux": pipeline.Linux, "windows": pipeline.Windows} {
+	for platform, job := range map[string]gitLabJob{"darwin": pipeline.Darwin, "linux": pipeline.Linux} {
 		if !slices.ContainsFunc(job.Script, isNativeJobCommand(platform)) {
 			t.Errorf("%s does not derive its release inputs in the native command", platform)
 		}

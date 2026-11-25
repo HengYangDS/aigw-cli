@@ -182,9 +182,6 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 	}
 	environment = append(environment, gitEnvironment...)
 	args := []string{"release", "--snapshot", "--clean", "--skip=publish", "--config", config}
-	if request.TargetOS == "windows" {
-		args = append(args, "--skip=homebrew")
-	}
 	if err := run(toolCall{Name: "goreleaser", Directory: request.Root, Args: args, Env: environment}); err != nil {
 		return "", fmt.Errorf("build portable release artifacts: %w", err)
 	}

@@ -347,9 +347,6 @@ func checkWorkflows(root string, runner commandRunner) error {
 		return err
 	}
 	for index, script := range records {
-		if script.Shell != "bash" && script.Shell != "sh" {
-			continue
-		}
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		stdout, stderr, runErr := (nativeprocess.Runner{}).RunCaptureStreams(ctx, nativeprocess.Plan{Executable: "shellcheck", Directory: root, Env: os.Environ(), Args: []string{"--norc", "-f", "json", "-x", "--shell", script.Shell, "-e", "SC1091,SC2194,SC2050,SC2153,SC2154,SC2157,SC2043", "-"}, Stdin: script.Input})
 		cancel()
@@ -420,7 +417,7 @@ func workflowScripts(path string) ([]workflowScript, error) {
 				shell = workflow.Defaults.Run.Shell
 			}
 			fields := strings.Fields(shell)
-			if len(fields) == 0 || strings.Contains(shell, "${{") || !slices.Contains([]string{"bash", "sh", "pwsh", "powershell"}, fields[0]) {
+			if len(fields) == 0 || strings.Contains(shell, "${{") || !slices.Contains([]string{"bash", "sh"}, fields[0]) {
 				return nil, fmt.Errorf("workflow %s job %s step %d requires an explicit supported shell", path, name, index)
 			}
 			input, err := workflowShellInput(step.Run, fields[0])

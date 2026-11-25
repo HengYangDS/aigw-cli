@@ -1,5 +1,3 @@
-//go:build !windows
-
 package secret
 
 import (
@@ -22,10 +20,6 @@ func (info fileInfoStub) Mode() os.FileMode  { return info.mode }
 func (info fileInfoStub) ModTime() time.Time { return time.Time{} }
 func (info fileInfoStub) IsDir() bool        { return info.mode.IsDir() }
 func (info fileInfoStub) Sys() any           { return info.stat }
-
-type syncerStub struct{ err error }
-
-func (syncer syncerStub) Sync() error { return syncer.err }
 
 func TestFileStoreCRUDUsesOwnerOnlyFiles(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
@@ -199,13 +193,6 @@ func TestOwnedFileValidationRejectsAmbiguousOrForeignMetadata(t *testing.T) {
 	}
 	if err := validateOwnedFile(fileInfoStub{mode: 0o600}); err == nil {
 		t.Fatal("validateOwnedFile() accepted missing native metadata")
-	}
-}
-
-func TestUnixDirectorySyncFailureIsExplicit(t *testing.T) {
-	want := errors.New("injected failure")
-	if err := syncCredentialDirectory(syncerStub{err: want}); !errors.Is(err, want) {
-		t.Fatalf("syncCredentialDirectory() error = %v", err)
 	}
 }
 

@@ -34,7 +34,7 @@ func planInstall(source, target string) (InstallPlan, []byte, []byte, error) {
 		return InstallPlan{}, nil, nil, err
 	}
 	// Before the ownership check, whose symbolic-link resolution reports a file
-	// used as a folder differently on Windows: a file in the way, or a link that
+	// used as a folder differently: a file in the way, or a link that
 	// leads nowhere, which a create through it cannot pass, refuses the target,
 	// and the preview promises no folder that the install cannot create.
 	if err := platform.RefuseBlockedFile(target); err != nil {
@@ -102,7 +102,7 @@ func Install(source, target string) error {
 }
 
 // lstatProgramFile reads a program file's own entry. A test replaces it to
-// report a path through a regular file as Windows does, as a missing path.
+// report a path through a regular file as a missing path.
 var lstatProgramFile = os.Lstat
 
 // PlanUninstall returns the files among the portable executable and its owned
@@ -115,8 +115,8 @@ func PlanUninstall(target string) ([]string, error) {
 }
 
 // presentProgramFiles returns the program file and its rollback copy that
-// exist, refusing either one whose path runs through a regular file, which
-// Windows reports as a missing path rather than as an error.
+// exist, refusing either one whose path runs through a regular file, even
+// when the operating system reports it as a missing path.
 func presentProgramFiles(target string) ([]string, error) {
 	present := []string{}
 	for _, path := range []string{target, RollbackPath(target)} {

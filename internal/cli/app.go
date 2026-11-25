@@ -329,7 +329,7 @@ func NewDefault(clients adapter.Registry) (*App, error) {
 		Out:           os.Stdout,
 		Err:           os.Stderr,
 		Interactive:   terminal.Interactive(os.Stdin),
-		Color:         terminal.ColorEnabled(runtime.GOOS, env, terminal.Interactive(os.Stdout), terminal.EnableVirtualTerminal),
+		Color:         terminal.ColorEnabled(env, terminal.Interactive(os.Stdout)),
 		Runner:        process.Runner{},
 		HTTP:          &http.Client{},
 		Prompt:        terminal.NewPrompter(os.Stdin, os.Stdout, terminal.Accessible(env)),

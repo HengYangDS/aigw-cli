@@ -261,7 +261,7 @@ func TestSystemCredentialEnvironmentPreservesDarwinLoginHome(t *testing.T) {
 	hostHome := "/Users/runner"
 	environment, err := systemCredentialEnvironment(
 		"darwin",
-		[]string{"HOME=" + temporaryHome, "USERPROFILE=" + temporaryHome, "AIGW_SECRET_BACKEND=env"},
+		[]string{"HOME=" + temporaryHome, "AIGW_SECRET_BACKEND=env"},
 		hostHome,
 		"ephemeral-host",
 	)
@@ -269,7 +269,7 @@ func TestSystemCredentialEnvironmentPreservesDarwinLoginHome(t *testing.T) {
 		t.Fatal(err)
 	}
 	values := environmentValues(environment)
-	if values["HOME"] != hostHome || values["USERPROFILE"] != hostHome {
+	if values["HOME"] != hostHome {
 		t.Fatalf("Darwin system credential environment = %#v, want login home %q", values, hostHome)
 	}
 	if _, present := values["AIGW_SECRET_BACKEND"]; present {
@@ -299,11 +299,8 @@ func TestSystemCredentialJourneyUsesItsEffectiveHome(t *testing.T) {
 		settings: filepath.Join(root, "home", ".claude", "settings.json"),
 		environment: []string{
 			"HOME=" + filepath.Join(root, "home"),
-			"USERPROFILE=" + filepath.Join(root, "home"),
 			"XDG_CONFIG_HOME=" + filepath.Join(root, "config"),
 			"XDG_DATA_HOME=" + filepath.Join(root, "data"),
-			"APPDATA=" + filepath.Join(root, "config"),
-			"LOCALAPPDATA=" + filepath.Join(root, "data"),
 			"AIGW_SECRET_BACKEND=env",
 		},
 	}
@@ -396,9 +393,8 @@ func systemCredentialEnvironment(goos string, current []string, hostHome, scope 
 		return nil, fmt.Errorf("Darwin system credential verification requires the login HOME")
 	}
 	return environmentWith(environment, map[string]string{
-		"HOME":        hostHome,
-		"USERPROFILE": hostHome,
-		"CODEX_HOME":  filepath.Join(hostHome, ".codex"),
+		"HOME":       hostHome,
+		"CODEX_HOME": filepath.Join(hostHome, ".codex"),
 	}), nil
 }
 
@@ -453,9 +449,6 @@ func (j *journeyFixture) requireCurrentVersionedReaders(current []process.Plan, 
 	reader := j.credentialEntrypoint()
 	for index, credential := range current {
 		command := credential.Executable + "\x00" + strings.Join(credential.Args, "\x00")
-		if runtime.GOOS == "windows" && strings.HasSuffix(strings.ToLower(credential.Executable), ".cmd") {
-			command += string(readFile(j.testing, credential.Executable))
-		}
 		if !strings.Contains(command, reader) {
 			j.testing.Fatalf("synchronized client %q did not select the current versioned reader after %s", clientIDs[index], version)
 		}

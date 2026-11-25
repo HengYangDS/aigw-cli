@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sync"
+	"syscall"
 
 	"aigw-cli/internal/platform"
 )
@@ -103,7 +104,7 @@ func ValidateRetainedEntrypoint(current, retained string) error {
 		if err != nil {
 			return errors.New("current credential reader namespace is unavailable")
 		}
-		if err := validatePrivateDirectory(directory, info); err != nil {
+		if err := validatePrivateDirectory(info); err != nil {
 			return err
 		}
 	}
@@ -206,7 +207,7 @@ func inspectEntrypoint(path string) (os.FileInfo, bool, error) {
 		if err != nil {
 			return nil, false, fmt.Errorf("inspect credential directory: %w", err)
 		}
-		if err := validatePrivateDirectory(directory, info); err != nil {
+		if err := validatePrivateDirectory(info); err != nil {
 			return nil, false, err
 		}
 	}
@@ -224,10 +225,10 @@ func inspectEntrypoint(path string) (os.FileInfo, bool, error) {
 	if !receipt.Mode().IsRegular() {
 		return nil, false, fmt.Errorf("credential entrypoint receipt is not a regular file")
 	}
-	if err := validatePrivateFile(path, binary, 0o700); err != nil {
+	if err := validatePrivateFile(binary, 0o700); err != nil {
 		return nil, false, err
 	}
-	if err := validatePrivateFile(path+".sha256", receipt, 0o600); err != nil {
+	if err := validatePrivateFile(receipt, 0o600); err != nil {
 		return nil, false, err
 	}
 	return binary, false, nil
@@ -254,7 +255,7 @@ func (e executables) install(
 		if err != nil {
 			return Entrypoint{}, nil, errors.Join(fmt.Errorf("inspect credential directory: %w", err), cleanupDirectories())
 		}
-		if err := validatePrivateDirectory(directory, info); err != nil {
+		if err := validatePrivateDirectory(info); err != nil {
 			return Entrypoint{}, nil, errors.Join(err, cleanupDirectories())
 		}
 	}
@@ -336,8 +337,8 @@ func createCredentialDirectoryChain(parent string) (func() error, error) {
 			}
 			continue
 		}
-		// Stat the opened directory: Windows defers the identity in Lstat until
-		// SameFile, when the path may already name a replacement.
+		// Stat the opened directory, so that the identity is the directory's
+		// that was opened and not a replacement that the path may now name.
 		directory, err := os.Open(path)
 		if err != nil {
 			return nil, errors.Join(errors.New("created credential directory changed during creation"), err, cleanup())
@@ -369,4 +370,22 @@ func removeEntrypointPair(target string, binary, receipt platform.FileSnapshot) 
 		return errors.Join(err, restoreErr)
 	}
 	return nil
+}
+
+func validatePrivateDirectory(info os.FileInfo) error {
+	if !info.IsDir() || info.Mode().Perm() != 0o700 {
+		return errors.New("credential directory is not owner-only")
+	}
+	return validateOwner(info, "credential entrypoint path")
+}
+
+func validatePrivateFile(info os.FileInfo, mode os.FileMode) error {
+	if !info.Mode().IsRegular() || info.Mode().Perm() != mode {
+		return errors.New("credential entrypoint file is not owner-only")
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || stat == nil || stat.Nlink != 1 {
+		return errors.New("credential entrypoint file ownership is ambiguous")
+	}
+	return validateOwner(info, "credential entrypoint path")
 }

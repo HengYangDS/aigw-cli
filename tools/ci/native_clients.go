@@ -12,8 +12,10 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	claudeclient "aigw-cli/internal/adapter/claude"
 	codexclient "aigw-cli/internal/adapter/codex"
@@ -34,21 +36,17 @@ const (
 )
 
 // clientLayout names one host's official npm platform packages: their platform
-// suffix, the Codex vendor target and the executable suffix.
-type clientLayout struct{ npm, target, suffix string }
+// suffix and the Codex vendor target.
+type clientLayout struct{ npm, target string }
 
 var (
 	clientLayouts = map[string]clientLayout{
-		"darwin/arm64":  {npm: "darwin-arm64", target: "aarch64-apple-darwin"},
-		"linux/amd64":   {npm: "linux-x64", target: "x86_64-unknown-linux-musl"},
-		"windows/amd64": {npm: "win32-x64", target: "x86_64-pc-windows-msvc", suffix: ".exe"},
+		"darwin/arm64": {npm: "darwin-arm64", target: "aarch64-apple-darwin"},
+		"linux/amd64":  {npm: "linux-x64", target: "x86_64-unknown-linux-musl"},
 	}
-	// GitLab's public input carries the x64 Windows clients, which Windows on
-	// ARM64 runs through emulation, so its layout does not follow the host.
-	windowsClients = clientLayouts["windows/amd64"]
-	exactSHA256    = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	exactCommit    = regexp.MustCompile(`^[0-9a-f]{40}$`)
-	exactRelease   = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+	exactSHA256  = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	exactCommit  = regexp.MustCompile(`^[0-9a-f]{40}$`)
+	exactRelease = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 	// installerHostSettings are the only host settings that the official
 	// Hermes installer receives: where the host's tools are and how the host
 	// reaches the network.
@@ -62,7 +60,7 @@ func (layout clientLayout) codexRoot() string {
 }
 
 func (layout clientLayout) claudeExecutable() string {
-	return "node_modules/@anthropic-ai/claude-code-" + layout.npm + "/claude" + layout.suffix
+	return "node_modules/@anthropic-ai/claude-code-" + layout.npm + "/claude"
 }
 
 // clientRelease pins the official client releases that one supply installs.
@@ -97,80 +95,9 @@ func (release clientRelease) validate(clients []string) error {
 	return nil
 }
 
-// supplyWindowsInput downloads the selected public input package into the
-// job-owned directory, verifies its exact checksum and extracts the reviewed
-// official Windows clients. Release acceptance rechecks the same archive.
-func supplyWindowsInput(getenv func(string) string, runner commandRunner) ([]string, error) {
-	if getenv("AIGW_NATIVE_PLATFORM") != "windows" {
-		return nil, errors.New("native public input requires the Windows platform")
-	}
-	if !exactSHA256.MatchString(getenv("AIGW_NATIVE_INPUT_SHA256")) || !exactCommit.MatchString(getenv("AIGW_CANDIDATE_SOURCE")) {
-		return nil, errors.New("native public input requires exact source and checksum")
-	}
-	if !regularFile(getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")) || !regularFile(getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE")) ||
-		strings.TrimSpace(getenv("AIGW_RELEASE_ARTIFACT_SIGNER")) == "" {
-		return nil, errors.New("native public input requires configured source and artifact trust")
-	}
-	supplier := getenv("AIGW_NATIVE_CLIENT_SUPPLIER")
-	if supplier == "" {
-		return nil, errors.New("native public input requires its declared client supplier")
-	}
-	archive, extracted := windowsJobPath(getenv, "native-input.tar"), windowsJobPath(getenv, "native-input")
-	download := command{
-		Name: "mise",
-		Args: []string{"exec", "--locked", "--", "glab", "packages", "download", "--repo", getenv("CI_PROJECT_URL"), "--name", getenv("AIGW_NATIVE_INPUT_PACKAGE"),
-			"--version", getenv("AIGW_CANDIDATE_SOURCE"), "--filename", "public-inputs.tar", "--path", archive},
-		Env: []string{"GLAB_ENABLE_CI_AUTOLOGIN=true", "GLAB_CONFIG_DIR=" + windowsJobPath(getenv, "glab")},
-	}
-	if err := runner(download); err != nil {
-		return nil, fmt.Errorf("download native public input: %w", err)
-	}
-	if digest, err := platform.FileSHA256(archive); err != nil || digest != getenv("AIGW_NATIVE_INPUT_SHA256") {
-		return nil, errors.Join(errors.New("native public input checksum mismatch"), err)
-	}
-	if err := os.Mkdir(extracted, 0o700); err != nil {
-		return nil, err
-	}
-	for _, arguments := range [][]string{
-		{"-xf", archive, "-C", extracted, supplier},
-		{"-xf", filepath.Join(extracted, filepath.FromSlash(supplier)), "-C", extracted},
-	} {
-		if err := runner(command{Name: "tar", Args: arguments}); err != nil {
-			return nil, fmt.Errorf("extract official Windows clients: %w", err)
-		}
-	}
-	return windowsClientEnvironment(filepath.Join(extracted, "clients"), "native Claude requires Git Bash")
-}
-
-// windowsClientEnvironment locates the official clients under root and the Git
-// Bash that Claude requires, and returns the acceptance environment.
-func windowsClientEnvironment(root, missingBash string) ([]string, error) {
-	git, err := exec.LookPath("git")
-	if err != nil {
-		return nil, fmt.Errorf("locate Git: %w", err)
-	}
-	node, err := exec.LookPath("node")
-	if err != nil {
-		return nil, fmt.Errorf("locate Node.js: %w", err)
-	}
-	gitBin := filepath.Dir(git)
-	bash := filepath.Join(filepath.Dir(gitBin), "bin", "bash.exe")
-	if !regularFile(bash) {
-		return nil, errors.New(missingBash)
-	}
-	codex := filepath.Join(root, filepath.FromSlash(windowsClients.codexRoot()))
-	search := []string{filepath.Join(codex, "codex-path"), filepath.Dir(node), gitBin, filepath.Dir(bash), filepath.Join(os.Getenv("SystemRoot"), "System32")}
-	return []string{
-		"AIGW_ACCEPTANCE_CODEX=" + filepath.Join(codex, "bin", "codex.exe"),
-		"AIGW_ACCEPTANCE_CLAUDE=" + filepath.Join(root, filepath.FromSlash(windowsClients.claudeExecutable())),
-		"AIGW_ACCEPTANCE_CLIENT_PATH=" + strings.Join(search, ";"),
-		"CLAUDE_CODE_GIT_BASH_PATH=" + bash,
-	}, nil
-}
-
-// posixClientEnvironment names the official clients under supply and the
+// clientEnvironment names the official clients under supply and the
 // companion tools they run, and returns the acceptance environment.
-func posixClientEnvironment(supply string, layout clientLayout, clients []string) ([]string, error) {
+func clientEnvironment(supply string, layout clientLayout, clients []string) ([]string, error) {
 	node, err := exec.LookPath("node")
 	if err != nil {
 		return nil, fmt.Errorf("locate Node.js: %w", err)
@@ -284,12 +211,7 @@ func supplyClients(host, root, githubEnvironment string, release clientRelease, 
 	}, stdout, guarded); err != nil {
 		return err
 	}
-	var environment []string
-	if system == "windows" {
-		environment, err = windowsClientEnvironment(supply, "Claude requires native Git Bash")
-	} else {
-		environment, err = posixClientEnvironment(supply, layout, clients)
-	}
+	environment, err := clientEnvironment(supply, layout, clients)
 	if err != nil {
 		return err
 	}
@@ -384,8 +306,8 @@ func interruption(interrupted <-chan os.Signal) error {
 }
 
 // retireClients removes the client directory that supply recorded. It refuses
-// any path it did not create, and on POSIX hosts it keeps a supply that a live
-// process still uses, so a client that outlived its journey fails the job.
+// any path it did not create, and it keeps a supply that a live process still
+// uses, so a client that outlived its journey fails the job.
 func retireClients(owned string, inventory outputRunner) error {
 	if owned == "" {
 		return nil
@@ -403,6 +325,38 @@ func retireClients(owned string, inventory outputRunner) error {
 		return fmt.Errorf("native client supply remains after cleanup: %s", owned)
 	}
 	return nil
+}
+
+// supplyInUse refuses a supply that a live process still uses: a client, or a
+// process that a client started, names a path inside the supply in its command
+// line.
+func supplyInUse(owned string, inventory outputRunner) error {
+	users, err := supplyProcesses(owned, inventory)
+	if err != nil {
+		return fmt.Errorf("prove that no process uses the native client supply: %w", err)
+	}
+	if len(users) != 0 {
+		return fmt.Errorf("native client supply is still in use by process %s; retained %s", strings.Join(users, ", "), owned)
+	}
+	return nil
+}
+
+// supplyProcesses returns the IDs of live processes whose command line names a
+// path inside the supply. Only IDs are reported; command lines stay private.
+func supplyProcesses(owned string, inventory outputRunner) ([]string, error) {
+	output, err := inventory(command{Name: "ps", Args: []string{"-A", "-ww", "-o", "pid=", "-o", "args="}, Env: []string{"LC_ALL=C"}, Timeout: 30 * time.Second})
+	if err != nil {
+		return nil, err
+	}
+	self := strconv.Itoa(os.Getpid())
+	var users []string
+	for line := range strings.Lines(string(output)) {
+		pid, arguments, _ := strings.Cut(strings.TrimSpace(line), " ")
+		if pid != self && strings.Contains(arguments, owned+string(filepath.Separator)) {
+			users = append(users, pid)
+		}
+	}
+	return users, nil
 }
 
 func appendGitHubEnvironment(path string, entries ...string) error {

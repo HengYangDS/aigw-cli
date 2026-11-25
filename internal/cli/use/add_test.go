@@ -243,7 +243,7 @@ func desktopRuntime(t *testing.T) (invocation.Context, domain.Config) {
 		}
 	}
 	home := t.TempDir()
-	runtime.Host = discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+	runtime.Host = discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home}}
 	library := filepath.Join(t.TempDir(), "Claude-3p", "configLibrary")
 	runtime.Discovery = staticDiscovery{result: discovery.Result{
 		Executables: executables,

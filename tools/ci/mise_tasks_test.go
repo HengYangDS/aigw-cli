@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -169,12 +168,10 @@ func TestMiseNpmEnvironmentIsBoundToThisRepository(t *testing.T) {
 	t.Setenv("NPM_CONFIG_USERCONFIG", userConfig)
 	t.Setenv("NPM_CONFIG_GLOBALCONFIG", globalConfig)
 	t.Setenv("NPM_CONFIG_CACHE", filepath.Join(foreign, "cache"))
-	if runtime.GOOS != "windows" {
-		t.Setenv("npm_config_userconfig", userConfig)
-		t.Setenv("npm_config_globalconfig", globalConfig)
-		t.Setenv("npm_config_cache", filepath.Join(foreign, "cache"))
-		t.Setenv("npm_config_registry", "https://unselected.invalid/")
-	}
+	t.Setenv("npm_config_userconfig", userConfig)
+	t.Setenv("npm_config_globalconfig", globalConfig)
+	t.Setenv("npm_config_cache", filepath.Join(foreign, "cache"))
+	t.Setenv("npm_config_registry", "https://unselected.invalid/")
 	t.Setenv("NPM_CONFIG_REGISTRY", "https://unselected.invalid/")
 	t.Setenv("CI_JOB_ID", "")
 	nullConfig := os.DevNull
@@ -323,10 +320,6 @@ func TestBootstrapRejectsAmbientGoWithEmptyToolCache(t *testing.T) {
 		t.Fatal(err)
 	}
 	name, content := "go", "#!/bin/sh\nprintf 'called\\n' >> \"$AIGW_AMBIENT_GO_MARKER\"\nexit 99\n"
-	if runtime.GOOS == "windows" {
-		name = "go.cmd"
-		content = "@echo off\r\necho called>>\"%AIGW_AMBIENT_GO_MARKER%\"\r\nexit /b 99\r\n"
-	}
 	if err := os.WriteFile(filepath.Join(shims, name), []byte(content), 0o700); err != nil {
 		t.Fatal(err)
 	}

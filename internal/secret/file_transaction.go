@@ -20,10 +20,6 @@ type syncWriter interface {
 	Sync() error
 }
 
-type syncer interface {
-	Sync() error
-}
-
 type readRoot interface {
 	Lstat(name string) (os.FileInfo, error)
 	Open(name string) (*os.File, error)
@@ -391,5 +387,5 @@ func syncRoot(root interface {
 		return fmt.Errorf("open Token directory: %w", err)
 	}
 	defer func() { _ = directory.Close() }()
-	return syncCredentialDirectory(directory)
+	return directory.Sync()
 }

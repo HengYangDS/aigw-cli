@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	goruntime "runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -263,15 +262,9 @@ func TestClaudeDesktopProjectionChangeDetection(t *testing.T) {
 }
 
 func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *testing.T) {
-	goos := goruntime.GOOS
-	if goos == "linux" {
-		goos = "darwin"
-	}
-	if goos != "darwin" && goos != "windows" {
-		t.Skip("unsupported test host")
-	}
+	goos := "darwin"
 	root := t.TempDir()
-	env := map[string]string{"HOME": root, "LOCALAPPDATA": root}
+	env := map[string]string{"HOME": root}
 	executable := ApplicationPathsFor(goos, env)[0]
 	if err := os.MkdirAll(filepath.Dir(executable), 0o700); err != nil {
 		t.Fatal(err)
@@ -293,7 +286,7 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 		t.Fatal(err)
 	}
 	clientAdapter := claudeDesktopAdapter{}
-	discovered := clientAdapter.Discover(discovery.System{GOOS: goos, Home: root, Env: map[string]string{"LOCALAPPDATA": root}})
+	discovered := clientAdapter.Discover(discovery.System{GOOS: goos, Home: root, Env: map[string]string{}})
 	if err := clientAdapter.Converge(adapter.Dependencies{Secrets: store}, &cfg, discovered); err != nil {
 		t.Fatal(err)
 	}

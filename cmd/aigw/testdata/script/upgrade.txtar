@@ -129,14 +129,11 @@ fixloop -did 'undid the outside edit' stdout aigw setup --from team.toml --provi
 # Linux has no Claude Desktop application that setup could find.
 [linux] stop 'Claude Desktop has no Linux application'
 mkdir $WORK/desktop
-env HOME=$WORK/desktop USERPROFILE=$WORK/desktop XDG_CONFIG_HOME=$WORK/desktop XDG_DATA_HOME=$WORK/desktop APPDATA=$WORK/desktop LOCALAPPDATA=$WORK/desktop
+env HOME=$WORK/desktop XDG_CONFIG_HOME=$WORK/desktop XDG_DATA_HOME=$WORK/desktop
 [darwin] env CONF=$HOME/Library/Application' 'Support/aigw LIBRARY=$HOME/Library/Application' 'Support/Claude-3p/configLibrary
-[windows] env CONF=$HOME/aigw LIBRARY=$LOCALAPPDATA/Claude-3p/configLibrary
 [darwin] mkdir $HOME/Applications/Claude.app/Contents/MacOS
 [darwin] cp desktop-app $HOME/Applications/Claude.app/Contents/MacOS/Claude
 [darwin] chmod 0755 $HOME/Applications/Claude.app/Contents/MacOS/Claude
-[windows] mkdir $LOCALAPPDATA/AnthropicClaude
-[windows] cp desktop-app $LOCALAPPDATA/AnthropicClaude/claude.exe
 envsubst desktop-team.in desktop-team.toml
 stdin token.txt
 exec aigw setup --from desktop-team.toml --provider team --token-stdin

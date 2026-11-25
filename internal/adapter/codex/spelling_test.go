@@ -13,13 +13,12 @@ import (
 
 // A configured target that names the default home in another spelling is the
 // same file, so converging the targets keeps one of them and the plan does
-// not refuse a duplicate. Windows writes / where Codex's default home has \.
+// not refuse a duplicate.
 func TestConvergedTargetsKeepOneSpellingOfAFile(t *testing.T) {
 	home := t.TempDir()
 	defaultHome := filepath.Join(home, ".codex", "config.toml")
 	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(HomeDefault), ConfigPath: defaultHome, AutoManaged: true}}}
-	// None of these exists, so only their cleaned spellings can match. On
-	// Windows home + "/.codex/config.toml" holds / where the default has \.
+	// None of these exists, so only their cleaned spellings can match.
 	spellings := []string{
 		home + "//.codex/config.toml",
 		home + "/./.codex/config.toml",

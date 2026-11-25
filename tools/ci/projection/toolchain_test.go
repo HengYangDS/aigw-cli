@@ -19,12 +19,9 @@ import (
 
 type miseLock struct {
 	Tools map[string][]struct {
-		LinuxARM64   misePlatformLock `toml:"platforms.linux-arm64"`
-		LinuxX64     misePlatformLock `toml:"platforms.linux-x64"`
-		MacOSARM64   misePlatformLock `toml:"platforms.macos-arm64"`
-		MacOSX64     misePlatformLock `toml:"platforms.macos-x64"`
-		WindowsARM64 misePlatformLock `toml:"platforms.windows-arm64"`
-		WindowsX64   misePlatformLock `toml:"platforms.windows-x64"`
+		LinuxARM64 misePlatformLock `toml:"platforms.linux-arm64"`
+		LinuxX64   misePlatformLock `toml:"platforms.linux-x64"`
+		MacOSARM64 misePlatformLock `toml:"platforms.macos-arm64"`
 	} `toml:"tools"`
 }
 
@@ -261,9 +258,6 @@ func TestGitLabLinuxPreparationStopsBeforeToolInstallation(t *testing.T) {
 		t.Fatal(err)
 	}
 	prepare := pipeline.LinuxToolchain.BeforeScript[0]
-	if runtime.GOOS == "windows" {
-		return // POSIX prerequisite execution belongs to the native Unix jobs.
-	}
 	for _, shell := range []string{"sh", "bash"} {
 		for failure := range 3 {
 			t.Run(fmt.Sprintf("%s/failure-%d", shell, failure), func(t *testing.T) {
@@ -481,7 +475,7 @@ func TestLockRefreshIsExplicitAndUsesOneNativeTask(t *testing.T) {
 	if !present || input.Type != "boolean" || input.Required || input.Default.Value != "false" {
 		t.Fatal("lock refresh must be an explicit optional manual input")
 	}
-	for _, platform := range []string{"darwin", "linux", "windows"} {
+	for _, platform := range []string{"darwin", "linux"} {
 		found := false
 		for _, step := range workflow.Jobs["native-"+platform].Steps {
 			if step.Name != "Verify native lock resolution" {

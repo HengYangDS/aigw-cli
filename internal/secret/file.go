@@ -1,5 +1,3 @@
-//go:build !windows
-
 package secret
 
 import (
@@ -7,14 +5,6 @@ import (
 	"os"
 	"syscall"
 )
-
-func encodeCredential(value []byte) ([]byte, error) {
-	return append([]byte(nil), value...), nil
-}
-
-func decodeCredential(value []byte) ([]byte, error) {
-	return append([]byte(nil), value...), nil
-}
 
 // tokenFileRequirement and tokenDirectoryRequirement say what AIGW accepts of
 // a Token file and of the directory that holds it.
@@ -50,5 +40,3 @@ func validateSecureRoot(info os.FileInfo) error {
 	}
 	return validateOwner(info, "Token storage")
 }
-
-func syncCredentialDirectory(directory syncer) error { return directory.Sync() }

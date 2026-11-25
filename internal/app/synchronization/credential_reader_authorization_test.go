@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -22,9 +21,6 @@ func newKeyringReaderFixture(t *testing.T, target string) (Synchronizer, string)
 	t.Helper()
 	root := filepath.Dir(target)
 	sourceName := "aigw"
-	if runtime.GOOS == "windows" {
-		sourceName += ".exe"
-	}
 	source := filepath.Join(root, sourceName)
 	fixture := filepath.Join(root, "reader.go")
 	program := `package main

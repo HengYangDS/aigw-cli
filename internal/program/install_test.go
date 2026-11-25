@@ -4,7 +4,6 @@ import (
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
 	"archive/tar"
-	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -211,7 +210,7 @@ func TestRollbackVerificationReadsExactBytesWithoutHostCredentials(t *testing.T)
 		if environment["AIGW_TOKEN_TEAM"] != "" || environment["AIGW_SECRET_BACKEND"] != "env" || environment["PATH"] != "" || environment["HOME"] != filepath.Join(filepath.Dir(plan.Executable), "home") {
 			t.Fatal("predecessor inherited host credentials or client paths")
 		}
-		for _, goos := range []string{"darwin", "linux", "windows"} {
+		for _, goos := range []string{"darwin", "linux"} {
 			configPath, err := platform.ConfigPathFor(goos, environment)
 			if err != nil {
 				t.Fatal(err)
@@ -314,28 +313,14 @@ func tarGzForTest(t *testing.T, name string, data []byte) []byte {
 	return out.Bytes()
 }
 
-func zipArchive(t *testing.T, name string, data []byte) []byte {
-	t.Helper()
-	var out bytes.Buffer
-	writer := zip.NewWriter(&out)
-	err := writer.AddFS(fstest.MapFS{name: &fstest.MapFile{Data: data, Mode: 0o755}})
-	if err := errors.Join(err, writer.Close()); err != nil {
-		t.Fatal(err)
-	}
-	return out.Bytes()
-}
-
 func TestRollbackPathVariants(t *testing.T) {
 	if got := RollbackPath("/opt/aigw/aigw"); got != "/opt/aigw/.aigw.previous" {
 		t.Fatalf("rollbackPath = %q", got)
 	}
-	if got := RollbackPath("/opt/aigw/aigw.EXE"); got != "/opt/aigw/.aigw.previous.exe" {
+	if got := RollbackPath("/opt//aigw/aigw"); got != "/opt//aigw/.aigw.previous" {
 		t.Fatalf("rollbackPath = %q", got)
 	}
-	if got := RollbackPath(`C:\aigw\aigw.exe`); got != `C:\aigw\.aigw.previous.exe` {
-		t.Fatalf("rollbackPath = %q", got)
-	}
-	if got := RollbackPath(`C:\aigw\aigw`); got != `C:\aigw\.aigw.previous` {
+	if got := RollbackPath("aigw"); got != ".aigw.previous" {
 		t.Fatalf("rollbackPath = %q", got)
 	}
 }
@@ -371,11 +356,8 @@ func fileSHA256ForTest(t *testing.T, path string) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
-func TestPortableInstallHelpersRejectEmptyTargetAndPreserveForeignSeparators(t *testing.T) {
+func TestPortableInstallHelpersRejectEmptyTarget(t *testing.T) {
 	if activated, err := (Updater{}).replacePortableBinary(t.Context(), []byte("binary")); err == nil || activated || !strings.Contains(err.Error(), "path is empty") {
 		t.Fatalf("empty target error = %v", err)
-	}
-	if got := RollbackPath(`C:\\tools\\aigw.exe`); got != `C:\\tools\\.aigw.previous.exe` {
-		t.Fatalf("Windows rollback path = %q", got)
 	}
 }

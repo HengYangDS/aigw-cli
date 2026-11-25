@@ -20,11 +20,9 @@ import (
 func TestNewDefaultBindsCredentialEntrypointToExecutableBytes(t *testing.T) {
 	root := t.TempDir()
 	for key, value := range map[string]string{
-		"HOME": root, "USERPROFILE": root,
+		"HOME":            root,
 		"XDG_CONFIG_HOME": filepath.Join(root, "config"),
 		"XDG_DATA_HOME":   filepath.Join(root, "data"),
-		"APPDATA":         filepath.Join(root, "roaming"),
-		"LOCALAPPDATA":    filepath.Join(root, "local"),
 	} {
 		t.Setenv(key, value)
 	}
@@ -142,7 +140,7 @@ func (counter *openCounter) Open(name string) (*os.File, error) {
 
 func BenchmarkDefaultAppStartup(b *testing.B) {
 	root := b.TempDir()
-	for key, value := range map[string]string{"HOME": root, "USERPROFILE": root, "XDG_CONFIG_HOME": filepath.Join(root, "config"), "XDG_DATA_HOME": filepath.Join(root, "data"), "APPDATA": filepath.Join(root, "roaming"), "LOCALAPPDATA": filepath.Join(root, "local"), "AIGW_SECRET_BACKEND": "env"} {
+	for key, value := range map[string]string{"HOME": root, "XDG_CONFIG_HOME": filepath.Join(root, "config"), "XDG_DATA_HOME": filepath.Join(root, "data"), "AIGW_SECRET_BACKEND": "env"} {
 		b.Setenv(key, value)
 	}
 	b.ReportAllocs()

@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -200,9 +199,6 @@ func TestRollbackWithoutARecoverySourceNamesWhatHelps(t *testing.T) {
 // TestRollbackThatCannotWriteReportsWhatChanged refuses a rollback whose
 // write fails, with the conservative impact when nothing verified it.
 func TestRollbackThatCannotWriteReportsWhatChanged(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("a read-only folder does not refuse a write on Windows")
-	}
 	if os.Geteuid() == 0 {
 		t.Skip("folder permissions do not bind root")
 	}

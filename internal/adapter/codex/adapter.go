@@ -191,8 +191,8 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, target string) (issue, detail, repair string, conflict bool) {
 	issue, repair = driftIssue, "aigw sync"
 	// A missing file, or a path that a file in the way or a link that leads
-	// nowhere blocks, which Windows reports as missing, is found before the
-	// credential reader that it names is read through it, which would only fail.
+	// nowhere blocks, is found before the credential reader that it names is
+	// read through it, which would only fail.
 	if _, err := os.Stat(target); err != nil {
 		if failure := platform.ClassifyPath(target, platform.FileExpected, err); failure.Absent() || failure.Blocked() {
 			return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, failure), false

@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -29,9 +28,8 @@ func TestRealMainRejectsUnavailableTemporaryDirectory(t *testing.T) {
 }
 
 // undeletableProfileRunner runs as recordingRunner does, and then keeps the
-// profile from being removed until the test ends: Windows refuses to delete an
-// open file, and other hosts refuse to delete an entry of a directory without
-// write permission. The profile stays readable.
+// profile from being removed until the test ends: the host refuses to delete an
+// entry of a directory without write permission. The profile stays readable.
 type undeletableProfileRunner struct {
 	recordingRunner
 	t *testing.T
@@ -42,23 +40,16 @@ func (r *undeletableProfileRunner) Run(name string, args []string, stdout, stder
 	if args[0] != "test" {
 		return err
 	}
-	held, openErr := os.Open(r.path)
-	if openErr != nil {
-		r.t.Fatal(openErr)
-	}
 	directory := filepath.Dir(r.path)
 	if chmodErr := os.Chmod(directory, 0o500); chmodErr != nil {
 		r.t.Fatal(chmodErr)
 	}
-	r.t.Cleanup(func() {
-		_ = held.Close()
-		_ = os.Chmod(directory, 0o700)
-	})
+	r.t.Cleanup(func() { _ = os.Chmod(directory, 0o700) })
 	return err
 }
 
 func TestCoverageCleanupFailurePreventsSuccessfulExit(t *testing.T) {
-	if runtime.GOOS != "windows" && os.Geteuid() == 0 {
+	if os.Geteuid() == 0 {
 		t.Skip("root removes an entry of a directory without write permission")
 	}
 	for _, failure := range []error{nil, errors.New("test process failed")} {

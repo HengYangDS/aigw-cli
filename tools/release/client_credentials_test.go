@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -119,82 +118,6 @@ func TestRetainedCredentialCommandDoesNotReloadClientProjection(t *testing.T) {
 			journey.requireCredential(retained, "native-journey-token")
 		})
 	}
-}
-
-func TestWindowsCredentialCommandSupportsDeepEntrypointNamespace(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("Windows native shell and executable path contract")
-	}
-	program, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, namespace := range []struct {
-		name   string
-		prefix string
-	}{{name: "drive"}, {name: "extended", prefix: `\\?\`}} {
-		t.Run(namespace.name, func(t *testing.T) {
-			root := t.TempDir()
-			data := namespace.prefix + filepath.Join(root, strings.Repeat("deep", 32))
-			if err := os.MkdirAll(data, 0o700); err != nil {
-				t.Fatal(err)
-			}
-			reader, err := versionedReaderPath(data, program, "aigw.exe")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(reader) < 260 {
-				t.Fatal("fixture did not reach the native Windows shell path boundary")
-			}
-			command, err := secret.Command(reader, claude.ID, "deep-fixture", runtime.GOOS)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := ensureReader(program, reader); err != nil {
-				t.Fatal(err)
-			}
-			prepared, err := secret.Command(reader, claude.ID, "deep-fixture", runtime.GOOS)
-			if err != nil || command != prepared {
-				t.Fatalf("reader preparation changed the captured command: %v", err)
-			}
-			canonical, err := secret.ExecutableFromCommand(command, claude.ID, "deep-fixture", runtime.GOOS)
-			if err != nil {
-				t.Fatal(err)
-			}
-			actual, err := os.Stat(canonical)
-			if err != nil {
-				t.Fatal(err)
-			}
-			original, err := os.Stat(reader)
-			if err != nil || !os.SameFile(actual, original) {
-				t.Fatalf("native shell path changed the credential file identity: %v", err)
-			}
-			successor := filepath.Join(root, "successor.exe")
-			mustWriteFile(t, successor, []byte("successor identity"), 0o700)
-			current, err := versionedReaderPath(data, successor, "aigw.exe")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := secret.ValidateRetainedEntrypoint(current, canonical); err != nil {
-				t.Fatalf("same native reader namespace was rejected: %v", err)
-			}
-			journey := &journeyFixture{testing: t, root: root, environment: append(os.Environ(),
-				"AIGW_TEST_EXTERNAL_CREDENTIAL=1", "AIGW_TEST_EXTERNAL_CLIENT=claude",
-				"AIGW_TEST_EXTERNAL_FINGERPRINT=deep-fixture")}
-			journey.requireCredential(journey.shellCredential(command), "native-real-client-token")
-		})
-	}
-	t.Run("unavailable native name", func(t *testing.T) {
-		root := t.TempDir()
-		path := filepath.Join(root, strings.Repeat("uncreated", 32), "aigw.exe")
-		if _, err := secret.Command(path, claude.ID, "deep-fixture", runtime.GOOS); err == nil {
-			t.Fatal("an overlong uncreated path acquired an executable command")
-		}
-		entries, err := os.ReadDir(root)
-		if err != nil || len(entries) != 0 {
-			t.Fatalf("native path observation created a reader or alias: %v", err)
-		}
-	})
 }
 
 func TestRetainedCredentialSurvivesInstalledExecutableUnlink(t *testing.T) {
@@ -323,18 +246,6 @@ func TestClientDisablePreservesRetainedEntrypointAcrossReenable(t *testing.T) {
 	journey.run("client", "enable", claude.ID, "--executable", executable)
 	journey.requireCredential(retained, "native-journey-token")
 	journey.requireCredential(journey.retainedCredential(claude.ID), "native-journey-token")
-}
-
-// ensureReader installs the program at source as the credential reader at
-// target, or verifies the one there, as a synchronization does, and returns
-// the compensation that removes only what it created.
-func ensureReader(source, target string) (func() error, error) {
-	program, err := secret.ReadProgram(nil, source)
-	if err != nil {
-		return nil, err
-	}
-	_, undo, err := program.EnsureEntrypoint(target)
-	return undo, err
 }
 
 // versionedReaderPath is the versioned credential reader below dataDir for

@@ -1,94 +1,48 @@
 package performance
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"time"
+
+	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/process"
 )
 
-func processArchitecture(machine uint16) string {
-	return map[uint16]string{0x8664: "amd64", 0xaa64: "arm64", 0x014c: "386"}[machine]
-}
-
-func reviewExecution(selected *Identity, observed []Execution, platform string) error {
+// reviewIdentity requires the complete identity of a selected file.
+func reviewIdentity(selected *Identity) error {
 	if selected == nil || selected.Path == "" || len(selected.SHA256) != 64 || selected.Bytes < 1 || selected.Arch == "" {
 		return errors.New("performance execution identity is incomplete")
 	}
-	if platform != "windows" {
-		return nil
-	}
-	if len(observed) == 0 {
-		return errors.New("performance execution identity is incomplete")
-	}
-	parents := make(map[uint32]Execution)
-	for index, process := range observed {
-		if err := process.review(); err != nil {
-			return err
-		}
-		if index != 0 {
-			parent, ok := parents[process.ParentPID]
-			if !ok || !parent.owns(process) {
-				return errors.New("performance process relationship is unproved")
-			}
-		}
-		if _, repeated := parents[process.PID]; repeated {
-			return errors.New("performance process identity is repeated")
-		}
-		parents[process.PID] = process
-	}
-	if !selected.sameFile(observed[0].Image) {
-		return errors.New("performance process image differs from its selected file")
-	}
 	return nil
 }
 
-func (process Execution) review() error {
-	arch := processArchitecture(process.Machine)
-	if process.PID == 0 || process.ParentPID == 0 || process.Created == 0 || process.ParentCreated == 0 || process.ParentCreated > process.Created || process.Role == "" ||
-		arch == "" || process.Arch != arch || processArchitecture(process.NativeMachine) == "" || process.Attributes&1 == 0 ||
-		process.WOW64Machine != 0 && process.WOW64Machine != process.Machine ||
-		len(process.Image.SHA256) != 64 || process.Image.Path == "" || process.Image.Bytes < 1 {
-		return errors.New("performance execution identity is incomplete")
+// ObserveCommand runs one untimed preflight: the preparation, then the
+// measured command, each once. Their streams are retained beside the samples,
+// and Measure judges the product's diagnostics from them, so the timed runs'
+// output, Hyperfine's own advice included, remains evidence only. A diagnostic
+// marks the workload unqualified without stopping the others.
+func ObserveCommand(parent context.Context, input Command, workload Workload) error {
+	if len(workload.Command) == 0 || input.Output == "" {
+		return errors.New("native preflight requires an explicit workload and output")
 	}
-	return nil
-}
-
-func (process Execution) owns(child Execution) bool {
-	return process.PID == child.ParentPID && process.Created == child.ParentCreated && process.NativeMachine == child.NativeMachine
-}
-
-func reviewWorkloadExecution(row Measurement, controller Identity, platform string) error {
-	if err := reviewExecution(row.Executable, row.Execution, platform); err != nil || platform != "windows" {
-		return err
-	}
-	if err := reviewExecution(&controller, row.ControllerExecution, platform); err != nil {
-		return err
-	}
-	root, host := row.Execution[0], row.ControllerExecution[0]
-	if len(row.ControllerExecution) != 1 || host.Role != "controller" || root.Role != "workload" || !host.owns(root) {
-		return errors.New("performance workload is not owned by its observed controller")
-	}
-	if row.Case != "credential" {
-		return nil
-	}
-	var reader *Execution
-	worker := false
-	for index := 1; index < len(row.Execution); index++ {
-		process := &row.Execution[index]
-		switch process.Role {
-		case "reader":
-			if reader != nil || row.Reader == nil || !row.Reader.sameFile(process.Image) || !root.owns(*process) {
-				return errors.New("performance projected reader is unproved")
-			}
-			reader = process
-		case "credential-worker":
-			if reader == nil || !row.Reader.sameFile(process.Image) || !reader.owns(*process) {
-				return errors.New("performance native credential worker is unproved")
-			}
-			worker = true
+	ctx, cancel := context.WithTimeout(parent, 20*time.Second)
+	defer cancel()
+	var stdout, stderr []byte
+	var runErr error
+	for _, command := range [][]string{workload.Prepare, workload.Command} {
+		if len(command) == 0 || runErr != nil {
+			continue
 		}
+		out, diagnostics, err := (process.Runner{StdoutLimit: 4 << 20}).RunCaptureStreams(ctx, process.Plan{
+			Executable: command[0], Args: command[1:], Env: input.Environment, Directory: input.Directory,
+		})
+		stdout, stderr, runErr = append(stdout, out...), append(stderr, diagnostics...), err
 	}
-	if reader == nil || row.Backend == "keyring" && !worker {
-		return fmt.Errorf("performance credential chain is incomplete for %s", row.Backend)
+	runErr = errors.Join(runErr, writePreflightStreams(input, stdout, stderr))
+	if runErr != nil {
+		return fmt.Errorf("native preflight: %s", domain.Redact(runErr.Error(), input.Sensitive...))
 	}
 	return nil
 }

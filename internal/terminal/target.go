@@ -6,11 +6,9 @@ import (
 
 // HomeDirectory reads the user's home directory from a command environment.
 func HomeDirectory(env []string) string {
-	for _, name := range []string{"HOME", "USERPROFILE"} {
-		for _, entry := range env {
-			if value, ok := strings.CutPrefix(entry, name+"="); ok && value != "" {
-				return value
-			}
+	for _, entry := range env {
+		if value, ok := strings.CutPrefix(entry, "HOME="); ok && value != "" {
+			return value
 		}
 	}
 	return ""

@@ -63,7 +63,7 @@ func TestWriteProvenanceBindsSourceLocksToolsAndUnsignedArtifacts(t *testing.T) 
 		}
 	}
 	for _, forbidden := range []string{root, candidate, "timestamp", "credential", "installer"} {
-		// The document escapes every backslash of a Windows path.
+		// The document holds each value in its JSON spelling.
 		escaped, encodeErr := json.Marshal(forbidden)
 		if encodeErr != nil {
 			t.Fatal(encodeErr)

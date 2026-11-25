@@ -3,7 +3,6 @@ package claude
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -53,9 +52,6 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 	after, err := claudeRegistry().Converge(adapter.Dependencies{}, cfg, discovery.Result{}, ID)
 	if err != nil || after.Clients[ID].Executable != missing {
 		t.Fatalf("configured missing executable = %q, %v", after.Clients[ID].Executable, err)
-	}
-	if runtime.GOOS == "windows" {
-		return
 	}
 	loop := filepath.Join(t.TempDir(), "loop")
 	if err := os.Symlink(loop, loop); err != nil {

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"testing"
 
@@ -44,16 +43,12 @@ var (
 	}}
 )
 
-// symlinkTo makes a symbolic link to target and returns the link's path.
-// Windows lets only a privileged or developer-mode account create one, so
-// there a test that cannot is skipped; everywhere else the failure fails it.
+// symlinkTo makes a symbolic link to target and returns the link's path; a
+// failure fails the test.
 func symlinkTo(t *testing.T, target string) string {
 	t.Helper()
 	link := filepath.Join(t.TempDir(), filepath.Base(target))
 	if err := os.Symlink(target, link); err != nil {
-		if runtime.GOOS == "windows" {
-			t.Skipf("this account cannot create a symbolic link: %v", err)
-		}
 		t.Fatal(err)
 	}
 	return link

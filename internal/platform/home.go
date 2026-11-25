@@ -13,9 +13,7 @@ import (
 // both resolve to it.
 func HomeTarget(path, home string) (target string, outside bool) {
 	target, outside = homeTarget(path, home)
-	// A file on another volume, such as a network share, stays outside
-	// without a lookup there.
-	if !outside || !strings.EqualFold(filepath.VolumeName(path), filepath.VolumeName(home)) {
+	if !outside {
 		return target, outside
 	}
 	resolvedHome := home
@@ -53,12 +51,8 @@ func homeTarget(path, home string) (target string, outside bool) {
 	relative, err := filepath.Rel(home, path)
 	switch {
 	case err != nil:
-		// Rel fails for absolute paths on different volumes, such as two
-		// Windows drives or a drive and a UNC share, and compares volume names
-		// without case; such a file is known to lie outside home. A relative
-		// or invalid home leaves the location unknown.
-		return "", filepath.IsAbs(home) && filepath.IsAbs(path) &&
-			!strings.EqualFold(filepath.VolumeName(home), filepath.VolumeName(path))
+		// A relative or invalid home leaves the location unknown.
+		return "", false
 	case relative == ".":
 		return "", false
 	case relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)):

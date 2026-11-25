@@ -190,11 +190,11 @@ func TestArgvPreservesNativeArguments(t *testing.T) {
 		}
 		os.Exit(0)
 	}
-	if got := Argv(`C:\program files\aigw.exe`, "a'b", ""); got != `'C:\program files\aigw.exe' 'a'\''b' ''` {
+	if got := Argv("/opt/program files/aigw", "a'b", ""); got != `'/opt/program files/aigw' 'a'\''b' ''` {
 		t.Fatalf("Hyperfine argv quoting = %s", got)
 	}
 	workload := Workload{Command: []string{"measured command"}, Prepare: []string{"prepare command"}}
-	want := []string{"--shell=none", "--metrics=time", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", "samples.json", "--prepare", preparationCommand(workload.Prepare), Argv(workload.Command...)}
+	want := []string{"--shell=none", "--metrics=time", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", "samples.json", "--prepare", Argv(workload.Prepare...), Argv(workload.Command...)}
 	if got := workload.Arguments("samples.json"); !slices.Equal(got, want) {
 		t.Fatalf("prepared native workload = %q, want %q", got, want)
 	}
@@ -429,8 +429,8 @@ func performanceExportFixture(t *testing.T, program, name string) Command {
 	}
 }
 
-func TestIdentityRecognizesPortableExecutableFormats(t *testing.T) {
-	for _, target := range []struct{ os, arch, format string }{{"windows", "arm64", "PE"}, {"linux", "amd64", "ELF"}, {"darwin", "arm64", "Mach-O"}} {
+func TestIdentityRecognizesNativeExecutableFormats(t *testing.T) {
+	for _, target := range []struct{ os, arch, format string }{{"linux", "amd64", "ELF"}, {"darwin", "arm64", "Mach-O"}} {
 		t.Run(target.format, func(t *testing.T) {
 			root := t.TempDir()
 			source, executable := filepath.Join(root, "main.go"), filepath.Join(root, "selected-executable")

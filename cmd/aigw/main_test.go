@@ -111,8 +111,6 @@ func setAIGWTestEnvironment(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", home)
 	t.Setenv("XDG_DATA_HOME", home)
-	t.Setenv("APPDATA", home)
-	t.Setenv("LOCALAPPDATA", home)
 	t.Setenv("AIGW_SECRET_BACKEND", "env")
 	t.Setenv("NO_COLOR", "1")
 }

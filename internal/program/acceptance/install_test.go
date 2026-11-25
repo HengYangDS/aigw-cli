@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -128,7 +127,7 @@ func TestUpdateDownloadsVerifiesAndAtomicallyReplacesBinary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o755 {
+	if info.Mode().Perm() != 0o755 {
 		t.Fatalf("rollback mode = %o, want 755", info.Mode().Perm())
 	}
 }
@@ -189,7 +188,7 @@ func TestUpdateMakesReplacedRollbackBinaryExecutable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o755 {
+	if info.Mode().Perm() != 0o755 {
 		t.Fatalf("rollback mode = %o, want 755", info.Mode().Perm())
 	}
 }

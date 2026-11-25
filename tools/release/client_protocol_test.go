@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/hermes"
 
 	"aigw-cli/internal/domain"
@@ -154,11 +153,7 @@ func newNativeClientServer(t *testing.T, client string, protocol domain.Endpoint
 	if client == hermes.ID {
 		requiredEffort = ""
 	}
-	shell := ""
-	if client == codex.ID {
-		shell = nativeCodexToolShell(t)
-	}
-	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{model: completions}, token, requiredEffort, shell)
+	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{model: completions}, token, requiredEffort)
 	var hermesSession *hermesSessionRecorder
 	if client == hermes.ID {
 		hermesSession = &hermesSessionRecorder{Handler: handler, model: model, token: token}
@@ -214,7 +209,7 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 				request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
 				request.Header.Set("Authorization", "Bearer "+test.credential)
 				response = httptest.NewRecorder()
-				clientResponseHandler(protocol, expected, "synthetic", "high", "").ServeHTTP(response, request)
+				clientResponseHandler(protocol, expected, "synthetic", "high").ServeHTTP(response, request)
 				if response.Code != test.status || completions.Load() != test.completed {
 					t.Fatalf("%s %s: status=%d completions=%d", test.method, test.path, response.Code, completions.Load())
 				}
@@ -238,7 +233,7 @@ func TestNativeClientInferenceEnvelope(t *testing.T) {
 			var completions atomic.Int64
 			response := httptest.NewRecorder()
 			recorder := hermesSessionRecorder{
-				Handler: clientResponseHandler(protocol, map[string]*atomic.Int64{"configured-model": &completions}, "synthetic", "high", ""),
+				Handler: clientResponseHandler(protocol, map[string]*atomic.Int64{"configured-model": &completions}, "synthetic", "high"),
 				model:   "configured-model",
 			}
 			recorder.ServeHTTP(response, request)
@@ -273,7 +268,7 @@ func assertStreamEvents(t *testing.T, protocol domain.EndpointProtocol, body str
 	}
 }
 
-func clientResponseHandler(protocol domain.EndpointProtocol, completions map[string]*atomic.Int64, token, requiredEffort, shell string) http.Handler {
+func clientResponseHandler(protocol domain.EndpointProtocol, completions map[string]*atomic.Int64, token, requiredEffort string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/models", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
@@ -317,7 +312,7 @@ func clientResponseHandler(protocol domain.EndpointProtocol, completions map[str
 			http.Error(response, "configured effort required", http.StatusBadRequest)
 			return
 		}
-		if err := input.writeStream(response, protocol, shell); err != nil {
+		if err := input.writeStream(response, protocol); err != nil {
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -332,7 +327,7 @@ func clientResponseHandler(protocol domain.EndpointProtocol, completions map[str
 	})
 }
 
-func (input clientInferenceRequest) writeStream(response http.ResponseWriter, protocol domain.EndpointProtocol, shell string) error {
+func (input clientInferenceRequest) writeStream(response http.ResponseWriter, protocol domain.EndpointProtocol) error {
 	text := "AIGW_OK"
 	if protocol == domain.ProtocolResponses && strings.Contains(string(input.Input), "challenge.txt") {
 		var err error
@@ -346,11 +341,7 @@ func (input clientInferenceRequest) writeStream(response http.ResponseWriter, pr
 		if err != nil {
 			return err
 		}
-		command := map[string]any{"cmd": "cat challenge.txt"}
-		if shell != "" {
-			command["cmd"], command["shell"], command["login"] = "type challenge.txt", shell, false
-		}
-		arguments, err := json.Marshal(command)
+		arguments, err := json.Marshal(map[string]any{"cmd": "cat challenge.txt"})
 		if err != nil {
 			return err
 		}
@@ -459,7 +450,7 @@ func TestNativeCodexChallengeStreamRequiresToolOutputAndRecall(t *testing.T) {
 	} {
 		t.Run(client.name, func(t *testing.T) {
 			var completed atomic.Int64
-			handler := clientResponseHandler(domain.ProtocolResponses, map[string]*atomic.Int64{"configured-model": &completed}, "synthetic", "high", "")
+			handler := clientResponseHandler(domain.ProtocolResponses, map[string]*atomic.Int64{"configured-model": &completed}, "synthetic", "high")
 			challenge := client.declaration + `{"role":"user","content":"Use a shell tool to read challenge.txt"}`
 			result := `"Process exited with code 0\nFinal output:\n` + marker + `"`
 			if client.outputType == "custom_tool_call_output" {

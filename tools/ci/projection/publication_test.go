@@ -239,7 +239,7 @@ func TestManualHistoricalAcceptanceSelectsAnExplicitRelease(t *testing.T) {
 		t.Fatal(err)
 	}
 	const selection = "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)"
-	for _, platform := range []string{"darwin", "linux", "windows"} {
+	for _, platform := range []string{"darwin", "linux"} {
 		steps := workflow.Jobs["native-"+platform].Steps
 		index := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Run historical release acceptance" })
 		if index < 0 {
@@ -305,7 +305,7 @@ func TestManualPrebuiltPerformanceUsesItsExactToolClosure(t *testing.T) {
 		t.Fatal(err)
 	}
 	const source = "${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || inputs.candidate_tag == '') && '"
-	for _, platform := range []string{"darwin", "linux", "windows"} {
+	for _, platform := range []string{"darwin", "linux"} {
 		// A GitHub artifact journey prepares gh, never the GitLab CLI.
 		artifactTools := "go,gh,github:goreleaser/goreleaser"
 		if platform == "darwin" {
@@ -374,7 +374,7 @@ func TestGitLabPerformanceUsesItsSelectedNativeClosure(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"native-linux", "native-darwin-review", "native-darwin", "native-windows-review", "native-windows"} {
+	for _, name := range []string{"native-linux", "native-darwin-review", "native-darwin"} {
 		t.Run(name, func(t *testing.T) {
 			var job struct {
 				BeforeScript []string     `yaml:"before_script"`
@@ -416,7 +416,6 @@ gitlab: {
 	}
 	"native-darwin": {}
 	"native-linux": {}
-	"native-windows": {}
 }
 githubVerify: {name: "Verify"}
 githubRelease: {name: "Release"}

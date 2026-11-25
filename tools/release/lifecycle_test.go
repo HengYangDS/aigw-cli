@@ -5,7 +5,6 @@ import (
 	"aigw-cli/tools/release/identity"
 	"aigw-cli/tools/release/performance"
 	"archive/tar"
-	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
@@ -56,11 +55,11 @@ func nativeReleaseCandidate(t *testing.T, root, version string) (program, archiv
 	t.Helper()
 	if directory := os.Getenv("AIGW_ACCEPTANCE_RELEASE"); directory != "" {
 		baseName, archiveName := nativeArchiveNames(version)
-		return filepath.Join(directory, baseName, executableName()), filepath.Join(directory, archiveName), filepath.Join(directory, "checksums.txt")
+		return filepath.Join(directory, baseName, "aigw"), filepath.Join(directory, archiveName), filepath.Join(directory, "checksums.txt")
 	}
 	stage := cachedNativeSource(t, root, version)
 	base, name := nativeArchiveNames(version)
-	return filepath.Join(stage, base, executableName()), filepath.Join(stage, name), filepath.Join(stage, "checksums.txt")
+	return filepath.Join(stage, base, "aigw"), filepath.Join(stage, name), filepath.Join(stage, "checksums.txt")
 }
 
 func nativePerformancePrograms(t *testing.T) []performance.Program {
@@ -223,7 +222,7 @@ func (j *journeyFixture) requireUserTheme(theme string) {
 
 func (j *journeyFixture) requireInvalidSuccessorPreservesInstallation(currentVersion string) {
 	j.testing.Helper()
-	invalidProgram := filepath.Join(j.testing.TempDir(), executableName())
+	invalidProgram := filepath.Join(j.testing.TempDir(), "aigw")
 	if err := os.WriteFile(invalidProgram, []byte("not an executable\n"), 0o700); err != nil {
 		j.testing.Fatal(err)
 	}
@@ -332,10 +331,6 @@ func (j *journeyFixture) requireInstalledProgramFiles() {
 	for _, name := range j.retainedProgramNames {
 		want[name] = true
 	}
-	if runtime.GOOS == "windows" {
-		delete(want, ".aigw.previous")
-		want[".aigw.previous.exe"] = true
-	}
 	if len(entries) != len(want) {
 		j.testing.Fatalf("installed program directory contains residue: %#v", entryNames(entries))
 	}
@@ -352,11 +347,7 @@ func writeNativeArchive(t *testing.T, binary, version string) (string, string) {
 	baseName, archiveName := nativeArchiveNames(version)
 	archive := filepath.Join(directory, archiveName)
 	payload := readFile(t, binary)
-	if runtime.GOOS == "windows" {
-		writeZipArchive(t, archive, baseName+"/"+executableName(), payload)
-	} else {
-		writeTarGzipArchive(t, archive, baseName+"/"+executableName(), payload)
-	}
+	writeTarGzipArchive(t, archive, baseName+"/aigw", payload)
 	digest := sha256.Sum256(readFile(t, archive))
 	checksums := filepath.Join(directory, "checksums.txt")
 	if err := os.WriteFile(checksums, []byte(fmt.Sprintf("%x  %s\n", digest, archiveName)), 0o600); err != nil {
@@ -367,9 +358,6 @@ func writeNativeArchive(t *testing.T, binary, version string) (string, string) {
 
 func nativeArchiveNames(version string) (string, string) {
 	baseName := fmt.Sprintf("aigw_%s_%s_%s", version, runtime.GOOS, runtime.GOARCH)
-	if runtime.GOOS == "windows" {
-		return baseName, baseName + ".zip"
-	}
 	return baseName, baseName + ".tar.gz"
 }
 
@@ -390,25 +378,6 @@ func writeTarGzipArchive(t *testing.T, path, member string, payload []byte) {
 	closeArchive(t, tarWriter.Close, gzipWriter.Close, file.Close)
 }
 
-func writeZipArchive(t *testing.T, path, member string, payload []byte) {
-	t.Helper()
-	file, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	archive := zip.NewWriter(file)
-	header := &zip.FileHeader{Name: member, Method: zip.Deflate}
-	header.SetMode(0o755)
-	entry, err := archive.CreateHeader(header)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := entry.Write(payload); err != nil {
-		t.Fatal(err)
-	}
-	closeArchive(t, archive.Close, file.Close)
-}
-
 func closeArchive(t *testing.T, closers ...func() error) {
 	t.Helper()
 	for _, closeFn := range closers {
@@ -420,7 +389,7 @@ func closeArchive(t *testing.T, closers ...func() error) {
 
 func readFile(t *testing.T, path string) []byte {
 	t.Helper()
-	// Windows can hold a file briefly after another process published it.
+	// A host can briefly refuse a file that another process has just published.
 	data, err := robustio.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)

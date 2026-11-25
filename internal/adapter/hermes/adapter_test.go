@@ -76,9 +76,6 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 		t.Fatalf("absent Hermes intent was not deferred: %#v", binding)
 	}
 	name := "hermes"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
 	if err := os.WriteFile(filepath.Join(home, name), []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}

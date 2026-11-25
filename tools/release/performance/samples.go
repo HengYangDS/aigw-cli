@@ -40,22 +40,20 @@ func (s Samples) Percentile() (float64, error) {
 // Measurement binds one retained timing block to its workload and budget.
 // A zero budget denotes component diagnosis, never performance qualification.
 type Measurement struct {
-	Mode                string         `json:"mode,omitempty"`
-	Runtime             domain.Runtime `json:"runtime,omitzero"`
-	Variant             string         `json:"variant"`
-	Backend             string         `json:"backend"`
-	Case                string         `json:"case"`
-	Command             []string       `json:"command"`
-	Block               int            `json:"block"`
-	P95                 float64        `json:"p95_seconds"`
-	Budget              float64        `json:"budget_seconds"`
-	Raw                 string         `json:"raw"`
-	Diagnostics         bool           `json:"diagnostics"`
-	Samples             Samples        `json:"-"`
-	Executable          *Identity      `json:"selected_executable,omitempty"`
-	Reader              *Identity      `json:"selected_credential_reader,omitempty"`
-	Execution           []Execution    `json:"execution,omitempty"`
-	ControllerExecution []Execution    `json:"controller_execution,omitempty"`
+	Mode        string         `json:"mode,omitempty"`
+	Runtime     domain.Runtime `json:"runtime,omitzero"`
+	Variant     string         `json:"variant"`
+	Backend     string         `json:"backend"`
+	Case        string         `json:"case"`
+	Command     []string       `json:"command"`
+	Block       int            `json:"block"`
+	P95         float64        `json:"p95_seconds"`
+	Budget      float64        `json:"budget_seconds"`
+	Raw         string         `json:"raw"`
+	Diagnostics bool           `json:"diagnostics"`
+	Samples     Samples        `json:"-"`
+	Executable  *Identity      `json:"selected_executable,omitempty"`
+	Reader      *Identity      `json:"selected_credential_reader,omitempty"`
 }
 
 // Pooled combines exactly two forty-sample blocks for each measured boundary.
@@ -91,7 +89,7 @@ func Pooled(measurements []Measurement) ([]Measurement, error) {
 		}
 		if !exists {
 			group = row
-			group.Block, group.Raw, group.Command, group.Samples, group.Execution, group.ControllerExecution = 0, "", nil, Samples{}, nil, nil
+			group.Block, group.Raw, group.Command, group.Samples = 0, "", nil, Samples{}
 			if row.Executable != nil {
 				selected := *row.Executable
 				selected.Path = ""
@@ -170,38 +168,22 @@ func ReviewMemory(rows []Memory) error {
 	return nil
 }
 
-// Execution describes a live Windows process, independently of its PE file header.
-type Execution struct {
-	PID           uint32   `json:"pid"`
-	ParentPID     uint32   `json:"parent_pid"`
-	Created       uint64   `json:"creation_time"`
-	ParentCreated uint64   `json:"parent_creation_time"`
-	Role          string   `json:"role"`
-	Image         Identity `json:"image"`
-	Machine       uint16   `json:"process_machine"`
-	Arch          string   `json:"process_arch"`
-	WOW64Machine  uint16   `json:"wow64_machine"`
-	NativeMachine uint16   `json:"native_machine"`
-	Attributes    uint32   `json:"machine_attributes"`
-}
-
 // Summary is the single producer and consumer contract for native performance.
 type Summary struct {
-	Qualification       bool                   `json:"qualification"`
-	Scope               string                 `json:"scope"`
-	Controllers         map[string]Identity    `json:"selected_controller_files"`
-	ControllerExecution map[string][]Execution `json:"controller_execution,omitempty"`
-	IdentityScope       string                 `json:"identity_scope"`
-	OS                  string                 `json:"os"`
-	Arch                string                 `json:"arch"`
-	Tool                string                 `json:"tool"`
-	MemoryScope         string                 `json:"memory_scope"`
-	ClientScope         string                 `json:"client_scope"`
-	Programs            []Program              `json:"programs"`
-	Backends            []string               `json:"selected_backends"`
-	Blocks              []Measurement          `json:"blocks"`
-	Pooled              []Measurement          `json:"pooled"`
-	Memory              []Memory               `json:"memory"`
+	Qualification bool                `json:"qualification"`
+	Scope         string              `json:"scope"`
+	Controllers   map[string]Identity `json:"selected_controller_files"`
+	IdentityScope string              `json:"identity_scope"`
+	OS            string              `json:"os"`
+	Arch          string              `json:"arch"`
+	Tool          string              `json:"tool"`
+	MemoryScope   string              `json:"memory_scope"`
+	ClientScope   string              `json:"client_scope"`
+	Programs      []Program           `json:"programs"`
+	Backends      []string            `json:"selected_backends"`
+	Blocks        []Measurement       `json:"blocks"`
+	Pooled        []Measurement       `json:"pooled"`
+	Memory        []Memory            `json:"memory"`
 }
 
 // Review checks measured evidence rather than trusting the qualification flag.
@@ -211,16 +193,13 @@ func (s Summary) Review() error {
 		if !ok {
 			return errors.New("performance controller identity is incomplete")
 		}
-		if err := reviewExecution(&selected, s.ControllerExecution[name], s.OS); err != nil {
+		if err := reviewIdentity(&selected); err != nil {
 			return err
 		}
 	}
 	for _, row := range s.Blocks {
-		if err := reviewWorkloadExecution(row, s.Controllers["hyperfine"], s.OS); err != nil {
+		if err := reviewIdentity(row.Executable); err != nil {
 			return err
-		}
-		if s.OS == "windows" && !s.ControllerExecution["verifier"][0].owns(row.ControllerExecution[0]) {
-			return errors.New("performance measurement is not owned by its observed verifier")
 		}
 	}
 	if (s.Scope != "full-performance" && s.Scope != "forwarding-performance") || s.OS == "" || s.Arch == "" || s.Tool == "" || s.IdentityScope == "" || s.MemoryScope == "" || s.ClientScope == "" || len(s.Programs) != 2 {

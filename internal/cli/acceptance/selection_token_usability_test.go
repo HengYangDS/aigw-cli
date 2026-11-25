@@ -76,9 +76,6 @@ func unobservableStores() []unobservableStore {
 				}
 			}
 			for _, provider := range unobservable {
-				if runtime.GOOS == "windows" {
-					t.Skip("the file store checks no mode on Windows")
-				}
 				// The selected file backend keeps its Token files in the folder tokens.
 				if err := os.Chmod(filepath.Join(root, "tokens", provider), 0o644); err != nil {
 					t.Fatal(err)

@@ -22,7 +22,6 @@ func newHermesSessionRecorderForTest(model, token string, completions *atomic.In
 			map[string]*atomic.Int64{model: completions},
 			token,
 			"",
-			"",
 		),
 		model: model,
 		token: token,

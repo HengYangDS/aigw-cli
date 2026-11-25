@@ -128,7 +128,6 @@ func shortHome(t *testing.T) string {
 	t.Helper()
 	home := filepath.Join(string(filepath.Separator)+"home", "operator")
 	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
 	return home
 }
 
@@ -254,7 +253,6 @@ func TestClientReportShortensOnlyTheHomeItself(t *testing.T) {
 		t.Fatalf("report = %q, want %q", got, want)
 	}
 	t.Setenv("HOME", home+string(filepath.Separator))
-	t.Setenv("USERPROFILE", home+string(filepath.Separator))
 	if got := reportOf(t, Diagnostic("Client", []byte("error: read "+home+"/file"))); !slices.Equal(got, []string{"error: read ~/file"}) {
 		t.Fatalf("a home with a trailing separator: report = %q", got)
 	}

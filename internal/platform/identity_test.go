@@ -5,7 +5,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -39,15 +38,10 @@ func realFile(t *testing.T, path string) string {
 	return path
 }
 
-// linkTo makes a symbolic link to target at link. Windows lets only a
-// privileged or developer-mode account create one, so there a test that
-// cannot is skipped; everywhere else the failure fails it.
+// linkTo makes a symbolic link to target at link; a failure fails the test.
 func linkTo(t *testing.T, target, link string) string {
 	t.Helper()
 	if err := os.Symlink(target, link); err != nil {
-		if runtime.GOOS == "windows" {
-			t.Skipf("this account cannot create a symbolic link: %v", err)
-		}
 		t.Fatal(err)
 	}
 	return link

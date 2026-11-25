@@ -29,7 +29,7 @@ type adapterDiscovery struct{ result discovery.Result }
 // hostAt observes home as the user's home directory, so Claude Code's settings
 // file is home/.claude/settings.json.
 func hostAt(home string) discovery.Host {
-	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home}}
 }
 
 // claudeSettingsPath returns the Claude Code settings file on host.
@@ -160,7 +160,7 @@ func TestEnableClaudePersistsOnlyTheRealExecutable(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	executable := filepath.Join(t.TempDir(), "Program Files", "Claude", "claude.exe")
+	executable := filepath.Join(t.TempDir(), "Claude Code", "bin", "claude")
 	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", executable); err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +281,7 @@ func TestEnableClaudeDoesNotRequireAnAIGWLauncherDirectory(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", `C:\claude.exe`)
+	err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", "/opt/claude/claude")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -338,7 +338,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", `C:\claude.exe`); err != nil {
+	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", "/opt/claude/claude"); err != nil {
 		t.Fatal(err)
 	}
 	verified, err := runtime.Config.Load()
@@ -387,7 +387,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 
 func TestDisableClaudeDoesNotInspectForeignFilesystemEntries(t *testing.T) {
 	cfg := adapterConfig()
-	cfg.SetClientActivation(claude.ID, true, `C:\claude.exe`, nil)
+	cfg.SetClientActivation(claude.ID, true, "/opt/claude/claude", nil)
 	runtime, _, _, _ := adapterRuntime(t, cfg)
 	err := executeAdapter(t, runtime, "disable", claude.ID)
 	if err != nil {

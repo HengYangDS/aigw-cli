@@ -7,8 +7,8 @@ import (
 
 // pipeline.cue owns CI topology. Forge files are generated projections.
 
-#OperatingSystem: "darwin" | "linux" | "windows"
-#JobID:           "accepted-ref-parity" | "quality" | "native-darwin" | "native-linux" | "native-windows" | "linux-secret-service" | "release-version" | "release-assets"
+#OperatingSystem: "darwin" | "linux"
+#JobID:           "accepted-ref-parity" | "quality" | "native-darwin" | "native-linux" | "linux-secret-service" | "release-version" | "release-assets"
 #Claim:           "accepted-ref-parity" | "source-quality" | "go-source-compatibility" | "native-product-journey" | "lifecycle-acceptance" | "linux-secret-service" | "release-metadata" | "artifact-verification"
 
 #Job: {
@@ -36,11 +36,9 @@ installationEnvironment: GODEBUG: "http2client=0"
 
 // Git source acquisition must admit the same paths as native tool caches.
 gitEnvironment: {
-	GIT_CONFIG_COUNT:   "2"
+	GIT_CONFIG_COUNT:   "1"
 	GIT_CONFIG_KEY_0:   "init.defaultBranch"
 	GIT_CONFIG_VALUE_0: "main"
-	GIT_CONFIG_KEY_1:   "core.longpaths"
-	GIT_CONFIG_VALUE_1: "true"
 }
 
 // Peer-local copies transport only the upstream bytes selected by .config/mise/mise.lock.
@@ -149,7 +147,7 @@ commands: {
 	// A native job runs the quality graph's selection-matrix gate where no
 	// quality job of the pipeline runs that graph.
 	native: {
-		for platform in ["darwin", "linux", "windows"] {
+		for platform in productEvidence.native {
 			(platform): strings.Join([
 				"mise exec --locked -- go run ./tools/ci native --platform \(platform)",
 				if platform != qualityPlatform {"--selection-matrix"},
@@ -158,7 +156,7 @@ commands: {
 	}
 	// GitLab native jobs derive their scope from the declared job inputs.
 	nativeJob: {
-		for platform in ["darwin", "linux", "windows"] {
+		for platform in productEvidence.native {
 			(platform): "\(native[platform]) --from-env"
 		}
 	}
@@ -205,7 +203,7 @@ toolchainTools: {
 goToolchain: MISE_ENABLE_TOOLS:      "go"
 qualityToolchain: MISE_ENABLE_TOOLS: strings.Join(toolchainTools.quality, ",")
 nativeToolchain: {
-	for platform in ["darwin", "linux", "windows"] {
+	for platform in productEvidence.native {
 		(platform): MISE_ENABLE_TOOLS: strings.Join(list.Concat([
 			toolchainTools.native,
 			if platform == "darwin" {toolchainTools.darwin},
@@ -217,7 +215,7 @@ nativeToolchain: {
 nativeArtifactToolchain: {
 	for peer in ["github", "gitlab"] {
 		(peer): {
-			for platform in ["darwin", "linux", "windows"] {
+			for platform in productEvidence.native {
 				(platform): MISE_ENABLE_TOOLS: strings.Join(list.Concat([
 					toolchainTools.nativeArtifact[peer],
 					if platform == "darwin" {toolchainTools.darwin},
@@ -239,7 +237,7 @@ lifecycle: {
 }
 
 // Product evidence is declared once; each Forge projects the complete matrix.
-productEvidence: native: ["darwin", "linux", "windows"]
+productEvidence: native: ["darwin", "linux"]
 
 gitlabControlPlatform: #OperatingSystem & "darwin"
 
@@ -249,21 +247,28 @@ qualityPlatform: #OperatingSystem & "linux"
 
 // The budget of every GitHub job that runs the selection matrix: the quality
 // job and each native job. It holds the matrix's own bound after the job's
-// longest measured work counted as if all of it ran first; the design gives
-// the figures. GitLab jobs take the project's limit.
-matrixJobMinutes: 70
+// longest measured work counted as if all of it ran first, rounded up to the
+// next ten minutes: the macOS run step (976 s) and setup (under 2 minutes)
+// before the 35-minute bound is about 53 minutes. The design of
+// drop-windows-and-intel-macos (D5) gives the figures. GitLab jobs take the
+// project's limit.
+matrixJobMinutes: 60
 
 // This map owns native execution evidence only. Product release targets remain
 // solely owned by .config/release/goreleaser/.goreleaser.yaml.
 nativeEvidence: {
 	darwin: {
 		name: "macOS"
+		// Both Forges name their ARM64 macOS runner with this one label. GitLab
+		// adds the pipeline kind: protected for dev, main and tags, review for
+		// proposal and merge-request pipelines.
+		_runner: "macos-latest"
 		gitlab: {
-			protectedTag: "ci-macos-arm64-shell"
-			tags: [protectedTag]
-			reviewTag: "ci-macos-arm64-review"
+			protectedTags: [_runner, "protected"]
+			reviewTags: [_runner, "review"]
+			tags: protectedTags
 		}
-		github: runner: "macos-26"
+		github: runner: _runner
 	}
 	linux: {
 		name: "Linux"
@@ -273,15 +278,6 @@ nativeEvidence: {
 			tags: ["$AIGW_CI_LINUX_RUNNER_TAG"]
 		}
 		github: runner: "ubuntu-24.04"
-	}
-	windows: {
-		name: "Windows"
-		gitlab: {
-			protectedTag: "ci-windows-arm64-shell"
-			tags: [protectedTag]
-			reviewTag: "ci-windows-arm64-review"
-		}
-		github: runner: "windows-2025"
 	}
 }
 
@@ -352,14 +348,8 @@ _graphOrder: {
 	}
 }
 
-miseImage:                        "docker.io/jdxcode/mise:2026.11.7-debian@sha256:0e4c7634244a6e09b99bf2b5aa2934d29837c400a6af53dd6fb3690b92b1d31f"
-miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
-miseWindowsArm64ExecutableSHA256: "e4f2b6740c4d249826a5bf22b362da7532c0a57c55319d18e4f23225bd6c0197"
-miseWindowsArm64ShimSHA256:       "b5a1c01a39ca3e625df7b994f1e5200942e11e0bf1268dc9de4e11b8c2c8a6d7"
-// AIGW's runner-owned Mise directory under Program Files on GitLab's Windows
-// ARM64 host; the other projects keep the shared mise directory.
-miseWindowsArm64Directory: "mise-aigw-cli"
-windowsMiseJobDirectory:   "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
+miseImage:   "docker.io/jdxcode/mise:2026.11.7-debian@sha256:0e4c7634244a6e09b99bf2b5aa2934d29837c400a6af53dd6fb3690b92b1d31f"
+miseVersion: strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
 // AIGW's runner-owned Mise on GitLab's macOS ARM64 host; the other projects
 // keep the host's shared Homebrew Mise.
 miseMacosArm64ExecutableSHA256: "0f7cb85b5c17208cb67088105bd1754c38314cb824cc97d109631b6df638f6fc"
@@ -387,8 +377,7 @@ macosRunnerMise: #"""
 	"""#
 
 // Official native clients for real-client acceptance, pinned once. Each GitHub
-// native job installs the clients its host declares; a GitLab public input
-// carries the reviewed Windows supplier archive built from the same releases.
+// native job installs the clients its host declares.
 nativeClients: {
 	codex:  "0.170.0"
 	claude: "2.1.327"
@@ -399,7 +388,6 @@ nativeClients: {
 		installer: "c73dad4dcf7c9ecadb98578e28cc763d23d7be3fa1b513545319038795493214"
 	}
 }
-windowsClientSupplier: "suppliers/windows-codex-\(nativeClients.codex)-claude-\(nativeClients.claude)-native-packages.tar.gz"
 
 // Artifact-only journeys enable only the artifact tool closure and, on Linux,
 // no compiler; source, full-quality and lock-refresh runs keep the complete
@@ -407,16 +395,14 @@ windowsClientSupplier: "suppliers/windows-codex-\(nativeClients.codex)-claude-\(
 nativeArtifactScope: {
 	_prebuilt:    "($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != \"true\" && $AIGW_REFRESH_LOCKS != \"true\""
 	_performance: "$AIGW_NATIVE_PERFORMANCE == \"true\""
-	_clients:     "$AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == \"true\" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)"
 	for platform in productEvidence.native {
 		(platform): [
-			for performance in [true, false] for clients in [true, false] if !clients || platform == "windows" {
-				if: strings.Join(list.Concat([[_prebuilt], [if performance {_performance}], [if clients {_clients}]]), " && ")
+			for performance in [true, false] {
+				if: strings.Join(list.Concat([[_prebuilt], [if performance {_performance}]]), " && ")
 				variables: {
 					MISE_ENABLE_TOOLS: strings.Join(list.Concat([
 						[nativeArtifactToolchain.gitlab[platform].MISE_ENABLE_TOOLS],
 						[if performance {strings.Join(toolchainTools.performance, ",")}],
-						[if clients {strings.Join(toolchainTools.nativeClientSupply, ",")}],
 					]), ",")
 					if platform == "linux" {
 						CGO_ENABLED:                  "0"
@@ -498,21 +484,12 @@ _gitLabEvidenceExpiry: "\(evidenceRetentionDays) days"
 	_historicalCondition: "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)"
 	// Real clients are supplied for the retained-predecessor journey of the
 	// job's own host; every outcome retires the supply.
-	_clientSelection:   "github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''"
-	_clients:           "${{ inputs.native_clients && inputs.diagnostic_client == '' }}"
-	_clientTools:       "${{ inputs.native_clients && ',\(strings.Join(toolchainTools.nativeClientSupply, ","))' || '' }}"
-	_environmentPrefix: string
-	_hermesArguments:   string
-	if _platform == "windows" {
-		_environmentPrefix: "$env:"
-		_hermesArguments:   ""
-	}
-	if _platform != "windows" {
-		_environmentPrefix: "$"
-		_hermesArguments:   " --hermes-commit \(nativeClients.hermes.commit) --hermes-installer-sha256 \(nativeClients.hermes.installer)"
-	}
-	_historicalArguments: "--peer=github --repository=\"\(_environmentPrefix)GITHUB_REPOSITORY\" --baseline-tag=\"\(_environmentPrefix)AIGW_BASELINE_TAG\" --tag=\"\(_environmentPrefix)AIGW_CANDIDATE_TAG\" --clients=\(_clients) --diagnostic-client=\"\(_environmentPrefix)AIGW_NATIVE_DIAGNOSTIC_CLIENT\" --performance-attribution=${{ inputs.performance_attribution }}"
-	_performanceCommand:  "mise run performance \(_historicalArguments) --performance \"\(_environmentPrefix)GITHUB_WORKSPACE/build/performance\""
+	_clientSelection:     "github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''"
+	_clients:             "${{ inputs.native_clients && inputs.diagnostic_client == '' }}"
+	_clientTools:         "${{ inputs.native_clients && ',\(strings.Join(toolchainTools.nativeClientSupply, ","))' || '' }}"
+	_hermesArguments:     " --hermes-commit \(nativeClients.hermes.commit) --hermes-installer-sha256 \(nativeClients.hermes.installer)"
+	_historicalArguments: "--peer=github --repository=\"$GITHUB_REPOSITORY\" --baseline-tag=\"$AIGW_BASELINE_TAG\" --tag=\"$AIGW_CANDIDATE_TAG\" --clients=\(_clients) --diagnostic-client=\"$AIGW_NATIVE_DIAGNOSTIC_CLIENT\" --performance-attribution=${{ inputs.performance_attribution }}"
+	_performanceCommand:  "mise run performance \(_historicalArguments) --performance \"$GITHUB_WORKSPACE/build/performance\""
 	_historicalEnvironment: _credentialEnvironment & {
 		if _platform == "darwin" {
 			AIGW_VERIFY_SYSTEM_KEYRING: "${{ github.event_name == 'workflow_dispatch' && inputs.macos_keychain && '1' || '0' }}"
@@ -525,17 +502,12 @@ _gitLabEvidenceExpiry: "\(evidenceRetentionDays) days"
 		AIGW_RELEASE_ARTIFACT_SIGNER:  "${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}"
 	}
 	_credentialEnvironment: {
-		if _platform == "windows" {
-			AIGW_VERIFY_SYSTEM_KEYRING: "1"
-		}
 		if _platform == "darwin" {
 			AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
 		}
 	}
 	name:      "${{ github.event_name == 'workflow_dispatch' && 'Manual \(graph["native-\(_platform)"].name)' || '\(graph["native-\(_platform)"].name)' }}"
 	"runs-on": nativeEvidence[_platform].github.runner
-	if _platform != "windows" {defaults: run: shell: "bash"}
-	if _platform == "windows" {defaults: run: shell: "pwsh"}
 
 	"timeout-minutes": matrixJobMinutes
 	// A manual run selects its native platform, from a tag ref too.
@@ -595,16 +567,15 @@ _gitLabEvidenceExpiry: "\(evidenceRetentionDays) days"
 			run:  linuxClientSandbox.github
 		},
 		{
-			name: "Prepare official native clients"
-			if:   _clientSelection
-			if _platform == "windows" {"timeout-minutes": 12}
-			if _platform != "windows" {"timeout-minutes": 20}
+			name:              "Prepare official native clients"
+			if:                _clientSelection
+			"timeout-minutes": 20
 			env: {
 				GH_TOKEN:            ""
 				GITHUB_TOKEN:        ""
 				GIT_TERMINAL_PROMPT: "0"
 			}
-			run: "mise exec --locked -- go run ./tools/ci native-clients supply --root \"\(_environmentPrefix)RUNNER_TEMP\" --github-env \"\(_environmentPrefix)GITHUB_ENV\" --codex \(nativeClients.codex) --claude \(nativeClients.claude)\(_hermesArguments)"
+			run: "mise exec --locked -- go run ./tools/ci native-clients supply --root \"$RUNNER_TEMP\" --github-env \"$GITHUB_ENV\" --codex \(nativeClients.codex) --claude \(nativeClients.claude)\(_hermesArguments)"
 		},
 		for trust in [{kind: "source", flag: ""}, {kind: "artifact", flag: " --artifact"}] {
 			name: "Prepare native \(trust.kind) trust"
@@ -613,7 +584,7 @@ _gitLabEvidenceExpiry: "\(evidenceRetentionDays) days"
 				AIGW_RELEASE_ALLOWED_SIGNERS:          "${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}"
 				AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}"
 			}
-			run: "mise exec --locked -- go run ./tools/ci trust-input\(trust.flag) --output \"\(_environmentPrefix)RUNNER_TEMP/aigw-native-\(trust.kind)-signers\" --github-env \"\(_environmentPrefix)GITHUB_ENV\""
+			run: "mise exec --locked -- go run ./tools/ci trust-input\(trust.flag) --output \"$RUNNER_TEMP/aigw-native-\(trust.kind)-signers\" --github-env \"$GITHUB_ENV\""
 		},
 		{
 			name: "Run historical release acceptance"
@@ -659,104 +630,17 @@ _gitLabEvidenceExpiry: "\(evidenceRetentionDays) days"
 }
 
 #NativeGitLabJob: {
-	_platform:    #OperatingSystem
-	_prepareMise: string
-	_install:     string
-	_cleanup:     string
+	_platform: #OperatingSystem
 	tags: [string, ...string]
 	// Each admission condition first admits its artifact-only scopes.
 	_admission: [...string]
 	rules: list.Concat([for condition in _admission {
 		list.Concat([[for scope in nativeArtifactScope[_platform] {if: "(\(condition)) && \(scope.if)", variables: scope.variables}], [{if: condition}]])
 	}, [{when: "never"}]])
-	if _platform == "windows" {
-		_prepareMise: #"""
-			$ErrorActionPreference = 'Stop'
-			foreach ($name in @('CI_API_V4_URL', 'CI_PROJECT_ID', 'CI_PROJECT_DIR', 'CI_JOB_ID', 'CI_JOB_TOKEN', 'CI_SERVER_HOST')) {
-			  if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { throw "Missing GitLab job input: $name" }
-			}
-			$jobDirectory = \#(windowsMiseJobDirectory)
-			if (Test-Path -LiteralPath $jobDirectory) { throw 'Mise job directory already exists.' }
-			[void](New-Item -ItemType Directory -Path $jobDirectory -ErrorAction Stop)
-			$identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-			& icacls.exe $jobDirectory /inheritance:r /grant:r "${identity}:(OI)(CI)F" | Out-Null
-			if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise job directory ACL.' }
-			foreach ($name in @('MISE_CONFIG_DIR', 'MISE_CACHE_DIR', 'MISE_STATE_DIR', 'MISE_DATA_DIR')) {
-			  $path = Join-Path $jobDirectory $name
-			  [Environment]::SetEnvironmentVariable($name, $path)
-			  [void](New-Item -ItemType Directory -Path $path -ErrorAction Stop)
-			}
-			$env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
-			$mise = Join-Path $env:ProgramFiles '\#(miseWindowsArm64Directory)\bin\mise.exe'
-			if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
-			if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne '\#(miseWindowsArm64ExecutableSHA256)') { throw 'Runner-owned Mise digest differs from the admitted release.' }
-			$reported = & $mise --version
-			if ($LASTEXITCODE -ne 0) { throw 'Runner-owned Mise failed to start under the job identity.' }
-			if ($reported -notmatch ('^' + [regex]::Escape('\#(miseVersion)') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
-			& whoami.exe /user
-			if ($LASTEXITCODE -ne 0) { throw 'Runner identity could not be observed.' }
-			$shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'
-			if (-not (Test-Path -LiteralPath $shim -PathType Leaf)) { throw 'Runner-owned Mise shim is missing.' }
-			try { $shimHash = (Get-FileHash -LiteralPath $shim -Algorithm SHA256 -ErrorAction Stop).Hash }
-			catch { & icacls.exe $shim; throw "Runner-owned Mise shim cannot be read (error=$($_.FullyQualifiedErrorId), hresult=$($_.Exception.HResult))." }
-			if ($shimHash -ne '\#(miseWindowsArm64ShimSHA256)') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
-			$env:PATH = (Split-Path -Parent $mise) + [IO.Path]::PathSeparator + $env:PATH
-			if ($env:AIGW_TOOL_SOURCE -and $env:AIGW_TOOL_SOURCE -notin @('upstream', 'peer')) { throw 'AIGW_TOOL_SOURCE must be upstream or peer.' }
-			if ($env:AIGW_TOOL_SOURCE -eq 'peer') {
-			$netrc = Join-Path $jobDirectory '_netrc'
-			[IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
-			& icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
-			if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
-			$lockDigest = (Get-FileHash -LiteralPath (Join-Path $env:CI_PROJECT_DIR '.config/mise/mise.lock') -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
-			$mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/\#(miseMirror.resource)$lockDigest/"
-			$replacements = [ordered]@{}
-			$replacements['\#(miseMirror.metadataPattern)'] = "${mirrorBase}" + '\#(miseMirror.metadataResource)'
-			$replacements['https://github.com/'] = $mirrorBase
-			$replacements['https://api.github.com/'] = $mirrorBase
-			$env:MISE_NETRC_FILE = $netrc
-			$env:MISE_NETRC = 'true'
-			$env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
-			}
-			"""#
-		_install:     "cmd /c \"set GODEBUG=\(installationEnvironment.GODEBUG)&&mise install --locked\""
-		_cleanup:     #"""
-			$ErrorActionPreference = 'Stop'
-			$jobDirectory = \#(windowsMiseJobDirectory)
-			if (Test-Path -LiteralPath $jobDirectory) {
-			  $emptyDirectory = Join-Path (Split-Path -Parent $jobDirectory) "aigw-ci-mise-empty-$env:CI_JOB_ID"
-			  if (Test-Path -LiteralPath $emptyDirectory) { throw 'Mise cleanup mirror source already exists.' }
-			  [IO.Directory]::CreateDirectory($emptyDirectory) | Out-Null
-			  try {
-			    & robocopy.exe $emptyDirectory $jobDirectory /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
-			    $mirrorExit = $LASTEXITCODE
-			    if ($mirrorExit -ge 8) { throw "Mise cleanup mirror failed (robocopy exit $mirrorExit)." }
-			    [IO.Directory]::Delete($jobDirectory)
-			  } catch {
-			    $cause = $_.Exception
-			    Write-Host "Mise cleanup failure type=$($cause.GetType().FullName) HRESULT=0x$($cause.HResult.ToString('X8'))"
-			    throw
-			  } finally {
-			    if (Test-Path -LiteralPath $emptyDirectory) { [IO.Directory]::Delete($emptyDirectory) }
-			  }
-			}
-			if (Test-Path -LiteralPath $jobDirectory) {
-			  throw 'Mise job directory remains after cleanup.'
-			}
-			Write-Host 'Mise job-owned supply state retired.'
-			"""#
-	}
-	if _platform != "windows" {
-		_cleanup: miseMirror.unixCleanup
-		_install: commands.install
-	}
-	"after_script": [_cleanup]
+	"after_script": [miseMirror.unixCleanup]
 	stage: graph["native-\(_platform)"].stage
 	variables: nativeToolchain[_platform] & {
 		GLAB_NO_PROMPT: "1"
-		if _platform == "windows" {
-			AIGW_VERIFY_SYSTEM_KEYRING:  "1"
-			AIGW_NATIVE_CLIENT_SUPPLIER: windowsClientSupplier
-		}
 	}
 	artifacts: {
 		when:      "always"
@@ -775,13 +659,10 @@ _gitLabEvidenceExpiry: "\(evidenceRetentionDays) days"
 			"DEBIAN_FRONTEND=noninteractive \(linuxApt.install) $AIGW_LINUX_COMPILER_PACKAGES \(linuxSecretService.packages)",
 			miseMirror.unixPrepare, commands.install,
 		]
-		script: [commands.nativeJob[_platform], _cleanup]
+		script: [commands.nativeJob[_platform], miseMirror.unixCleanup]
 	}
 	if _platform == "darwin" {
-		script: [macosRunnerMise, miseMirror.unixPrepare, _install, commands.nativeJob[_platform], _cleanup]
-	}
-	if _platform == "windows" {
-		script: [_prepareMise, _install, commands.nativeJob[_platform], _cleanup]
+		script: [macosRunnerMise, miseMirror.unixPrepare, commands.install, commands.nativeJob[_platform], miseMirror.unixCleanup]
 	}
 }
 
@@ -890,7 +771,7 @@ gitlab: {
 		if platform != "linux" {
 			"native-\(platform)": #NativeGitLabJob & {
 				_platform: platform
-				tags: [nativeEvidence[platform].gitlab.protectedTag]
+				tags:      nativeEvidence[platform].gitlab.protectedTags
 				_admission: [
 					gitlabVerificationCondition.tag,
 					gitlabVerificationCondition.protectedPush,
@@ -899,7 +780,7 @@ gitlab: {
 			}
 			"native-\(platform)-review": #NativeGitLabJob & {
 				_platform: platform
-				tags: [nativeEvidence[platform].gitlab.reviewTag]
+				tags:      nativeEvidence[platform].gitlab.reviewTags
 				_admission: [
 					gitlabVerificationCondition.review,
 					"(\(_nativeManualCondition[platform])) && $CI_COMMIT_REF_PROTECTED == \"false\"",
@@ -1118,6 +999,7 @@ githubVerify: {
 
 githubRelease: {
 	name: "Release"
+	defaults: run: shell: "bash"
 	env: gitEnvironment & (#MiseConfigurationEnvironment & {_root: "${{ github.workspace }}"})
 	"on": {
 		"workflow_dispatch": inputs: {
@@ -1132,11 +1014,10 @@ githubRelease: {
 				default:     nativeEvidence.linux.github.runner
 				options: [
 					nativeEvidence.linux.github.runner,
-					"ubuntu-24.04-arm",
+					// The published linux-arm64 archive runs on the ARM64
+					// runner of the same Ubuntu release.
+					"\(nativeEvidence.linux.github.runner)-arm",
 					nativeEvidence.darwin.github.runner,
-					"macos-26-intel",
-					nativeEvidence.windows.github.runner,
-					"windows-11-arm",
 				]
 			}
 			native_lifecycle: {
@@ -1164,7 +1045,6 @@ githubRelease: {
 			name:              graph["release-assets"].name
 			"runs-on":         "${{ inputs.runner }}"
 			"timeout-minutes": 25
-			defaults: run: shell: "pwsh"
 			env: {
 				MISE_ENABLE_TOOLS:            "${{ inputs.native_lifecycle && (startsWith(inputs.runner, 'macos-') && 'go,gh,node,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' || 'go,gh,node,github:goreleaser/goreleaser') || 'go,gh' }}"
 				GH_TOKEN:                     "${{ github.token }}"
@@ -1178,31 +1058,30 @@ githubRelease: {
 				{
 					name: "Materialize provenance trust input"
 					env: AIGW_RELEASE_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}"
-					run: "mise exec --locked -- go run ./tools/ci trust-input --output \"$env:RUNNER_TEMP/aigw-allowed-signers\" --github-env \"$env:GITHUB_ENV\""
+					run: "mise exec --locked -- go run ./tools/ci trust-input --output \"$RUNNER_TEMP/aigw-allowed-signers\" --github-env \"$GITHUB_ENV\""
 				},
 				{
 					name: "Materialize artifact signature trust"
 					env: AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: "${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}"
-					run: "mise exec --locked -- go run ./tools/ci trust-input --artifact --output \"$env:RUNNER_TEMP/aigw-artifact-signers\" --github-env \"$env:GITHUB_ENV\""
+					run: "mise exec --locked -- go run ./tools/ci trust-input --artifact --output \"$RUNNER_TEMP/aigw-artifact-signers\" --github-env \"$GITHUB_ENV\""
 				},
 				{
 					name: "Verify this peer's exact tag pipeline"
-					run:  "mise exec --locked -- go run ./tools/ci release-evidence --repository \"$env:GITHUB_REPOSITORY\" --workflow verify.yml --tag \"$env:CI_COMMIT_TAG\" \(githubTagEvidenceJobs)"
+					run:  "mise exec --locked -- go run ./tools/ci release-evidence --repository \"$GITHUB_REPOSITORY\" --workflow verify.yml --tag \"$CI_COMMIT_TAG\" \(githubTagEvidenceJobs)"
 				},
 				{
 					name: "Download this peer's published artifacts"
-					run:  #"mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir build/artifacts/published"#
+					run:  #"mise exec --locked -- gh release download "$CI_COMMIT_TAG" --repo "$GITHUB_REPOSITORY" --dir build/artifacts/published"#
 				},
 				{name: "Verify complete artifacts and signed source", run: commands.artifacts},
 				{
 					name: "Verify published native lifecycle"
 					if:   "inputs.native_lifecycle"
 					env: {
-						AIGW_VERIFY_SYSTEM_KEYRING:        "${{ runner.os == 'Windows' && '1' || '0' }}"
 						AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
 						AIGW_BASELINE_TAG:                 "${{ inputs.baseline_tag }}"
 					}
-					run: #"mise exec --locked -- go run ./tools/release accept-native --artifacts build/artifacts/published --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG""#
+					run: #"mise exec --locked -- go run ./tools/release accept-native --artifacts build/artifacts/published --peer=github --repository="$GITHUB_REPOSITORY" --baseline-tag="$AIGW_BASELINE_TAG""#
 				},
 			]
 		}

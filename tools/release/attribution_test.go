@@ -10,15 +10,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"testing"
 )
 
 func (j *journeyFixture) attributionCases(helper []string, shell, reader, scope string) []performance.Workload {
 	startup := []string{shell, "-c", "exit 0"}
-	if runtime.GOOS == "windows" {
-		startup = []string{shell, "/d", "/c", "exit", "0"}
-	}
 	return []performance.Workload{
 		{Name: "credential", Command: helper, Budget: 0.1},
 		{Name: "shell-startup", Command: startup},
@@ -62,15 +58,12 @@ func TestNativeAttributionKeepsTheProjectedReaderBoundary(t *testing.T) {
 	got := journey.attributionCases([]string{"original shell helper"}, "selected shell", "copied reader", "exact-scope")
 	want := []performance.Workload{
 		{Name: "credential", Command: []string{"original shell helper"}, Budget: 0.1},
-		{Name: "shell-startup", Command: []string{"selected shell", "/d", "/c", "exit", "0"}},
+		{Name: "shell-startup", Command: []string{"selected shell", "-c", "exit 0"}},
 		{Name: "source-startup", Command: []string{journey.source, "--version"}},
 		{Name: "reader-startup", Command: []string{"copied reader", "--version"}},
 		{Name: "credential-direct", Command: []string{"copied reader", "credential", claude.ID, "exact-scope"}},
 		journey.performanceCases([]string{"original shell helper"}, "", domain.Runtime{})[1],
 		journey.performanceCases([]string{"original shell helper"}, "", domain.Runtime{})[3],
-	}
-	if runtime.GOOS != "windows" {
-		want[1].Command = []string{"selected shell", "-c", "exit 0"}
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("attribution changed the helper executable or qualification scope: %#v", got)

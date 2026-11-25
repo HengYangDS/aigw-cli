@@ -3,7 +3,6 @@ package discovery
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 )
 
@@ -24,9 +23,6 @@ func TestASurfaceOwnsItsFileInEverySpelling(t *testing.T) {
 	}
 	link := filepath.Join(dir, "linked.toml")
 	if err := os.Symlink(home, linkedHome); err != nil {
-		if runtime.GOOS == "windows" {
-			t.Skipf("this account cannot create a symbolic link: %v", err)
-		}
 		t.Fatal(err)
 	}
 	if err := os.Symlink(target, link); err != nil {
@@ -46,34 +42,9 @@ func TestASurfaceOwnsItsFileInEverySpelling(t *testing.T) {
 	}
 }
 
-func TestFindUsesWindowsCommandSuffixWithoutExecutableBit(t *testing.T) {
-	dir := t.TempDir()
-	target := filepath.Join(dir, "claude.cmd")
-	if err := os.WriteFile(target, []byte("@echo off\r\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	want, err := filepath.Abs(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := (System{GOOS: "windows", Path: dir}).find("claude"); got != want {
-		t.Fatalf("find(claude) = %q, want %q", got, want)
-	}
-}
-
 func TestFindTreatsClaudeAsTheNativeClientExecutable(t *testing.T) {
 	dir := t.TempDir()
-	// A real Windows filesystem never reports a Unix executable bit
-	// (https://github.com/golang/go/issues/41809), so the non-Windows
-	// exec-bit branch of find cannot be exercised there regardless of the
-	// permission requested at creation. Exercise the Windows lookup
-	// semantics instead: its plain-name fallback still reaches this file
-	// and bypasses the exec-bit check entirely, which is the only find
-	// path a real native-Windows host can ever take in production.
 	goos, name := "linux", "claude"
-	if runtime.GOOS == "windows" {
-		goos, name = "windows", "claude.cmd"
-	}
 	target := filepath.Join(dir, name)
 	if err := os.WriteFile(target, []byte("#!/bin/sh\nnative Claude fixture\n"), 0o700); err != nil {
 		t.Fatal(err)
@@ -127,9 +98,6 @@ func TestExecutableAvailableReportsEmptyMissingAndInspectionFailure(t *testing.T
 	}
 	if available, err := ExecutableAvailable(filepath.Join(t.TempDir(), "missing")); available || err != nil {
 		t.Fatalf("ExecutableAvailable(missing) = %v, %v", available, err)
-	}
-	if runtime.GOOS == "windows" {
-		return
 	}
 	loop := filepath.Join(t.TempDir(), "loop")
 	if err := os.Symlink(loop, loop); err != nil {

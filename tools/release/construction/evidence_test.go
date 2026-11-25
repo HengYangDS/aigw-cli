@@ -24,7 +24,7 @@ func spdxFixture(t *testing.T, root, version string) []byte {
 	t.Helper()
 	var files, packages, relationships []string
 	for index, archive := range artifact.Archives(version) {
-		name := strings.TrimSuffix(strings.TrimSuffix(archive, ".tar.gz"), ".zip")
+		name := strings.TrimSuffix(archive, ".tar.gz")
 		relative := name + "/aigw"
 		target := filepath.Join(root, filepath.FromSlash(relative))
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
@@ -211,8 +211,6 @@ func TestSPDXBindingRequiresOwnedBytes(t *testing.T) {
 	}{
 		{"missing checksum", `[{"fileName":"aigw"}]`, true},
 		{"scan root path", `[{"fileName":"/aigw"}]`, true},
-		{"Windows scan root path", `[{"fileName":"\\aigw"}]`, true},
-		{"Windows traversal", `[{"fileName":"\\..\\aigw"}]`, false},
 		{"network path", `[{"fileName":"\\\\host\\aigw"}]`, false},
 		{"root-relative duplicate", `[{"fileName":"aigw"},{"fileName":"\\aigw"}]`, false},
 		{"measured checksum", `[{"fileName":"aigw","checksums":` + matching + `}]`, true},
@@ -276,12 +274,8 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 			stage := goReleaserStage(t, call.Args)
 			finalSBOM = filepath.Join(filepath.Dir(stage), "artifacts", "aigw_"+version+".spdx.json")
 			for _, archive := range artifact.Archives(version) {
-				platform := strings.Split(strings.TrimSuffix(strings.TrimSuffix(archive, ".tar.gz"), ".zip"), "_")
-				name := "aigw"
-				if platform[2] == "windows" {
-					name += ".exe"
-				}
-				relative := filepath.Join(platform[2]+"-"+platform[3], name)
+				platform := strings.Split(strings.TrimSuffix(archive, ".tar.gz"), "_")
+				relative := filepath.Join(platform[2]+"-"+platform[3], "aigw")
 				target := filepath.Join(stage, relative)
 				command := exec.Command("go", "build", "-trimpath", "-o", target, ".")
 				command.Dir = root

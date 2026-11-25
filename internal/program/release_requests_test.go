@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -237,7 +236,7 @@ func assertDownloadedAsset(t *testing.T, path, want string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("downloaded asset mode = %o, want 600", info.Mode().Perm())
 	}
 }

@@ -1,5 +1,3 @@
-//go:build !windows
-
 package secret
 
 import (
@@ -42,8 +40,8 @@ func TestOwnershipChecksNameWhatTheyRefuse(t *testing.T) {
 	}{
 		"Token file":           {func() error { return validateOwnedFile(file) }, tokens},
 		"Token directory":      {func() error { return validateSecureRoot(directory) }, tokens},
-		"credential directory": {func() error { return validatePrivateDirectory("", directory) }, reader},
-		"credential reader":    {func() error { return validatePrivateFile("", foreignFile{mode: 0o700}, 0o700) }, reader},
+		"credential directory": {func() error { return validatePrivateDirectory(directory) }, reader},
+		"credential reader":    {func() error { return validatePrivateFile(foreignFile{mode: 0o700}, 0o700) }, reader},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

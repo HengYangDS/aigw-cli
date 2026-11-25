@@ -75,7 +75,7 @@ func TestClaudeAdapterApplyValidatesIntentAndRestoresObservedPreimage(t *testing
 // hostAt observes home as the user's home directory, so Claude Code's settings
 // file is home/.claude/settings.json.
 func hostAt(home string) discovery.Host {
-	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home}}
 }
 
 func qualifiedModel(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {

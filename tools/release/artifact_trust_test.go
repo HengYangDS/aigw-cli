@@ -1,14 +1,12 @@
 package main
 
 import (
-	"archive/zip"
 	"compress/gzip"
 	"errors"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -64,9 +62,6 @@ func TestNativeArtifactAcceptanceSeparatesVerifierAndProductRevisions(t *testing
 		t.Fatalf("advance verifier revision: %v: %s", err, output)
 	}
 	want := gzip.ErrHeader
-	if runtime.GOOS == "windows" {
-		want = zip.ErrFormat
-	}
 	if err := run([]string{"accept-native", "--artifacts", artifacts}, io.Discard); !errors.Is(err, want) {
 		t.Fatalf("trusted release must reach archive decoding under a different verifier revision: %v", err)
 	}

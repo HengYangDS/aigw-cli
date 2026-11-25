@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -308,9 +307,6 @@ func TestCodexCatalogDesiredSnapshotRemovesOnlyOwnedFiles(t *testing.T) {
 // of what AIGW owns: an owned catalog whose permissions drifted wider is written
 // back owner-only rather than left as found.
 func TestCodexCatalogDesiredSnapshotConvergesOwnedPermissions(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows does not represent owner-only permissions in a file mode")
-	}
 	owned := []byte(`{"models":[{"slug":"gpt-5.5"}]}`)
 	for _, drifted := range []os.FileMode{0o640, 0o644, 0o664, 0o600} {
 		before := platform.FileSnapshot{Exists: true, Data: owned, SHA256: platform.SHA256(owned), Mode: drifted}

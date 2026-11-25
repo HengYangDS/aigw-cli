@@ -84,8 +84,8 @@ func TestReplaceTakesTheSlotOfAnEmptyToken(t *testing.T) {
 	}
 }
 
-// Every writable native backend, macOS Keychain, Secret Service and
-// Credential Manager alike, reaches the system keyring store, whose metadata
+// Every writable native backend, macOS Keychain and Secret Service alike,
+// reaches the system keyring store, whose metadata
 // query cannot tell an empty item: tokenSlotEmpty asks its reader, which
 // returns only whether the item is empty. An absent item, a stored Token and
 // a failed worker are not empty. An item that macOS refuses AIGW while its

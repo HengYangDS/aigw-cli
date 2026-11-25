@@ -107,7 +107,7 @@ func selectBackend(selection Selection) (credentialBackend, error) {
 	case "env":
 		return environmentStore{getenv: getenv, environ: selection.Environ}, nil
 	case "file":
-		if selection.GOOS != "darwin" && selection.GOOS != "linux" && selection.GOOS != "windows" {
+		if selection.GOOS != "darwin" && selection.GOOS != "linux" {
 			return nil, fmt.Errorf("file secret backend is not supported on operating system %q", selection.GOOS)
 		}
 		if selection.Root == "" {
@@ -115,7 +115,7 @@ func selectBackend(selection Selection) (credentialBackend, error) {
 		}
 		return &fileStore{root: filepath.Join(selection.Root, "tokens")}, nil
 	case "":
-		if selection.GOOS != "darwin" && selection.GOOS != "linux" && selection.GOOS != "windows" {
+		if selection.GOOS != "darwin" && selection.GOOS != "linux" {
 			return nil, fmt.Errorf("unsupported operating system %q", selection.GOOS)
 		}
 		if selection.Root == "" {

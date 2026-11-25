@@ -26,7 +26,7 @@ func TestMissingPreviewCasesNamesEachAbsentPreview(t *testing.T) {
 			[]string{"a preview of `demo add` between snapshots that cmp compares"}},
 		{"refused preview", strings.Replace(complete, "exec aigw demo add", "exitcode 1 aigw demo add", 1), previews,
 			[]string{"a preview of `demo add` between snapshots that cmp compares"}},
-		{"conditional preview", strings.Replace(complete, "exec aigw demo add", "[!windows] exec aigw demo add", 1), previews,
+		{"conditional preview", strings.Replace(complete, "exec aigw demo add", "[!linux] exec aigw demo add", 1), previews,
 			[]string{"a preview of `demo add` between snapshots that cmp compares"}},
 		{"before the snapshots", "exec aigw demo add item --dry-run\n" + strings.Replace(complete, "exec aigw demo add item --dry-run\n", "", 1), previews,
 			[]string{"a preview of `demo add` between snapshots that cmp compares"}},

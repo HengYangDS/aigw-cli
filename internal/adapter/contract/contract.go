@@ -50,14 +50,13 @@ type Fixture struct {
 //     its own receipt restores the projection; it may remove the directories
 //     that the projection created.
 //
-// Each invariant runs with HOME, USERPROFILE, APPDATA, LOCALAPPDATA,
-// XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_STATE_HOME, XDG_CACHE_HOME,
+// Each invariant runs with HOME, XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_STATE_HOME, XDG_CACHE_HOME,
 // XDG_RUNTIME_DIR, TMPDIR, TMP and TEMP, and after the fixture is prepared also
 // the working directory, pointed at an empty sentinel that must stay empty, and
 // the fixture may not redirect them. That refuses an adapter which writes
 // through those variables or a relative path instead of the observed host.
-// Client-specific variables, values read before Run starts, the operating
-// system's user database and Windows known folders are not covered.
+// Client-specific variables, values read before Run starts and the operating
+// system's user database are not covered.
 func Run(t *testing.T, newFixture func(t *testing.T) Fixture) {
 	t.Helper()
 	for _, property := range invariants {
@@ -98,8 +97,7 @@ var invariants = []invariant{
 // processHomeVariables name the directories through which code that ignores the
 // observed host would reach the developer's home or temporary files.
 var processHomeVariables = []string{
-	"HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA",
-	"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_RUNTIME_DIR",
+	"HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_RUNTIME_DIR",
 	"TMPDIR", "TMP", "TEMP",
 }
 

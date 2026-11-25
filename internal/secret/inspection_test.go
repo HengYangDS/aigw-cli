@@ -111,7 +111,7 @@ func TestInspectReportsNilMemoryAndUnknownStores(t *testing.T) {
 }
 
 func TestInspectAutomaticSelectionIsValueFreeAndDoesNotPersist(t *testing.T) {
-	for _, platform := range []string{"darwin", "linux", "windows"} {
+	for _, platform := range []string{"darwin", "linux"} {
 		for _, backend := range []string{"keyring", "file"} {
 			t.Run(platform+"/"+backend, func(t *testing.T) {
 				root := filepath.Join(t.TempDir(), "secrets")

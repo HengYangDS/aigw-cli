@@ -161,8 +161,7 @@ func TestBackendChoicePreservesInvalidStorage(t *testing.T) {
 }
 
 // A Token directory that runs through a regular file is not an absent store
-// that holds no Token: on Windows such a path reads as missing, and a write
-// would then fail on a state that is not there.
+// that holds no Token: a write would then fail on a state that is not there.
 func TestAFileStoreRootThroughAFileIsRefused(t *testing.T) {
 	root := t.TempDir()
 	file := filepath.Join(root, "file")

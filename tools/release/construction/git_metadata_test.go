@@ -209,7 +209,7 @@ func TestReleaseGitEnvironmentNamesTheCheckoutWhereGitHasNoAnswer(t *testing.T) 
 }
 
 // requirePortableArtifacts runs the real build of root for the host's platform
-// and reads both of its archives.
+// and reads each of its archives.
 func requirePortableArtifacts(t *testing.T, root string) {
 	t.Helper()
 	request := buildRequest{Root: root, Version: "1.2.3", Epoch: "1784246400", TargetOS: runtime.GOOS}
@@ -217,8 +217,10 @@ func requirePortableArtifacts(t *testing.T, root string) {
 	if err != nil {
 		t.Fatalf("build where Git names no remote: %v", err)
 	}
-	for _, arch := range []string{"amd64", "arm64"} {
-		target := artifact.Target{OS: runtime.GOOS, Arch: arch}
+	for _, target := range artifact.Targets() {
+		if target.OS != runtime.GOOS {
+			continue
+		}
 		if _, err := target.ReadProgram(filepath.Join(stage, target.ArchiveName(request.Version)), filepath.Join(stage, "checksums.txt"), request.Version); err != nil {
 			t.Fatal(err)
 		}

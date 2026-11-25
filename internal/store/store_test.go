@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -270,7 +269,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := info.Mode().Perm(), securePersistedFileMode(); got != want {
+	if got, want := info.Mode().Perm(), os.FileMode(0o600); got != want {
 		t.Fatalf("mode = %o, want %o", got, want)
 	}
 	got, err := store.Load()
@@ -442,23 +441,9 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	}
 }
 
-// securePersistedFileMode is the exact permission bits Store persists secrets
-// with, as observed through os.Stat. On Unix this is the literal 0o600 mode
-// passed to WriteFileAtomicExactMode/os.Chmod. Windows has no POSIX
-// owner/group/other bits: os.Chmod only toggles the FILE_ATTRIBUTE_READONLY
-// attribute, and a writable file is always reported back as 0o666 (see
-// https://pkg.go.dev/os#Chmod). Asserting 0o600 unconditionally on Windows is
-// not a real platform mode; it is the wrong expectation for that platform.
-func securePersistedFileMode() os.FileMode {
-	if runtime.GOOS == "windows" {
-		return 0o666
-	}
-	return 0o600
-}
-
 // A configuration path that runs through a regular file is a read failure and
-// never a fresh configuration: on Windows such a path reads as missing, and a
-// first run would act on a state that is not there.
+// never a fresh configuration: a first run would act on a state that is not
+// there.
 func TestLoadRefusesAConfigurationThroughAFile(t *testing.T) {
 	root := t.TempDir()
 	file := filepath.Join(root, "file")

@@ -64,9 +64,8 @@ func TestVerificationPlanDropsAParentSessionsVariables(t *testing.T) {
 	}
 }
 
-// A managed key that the environment spells in another case is removed too,
-// as Windows, where a variable's name ignores case, would hand it to the
-// client; the parent session's variables compare the same way.
+// A managed key that the environment spells in another case is removed too;
+// the parent session's variables compare the same way.
 func TestVerificationPlanRemovesAManagedKeyInAnyCase(t *testing.T) {
 	settings, runtime := verificationSettings(t)
 	retained := []string{"PATH=/usr/bin", "HOME=/home/user"}

@@ -3,7 +3,6 @@ package hermes
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -115,13 +114,6 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	}
 }
 
-func requireHermesVerificationRefusal(t *testing.T, err error, calls int) {
-	t.Helper()
-	if err == nil || !strings.Contains(err.Error(), "cannot isolate") || calls != 0 {
-		t.Fatalf("Windows verification did not refuse before launching: %v, calls=%d", err, calls)
-	}
-}
-
 func requireHermesVerificationReader(t *testing.T, deps adapter.Dependencies, cfg domain.Config, selected domain.Runtime, retained string, before []byte) {
 	t.Helper()
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes fixture"), []byte("AIGW_OK")}}
@@ -149,9 +141,7 @@ func requireHermesVerificationReader(t *testing.T, deps adapter.Dependencies, cf
 	}
 	deps.Runner = runner
 	_, err := (hermesAdapter{}).Verify(t.Context(), deps, cfg, selected, "")
-	if runtime.GOOS == "windows" {
-		requireHermesVerificationRefusal(t, err, runner.calls)
-	} else if err != nil {
+	if err != nil {
 		t.Fatal(err)
 	}
 	after, err := os.ReadFile(cfg.Clients[ID].Targets[0])

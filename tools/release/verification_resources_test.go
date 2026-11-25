@@ -14,14 +14,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
-	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/hermes"
-	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 	"aigw-cli/tools/release/identity"
 )
@@ -36,17 +34,7 @@ func TestNativeVerificationResources(t *testing.T) {
 		t.Fatal(err)
 	}
 	program, _, _ := nativeReleaseCandidate(t, root, version)
-	// Hermes verification refuses on Windows before starting a client, so Codex
-	// carries the owned process tree there; other hosts exercise both clients.
-	clients := []string{codex.ID}
-	if runtime.GOOS != "windows" {
-		clients = append([]string{hermes.ID}, clients...)
-	} else {
-		t.Run("hermes-refusal", func(t *testing.T) {
-			runNativeResourceCase(t, program, hermes.ID, "refusal")
-		})
-	}
-	for _, client := range clients {
+	for _, client := range []string{hermes.ID, codex.ID} {
 		t.Run(client, func(t *testing.T) {
 			for _, mode := range []string{"success", "failure", "parent-exit", "interrupt", "deadline"} {
 				t.Run(mode, func(t *testing.T) { runNativeResourceCase(t, program, client, mode) })
@@ -73,45 +61,13 @@ func runNativeResourceCase(t *testing.T, program, client, mode string) {
 	if err := os.Mkdir(temporary, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
-		journey.setEnvironment(key, temporary)
-	}
+	journey.setEnvironment("TMPDIR", temporary)
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-resource-token")
 	if err := os.WriteFile(journey.manifest, []byte(nativeResourceManifest(client, journey.endpoint)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	journey.run("setup", "--from", journey.manifest)
-	if mode == "refusal" {
-		verifyNativeClientRefusal(t, journey, client)
-		return
-	}
 	verifyNativeResourceCase(t, journey, temporary, client, mode)
-}
-
-func verifyNativeClientRefusal(t *testing.T, journey *journeyFixture, client string) {
-	t.Helper()
-	control := filepath.Join(journey.root, "control")
-	if err := os.Mkdir(control, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	before := verificationInventory(t, journey.root)
-	environment := append(environmentWithout(journey.environment,
-		"AIGW_TEST_RESOURCE_CONTROL", "AIGW_TEST_RESOURCE_ROLE"),
-		"AIGW_TEST_RESOURCE_CONTROL="+control, "AIGW_TEST_RESOURCE_ROLE=child")
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
-	defer cancel()
-	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
-		Executable: journey.binary, Args: []string{"check", client, "--depth", "client"}, Env: environment,
-	})
-	var exit *exec.ExitError
-	if ctx.Err() != nil || !errors.As(err, &exit) || exit.ExitCode() != 1 || len(stderr) != 0 ||
-		!strings.Contains(string(stdout), "cannot isolate native launcher publication on Windows; no client process was started") {
-		t.Fatalf("native unsupported client refusal: %v\n%s\n%s", err, stdout, stderr)
-	}
-	entries, err := os.ReadDir(control)
-	if err != nil || len(entries) != 0 || !reflect.DeepEqual(before, verificationInventory(t, journey.root)) {
-		t.Fatalf("unsupported verification started a client or changed protected resources: %v", err)
-	}
 }
 
 func nativeResourceManifest(client, endpoint string) string {
@@ -241,7 +197,6 @@ func verifyNativeResourceCase(t *testing.T, journey *journeyFixture, temporary, 
 	// leaves them.
 	command.Env = environmentWith(environment, map[string]string{secret.EnvironmentKey("native-system-keyring-probe"): "native-resource-token"})
 	command.Dir = journey.root
-	prepareVerificationInterrupt(command)
 	var stdout, stderr bytes.Buffer
 	command.Stdout, command.Stderr = &stdout, &stderr
 	started := time.Now()
@@ -253,11 +208,11 @@ func verifyNativeResourceCase(t *testing.T, journey *journeyFixture, temporary, 
 	var runErr error
 	go func() { runErr = command.Wait(); close(completed) }()
 	defer func() {
-		finishVerificationCommand(t, command, environment, completed)
+		finishVerificationCommand(t, command, completed)
 		cancel()
 	}()
 	if err := awaitVerificationFile(filepath.Join(control, "parent.json")); err != nil {
-		finishVerificationCommand(t, command, environment, completed)
+		finishVerificationCommand(t, command, completed)
 		t.Fatalf("public verification did not invoke controlled client: %v\n%s\n%s", err, &stdout, &stderr)
 	}
 	var parent, child verificationResourceProcess
@@ -275,7 +230,7 @@ func verifyNativeResourceCase(t *testing.T, journey *journeyFixture, temporary, 
 		t.Fatal(err)
 	}
 	if mode == "interrupt" {
-		if err := interruptVerificationCommand(command, environment); err != nil {
+		if err := command.Process.Signal(syscall.SIGTERM); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -293,14 +248,14 @@ func verifyNativeResourceCase(t *testing.T, journey *journeyFixture, temporary, 
 	t.Logf("case=%s candidate_sha256=%x owned_parent=%d owned_child=%d elapsed=%s resource_inventory=unchanged", mode, beforeProgram, parent.PID, child.PID, time.Since(started))
 }
 
-func finishVerificationCommand(t *testing.T, command *exec.Cmd, environment []string, completed <-chan struct{}) {
+func finishVerificationCommand(t *testing.T, command *exec.Cmd, completed <-chan struct{}) {
 	t.Helper()
 	select {
 	case <-completed:
 		return
 	default:
 	}
-	_ = interruptVerificationCommand(command, environment)
+	_ = command.Process.Signal(syscall.SIGTERM)
 	select {
 	case <-completed:
 	case <-time.After(5 * time.Second):

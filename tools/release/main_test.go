@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -84,9 +83,6 @@ func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
 	fixture := &journeyFixture{testing: t, clientBin: t.TempDir()}
 	fixture.installClientFixture(codex.ID)
 	executable := filepath.Join(fixture.clientBin, codex.ID)
-	if runtime.GOOS == "windows" {
-		executable += ".exe"
-	}
 	reader, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
@@ -247,7 +243,7 @@ func requireNativeLifecycleBaseline(t *testing.T, buildFixture func() string) st
 	if err != nil {
 		t.Fatal(err)
 	}
-	staged := filepath.Join(t.TempDir(), executableName())
+	staged := filepath.Join(t.TempDir(), "aigw")
 	if err := os.WriteFile(staged, data, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +272,7 @@ func TestNativeLifecycleBaselineSelection(t *testing.T) {
 		}
 	})
 	t.Run("explicit released binary", func(t *testing.T) {
-		baseline := filepath.Join(t.TempDir(), executableName())
+		baseline := filepath.Join(t.TempDir(), "aigw")
 		mustWriteFile(t, baseline, []byte("baseline"), 0o700)
 		t.Setenv("AIGW_ACCEPTANCE_BASELINE", baseline)
 		built := false
@@ -306,7 +302,7 @@ func TestNativeLifecycleBaselineSelection(t *testing.T) {
 }
 
 func TestExplicitNativeBaselineStagesExactBytesOutsideItsInstallation(t *testing.T) {
-	selected := filepath.Join(t.TempDir(), executableName())
+	selected := filepath.Join(t.TempDir(), "aigw")
 	want := []byte("published predecessor bytes")
 	mustWriteFile(t, selected, want, 0o700)
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", selected)
@@ -364,7 +360,7 @@ func buildNativeProgram(t *testing.T, root, version string) string {
 	}
 	stage := cachedNativeSource(t, root, version)
 	base, _ := nativeArchiveNames(version)
-	return filepath.Join(stage, base, executableName())
+	return filepath.Join(stage, base, "aigw")
 }
 
 func cachedNativeSource(t *testing.T, root, version string) string {

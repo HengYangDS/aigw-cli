@@ -95,9 +95,8 @@ func TestDependencyEvidenceBindsFixesToPackageAndVersionScheme(t *testing.T) {
 	}
 }
 
-// jsonText is value as a JSON document spells it inside a string, where a
-// Windows path has every backslash escaped, so that a test can tell whether
-// the document holds value.
+// jsonText is value as a JSON document spells it inside a string, so that a
+// test can tell whether the document holds value.
 func jsonText(t *testing.T, value string) string {
 	t.Helper()
 	encoded, err := json.Marshal(value)

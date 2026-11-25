@@ -10,8 +10,7 @@ import (
 )
 
 // A missing path is absent only when no regular file stands on it, whatever
-// error the platform reports for one: Windows reports a file in the way as a
-// missing path, and its own missing-path error is the same.
+// error the platform reports for one, a missing path included.
 func TestMissingAtNamesTheFileInTheWay(t *testing.T) {
 	root := t.TempDir()
 	file := filepath.Join(root, "file")

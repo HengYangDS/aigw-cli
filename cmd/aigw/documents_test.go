@@ -85,7 +85,7 @@ func TestDocumentProblemsNameEachGap(t *testing.T) {
 		})
 	}
 	script := "exec aigw demo --json\ncmp stdout direct.json\n" +
-		"[windows] exec $BIN/aigw demo --json=true\n[windows] cp stdout copied.out\n[windows] cmp copied.out copied.json\n" +
+		"[linux] exec $BIN/aigw demo --json=true\n[linux] cp stdout copied.out\n[linux] cmp copied.out copied.json\n" +
 		"exec aigw demo --json\nnormalize stdout normalized.out\ncmpenv normalized.out normalized.json\n" +
 		"exitcode 1 aigw demo --json\ncmpenv stdout refused.json\n" +
 		"exec aigw demo\ncmp stdout text.json\n" +

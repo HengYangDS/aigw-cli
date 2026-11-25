@@ -8,7 +8,6 @@ package platform
 import (
 	"fmt"
 	"path"
-	"strings"
 )
 
 // Paths is the complete host-derived path contract for one AIGW process.
@@ -34,18 +33,12 @@ func PathsFor(goos string, env map[string]string) (Paths, error) {
 	if err != nil {
 		return Paths{}, err
 	}
-	installName := "aigw"
-	secrets := path.Join(data, "secrets")
-	if goos == "windows" {
-		installName += ".exe"
-		secrets = AppendWindowsPath(data, "secrets")
-	}
 	return Paths{
 		Config:      config,
 		Data:        data,
-		Secrets:     secrets,
+		Secrets:     path.Join(data, "secrets"),
 		InstallDir:  installDir,
-		InstallName: installName,
+		InstallName: "aigw",
 	}, nil
 }
 
@@ -67,12 +60,6 @@ func ConfigPathFor(goos string, env map[string]string) (string, error) {
 			base = path.Join(env["HOME"], ".config")
 		}
 		return path.Join(base, "aigw", "aigw.toml"), nil
-	case "windows":
-		base := env["APPDATA"]
-		if base == "" {
-			return "", fmt.Errorf("APPDATA is not set")
-		}
-		return AppendWindowsPath(base, "aigw", "aigw.toml"), nil
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
@@ -95,15 +82,6 @@ func DataDirFor(goos string, env map[string]string) (string, error) {
 			base = path.Join(env["HOME"], ".local", "share")
 		}
 		return path.Join(base, "aigw"), nil
-	case "windows":
-		base := env["LOCALAPPDATA"]
-		if base == "" {
-			base = env["APPDATA"]
-		}
-		if base == "" {
-			return "", fmt.Errorf("LOCALAPPDATA and APPDATA are not set")
-		}
-		return AppendWindowsPath(base, "aigw"), nil
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
@@ -118,23 +96,7 @@ func UserBinDirFor(goos string, env map[string]string) (string, error) {
 			return "", fmt.Errorf("HOME is not set")
 		}
 		return path.Join(home, ".local", "bin"), nil
-	case "windows":
-		base := env["LOCALAPPDATA"]
-		if base == "" {
-			base = env["APPDATA"]
-		}
-		if base == "" {
-			return "", fmt.Errorf("LOCALAPPDATA and APPDATA are not set")
-		}
-		return AppendWindowsPath(base, "Programs", "aigw", "bin"), nil
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
-}
-
-// AppendWindowsPath appends owned components to a Windows base path without
-// reinterpreting the base namespace.
-func AppendWindowsPath(base string, components ...string) string {
-	base = strings.ReplaceAll(base, "/", `\`)
-	return strings.TrimRight(base, `\`) + `\` + strings.Join(components, `\`)
 }

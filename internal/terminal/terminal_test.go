@@ -10,26 +10,17 @@ import (
 func TestColorEnabledFromEnvironment(t *testing.T) {
 	tests := []struct {
 		name string
-		goos string
 		env  map[string]string
 		term bool
 		want bool
 	}{
-		{"non terminal", "linux", nil, false, false},
-		{"NO_COLOR", "linux", map[string]string{"NO_COLOR": "1"}, true, false},
-		{"unix terminal", "linux", nil, true, true},
-		{"windows legacy ConsoleHost", "windows", map[string]string{"WT_SESSION": "", "ANSICON": "", "ConEmuANSI": "OFF", "TERM": ""}, true, false},
-		{"windows VT enabled", "windows", nil, true, true},
-		{"windows terminal", "windows", map[string]string{"WT_SESSION": "session"}, true, true},
-		{"windows ANSI capable host", "windows", map[string]string{"ANSICON": "1"}, true, true},
+		{"non terminal", nil, false, false},
+		{"NO_COLOR", map[string]string{"NO_COLOR": "1"}, true, false},
+		{"terminal", nil, true, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			enableVT := func() bool { return false }
-			if tt.name == "windows VT enabled" {
-				enableVT = func() bool { return true }
-			}
-			if got := ColorEnabled(tt.goos, tt.env, tt.term, enableVT); got != tt.want {
+			if got := ColorEnabled(tt.env, tt.term); got != tt.want {
 				t.Fatalf("ColorEnabled() = %v, want %v", got, tt.want)
 			}
 		})
@@ -87,12 +78,6 @@ func TestPresentationWidthUsesOverrideAndNonTerminalFallback(t *testing.T) {
 	})
 	if got := PresentationWidth(file, map[string]string{}); got != 0 {
 		t.Fatalf("PresentationWidth non-terminal = %d", got)
-	}
-}
-
-func TestUnixVirtualTerminalCapabilityIsFalse(t *testing.T) {
-	if EnableVirtualTerminal() {
-		t.Fatal("non-Windows VT capability must be false")
 	}
 }
 

@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -259,24 +258,17 @@ func runCaptured(ctx context.Context, plan Plan, stdout io.Writer) (diagnostic [
 }
 
 // RunStream executes an owned non-interactive process with caller-owned output
-// streams. Cancellation and return reclaim its native process group or Job.
+// streams. Cancellation and return reclaim its native process group.
 func (Runner) RunStream(ctx context.Context, plan Plan, stdout, stderr io.Writer) (err error) {
-	if plan.DebugProcess {
-		if runtime.GOOS != "windows" || plan.OnStart == nil {
-			return errors.New("native debug execution requires a Windows observer")
-		}
-		runtime.LockOSThread()
-		defer runtime.UnlockOSThread()
-	}
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	cmd := commandContext(ctx, plan)
+	cmd := exec.CommandContext(ctx, plan.Executable, plan.Args...)
 	cmd.Dir = plan.Directory
 	cmd.Env = plan.Env
 	cmd.Stdin = strings.NewReader(plan.Stdin)
 	cmd.WaitDelay = capturedProcessWaitDelay
 	// Native files retain immediate-exit writes. Other writers use bounded
-	// output pipes; the owned process group or job is reclaimed before return.
+	// output pipes; the owned process group is reclaimed before return.
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	cleanup, err := startCapturedProcess(cmd, plan.OnCreated)
 	if err != nil {

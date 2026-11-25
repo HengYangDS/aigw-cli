@@ -19,7 +19,6 @@ func TestClaudeDesktopLibraryUsesTheOfficialPerUserScope(t *testing.T) {
 		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, want: "/Users/alex/Library/Application Support/Claude-3p/configLibrary"},
 		{name: "Linux XDG", goos: "linux", env: map[string]string{"XDG_CONFIG_HOME": "/cfg"}, want: "/cfg/Claude-3p/configLibrary"},
 		{name: "Linux home", goos: "linux", env: map[string]string{"HOME": "/home/alex"}, want: "/home/alex/.config/Claude-3p/configLibrary"},
-		{name: "Windows", goos: "windows", env: map[string]string{"LOCALAPPDATA": `C:\Users\alex\AppData\Local`}, want: `C:\Users\alex\AppData\Local\Claude-3p\configLibrary`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			got, err := LibraryPathFor(test.goos, test.env)
@@ -28,7 +27,7 @@ func TestClaudeDesktopLibraryUsesTheOfficialPerUserScope(t *testing.T) {
 			}
 		})
 	}
-	for _, goos := range []string{"darwin", "linux", "windows", "plan9"} {
+	for _, goos := range []string{"darwin", "linux", "plan9"} {
 		if _, err := LibraryPathFor(goos, map[string]string{}); err == nil {
 			t.Fatalf("LibraryPathFor(%q) accepted missing platform input", goos)
 		}
@@ -45,8 +44,6 @@ func TestClaudeDesktopApplicationPathsUseOfficialNativeLocations(t *testing.T) {
 		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, want: []string{"/Users/alex/Applications/Claude.app/Contents/MacOS/Claude", "/Applications/Claude.app/Contents/MacOS/Claude"}},
 		{name: "macOS without home", goos: "darwin", env: map[string]string{}, want: []string{"/Applications/Claude.app/Contents/MacOS/Claude"}},
 		{name: "Linux", goos: "linux", env: map[string]string{"HOME": "/home/alex"}, want: nil},
-		{name: "Windows", goos: "windows", env: map[string]string{"LOCALAPPDATA": `C:\Users\alex\AppData\Local`}, want: []string{`C:\Users\alex\AppData\Local\AnthropicClaude\claude.exe`}},
-		{name: "Windows without local app data", goos: "windows", env: map[string]string{}, want: nil},
 		{name: "unsupported", goos: "plan9", env: map[string]string{}, want: nil},
 	}
 	for _, test := range tests {
@@ -65,16 +62,15 @@ func TestAdapterRefusesAHostWithoutTheLibraryInputs(t *testing.T) {
 	if !validates {
 		t.Fatal("the Claude Desktop adapter does not validate the host")
 	}
-	if err := validator.ValidateHost(discovery.Host{GOOS: "windows", Env: map[string]string{"LOCALAPPDATA": `C:\Users\alex\AppData\Local`}}); err != nil {
-		t.Fatalf("ValidateHost() of a complete Windows host = %v", err)
+	if err := validator.ValidateHost(discovery.Host{GOOS: "darwin", Env: map[string]string{"HOME": "/Users/alex"}}); err != nil {
+		t.Fatalf("ValidateHost() of a complete macOS host = %v", err)
 	}
-	// Every platform misses its own inputs here, while other platforms' inputs are present.
-	foreign := map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`, "USERPROFILE": `C:\Users\alex`}
+	// Every platform misses its own inputs here, while another variable is present.
+	foreign := map[string]string{"XDG_DATA_HOME": "/data"}
 	for goos, want := range map[string]string{
-		"darwin":  "HOME is not set",
-		"linux":   "HOME and XDG_CONFIG_HOME are not set",
-		"windows": "LOCALAPPDATA is not set",
-		"plan9":   `unsupported operating system "plan9"`,
+		"darwin": "HOME is not set",
+		"linux":  "HOME and XDG_CONFIG_HOME are not set",
+		"plan9":  `unsupported operating system "plan9"`,
 	} {
 		if err := validator.ValidateHost(discovery.Host{GOOS: goos, Home: "/home/alex", Env: foreign}); err == nil || err.Error() != want {
 			t.Errorf("ValidateHost(%s) = %v, want %q", goos, err, want)

@@ -10,9 +10,9 @@ import (
 	"testing"
 )
 
-func TestAutomaticSelectionFallsBackWhenWindowsKeyringIsUnavailable(t *testing.T) {
+func TestAutomaticSelectionFallsBackWhenMacOSKeyringIsUnavailable(t *testing.T) {
 	store, err := Select(Selection{
-		GOOS:         "windows",
+		GOOS:         "darwin",
 		Root:         filepath.Join(t.TempDir(), "secrets"),
 		Getenv:       func(string) string { return "" },
 		KeyringProbe: func(Store) error { return errors.New("unavailable") },
@@ -46,8 +46,8 @@ func TestExplicitKeyringFailureDoesNotFallback(t *testing.T) {
 	}
 }
 
-func TestExplicitFileBackendSupportsWindows(t *testing.T) {
-	store, err := Select(Selection{Backend: "file", GOOS: "windows", Root: t.TempDir()})
+func TestExplicitFileBackendSupportsMacOS(t *testing.T) {
+	store, err := Select(Selection{Backend: "file", GOOS: "darwin", Root: t.TempDir()})
 	if err != nil {
 		t.Fatalf("Select() error = %v", err)
 	}

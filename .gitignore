@@ -1,6 +1,5 @@
 # Product and verification output
 /aigw
-/aigw.exe
 /build/
 
 # Checkout-local dependencies

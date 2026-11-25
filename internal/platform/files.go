@@ -10,7 +10,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 )
 
 // FileSnapshot is the exact file state observed during transaction
@@ -118,7 +117,7 @@ func writeFileAtomicIfUnchanged(
 	if preserveExistingMode && expected.Exists {
 		mode = expected.Mode
 	}
-	return NewFileSnapshot(data, persistedMode(mode)), nil
+	return NewFileSnapshot(data, mode.Perm()), nil
 }
 
 // NewFileSnapshot captures owned bytes, their digest and permission bits for an
@@ -158,16 +157,6 @@ func FileSHA256(path string) (digest string, err error) {
 	}
 	defer func() { err = errors.Join(err, file.Close()) }()
 	return ReadSHA256(file)
-}
-
-func persistedMode(mode os.FileMode) os.FileMode {
-	if runtime.GOOS != "windows" {
-		return mode.Perm()
-	}
-	if mode.Perm()&0o200 == 0 {
-		return 0o444
-	}
-	return 0o666
 }
 
 // RemoveFileIfUnchanged removes a prepared file only when it has not changed

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -58,9 +57,6 @@ func TestClaudeInspectionRequiresTheSynchronizedProjection(t *testing.T) {
 func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 	root := t.TempDir()
 	executable := filepath.Join(root, "claude")
-	if goruntime.GOOS == "windows" {
-		executable += ".exe"
-	}
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}

@@ -148,13 +148,13 @@ func writeNotarizationUpload(t *testing.T, stage string, wrongProgram bool) (Not
 	writeMacOSArchiveFixtures(t, stage, true)
 	var payload bytes.Buffer
 	archive := zip.NewWriter(&payload)
-	for _, arch := range []string{"amd64", "arm64"} {
-		entry, err := archive.Create(arch + "/aigw")
+	for _, target := range darwinTargets() {
+		entry, err := archive.Create(target.Arch + "/aigw")
 		if err != nil {
 			t.Fatal(err)
 		}
-		program := []byte(arch)
-		if wrongProgram && arch == "arm64" {
+		program := []byte(target.Arch)
+		if wrongProgram {
 			program = []byte("unrelated")
 		}
 		if _, err := entry.Write(program); err != nil {

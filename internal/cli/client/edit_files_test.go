@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	goruntime "runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -120,9 +119,9 @@ func TestEditMovesCodexAwayFromADeletedConfigurationFile(t *testing.T) {
 // second one's folder is read-only. The edit fails at that file, names it with
 // its operating-system error, says that the first file was restored, and asks
 // for a writable file and folder; the configuration and every file stay as
-// they were. A folder's permissions bind neither Windows nor root.
+// they were. A folder's permissions do not bind root.
 func TestAFailedWriteNamesTheFileAndWhatWasRestored(t *testing.T) {
-	if goruntime.GOOS == "windows" || os.Geteuid() == 0 {
+	if os.Geteuid() == 0 {
 		t.Skip("folder permissions do not refuse this user's writes")
 	}
 	runtime, _, secretStore, _ := adapterRuntime(t, adapterConfig())

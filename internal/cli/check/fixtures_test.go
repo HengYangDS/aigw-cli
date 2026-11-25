@@ -132,7 +132,7 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 		Clients: clients.Registry(), Config: store.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission()),
 		Secrets: &observingSecretStore{tokens: map[string]string{"one": "fixture-token"}}, Out: out, Width: 120,
 		HTTP: roundTripFunc(answer), Executable: filepath.Join(root, "aigw"),
-		Host: discovery.Host{GOOS: goruntime.GOOS, Home: root, Env: map[string]string{"HOME": root, "USERPROFILE": root}},
+		Host: discovery.Host{GOOS: goruntime.GOOS, Home: root, Env: map[string]string{"HOME": root}},
 	}
 	save(t, runtime, cfg)
 	return runtime, cfg, out
@@ -170,9 +170,6 @@ func enable(t *testing.T, runtime invocation.Context, cfg *domain.Config, ids ..
 	root := runtime.Host.Home
 	for _, id := range ids {
 		executable := filepath.Join(root, id)
-		if goruntime.GOOS == "windows" {
-			executable += ".exe"
-		}
 		if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 			t.Fatal(err)
 		}

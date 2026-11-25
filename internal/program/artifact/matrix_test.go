@@ -16,13 +16,12 @@ import (
 )
 
 func TestArchivesFollowTheTargets(t *testing.T) {
-	want := []string{
-		"aigw_1.2.3_darwin_amd64.tar.gz",
-		"aigw_1.2.3_darwin_arm64.tar.gz",
-		"aigw_1.2.3_linux_amd64.tar.gz",
-		"aigw_1.2.3_linux_arm64.tar.gz",
-		"aigw_1.2.3_windows_amd64.zip",
-		"aigw_1.2.3_windows_arm64.zip",
+	var want []string
+	for _, target := range Targets() {
+		want = append(want, target.ArchiveName("1.2.3"))
+	}
+	if len(want) == 0 {
+		t.Fatal("the release matrix has no target")
 	}
 	if got := Archives("1.2.3"); !slices.Equal(got, want) {
 		t.Fatalf("archives = %v, want %v", got, want)

@@ -13,7 +13,7 @@ type DeadlineError struct {
 	Limit time.Duration
 	// Created is when the runner saw that the operating system had created
 	// the subprocess, and Started when the runner had started it inside the
-	// process group or Job that owns it, each counted from the operation's
+	// process group that owns it, each counted from the operation's
 	// start. Each is negative
 	// when the operation returned before the step ended; a time of Limit or
 	// later says that the step ended only once the deadline had passed.

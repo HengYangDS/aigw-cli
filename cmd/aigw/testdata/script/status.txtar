@@ -50,7 +50,7 @@ fixloop -did 'restored the configuration file from a copy' refusal.json aigw sta
 # search path, add selects the model and writes no Claude Code file, and
 # status says that Claude Code is not installed. With claude on the search
 # path, status names aigw sync, which writes its files.
-env HOME=$WORK/later USERPROFILE=$WORK/later XDG_CONFIG_HOME=$WORK/later XDG_DATA_HOME=$WORK/later APPDATA=$WORK/later LOCALAPPDATA=$WORK/later
+env HOME=$WORK/later XDG_CONFIG_HOME=$WORK/later XDG_DATA_HOME=$WORK/later
 env PATH=$WORK/nothing
 stdin token.txt
 exec $BIN/aigw provider add team --label 'Team Gateway' --endpoint anthropic=$UPSTREAM --token-stdin

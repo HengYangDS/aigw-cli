@@ -47,7 +47,7 @@ func readFile(t *testing.T, path string) []byte {
 // hostAt observes home as the user's home directory, so Claude Code's settings
 // file is home/.claude/settings.json.
 func hostAt(home string) discovery.Host {
-	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home}}
 }
 
 // claudeSettingsPath returns the Claude Code settings file on host.
@@ -288,12 +288,10 @@ func synchronizeClaudeProjection(t *testing.T, app *cli.App, cfg domain.Config) 
 
 // executableFixture is a client's executable for one test: a program that
 // exits at once with status 1 and writes nothing, so a probe of it fails as it
-// does for a client that is not there. A file that is not a program makes the
-// operating system refuse it as an invalid image, a path on which hosted
-// Windows Server 2025 ended the test binary with a fail fast (0xc0000409).
+// does for a client that is not there.
 func executableFixture(t *testing.T, name string) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), executableName(name))
+	path := filepath.Join(t.TempDir(), name)
 	writeSilentProgram(t, path)
 	return path
 }
@@ -314,8 +312,7 @@ func writeSilentProgram(t *testing.T, path string) {
 // Unix the child holds every descriptor of this process until it runs its own
 // program, and Linux refuses to start a file that is open for writing
 // (ETXTBSY, https://go.dev/issue/22315). The file is written under
-// syscall.ForkLock, which every fork of this process holds for writing; on
-// Windows, where no descriptor is inherited so, the lock waits for nothing.
+// syscall.ForkLock, which every fork of this process holds for writing.
 func writeProgram(t *testing.T, path string, program []byte) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -340,7 +337,7 @@ var silentProgram = sync.OnceValues(func() ([]byte, error) {
 	if err := os.WriteFile(source, []byte("package main\n\nimport \"os\"\n\nfunc main() { os.Exit(1) }\n"), 0o600); err != nil {
 		return nil, err
 	}
-	program := filepath.Join(folder, executableName("client"))
+	program := filepath.Join(folder, "client")
 	build := exec.Command("go", "build", "-o", program, source)
 	build.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOWORK=off", "GOPROXY=off", "CGO_ENABLED=0")
 	if output, err := build.CombinedOutput(); err != nil {
@@ -356,61 +353,20 @@ func wantNext(action, detail, want string) bool {
 	return action == wantAction && detail == wantDetail
 }
 
-func executableName(name string) string {
-	if runtime.GOOS == "windows" {
-		return name + ".exe"
-	}
-	return name
-}
-
-// blockRemoval makes removing path fail until the test ends: Windows refuses to
-// delete an open file, and POSIX refuses to unlink a file from a directory
-// without write permission, unless the process runs as root.
+// blockRemoval makes removing path fail until the test ends: the operating
+// system refuses to unlink a file from a directory without write permission,
+// unless the process runs as root.
 func blockRemoval(t *testing.T, path string) {
 	t.Helper()
-	if runtime.GOOS == "windows" {
-		file, err := os.Open(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = file.Close() })
-		return
-	}
 	readOnlyDirectory(t, filepath.Dir(path))
 }
 
 // blockFolder makes replacing or removing any file in folder fail until
-// release runs or the test ends: Windows refuses to replace a file that is
-// open, and POSIX refuses to change a directory without write permission. On
-// Windows a new file can still be created there, and a write that then fails
-// to replace its target must remove it.
+// release runs or the test ends: the operating system refuses to change a
+// directory without write permission.
 func blockFolder(t *testing.T, folder string) (release func()) {
 	t.Helper()
-	if runtime.GOOS != "windows" {
-		return readOnlyDirectory(t, folder)
-	}
-	entries, err := os.ReadDir(folder)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var open []*os.File
-	for _, entry := range entries {
-		if !entry.Type().IsRegular() {
-			continue
-		}
-		file, err := os.Open(filepath.Join(folder, entry.Name()))
-		if err != nil {
-			t.Fatal(err)
-		}
-		open = append(open, file)
-	}
-	release = sync.OnceFunc(func() {
-		for _, file := range open {
-			_ = file.Close()
-		}
-	})
-	t.Cleanup(release)
-	return release
+	return readOnlyDirectory(t, folder)
 }
 
 // readOnlyDirectory removes the write permission of directory until release

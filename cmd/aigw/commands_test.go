@@ -75,7 +75,7 @@ func TestMissingCasesNamesEachAbsentCase(t *testing.T) {
 		{"complete", complete, run, nil},
 		{"no JSON", "exec aigw demo --help\nexec aigw demo run\nexitcode 1 aigw demo run broken\n", nil, nil},
 		{"empty", "", nil, []string{"its help", "a success", "a refusal with its exit status"}},
-		{"only conditional", "[!windows] exec aigw demo --help\n[windows] exec aigw demo run\n[darwin] exitcode 1 aigw demo broken\n", nil,
+		{"only conditional", "[!linux] exec aigw demo --help\n[linux] exec aigw demo run\n[darwin] exitcode 1 aigw demo broken\n", nil,
 			[]string{"its help", "a success", "a refusal with its exit status"}},
 		{"unchecked refusal", "exec aigw demo --help\nexec aigw demo run\n! exec aigw demo broken\n", nil, []string{"a refusal with its exit status"}},
 		{"another command", "exec aigw other --help\nexec aigw other\nexitcode 1 aigw other broken\n", nil,

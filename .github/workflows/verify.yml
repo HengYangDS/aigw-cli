@@ -3,11 +3,9 @@ defaults:
   run:
     shell: bash
 env:
-  GIT_CONFIG_COUNT: "2"
+  GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
-  GIT_CONFIG_KEY_1: core.longpaths
-  GIT_CONFIG_VALUE_1: "true"
   MISE_CONFIG_DIR: ${{ github.workspace }}/.config/mise/external
   MISE_GLOBAL_CONFIG_FILE: ${{ github.workspace }}/.config/mise/external/config.toml
   MISE_SYSTEM_CONFIG_DIR: ${{ github.workspace }}/.config/mise/external
@@ -34,7 +32,6 @@ env:
           - all
           - darwin
           - linux
-          - windows
       full_quality:
         description: Qualify all repository quality tools on each native platform
         required: false
@@ -116,7 +113,7 @@ jobs:
   quality:
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Quality and governance' || 'Quality and governance' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 70
+    timeout-minutes: 60
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || inputs.candidate_tag == '')
     env:
       MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee
@@ -239,12 +236,9 @@ jobs:
           CI_COMMIT_TAG: ${{ github.ref_name }}
         run: mise exec --locked -- go run ./tools/release validate-version-tag
   native-darwin:
-    defaults:
-      run:
-        shell: bash
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native macOS acceptance' || 'Native macOS acceptance' }}
-    runs-on: macos-26
-    timeout-minutes: 70
+    runs-on: macos-latest
+    timeout-minutes: 60
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'darwin')
     env:
       MISE_ENABLE_TOOLS: ${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || inputs.candidate_tag == '') && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab,github:indygreg/apple-platform-rs' || inputs.performance && 'go,gh,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine' || 'go,gh,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' }}${{ inputs.native_clients && ',node' || '' }}
@@ -295,12 +289,12 @@ jobs:
         run: mise exec --locked -- go run ./tools/ci native --platform darwin --selection-matrix --full-quality
       - name: Prepare official native clients
         if: github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''
+        timeout-minutes: 20
         env:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
         run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.170.0 --claude 2.1.327 --hermes-commit ae2a81ccc00e9b7c06301523e5bb09608397149c --hermes-installer-sha256 c73dad4dcf7c9ecadb98578e28cc763d23d7be3fa1b513545319038795493214
-        timeout-minutes: 20
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
         env:
@@ -367,12 +361,9 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   native-linux:
-    defaults:
-      run:
-        shell: bash
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native Linux acceptance' || 'Native Linux acceptance' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 70
+    timeout-minutes: 60
     if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
     env:
       MISE_ENABLE_TOOLS: ${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || inputs.candidate_tag == '') && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' || inputs.performance && 'go,gh,github:goreleaser/goreleaser,github:sharkdp/hyperfine' || 'go,gh,github:goreleaser/goreleaser' }}${{ inputs.native_clients && ',node' || '' }}
@@ -439,12 +430,12 @@ jobs:
           sudo -n apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
       - name: Prepare official native clients
         if: github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''
+        timeout-minutes: 20
         env:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
         run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.170.0 --claude 2.1.327 --hermes-commit ae2a81ccc00e9b7c06301523e5bb09608397149c --hermes-installer-sha256 c73dad4dcf7c9ecadb98578e28cc763d23d7be3fa1b513545319038795493214
-        timeout-minutes: 20
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
         env:
@@ -513,132 +504,6 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: performance-linux
-          path: build/performance
-          if-no-files-found: error
-          retention-days: 7
-  native-windows:
-    defaults:
-      run:
-        shell: pwsh
-    name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native Windows acceptance' || 'Native Windows acceptance' }}
-    runs-on: windows-2025
-    timeout-minutes: 70
-    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
-    env:
-      MISE_ENABLE_TOOLS: ${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || inputs.candidate_tag == '') && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' || inputs.performance && 'go,gh,github:goreleaser/goreleaser,github:sharkdp/hyperfine' || 'go,gh,github:goreleaser/goreleaser' }}${{ inputs.native_clients && ',node' || '' }}
-    steps:
-      - name: Check out the exact product commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-      - name: Install the locked toolchain
-        uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d
-        env:
-          GODEBUG: http2client=0
-        with:
-          version: 2026.11.7
-          install: true
-          install_args: --locked
-          cache: true
-          cache_key_prefix: mise-${{ github.job }}
-      - name: Prepare locked dependencies
-        if: github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || inputs.candidate_tag == ''
-        run: mise run bootstrap
-      - name: Verify native lock resolution
-        if: github.event_name == 'workflow_dispatch' && inputs.refresh_locks
-        env:
-          MISE_GITHUB_TOKEN: ${{ github.token }}
-        run: mise run dependencies:resolve
-      - name: Retain native lock observation
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.refresh_locks
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: mise-lock-windows
-          path: |
-            .config/mise/mise.lock
-            .config/mise/locks
-          include-hidden-files: true
-          retention-days: 7
-      - env:
-          AIGW_VERIFY_SYSTEM_KEYRING: "1"
-        name: Run native Windows acceptance
-        if: github.event_name != 'workflow_dispatch' || (!inputs.full_quality && inputs.baseline_tag == '' && inputs.candidate_tag == '')
-        run: mise exec --locked -- go run ./tools/ci native --platform windows --selection-matrix
-      - env:
-          AIGW_VERIFY_SYSTEM_KEYRING: "1"
-          CGO_ENABLED: "1"
-        name: Qualify all repository tools on Windows
-        if: github.event_name == 'workflow_dispatch' && inputs.full_quality
-        run: mise exec --locked -- go run ./tools/ci native --platform windows --selection-matrix --full-quality
-      - name: Prepare official native clients
-        if: github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''
-        env:
-          GH_TOKEN: ""
-          GITHUB_TOKEN: ""
-          GIT_TERMINAL_PROMPT: "0"
-        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$env:RUNNER_TEMP" --github-env "$env:GITHUB_ENV" --codex 0.170.0 --claude 2.1.327
-        timeout-minutes: 12
-      - name: Prepare native source trust
-        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
-        env:
-          AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
-          AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}
-        run: mise exec --locked -- go run ./tools/ci trust-input --output "$env:RUNNER_TEMP/aigw-native-source-signers" --github-env "$env:GITHUB_ENV"
-      - name: Prepare native artifact trust
-        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
-        env:
-          AIGW_RELEASE_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ALLOWED_SIGNERS }}
-          AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS: ${{ vars.AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS }}
-        run: mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$env:RUNNER_TEMP/aigw-native-artifact-signers" --github-env "$env:GITHUB_ENV"
-      - name: Run historical release acceptance
-        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution) && !inputs.performance
-        env:
-          AIGW_VERIFY_SYSTEM_KEYRING: "1"
-          GH_TOKEN: ${{ github.token }}
-          GH_PROMPT_DISABLED: "1"
-          AIGW_BASELINE_TAG: ${{ inputs.baseline_tag }}
-          AIGW_CANDIDATE_TAG: ${{ inputs.candidate_tag }}
-          AIGW_NATIVE_DIAGNOSTIC_CLIENT: ${{ inputs.diagnostic_client }}
-          AIGW_RELEASE_ARTIFACT_SIGNER: ${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}
-        run: mise exec --locked -- go run ./tools/release accept-native --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG" --tag="$env:AIGW_CANDIDATE_TAG" --clients=${{ inputs.native_clients && inputs.diagnostic_client == '' }} --diagnostic-client="$env:AIGW_NATIVE_DIAGNOSTIC_CLIENT" --performance-attribution=${{ inputs.performance_attribution }}
-      - name: Measure historical release performance
-        if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution) && inputs.performance
-        env:
-          AIGW_VERIFY_SYSTEM_KEYRING: "1"
-          GH_TOKEN: ${{ github.token }}
-          GH_PROMPT_DISABLED: "1"
-          AIGW_BASELINE_TAG: ${{ inputs.baseline_tag }}
-          AIGW_CANDIDATE_TAG: ${{ inputs.candidate_tag }}
-          AIGW_NATIVE_DIAGNOSTIC_CLIENT: ${{ inputs.diagnostic_client }}
-          AIGW_RELEASE_ARTIFACT_SIGNER: ${{ vars.AIGW_RELEASE_ARTIFACT_SIGNER }}
-        run: mise run performance --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG" --tag="$env:AIGW_CANDIDATE_TAG" --clients=${{ inputs.native_clients && inputs.diagnostic_client == '' }} --diagnostic-client="$env:AIGW_NATIVE_DIAGNOSTIC_CLIENT" --performance-attribution=${{ inputs.performance_attribution }} --performance "$env:GITHUB_WORKSPACE/build/performance"
-      - name: Remove official native client supply
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''
-        run: mise exec --locked -- go run ./tools/ci native-clients retire
-      - name: Retain native dependency evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: dependency-evidence-windows
-          path: build/verification/dependencies
-          if-no-files-found: ignore
-          retention-days: 7
-      - name: Retain native source evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: source-evidence-windows
-          path: |-
-            build/verification/workflows
-            build/verification/coverage
-          if-no-files-found: ignore
-          retention-days: 7
-      - name: Retain native performance samples
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.performance
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: performance-windows
           path: build/performance
           if-no-files-found: error
           retention-days: 7

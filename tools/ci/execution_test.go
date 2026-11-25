@@ -370,7 +370,7 @@ func TestCommandRunnersHonorExecutionContextWithoutCreatingArtifacts(t *testing.
 		t.Fatal(err)
 	}
 	helper := filepath.Join(root, "environment.go")
-	if err := os.WriteFile(helper, []byte("package main\nimport (\"os\"; \"runtime\")\nfunc main(){ if os.Getenv(\"AIGW_CI_TEST\") != \"isolated\" { os.Exit(1) }; if runtime.GOOS != \"windows\" && os.Getenv(\"PWD\") != os.Getenv(\"AIGW_CI_TEST_ROOT\") { os.Exit(2) } }\n"), 0o600); err != nil {
+	if err := os.WriteFile(helper, []byte("package main\nimport \"os\"\nfunc main(){ if os.Getenv(\"AIGW_CI_TEST\") != \"isolated\" { os.Exit(1) }; if os.Getenv(\"PWD\") != os.Getenv(\"AIGW_CI_TEST_ROOT\") { os.Exit(2) } }\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	for name, runner := range map[string]commandRunner{
@@ -431,7 +431,7 @@ func TestWorkflowGateQualifiesNativeLargeShellInputAndRefusesShellDefects(t *tes
 			for line := range strings.SplitSeq(strings.TrimSuffix(test.script, "\n"), "\n") {
 				workflow += "          " + line + "\n"
 			}
-			workflow += "  windows:\n    runs-on: windows-latest\n    defaults:\n      run:\n        shell: pwsh\n    steps:\n      - run: Write-Output 'native Windows'\n"
+			workflow += "  posix:\n    runs-on: ubuntu-latest\n    defaults:\n      run:\n        shell: sh\n    steps:\n      - run: printf '%s\\n' native\n"
 			if err := os.WriteFile(path, []byte(workflow), 0o600); err != nil {
 				t.Fatal(err)
 			}
@@ -461,15 +461,15 @@ jobs:
       - run: >
           printf '%s' '${{ github.ref }}'
           retained
-      - run: Write-Output native
-        shell: pwsh
-  windows:
-    runs-on: windows-latest
+      - run: printf '%s\n' native
+        shell: sh
+  worker:
+    runs-on: ubuntu-latest
     defaults:
       run:
-        shell: pwsh
+        shell: sh
     steps:
-      - run: Write-Output native
+      - run: printf '%s\n' native
 `
 	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
 		t.Fatal(err)
@@ -478,7 +478,7 @@ jobs:
 	if err != nil || len(scripts) != 3 {
 		t.Fatalf("native YAML scripts: %+v %v", scripts, err)
 	}
-	if scripts[0].Shell != "bash" || scripts[1].Shell != "pwsh" || scripts[2].Shell != "pwsh" || scripts[0].Bytes != len("printf '%s' '${{ github.ref }}' retained\n") || strings.Contains(scripts[0].Input, "${{") {
+	if scripts[0].Shell != "bash" || scripts[1].Shell != "sh" || scripts[2].Shell != "sh" || scripts[0].Bytes != len("printf '%s' '${{ github.ref }}' retained\n") || strings.Contains(scripts[0].Input, "${{") {
 		t.Fatalf("source/shell projection changed: %+v", scripts)
 	}
 	for _, shell := range []string{"", "${{ inputs.shell }}", "unknown-shell"} {

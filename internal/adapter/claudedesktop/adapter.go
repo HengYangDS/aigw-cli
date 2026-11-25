@@ -42,14 +42,14 @@ func (claudeDesktopAdapter) Spec() domain.ClientSpec {
 func (claudeDesktopAdapter) Discover(source adapter.DiscoverySource) discovery.Result {
 	host := source.Platform()
 	executable := ""
-	for _, candidate := range ApplicationPathsFor(host.GOOS, map[string]string{"HOME": host.Home, "LOCALAPPDATA": host.Getenv("LOCALAPPDATA")}) {
+	for _, candidate := range ApplicationPathsFor(host.GOOS, map[string]string{"HOME": host.Home}) {
 		if source.Runnable(candidate) {
 			executable = candidate
 			break
 		}
 	}
 	library, _ := LibraryPathFor(host.GOOS, map[string]string{
-		"HOME": host.Home, "XDG_CONFIG_HOME": host.Getenv("XDG_CONFIG_HOME"), "LOCALAPPDATA": host.Getenv("LOCALAPPDATA"),
+		"HOME": host.Home, "XDG_CONFIG_HOME": host.Getenv("XDG_CONFIG_HOME"),
 	})
 	return discovery.Result{
 		Executables: map[string]string{ID: executable},

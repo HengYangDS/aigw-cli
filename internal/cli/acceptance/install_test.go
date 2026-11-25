@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -25,7 +24,7 @@ func TestInstallationDescribesCurrentFilesWithoutConfiguration(t *testing.T) {
 	t.Parallel()
 	app, out, _, _, _ := testApp(t, "")
 	root := t.TempDir()
-	app.Executable = filepath.Join(root, executableName("aigw"))
+	app.Executable = filepath.Join(root, "aigw")
 	app.Version = "1.2.3"
 	program := []byte("current portable program")
 	writeFile(t, app.Executable, program, 0o755)
@@ -70,10 +69,6 @@ func TestPortableInstallAndUninstallCommandsOwnOnlyProgramFiles(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	app.Executable = filepath.Join(t.TempDir(), "download", "aigw")
 	app.InstallTarget = filepath.Join(t.TempDir(), "bin", "aigw")
-	if runtime.GOOS == "windows" {
-		app.Executable += ".exe"
-		app.InstallTarget += ".exe"
-	}
 	if err := os.MkdirAll(filepath.Dir(app.Executable), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -180,10 +175,10 @@ func TestUninstallPreservesDriftedSharedReader(t *testing.T) {
 	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	root := t.TempDir()
-	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
+	app.Executable = filepath.Join(root, "bin", "aigw")
 	app.DataDir = filepath.Join(root, "data")
 	writeFile(t, app.Executable, []byte("portable program"), 0o755)
-	reader, err := versionedReaderPath(app.DataDir, app.Executable, executableName("aigw"))
+	reader, err := versionedReaderPath(app.DataDir, app.Executable, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,10 +213,10 @@ func TestPortableUninstallPreservesExternalCredentialCommand(t *testing.T) {
 	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
 	root := t.TempDir()
-	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
+	app.Executable = filepath.Join(root, "bin", "aigw")
 	app.DataDir = filepath.Join(root, "data")
 	writeFile(t, app.Executable, []byte("portable program"), 0o755)
-	reader, err := versionedReaderPath(app.DataDir, app.Executable, executableName("aigw"))
+	reader, err := versionedReaderPath(app.DataDir, app.Executable, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,13 +267,13 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	t.Helper()
 	app, _, secretStore, _, _ := testApp(t, "")
 	root := t.TempDir()
-	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
+	app.Executable = filepath.Join(root, "bin", "aigw")
 	if manager == "homebrew" {
 		packageRoot := filepath.Join(root, "Caskroom", "aigw")
-		app.Executable = filepath.Join(packageRoot, "0.1.0", "bin", executableName("aigw"))
+		app.Executable = filepath.Join(packageRoot, "0.1.0", "bin", "aigw")
 		writeFile(t, filepath.Join(packageRoot, ".metadata", "INSTALL_RECEIPT.json"), []byte(`{"homebrew_version":"7.0.2","source":{"tap":"owner/tap"}}`), 0o600)
 	}
-	previousExecutable := filepath.Join(filepath.Dir(app.Executable), executableName(".aigw.previous"))
+	previousExecutable := filepath.Join(filepath.Dir(app.Executable), ".aigw.previous")
 	for _, path := range []string{app.Executable, previousExecutable} {
 		writeFile(t, path, []byte("program"), 0o755)
 	}

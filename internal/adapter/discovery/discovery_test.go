@@ -20,10 +20,6 @@ func TestDiscoverFindsClientsAndAutoManagedCodexTargets(t *testing.T) {
 	}
 	goos := "linux"
 	names := []string{"claude", "codex"}
-	if runtime.GOOS == "windows" {
-		goos = "windows"
-		names = []string{"claude.exe", "codex.exe"}
-	}
 	for _, name := range names {
 		if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\n"), 0o755); err != nil {
 			t.Fatal(err)
@@ -54,9 +50,6 @@ func TestDiscoverReturnsClaudeExecutableWithoutPrivateMarkers(t *testing.T) {
 		t.Fatal(err)
 	}
 	goos, name := "linux", "claude"
-	if runtime.GOOS == "windows" {
-		goos, name = "windows", "claude.cmd"
-	}
 	if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\nnative Claude fixture\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -159,21 +152,13 @@ func TestLinuxDiscoveryKeepsDefaultClientHomesIndependent(t *testing.T) {
 	}
 }
 
-// On Windows, a variable's exact spelling wins over other spellings of the same
-// name, and a lookup without the exact spelling finds the same spelling every
-// time. Elsewhere, names match exactly.
-func TestHostGetenvIsDeterministicForSpellingsOfOneName(t *testing.T) {
-	env := map[string]string{"USERPROFILE": `C:\Users\alex`, "UserProfile": `D:\profile`, "userprofile": `E:\alex`}
-	windows := discovery.Host{GOOS: "windows", Env: env}
-	for range 100 {
-		if got := windows.Getenv("UserProfile"); got != `D:\profile` {
-			t.Fatalf("Getenv(UserProfile) = %q, want the exact spelling's value", got)
-		}
-		if got := windows.Getenv("UsErPrOfIlE"); got != `C:\Users\alex` {
-			t.Fatalf("Getenv(UsErPrOfIlE) = %q, want the first spelling in sorted order", got)
-		}
+// A variable's name matches only in its exact spelling.
+func TestHostGetenvMatchesNamesExactly(t *testing.T) {
+	host := discovery.Host{GOOS: "linux", Env: map[string]string{"HOME": "/home/alex"}}
+	if got := host.Getenv("HOME"); got != "/home/alex" {
+		t.Fatalf("Getenv(HOME) = %q, want the exact spelling's value", got)
 	}
-	if got := (discovery.Host{GOOS: "linux", Env: env}).Getenv("Userprofile"); got != "" {
-		t.Fatalf("Linux Getenv(Userprofile) = %q, want exact matches only", got)
+	if got := host.Getenv("Home"); got != "" {
+		t.Fatalf("Getenv(Home) = %q, want exact matches only", got)
 	}
 }

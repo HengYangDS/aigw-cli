@@ -29,7 +29,7 @@ func TestHermesNativeProjection(t *testing.T) {
 	for _, protocol := range []domain.EndpointProtocol{domain.ProtocolAnthropic, domain.ProtocolResponses, domain.ProtocolChat} {
 		t.Run(string(protocol), func(t *testing.T) {
 			home := t.TempDir()
-			env := map[string]string{"HOME": home, "USERPROFILE": home, "APPDATA": home, "LOCALAPPDATA": home, "XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home}
+			env := map[string]string{"HOME": home, "XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home}
 			configPath, err := platform.ConfigPathFor(runtime.GOOS, env)
 			if err != nil {
 				t.Fatal(err)
@@ -84,7 +84,7 @@ func TestHermesNativeProjection(t *testing.T) {
 func TestHermesNativeCuratedCatalog(t *testing.T) {
 	candidate, python := nativeHermesExecutables(t)
 	home := t.TempDir()
-	env := map[string]string{"HOME": home, "USERPROFILE": home, "APPDATA": home, "LOCALAPPDATA": home, "XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home}
+	env := map[string]string{"HOME": home, "XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home}
 	configPath, err := platform.ConfigPathFor(runtime.GOOS, env)
 	if err != nil {
 		t.Fatal(err)
@@ -165,9 +165,6 @@ func nativeHermesExecutables(t *testing.T) (candidate, python string) {
 func runHermesNativeScript(t *testing.T, python, home string, env map[string]string, script string) []byte {
 	t.Helper()
 	env["PATH"] = os.Getenv("PATH")
-	if systemRoot := os.Getenv("SystemRoot"); systemRoot != "" {
-		env["SystemRoot"] = systemRoot
-	}
 	environment := make([]string, 0, len(env))
 	for key, value := range env {
 		environment = append(environment, key+"="+value)

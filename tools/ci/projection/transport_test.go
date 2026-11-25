@@ -49,7 +49,6 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 		} `yaml:".linux-toolchain"`
 		NativeDarwin  gitLabJob `yaml:"native-darwin"`
 		NativeLinux   gitLabJob `yaml:"native-linux"`
-		NativeWindows gitLabJob `yaml:"native-windows"`
 		Quality       gitLabJob `yaml:"quality"`
 		SecretService gitLabJob `yaml:"linux-secret-service"`
 	}
@@ -102,7 +101,6 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 	for name, job := range map[string]gitLabJob{
 		"macOS":          gitlab.NativeDarwin,
 		"Linux":          gitlab.NativeLinux,
-		"Windows":        gitlab.NativeWindows,
 		"Quality":        gitlab.Quality,
 		"Secret Service": gitlab.SecretService,
 	} {
@@ -139,9 +137,6 @@ func TestGitLabMiseMirrorUsesCheckoutOwnedPath(t *testing.T) {
 	}
 	if !strings.Contains(prepare, `export MISE_DATA_DIR="$mirror_dir/mise-data"`) || !strings.Contains(prepare, `export MISE_CACHE_DIR="$MISE_DATA_DIR/cache"`) {
 		t.Fatal("peer selection must own cold native Mise data and cache directories")
-	}
-	if runtime.GOOS == "windows" {
-		return // Windows runners do not provide a POSIX shell.
 	}
 	project := t.TempDir()
 	for _, choice := range []string{"upstream", "invalid"} {
@@ -292,8 +287,8 @@ func nativeMiseMirrorInputs(t *testing.T, repository string) (string, misePlatfo
 	}
 	versions := lock.Tools["github:anchore/syft"]
 	selected := map[string]misePlatformLock{
-		"darwin-arm64": versions[0].MacOSARM64, "darwin-amd64": versions[0].MacOSX64,
-		"linux-arm64": versions[0].LinuxARM64, "linux-amd64": versions[0].LinuxX64,
+		"darwin-arm64": versions[0].MacOSARM64,
+		"linux-arm64":  versions[0].LinuxARM64, "linux-amd64": versions[0].LinuxX64,
 	}[runtime.GOOS+"-"+runtime.GOARCH]
 	return project, selected
 }

@@ -67,11 +67,6 @@ func TestClientDiscoveryBranches(t *testing.T) {
 			filename := name
 			content := []byte("#!/bin/sh\nexit 0\n")
 			mode := os.FileMode(0o700)
-			if runtime.GOOS == "windows" {
-				filename = name + ".cmd"
-				content = []byte("@echo off\r\nexit /b 0\r\n")
-				mode = 0o600
-			}
 			path := filepath.Join(dir, filename)
 			if err := os.WriteFile(path, content, mode); err != nil {
 				t.Fatal(err)

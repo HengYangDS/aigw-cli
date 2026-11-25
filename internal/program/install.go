@@ -58,17 +58,12 @@ func (u Updater) verifyProgram(ctx context.Context, binary []byte, version strin
 	}
 	home := filepath.Join(directory, "home")
 	environment := map[string]string{
-		"HOME": home, "USERPROFILE": home,
-		"XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home,
-		"APPDATA": home, "LOCALAPPDATA": home,
+		"HOME": home, "XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home,
 	}
 	plan := process.Plan{Executable: program, Args: []string{"--version"}, Env: []string{
 		"PATH=", "AIGW_SECRET_BACKEND=env", "NO_COLOR=1",
 		"TMPDIR=" + directory, "TMP=" + directory, "TEMP=" + directory,
 	}}
-	if root := os.Getenv("SystemRoot"); runtime.GOOS == "windows" && root != "" {
-		plan.Env = append(plan.Env, "SystemRoot="+root)
-	}
 	for name, value := range environment {
 		plan.Env = append(plan.Env, name+"="+value)
 	}
@@ -202,23 +197,8 @@ func (u Updater) Rollback(ctx context.Context, config []byte) (Transition, error
 		Summary: "restored the previous program version and retained the replaced program."}, err
 }
 
-// RollbackPath derives the sibling backup path for executable using the
-// separator style already present in executable, rather than the host OS's
-// native separator. This keeps the result stable across platforms: a
-// POSIX-style path (e.g. produced by a Windows binary staged from a
-// forward-slash working directory) must not be rewritten with backslashes,
-// and vice versa.
+// RollbackPath derives the sibling backup path for executable, keeping the
+// operator's spelling of its folder.
 func RollbackPath(executable string) string {
-	suffix := ".aigw.previous"
-	if strings.EqualFold(filepath.Ext(executable), ".exe") {
-		suffix += ".exe"
-	}
-	if strings.Contains(executable, `\`) && !strings.Contains(executable, "/") {
-		index := strings.LastIndex(executable, `\`)
-		return executable[:index+1] + suffix
-	}
-	if index := strings.LastIndex(executable, "/"); index >= 0 {
-		return executable[:index+1] + suffix
-	}
-	return suffix
+	return executable[:strings.LastIndex(executable, "/")+1] + ".aigw.previous"
 }

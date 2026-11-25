@@ -1,109 +1,81 @@
 package performance
 
 import (
-	"slices"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestExecutionRequiresNativeProcessOwnership(t *testing.T) {
-	image := Identity{Path: "C:\\owned\\program.exe", Format: "PE", Machine: 0x8664, Arch: "amd64", SHA256: strings.Repeat("a", 64), Bytes: 1}
-	observed := []Execution{{PID: 2, ParentPID: 1, Created: 20, ParentCreated: 10, Role: "controller", Image: image,
-		Machine: 0x8664, Arch: "amd64", NativeMachine: 0xaa64, Attributes: 1}}
-	if err := reviewExecution(&image, observed, "windows"); err != nil {
-		t.Fatalf("native x64-on-ARM was inferred to be invalid: %v", err)
+func TestSelectedIdentityMustBeComplete(t *testing.T) {
+	complete := Identity{Path: "/owned/program", Format: "ELF", Machine: 62, Arch: "amd64", SHA256: strings.Repeat("a", 64), Bytes: 1}
+	if err := reviewIdentity(&complete); err != nil {
+		t.Fatal(err)
 	}
-	for name, change := range map[string]func(*Execution){
-		"missing-creation":           func(p *Execution) { p.Created = 0 },
-		"missing-parent":             func(p *Execution) { p.ParentPID = 0 },
-		"missing-parent-creation":    func(p *Execution) { p.ParentCreated = 0 },
-		"reused-parent":              func(p *Execution) { p.ParentCreated = p.Created + 1 },
-		"missing-role":               func(p *Execution) { p.Role = "" },
-		"different-image":            func(p *Execution) { p.Image.SHA256 = strings.Repeat("b", 64) },
-		"missing-native-machine":     func(p *Execution) { p.NativeMachine = 0 },
-		"inconsistent-wow64":         func(p *Execution) { p.WOW64Machine = 0x014c },
-		"missing-machine-attributes": func(p *Execution) { p.Attributes = 0 },
+	for name, change := range map[string]func(*Identity){
+		"path":   func(identity *Identity) { identity.Path = "" },
+		"digest": func(identity *Identity) { identity.SHA256 = "a" },
+		"size":   func(identity *Identity) { identity.Bytes = 0 },
+		"arch":   func(identity *Identity) { identity.Arch = "" },
 	} {
-		t.Run(name, func(t *testing.T) {
-			changed := slices.Clone(observed)
-			change(&changed[0])
-			if err := reviewExecution(&image, changed, "windows"); err == nil {
-				t.Fatal("incomplete native process ownership qualified")
-			}
-		})
+		changed := complete
+		change(&changed)
+		if err := reviewIdentity(&changed); err == nil {
+			t.Fatalf("an identity without its %s was accepted", name)
+		}
+	}
+	if err := reviewIdentity(nil); err == nil {
+		t.Fatal("an absent identity was accepted")
 	}
 }
 
-func TestExecutionRequiresAnObservedParentGraph(t *testing.T) {
-	image := Identity{Path: "C:\\owned\\program.exe", Format: "PE", Machine: 0x8664, Arch: "amd64", SHA256: strings.Repeat("a", 64), Bytes: 1}
-	root := Execution{PID: 2, ParentPID: 1, Created: 20, ParentCreated: 10, Role: "controller", Image: image,
-		Machine: 0x8664, Arch: "amd64", NativeMachine: 0xaa64, Attributes: 1}
-	child := root
-	child.PID, child.ParentPID, child.Created, child.ParentCreated, child.Role = 3, 2, 30, 20, "workload"
-	if err := reviewExecution(&image, []Execution{root, child}, "windows"); err != nil {
+// The untimed preflight runs the preparation and the measured command once
+// each and retains their streams; only the product's own diagnostics mark the
+// workload unqualified, and they do not stop it.
+func TestPreflightJudgesTheProductCommandOnce(t *testing.T) {
+	if runs := os.Getenv("AIGW_TEST_PREFLIGHT_RUNS"); runs != "" {
+		step := os.Args[len(os.Args)-1]
+		file, err := os.OpenFile(runs, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+		if err == nil {
+			_, _ = fmt.Fprintln(file, step)
+			_ = file.Close()
+		}
+		if step == "measure" {
+			_, _ = fmt.Fprintln(os.Stderr, os.Getenv("AIGW_TEST_PREFLIGHT_STDERR"))
+		}
+		os.Exit(0)
+	}
+	program, err := os.Executable()
+	if err != nil {
 		t.Fatal(err)
 	}
-	for name, change := range map[string]func(*Execution){
-		"unobserved-parent": func(p *Execution) { p.ParentPID = 1 },
-		"reused-parent":     func(p *Execution) { p.ParentCreated++ },
-		"repeated-pid":      func(p *Execution) { p.PID = root.PID },
+	for _, test := range []struct {
+		marker     string
+		diagnostic bool
+	}{
+		{"Working: product output", false},
+		{"Warning: product output", true},
 	} {
-		t.Run(name, func(t *testing.T) {
-			changed := child
-			change(&changed)
-			if err := reviewExecution(&image, []Execution{root, changed}, "windows"); err == nil {
-				t.Fatal("unproved native process graph qualified")
+		t.Run(test.marker, func(t *testing.T) {
+			directory := t.TempDir()
+			runs, output := filepath.Join(directory, "runs"), filepath.Join(directory, "samples.json")
+			input := Command{Directory: directory, Output: output, Environment: append(os.Environ(),
+				"AIGW_TEST_PREFLIGHT_RUNS="+runs, "AIGW_TEST_PREFLIGHT_STDERR="+test.marker)}
+			run := []string{program, "-test.run=^TestPreflightJudgesTheProductCommandOnce$"}
+			workload := Workload{Command: append(run, "measure"), Prepare: append(append([]string(nil), run...), "prepare")}
+			if err := ObserveCommand(t.Context(), input, workload); err != nil {
+				t.Fatalf("a product diagnostic stopped the workload instead of marking it: %v", err)
+			}
+			if got := preflightDiagnostics(output); got != test.diagnostic {
+				t.Fatalf("preflight diagnostic verdict for %q = %t", test.marker, got)
+			}
+			if data, err := os.ReadFile(runs); err != nil || string(data) != "prepare\nmeasure\n" {
+				t.Fatalf("the preflight did not run the preparation and the measured command once each: %q, %v", data, err)
+			}
+			if stderr, err := os.ReadFile(strings.TrimSuffix(output, ".json") + ".preflight.stderr"); err != nil || !strings.Contains(string(stderr), test.marker) {
+				t.Fatalf("the preflight did not retain the product's stream: %q, %v", stderr, err)
 			}
 		})
-	}
-	if err := reviewExecution(nil, []Execution{root}, "windows"); err == nil {
-		t.Fatal("an unselected process image qualified")
-	}
-	if err := reviewExecution(&image, nil, "windows"); err == nil {
-		t.Fatal("a missing native observation qualified")
-	}
-}
-
-func TestExecutionRequiresTheOriginalCredentialChain(t *testing.T) {
-	image := Identity{Path: "C:\\owned\\program.exe", Format: "PE", Machine: 0x8664, Arch: "amd64", SHA256: strings.Repeat("a", 64), Bytes: 1}
-	process := func(pid, parent uint32, created, parentCreated uint64, role string) Execution {
-		return Execution{PID: pid, ParentPID: parent, Created: created, ParentCreated: parentCreated, Role: role, Image: image,
-			Machine: 0x8664, Arch: "amd64", NativeMachine: 0xaa64, Attributes: 1}
-	}
-	row := Measurement{Case: "credential", Backend: "keyring", Executable: &image, Reader: &image,
-		ControllerExecution: []Execution{process(2, 1, 20, 10, "controller")},
-		Execution:           []Execution{process(3, 2, 30, 20, "workload"), process(4, 3, 40, 30, "reader"), process(5, 4, 50, 40, "credential-worker")}}
-	if err := reviewWorkloadExecution(row, image, "windows"); err != nil {
-		t.Fatal(err)
-	}
-	for name, change := range map[string]func(*Measurement){
-		"missing-reader":       func(r *Measurement) { r.Execution[1].Role = "descendant" },
-		"missing-controller":   func(r *Measurement) { r.ControllerExecution = nil },
-		"missing-worker":       func(r *Measurement) { r.Execution = r.Execution[:2] },
-		"different-controller": func(r *Measurement) { r.ControllerExecution[0].PID = 10 },
-		"reused-parent":        func(r *Measurement) { r.Execution[2].ParentCreated++ },
-		"parallel-worker":      func(r *Measurement) { r.Execution[2].ParentPID, r.Execution[2].ParentCreated = 3, 30 },
-		"reader-image":         func(r *Measurement) { r.Execution[1].Image.SHA256 = strings.Repeat("b", 64) },
-		"workload-machine":     func(r *Measurement) { r.Execution[0].NativeMachine = 0x8664 },
-		"reader-machine":       func(r *Measurement) { r.Execution[1].NativeMachine = 0x8664 },
-		"worker-machine":       func(r *Measurement) { r.Execution[2].NativeMachine = 0x8664 },
-	} {
-		t.Run(name, func(t *testing.T) {
-			changed := row
-			changed.Execution = slices.Clone(row.Execution)
-			changed.ControllerExecution = slices.Clone(row.ControllerExecution)
-			change(&changed)
-			if err := reviewWorkloadExecution(changed, image, "windows"); err == nil {
-				t.Fatal("unproved native credential chain qualified")
-			}
-		})
-	}
-	row.Backend, row.Execution = "env", row.Execution[:2]
-	if err := reviewWorkloadExecution(row, image, "windows"); err != nil {
-		t.Fatalf("environment credentials incorrectly require a native worker: %v", err)
-	}
-	row.Case, row.Execution = "status", row.Execution[:1]
-	if err := reviewWorkloadExecution(row, image, "windows"); err != nil {
-		t.Fatalf("noncredential workload incorrectly requires a credential chain: %v", err)
 	}
 }

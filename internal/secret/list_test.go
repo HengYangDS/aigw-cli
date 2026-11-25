@@ -46,12 +46,10 @@ func TestFileStoreListsTokenNamesWithoutReadingThem(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(root, "folder"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(filepath.Join(root, "orphan"), 0o000); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = os.Chmod(filepath.Join(root, "orphan"), 0o600) })
+	if err := os.Chmod(filepath.Join(root, "orphan"), 0o000); err != nil {
+		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = os.Chmod(filepath.Join(root, "orphan"), 0o600) })
 	unused, err := UnusedTokens(store, []string{"team"})
 	if err != nil || !slices.Equal(unused, []string{"orphan"}) {
 		t.Fatalf("UnusedTokens() = %q, %v", unused, err)

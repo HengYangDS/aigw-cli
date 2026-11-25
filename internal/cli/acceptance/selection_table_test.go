@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -55,9 +54,7 @@ var codexCommandsAfterAChoice = []commandAfterAChoice{
 var hermesCommandsAfterAChoice = []commandAfterAChoice{
 	{[]string{"status"}, true},
 	{[]string{"check", "hermes", "--depth", "local"}, true},
-	// Installed Windows Hermes ignores the verification-only launcher opt-out, so
-	// AIGW refuses this check there, with a choice and without one.
-	{[]string{"check", "hermes", "--depth", "client"}, runtime.GOOS != "windows"},
+	{[]string{"check", "hermes", "--depth", "client"}, true},
 	{[]string{"sync"}, true},
 	{[]string{"sync", "--dry-run", "--json"}, true},
 	{[]string{"provider", "edit", "ucloud", "--label", "Other"}, true},

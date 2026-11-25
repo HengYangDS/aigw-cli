@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -411,12 +410,6 @@ func testHermesNativeClientInputs(t *testing.T) {
 	}
 	err := journey.prepareNativeClient(hermes.ID, file, readFile(t, filepath.Join("..", "..", "manifests", "team.toml")))
 	home := environmentValues(journey.environment)["HERMES_HOME"]
-	if runtime.GOOS == "windows" {
-		if err == nil || home != "" || !strings.Contains(err.Error(), "no client process was started") {
-			t.Fatalf("unsupported Windows launcher isolation was not refused before client setup: %v", err)
-		}
-		return
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -96,8 +96,8 @@ func homebrewProgram(t *testing.T, runtime *invocation.Context) {
 }
 
 // samePath reports whether got names the file that want names: by their
-// cleaned paths, or, where the forms can differ, as a Windows short and long
-// name do, through os.SameFile on files that exist.
+// cleaned paths, or, where the forms can differ, as through a symbolic link,
+// through os.SameFile on files that exist.
 func samePath(got, want string) bool {
 	if filepath.Clean(got) == filepath.Clean(want) {
 		return true
@@ -333,8 +333,8 @@ func TestInstallAndUninstallPreviewAndRefuse(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	// The document names the program in its fields, where JSON escapes every
-	// backslash of a Windows path, and the text names it in its Remove row.
+	// The document names the program in its fields, and the text names it in
+	// its Remove row.
 	out.Reset()
 	if err := runSelf(runtime, "uninstall", "--dry-run", "--json"); err != nil {
 		t.Fatalf("uninstall --dry-run --json = %v\n%s", err, out)
@@ -407,9 +407,6 @@ func TestUninstallThatCannotRemoveTheProgramSaysWhatChanged(t *testing.T) {
 	runtime, out := lifecycleRuntime(t, nil)
 	if err := runSelf(runtime, "uninstall", "--path", filepath.Join(t.TempDir(), "aigw"), "--dry-run"); err != nil || !strings.Contains(out.String(), "No program file at") {
 		t.Fatalf("an absent program's preview = %v\n%s", err, out)
-	}
-	if goruntime := os.Getenv("GOOS"); goruntime == "windows" || filepath.Separator == '\\' {
-		t.Skip("a read-only folder does not keep a file on Windows")
 	}
 	if os.Geteuid() == 0 {
 		t.Skip("folder permissions do not bind root")

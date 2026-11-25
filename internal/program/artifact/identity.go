@@ -17,12 +17,9 @@ type Target struct {
 
 // targets is the release's platform matrix, in the order of its archives.
 var targets = []Target{
-	{OS: "darwin", Arch: "amd64"},
 	{OS: "darwin", Arch: "arm64"},
 	{OS: "linux", Arch: "amd64"},
 	{OS: "linux", Arch: "arm64"},
-	{OS: "windows", Arch: "amd64"},
-	{OS: "windows", Arch: "arm64"},
 }
 
 // Targets returns the platforms that every release archives, in the matrix's order.
@@ -32,11 +29,7 @@ func Targets() []Target {
 
 // ArchiveName returns the release asset name for this target and version.
 func (target Target) ArchiveName(version string) string {
-	extension := ".tar.gz"
-	if target.OS == "windows" {
-		extension = ".zip"
-	}
-	return fmt.Sprintf("aigw_%s_%s_%s%s", version, target.OS, target.Arch, extension)
+	return fmt.Sprintf("aigw_%s_%s_%s.tar.gz", version, target.OS, target.Arch)
 }
 
 // Version validates the target and returns the strict semantic version in an asset name.
@@ -54,11 +47,7 @@ func (target Target) Version(name string) (string, error) {
 }
 
 func (target Target) programPath(version string) string {
-	binary := "aigw"
-	if target.OS == "windows" {
-		binary += ".exe"
-	}
-	return fmt.Sprintf("aigw_%s_%s_%s/%s", version, target.OS, target.Arch, binary)
+	return fmt.Sprintf("aigw_%s_%s_%s/aigw", version, target.OS, target.Arch)
 }
 
 // ReadProgram verifies an archive and reads its unique platform-specific executable.

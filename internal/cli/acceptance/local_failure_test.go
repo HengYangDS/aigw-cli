@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -99,8 +98,8 @@ func blockAIGWsFolder(t *testing.T, app *cli.App) string {
 // A file that stands where AIGW's own folder belongs is named to move on every
 // command that reaches it, not only the ones that build a configuration
 // problem: sync, use, rollback and an uninstall preview would otherwise name a
-// permission to restore that cannot help. The reason reads not a directory
-// on every platform, though Windows reports the path as missing, and the path
+// permission to restore that cannot help. The reason reads not a directory,
+// and the path
 // is named against the command's own home. Following the fix, the file moved
 // and the folder put back from a copy, lets each run.
 func TestAFileWhereAIGWsFolderBelongsToEveryCommand(t *testing.T) {
@@ -168,9 +167,6 @@ func TestAFileWhereAIGWsFolderBelongsToEveryCommand(t *testing.T) {
 // it, never the file to move away, and following the fix lets each run.
 func TestAnUnreadableConfigurationFileNamesItsReadAccess(t *testing.T) {
 	t.Parallel()
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows does not represent a file that its owner cannot read in a file's mode")
-	}
 	if os.Geteuid() == 0 {
 		t.Skip("the superuser reads a file of any mode")
 	}

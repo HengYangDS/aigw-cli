@@ -108,24 +108,7 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 }
 
 func (j *journeyFixture) shellCredential(command string) process.Plan {
-	plan := process.Plan{Env: slices.Clone(j.environment)}
-	if runtime.GOOS == "windows" {
-		// Execute the exact helper as native shell source, not a quoted Go
-		// argument: cmd.exe does not use CommandLineToArgvW escaping.
-		script, err := os.CreateTemp(j.root, "credential-*.cmd")
-		if err != nil {
-			j.testing.Fatal(err)
-		}
-		_, writeErr := script.WriteString("@echo off\r\n" + command + "\r\n")
-		closeErr := script.Close()
-		if writeErr != nil || closeErr != nil {
-			j.testing.Fatalf("retain exact Windows credential command: write=%v close=%v", writeErr, closeErr)
-		}
-		plan.Executable = script.Name()
-	} else {
-		plan.Executable, plan.Args = "/bin/sh", []string{"-c", command}
-	}
-	return plan
+	return process.Plan{Executable: "/bin/sh", Args: []string{"-c", command}, Env: slices.Clone(j.environment)}
 }
 
 func (j *journeyFixture) retainedCredentials() []process.Plan {

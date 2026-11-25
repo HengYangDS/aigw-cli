@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -38,9 +37,6 @@ func TestGitLabUnixMiseMirrorFailureStaysOnSelectedPeer(t *testing.T) {
 }
 
 func testGitLabUnixMiseMirrorFailure(t *testing.T, metadata bool) {
-	if runtime.GOOS == "windows" {
-		return // The Unix projection requires a POSIX shell.
-	}
 	repository := filepath.Clean(filepath.Join("..", "..", ".."))
 	prepare, cleanup := unixMiseMirrorCommands(t)
 	project, selected := nativeMiseMirrorInputs(t, repository)

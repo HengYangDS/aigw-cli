@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"debug/elf"
 	"debug/macho"
-	"debug/pe"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,13 +42,6 @@ func Identify(path string) (Identity, error) {
 	}
 	identity := Identity{Path: path, SHA256: fmt.Sprintf("%x", sha256.Sum256(data)), Bytes: len(data)}
 	switch {
-	case bytes.HasPrefix(data, []byte("MZ")):
-		file, err := pe.NewFile(bytes.NewReader(data))
-		if err != nil {
-			return Identity{}, err
-		}
-		identity.Format, identity.Machine = "PE", uint32(file.Machine)
-		identity.Arch = map[uint16]string{pe.IMAGE_FILE_MACHINE_AMD64: "amd64", pe.IMAGE_FILE_MACHINE_ARM64: "arm64", pe.IMAGE_FILE_MACHINE_I386: "386"}[file.Machine]
 	case bytes.HasPrefix(data, []byte("\x7fELF")):
 		file, err := elf.NewFile(bytes.NewReader(data))
 		if err != nil {
@@ -379,7 +371,7 @@ func reviewRuntime(mode string, binding domain.Runtime) error {
 func (c Workload) Arguments(raw string) []string {
 	args := []string{"--shell=none", "--metrics=time", "--warmup", "5", "--runs", "40", "--output=inherit", "--style", "basic", "--export-json", raw}
 	if len(c.Prepare) != 0 {
-		args = append(args, "--prepare", preparationCommand(c.Prepare))
+		args = append(args, "--prepare", Argv(c.Prepare...))
 	}
 	return append(args, Argv(c.Command...))
 }

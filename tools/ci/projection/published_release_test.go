@@ -59,11 +59,11 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 	}
 	want := []string{
 		"mise exec --locked -- go run ./tools/release validate-version-tag",
-		`mise exec --locked -- go run ./tools/ci trust-input --output "$env:RUNNER_TEMP/aigw-allowed-signers" --github-env "$env:GITHUB_ENV"`,
-		`mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$env:RUNNER_TEMP/aigw-artifact-signers" --github-env "$env:GITHUB_ENV"`,
-		`mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir build/artifacts/published`,
+		`mise exec --locked -- go run ./tools/ci trust-input --output "$RUNNER_TEMP/aigw-allowed-signers" --github-env "$GITHUB_ENV"`,
+		`mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$RUNNER_TEMP/aigw-artifact-signers" --github-env "$GITHUB_ENV"`,
+		`mise exec --locked -- gh release download "$CI_COMMIT_TAG" --repo "$GITHUB_REPOSITORY" --dir build/artifacts/published`,
 		"mise exec --locked -- go run ./tools/release verify-artifacts build/artifacts/published",
-		`mise exec --locked -- go run ./tools/release accept-native --artifacts build/artifacts/published --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG"`,
+		`mise exec --locked -- go run ./tools/release accept-native --artifacts build/artifacts/published --peer=github --repository="$GITHUB_REPOSITORY" --baseline-tag="$AIGW_BASELINE_TAG"`,
 	}
 	if len(commands) != len(want)+1 || !slices.Equal(commands[:3], want[:3]) || !slices.Equal(commands[4:], want[3:]) || !slices.Equal(trust, []string{"AIGW_RELEASE_ALLOWED_SIGNERS", "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"}) {
 		t.Fatalf("release verification order or trust differs: %q, %q", commands, trust)
@@ -73,7 +73,7 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 	for _, required := range []string{
 		"release-evidence", "--repository", "--workflow verify.yml",
 		"--tag", "--job 'Quality and governance'", "--job 'Native macOS acceptance'",
-		"--job 'Native Linux acceptance'", "--job 'Native Windows acceptance'", "--job 'Linux Secret Service'",
+		"--job 'Native Linux acceptance'", "--job 'Linux Secret Service'",
 		"--job 'Release version'",
 	} {
 		if !strings.Contains(evidence, required) {
@@ -92,6 +92,7 @@ func TestPublishedNativeLifecycleUsesSelectedIsolatedRunner(t *testing.T) {
 				Options []string
 			}
 		} `yaml:"on"`
+		Defaults    struct{ Run struct{ Shell string } }
 		Concurrency struct{ Group string }
 		Jobs        map[string]struct {
 			Runner   string `yaml:"runs-on"`
@@ -108,8 +109,12 @@ func TestPublishedNativeLifecycleUsesSelectedIsolatedRunner(t *testing.T) {
 	job := workflow.Jobs["release-assets"]
 	inputs := workflow.On["workflow_dispatch"].Inputs
 	runner := inputs["runner"]
-	if runner.Type != "choice" || runner.Default != "ubuntu-24.04" ||
-		!slices.Equal(runner.Options, []string{"ubuntu-24.04", "ubuntu-24.04-arm", "macos-26", "macos-26-intel", "windows-2025", "windows-11-arm"}) {
+	// The choices are the declared native runners and, for the published
+	// linux-arm64 archive, the ARM64 runner of the same Ubuntu release.
+	var native struct{ Linux, Darwin string }
+	declaredValue(t, "{linux: nativeEvidence.linux.github.runner, darwin: nativeEvidence.darwin.github.runner}", &native)
+	if runner.Type != "choice" || runner.Default != native.Linux ||
+		!slices.Equal(runner.Options, []string{native.Linux, native.Linux + "-arm", native.Darwin}) {
 		t.Fatalf("release verification runner choices = %#v", runner)
 	}
 	if inputs["native_lifecycle"].Type != "boolean" || inputs["native_lifecycle"].Default != "false" {
@@ -118,17 +123,19 @@ func TestPublishedNativeLifecycleUsesSelectedIsolatedRunner(t *testing.T) {
 	if baseline := inputs["baseline_tag"]; baseline.Type != "string" || baseline.Default != "" {
 		t.Fatal("published native lifecycle must name its predecessor through an explicit input")
 	}
-	if job.Runner != "${{ inputs.runner }}" || job.Defaults.Run.Shell != "pwsh" {
-		t.Fatal("release verification must use the selected native runner and a portable shell")
+	if job.Runner != "${{ inputs.runner }}" || workflow.Defaults.Run.Shell != "bash" || job.Defaults.Run.Shell != "" {
+		t.Fatal("release verification must use the selected native runner and the workflow's bash")
 	}
 	if workflow.Concurrency.Group != "release-${{ github.repository }}-${{ inputs.tag }}-${{ inputs.runner }}" {
 		t.Fatal("different native release targets must be able to run independently")
 	}
-	native := job.Steps[len(job.Steps)-1]
-	if native.If != "inputs.native_lifecycle" || native.Env["AIGW_VERIFY_SYSTEM_KEYRING"] != "${{ runner.os == 'Windows' && '1' || '0' }}" || native.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
+	lifecycle := job.Steps[len(job.Steps)-1]
+	// No release runner opts into the host's credential store; the scope names
+	// the disposable host for the journeys that need it.
+	if _, keyring := lifecycle.Env["AIGW_VERIFY_SYSTEM_KEYRING"]; lifecycle.If != "inputs.native_lifecycle" || keyring || lifecycle.Env["AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE"] != "ephemeral-host" {
 		t.Fatal("native lifecycle must retain explicit isolated credential-store admission")
 	}
-	if native.Env["AIGW_BASELINE_TAG"] != "${{ inputs.baseline_tag }}" {
+	if lifecycle.Env["AIGW_BASELINE_TAG"] != "${{ inputs.baseline_tag }}" {
 		t.Fatal("native lifecycle must pass the selected published predecessor")
 	}
 }
@@ -168,7 +175,7 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 	for _, need := range pipeline.Assets.Needs {
 		needs = append(needs, need.Job)
 	}
-	if !slices.Equal(needs, []string{"quality", "native-darwin", "native-linux", "native-windows", "linux-secret-service", "release-version"}) {
+	if !slices.Equal(needs, []string{"quality", "native-darwin", "native-linux", "linux-secret-service", "release-version"}) {
 		t.Fatalf("release requirements = %q", needs)
 	}
 	if len(pipeline.Assets.Rules) != 2 || pipeline.Assets.Rules[0].If != `$CI_COMMIT_TAG && ($CI_PIPELINE_SOURCE == "api" || $CI_PIPELINE_SOURCE == "web") && $CI_COMMIT_REF_PROTECTED == "true"` || pipeline.Assets.Rules[1].When != "never" {

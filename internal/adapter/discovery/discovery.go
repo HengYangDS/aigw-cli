@@ -4,11 +4,9 @@
 package discovery
 
 import (
-	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strings"
 
 	"aigw-cli/internal/platform"
@@ -43,20 +41,7 @@ type Host struct {
 }
 
 // Getenv returns one variable of the observed environment, or an empty string.
-// Windows variable names are case-insensitive, as the operating system reads
-// them. There the exact spelling wins, and otherwise the first matching name in
-// sorted order, so every lookup of a name in one process returns the same value.
-func (h Host) Getenv(name string) string {
-	if value, found := h.Env[name]; found || h.GOOS != "windows" {
-		return value
-	}
-	for _, key := range slices.Sorted(maps.Keys(h.Env)) {
-		if strings.EqualFold(key, name) {
-			return h.Env[key]
-		}
-	}
-	return ""
-}
+func (h Host) Getenv(name string) string { return h.Env[name] }
 
 // System discovers clients from one explicit host and executable search path.
 type System struct {
@@ -86,7 +71,7 @@ func (s System) Executable(name string) string { return s.find(name) }
 
 // Runnable reports whether path names a runnable executable on this host.
 func (s System) Runnable(path string) bool {
-	available, _ := executableAvailable(s.GOOS, path)
+	available, _ := executableAvailable(path)
 	return available
 }
 
@@ -99,31 +84,25 @@ func (s System) FilePresent(path string) bool {
 // ExecutableAvailable reports whether path identifies a runnable executable on
 // the current platform.
 func ExecutableAvailable(path string) (bool, error) {
-	return executableAvailable(runtime.GOOS, path)
+	return executableAvailable(path)
 }
 
 func (s System) find(name string) string {
-	names := []string{name}
-	if s.GOOS == "windows" {
-		names = []string{name + ".exe", name + ".cmd", name + ".bat", name}
-	}
 	for _, dir := range filepath.SplitList(s.Path) {
-		for _, candidate := range names {
-			path := filepath.Join(dir, candidate)
-			available, err := executableAvailable(s.GOOS, path)
-			if err != nil || !available {
-				continue
-			}
-			absolute, err := filepath.Abs(path)
-			if err == nil {
-				return absolute
-			}
+		path := filepath.Join(dir, name)
+		available, err := executableAvailable(path)
+		if err != nil || !available {
+			continue
+		}
+		absolute, err := filepath.Abs(path)
+		if err == nil {
+			return absolute
 		}
 	}
 	return ""
 }
 
-func executableAvailable(goos, path string) (bool, error) {
+func executableAvailable(path string) (bool, error) {
 	if strings.TrimSpace(path) == "" {
 		return false, nil
 	}
@@ -139,5 +118,5 @@ func executableAvailable(goos, path string) (bool, error) {
 	if info.IsDir() {
 		return false, nil
 	}
-	return goos == "windows" || info.Mode().Perm()&0o111 != 0, nil
+	return info.Mode().Perm()&0o111 != 0, nil
 }

@@ -28,12 +28,10 @@ builds:
         -X aigw-cli/internal/program.BuildGitHubReleaseRepository={{ .Env.AIGW_GITHUB_RELEASE_REPOSITORY }}
         -X 'aigw-cli/internal/program/artifact.BuildReleasePublicKey={{ .Env.AIGW_RELEASE_PUBLIC_KEY }}'
   - <<: *portable
-    id: windows
-    goos: [windows]
-    skip: '{{ and (ne .Env.AIGW_BUILD_OS "") (ne .Env.AIGW_BUILD_OS "windows") }}'
-  - <<: *portable
     id: macos
     goos: [darwin]
+    # Apple silicon only: no runner remains for an Intel macOS lifecycle.
+    goarch: [arm64]
     skip: '{{ and (ne .Env.AIGW_BUILD_OS "") (ne .Env.AIGW_BUILD_OS "darwin") }}'
     # Go 1.27 and the published predecessor support macOS 13; the host SDK
     # must not raise the external linker's deployment target.
@@ -55,16 +53,13 @@ builds:
             {{ end }}
 
 archives:
-  - ids: [portable, windows, macos]
+  - ids: [portable, macos]
     name_template: "aigw_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     wrap_in_directory: true
     builds_info:
       owner: root
       group: root
       mtime: "{{ .Env.AIGW_RELEASE_TIMESTAMP }}"
-    format_overrides:
-      - goos: windows
-        formats: [zip]
     files:
       - src: README.md
         info:

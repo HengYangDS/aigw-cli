@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 }
 
 // homeVariables locate a user's home and configuration on every platform.
-var homeVariables = []string{"HOME", "USERPROFILE", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "APPDATA", "LOCALAPPDATA"}
+var homeVariables = []string{"HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME"}
 
 // TestScripts runs every acceptance script against the program in a private
 // home. PATH holds only the program and the scripted clients, and $UPSTREAM
@@ -67,10 +67,6 @@ func TestScripts(t *testing.T) {
 			}
 			env.Setenv("BIN", filepath.Dir(program))
 			env.Setenv("PATH", filepath.Dir(program))
-			// Windows sockets need SystemRoot to load their providers.
-			if root := os.Getenv("SystemRoot"); root != "" {
-				env.Setenv("SystemRoot", root)
-			}
 			env.Setenv("AIGW_SECRET_BACKEND", "file")
 			env.Setenv("NO_COLOR", "1")
 			if processes != "" {
@@ -198,8 +194,7 @@ func snapshot(ts *testscript.TestScript, neg bool, args []string) {
 // normalize writes a command's output with the values that differ between
 // runs spelled $HOME, $WORK, $BIN and $UPSTREAM, so that cmp can compare and
 // update it. Each further argument is a pattern whose matches become
-// <varies>. Path separators stay native, so a script compares Windows output
-// with its own expected file.
+// <varies>.
 func normalize(ts *testscript.TestScript, neg bool, args []string) {
 	if neg || len(args) < 2 {
 		ts.Fatalf("usage: normalize stdout|stderr <target> [pattern...]")
@@ -225,9 +220,7 @@ func normalized(ts *testscript.TestScript, text string) string {
 }
 
 // spellings returns a value as given and as its resolved path, longest
-// first. On macOS a temporary path may also appear without /private, and on
-// Windows a path also appears with doubled separators, as JSON and quoted
-// strings write it.
+// first. On macOS a temporary path may also appear without /private.
 func spellings(value string) []string {
 	if value == "" {
 		return nil
@@ -241,11 +234,6 @@ func spellings(value string) []string {
 			if trimmed, ok := strings.CutPrefix(candidate, "/private"); ok && strings.HasPrefix(trimmed, "/") {
 				values = append(values, trimmed)
 			}
-		}
-	}
-	if runtime.GOOS == "windows" {
-		for _, candidate := range slices.Clone(values) {
-			values = append(values, strings.ReplaceAll(candidate, `\`, `\\`))
 		}
 	}
 	slices.Sort(values)

@@ -146,10 +146,10 @@ func retiredKey(value any) string {
 }
 
 func TestOutputGoldensAreTheFilesComparedWithOutput(t *testing.T) {
-	script := "exec aigw status\ncmp stdout status.txt\n[windows] cmp stdout status-windows.txt\n" +
+	script := "exec aigw status\ncmp stdout status.txt\n[linux] cmp stdout status-linux.txt\n" +
 		"! exec aigw check --json\nnormalize stdout check.out\ncmp check.out check.json\n" +
 		"cmp $HOME/.claude/settings.json settings.json\nsnapshot $HOME after.txt\ncmp after.txt before.txt\n"
-	if got := outputGoldens(script); !slices.Equal(got, []string{"status.txt", "status-windows.txt", "check.json"}) {
+	if got := outputGoldens(script); !slices.Equal(got, []string{"status.txt", "status-linux.txt", "check.json"}) {
 		t.Fatalf("goldens = %q", got)
 	}
 	if key := retiredKey(map[string]any{"clients": []any{map[string]any{"projection_deferred": true}}}); key != "projection_deferred" {

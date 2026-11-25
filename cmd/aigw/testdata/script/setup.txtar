@@ -8,7 +8,7 @@ cmp stdout help.txt
 # Guided setup asks in a terminal; without one, or with --json or --dry-run,
 # it names a team file instead.
 mkdir $WORK/guided
-env HOME=$WORK/guided USERPROFILE=$WORK/guided XDG_CONFIG_HOME=$WORK/guided XDG_DATA_HOME=$WORK/guided APPDATA=$WORK/guided LOCALAPPDATA=$WORK/guided
+env HOME=$WORK/guided XDG_CONFIG_HOME=$WORK/guided XDG_DATA_HOME=$WORK/guided
 exitcode 1 aigw setup
 cmp stdout guided-no-terminal.txt
 exitcode 1 aigw setup --json
@@ -19,40 +19,40 @@ cmp stdout guided-dry-run.json
 cp stdout guided-dry-run.out
 # In a terminal it adds a provider, and with no installed client that speaks
 # its protocol it stops, naming the client list, which runs here.
-[!windows] envsubst guided-none.in guided-none-input.txt
-[!windows] ttyin -stdin guided-none-input.txt
-[!windows] exec aigw setup
+envsubst guided-none.in guided-none-input.txt
+ttyin -stdin guided-none-input.txt
+exec aigw setup
 # Each prompt ends in a space, where the answer goes, which the patterns
 # spell as \x20.
-[!windows] stdout '^Provider ID \(for example, dmxapi\): Provider name: Endpoint protocol:\x20\n  1\. Anthropic Messages\n  2\. OpenAI Responses\n  3\. OpenAI Chat Completions\nSelect \[1\]: OpenAI Responses URL: Paste the Team Gateway Token:\x20\n'
-[!windows] stdout '^AIGW  Setup stopped before a model$'
-[!windows] stdout '^  Provider             Team Gateway \(team\), added$'
-[!windows] stdout '^  ✓ Token              Accepted by the provider and stored$'
-[!windows] stdout '^  · Installed clients  None that speaks a protocol for which provider team has an endpoint$'
-[!windows] stdout '^  ✓ Install a client, then run `aigw setup` again to choose it and a model$'
-[!windows] stdout '^Next\n  aigw client list$'
-[!windows] exec aigw client list
+stdout '^Provider ID \(for example, dmxapi\): Provider name: Endpoint protocol:\x20\n  1\. Anthropic Messages\n  2\. OpenAI Responses\n  3\. OpenAI Chat Completions\nSelect \[1\]: OpenAI Responses URL: Paste the Team Gateway Token:\x20\n'
+stdout '^AIGW  Setup stopped before a model$'
+stdout '^  Provider             Team Gateway \(team\), added$'
+stdout '^  ✓ Token              Accepted by the provider and stored$'
+stdout '^  · Installed clients  None that speaks a protocol for which provider team has an endpoint$'
+stdout '^  ✓ Install a client, then run `aigw setup` again to choose it and a model$'
+stdout '^Next\n  aigw client list$'
+exec aigw client list
 
 # With Claude Code installed it saves the provider, the client and a model of
 # the catalog, then checks the client. Claude Desktop's presence depends on
 # the host, so Enter takes the first choice of whichever prompts appear.
 mkdir $WORK/guided-client
-env HOME=$WORK/guided-client USERPROFILE=$WORK/guided-client XDG_CONFIG_HOME=$WORK/guided-client XDG_DATA_HOME=$WORK/guided-client APPDATA=$WORK/guided-client LOCALAPPDATA=$WORK/guided-client
-[!windows] envsubst guided.in guided-input.txt
-[!windows] ttyin -stdin guided-input.txt
-[!windows] exec aigw setup
-[!windows] stdout 'Setup saved'
-[!windows] stdout 'Provider +Team Gateway \(team\), added'
-[!windows] stdout 'Token +Accepted by the provider and stored'
-[!windows] stdout 'Claude +team/spare-model on Anthropic Messages'
-[!windows] stdout 'Check'
+env HOME=$WORK/guided-client XDG_CONFIG_HOME=$WORK/guided-client XDG_DATA_HOME=$WORK/guided-client
+envsubst guided.in guided-input.txt
+ttyin -stdin guided-input.txt
+exec aigw setup
+stdout 'Setup saved'
+stdout 'Provider +Team Gateway \(team\), added'
+stdout 'Token +Accepted by the provider and stored'
+stdout 'Claude +team/spare-model on Anthropic Messages'
+stdout 'Check'
 # It runs again: it offers the provider beside a new one, and keeps its Token.
-[!windows] ttyin -stdin guided-again.txt
-[!windows] exec aigw setup
-[!windows] stdout '1\. Team Gateway \(team\)\n +2\. Add a new provider'
-[!windows] stdout 'Provider +Team Gateway \(team\), kept as it was'
-[!windows] stdout 'Token +Stored before'
-[!windows] stdout 'Claude +team/spare-model on Anthropic Messages'
+ttyin -stdin guided-again.txt
+exec aigw setup
+stdout '1\. Team Gateway \(team\)\n +2\. Add a new provider'
+stdout 'Provider +Team Gateway \(team\), kept as it was'
+stdout 'Token +Stored before'
+stdout 'Claude +team/spare-model on Anthropic Messages'
 # Each refusal's fix, a team file, runs here; guided setup itself still needs
 # a terminal.
 envsubst team.in team.toml
@@ -65,7 +65,7 @@ fixloop -input -did 'applied a team file with aigw setup --from team.toml --json
 # needs its Token from --token-stdin, which the fix pipes; then the same
 # command uses the stored Token.
 mkdir $WORK/stored
-env HOME=$WORK/stored USERPROFILE=$WORK/stored XDG_CONFIG_HOME=$WORK/stored XDG_DATA_HOME=$WORK/stored APPDATA=$WORK/stored LOCALAPPDATA=$WORK/stored
+env HOME=$WORK/stored XDG_CONFIG_HOME=$WORK/stored XDG_DATA_HOME=$WORK/stored
 [darwin] env CONF=$HOME/Library/Application' 'Support/aigw
 [!darwin] env CONF=$HOME/aigw
 envsubst team.in team.toml
@@ -80,27 +80,27 @@ stdout '"provider": "team",\n\s+"state": "present"'
 # guided setup adds the provider, and a team file names it, without a
 # terminal and in one.
 rm $CONF/aigw.toml
-[!windows] envsubst guided-stored.in guided-stored-input.txt
-[!windows] ttyin -stdin guided-stored-input.txt
-[!windows] exec aigw setup
-[!windows] ! stdout 'Paste the'
-[!windows] stdout 'Provider +Team Gateway \(team\), added'
-[!windows] stdout 'Token +Already stored; used without a prompt'
-[!windows] ! stdout 'sk-team-token'
+envsubst guided-stored.in guided-stored-input.txt
+ttyin -stdin guided-stored-input.txt
+exec aigw setup
+! stdout 'Paste the'
+stdout 'Provider +Team Gateway \(team\), added'
+stdout 'Token +Already stored; used without a prompt'
+! stdout 'sk-team-token'
 rm $CONF/aigw.toml
 exec aigw setup --from team.toml --provider team
 stdout '✓ team +Already stored; used without a prompt'
 ! stdout 'sk-team-token'
 rm $CONF/aigw.toml
 # A prompt would read the one empty line as an empty Token, which fails.
-[!windows] ttyin -stdin enter.txt
-[!windows] exec aigw setup --from team.toml --provider team
-[!windows] ! stdout 'Paste the'
-[!windows] stdout '✓ team +Already stored; used without a prompt'
+ttyin -stdin enter.txt
+exec aigw setup --from team.toml --provider team
+! stdout 'Paste the'
+stdout '✓ team +Already stored; used without a prompt'
 
 # Team setup: a preview reads no Token and writes nothing.
 mkdir $WORK/second
-env HOME=$WORK/second USERPROFILE=$WORK/second XDG_CONFIG_HOME=$WORK/second XDG_DATA_HOME=$WORK/second APPDATA=$WORK/second LOCALAPPDATA=$WORK/second
+env HOME=$WORK/second XDG_CONFIG_HOME=$WORK/second XDG_DATA_HOME=$WORK/second
 envsubst team.in team.toml
 snapshot $HOME second-before.txt
 # The credential reader's path differs by platform.
@@ -180,7 +180,7 @@ cmp away.out away.json
 # Without a terminal, a provider that a recommendation needs waits for its
 # Token, and an empty stored Token is none; its fix stores one.
 mkdir $WORK/deferred
-env HOME=$WORK/deferred USERPROFILE=$WORK/deferred XDG_CONFIG_HOME=$WORK/deferred XDG_DATA_HOME=$WORK/deferred APPDATA=$WORK/deferred LOCALAPPDATA=$WORK/deferred
+env HOME=$WORK/deferred XDG_CONFIG_HOME=$WORK/deferred XDG_DATA_HOME=$WORK/deferred
 exec aigw setup --from team.toml --json
 normalize stdout deferred.out
 cmp deferred.out deferred.json
@@ -258,13 +258,13 @@ normalize stdout dangling.out
 cmp dangling.out dangling.json
 cp team.toml nowhere.toml
 fixloop -did 'named a team file that exists' stdout aigw setup --from dangling.toml --json
-[!windows] [!root] cp team.toml unreadable.toml
-[!windows] [!root] chmod 000 unreadable.toml
-[!windows] [!root] exitcode 1 aigw setup --from unreadable.toml --json
-[!windows] [!root] normalize stdout unreadable.out
-[!windows] [!root] cmp unreadable.out unreadable.json
-[!windows] [!root] chmod 600 unreadable.toml
-[!windows] [!root] fixloop -did 'made the team file readable' stdout aigw setup --from unreadable.toml --json
+[!root] cp team.toml unreadable.toml
+[!root] chmod 000 unreadable.toml
+[!root] exitcode 1 aigw setup --from unreadable.toml --json
+[!root] normalize stdout unreadable.out
+[!root] cmp unreadable.out unreadable.json
+[!root] chmod 600 unreadable.toml
+[!root] fixloop -did 'made the team file readable' stdout aigw setup --from unreadable.toml --json
 
 # A label that model edit set locally is replaced by the team file, so the
 # preview and the run name it, and the second preview has nothing to change.
@@ -299,22 +299,22 @@ exec aigw setup --from team.toml --dry-run --json
 # answers that name no choice, skips that provider, which setup says; the next
 # provider's Token is stored, and the team file is applied.
 mkdir $WORK/asked
-env HOME=$WORK/asked USERPROFILE=$WORK/asked XDG_CONFIG_HOME=$WORK/asked XDG_DATA_HOME=$WORK/asked APPDATA=$WORK/asked LOCALAPPDATA=$WORK/asked
+env HOME=$WORK/asked XDG_CONFIG_HOME=$WORK/asked XDG_DATA_HOME=$WORK/asked
 envsubst team.in asked.toml
-[!windows] ttyin -stdin asked.txt
-[!windows] exec aigw setup --from asked.toml
-[!windows] stdout '^Which providers. Tokens do you have\? Choose none to skip them all\.\n  1\. Spare Gateway\n  2\. Team Gateway\n'
-[!windows] stdout 'Spare Gateway did not accept the Token \(HTTP 401\)\. What now\?\n  1\. Enter the Spare Gateway Token again\n  2\. Skip Spare Gateway\n'
-[!windows] stdout 'Choose a number from 1 to 2\.'
-[!windows] stdout 'No answer named a choice, so Spare Gateway was skipped\.'
-[!windows] stdout 'spare +Not accepted: Spare Gateway did not accept the Token \(HTTP 401\)'
-[!windows] stdout 'team +Accepted by the provider and stored'
-[!windows] stdout 'Team file applied'
-[!windows] ! stdout 'sk-'
-[!windows] [darwin] exists $HOME/'Library/Application Support/aigw/secrets/tokens/team'
-[!windows] [darwin] ! exists $HOME/'Library/Application Support/aigw/secrets/tokens/spare'
-[!windows] [!darwin] exists $HOME/aigw/secrets/tokens/team
-[!windows] [!darwin] ! exists $HOME/aigw/secrets/tokens/spare
+ttyin -stdin asked.txt
+exec aigw setup --from asked.toml
+stdout '^Which providers. Tokens do you have\? Choose none to skip them all\.\n  1\. Spare Gateway\n  2\. Team Gateway\n'
+stdout 'Spare Gateway did not accept the Token \(HTTP 401\)\. What now\?\n  1\. Enter the Spare Gateway Token again\n  2\. Skip Spare Gateway\n'
+stdout 'Choose a number from 1 to 2\.'
+stdout 'No answer named a choice, so Spare Gateway was skipped\.'
+stdout 'spare +Not accepted: Spare Gateway did not accept the Token \(HTTP 401\)'
+stdout 'team +Accepted by the provider and stored'
+stdout 'Team file applied'
+! stdout 'sk-'
+[darwin] exists $HOME/'Library/Application Support/aigw/secrets/tokens/team'
+[darwin] ! exists $HOME/'Library/Application Support/aigw/secrets/tokens/spare'
+[!darwin] exists $HOME/aigw/secrets/tokens/team
+[!darwin] ! exists $HOME/aigw/secrets/tokens/spare
 
 
 -- families.toml --

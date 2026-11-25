@@ -43,16 +43,7 @@ func presentationWidth(out io.Writer, env map[string]string, interactive func(*o
 	return width
 }
 
-// ColorEnabled decides whether color is safe for the platform, environment, and current output stream.
-func ColorEnabled(goos string, env map[string]string, interactive bool, enableVT func() bool) bool {
-	if !interactive || env["NO_COLOR"] != "" {
-		return false
-	}
-	if goos != "windows" {
-		return true
-	}
-	if enableVT != nil && enableVT() {
-		return true
-	}
-	return env["WT_SESSION"] != "" || env["ANSICON"] != "" || strings.EqualFold(env["ConEmuANSI"], "ON")
+// ColorEnabled decides whether color is safe for the environment and current output stream.
+func ColorEnabled(env map[string]string, interactive bool) bool {
+	return interactive && env["NO_COLOR"] == ""
 }

@@ -64,9 +64,9 @@ func TestReaderCommandsReadEachAIGWExecutableOnce(t *testing.T) {
 	t.Parallel()
 	base, _, _, _, _ := testApp(t, "")
 	root := t.TempDir()
-	base.Executable = filepath.Join(root, "bin", executableName("aigw"))
+	base.Executable = filepath.Join(root, "bin", "aigw")
 	base.DataDir = filepath.Join(root, "data")
-	program := filepath.Join(root, "program", executableName("aigw"))
+	program := filepath.Join(root, "program", "aigw")
 	writeFile(t, program, []byte("portable program"), 0o755)
 	base.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{
 		claude.ID: executableFixture(t, claude.ID),
@@ -90,7 +90,7 @@ func TestReaderCommandsReadEachAIGWExecutableOnce(t *testing.T) {
 			app := *base
 			app.In = strings.NewReader(step.stdin)
 			files := &countingFiles{opens: map[string]int{}, redirect: map[string]string{base.Executable: program}}
-			app.UseExecutableIdentity(files, executableName("aigw"))
+			app.UseExecutableIdentity(files, "aigw")
 			if err := cli.Execute(&app, step.args); err != nil {
 				t.Fatalf("%s: %v", step.args[0], err)
 			}

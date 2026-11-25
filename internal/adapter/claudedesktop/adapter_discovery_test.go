@@ -3,7 +3,6 @@ package claudedesktop_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"aigw-cli/internal/adapter/claudedesktop"
@@ -14,15 +13,8 @@ import (
 // Linux has no official application, so a Linux host observes macOS paths.
 func desktopHost(t *testing.T) (string, string, map[string]string) {
 	t.Helper()
-	goos := runtime.GOOS
-	if goos == "linux" {
-		goos = "darwin"
-	}
-	if goos != "darwin" && goos != "windows" {
-		t.Skip("unsupported test host")
-	}
 	root := t.TempDir()
-	return goos, root, map[string]string{"HOME": root, "LOCALAPPDATA": root}
+	return "darwin", root, map[string]string{"HOME": root}
 }
 
 func TestDiscoverReturnsClaudeDesktopApplicationAndConfigurationLibrary(t *testing.T) {
@@ -38,7 +30,7 @@ func TestDiscoverReturnsClaudeDesktopApplicationAndConfigurationLibrary(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	result := claudedesktop.New().Discover(discovery.System{GOOS: goos, Home: root, Env: map[string]string{"LOCALAPPDATA": root}})
+	result := claudedesktop.New().Discover(discovery.System{GOOS: goos, Home: root, Env: map[string]string{}})
 	if got := result.Executable(claudedesktop.ID); got != executable {
 		t.Fatalf("Claude Desktop executable = %q, want %q", got, executable)
 	}
@@ -57,7 +49,7 @@ func TestClaudeDesktopDiscoveryUsesNativeApplicationPath(t *testing.T) {
 	if err := os.WriteFile(candidate, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	result := claudedesktop.New().Discover(discovery.System{GOOS: goos, Home: root, Env: map[string]string{"LOCALAPPDATA": root}})
+	result := claudedesktop.New().Discover(discovery.System{GOOS: goos, Home: root, Env: map[string]string{}})
 	if got := result.Executable(claudedesktop.ID); got != candidate {
 		t.Fatalf("Claude Desktop executable = %q, want %q", got, candidate)
 	}

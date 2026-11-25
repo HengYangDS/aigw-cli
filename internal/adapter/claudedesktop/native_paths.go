@@ -5,7 +5,6 @@ import (
 	"path"
 
 	"aigw-cli/internal/adapter/discovery"
-	"aigw-cli/internal/platform"
 )
 
 // LibraryPathFor returns Claude Desktop's official per-user third-party
@@ -26,11 +25,6 @@ func LibraryPathFor(goos string, env map[string]string) (string, error) {
 			base = path.Join(env["HOME"], ".config")
 		}
 		return path.Join(base, "Claude-3p", "configLibrary"), nil
-	case "windows":
-		if env["LOCALAPPDATA"] == "" {
-			return "", fmt.Errorf("LOCALAPPDATA is not set")
-		}
-		return platform.AppendWindowsPath(env["LOCALAPPDATA"], "Claude-3p", "configLibrary"), nil
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
@@ -54,11 +48,6 @@ func ApplicationPathsFor(goos string, env map[string]string) []string {
 			paths = append(paths, path.Join(home, "Applications", "Claude.app", "Contents", "MacOS", "Claude"))
 		}
 		return append(paths, path.Join("/", "Applications", "Claude.app", "Contents", "MacOS", "Claude"))
-	case "windows":
-		if env["LOCALAPPDATA"] == "" {
-			return nil
-		}
-		return []string{platform.AppendWindowsPath(env["LOCALAPPDATA"], "AnthropicClaude", "claude.exe")}
 	default:
 		return nil
 	}

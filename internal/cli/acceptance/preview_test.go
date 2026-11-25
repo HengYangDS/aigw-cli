@@ -60,7 +60,7 @@ func TestSetupPreviewsUseNoCredential(t *testing.T) {
 			}
 			writeFile(t, app.Executable, []byte("program"), 0o700)
 			app.DataDir = filepath.Join(t.TempDir(), "data")
-			reader, err := versionedReaderPath(app.DataDir, app.Executable, executableName("aigw"))
+			reader, err := versionedReaderPath(app.DataDir, app.Executable, "aigw")
 			if err != nil {
 				t.Fatal(err)
 			}

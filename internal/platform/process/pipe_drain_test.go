@@ -5,7 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
+	"testing"
 	"time"
 )
 
@@ -17,7 +22,7 @@ const pipeDrainFixtureWait = 5 * time.Second
 // its background descendant has inherited the output pipes, then
 // deterministically deliver the DeadlineExceeded signal that RunCapture
 // reports to callers. A fixed short timeout races process start under
-// parallel CI load. Unix and Windows pipe-drain tests share this context.
+// parallel CI load.
 type controllableDeadlineContext struct {
 	done chan struct{}
 	once sync.Once
@@ -62,5 +67,91 @@ func awaitFixtureFile(path string, limit time.Duration) error {
 			return fmt.Errorf("timed out after %s", limit)
 		case <-ticker.C:
 		}
+	}
+}
+
+func TestRunCaptureBoundsPipeDrainAfterChildExit(t *testing.T) {
+	requireShellFixture(t)
+	for _, output := range []string{"capture", "file"} {
+		t.Run(output, func(t *testing.T) {
+			plan := Plan{Executable: "/bin/sh", Args: []string{"-c", "(sleep 5) >&2 & printf AIGW_OK"}, Env: []string{}}
+			destination := filepath.Join(t.TempDir(), "asset")
+			var err error
+			if output == "capture" {
+				_, err = (Runner{}).RunCapture(t.Context(), plan)
+			} else {
+				err = (Runner{}).RunToFile(t.Context(), destination, plan)
+			}
+			// The finite descendant bounds the fixture without introducing a
+			// competing context deadline. ErrWaitDelay therefore identifies the
+			// pipe-drain boundary even when the host schedules the shell slowly.
+			if !errors.Is(err, exec.ErrWaitDelay) {
+				t.Fatalf("%s error = %v, want exec.ErrWaitDelay", output, err)
+			}
+			if output == "file" {
+				if _, err := os.Stat(destination); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("failed stream retained output: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestRunCaptureReportsDeadlineAfterPipeDrain(t *testing.T) {
+	requireShellFixture(t)
+	for _, startup := range []string{"0", "1.5"} {
+		t.Run("startup-"+startup, func(t *testing.T) {
+			testDeadlineAfterPipeDrain(t, startup)
+		})
+	}
+}
+
+func testDeadlineAfterPipeDrain(t *testing.T, startup string) {
+	t.Helper()
+	fixtureDir := t.TempDir()
+	marker := filepath.Join(fixtureDir, "descendant.pid")
+	t.Cleanup(func() {
+		data, readErr := os.ReadFile(marker)
+		if readErr != nil {
+			return
+		}
+		pid, parseErr := strconv.Atoi(strings.TrimSpace(string(data)))
+		if parseErr != nil || pid <= 0 {
+			return
+		}
+		if process, findErr := os.FindProcess(pid); findErr == nil {
+			_ = process.Kill()
+		}
+	})
+
+	ctx := newControllableDeadlineContext()
+	t.Cleanup(ctx.expire)
+	result := make(chan error, 1)
+	go func() {
+		_, runErr := (Runner{}).RunCapture(ctx, Plan{
+			Executable: "/bin/sh",
+			Args:       []string{"-c", "sleep \"$2\"; (sleep 30) & printf '%s\\n' \"$!\" > \"$1\"; sleep 30", "sh", marker, startup},
+			Env:        []string{},
+		})
+		result <- runErr
+	}()
+	if err := awaitFixtureFile(marker, pipeDrainFixtureWait); err != nil {
+		ctx.expire()
+		var drained error
+		select {
+		case drained = <-result:
+		case <-time.After(capturedProcessWaitDelay + pipeDrainFixtureWait):
+		}
+		t.Fatalf("background descendant did not inherit output before deadline: %v (run result: %v)", err, drained)
+	}
+	ctx.expire()
+	var runErr error
+	select {
+	case runErr = <-result:
+	case <-time.After(capturedProcessWaitDelay + pipeDrainFixtureWait):
+		t.Fatal("RunCapture did not return after the bounded pipe-drain delay")
+	}
+	if !errors.Is(runErr, context.DeadlineExceeded) {
+		t.Fatalf("RunCapture error = %v, want deadline and pipe-drain diagnostic", runErr)
 	}
 }

@@ -21,10 +21,10 @@ import (
 func bindCredentialReader(t *testing.T, app *cli.App) {
 	t.Helper()
 	root := t.TempDir()
-	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
+	app.Executable = filepath.Join(root, "bin", "aigw")
 	app.DataDir = filepath.Join(root, "data")
 	writeFile(t, app.Executable, []byte("portable program"), 0o755)
-	app.UseExecutableIdentity(nil, executableName("aigw"))
+	app.UseExecutableIdentity(nil, "aigw")
 }
 
 // afterRecovery restores the projected file and requires synchronization and

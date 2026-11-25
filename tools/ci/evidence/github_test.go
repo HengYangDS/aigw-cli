@@ -16,7 +16,6 @@ var requiredTagJobs = []string{
 	"Quality and governance",
 	"Native macOS acceptance",
 	"Native Linux acceptance",
-	"Native Windows acceptance",
 	"Linux Secret Service",
 	"Release version",
 }
@@ -98,7 +97,7 @@ func TestGitHubTagEvidenceRejectsStaleOrPartialProof(t *testing.T) {
 		{name: "wrong tag", runs: strings.ReplaceAll(tagRunFixture(), `"head_branch":"v0.3.1"`, `"head_branch":"main"`), jobs: tagJobsFixture(), status: http.StatusOK},
 		{name: "wrong workflow", runs: strings.ReplaceAll(tagRunFixture(), `"path":".github/workflows/verify.yml"`, `"path":".github/workflows/other.yml"`), jobs: tagJobsFixture(), status: http.StatusOK},
 		{name: "incomplete runs", runs: strings.Replace(tagRunFixture(), `"total_count":3`, `"total_count":0`, 1), jobs: tagJobsFixture(), status: http.StatusOK},
-		{name: "missing native job", runs: tagRunFixture(), jobs: strings.Replace(tagJobsFixture(), `"name":"Native Windows acceptance"`, `"name":"other"`, 1), status: http.StatusOK},
+		{name: "missing native job", runs: tagRunFixture(), jobs: strings.Replace(tagJobsFixture(), `"name":"Native macOS acceptance"`, `"name":"other"`, 1), status: http.StatusOK},
 		{name: "missing Secret Service job", runs: tagRunFixture(), jobs: strings.Replace(tagJobsFixture(), `"name":"Linux Secret Service"`, `"name":"other"`, 1), status: http.StatusOK},
 		{name: "wrong job attempt", runs: tagRunFixture(), jobs: strings.Replace(tagJobsFixture(), `"name":"Native Linux acceptance","run_id":20,"run_attempt":2`, `"name":"Native Linux acceptance","run_id":20,"run_attempt":1`, 1), status: http.StatusOK},
 		{name: "wrong job SHA", runs: tagRunFixture(), jobs: strings.Replace(tagJobsFixture(), `"name":"Release version","run_id":20,"run_attempt":2,"head_sha":"`+testSHA+`"`, `"name":"Release version","run_id":20,"run_attempt":2,"head_sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"`, 1), status: http.StatusOK},

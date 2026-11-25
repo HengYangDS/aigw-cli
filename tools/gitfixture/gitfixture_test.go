@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -120,7 +119,7 @@ func TestRunOwnsGitPolicyWhenGitIsUnavailable(t *testing.T) {
 }
 
 func TestRunFailsWhenItCannotRemoveItsPolicy(t *testing.T) {
-	if runtime.GOOS != "windows" && os.Geteuid() == 0 {
+	if os.Geteuid() == 0 {
 		t.Skip("Root can remove entries from a directory without write permission")
 	}
 	global := filepath.Join(t.TempDir(), "config")
@@ -128,23 +127,15 @@ func TestRunFailsWhenItCannotRemoveItsPolicy(t *testing.T) {
 	t.Setenv("GIT_CONFIG_GLOBAL", global)
 	isolateScratch(t)
 	var owned string
-	var held *os.File
 	code := Run(tests(func() int {
-		var err error
-		// Windows refuses to delete an open file; other hosts refuse to delete
-		// entries of a directory without write permission.
-		if held, err = os.Open(os.Getenv("GIT_CONFIG_GLOBAL")); err != nil {
-			t.Fatal(err)
-		}
+		// The host refuses to delete entries of a directory without write
+		// permission.
 		owned = filepath.Dir(os.Getenv("GIT_CONFIG_GLOBAL"))
 		if err := os.Chmod(owned, 0o500); err != nil {
 			t.Fatal(err)
 		}
 		return 0
 	}))
-	if held != nil {
-		_ = held.Close()
-	}
 	if owned == "" {
 		t.Fatalf("Run = %d without running tests", code)
 	}

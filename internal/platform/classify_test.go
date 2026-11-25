@@ -36,14 +36,14 @@ func newClassifyFixture(t *testing.T) classifyFixture {
 	return fixture
 }
 
-// failed is the error of an operation at path: Windows reports a path through
-// a regular file as missing, so each case may pass that shape too.
+// failed is the error of an operation at path; a case may pass a missing path
+// for a path through a regular file, which only the file system tells apart.
 func failed(op, path string, err error) error { return &fs.PathError{Op: op, Path: path, Err: err} }
 
 // Every condition is decided by the file system and the kind of path that the
 // operation expected, never by the error's number alone: a path through a
-// regular file is in that file's way whether the error reads ENOTDIR or, as on
-// Windows, a missing path, and the path itself being a regular file is never
+// regular file is in that file's way whether the error reads ENOTDIR or a
+// missing path, and the path itself being a regular file is never
 // in the way of an operation that expects a file.
 func TestClassifyPathDecidesOneCondition(t *testing.T) {
 	f := newClassifyFixture(t)
@@ -58,8 +58,8 @@ func TestClassifyPathDecidesOneCondition(t *testing.T) {
 		needLink bool
 	}{
 		{name: "the file itself, unreadable", path: f.file, kind: FileExpected, err: failed("open", f.file, fs.ErrPermission), want: PathPermission},
-		{name: "a file in the way, as POSIX reports it", path: under("file", "config.toml"), err: failed("open", under("file", "config.toml"), syscall.ENOTDIR), want: PathFileInTheWay, culprit: f.file},
-		{name: "a file in the way, as Windows reports it", path: under("file", "config.toml"), err: failed("open", under("file", "config.toml"), fs.ErrNotExist), want: PathFileInTheWay, culprit: f.file},
+		{name: "a file in the way, as ENOTDIR", path: under("file", "config.toml"), err: failed("open", under("file", "config.toml"), syscall.ENOTDIR), want: PathFileInTheWay, culprit: f.file},
+		{name: "a file in the way, as a missing path", path: under("file", "config.toml"), err: failed("open", under("file", "config.toml"), fs.ErrNotExist), want: PathFileInTheWay, culprit: f.file},
 		{name: "a file in the way higher up", path: under("file", "a", "b", "config.toml"), err: failed("open", under("file", "a", "b", "config.toml"), fs.ErrNotExist), want: PathFileInTheWay, culprit: f.file},
 		{name: "a folder path that is a file", path: f.file, kind: FolderExpected, err: failed("mkdir", f.file, syscall.ENOTDIR), want: PathFileInTheWay, culprit: f.file},
 		{name: "a folder path under a file", path: under("file", "sub"), kind: FolderExpected, err: failed("mkdir", f.file, syscall.ENOTDIR), want: PathFileInTheWay, culprit: f.file},
@@ -106,8 +106,8 @@ func TestClassifyPathKeepsARelativePathRelative(t *testing.T) {
 	}
 }
 
-// A file in the way reads as not a directory on every platform, never as the
-// missing path that Windows reports; a link that leads nowhere reads as
+// A file in the way reads as not a directory, never as a missing path; a
+// link that leads nowhere reads as
 // neither missing nor existing; a missing path and a permission error keep
 // their own errors.
 func TestAPathConditionErrorReadsAsItsCondition(t *testing.T) {

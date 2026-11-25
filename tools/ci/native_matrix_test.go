@@ -249,10 +249,9 @@ func anyStrings(value any) []string {
 	return texts
 }
 
-// Every GitHub job and proof gate that runs the selection matrix has a budget
-// above the matrix's own bound. This is the necessary condition only; the time
-// that a job spends before the matrix is measured, not tested (the design).
-func TestEveryBudgetAroundTheSelectionMatrixExceedsItsBound(t *testing.T) {
+// selectionMatrixTimeout reads the bound that the matrix's command gives Go.
+func selectionMatrixTimeout(t *testing.T) time.Duration {
+	t.Helper()
 	at := slices.IndexFunc(selectionMatrixCommand.Args, func(arg string) bool { return strings.HasPrefix(arg, "-timeout=") })
 	if at < 0 {
 		t.Fatalf("the selection matrix has no bound: %q", selectionMatrixCommand.Args)
@@ -261,6 +260,23 @@ func TestEveryBudgetAroundTheSelectionMatrixExceedsItsBound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return bound
+}
+
+// The matrix's bound is three times its slowest measured run, rounded up to
+// whole five minutes; the rule is pinned here, not its result.
+func TestSelectionMatrixBoundIsThreeSlowestRuns(t *testing.T) {
+	bound, floor := selectionMatrixTimeout(t), 3*selectionMatrixSlowestRun
+	if bound < floor || bound >= floor+5*time.Minute || bound%(5*time.Minute) != 0 {
+		t.Fatalf("the selection matrix's bound %v is not three times its slowest run %v rounded up to five minutes", bound, selectionMatrixSlowestRun)
+	}
+}
+
+// Every GitHub job and proof gate that runs the selection matrix has a budget
+// above the matrix's own bound. This is the necessary condition only; the time
+// that a job spends before the matrix is measured, not tested (the design).
+func TestEveryBudgetAroundTheSelectionMatrixExceedsItsBound(t *testing.T) {
+	bound := selectionMatrixTimeout(t)
 	checked := 0
 	for name, job := range readGitHubVerify(t) {
 		runs := false

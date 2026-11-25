@@ -388,7 +388,7 @@ func TestRegistryRefusesAHostWithTheFirstRefusalInAdmissionOrder(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = registry.ValidateHost(discovery.Host{GOOS: "windows"})
+			err = registry.ValidateHost(discovery.Host{GOOS: "linux"})
 			if (err == nil) != (test.want == "") || err != nil && err.Error() != test.want {
 				t.Fatalf("ValidateHost() = %v, want %q", err, test.want)
 			}

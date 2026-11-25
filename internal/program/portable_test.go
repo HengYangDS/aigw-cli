@@ -240,12 +240,6 @@ func TestInstallReportsAtomicTargetReplacementFailure(t *testing.T) {
 	}
 }
 
-func TestBackupPathUsesWindowsExecutableSuffix(t *testing.T) {
-	if got := RollbackPath(filepath.Join("root", "aigw.exe")); filepath.Base(got) != ".aigw.previous.exe" {
-		t.Fatalf("backup path = %q", got)
-	}
-}
-
 // A target whose path runs through a file is refused by planning, on every
 // platform, so a preview does not pass where the write would fail. The error
 // names the file that stands where a folder is needed.
@@ -271,8 +265,7 @@ func TestPlanInstallRefusesAPathThroughAFile(t *testing.T) {
 }
 
 // A program file that runs through a regular file is refused before anything
-// is written or removed, on Windows too, where such a path reads as a missing
-// one and an uninstall would report nothing to remove.
+// is written or removed, so an uninstall does not report nothing to remove.
 func TestPlanInstallRefusesAProgramThroughAFile(t *testing.T) {
 	root := t.TempDir()
 	file := filepath.Join(root, "file")
@@ -292,11 +285,10 @@ func TestPlanInstallRefusesAProgramThroughAFile(t *testing.T) {
 	}
 }
 
-// Windows reports a program file under a regular file as a missing path, so a
-// plan that took it for absent would remove nothing and say nothing. Both
-// paths are classified from the file system instead, so the plan refuses here
-// as on POSIX. The error mapping is Windows', given to this host.
-func TestPresentProgramFilesRefusesAProgramUnderAFileAsWindowsReportsIt(t *testing.T) {
+// A program file under a regular file that the operating system reports as a
+// missing path is not taken for absent, which would remove nothing and say
+// nothing: both paths are classified from the file system instead.
+func TestPresentProgramFilesRefusesAProgramUnderAFileReportedAsMissing(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "file")
 	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)

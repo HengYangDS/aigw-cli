@@ -237,7 +237,7 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 	journey := &journeyFixture{
 		testing:   t,
 		source:    source,
-		binary:    filepath.Join(root, "installed", executableName()),
+		binary:    filepath.Join(root, "installed", "aigw"),
 		root:      root,
 		clientBin: clientBin,
 		manifest:  filepath.Join(root, "team.toml"),
@@ -249,18 +249,13 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 		journey.config = filepath.Join(home, "Library", "Application Support", "aigw", "aigw.toml")
 	case "linux":
 		journey.config = filepath.Join(root, "config", "aigw", "aigw.toml")
-	case "windows":
-		journey.config = filepath.Join(root, "appdata", "aigw", "aigw.toml")
 	default:
 		t.Fatalf("unsupported native journey platform %s", runtime.GOOS)
 	}
 	journey.environment = environmentWith(os.Environ(), map[string]string{
 		"HOME":                home,
-		"USERPROFILE":         home,
 		"XDG_CONFIG_HOME":     filepath.Join(root, "config"),
 		"XDG_DATA_HOME":       filepath.Join(root, "data"),
-		"APPDATA":             filepath.Join(root, "appdata"),
-		"LOCALAPPDATA":        filepath.Join(root, "localappdata"),
 		"CODEX_HOME":          filepath.Join(home, ".codex"),
 		"CLAUDE_CONFIG_DIR":   filepath.Join(home, ".claude"),
 		"HERMES_HOME":         filepath.Join(home, ".hermes"),
@@ -318,14 +313,10 @@ func (j *journeyFixture) installClientFixture(client string) {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	name := client
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	target := filepath.Join(j.clientBin, name)
+	target := filepath.Join(j.clientBin, client)
 	if client == claudedesktop.ID {
 		candidates := claudedesktop.ApplicationPathsFor(runtime.GOOS, map[string]string{
-			"HOME": filepath.Join(j.root, "home"), "LOCALAPPDATA": filepath.Join(j.root, "localappdata"),
+			"HOME": filepath.Join(j.root, "home"),
 		})
 		if len(candidates) > 0 {
 			target = candidates[0]
@@ -438,9 +429,6 @@ func (j *journeyFixture) uninstallWithAndRequireInstallationRemoved(binary strin
 func (j *journeyFixture) requireInstallationRemoved() {
 	j.testing.Helper()
 	backup := filepath.Join(filepath.Dir(j.binary), ".aigw.previous")
-	if runtime.GOOS == "windows" {
-		backup += ".exe"
-	}
 	for _, path := range []string{j.binary, backup} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			j.testing.Fatalf("uninstall retained owned file %s: %v", path, err)
@@ -453,13 +441,6 @@ func (j *journeyFixture) requireInstallationRemoved() {
 	if !slices.Equal(entryNames(entries), j.retainedProgramNames) {
 		j.testing.Fatalf("uninstall retained lifecycle residue: %#v", entryNames(entries))
 	}
-}
-
-func executableName() string {
-	if runtime.GOOS == "windows" {
-		return "aigw.exe"
-	}
-	return "aigw"
 }
 
 func requireFileContains(t *testing.T, path string, values ...string) {

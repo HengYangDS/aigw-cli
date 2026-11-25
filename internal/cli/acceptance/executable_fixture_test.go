@@ -9,10 +9,7 @@ import (
 // A command that probes a client starts its executable. The fixture that
 // stands for a client's executable is a program that the operating system
 // starts and that exits without output, so a probe fails as it does for a
-// client that is not there. A file that is not a program makes Windows take
-// its invalid-image path, which on hosted Windows Server 2025 ended the
-// whole test binary with a fail fast (0xc0000409 in KERNEL32) when several
-// tests started such files at once.
+// client that is not there.
 func TestAnExecutableFixtureStartsAndSaysNothing(t *testing.T) {
 	t.Parallel()
 	command := exec.Command(executableFixture(t, "codex"), "--version")

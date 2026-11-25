@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"aigw-cli/tools/release/construction"
@@ -25,7 +24,6 @@ type nativeMode struct {
 	protectedFile string
 	secretService bool
 	refreshLocks  bool
-	windowsInput  bool
 }
 
 // nativeJob is one GitLab native job as its declared inputs select it.
@@ -49,20 +47,17 @@ type nativeHost struct {
 }
 
 // nativeJobFromEnvironment maps the GitLab job inputs to native acceptance. It
-// owns the logic the pipeline once wrote as bash and PowerShell, so every
-// platform reads the same inputs the same way.
+// owns the logic the pipeline once wrote as shell, so every platform reads the
+// same inputs the same way.
 func nativeJobFromEnvironment(getenv func(string) string, platform, workdir string) (nativeJob, error) {
 	manual := getenv("CI_PIPELINE_SOURCE") == "web" || getenv("CI_PIPELINE_SOURCE") == "api"
 	diagnostic := getenv("AIGW_NATIVE_DIAGNOSTIC_CLIENT")
 	if (diagnostic != "" || getenv("AIGW_NATIVE_PERFORMANCE") == "true" || getenv("AIGW_NATIVE_PERFORMANCE_ATTRIBUTION") == "true") && !manual {
 		return nativeJob{}, errors.New("native diagnostics and performance require a manual pipeline")
 	}
-	pack := getenv("AIGW_NATIVE_INPUT_PACKAGE")
 	job := nativeJob{
 		fullQuality:  getenv("AIGW_FULL_NATIVE_QUALITY") == "true",
 		refreshLocks: getenv("AIGW_REFRESH_LOCKS") == "true",
-		// Windows supplies the official clients from the public input itself.
-		windowsInput: platform == "windows" && pack != "" && (getenv("AIGW_NATIVE_CLIENTS") == "true" || diagnostic != ""),
 	}
 	if platform == "darwin" && getenv("CI_COMMIT_REF_PROTECTED") == "false" {
 		job.protectedFile = getenv("AIGW_REVIEW_PROTECTED_FILE")
@@ -73,18 +68,13 @@ func nativeJobFromEnvironment(getenv func(string) string, platform, workdir stri
 			job.secretService = job.secretService || getenv(name) != ""
 		}
 	}
-	archive := ""
-	if job.windowsInput {
-		archive = windowsJobPath(getenv, "native-input.tar")
-	}
-	arguments, err := nativeAcceptanceArguments(getenv, archive, workdir)
+	arguments, err := nativeAcceptanceArguments(getenv, workdir)
 	job.arguments = arguments
 	return job, err
 }
 
-// nativeAcceptanceArguments maps the job inputs to accept-native flags. A
-// caller-owned archive replaces the input package download.
-func nativeAcceptanceArguments(getenv func(string) string, archive, workdir string) ([]string, error) {
+// nativeAcceptanceArguments maps the job inputs to accept-native flags.
+func nativeAcceptanceArguments(getenv func(string) string, workdir string) ([]string, error) {
 	arguments := []string{"--peer", "gitlab", "--repository", getenv("CI_PROJECT_URL")}
 	for _, option := range []struct{ variable, flag string }{
 		{"AIGW_BASELINE_TAG", "--baseline-tag"},
@@ -102,11 +92,7 @@ func nativeAcceptanceArguments(getenv func(string) string, archive, workdir stri
 		arguments = append(arguments, "--candidate-source", value)
 	}
 	if value := getenv("AIGW_NATIVE_INPUT_PACKAGE"); value != "" {
-		input := []string{"--input-package", value}
-		if archive != "" {
-			input = []string{"--input-archive", archive}
-		}
-		arguments = append(append(arguments, input...), "--input-sha256", getenv("AIGW_NATIVE_INPUT_SHA256"), "--candidate")
+		arguments = append(arguments, "--input-package", value, "--input-sha256", getenv("AIGW_NATIVE_INPUT_SHA256"), "--candidate")
 	}
 	if getenv("AIGW_NATIVE_PERFORMANCE") == "true" {
 		arguments = append(arguments, "--performance", filepath.Join(workdir, "build", "verification", "performance"))
@@ -141,15 +127,8 @@ func nativeTrustDefaults(getenv func(string) string) []string {
 	return defaults
 }
 
-// windowsJobPath names an entry in the job-owned directory that the Windows
-// job prepares beside its checkout.
-func windowsJobPath(getenv func(string) string, name string) string {
-	return filepath.Join(filepath.Dir(getenv("CI_PROJECT_DIR")), "aigw-ci-mise-"+getenv("CI_JOB_ID"), name)
-}
-
 // runNativeJob runs one GitLab native job from its declared inputs: the source
-// bootstrap and any requested lock refresh, the Windows client supply and
-// native acceptance. Linux release inputs run inside a private Secret Service
+// bootstrap and any requested lock refresh, and native acceptance. Linux release inputs run inside a private Secret Service
 // session that this command starts around itself.
 func runNativeJob(host nativeHost, stdout io.Writer, runner commandRunner) error {
 	job, err := nativeJobFromEnvironment(host.getenv, host.platform, host.workdir)
@@ -177,13 +156,6 @@ func runNativeJob(host nativeHost, stdout io.Writer, runner commandRunner) error
 			return err
 		}
 		environment = append(environment, "AIGW_VERIFY_SYSTEM_KEYRING=1")
-	}
-	if job.windowsInput {
-		clients, err := supplyWindowsInput(withEnvironment(host.getenv, environment), runner)
-		if err != nil {
-			return err
-		}
-		environment = append(environment, clients...)
 	}
 	setup := []command{{Name: "mise", Args: []string{"run", "bootstrap"}}}
 	if job.refreshLocks {
@@ -213,21 +185,6 @@ func openSecretServiceSession(inquiry outputRunner) error {
 		return fmt.Errorf("alias the private Secret Service collection: %w: %s", err, bytes.TrimSpace(output))
 	}
 	return nil
-}
-
-// withEnvironment returns a lookup that reads entries before getenv.
-func withEnvironment(getenv func(string) string, entries []string) func(string) string {
-	values := map[string]string{}
-	for _, entry := range entries {
-		key, value, _ := strings.Cut(entry, "=")
-		values[key] = value
-	}
-	return func(key string) string {
-		if value, ok := values[key]; ok {
-			return value
-		}
-		return getenv(key)
-	}
 }
 
 // physicalWorkdir returns the checkout's physical path, so retained output

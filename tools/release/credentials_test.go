@@ -30,9 +30,9 @@ import (
 
 func runInstalledClientFixture(executable string, args []string) (bool, int) {
 	if role := os.Getenv("AIGW_TEST_RESOURCE_ROLE"); role != "" {
-		return true, runVerificationResourceRole(role, args)
+		return true, runVerificationResourceRole(role)
 	}
-	client := strings.TrimSuffix(filepath.Base(executable), filepath.Ext(executable))
+	client := filepath.Base(executable)
 	if client == hermes.ID {
 		if slices.Equal(args, []string{"--version"}) {
 			_, _ = fmt.Fprintln(os.Stdout, "hermes 0.0.0-resource-fixture")
@@ -133,9 +133,6 @@ func TestCodexFixtureWritesItsFinalResponse(t *testing.T) {
 	fixture := &journeyFixture{testing: t, clientBin: t.TempDir()}
 	fixture.installClientFixture(codex.ID)
 	executable := filepath.Join(fixture.clientBin, codex.ID)
-	if runtime.GOOS == "windows" {
-		executable += ".exe"
-	}
 	if version, err := exec.Command(executable, "--version").Output(); err != nil || !strings.Contains(string(version), "codex-cli") {
 		t.Fatalf("Codex fixture version = %q, %v", version, err)
 	}
@@ -156,9 +153,6 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 		j.testing.Fatal(err)
 	}
 	helper := filepath.Join(j.root, "credential helper")
-	if runtime.GOOS == "windows" {
-		helper += ".exe"
-	}
 	if err := os.WriteFile(helper, readFile(j.testing, program), 0o700); err != nil {
 		j.testing.Fatal(err)
 	}

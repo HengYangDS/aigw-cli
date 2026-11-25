@@ -167,7 +167,7 @@ func resolveTagCommit(tag string, inquiry outputRunner) (string, error) {
 	return commit, nil
 }
 
-const nativeUsage = "usage: ci native [--platform <darwin|linux|windows>] [--selection-matrix] [--full-quality] [--protected-file <path>] [-- <release accept-native arguments>] | ci native [--platform <darwin|linux|windows>] [--selection-matrix] --from-env"
+const nativeUsage = "usage: ci native [--platform <darwin|linux>] [--selection-matrix] [--full-quality] [--protected-file <path>] [-- <release accept-native arguments>] | ci native [--platform <darwin|linux>] [--selection-matrix] --from-env"
 
 func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 	request := nativeRequest{}
@@ -177,7 +177,7 @@ func runNative(args []string, stdout io.Writer, runner commandRunner) error {
 	}
 	flags := flag.NewFlagSet("ci native", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	flags.StringVar(&request.platform, "platform", runtime.GOOS, "darwin, linux, or windows")
+	flags.StringVar(&request.platform, "platform", runtime.GOOS, "darwin or linux")
 	flags.BoolVar(&request.fullQuality, "full-quality", false, "Qualify every repository quality tool on this host before native acceptance")
 	flags.StringVar(&request.protectedFile, "protected-file", "", "Qualify denial and no elevation grant for an exact native review resource")
 	flags.BoolVar(&request.selectionMatrix, "selection-matrix", false, "Run the quality graph's selection-matrix gate, on a platform where no quality job of the pipeline runs it")
@@ -326,15 +326,12 @@ func writeTrustInput(output, githubEnvironment, variable string) error {
 }
 
 func supportedNativePlatform(platform string) bool {
-	return platform == "darwin" || platform == "linux" || platform == "windows"
+	return platform == "darwin" || platform == "linux"
 }
 
 func nativeCommands(platform string) []command {
 	evidence := filepath.Join("build", "verification", "coverage")
-	tests := command{Name: "go", Args: []string{"run", "./tools/coverage", "--tags=native_resource_acceptance"}}
-	if platform != "windows" {
-		tests.Args = append(tests.Args, "--race")
-	}
+	tests := command{Name: "go", Args: []string{"run", "./tools/coverage", "--tags=native_resource_acceptance", "--race"}}
 	// The JUnit report names each test that never finished ("No result"), so a
 	// test binary that the platform ends without output still shows where it
 	// stopped; the workflow retains the folder whatever the outcome.

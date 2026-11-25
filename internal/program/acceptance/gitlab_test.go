@@ -374,9 +374,6 @@ func TestUpdateUsesReleaseAssetURLBasenameWhenDisplayNamesDiffer(t *testing.T) {
 }
 
 func TestUpdateStreamsGlabAssetsWithConfiguredHost(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Unix shell fixture")
-	}
 	dir := t.TempDir()
 	capture := filepath.Join(dir, "gl-hosts")
 	glab := filepath.Join(dir, "glab")

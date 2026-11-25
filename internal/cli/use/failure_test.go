@@ -200,8 +200,8 @@ func TestUseSaysThatAnEnteredTokenWasNotKept(t *testing.T) {
 		}
 	})
 	t.Run("client file", func(t *testing.T) {
-		if runtime.GOOS == "windows" || os.Geteuid() == 0 {
-			t.Skip("a read-only folder refuses a new file only to an unprivileged POSIX user")
+		if os.Geteuid() == 0 {
+			t.Skip("a read-only folder refuses a new file only to an unprivileged user")
 		}
 		run, _, store, _ := tokenAcquisitionRuntime(t)
 		run.Executable = filepath.Join(t.TempDir(), "aigw")

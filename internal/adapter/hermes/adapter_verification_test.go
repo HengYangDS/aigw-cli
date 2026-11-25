@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -64,10 +63,6 @@ func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	}
 	deps.Runner = runner
 	_, err := (hermesAdapter{}).Verify(t.Context(), deps, cfg, selected, "")
-	if runtime.GOOS == "windows" {
-		requireHermesVerificationRefusal(t, err, runner.calls)
-		return
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,10 +103,6 @@ func TestHermesVerificationFailuresPreserveNativeState(t *testing.T) {
 			}
 			deps.Runner = runner
 			_, err := (hermesAdapter{}).Verify(t.Context(), deps, cfg, selected, "")
-			if runtime.GOOS == "windows" {
-				requireHermesVerificationRefusal(t, err, runner.calls)
-				return
-			}
 			if err == nil || !strings.Contains(err.Error(), test.want) || strings.Contains(err.Error(), "must-not-leak") || runner.calls != test.stage {
 				t.Fatalf("Hermes refusal = %v after %d calls, want %q at stage %d", err, runner.calls, test.want, test.stage)
 			}
@@ -138,7 +129,7 @@ func requireHermesVerificationHome(t *testing.T, plan process.Plan, root string,
 	if relative, err := filepath.Rel(root, plan.Directory); err != nil || !strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
 		t.Fatalf("verification home %q shares the native installation root %q", plan.Directory, root)
 	}
-	for _, name := range []string{"HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH"} {
+	for _, name := range []string{"HOME"} {
 		matches := func(entry string) bool { return strings.HasPrefix(entry, name+"=") }
 		before, after := slices.IndexFunc(originalEnvironment, matches), slices.IndexFunc(plan.Env, matches)
 		if (before < 0 && after >= 0) || (before >= 0 && (after < 0 || originalEnvironment[before] != plan.Env[after])) {
@@ -230,10 +221,6 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 		}
 	}
 	_, err = (hermesAdapter{}).Verify(t.Context(), deps, cfg, selected, "")
-	if runtime.GOOS == "windows" {
-		requireHermesVerificationRefusal(t, err, runner.calls)
-		return
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,10 +309,6 @@ func requireHermesVerificationLeavesOutExtensions(t *testing.T, operator []byte)
 	}
 	deps.Runner = runner
 	_, err := (hermesAdapter{}).Verify(t.Context(), deps, cfg, selected, "")
-	if runtime.GOOS == "windows" {
-		requireHermesVerificationRefusal(t, err, runner.calls)
-		return
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

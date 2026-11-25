@@ -47,8 +47,8 @@ const (
 // PathConditionError is an operation that failed at Path, classified once for
 // every surface that presents it: its Condition, the regular file in the way
 // or the link that Culprit names, and the operation and error that failed. A
-// file in the way reads as ErrFileAsFolder on every platform, never as the
-// missing path that Windows reports, and a dangling link as neither missing
+// file in the way reads as ErrFileAsFolder, never as a missing path, and a
+// dangling link as neither missing
 // nor existing. The surface that classified it says whether the operator gave
 // Path, as a --path or a client's file is given, which a command may then
 // name outside the home directory, and whether the operator creates what is
@@ -175,9 +175,8 @@ func (e *PathConditionError) reasonOr(fallback string) string {
 
 // ClassifyPath classifies err, the failure of an operation at path, which the
 // operation expects to be kind. A file in the way and a dangling link are found
-// on the file system, never in the error's text or number: Windows reports a
-// path through a regular file as ERROR_PATH_NOT_FOUND, which a missing folder
-// returns too. Any other error is PathOther. The result is never nil.
+// on the file system, never in the error's text or number. Any other error is
+// PathOther. The result is never nil.
 func ClassifyPath(path string, kind PathKind, err error) *PathConditionError {
 	// An operation that classified its own failure keeps that classification,
 	// which a dangling link, unwrapping to nothing, would otherwise lose.
@@ -297,8 +296,7 @@ func (e *PathConditionError) Reason() string {
 
 // PermissionReason is the reason of a permission error, the operating
 // system's own: EPERM, which a lock flag, a sandbox or system protection
-// returns, is not permitted, and any other is denied, as EACCES and Windows'
-// ERROR_ACCESS_DENIED are.
+// returns, is not permitted, and any other is denied, as EACCES is.
 func PermissionReason(err error) string { return permissionReason(err) }
 
 func permissionReason(err error) string {

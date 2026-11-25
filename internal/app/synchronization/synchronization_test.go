@@ -110,7 +110,7 @@ func testConfig(target string) domain.Config {
 // hostAt observes home as the user's home directory, so Claude Code's settings
 // file is home/.claude/settings.json.
 func hostAt(home string) discovery.Host {
-	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home}}
 }
 
 // readerAt resolves the credential reader at path, as the composition root
@@ -456,7 +456,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	helper, err := secret.Command(aigwExecutable, claude.ID, projection.CredentialProjectionFingerprint(claude.ID), runtime.GOOS)
+	helper, err := secret.Command(aigwExecutable, claude.ID, projection.CredentialProjectionFingerprint(claude.ID))
 	if err != nil {
 		t.Fatal(err)
 	}

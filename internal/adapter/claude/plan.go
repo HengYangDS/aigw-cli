@@ -48,7 +48,7 @@ var userVariables = []string{
 // verifies the settings file that AIGW wrote, so the client must not take any
 // of these from the process that runs the check. PATH, HOME, proxies, locale,
 // the client's own configuration folder and userVariables stay. Names compare
-// in upper case, as Windows does.
+// in upper case, so a variable in another case leaves too.
 func withoutParentSession(env []string) []string {
 	return slices.DeleteFunc(env, func(entry string) bool {
 		key, _, _ := strings.Cut(entry, "=")
@@ -62,8 +62,7 @@ func withoutParentSession(env []string) []string {
 }
 
 // removeEnvironment removes keys from env in any case, as withoutParentSession
-// compares names: on Windows a variable's name ignores case, so the client
-// would read anthropic_auth_token as ANTHROPIC_AUTH_TOKEN.
+// compares names.
 func removeEnvironment(env []string, keys ...string) []string {
 	remove := map[string]bool{}
 	for _, key := range keys {

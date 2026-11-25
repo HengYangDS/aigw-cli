@@ -27,7 +27,7 @@ func TestSourceSizeUsesExactNativeCodeLines(t *testing.T) {
 		{"boundary", "source.go", "package fixture\n" + strings.Repeat("var _ = 1\n", 499), true},
 		{"inline comments", "source.go", "package fixture\n" + strings.Repeat("var _ = 1 // explanation\n", 500), false},
 		{"test source", "source_test.go", "package fixture\n" + strings.Repeat("var _ = 1\n", 500), false},
-		{"foreign platform", "source_windows.go", "package fixture\n" + strings.Repeat("var _ = 1\n", 500), false},
+		{"foreign platform", "source_freebsd.go", "package fixture\n" + strings.Repeat("var _ = 1\n", 500), false},
 		{"comment only", "source.go", "package fixture\n" + strings.Repeat("// explanation\n\n", 600), true},
 		{"quoted filename", "source's #1.go", "package fixture\n", true},
 	} {

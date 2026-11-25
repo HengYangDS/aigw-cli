@@ -3,7 +3,6 @@ package check
 import (
 	"context"
 	"maps"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -59,18 +58,9 @@ func failedCheck(name, label, problem, fix string, state domainreadiness.State) 
 // it.
 var conflictingVariables = []string{"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY"}
 
-// namesIgnoreCase says whether a variable's name ignores case, as on Windows,
-// where a client reads anthropic_api_key as ANTHROPIC_API_KEY. Elsewhere
-// another spelling hands a client nothing. A test sets it for either platform.
-var namesIgnoreCase = runtime.GOOS == "windows"
-
 // conflicting reports whether name is one of conflictingVariables as a client
-// reads it.
-func conflicting(name string) bool {
-	return slices.ContainsFunc(conflictingVariables, func(variable string) bool {
-		return name == variable || namesIgnoreCase && strings.EqualFold(name, variable)
-	})
-}
+// reads it: another spelling hands a client nothing.
+func conflicting(name string) bool { return slices.Contains(conflictingVariables, name) }
 
 // backendFix makes a credential store that AIGW cannot observe available
 // before the same command runs again.

@@ -61,7 +61,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	route := p.manifest.Models[selection.Model]
 	const token = "native-retry-fixture-token"
 	var failures, mode, completions atomic.Int64
-	base := clientResponseHandler(domain.ProtocolResponses, map[string]*atomic.Int64{route.ID: &completions}, token, "high", nativeCodexToolShell(t))
+	base := clientResponseHandler(domain.ProtocolResponses, map[string]*atomic.Int64{route.ID: &completions}, token, "high")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if mode.Load() == 0 || r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/responses") {
 			base.ServeHTTP(w, r)

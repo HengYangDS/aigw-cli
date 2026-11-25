@@ -205,14 +205,10 @@ func TestUpdateWithNilRunnerRequiresConfiguredSource(t *testing.T) {
 
 func TestUpdateRejectsUnwritableWorkspace(t *testing.T) {
 	// os.MkdirTemp("", ...) resolves the base directory through
-	// os.TempDir(), which honors different environment variables per OS:
-	// $TMPDIR on Unix, but %TMP%/%TEMP%/%USERPROFILE% (in that order) on
-	// Windows. All of them must be pointed at a missing directory so the
-	// workspace creation fails deterministically on every platform.
+	// os.TempDir(), which honors $TMPDIR; pointing it at a missing directory
+	// makes the workspace creation fail deterministically.
 	missing := filepath.Join(t.TempDir(), "does-not-exist")
 	t.Setenv("TMPDIR", missing)
-	t.Setenv("TMP", missing)
-	t.Setenv("TEMP", missing)
 	u := Updater{Runner: &recordingRunner{}}
 	releases := []resolvedRelease{{Source: ReleaseSource{Provider: ReleaseProviderGitLab}, Tag: "v1.0.0"}}
 	if _, err := u.updateFromResolvedPeers(t.Context(), releases, "0.1.0"); err == nil || !strings.Contains(err.Error(), "create update workspace") {

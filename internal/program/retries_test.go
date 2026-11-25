@@ -24,9 +24,6 @@ func TestRollbackRetryCapabilityRefusalPreservesPrograms(t *testing.T) {
 	}
 	cmd := exec.CommandContext(t.Context(), program, "-test.run=^TestRollbackRetryCapabilityExitFixture$")
 	cmd.Env = []string{"AIGW_TEST_RETRY_CAPABILITY_EXIT=1"}
-	if root := os.Getenv("SystemRoot"); root != "" {
-		cmd.Env = append(cmd.Env, "SystemRoot="+root)
-	}
 	exit := cmd.Run()
 	if _, ok := errors.AsType[*exec.ExitError](exit); !ok {
 		t.Fatalf("fixture did not produce a real reader refusal: %v", exit)

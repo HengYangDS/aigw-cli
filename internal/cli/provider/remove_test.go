@@ -395,9 +395,6 @@ func TestRemoveRefusesAnIDWhoseSlotsTheStoreCannotObserve(t *testing.T) {
 // A listed file with another mode is refused by name with the mode that it
 // needs. Once it has that mode, the removal that check printed succeeds.
 func TestRemoveNamesTheModeThatAListedTokenFileNeeds(t *testing.T) {
-	if goruntime.GOOS == "windows" {
-		t.Skip("Windows does not represent an owner-only mode in a file's mode")
-	}
 	f := newFixture(t)
 	root := t.TempDir()
 	files, err := secret.Select(secret.Selection{Backend: "file", GOOS: goruntime.GOOS, Root: root})

@@ -4,7 +4,6 @@ import (
 	"aigw-cli/internal/program/artifact"
 	"aigw-cli/tools/release/performance"
 	"archive/tar"
-	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
@@ -187,7 +186,7 @@ func TestBuildNativeRejectsInvalidInputsWithoutOwningCallerWorkspace(t *testing.
 }
 
 func TestNativeBuildNeedsNoPublisherCredentials(t *testing.T) {
-	for _, platform := range []string{"linux", "windows", "darwin", ""} {
+	for _, platform := range []string{"linux", "darwin", ""} {
 		t.Run(platform, func(t *testing.T) {
 			request := buildRequest{Root: releaseRoot(t), Version: "1.2.3", Epoch: "0", TargetOS: platform}
 			t.Setenv("AIGW_MACOS_SIGNING_IDENTITY", strings.Repeat("a", 40))
@@ -204,9 +203,8 @@ func TestNativeBuildNeedsNoPublisherCredentials(t *testing.T) {
 					return err
 				}
 				calls++
-
-				if slices.Contains(call.Args, "--skip=homebrew") != (platform == "windows") {
-					t.Fatalf("Homebrew generation does not match target %q: %v", platform, call.Args)
+				if slices.Contains(call.Args, "--skip=homebrew") {
+					t.Fatalf("Homebrew generation was skipped for target %q: %v", platform, call.Args)
 				}
 				return nil
 			})
@@ -354,17 +352,11 @@ func writeNativeArchive(t *testing.T, stage, version string) {
 	payload := []byte("native candidate")
 	var entry io.Writer
 	closers := []io.Closer{file}
-	if target.OS == "windows" {
-		writer := zip.NewWriter(file)
-		entry, err = writer.Create(name + ".exe")
-		closers = append([]io.Closer{writer}, closers...)
-	} else {
-		compressed := gzip.NewWriter(file)
-		writer := tar.NewWriter(compressed)
-		err = writer.WriteHeader(&tar.Header{Name: name, Mode: 0o700, Size: int64(len(payload))})
-		entry = writer
-		closers = append([]io.Closer{writer, compressed}, closers...)
-	}
+	compressed := gzip.NewWriter(file)
+	writer := tar.NewWriter(compressed)
+	err = writer.WriteHeader(&tar.Header{Name: name, Mode: 0o700, Size: int64(len(payload))})
+	entry = writer
+	closers = append([]io.Closer{writer, compressed}, closers...)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -145,7 +145,7 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	home := t.TempDir()
 	bin := filepath.Join(home, "bin")
 	for _, name := range []string{"aigw", claude.ID, codex.ID} {
-		writeSilentProgram(t, filepath.Join(bin, executableName(name)))
+		writeSilentProgram(t, filepath.Join(bin, name))
 	}
 
 	codexHome := filepath.Join(home, ".codex")
@@ -164,7 +164,7 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	writeFile(t, claudeSettings, []byte(`{"theme":"dark","permissions":{"allow":["Read"]},"env":{"TEAM_VALUE":"kept"}}`), 0o600)
 
 	app, _, secretStore, runner, _ := testApp(t, "")
-	app.Executable = filepath.Join(bin, executableName("aigw"))
+	app.Executable = filepath.Join(bin, "aigw")
 	app.Host = hostAt(home)
 	app.Discovery = adapter.NewDiscoverer(clients.Registry(), discovery.System{GOOS: runtime.GOOS, Home: home, Path: bin})
 	cfg := domain.NewConfig(clients.Admission())

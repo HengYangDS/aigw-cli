@@ -14,8 +14,7 @@ exec aigw use claude team/team-model
 exec aigw client list
 stdout 'Claude Desktop +No model selected · Disabled · '
 normalize stdout list.out 'Claude Desktop .*'
-[!windows] cmp list.out list.txt
-[windows] cmp list.out list-windows.txt
+cmp list.out list.txt
 exec aigw client list --json
 stdout '"schema_version": 2'
 stdout '"id": "claude",\n\s+"installed": true,\n\s+"executable": "[^"]+",\n\s+"enabled": true,\n\s+"model": "team/team-model"\n'
@@ -58,16 +57,14 @@ fixloop -input stdout aigw client enable claude --executable $BIN/claude$exe --t
 snapshot $HOME before.txt
 exec aigw client disable claude --dry-run --json
 normalize stdout disable-preview.out
-[!windows] cmp disable-preview.out disable-preview.json
-[windows] cmp disable-preview.out disable-preview-windows.json
+cmp disable-preview.out disable-preview.json
 snapshot $HOME after.txt
 cmp after.txt before.txt
 exec aigw client disable claude
 snapshot $HOME disabled.txt
 exec aigw client enable claude --executable $BIN/claude$exe --dry-run
 normalize stdout enable-preview.out
-[!windows] cmp enable-preview.out enable-preview.txt
-[windows] cmp enable-preview.out enable-preview-windows.txt
+cmp enable-preview.out enable-preview.txt
 snapshot $HOME still-disabled.txt
 cmp still-disabled.txt disabled.txt
 
@@ -213,23 +210,6 @@ fixloop -did 'selected team/team-model for Hermes' edit-no-model.json aigw clien
   ],
   "next_action": "aigw client disable claude"
 }
--- disable-preview-windows.json --
-{
-  "schema_version": 3,
-  "ok": true,
-  "dry_run": true,
-  "client": "claude",
-  "state": "disabled",
-  "restart_required": false,
-  "client_files": [
-    {
-      "client": "claude",
-      "file": "~/.claude/settings.json",
-      "action": "restore"
-    }
-  ],
-  "next_action": "aigw client disable claude"
-}
 -- enable-preview.txt --
 AIGW  Client preview
 ────────────────────────────────────────
@@ -242,18 +222,6 @@ Client files
 
 Next
   aigw client enable claude --executable $BIN/claude
--- enable-preview-windows.txt --
-AIGW  Client preview
-────────────────────────────────────────
-  Client               Claude
-  Planned state        enabled
-
-Client files
-  $HOME\.claude\settings.json  project
-  ✓ Preview did not write configuration, credentials or client files
-
-Next
-  aigw client enable claude --executable $BIN\claude.exe
 -- token.txt --
 sk-team-token-0001
 -- help.txt --
@@ -337,16 +305,6 @@ Fix
 AIGW  Clients
 ────────────────────────────────────────
   ✓ Claude             team/team-model · Enabled · $BIN/claude
-  · <varies>
-  · Codex              No model selected · Disabled · Not installed
-  · Hermes             No model selected · Disabled · Not installed
-
-Next
-  aigw use <client> <provider/model>
--- list-windows.txt --
-AIGW  Clients
-────────────────────────────────────────
-  ✓ Claude             team/team-model · Enabled · $BIN\claude.exe
   · <varies>
   · Codex              No model selected · Disabled · Not installed
   · Hermes             No model selected · Disabled · Not installed

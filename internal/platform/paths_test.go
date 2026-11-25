@@ -2,7 +2,6 @@ package platform_test
 
 import (
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"aigw-cli/internal/platform"
@@ -21,7 +20,6 @@ func TestHostPathsAreDerivedAsOnePlatformContract(t *testing.T) {
 	}{
 		{name: "macOS", goos: "darwin", env: map[string]string{"HOME": "/Users/alex"}, config: "/Users/alex/Library/Application Support/aigw/aigw.toml", data: "/Users/alex/Library/Application Support/aigw", secrets: "/Users/alex/Library/Application Support/aigw/secrets", installDir: "/Users/alex/.local/bin", installName: "aigw"},
 		{name: "Linux", goos: "linux", env: map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg", "XDG_DATA_HOME": "/data"}, config: "/cfg/aigw/aigw.toml", data: "/data/aigw", secrets: "/data/aigw/secrets", installDir: "/home/alex/.local/bin", installName: "aigw"},
-		{name: "Windows", goos: "windows", env: map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`, "LOCALAPPDATA": `C:\Users\alex\AppData\Local`, "USERPROFILE": `C:\Users\alex`}, config: `C:\Users\alex\AppData\Roaming\aigw\aigw.toml`, data: `C:\Users\alex\AppData\Local\aigw`, secrets: `C:\Users\alex\AppData\Local\aigw\secrets`, installDir: `C:\Users\alex\AppData\Local\Programs\aigw\bin`, installName: "aigw.exe"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -64,7 +62,6 @@ func TestConfigPathUsesPlatformConvention(t *testing.T) {
 		{"darwin", map[string]string{"HOME": "/Users/alex"}, "/Users/alex/Library/Application Support/aigw/aigw.toml"},
 		{"linux", map[string]string{"HOME": "/home/alex"}, "/home/alex/.config/aigw/aigw.toml"},
 		{"linux", map[string]string{"HOME": "/home/alex", "XDG_CONFIG_HOME": "/cfg"}, "/cfg/aigw/aigw.toml"},
-		{"windows", map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`}, `C:\Users\alex\AppData\Roaming\aigw\aigw.toml`},
 	}
 	for _, tt := range tests {
 		got, err := platform.ConfigPathFor(tt.goos, tt.env)
@@ -83,7 +80,7 @@ func TestPlatformPathsRequireSupportedHostInputs(t *testing.T) {
 		{"data", platform.DataDirFor},
 	} {
 		t.Run(operation.name, func(t *testing.T) {
-			for _, goos := range []string{"darwin", "linux", "windows", "plan9"} {
+			for _, goos := range []string{"darwin", "linux", "plan9"} {
 				t.Run(goos, func(t *testing.T) {
 					if _, err := operation.path(goos, map[string]string{}); err == nil {
 						t.Fatal("unsupported operating system or missing platform input admitted")
@@ -103,8 +100,6 @@ func TestDataDirUsesPlatformConvention(t *testing.T) {
 		{"darwin", map[string]string{"HOME": "/Users/alex"}, "/Users/alex/Library/Application Support/aigw"},
 		{"linux", map[string]string{"HOME": "/home/alex"}, "/home/alex/.local/share/aigw"},
 		{"linux", map[string]string{"HOME": "/home/alex", "XDG_DATA_HOME": "/data"}, "/data/aigw"},
-		{"windows", map[string]string{"LOCALAPPDATA": `C:\Users\alex\AppData\Local`}, `C:\Users\alex\AppData\Local\aigw`},
-		{"windows", map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`}, `C:\Users\alex\AppData\Roaming\aigw`},
 	}
 	for _, tt := range tests {
 		got, err := platform.DataDirFor(tt.goos, tt.env)
@@ -122,7 +117,6 @@ func TestUserBinDirUsesWritableUserBoundary(t *testing.T) {
 	}{
 		{"darwin", map[string]string{"HOME": "/Users/alex"}, "/Users/alex/.local/bin"},
 		{"linux", map[string]string{"HOME": "/home/alex"}, "/home/alex/.local/bin"},
-		{"windows", map[string]string{"LOCALAPPDATA": `C:\Users\alex\AppData\Local`}, `C:\Users\alex\AppData\Local\Programs\aigw\bin`},
 	}
 	for _, tt := range tests {
 		got, err := platform.UserBinDirFor(tt.goos, tt.env)
@@ -138,69 +132,8 @@ func TestUserBinDirRefusesMissingHome(t *testing.T) {
 	}
 }
 
-func TestUserBinDirFallsBackFromLocalAppDataToAppData(t *testing.T) {
-	got, err := platform.UserBinDirFor("windows", map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`})
-	want := `C:\Users\alex\AppData\Roaming\Programs\aigw\bin`
-	if err != nil || filepath.Clean(got) != filepath.Clean(want) {
-		t.Fatalf("UserBinDirFor(windows) = %q, %v; want %q", got, err, want)
-	}
-}
-
-func TestUserBinDirRefusesMissingWindowsEnvOrUnsupportedOS(t *testing.T) {
-	if _, err := platform.UserBinDirFor("windows", map[string]string{}); err == nil {
-		t.Fatal("windows without LOCALAPPDATA or APPDATA unexpectedly admitted")
-	}
+func TestUserBinDirRefusesAnUnsupportedOS(t *testing.T) {
 	if _, err := platform.UserBinDirFor("plan9", map[string]string{}); err == nil {
 		t.Fatal("unsupported operating system unexpectedly admitted")
-	}
-}
-
-func TestWindowsPathsPreserveTheSelectedNamespace(t *testing.T) {
-	for _, test := range []struct {
-		name string
-		base string
-		want string
-	}{
-		{"drive", `C:\Users\alex`, `C:\Users\alex`},
-		{"drive root", `C:\`, `C:`},
-		{"rooted", `\`, ``},
-		{"UNC", `\\server\share`, `\\server\share`},
-		{"UNC trailing separator", `\\server\share\`, `\\server\share`},
-		{"UNC forward slashes", `//server/share`, `\\server\share`},
-		{"extended drive", `\\?\C:\Users\alex`, `\\?\C:\Users\alex`},
-		{"extended UNC", `\\?\UNC\server\share`, `\\?\UNC\server\share`},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			got, err := platform.PathsFor("windows", map[string]string{
-				"APPDATA": test.base, "LOCALAPPDATA": test.base, "USERPROFILE": test.base,
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, location := range []struct {
-				name  string
-				path  string
-				parts []string
-			}{
-				{"configuration", got.Config, []string{"aigw", "aigw.toml"}},
-				{"data", got.Data, []string{"aigw"}},
-				{"credentials", got.Secrets, []string{"aigw", "secrets"}},
-				{"installation", got.InstallDir, []string{"Programs", "aigw", "bin"}},
-			} {
-				want := test.want
-				for _, component := range location.parts {
-					want += `\` + component
-				}
-				if location.path != want {
-					t.Errorf("%s = %q, want %q", location.name, location.path, want)
-				}
-				if runtime.GOOS == "windows" {
-					native := filepath.Join(append([]string{test.base}, location.parts...)...)
-					if location.path != native {
-						t.Errorf("%s = %q, native filepath.Join = %q", location.name, location.path, native)
-					}
-				}
-			}
-		})
 	}
 }

@@ -181,7 +181,8 @@ native-darwin:
         printf '%s\n' 'Mise job-owned supply state retired.'
       fi
   tags:
-    - ci-macos-arm64-shell
+    - macos-latest
+    - protected
   rules:
     - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
@@ -286,7 +287,8 @@ native-darwin-review:
         printf '%s\n' 'Mise job-owned supply state retired.'
       fi
   tags:
-    - ci-macos-arm64-review
+    - macos-latest
+    - review
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
@@ -324,307 +326,10 @@ native-darwin-review:
     expire_in: 7 days
     paths:
       - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
-native-windows:
-  script:
-    - |-
-      $ErrorActionPreference = 'Stop'
-      foreach ($name in @('CI_API_V4_URL', 'CI_PROJECT_ID', 'CI_PROJECT_DIR', 'CI_JOB_ID', 'CI_JOB_TOKEN', 'CI_SERVER_HOST')) {
-        if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { throw "Missing GitLab job input: $name" }
-      }
-      $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
-      if (Test-Path -LiteralPath $jobDirectory) { throw 'Mise job directory already exists.' }
-      [void](New-Item -ItemType Directory -Path $jobDirectory -ErrorAction Stop)
-      $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-      & icacls.exe $jobDirectory /inheritance:r /grant:r "${identity}:(OI)(CI)F" | Out-Null
-      if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise job directory ACL.' }
-      foreach ($name in @('MISE_CONFIG_DIR', 'MISE_CACHE_DIR', 'MISE_STATE_DIR', 'MISE_DATA_DIR')) {
-        $path = Join-Path $jobDirectory $name
-        [Environment]::SetEnvironmentVariable($name, $path)
-        [void](New-Item -ItemType Directory -Path $path -ErrorAction Stop)
-      }
-      $env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
-      $mise = Join-Path $env:ProgramFiles 'mise-aigw-cli\bin\mise.exe'
-      if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
-      if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne 'e4f2b6740c4d249826a5bf22b362da7532c0a57c55319d18e4f23225bd6c0197') { throw 'Runner-owned Mise digest differs from the admitted release.' }
-      $reported = & $mise --version
-      if ($LASTEXITCODE -ne 0) { throw 'Runner-owned Mise failed to start under the job identity.' }
-      if ($reported -notmatch ('^' + [regex]::Escape('2026.11.7') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
-      & whoami.exe /user
-      if ($LASTEXITCODE -ne 0) { throw 'Runner identity could not be observed.' }
-      $shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'
-      if (-not (Test-Path -LiteralPath $shim -PathType Leaf)) { throw 'Runner-owned Mise shim is missing.' }
-      try { $shimHash = (Get-FileHash -LiteralPath $shim -Algorithm SHA256 -ErrorAction Stop).Hash }
-      catch { & icacls.exe $shim; throw "Runner-owned Mise shim cannot be read (error=$($_.FullyQualifiedErrorId), hresult=$($_.Exception.HResult))." }
-      if ($shimHash -ne 'b5a1c01a39ca3e625df7b994f1e5200942e11e0bf1268dc9de4e11b8c2c8a6d7') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
-      $env:PATH = (Split-Path -Parent $mise) + [IO.Path]::PathSeparator + $env:PATH
-      if ($env:AIGW_TOOL_SOURCE -and $env:AIGW_TOOL_SOURCE -notin @('upstream', 'peer')) { throw 'AIGW_TOOL_SOURCE must be upstream or peer.' }
-      if ($env:AIGW_TOOL_SOURCE -eq 'peer') {
-      $netrc = Join-Path $jobDirectory '_netrc'
-      [IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
-      & icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
-      if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
-      $lockDigest = (Get-FileHash -LiteralPath (Join-Path $env:CI_PROJECT_DIR '.config/mise/mise.lock') -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
-      $mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/packages/generic/mise-github/$lockDigest/"
-      $replacements = [ordered]@{}
-      $replacements['regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$'] = "${mirrorBase}" + 'release-$1-$2-$3.json'
-      $replacements['https://github.com/'] = $mirrorBase
-      $replacements['https://api.github.com/'] = $mirrorBase
-      $env:MISE_NETRC_FILE = $netrc
-      $env:MISE_NETRC = 'true'
-      $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
-      }
-    - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
-    - mise exec --locked -- go run ./tools/ci native --platform windows --selection-matrix --from-env
-    - |-
-      $ErrorActionPreference = 'Stop'
-      $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
-      if (Test-Path -LiteralPath $jobDirectory) {
-        $emptyDirectory = Join-Path (Split-Path -Parent $jobDirectory) "aigw-ci-mise-empty-$env:CI_JOB_ID"
-        if (Test-Path -LiteralPath $emptyDirectory) { throw 'Mise cleanup mirror source already exists.' }
-        [IO.Directory]::CreateDirectory($emptyDirectory) | Out-Null
-        try {
-          & robocopy.exe $emptyDirectory $jobDirectory /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
-          $mirrorExit = $LASTEXITCODE
-          if ($mirrorExit -ge 8) { throw "Mise cleanup mirror failed (robocopy exit $mirrorExit)." }
-          [IO.Directory]::Delete($jobDirectory)
-        } catch {
-          $cause = $_.Exception
-          Write-Host "Mise cleanup failure type=$($cause.GetType().FullName) HRESULT=0x$($cause.HResult.ToString('X8'))"
-          throw
-        } finally {
-          if (Test-Path -LiteralPath $emptyDirectory) { [IO.Directory]::Delete($emptyDirectory) }
-        }
-      }
-      if (Test-Path -LiteralPath $jobDirectory) {
-        throw 'Mise job directory remains after cleanup.'
-      }
-      Write-Host 'Mise job-owned supply state retired.'
-  tags:
-    - ci-windows-arm64-shell
-  rules:
-    - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
-    - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
-    - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,node
-    - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
-    - if: $CI_COMMIT_TAG
-    - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
-    - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
-    - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,node
-    - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
-    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
-    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
-    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
-    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,node
-    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
-    - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true"
-    - when: never
-  after_script:
-    - |-
-      $ErrorActionPreference = 'Stop'
-      $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
-      if (Test-Path -LiteralPath $jobDirectory) {
-        $emptyDirectory = Join-Path (Split-Path -Parent $jobDirectory) "aigw-ci-mise-empty-$env:CI_JOB_ID"
-        if (Test-Path -LiteralPath $emptyDirectory) { throw 'Mise cleanup mirror source already exists.' }
-        [IO.Directory]::CreateDirectory($emptyDirectory) | Out-Null
-        try {
-          & robocopy.exe $emptyDirectory $jobDirectory /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
-          $mirrorExit = $LASTEXITCODE
-          if ($mirrorExit -ge 8) { throw "Mise cleanup mirror failed (robocopy exit $mirrorExit)." }
-          [IO.Directory]::Delete($jobDirectory)
-        } catch {
-          $cause = $_.Exception
-          Write-Host "Mise cleanup failure type=$($cause.GetType().FullName) HRESULT=0x$($cause.HResult.ToString('X8'))"
-          throw
-        } finally {
-          if (Test-Path -LiteralPath $emptyDirectory) { [IO.Directory]::Delete($emptyDirectory) }
-        }
-      }
-      if (Test-Path -LiteralPath $jobDirectory) {
-        throw 'Mise job directory remains after cleanup.'
-      }
-      Write-Host 'Mise job-owned supply state retired.'
-  stage: verify
-  variables:
-    AIGW_VERIFY_SYSTEM_KEYRING: "1"
-    AIGW_NATIVE_CLIENT_SUPPLIER: suppliers/windows-codex-0.170.0-claude-2.1.327-native-packages.tar.gz
-    GLAB_NO_PROMPT: "1"
-    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
-  artifacts:
-    when: always
-    expire_in: 7 days
-    paths:
-      - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
-native-windows-review:
-  script:
-    - |-
-      $ErrorActionPreference = 'Stop'
-      foreach ($name in @('CI_API_V4_URL', 'CI_PROJECT_ID', 'CI_PROJECT_DIR', 'CI_JOB_ID', 'CI_JOB_TOKEN', 'CI_SERVER_HOST')) {
-        if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { throw "Missing GitLab job input: $name" }
-      }
-      $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
-      if (Test-Path -LiteralPath $jobDirectory) { throw 'Mise job directory already exists.' }
-      [void](New-Item -ItemType Directory -Path $jobDirectory -ErrorAction Stop)
-      $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-      & icacls.exe $jobDirectory /inheritance:r /grant:r "${identity}:(OI)(CI)F" | Out-Null
-      if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise job directory ACL.' }
-      foreach ($name in @('MISE_CONFIG_DIR', 'MISE_CACHE_DIR', 'MISE_STATE_DIR', 'MISE_DATA_DIR')) {
-        $path = Join-Path $jobDirectory $name
-        [Environment]::SetEnvironmentVariable($name, $path)
-        [void](New-Item -ItemType Directory -Path $path -ErrorAction Stop)
-      }
-      $env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
-      $mise = Join-Path $env:ProgramFiles 'mise-aigw-cli\bin\mise.exe'
-      if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
-      if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne 'e4f2b6740c4d249826a5bf22b362da7532c0a57c55319d18e4f23225bd6c0197') { throw 'Runner-owned Mise digest differs from the admitted release.' }
-      $reported = & $mise --version
-      if ($LASTEXITCODE -ne 0) { throw 'Runner-owned Mise failed to start under the job identity.' }
-      if ($reported -notmatch ('^' + [regex]::Escape('2026.11.7') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
-      & whoami.exe /user
-      if ($LASTEXITCODE -ne 0) { throw 'Runner identity could not be observed.' }
-      $shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'
-      if (-not (Test-Path -LiteralPath $shim -PathType Leaf)) { throw 'Runner-owned Mise shim is missing.' }
-      try { $shimHash = (Get-FileHash -LiteralPath $shim -Algorithm SHA256 -ErrorAction Stop).Hash }
-      catch { & icacls.exe $shim; throw "Runner-owned Mise shim cannot be read (error=$($_.FullyQualifiedErrorId), hresult=$($_.Exception.HResult))." }
-      if ($shimHash -ne 'b5a1c01a39ca3e625df7b994f1e5200942e11e0bf1268dc9de4e11b8c2c8a6d7') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
-      $env:PATH = (Split-Path -Parent $mise) + [IO.Path]::PathSeparator + $env:PATH
-      if ($env:AIGW_TOOL_SOURCE -and $env:AIGW_TOOL_SOURCE -notin @('upstream', 'peer')) { throw 'AIGW_TOOL_SOURCE must be upstream or peer.' }
-      if ($env:AIGW_TOOL_SOURCE -eq 'peer') {
-      $netrc = Join-Path $jobDirectory '_netrc'
-      [IO.File]::WriteAllText($netrc, "machine $env:CI_SERVER_HOST login gitlab-ci-token password $env:CI_JOB_TOKEN`n", [Text.UTF8Encoding]::new($false))
-      & icacls.exe $netrc /inheritance:r /grant:r "${identity}:R" | Out-Null
-      if ($LASTEXITCODE -ne 0) { throw 'Cannot restrict Mise mirror credential ACL.' }
-      $lockDigest = (Get-FileHash -LiteralPath (Join-Path $env:CI_PROJECT_DIR '.config/mise/mise.lock') -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
-      $mirrorBase = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/packages/generic/mise-github/$lockDigest/"
-      $replacements = [ordered]@{}
-      $replacements['regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$'] = "${mirrorBase}" + 'release-$1-$2-$3.json'
-      $replacements['https://github.com/'] = $mirrorBase
-      $replacements['https://api.github.com/'] = $mirrorBase
-      $env:MISE_NETRC_FILE = $netrc
-      $env:MISE_NETRC = 'true'
-      $env:MISE_URL_REPLACEMENTS = $replacements | ConvertTo-Json -Compress
-      }
-    - cmd /c "set GODEBUG=http2client=0&&mise install --locked"
-    - mise exec --locked -- go run ./tools/ci native --platform windows --selection-matrix --from-env
-    - |-
-      $ErrorActionPreference = 'Stop'
-      $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
-      if (Test-Path -LiteralPath $jobDirectory) {
-        $emptyDirectory = Join-Path (Split-Path -Parent $jobDirectory) "aigw-ci-mise-empty-$env:CI_JOB_ID"
-        if (Test-Path -LiteralPath $emptyDirectory) { throw 'Mise cleanup mirror source already exists.' }
-        [IO.Directory]::CreateDirectory($emptyDirectory) | Out-Null
-        try {
-          & robocopy.exe $emptyDirectory $jobDirectory /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
-          $mirrorExit = $LASTEXITCODE
-          if ($mirrorExit -ge 8) { throw "Mise cleanup mirror failed (robocopy exit $mirrorExit)." }
-          [IO.Directory]::Delete($jobDirectory)
-        } catch {
-          $cause = $_.Exception
-          Write-Host "Mise cleanup failure type=$($cause.GetType().FullName) HRESULT=0x$($cause.HResult.ToString('X8'))"
-          throw
-        } finally {
-          if (Test-Path -LiteralPath $emptyDirectory) { [IO.Directory]::Delete($emptyDirectory) }
-        }
-      }
-      if (Test-Path -LiteralPath $jobDirectory) {
-        throw 'Mise job directory remains after cleanup.'
-      }
-      Write-Host 'Mise job-owned supply state retired.'
-  tags:
-    - ci-windows-arm64-review
-  rules:
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,node
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
-    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
-    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
-    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,node
-    - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
-      variables:
-        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
-    - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false"
-    - when: never
-  after_script:
-    - |-
-      $ErrorActionPreference = 'Stop'
-      $jobDirectory = Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) "aigw-ci-mise-$env:CI_JOB_ID"
-      if (Test-Path -LiteralPath $jobDirectory) {
-        $emptyDirectory = Join-Path (Split-Path -Parent $jobDirectory) "aigw-ci-mise-empty-$env:CI_JOB_ID"
-        if (Test-Path -LiteralPath $emptyDirectory) { throw 'Mise cleanup mirror source already exists.' }
-        [IO.Directory]::CreateDirectory($emptyDirectory) | Out-Null
-        try {
-          & robocopy.exe $emptyDirectory $jobDirectory /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
-          $mirrorExit = $LASTEXITCODE
-          if ($mirrorExit -ge 8) { throw "Mise cleanup mirror failed (robocopy exit $mirrorExit)." }
-          [IO.Directory]::Delete($jobDirectory)
-        } catch {
-          $cause = $_.Exception
-          Write-Host "Mise cleanup failure type=$($cause.GetType().FullName) HRESULT=0x$($cause.HResult.ToString('X8'))"
-          throw
-        } finally {
-          if (Test-Path -LiteralPath $emptyDirectory) { [IO.Directory]::Delete($emptyDirectory) }
-        }
-      }
-      if (Test-Path -LiteralPath $jobDirectory) {
-        throw 'Mise job directory remains after cleanup.'
-      }
-      Write-Host 'Mise job-owned supply state retired.'
-  stage: verify
-  variables:
-    AIGW_VERIFY_SYSTEM_KEYRING: "1"
-    AIGW_NATIVE_CLIENT_SUPPLIER: suppliers/windows-codex-0.170.0-claude-2.1.327-native-packages.tar.gz
-    GLAB_NO_PROMPT: "1"
-    MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
-  artifacts:
-    when: always
-    expire_in: 7 days
-    paths:
-      - ./{.config/mise/mise.lock,.config/mise/locks,build/verification}
 variables:
-  GIT_CONFIG_COUNT: "2"
+  GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
-  GIT_CONFIG_KEY_1: core.longpaths
-  GIT_CONFIG_VALUE_1: "true"
   GIT_DEPTH: "0"
   FF_GIT_URLS_WITHOUT_TOKENS: "true"
   GOPROXY: https://goproxy.cn|https://proxy.golang.org|direct
@@ -846,7 +551,8 @@ accepted-ref-parity:
       fi
   stage: verify
   tags:
-    - ci-macos-arm64-shell
+    - macos-latest
+    - protected
   variables:
     MISE_ENABLE_TOOLS: go
   rules:
@@ -968,7 +674,8 @@ release-version:
       fi
   stage: verify
   tags:
-    - ci-macos-arm64-shell
+    - macos-latest
+    - protected
   variables:
     MISE_ENABLE_TOOLS: go
   rules:
@@ -1008,6 +715,5 @@ release-assets:
     - job: quality
     - job: native-darwin
     - job: native-linux
-    - job: native-windows
     - job: linux-secret-service
     - job: release-version

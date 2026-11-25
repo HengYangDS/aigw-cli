@@ -133,7 +133,7 @@ var keychainWorker = sync.OnceValues(func() ([]byte, error) {
 	if err := os.WriteFile(source, []byte(keychainWorkerSource), 0o600); err != nil {
 		return nil, err
 	}
-	program := filepath.Join(folder, executableName("worker"))
+	program := filepath.Join(folder, "worker")
 	build := exec.Command("go", "build", "-o", program, source)
 	build.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOWORK=off", "GOPROXY=off")
 	if output, err := build.CombinedOutput(); err != nil {
@@ -186,7 +186,7 @@ func withItemsOfAnotherProgram(t *testing.T, app *cli.App, slots ...string) *key
 
 // worker is the program that the store runs for each operation.
 func (items *keychain) worker() string {
-	return filepath.Join(items.root, "bin", executableName("aigw"))
+	return filepath.Join(items.root, "bin", "aigw")
 }
 
 // hold puts an item that AIGW stored at slot, with value, which is empty for
@@ -201,7 +201,7 @@ func (items *keychain) hold(t *testing.T, slot, value string) {
 // is checked against the same items.
 func (items *keychain) bindReader(app *cli.App) {
 	app.Executable, app.DataDir = items.worker(), filepath.Join(items.root, "data")
-	app.UseExecutableIdentity(nil, executableName("aigw"))
+	app.UseExecutableIdentity(nil, "aigw")
 }
 
 // delete does what the printed deletion step does: it removes the item that

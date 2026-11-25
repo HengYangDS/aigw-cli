@@ -8,7 +8,6 @@ import (
 	"io"
 	"maps"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"unicode"
 
@@ -411,14 +410,14 @@ func validateExecutable(executable string) (string, error) {
 	if executable == "" || !filepath.IsAbs(executable) {
 		return "", errors.New("AIGW executable path must be absolute")
 	}
-	if _, err := secret.Command(executable, ID, "validation", runtime.GOOS); err != nil {
+	if _, err := secret.Command(executable, ID, "validation"); err != nil {
 		return "", err
 	}
 	return executable, nil
 }
 
 func credentialHelper(executable, scope string) string {
-	command, _ := secret.Command(executable, ID, scope, runtime.GOOS)
+	command, _ := secret.Command(executable, ID, scope)
 	return command
 }
 

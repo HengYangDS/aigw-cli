@@ -4,7 +4,6 @@ import (
 	"maps"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -69,7 +68,6 @@ func TestNativePrebuiltAcceptanceKeepsBootstrapConditional(t *testing.T) {
 	var gitlab struct {
 		Linux   gitLabJob `yaml:"native-linux"`
 		Darwin  gitLabJob `yaml:"native-darwin-review"`
-		Windows gitLabJob `yaml:"native-windows-review"`
 		Quality gitLabJob `yaml:"quality"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &gitlab); err != nil {
@@ -81,7 +79,7 @@ func TestNativePrebuiltAcceptanceKeepsBootstrapConditional(t *testing.T) {
 			t.Errorf("manual quality admission ignores artifact scope %s", required)
 		}
 	}
-	for name, job := range map[string]gitLabJob{"native-linux": gitlab.Linux, "native-darwin-review": gitlab.Darwin, "native-windows-review": gitlab.Windows} {
+	for name, job := range map[string]gitLabJob{"native-linux": gitlab.Linux, "native-darwin-review": gitlab.Darwin} {
 		for _, script := range job.Script {
 			if script == "mise run bootstrap" {
 				t.Errorf("%s installs the source toolchain unconditionally before prebuilt acceptance", name)
@@ -108,7 +106,7 @@ func TestNativePrebuiltAcceptanceKeepsBootstrapConditional(t *testing.T) {
 	if !strings.Contains(github.Jobs["quality"].If, "inputs.candidate_tag") || !strings.Contains(github.Jobs["quality"].If, "inputs.full_quality") {
 		t.Fatal("manual prebuilt acceptance still installs the quality toolchain")
 	}
-	for _, name := range []string{"native-linux", "native-darwin", "native-windows"} {
+	for _, name := range []string{"native-linux", "native-darwin"} {
 		for _, step := range github.Jobs[name].Steps {
 			if step.Run == "mise run bootstrap" && !strings.Contains(step.If, "inputs.candidate_tag") {
 				t.Errorf("%s does not scope source bootstrap away from explicit prebuilt inputs", name)
@@ -126,8 +124,8 @@ func TestGitLabArtifactScopesPrecedeEachNativeAdmission(t *testing.T) {
 		t.Fatal(err)
 	}
 	const prebuilt = `($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"`
-	const performance, clients = ` && $AIGW_NATIVE_PERFORMANCE == "true"`, ` && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)`
-	for _, name := range []string{"native-linux", "native-darwin", "native-darwin-review", "native-windows", "native-windows-review"} {
+	const performance = ` && $AIGW_NATIVE_PERFORMANCE == "true"`
+	for _, name := range []string{"native-linux", "native-darwin", "native-darwin-review"} {
 		t.Run(name, func(t *testing.T) {
 			platform := strings.TrimSuffix(strings.TrimPrefix(name, "native-"), "-review")
 			// A GitLab artifact journey prepares glab, never the GitHub CLI.
@@ -137,14 +135,6 @@ func TestGitLabArtifactScopesPrecedeEachNativeAdmission(t *testing.T) {
 			}
 			type scope struct{ condition, tools string }
 			scopes := []scope{{prebuilt + performance, tools + ",github:sharkdp/hyperfine"}, {prebuilt, tools}}
-			if platform == "windows" {
-				scopes = []scope{
-					{prebuilt + performance + clients, tools + ",github:sharkdp/hyperfine,node"},
-					{prebuilt + performance, tools + ",github:sharkdp/hyperfine"},
-					{prebuilt + clients, tools + ",node"},
-					{prebuilt, tools},
-				}
-			}
 			var job gitLabJob
 			node := pipeline[name]
 			if err := node.Decode(&job); err != nil {
@@ -297,9 +287,7 @@ func TestLinuxCompilerPrerequisitesBelongOnlyToNativeRaceExecution(t *testing.T)
 	if compiler := pipeline.NativeLinux.BeforeScript[1]; !strings.Contains(compiler, " install --no-install-recommends -y $AIGW_LINUX_COMPILER_PACKAGES dbus-x11 gnome-keyring libglib2.0-bin") {
 		t.Fatalf("native Linux compiler preparation = %q", compiler)
 	}
-	if runtime.GOOS != "windows" {
-		checkLinuxNativeSupplySelection(t, pipeline.NativeLinux.BeforeScript[1])
-	}
+	checkLinuxNativeSupplySelection(t, pipeline.NativeLinux.BeforeScript[1])
 	var github struct {
 		Jobs map[string]struct {
 			Env   map[string]string `yaml:"env"`
@@ -325,20 +313,18 @@ func TestLinuxCompilerPrerequisitesBelongOnlyToNativeRaceExecution(t *testing.T)
 func checkGitLabNativeToolClosure(t *testing.T, content string) {
 	t.Helper()
 	var pipeline struct {
-		NativeDarwin  *gitLabJob `yaml:"native-darwin"`
-		NativeLinux   *gitLabJob `yaml:"native-linux"`
-		NativeWindows *gitLabJob `yaml:"native-windows"`
+		NativeDarwin *gitLabJob `yaml:"native-darwin"`
+		NativeLinux  *gitLabJob `yaml:"native-linux"`
 	}
 	if err := yaml.Unmarshal([]byte(content), &pipeline); err != nil {
 		t.Fatal(err)
 	}
-	if pipeline.NativeDarwin == nil || pipeline.NativeLinux == nil || pipeline.NativeWindows == nil {
-		t.Fatal("GitLab must project all three native acceptance jobs")
+	if pipeline.NativeDarwin == nil || pipeline.NativeLinux == nil {
+		t.Fatal("GitLab must project both native acceptance jobs")
 	}
 	for name, job := range map[string]gitLabJob{
-		"native-darwin":  *pipeline.NativeDarwin,
-		"native-linux":   *pipeline.NativeLinux,
-		"native-windows": *pipeline.NativeWindows,
+		"native-darwin": *pipeline.NativeDarwin,
+		"native-linux":  *pipeline.NativeLinux,
 	} {
 		enabled := strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ",")
 		// The native Go suite includes real glab loopback tests in internal/program.
@@ -372,7 +358,7 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 	if err := yaml.Unmarshal([]byte(projection.Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"native-darwin", "native-linux", "native-windows"} {
+	for _, name := range []string{"native-darwin", "native-linux"} {
 		job := workflow.Jobs[name]
 		tools := job.Env["MISE_ENABLE_TOOLS"]
 		for _, required := range []string{"go,node,npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "github:lycheeverse/lychee", "gh", "glab"} {
@@ -398,69 +384,18 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 	}
 }
 
-func TestGitHubWindowsUsesThePortableNativeToolClosure(t *testing.T) {
-	projections := canonicalProjections(t)
-	var workflow struct {
-		Jobs map[string]struct {
-			RunsOn yaml.Node         `yaml:"runs-on"`
-			Env    map[string]string `yaml:"env"`
-		} `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
-		t.Fatal(err)
-	}
-
-	job := workflow.Jobs["native-windows"]
-	const runner = "windows-2025"
-	if job.RunsOn.Value != runner {
-		t.Fatalf("native Windows runner selector = %q, want %q", job.RunsOn.Value, runner)
-	}
-	tools := job.Env["MISE_ENABLE_TOOLS"]
-	for _, required := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "github:lycheeverse/lychee"} {
-		if !strings.Contains(tools, required) {
-			t.Errorf("native Windows tool closure lacks %q: %q", required, tools)
-		}
-	}
-	if strings.Contains(tools, "github:indygreg/apple-platform-rs") {
-		t.Errorf("Windows tool closure contains the macOS signer: %q", tools)
-	}
-}
-
-func TestGitLabWindowsDeclaresItsPublicInputClientSupplier(t *testing.T) {
-	projections := canonicalProjections(t)
-	var jobs map[string]yaml.Node
-	if err := yaml.Unmarshal([]byte(projections[0].Content), &jobs); err != nil {
-		t.Fatal(err)
-	}
-	const supplier = "suppliers/windows-codex-0.170.0-claude-2.1.327-native-packages.tar.gz"
-	for _, name := range []string{"native-darwin", "native-linux", "native-windows", "native-windows-review"} {
-		var job gitLabJob
-		node := jobs[name]
-		if err := node.Decode(&job); err != nil {
-			t.Fatal(err)
-		}
-		if got := job.Variables["AIGW_NATIVE_CLIENT_SUPPLIER"]; (got == supplier) != strings.HasPrefix(name, "native-windows") || got != "" && got != supplier {
-			t.Fatalf("%s public input client supplier = %q", name, got)
-		}
-		if strings.Contains(strings.ToLower(strings.Join(job.Script, "\n")), "hermes") {
-			t.Fatalf("%s supplies an unsupported native journey", name)
-		}
-	}
-}
-
 // Every GitHub native job supplies the official clients that the release
 // owner's journey declares for its host, and retires them after any outcome.
 func TestGitLabNativeAcceptanceForwardsPeerLocalArtifactAndClientInputs(t *testing.T) {
 	projections := canonicalProjections(t)
 	var jobs struct {
-		Linux   gitLabJob `yaml:"native-linux"`
-		Darwin  gitLabJob `yaml:"native-darwin-review"`
-		Windows gitLabJob `yaml:"native-windows-review"`
+		Linux  gitLabJob `yaml:"native-linux"`
+		Darwin gitLabJob `yaml:"native-darwin-review"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &jobs); err != nil {
 		t.Fatal(err)
 	}
-	for name, job := range map[string]gitLabJob{"native-linux": jobs.Linux, "native-darwin-review": jobs.Darwin, "native-windows-review": jobs.Windows} {
+	for name, job := range map[string]gitLabJob{"native-linux": jobs.Linux, "native-darwin-review": jobs.Darwin} {
 		if job.Variables["GLAB_ENABLE_CI_AUTOLOGIN"] != "" {
 			t.Fatal("CI login must be scoped to native downloads, not the source or test environment")
 		}

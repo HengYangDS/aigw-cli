@@ -235,9 +235,8 @@ func fileErrorReason(err error) string {
 // knownFileErrorReason names an operating-system file error from the closed
 // set, and reports whether err is one.
 func knownFileErrorReason(err error) (string, bool) {
-	// One reason per condition on every platform, before the operating
-	// system's number, whose own text differs: Windows says that a path
-	// through a file, or a missing one, cannot be found.
+	// One reason per condition, before the operating system's number, whose
+	// own text differs from the condition that AIGW names.
 	switch {
 	case errors.Is(err, platform.ErrFileAsFolder):
 		return platform.ErrFileAsFolder.Error(), true

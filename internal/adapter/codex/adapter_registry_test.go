@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -71,9 +70,6 @@ func TestCodexProjectionTreatsInvalidRuntimeAndTargetChangesAsChanged(t *testing
 }
 
 func TestCodexConvergenceRefusesAnUninspectableConfiguredExecutable(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	cfg := codexConfiguration("/target")
 	cfg.SetSelectedModel(ID, domain.NewModelRef("gateway", "gpt-test"), "")
 	loop := filepath.Join(t.TempDir(), "loop")

@@ -29,7 +29,7 @@ func TestNativeClientFixtureMatchesClaudeDesktopDiscovery(t *testing.T) {
 	journey.installClientFixture(claudedesktop.ID)
 	discovered := claudedesktop.New().Discover(discovery.System{
 		GOOS: runtime.GOOS, Home: filepath.Join(root, "home"),
-		Env: map[string]string{"XDG_CONFIG_HOME": filepath.Join(root, "config"), "LOCALAPPDATA": filepath.Join(root, "localappdata")}, Path: clientBin,
+		Env: map[string]string{"XDG_CONFIG_HOME": filepath.Join(root, "config")}, Path: clientBin,
 	}).Executable(claudedesktop.ID)
 	if runtime.GOOS == "linux" {
 		if discovered != "" {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"archive/zip"
 	"compress/gzip"
 	"errors"
 	"io"
@@ -33,9 +32,6 @@ func TestUntaggedCandidateArtifactAcceptanceBindsSignedHead(t *testing.T) {
 		t.Fatalf("publication provenance admitted an untagged candidate: %v", err)
 	}
 	want := gzip.ErrHeader
-	if runtime.GOOS == "windows" {
-		want = zip.ErrFormat
-	}
 	if err := run([]string{"accept-native", "--artifacts", artifacts, "--candidate"}, io.Discard); !errors.Is(err, want) {
 		t.Fatalf("candidate did not reach supplied archive decoding: %v", err)
 	}
@@ -103,9 +99,6 @@ func TestCandidateAcceptanceSeparatesExplicitProductAndVerifierCommits(t *testin
 		t.Fatalf("advance verifier: %v: %s", err, output)
 	}
 	want := gzip.ErrHeader
-	if runtime.GOOS == "windows" {
-		want = zip.ErrFormat
-	}
 	args := []string{"accept-native", "--artifacts", artifacts, "--candidate", "--candidate-source", selected}
 	if err := run(args, io.Discard); !errors.Is(err, want) {
 		t.Fatalf("explicit signed product did not reach supplied archive under another verifier: %v", err)
@@ -176,9 +169,6 @@ func TestNativePublishedBaselineBindsItsExplicitSignedSource(t *testing.T) {
 	artifacts := prepareSignedRelease(t, "0.7.0")
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 	want := gzip.ErrHeader
-	if runtime.GOOS == "windows" {
-		want = zip.ErrFormat
-	}
 	err := run([]string{"accept-native", "--baseline-artifacts", artifacts, "--baseline-tag", "v0.7.0"}, io.Discard)
 	if !errors.Is(err, want) {
 		t.Fatalf("authorized baseline did not reach exact archive decoding: %v", err)

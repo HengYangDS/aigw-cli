@@ -35,8 +35,8 @@ func CanonicalPath(path string) (string, error) {
 			}
 			return filepath.Clean(resolved), nil
 		}
-		// A path through a regular file resolves to nothing, and on Windows it
-		// reads as a missing path; the file system tells it from a missing one.
+		// A path through a regular file resolves to nothing; the file system
+		// tells it from a missing one.
 		failure := ClassifyPath(absolute, FileExpected, err)
 		parent := filepath.Dir(absolute)
 		switch {
@@ -62,7 +62,7 @@ func CanonicalPath(path string) (string, error) {
 // that do not exist yet, are equal; for two paths that both exist, that is
 // the file itself. The part that exists must be a folder when names follow
 // it. Two spellings that clean to one path are one file, whatever their
-// condition, which makes / and \ alike on Windows.
+// condition.
 func SameFile(left, right string) bool {
 	if filepath.Clean(left) == filepath.Clean(right) {
 		return true

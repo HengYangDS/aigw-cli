@@ -10,8 +10,7 @@ import (
 
 // coverageRoot names the directory in which each instrumented process that a
 // script runs writes its coverage, in a directory of its own. Processes that
-// share one coverage directory race to write its one meta-data file, and on
-// Windows the rename of the process that loses fails.
+// share one coverage directory race to write its one meta-data file.
 const coverageRoot = "AIGW_SCRIPT_COVERAGE_ROOT"
 
 // isolateCoverage points this process's coverage at a new directory below the
