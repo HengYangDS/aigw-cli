@@ -1,41 +1,41 @@
 ## 1. Specifications
 
-- [ ] 1.1 Write the deltas of the twelve capabilities that the proposal lists. Done when
+- [x] 1.1 Write the deltas of the twelve capabilities that the proposal lists. Done when
       `openspec validate drop-windows-and-intel-macos --strict` passes and the lane's archive rehearsal reports every
       merged specification within the size limit.
 
 ## 2. Release matrix
 
-- [ ] 2.1 Reduce `.config/release/goreleaser/.goreleaser.yaml` and `internal/program/artifact/identity.go` to
-      `darwin-arm64`, `linux-arm64` and `linux-amd64`, with an ARM64-only cask and no zip or `.exe` path, and make
+- [x] 2.1 Reduce `.config/release/goreleaser/.goreleaser.yaml` and `internal/program/artifact/identity.go` to
+      `darwin-arm64`, `linux-arm64` and `linux-amd64`, with a cask whose only macOS archive is ARM64 and no zip or `.exe` path, and make
       the tests that enumerate targets follow (D1). Done when GoReleaser's `check` accepts the configuration and the
       package tests of `internal/program/...` and `tools/release/...` that read the matrix pass.
 
 ## 3. Product code
 
-- [ ] 3.1 Delete the Windows token backends (Credential Manager, DPAPI file) and the `github.com/danieljoos/wincred`
-      requirement (D4). Done when `go mod tidy -diff` prints nothing.
-- [ ] 3.2 Delete every Windows file, build constraint, branch, test case and fixture under `internal/` and `cmd/`; a
+- [x] 3.1 Delete the Windows token backends (Credential Manager, DPAPI file) and the direct
+      `github.com/danieljoos/wincred` requirement (D4). Done when `go mod tidy -diff` prints nothing.
+- [x] 3.2 Delete every Windows file, build constraint, branch, test case and fixture under `internal/` and `cmd/`; a
       POSIX twin takes the plain name (D4). Done when `go build` and `go vet` pass for darwin and linux on arm64 and
       amd64 and no Go file under those roots names Windows.
-- [ ] 3.3 Collapse each seam whose only second implementation was Windows after confirming it in the code: the
+- [x] 3.3 Collapse each seam whose only second implementation was Windows after confirming it in the code: the
       `internal/secret/native` dispatch, `terminal.ColorEnabled`'s operating-system parameters and
       `process.Plan.DebugProcess` (D4). Done when each has one implementation and the package tests of
       `internal/secret/...`, `internal/terminal` and `internal/platform/...` pass on macOS.
 
 ## 4. Repository tools
 
-- [ ] 4.1 Delete the Windows code of `tools/ci`, `tools/release`, `tools/architecture` and `tools/coverage`, and
+- [x] 4.1 Delete the Windows code of `tools/ci`, `tools/release`, `tools/architecture` and `tools/coverage`, and
       collapse `tools/release/performance.ObserveCurrent` and `tools/ci`'s `supplyInUse` and
       `qualifyProtectedResource` (D4). Done when the package tests of those tools pass on macOS and no Go file under
-      `tools/` names Windows.
-- [ ] 4.2 Re-derive the selection-matrix bound and `matrixJobMinutes` from the slowest remaining native job, citing
+      `tools/` holds a Windows code path, build constraint or test case.
+- [x] 4.2 Re-derive the selection-matrix bound and `matrixJobMinutes` from the slowest remaining native job, citing
       its measured run, with tests that pin the derivation and not the number (D5). Done when the `tools/ci` tests
       pass.
 
 ## 5. CI declaration
 
-- [ ] 5.1 Declare one native job for macOS and one for Linux in `.config/ci/pipeline.cue`: GitHub on `macos-latest`
+- [x] 5.1 Declare one native job for macOS and one for Linux in `.config/ci/pipeline.cue`: GitHub on `macos-latest`
       and `ubuntu-24.04` with the default `bash`, GitLab on `macos-latest` with `review` or `protected` and on the
       unchanged Linux tag, and release runner choices `ubuntu-24.04`, `ubuntu-24.04-arm` and `macos-latest` (D2, D3);
       drop the Windows entries of `.config/ci/retained-steps.toml`. Done when `go run ./tools/ci project --check`
@@ -43,15 +43,15 @@
 
 ## 6. Toolchain
 
-- [ ] 6.1 Restrict `.config/mise/mise.lock` to macOS ARM64, Linux ARM64 and Linux AMD64 through Mise's lock command,
+- [x] 6.1 Restrict `.config/mise/mise.lock` to macOS ARM64, Linux ARM64 and Linux AMD64 through Mise's lock command,
       and drop the Windows-only asset patterns and templates of `.config/mise/config.toml` (D6). Done when the lock's
       diff removes rows only and changes no version, checksum or URL of a kept row.
 
 ## 7. Documents and records
 
-- [ ] 7.1 State the supported set once in the release policy and link to it from `README.md`, `CONTRIBUTING.md`, the
-      operations, architecture, concepts and guides documents; make `AGENTS.md`'s platform rule macOS and Linux with
-      the per-forge runners of D2 (D7). Done when no current document names Windows or Intel macOS as supported and
+- [ ] 7.1 State the supported set once in the release policy, link to it from each document that names the
+      supported platforms, remove Windows and Intel macOS from the current documents, and make `AGENTS.md`'s
+      platform rule macOS and Linux with the per-forge runners of D2 (D7). Done when no current document names Windows or Intel macOS as supported and
       the prose and Markdown gates pass.
 - [ ] 7.2 Add a dated amendment line naming this Change to each decision record that names Windows as current
       behavior, and a breaking entry under `## Unreleased` in `CHANGELOG.md` (D7). Done when

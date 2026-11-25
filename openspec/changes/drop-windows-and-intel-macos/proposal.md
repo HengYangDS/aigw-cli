@@ -18,7 +18,7 @@ form, the Mise lock rows of three platforms, and twelve accepted specifications.
 
 - **BREAKING** AIGW supports macOS on ARM64 and Linux on ARM64 and AMD64 only. Releases publish
   `darwin-arm64`, `linux-arm64` and `linux-amd64`; there is no Windows archive, no `.exe`, no zip and no
-  `darwin-amd64` archive. The Homebrew cask is ARM64 only.
+  `darwin-amd64` archive. The Homebrew cask's only macOS archive is ARM64.
 - **BREAKING** The Windows token backends (Credential Manager and the DPAPI file) and every Windows code path,
   build constraint, test branch and fixture are removed. A seam left with one implementation collapses into it.
 - CI: the one CUE graph declares a native job for macOS and for Linux. GitHub runs them on `macos-latest` and
@@ -45,7 +45,8 @@ None.
 
 ## Impact
 
-Product and tool code under `internal/` and `tools/`, `go.mod` (the Windows-only `wincred` requirement leaves),
+Product and tool code under `internal/` and `tools/`, `go.mod` (the direct `wincred` requirement leaves; it stays
+indirect through go-keyring),
 `.config/ci/pipeline.cue` and the three generated pipeline files, `.config/release/goreleaser/.goreleaser.yaml`,
 `.config/mise/`, the documents and specifications listed in the design. A user on Windows or Intel macOS loses the
 supported program; the owner runs ARM macOS. GitHub's required checks on `dev` and `main` drop

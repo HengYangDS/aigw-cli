@@ -298,7 +298,7 @@ Forge transport; a transport cannot silently reselect its host or repository.
 Upgrade helper invocations use the shared process plan: executable, arguments,
 environment, and input remain one explicit value. Captured metadata and streamed
 artifact output differ only in their output contract. Both use the same platform
-launcher, Windows Job ownership, bounded diagnostic capture, and pipe-drain
+launcher, process-group ownership, bounded diagnostic capture, and pipe-drain
 deadline. File capture streams artifact bytes directly; a failed command, an
 incomplete diagnostic stream, or an unclosed pipe rejects and removes the partial
 asset. Upgrade owns Forge error interpretation, not a second executor or output

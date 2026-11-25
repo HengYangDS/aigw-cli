@@ -32,20 +32,16 @@ AIGW_ACCEPTANCE_CLIENT_PATH=/usr/bin:/bin \
   -run '^TestNativeClientJourney$' -count=1 -v
 ```
 
-Windows uses native executable paths and a semicolon-separated companion PATH.
 Supply complete client distributions; a missing path is not a stub/download license.
-On macOS and Linux, Hermes uses a disposable home outside its native data root.
+Hermes uses a disposable home outside its native data root.
 It borrows committed dependencies without provisioning; boot records stay private.
 Cleanup leaves native configuration, installation facts, boot records and launchers
-unchanged. Windows verification refuses to start Hermes until native launcher
-publication can be isolated.
+unchanged.
 
-The isolated Codex fixture explicitly enables the official Windows `unelevated`
-sandbox, which uses a restricted token without administrator setup. The client
-still runs in `read-only` mode; a permissions label without an active native
-backend cannot qualify tool execution. This test-only setting neither changes
-operator configuration nor chooses a production sandbox mode. Denied tool output
-remains a failure even when Codex returns the final marker.
+The isolated Codex fixture runs in `read-only` mode; a permissions label without
+an active native backend cannot qualify tool execution. This test-only setting
+neither changes operator configuration nor chooses a production sandbox mode.
+Denied tool output remains a failure even when Codex returns the final marker.
 
 For focused retry-policy source acceptance, supply an explicit source-built
 program, a portable predecessor fixture and the actual Codex distribution:
@@ -96,7 +92,7 @@ One retained candidate serves lifecycle and client tests; stop at first failure.
 Quality jobs still run input/envelope/preservation regressions without real clients.
 Homebrew's public-link replacement gap needs its own installed upgrade proof.
 
-## Hosted Windows qualification
+## Hosted qualification
 
 GitLab review/protected jobs use separate registrations selected by literal CUE
 tags; proposals stay unprotected. Disposable execution and peer-local evidence
@@ -127,7 +123,7 @@ different SHA but must declare the candidate version; signed provenance still
 binds execution to the selected source.
 
 `ci native-clients supply` installs the clients its host declares, at the releases pinned in `.config/ci/pipeline.cue`, into one
-job-owned directory: npm platform packages, and on Linux and macOS Hermes through its release's checksum-pinned installer.
+job-owned directory: npm platform packages, and Hermes through its release's checksum-pinned installer.
 A failed or interrupted supply removes it; `retire` removes only that directory, proves it absent and fails while a process still uses it.
 
 ## Disposable Linux clients

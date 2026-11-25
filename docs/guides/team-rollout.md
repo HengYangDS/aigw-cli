@@ -484,11 +484,10 @@ review the team file itself and distribute the new token-free revision.
 GitLab and GitHub are independent release sources. Verify one complete artifact
 set from one source; do not mix a tag, checksum file, and archive across Forges.
 
-| Platform | Install asset                                  |
-| -------- | ---------------------------------------------- |
-| macOS    | Matching Darwin archive and checksum manifest  |
-| Linux    | Matching Linux archive and checksum manifest   |
-| Windows  | Matching Windows archive and checksum manifest |
+| Platform | Install asset                                 |
+| -------- | --------------------------------------------- |
+| macOS    | Matching Darwin archive and checksum manifest |
+| Linux    | Matching Linux archive and checksum manifest  |
 
 After installation:
 

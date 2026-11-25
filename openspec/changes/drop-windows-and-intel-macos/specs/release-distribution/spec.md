@@ -69,7 +69,7 @@ identity.
   `linux-amd64` archives with their checksums and provenance
 - **AND** no Windows archive, zip archive, `.exe` or `darwin-amd64` archive
   SHALL be built, signed or published
-- **AND** the Homebrew cask SHALL name only the `darwin-arm64` archive.
+- **AND** the Homebrew cask SHALL name `darwin-arm64` as its only macOS archive.
 
 ### Requirement: Native released-artifact lifecycle acceptance
 

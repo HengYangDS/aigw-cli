@@ -83,7 +83,8 @@ A restarted Claude
 Desktop 2.7032.0 consumed the projected UCloud profile on macOS and completed
 Chat, Cowork inference, and Code with a shell-tool result. Cowork's isolated VM
 remained in `booting` and did not execute its requested Bash tool, so that
-capability limit remains explicit. Windows host qualification remains open. A
+capability limit remains explicit. AIGW qualifies Claude Desktop on macOS only,
+because Windows is not a supported platform. A
 synthetic extension test cannot satisfy a native client journey.
 
 CodeBuddy, WorkBuddy, OpenCode, Pi, and Qoder retain the individual dispositions

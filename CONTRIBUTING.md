@@ -172,8 +172,7 @@ change. Tidy prepares dependency-test inputs without rewriting [go.mod](go.mod) 
 Linux source acceptance requires `dbus-x11`, `gnome-keyring` and `libglib2.0-bin`.
 It owns a private D-Bus session and disposable native store; the independent
 Secret Service job qualifies released-product behavior rather than repeating
-source tests. Git fixtures use compact, exactly cleaned private directories so
-test names do not exhaust Windows path limits.
+source tests. Git fixtures use compact, exactly cleaned private directories.
 
 Both tasks and `mise exec --locked --` use `GOENV=off`, `GOWORK=off` and
 `GOTOOLCHAIN=local`: user Go settings, parent workspaces and automatic compilers
@@ -289,14 +288,10 @@ mise exec --locked -- go run ./tools/ci native --full-quality
 ```
 
 Manual GitHub `native_platform` and GitLab `AIGW_NATIVE_PLATFORM` select
-`all|darwin|linux|windows`; empty means all. Combine with `full_quality` /
+`all|darwin|linux`; empty means all. Combine with `full_quality` /
 `AIGW_FULL_NATIVE_QUALITY=true` and `refresh_locks` / `AIGW_REFRESH_LOCKS=true`
 for targeted diagnostics. Source-native and full-quality runs share their locked
 native tool closure; explicit prebuilt acceptance selects only artifact tools.
-
-Lychee publishes a Windows x64 binary; Mise explicitly selects that
-locked official asset for Windows ARM64, where Windows runs it through x64
-emulation. Product archives retain their declared architecture.
 
 Review, accepted
 push and tag admission require quality and the complete native set. Scoped manual
@@ -360,7 +355,7 @@ to its exact signed commit; mutable refs, unsigned objects and mismatched
 provenance fail before execution. A selected or same-version tag remains invalid
 in candidate mode; after tagging omit it and select `CI_COMMIT_TAG`. Predecessor matrix inputs verify
 complete signatures/tag/provenance before extraction and cannot be combined with
-`AIGW_ACCEPTANCE_BASELINE`. Windows uses the extracted `aigw.exe`. Keep baseline
+`AIGW_ACCEPTANCE_BASELINE`. Keep baseline
 inputs scoped to `accept-native`, not the ordinary native suite. The candidate
 must be newer; an invalid explicit baseline fails, never selects a fixture.
 
@@ -376,7 +371,7 @@ All journeys use temporary homes and compare actual bytes. Retain enabled
 Adapters and configuration before sync. Disposable native-store opt-in is
 `AIGW_VERIFY_SYSTEM_KEYRING=1`; macOS additionally requires
 `AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host`, never on an operator host.
-Linux needs a real user bus/Secret Service; Windows uses Credential Manager.
+Linux needs a real user bus/Secret Service.
 An occupied exact test slot fails before writes. The installed helper proves
 reads; fixture metadata/cleanup neither grants access nor replaces them.
 
@@ -417,8 +412,7 @@ permits re-upgrade/uninstall. A current-schema fixture alone is not historical p
 
 [Real-client acceptance](docs/operations/real-client-acceptance.md) runs the
 declared Codex, Claude Code and Hermes executables against a candidate: the
-tagged client journey, its hosted Windows qualification and disposable Linux
-clients.
+tagged client journey and disposable Linux clients.
 
 ### Historical release qualification
 
@@ -428,7 +422,7 @@ candidate ref and exclusive `commit_base`. Jobs forward those inputs to
 cleanup. Forge Tokens never reach snapshot builders or native journey children;
 client provisioning remains separate CI work.
 
-Windows enables Credential Manager; disposable macOS opt-in `macos_keychain=true`
+Disposable macOS opt-in `macos_keychain=true`
 exercises a retained item through predecessor, rollback and re-upgrade. Linux's
 ordinary hosted environment-backend proof is not Secret Service qualification.
 Omitted tags select source-built current-schema acceptance. Published baselines
@@ -452,7 +446,7 @@ ssh-add -T "$AIGW_RELEASE_SIGNING_KEY"
 mise run release
 ```
 
-PowerShell uses the same process variables via `$env:`. Product Git transport,
+Product Git transport,
 Git signatures, artifact signatures and Apple publisher identity are distinct.
 The build signs `checksums.txt` in `aigw-release`; Git's namespace alone does
 not authorize this signature. Use independently approved public trust:

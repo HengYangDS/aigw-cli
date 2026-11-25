@@ -81,6 +81,16 @@ signing, and GA status remain separate evidence.
   carries that window, and also verifies a model that is itself an entry of
   Codex's table.
 
+### Removed
+
+- **Breaking:** AIGW supports macOS on ARM64 and Linux on ARM64 and AMD64
+  only. A release publishes the `darwin-arm64`, `linux-arm64` and
+  `linux-amd64` archives; there is no Windows archive, `.zip`, `aigw.exe` or
+  `darwin-amd64` archive, and the Homebrew cask names no macOS archive but
+  the Apple silicon one. The Windows token backends, Credential Manager and the DPAPI file,
+  are gone with every other Windows code path. On Windows or an Intel Mac,
+  keep 0.10.0, the last release that publishes those archives.
+
 ## [0.10.0] - 2026-11-23
 
 ### Changed

@@ -33,16 +33,13 @@ On macOS, install the signed and notarized stable release with Homebrew:
 brew install --cask HengYangDS/tap/aigw
 ```
 
-For macOS, Linux, or Windows without Homebrew, download the archive and checksum
+On Linux, or on macOS without Homebrew, download the archive and checksum
 manifest for the host from either release peer. The published matrix covers
-Darwin, Linux, and Windows on AMD64 and ARM64. Extract the archive, then run:
+the [supported platforms](docs/governance/change-and-release-policy.md#native-platform-evidence):
+macOS on ARM64 and Linux on AMD64 and ARM64. Extract the archive, then run:
 
 ```bash
 ./aigw self install
-```
-
-```powershell
-.\aigw.exe self install
 ```
 
 The portable installer copies only the running executable, retains one

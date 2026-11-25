@@ -33,8 +33,7 @@ fails closed rather than silently choosing another store. To require a specific
 mechanism, set `AIGW_SECRET_BACKEND` to
 `keyring`, `file`, or `env` before running AIGW:
 
-- **`keyring`** uses macOS Keychain, Linux Secret Service or Windows Credential
-  Manager. Every value or metadata operation runs through the invoking AIGW
+- **`keyring`** uses macOS Keychain or Linux Secret Service. Every value or metadata operation runs through the invoking AIGW
   executable, the installed program or a versioned reader, as a bounded
   credential subprocess with a five-second deadline and
   bounded process cleanup. The subprocess receives only the platform identity environment it needs;
@@ -46,10 +45,9 @@ mechanism, set `AIGW_SECRET_BACKEND` to
   invoking a native prompt. Pending prompts returned by native creation or
   deletion are dismissed, not displayed. The subprocess deadline bounds cleanup;
   it is not a substitute for refusing native authorization UI.
-- **`file`** uses an owner-only directory and regular file per provider on macOS
-  and Linux. Windows encrypts each Token with current-user DPAPI before writing
-  it beneath the AIGW data directory. Both use bounded paths and same-directory
-  replacement; the selected backend supports credential mutation.
+- **`file`** uses an owner-only directory and regular file per provider. It
+  uses bounded paths and same-directory replacement; the selected backend
+  supports credential mutation.
 - **`env`** consumes credentials supplied to the invoking process on every
   supported OS. It is read-only: setup may persist public configuration, but
   storing, rotating or deleting an environment Token fails before mutation.

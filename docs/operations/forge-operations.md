@@ -48,8 +48,9 @@ container. Review and protected execution require distinct Runner registrations
 and isolated caches. Public author and allowed-signers inputs remain available
 to review; credentials and protected release variables remain restricted.
 `release-assets` admits only explicit dispatch on a protected release tag.
-Darwin retains control-plane object and tag verification; Windows and Darwin
-native jobs retain their separate review and protected registrations.
+Darwin retains control-plane object and tag verification; the Darwin native
+jobs keep separate review and protected registrations, tagged `macos-latest`
+with `review` and `macos-latest` with `protected`.
 
 The Darwin review job qualifies its isolation when the unprotected project
 variable `AIGW_REVIEW_PROTECTED_FILE` names the protected Runner's
@@ -58,9 +59,6 @@ and macOS sudo asks for a password before listing by default. The review host
 therefore sets `Defaults:<review account> listpw=never` for that account
 alone: the account can list its own empty grant, and nothing more is
 authorized. Without that default the job fails before product execution.
-Windows has no equivalent probe, because `--protected-file` requires a Unix
-host; Windows review isolation rests on its separate registration and Shell
-account alone.
 
 CUE enables GitLab's [`FF_GIT_URLS_WITHOUT_TOKENS`](https://docs.gitlab.com/runner/configuration/feature-flags/)
 for every job. The native Runner obtains the job Token from its environment
@@ -233,25 +231,24 @@ before product execution. Separate runner selections can execute independently.
 
 Before downloading assets, the workflow resolves the selected tag to its
 product commit and requires this peer's latest successful tag-push `Verify`
-attempt at that SHA. Quality, macOS, Linux, Windows, Linux Secret Service and
+attempt at that SHA. Quality, macOS, Linux, Linux Secret Service and
 version jobs must all have passed in that same attempt. Branch or manual runs, an earlier attempt,
 another peer, or incomplete GitHub Actions evidence do not qualify. The
 workflow has read-only Actions access for this check; GitLab instead uses
-same-pipeline `needs` for the same six obligations.
+same-pipeline `needs` for the same five obligations.
 
-The bounded choices cover the six published OS/architecture pairs. Alongside
-the ordinary Linux, macOS and Windows hosts, `ubuntu-24.04-arm`,
-`macos-26-intel` and `windows-11-arm` execute the additional architectures.
-Runner labels follow the [official image matrix](https://github.com/actions/runner-images#available-images);
+The bounded choices cover the three published OS/architecture pairs:
+`macos-latest` runs `darwin-arm64`, `ubuntu-24.04` runs `linux-amd64` and
+`ubuntu-24.04-arm` runs `linux-arm64`. Runner labels follow the [official image matrix](https://github.com/actions/runner-images#available-images);
 the job must still demonstrate the actual host and candidate identity.
 
 With `TAG` set to the exact published release and `BASELINE` to its published
-predecessor, Windows ARM64 qualification uses:
+predecessor, Linux ARM64 qualification uses:
 
 ```sh
 gh workflow run release.yml --ref main \
   --field tag="$TAG" \
-  --field runner=windows-11-arm \
+  --field runner=ubuntu-24.04-arm \
   --field native_lifecycle=true \
   --field baseline_tag="$BASELINE"
 ```
@@ -262,7 +259,7 @@ locked execution environment; it must declare the same product version, but
 need not be the release commit. This permits stronger tests of an unchanged
 published artifact without replacing its tag. The verifier checkout must be
 clean, and artifact signature, checksum and tagged-source verification remain
-mandatory. Native macOS and Windows journeys explicitly test
+mandatory. Native macOS journeys explicitly test
 synthetic credentials on the disposable hosted machine. Linux's native Secret
 Service still requires the separate isolated user-bus qualification. A queued
 job, inspected archive or successful checksum does not prove native execution.
@@ -279,8 +276,7 @@ download is `public-inputs.tar`. Select `AIGW_BASELINE_TAG` and
 explicitly supplied native clients.
 
 The archive holds complete `candidate/` and `baseline/` matrices, which the
-portable release owner reads, and under `suppliers/` the Windows native-client
-archive, which only the Windows job extracts. No job reads Hermes source from it.
+portable release owner reads. No job reads Hermes source from it.
 The release owner downloads once into private scratch, verifies the exact
 archive SHA256, and extracts only the complete positive candidate/predecessor
 matrix names. The predecessor must be 0.7.0 or later: the owner refuses an older
@@ -288,11 +284,7 @@ matrix names. The predecessor must be 0.7.0 or later: the owner refuses an older
 read `aigw.toml`. Signatures, source identity, published-predecessor admission and
 lifecycle execution retain their existing release owners.
 
-Windows client supply alone uses the existing job directory and the reviewed
-client supplier archive that the Windows job declares. It forwards its already downloaded
-archive through `--input-archive`; the release owner rechecks the same SHA256 and
-matrices without another download. It never changes or deletes that caller-owned
-file. Locked uv is an acceptance tool, not an AIGW runtime dependency. The job
+Locked uv is an acceptance tool, not an AIGW runtime dependency. The job
 cleans its supplies; release acceptance cleans its extracted inputs on success
 or failure.
 
@@ -409,17 +401,16 @@ argv, with five warmups and forty samples in each reversed-order block.
 They record both completed prepare and sample processes:
 exact PID, native exit, start/end, monotonic elapsed time, native CPU accounting
 and available per-OS resource usage. These children inherit the public
-`accept-native` suite's bounded process group or Windows Job; a manually invoked
+`accept-native` suite's bounded process group; a manually invoked
 test alone does not supply that outer cleanup boundary.
 
 Workload process records are diagnostic, not Hyperfine-equivalent timing.
 Each summary row includes preparation and evidence writes; compare individual
 sample records, not that aggregate row, with a historical measured command.
-Native CPU accounting follows `ProcessState`: Windows reports the completed
-process itself, not its credential-worker descendants; Unix includes waited-for
+Native CPU accounting follows `ProcessState`, which includes waited-for
 descendants. Wall minus CPU does not distinguish scheduling, storage or IPC
 waits. Darwin RSS is
-bytes, Linux RSS is KiB, and unavailable Windows counters are explicitly null.
+bytes and Linux RSS is KiB.
 Zero counters do not prove no work occurred. Keep failed evidence, run one bounded
 diagnosis, and either repair a demonstrated owner or disclose the unproved cause
 before any separately declared full qualification. Do not remove durability
@@ -428,8 +419,7 @@ boundaries, drop samples or suppress native warnings to obtain a pass.
 The receipt states
 `qualification=false` and `scope=component-attribution`. It retains raw samples,
 warnings and selected executable file identities without weakening or satisfying
-the full-performance budgets. Selected file architecture does not prove the
-architecture of a shell started after Windows x64-controller path redirection.
+the full-performance budgets.
 Ordinary acceptance explicitly disables inherited attribution scope.
 
 Both peers project this scope from the same CUE owner. GitHub requires
@@ -442,14 +432,13 @@ source commit.
 Environment credentials run on every measurement host. Linux additionally
 measures its explicit file backend; native vault measurement requires the
 existing isolated-credential opt-in. Never enable macOS vault tests on an
-operator's login host. Native Hyperfine binaries are locked for Linux, macOS,
-and Windows on both AMD64 and ARM64. Tool installation and product performance
+operator's login host. Native Hyperfine binaries are locked for macOS ARM64 and
+Linux on AMD64 and ARM64. Tool installation and product performance
 acceptance remain separate evidence boundaries.
 
 Memory acceptance runs separately from Hyperfine's timings. It measures the
-configured `status` process with macOS wait accounting, GNU time at
-`/usr/bin/time` on Linux, and a retained Windows process handle queried for its
-peak working set. Linux measurement hosts therefore require the distribution's
+configured `status` process with macOS wait accounting and GNU time at
+`/usr/bin/time` on Linux. Linux measurement hosts therefore require the distribution's
 GNU time package. The small native supervisor prevents the Go test parent's
 address space from inflating Linux child accounting. Every performance run
 first calibrates with a 128 MiB parent and 16/64/16 MiB child allocations;

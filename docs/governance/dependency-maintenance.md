@@ -40,12 +40,12 @@ These two-minute, disposable operations validate config/extract inventory with
 read-only source and no network, credentials, signing agent, Docker socket or HOME
 mount. They do not pull, generate proposals or prove freshness. Suppressing a
 lookup-token warning is confined to the extractor that performs no lookup.
-The host-container recipe has macOS evidence, not implied Windows acceptance.
+The host-container recipe has macOS evidence.
 
 Use a runnable upstream CI image (`mise-debian`) with a complete immutable
 multi-platform reference; do not compensate for scratch images with entrypoint
-hacks. Derive its projections from CUE's one version/digest literal. Windows
-Runner ownership provides the installed Mise executable; each native job verifies
+hacks. Derive its projections from CUE's one version/digest literal. On GitLab's
+macOS runner, runner ownership provides the installed Mise executable; each job verifies
 its exact release/shim hashes, version and identity, then confines config/cache/
 state/installs to private job state. Read/copy/remove shim admission and exact
 cleanup must succeed under both review and protected identities. Update the shared

@@ -73,7 +73,7 @@ reads `aigw.toml`; the 0.7.0 release has no admissible predecessor and runs no
 predecessor journey or performance comparison, and later releases run both against
 0.7.0 or later. Its reader, schema and native-store identity are distinct
 from current fixtures. macOS retained-store tests require disposable host opt-in;
-Windows Credential Manager and Linux Secret Service have separate native evidence.
+Linux Secret Service has separate native evidence.
 Pre-archive candidate journeys use isolated synthetic native items or explicit
 environment credentials. Final production signing and exact operator-item
 authorization are post-archive obligations: qualify the copied reader, captured
@@ -95,9 +95,7 @@ byte-copied successor configuration in private HOME, environment backend and no
 Tokens/client paths. Require a nonempty valid TOML declaration; this proves schema
 readability, not inference. Rejection preserves programs and configuration, and
 the operator restores a configuration that the retained program reads before retry.
-Native Windows tests hold real no-delete-sharing handles for update/rollback source,
-current and predecessor locks, delayed release and persistent failure. Keep native
-errors and surviving file bytes; compilation is not execution.
+Keep native errors and surviving file bytes; compilation is not execution.
 
 ## Commit and Tag Identity
 
@@ -134,8 +132,7 @@ Unix job-context qualification: a visible regular file must deny a direct open, 
 directory the review identity cannot traverse must hide it, in which case the
 report marks the resource identity as operator-asserted; native noninteractive
 privilege inquiry must prove no sudo grant. Missing paths in a visible directory,
-readable resources, pending authorization and deadlines do not qualify. Windows
-rejects this optional input before execution; ordinary native acceptance is unchanged. This
+readable resources, pending authorization and deadlines do not qualify. This
 optional resource probe is not complete remote-manager or hostile-code containment;
 ordinary jobs without that declared input make no additional containment claim.
 
@@ -191,8 +188,8 @@ alone can reuse CGO objects compiled for a newer target. The native cache
 regression warms an isolated cache for the host architecture, then consumes the
 same declared GoReleaser build and checks its actual CPU, deployment floor and
 signature without deployment warnings. The independent deterministic archive
-journey retains both architecture load commands, signatures and complete
-six-target packaging. Neither check proves execution on every macOS release.
+journey retains the ARM64 load command, signature and complete three-target
+packaging. Neither check proves execution on every macOS release.
 
 Credential-free GoReleaser applies deterministic ad-hoc Mach-O/Hardened Runtime
 signatures before archives; native codesign validates extracted bytes. This is local
@@ -213,7 +210,7 @@ mise exec --locked -- go run ./tools/release verify-macos-distribution \
 ```
 
 The verifier binds archive checksums, exact certificate, Apple submission/log, uploaded
-ZIP checksum and both executable members. Use one explicit profile or protected API
+ZIP checksum and the macOS executable inside it. Use one explicit profile or protected API
 key mode; Team keys need issuer ID, Individual keys omit it. Do not copy secrets to
 arguments/source or silently switch modes. All stable publication entrypoints require
 this verification before Forge access.
@@ -240,7 +237,7 @@ matrix. Normalize paths through a root-confined handle; actual SHA-256 integrity
 [SPDX-required SHA-1 metadata](https://spdx.github.io/spdx-spec/v2.3/file-information/#84-file-checksum-field) are computed, not guessed. Either path separator/one leading
 root separator is accepted; traversal, network paths and duplicate normalized names
 fail. This addresses [Syft's directory-digest gap](https://github.com/anchore/syft/issues/4564)
-without weakening scanner or Windows coverage. SBOM runtime discovery does not replace
+without weakening scanner coverage. SBOM runtime discovery does not replace
 full-lock licenses/vulnerabilities.
 
 OSV invocation and admission share exact selected lock paths. Require each once as a
@@ -263,8 +260,8 @@ its assets never become another peer's build input.
 ### Homebrew packaging projection
 
 [GoReleaser](../../.config/release/goreleaser/.goreleaser.yaml) retains the generated
-`homebrew/Casks/aigw.rb` of the release output separately from signed assets. Windows-only builds
-skip it; Linux/macOS use the same native generator. Generation creates neither tap
+`homebrew/Casks/aigw.rb` of the release output separately from signed assets; Linux and
+macOS use the same native generator. Generation creates neither tap
 nor release. Verify archive-internal paths/checksums and regenerate after signing;
 ad-hoc fixture bytes cannot qualify notarized Cask output.
 
@@ -291,7 +288,7 @@ disabled; the workflow owner extracts each embedded Bash or sh fragment and runs
 locked ShellCheck on it with recorded exclusions and retained JSON evidence.
 GitLab relies on CUE projection and actual native execution. No separate YAML formatter,
 Pants/Dagger/Nix/CEL plane is admitted without demonstrated replaced responsibility and
-native three-platform benefit. OpenSpec findings remain visible and block admission
+native benefit on every supported platform. OpenSpec findings remain visible and block admission
 at every severity, including INFO; unknown severities, malformed reports and failed
 summaries also block. Cohesive requirement length prompts semantic review rather than
 arbitrary fragmentation.
@@ -302,7 +299,17 @@ Warm cache is neither offline proof nor independent cold acquisition.
 
 ### Native platform evidence
 
-Support needs native macOS/Linux/Windows evidence across the declared aggregate set.
+AIGW supports macOS on ARM64 and Linux on ARM64 and AMD64. Releases publish the
+`darwin-arm64`, `linux-arm64` and `linux-amd64` archives, and the Homebrew cask names
+`darwin-arm64` as its only macOS archive. Windows and Intel macOS are not supported; 0.10.0 is the
+last release that published their archives.
+
+Support needs native macOS and Linux evidence. The one [CUE graph](../../.config/ci/pipeline.cue)
+declares one native job per operating system and renders it to each Forge: GitHub runs
+them on `macos-latest` and `ubuntu-24.04`; GitLab runs them on its ARM64 macOS runner
+(`macos-latest` with `review` for proposals and merge requests, `protected` for `dev`,
+`main` and tags) and its ARM64 Linux runner. GitHub's release verification adds
+`ubuntu-24.04-arm` for the published `linux-arm64` lifecycle.
 An unavailable executor remains unproved, not an indefinitely pending/allowed-failure
 substitute. Cross-compilation only constructs targets. Run exact portable archive
 install/update/rollback/uninstall with retained state and native credentials separately.
@@ -310,9 +317,8 @@ Signature, code signing, notarization, client inference and source acceptance ar
 independent; a Forge's complete required source matrix still needs its own runners.
 
 Every native job executes shared Go static policy before behavior/lifecycle, with no
-parallel vet wrapper. Windows ABI annotations stay on necessary syscalls; pinned Job
-information, copied-before-free DPAPI buffers and metadata-only credential observation
-retain their actual security boundaries. A value-reading library cannot replace
+parallel vet wrapper. Metadata-only credential observation retains its actual security
+boundary. A value-reading library cannot replace
 metadata inspection merely to shorten code.
 
 Release acquisition retains its selected caller's transport authorization.
@@ -325,7 +331,7 @@ separate native identity, storage and execution containment.
 
 [Coverage policy](../../.config/checks/coverage/policy.toml) owns strictly greater-than
 95% native Go statement coverage across every product/tool/tested platform package.
-All three native platforms invoke that same gate and retain its raw profile.
+Both native platforms invoke that same gate and retain its raw profile.
 
 The coverage command's optional `--json` passes native Go test events unchanged
 to stdout and sends package and aggregate summaries to stderr. It runs tests once;
@@ -337,8 +343,6 @@ report from the same attempt; the exact-HEAD proof judges Go behavior from them
 and runs that attempt's tests in no other gate. LCOV lines come from the statement blocks
 and carry no branch figure; a production file that the build did not
 instrument has an empty record.
-Windows omits the race detector because the native graph includes ARM64 with
-CGO disabled; that limit does not remove coverage or package observation.
 
 If tests fail, any emitted profile remains diagnostic evidence only; retention
 and test errors stay visible, and partial counters cannot qualify coverage.
@@ -374,7 +378,8 @@ Similar native operations are not automatically duplicate responsibility.
 
 #### Calibration decision
 
-Trials covered macOS arm64, Linux amd64 and Windows amd64 product/tests/tools. Retained
+Trials covered macOS arm64, Linux amd64 and Windows amd64 product/tests/tools (Windows left with
+`drop-windows-and-intel-macos`). Retained
 limits are a reasoned trade-off, not a universal optimum or test-volume claim:
 
 | Trial                  | Decision and reason                                                                                                             |

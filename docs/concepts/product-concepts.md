@@ -215,14 +215,14 @@ under that ID with `aigw provider add`, point each client at its models with
 
 ## Installation lifecycle
 
-Portable archives for macOS, Linux, and Windows use the CLI-owned lifecycle:
+Portable archives for the [supported platforms](../governance/change-and-release-policy.md#native-platform-evidence), macOS and Linux, use the CLI-owned lifecycle:
 `aigw self install`, `aigw self update`, `aigw self rollback`, and
 `aigw self uninstall`. Replacement retains one immediate predecessor and
 restores the current program if activation fails. It is recoverable
 replacement, not uninterrupted atomic visibility or power-loss recovery. The
 macOS Homebrew Cask is a separate installation owner: Homebrew upgrades,
 downgrades or removes its program, and AIGW's portable install, update,
-rollback and uninstall commands refuse to change it. Linux and Windows currently use the published portable
+rollback and uninstall commands refuse to change it. Linux currently uses the published portable
 archives, not an npm or native package-manager channel.
 
 Before rollback, the retained program must start and read an isolated copy of

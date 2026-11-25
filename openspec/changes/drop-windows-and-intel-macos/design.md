@@ -21,7 +21,9 @@ registration; the release that ships the Change; unifying declarations that this
 **D1. The supported set.** Releases publish `darwin-arm64`, `linux-arm64`, `linux-amd64`. The release matrix is
 declared in `.config/release/goreleaser/.goreleaser.yaml` (what GoReleaser builds) and in
 `internal/program/artifact/identity.go` (what the program and its acceptance accept); both drop to the three
-targets in the same commit, and the existing tests that enumerate targets follow. Alternative rejected: keeping
+targets in the same commit, and the existing tests that enumerate targets follow. The cask's only macOS archive is
+ARM64 because the matrix has no other; GoReleaser's cask configuration offers no architecture dependency (it carries a TODO for
+it). Alternative rejected: keeping
 `darwin-amd64` as a cross-compiled artifact, because a published artifact needs native execution of its lifecycle
 (`AGENTS.md`, engineering quality) and no runner remains for it.
 
@@ -37,7 +39,8 @@ keep their names; only `Native Windows acceptance` leaves.
 default `bash` now; GitLab's PowerShell job templates leave with the Windows jobs.
 
 **D4. Code.** Every `_windows.go` file and every `//go:build windows` file leaves, with the Windows-only module
-requirement. A `!windows` or `unix` constraint leaves its file; where a POSIX file was the twin of a Windows file,
+requirement as a direct one: `github.com/danieljoos/wincred` stays an indirect requirement, because go-keyring's own
+Windows file imports it and `go mod tidy` keeps the requirements of every platform (`go mod why -m`, 2026-11-25). A `!windows` or `unix` constraint leaves its file; where a POSIX file was the twin of a Windows file,
 it takes the plain name. A `runtime.GOOS == "windows"` branch, a Windows test case and a fixture for another
 operating system that AIGW does not support leave. A seam whose only second implementation was Windows collapses
 into its one implementation (the inventory names `internal/secret/native` dispatch, `terminal.ColorEnabled`'s
@@ -47,12 +50,22 @@ The darwin Keychain, the Linux Secret Service and the file backend stay unchange
 
 **D5. Bounds derived from the Windows job.** `tools/ci`'s selection-matrix bound and `matrixJobMinutes` were set
 from the Windows run. Each is re-derived from the slowest remaining native job, citing its measured run, and tests
-pin the derivation, not the number.
+pin the derivation, not the number. The figures come from the design of the archived Change
+`selection-matrix-native-platforms` (2026-11-24): the slowest measured macOS run of the matrix took 655 s, and the
+longest measured work before the matrix in a native job was the macOS run step, 976 s, with setup under 2 minutes.
+The bound is three times that run, rounded up to whole five minutes: 3 × 655 s = 1,965 s, so 35 minutes. Each
+GitHub job that runs the matrix gets that work, setup and bound, rounded up to the next ten minutes: 976 s + 120 s
+
+- 35 minutes ≈ 53 minutes, so 60. The proof's static gate keeps its 3,600 s, which still exceeds 35 minutes plus the
+  83 s before the matrix.
 
 **D6. Toolchain.** The Mise lock keeps the rows of macOS ARM64, Linux ARM64 and Linux AMD64. The rows are removed
 by Mise's own lock command restricted to those platforms; the diff of the lock removes rows and changes no
 version, checksum or URL of a kept row. Asset patterns and templates written only for Windows leave
-`.config/mise/config.toml`.
+`.config/mise/config.toml`. The restriction is Mise's `lockfile_platforms` setting, declared once in that file; Mise
+has read it since 2026.4.8, below the repository's floor of 2026.10.25 (Mise's release notes). `mise lock --platform`
+alone removed no row on a scratch copy, and the setting also keeps a later `mise lock` from writing the other
+platforms again.
 
 **D7. Records.** Documents state the supported set once, in the release policy, and link to it. A decision record is
 a dated record: where one names Windows as current behavior, it gets a dated amendment line naming this Change, and

@@ -11,7 +11,8 @@ relations:
 # DR-0005: Admit Client Adapters Explicitly
 
 - Date: 2026-08-07
-- Last amended: 2026-09-23
+- Last amended: 2026-11-25
+- Amended by: the OpenSpec Change `drop-windows-and-intel-macos` on 2026-11-25; AIGW no longer supports Windows, so this record's Windows statements stay as written and no longer govern
 
 ## Context
 
