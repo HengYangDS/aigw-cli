@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 const schemaOneReport = "{\"schema_version\":1,\"sources\":[]}\n"
@@ -41,9 +43,8 @@ func writeDependencyReports(t *testing.T, candidate, version, content string) {
 
 func TestPlatformNamesFollowMiseLockPlatforms(t *testing.T) {
 	for platform, want := range map[[2]string]string{
-		{"darwin", "arm64"}: "macos-arm64", {"darwin", "amd64"}: "macos-x64",
-		{"linux", "arm64"}: "linux-arm64", {"linux", "amd64"}: "linux-x64",
-		{"windows", "arm64"}: "windows-arm64", {"windows", "amd64"}: "windows-x64",
+		{"darwin", "arm64"}: "macos-arm64",
+		{"linux", "arm64"}:  "linux-arm64", {"linux", "amd64"}: "linux-x64",
 	} {
 		if got := platformName(platform[0], platform[1]); got != want {
 			t.Fatalf("platform %v = %q, want %q", platform, got, want)
@@ -60,7 +61,19 @@ func TestLockedScannerReadsEveryPlatformOfTheRepositoryLock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, platform := range []string{"linux-arm64", "linux-x64", "macos-arm64", "macos-x64", "windows-arm64", "windows-x64"} {
+	declaration, err := os.ReadFile(filepath.Join("..", "..", "..", ".config", "mise", "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config struct {
+		Settings struct {
+			LockfilePlatforms []string `toml:"lockfile_platforms"`
+		} `toml:"settings"`
+	}
+	if err := toml.Unmarshal(declaration, &config); err != nil || len(config.Settings.LockfilePlatforms) == 0 {
+		t.Fatalf("the Mise configuration declares no lockfile platforms: %v", err)
+	}
+	for _, platform := range config.Settings.LockfilePlatforms {
 		image, err := LockedScanner(lock, platform)
 		if err != nil {
 			t.Fatalf("%s: %v", platform, err)

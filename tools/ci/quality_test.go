@@ -199,13 +199,34 @@ func TestPortableQualityToolsHaveCompletePlatformLocks(t *testing.T) {
 	if err := toml.Unmarshal(content, &lock); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{
-		"platforms.linux-arm64",
-		"platforms.linux-x64",
-		"platforms.macos-arm64",
-		"platforms.macos-x64",
-		"platforms.windows-arm64",
-		"platforms.windows-x64",
+	// The Mise configuration declares the platforms that the lock holds.
+	declaration, err := os.ReadFile(filepath.Join(repositoryRoot(t), ".config", "mise", "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config struct {
+		Settings struct {
+			LockfilePlatforms []string `toml:"lockfile_platforms"`
+		} `toml:"settings"`
+	}
+	if err := toml.Unmarshal(declaration, &config); err != nil {
+		t.Fatal(err)
+	}
+	if len(config.Settings.LockfilePlatforms) == 0 {
+		t.Fatal("the Mise configuration declares no lockfile platforms")
+	}
+	var want []string
+	for _, platform := range config.Settings.LockfilePlatforms {
+		want = append(want, "platforms."+platform)
+	}
+	for tool, entries := range lock.Tools {
+		for _, entry := range entries {
+			for key := range entry {
+				if strings.HasPrefix(key, "platforms.") && !slices.Contains(want, key) {
+					t.Errorf("%s locks undeclared %s", tool, key)
+				}
+			}
+		}
 	}
 	call := exec.CommandContext(t.Context(), "cue", "export", ".config/ci/pipeline.cue", "--expression", "toolchainTools.native", "--out", "json")
 	call.Dir = repositoryRoot(t)

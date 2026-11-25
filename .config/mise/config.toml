@@ -9,6 +9,8 @@ minimum_release_age = "24h"
 not_found_system_fallback = false
 # Locked installs must not query Mise's optional version-index service.
 use_versions_host = false
+# The platforms that CI and releases run on; the lock holds only these.
+lockfile_platforms = ["linux-arm64", "linux-x64", "macos-arm64"]
 
 [env]
 # Repository locks, not user Go settings or a parent workspace, select the build.
@@ -24,7 +26,7 @@ npm_config_cache = false
 NPM_CONFIG_REGISTRY = false
 npm_config_registry = false
 NPM_CONFIG_USERCONFIG = "{{ config_root }}/.config/npm/npmrc"
-NPM_CONFIG_GLOBALCONFIG = "{% if os() == 'windows' %}NUL{% else %}/dev/null{% endif %}"
+NPM_CONFIG_GLOBALCONFIG = "/dev/null"
 NPM_CONFIG_CACHE = "{{ config_root }}/build/runtime/tool-cache/npm{% if env.CI_JOB_ID | default(value='') != '' %}/{{ env.CI_JOB_ID }}{% endif %}"
 
 [vars]
@@ -71,7 +73,6 @@ typos = "1.52.2"
 [tools."github:lycheeverse/lychee"]
 version = "lychee-v0.24.2"
 version_prefix = ""
-platforms.windows-arm64.asset_pattern = "lychee-x86_64-pc-windows-msvc.zip"
 
 # OSV Scanner's release bundle is signed by the reusable SLSA generator.
 [tools."github:google/osv-scanner"]
