@@ -10,9 +10,8 @@ official clients, and the evidence that binds each to its lock.
 ### Requirement: Latest stable repository-owned supply chain
 
 AIGW SHALL lock current stable Go, tool, Action, and release dependencies
-through one repository-owned authority for each ecosystem. The dependency
-policy SHALL declare one minimum release age, in hours, for every source; only a
-security fix skips it. The declared Go toolchain and resolver SHALL own
+through one repository-owned authority for each ecosystem. Mise's `minimum_release_age` SHALL declare the one release age, in whole hours;
+every other source SHALL hold it; Renovate skips it for a security fix. The declared Go toolchain and resolver SHALL own
 transitive closure; local verification and both Forge projections SHALL consume
 those declarations rather than duplicate version literals or compatibility
 fallbacks.
@@ -133,10 +132,26 @@ fallbacks.
 #### Scenario: The minimum release age changes
 
 - **WHEN** the minimum release age is raised or lowered
-- **THEN** one value of the dependency policy SHALL change, written as a whole
-  number of hours, and every source SHALL follow it
+- **THEN** one value, Mise's `minimum_release_age`, SHALL change, written as a
+  whole number of hours, and `mise run fix` SHALL write it into every other
+  source
 - **AND** the repository's dependency checks SHALL fail while another rule
   declares an age of its own, or while a security fix does not skip the age.
+
+#### Scenario: A source holds another age than the declared one
+
+- **WHEN** Renovate's root age or npm's `min-release-age` differs from the
+  declared age, which npm holds in whole days rounded up and, at zero, leaves
+  out
+- **THEN** the repository's dependency checks SHALL fail and name that file
+- **AND** `mise run fix` SHALL write the declared age into it.
+
+#### Scenario: A security fix is younger than the declared age
+
+- **WHEN** a security fix is published inside the declared age
+- **THEN** Renovate's security rule SHALL propose it without waiting
+- **AND** npm SHALL hold it for the age, because the repository admits no npm
+  exemption, and a change that takes it sooner SHALL say so.
 
 #### Scenario: A registry publishes no release time
 
