@@ -59,8 +59,8 @@
       `--baseline-tag v0.10.0`), because a lane at the predecessor's version cannot run it: run 45534917075 refused a
       baseline of the same version on all three native hosts. Done when the design's migration plan says so.
 - [x] 5.3 Pass `mise run check` on the lane head (`6648f863`).
-- [ ] 5.4 Pass the proposal's hosted checks on both forges at the lane head (an earlier head, `885d3c2cd`, passed
-      GitLab pipeline 17898 and GitHub PR 284).
+- [x] 5.4 Pass the proposal's hosted checks on both forges at the lane head (`c97897de`: GitLab pipeline 17961,
+      GitHub PR 284; an earlier head, `885d3c2cd`, passed GitLab pipeline 17898).
 
 ## 6. The Review Of The Whole Lane
 
