@@ -352,6 +352,9 @@ func (state *publishedNativeJourney) upgrade(t *testing.T) {
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
 		t.Fatal("unchanged synchronization rewrote published configuration")
 	}
+	// The rollback that follows runs over the windows that this program wrote
+	// into Hermes's file; the predecessor's synchronization must accept them.
+	journey.requireHermesModelWindows()
 	journey.run("check")
 	for _, client := range state.clients {
 		journey.requireCredential(state.retained[client], "native-journey-token")
@@ -402,6 +405,7 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 		journey.requireCredential(successor[client], "native-journey-token")
 	}
 	journey.run("sync")
+	journey.requireHermesModelWindows()
 	journey.run("check")
 	journey.requireVersion(state.version)
 	journey.requireProgramBytes(state.candidate)

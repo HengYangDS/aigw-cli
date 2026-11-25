@@ -1,17 +1,23 @@
-// Command catalogcheck verifies, against a real installed Codex client, that a
-// selected model is present with metadata copied from its family's bundled
-// entry and is shown under a name that no other entry has. A model takes
-// metadata only from its family, never from a prefix or suffix of its ID, so
-// -family is required; -name is the display name that AIGW gives the alias,
-// the model's label without its provider.
+// Command catalogcheck verifies, against a real installed Codex client, that
+// the entry which describes a selected model is in the catalog that the client
+// renders, carries the model's declared context window in both window fields,
+// and otherwise has the metadata of the client's own bundled entry: its
+// family's for a model that the client's table does not hold, whose alias must
+// also be shown under a name that no other entry has, and the model's own for
+// a model that the table holds. A model takes metadata only from its own entry
+// or its family's, never from a prefix or suffix of its ID, so -family is
+// required; -name is the display name that AIGW gives an alias, the model's
+// label without its provider; -context-window is the model's declared window,
+// and without it the window of a model that declares none.
 //
 // It exists because that claim cannot be proven against a fake client: the
 // package tests pin the catalog's content and every decision around it, but only
 // the client itself can show that it loaded the projected catalog. Run it when
-// changing the catalog projection or when qualifying a new client build:
+// changing the catalog projection or when qualifying a new client build, for an
+// alias and for a model that is itself an entry of the client's table:
 //
 //	go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -family gpt-6.1-sol -name 'GPT-6.1 Sol · cdx'
-//	go run ./tools/codex/catalogcheck -model openai.gpt-6.1-sol -family gpt-6.1-sol -name 'GPT-6.1 Sol · openai'
+//	go run ./tools/codex/catalogcheck -model gpt-6.1-sol -family gpt-6.1-sol -name 'GPT-6.1 Sol' -context-window 500000
 //
 // The client renders its effective model catalog through a throwaway client
 // home, so the run makes no model request. Nothing outside a temporary directory
@@ -29,6 +35,8 @@ import (
 	"os/exec"
 	"strings"
 	"text/tabwriter"
+
+	"aigw-cli/internal/domain"
 )
 
 var verifyModelCatalog = verifyCatalog
@@ -59,6 +67,7 @@ func run(args []string, out io.Writer) (int, error) {
 	model := flags.String("model", "", "exact Codex model id to verify")
 	family := flags.String("family", "", "the model's family: the Codex model whose bundled metadata it takes")
 	name := flags.String("name", "", "the display name that AIGW gives the alias, the model's label without its provider")
+	window := flags.Int("context-window", domain.DefaultContextWindow, "the model's declared context window in tokens, which its entry must carry")
 	executable := flags.String("codex", "", "path to the Codex executable (default: codex from PATH)")
 	asJSON := flags.Bool("json", false, "print the measurements as JSON")
 	if err := flags.Parse(args); err != nil {
@@ -73,11 +82,14 @@ func run(args []string, out io.Writer) (int, error) {
 	if *name == "" {
 		return exitPrerequisiteMissing, errors.New("-name is required: the display name that AIGW gives the alias, the model's label without its provider")
 	}
+	if err := domain.ValidateContextWindow(*window); err != nil {
+		return exitPrerequisiteMissing, fmt.Errorf("-context-window: %w", err)
+	}
 	resolved, err := resolveExecutable(*executable)
 	if err != nil {
 		return exitPrerequisiteMissing, err
 	}
-	verification, err := verifyModelCatalog(resolved, *model, *family, *name)
+	verification, err := verifyModelCatalog(resolved, *model, *family, *name, *window)
 	if err != nil {
 		return exitPrerequisiteMissing, err
 	}
@@ -115,7 +127,9 @@ func report(out io.Writer, verification verificationResult, asJSON bool) error {
 		encoder.SetIndent("", "  ")
 		return encoder.Encode(verification)
 	}
-	if _, err := fmt.Fprintf(out, "client   %s\nsha256   %s\nmodel    %s\nbase     %s\n\n", verification.ClientVersion, verification.ClientSHA256, verification.Model, verification.BaseSlug); err != nil {
+	if _, err := fmt.Fprintf(out, "client   %s\nsha256   %s\nmodel    %s\nbase     %s\nwindow   declared %d; rendered context_window %d, max_context_window %d\n\n",
+		verification.ClientVersion, verification.ClientSHA256, verification.Model, verification.BaseSlug,
+		verification.DeclaredWindow, verification.ContextWindow, verification.MaxContextWindow); err != nil {
 		return err
 	}
 	var rendered bytes.Buffer
@@ -125,7 +139,7 @@ func report(out io.Writer, verification verificationResult, asJSON bool) error {
 		label string
 		probe modelProbe
 	}{
-		{"family, client's own table", verification.Reference},
+		{"base, client's own table", verification.Reference},
 		{"model, no catalog", verification.Unadapted},
 		{"model, generated catalog", verification.Adapted},
 		{"unknown model, generated catalog", verification.Unknown},

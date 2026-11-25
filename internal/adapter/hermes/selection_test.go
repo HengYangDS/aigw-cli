@@ -15,6 +15,14 @@ import (
 // the named provider and model, as Hermes' model picker does.
 func projectedSelection(t *testing.T, desired Desired, provider, model string) string {
 	t.Helper()
+	return projectedSelectionIn(t, desired, func(*testing.T, string) {}, provider, model)
+}
+
+// projectedSelectionIn projects desired, turns the file and its record into the
+// shape that rewrite gives, then rewrites Hermes' own selection to the named
+// provider and model.
+func projectedSelectionIn(t *testing.T, desired Desired, rewrite func(*testing.T, string), provider, model string) string {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	plan, err := prepare(path, &desired)
 	if err != nil {
@@ -23,9 +31,18 @@ func projectedSelection(t *testing.T, desired Desired, provider, model string) s
 	if _, err := plan.Apply(); err != nil {
 		t.Fatal(err)
 	}
+	rewrite(t, path)
 	if provider == "" {
 		return path
 	}
+	selectInHermes(t, path, provider, model)
+	return path
+}
+
+// selectInHermes rewrites the selection of the Hermes configuration at path to
+// the named provider entry and model, as Hermes' model picker does.
+func selectInHermes(t *testing.T, path, provider, model string) {
+	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -46,36 +63,48 @@ func projectedSelection(t *testing.T, desired Desired, provider, model string) s
 	if err := os.WriteFile(path, drifted, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return path
 }
 
 func twoProviders() Desired {
 	desired := testDesired()
 	other := desired.Providers[0]
-	other.ID, other.Endpoint, other.Models = "other", "https://other.test/v1", []string{"other-model"}
+	other.ID, other.Endpoint, other.Models = "other", "https://other.test/v1", []Model{{ID: "other-model", ContextWindow: 256000}}
 	desired.Providers = append(desired.Providers, other)
 	return desired
 }
 
+// Both shapes in which AIGW has written an entry's models, the mapping and an
+// earlier release's list of IDs, give the same observation.
 func TestObserveSelectionReportsOnlyAProvedNativeChoice(t *testing.T) {
-	desired := twoProviders()
-	unchanged := projectedSelection(t, desired, "", "")
-	if _, changed, err := ObserveSelection(unchanged); err != nil || changed {
-		t.Fatalf("unchanged projection observed as a choice: %v, %v", changed, err)
-	}
-	if _, changed, err := ObserveSelection(filepath.Join(t.TempDir(), "config.yaml")); err != nil || changed {
-		t.Fatalf("absent projection observed as a choice: %v, %v", changed, err)
-	}
-	chosen := projectedSelection(t, desired, "other", "other-model")
-	selection, changed, err := ObserveSelection(chosen)
-	if err != nil || !changed || selection != (Selection{Provider: "other", Model: "other-model"}) {
-		t.Fatalf("native choice = %+v, %v, %v", selection, changed, err)
-	}
-	if err := os.WriteFile(chosen+adapter.StateSuffix, []byte("{}\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := ObserveSelection(chosen); err == nil {
-		t.Fatal("an invalid ownership record was accepted")
+	for _, shape := range modelShapes {
+		t.Run(shape.name, func(t *testing.T) {
+			desired := twoProviders()
+			unchanged := projectedSelectionIn(t, desired, shape.rewrite, "", "")
+			if _, changed, err := ObserveSelection(unchanged); err != nil || changed {
+				t.Fatalf("unchanged projection observed as a choice: %v, %v", changed, err)
+			}
+			if _, changed, err := ObserveSelection(filepath.Join(t.TempDir(), "config.yaml")); err != nil || changed {
+				t.Fatalf("absent projection observed as a choice: %v, %v", changed, err)
+			}
+			chosen := projectedSelectionIn(t, desired, shape.rewrite, "other", "other-model")
+			selection, changed, err := ObserveSelection(chosen)
+			if err != nil || !changed || selection != (Selection{Provider: "other", Model: "other-model"}) {
+				t.Fatalf("native choice = %+v, %v, %v", selection, changed, err)
+			}
+			// The empty ID is the value of every node that is not a scalar.
+			for _, unlisted := range []string{"unlisted-model", ""} {
+				foreign := projectedSelectionIn(t, desired, shape.rewrite, "other", unlisted)
+				if _, _, err := ObserveSelection(foreign); err == nil {
+					t.Fatalf("the model %q outside the projected catalog was observed as a choice", unlisted)
+				}
+			}
+			if err := os.WriteFile(chosen+adapter.StateSuffix, []byte("{}\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := ObserveSelection(chosen); err == nil {
+				t.Fatal("an invalid ownership record was accepted")
+			}
+		})
 	}
 }
 

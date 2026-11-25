@@ -90,10 +90,14 @@ func equivalentProbe(left, right *BalanceProbe) bool {
 
 func normalizeEndpoint(value string) string { return strings.TrimRight(strings.TrimSpace(value), "/") }
 
+// equivalentModel compares two definitions of a model but for their labels.
+// It compares their windows, not what they store for them, so a window
+// declared as the default is that of a model that declares none.
 func equivalentModel(left, right Model) bool {
 	return left.Provider == right.Provider &&
 		left.ID == right.ID &&
 		left.Family == right.Family &&
+		left.Window() == right.Window() &&
 		left.Deprecated == right.Deprecated &&
 		equalProtocols(left.Protocols, right.Protocols)
 }

@@ -71,8 +71,10 @@ They answer different questions; none substitutes for all the others.
   defines navigation, layout and recovery language.
 - **Governance:** [Contributor contracts](governance/README.md) governs
   layout, extension and release.
-- **Guides:** [Team rollout](guides/team-rollout.md) covers configuration
-  distribution, member setup, release artifacts and updates.
+- **Guides:** [Guides](guides/README.md) cover configuration distribution,
+  member setup, release artifacts and updates in the
+  [team rollout](guides/team-rollout.md), and the team file's fields, layout
+  and admission rules in the [team file reference](guides/team-file.md).
 - **Operations:** [Operations](operations/README.md) covers independent GitLab
   and GitHub publication and real-client acceptance.
 - **Research:** [Research](research/README.md) separates comparisons and

@@ -314,8 +314,8 @@ func (plan teamManifestJourney) requireHermesWireCatalog(t *testing.T, journey *
 		} `yaml:"model"`
 		MCP       map[string]struct{ Command string } `yaml:"mcp_servers"`
 		Providers map[string]struct {
-			Models   []string `yaml:"models"`
-			Endpoint string   `yaml:"base_url"`
+			Models   map[string]struct{} `yaml:"models"`
+			Endpoint string              `yaml:"base_url"`
 		} `yaml:"providers"`
 	}
 	if err := yaml.Unmarshal(readFile(t, journey.clientProjectionPaths(hermes.ID)[0]), &projected); err != nil {
@@ -341,8 +341,7 @@ func (plan teamManifestJourney) requireHermesWireCatalog(t *testing.T, journey *
 	for id, models := range expected {
 		slices.Sort(models)
 		models = slices.Compact(models)
-		actual := slices.Clone(projected.Providers[id].Models)
-		slices.Sort(actual)
+		actual := slices.Sorted(maps.Keys(projected.Providers[id].Models))
 		if !slices.Equal(actual, models) {
 			t.Errorf("native Hermes provider %q wire catalog = %q, want %q", id, actual, models)
 		}

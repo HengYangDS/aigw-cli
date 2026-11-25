@@ -80,6 +80,39 @@ A Plus and Mistral Large 4 ("cannot be served at the moment"; their current fami
 file until a model of it that is not a preview qualifies. UCloud no longer lists Gemini 4 Carbon nor AIHubMix
 Mercury 2.5; both leave.
 
+## November 22: context windows below the default
+
+AIGW tells Hermes each listed model's context window and Codex the selected model's. A model that declares none has
+1,000,000 tokens; the team file declares a lower number for a family whose vendor documents one, and for a retired
+family whose vendor page is gone, on the named source below. Each vendor's own page was fetched on November 22 for
+every family that the file then held; Gemini 4 Neon, Ling 3.2 Flash and Muse Spark 1.3 joined it on
+November 23, and their vendors' pages were not read. The numbers of Baidu and xAI were read as raw page text; those of Cohere, Ant Ling, Mistral
+and Upstage were relayed by the fetch tool's summarising model, one step further from the page. Where a
+page gives a rounded figure such as 256k, the file declares the
+decimal reading, the lower of the two, so a declared window is never above the documented one. MiniMax retired M2.5 on
+November 18 and its pages give no window any more; the number is the one in Hermes v0.23.3's own model table, and
+Artificial Analysis lists 205k. A documented window is the vendor's; whether a provider's channel serves all of it
+is not established, and no session near any of these limits was run. Raw results are in the canonical checkout's
+`build/evidence/client-windows-20261122/`.
+
+| Family           | Declared | Source, as read                                                                        |
+| ---------------- | -------- | -------------------------------------------------------------------------------------- |
+| Ernie 5.1        | 128,000  | [Baidu Qianfan](https://cloud.baidu.com/doc/qianfan/s/rmh4stp0j): 128k                 |
+| MiniMax M2.5     | 204,800  | Hermes v0.23.3's model table; no vendor page since the retirement                      |
+| Cohere Command A | 256,000  | [Cohere](https://docs.cohere.com/docs/models), as `command-a-03-2025`: 256k¹           |
+| Ling 3.0 Flash   | 256,000  | [Ant Ling](https://developer.ant-ling.com/en/docs/faq/): 256K, input and output shared |
+| Mistral Large 3  | 256,000  | [Mistral](https://docs.mistral.ai/models/mistral-large-3-25-12): 256k                  |
+| Grok 4.7         | 500,000  | [xAI](https://docs.x.ai/docs/models/grok-4.7): 500,000 tokens                          |
+| Solar Pro 4      | 512,000  | [Upstage](https://console.upstage.ai/docs/models/solar-pro-4): 512K                    |
+
+¹ The page names no `cohere-command-a`; the file's ID is matched to `command-a-03-2025` by inference. If the provider
+serves another Command A model under that ID, its documented window may be 128k.
+
+Every other family that November 22 covered documents 1,000,000 tokens or more, or "1M" without a figure, and declares nothing.
+One of them rests on a deployment: NVIDIA's hosted catalog gives Nemotron 3 Ultra 1,048,576 tokens, and its
+self-hosting guide a native 262,144 that a longer window must be configured over, so the window that a provider
+serves depends on how it deployed the model.
+
 ## November 19: Suhe.AI
 
 Suhe.AI (`suheai.cn`) serves each Claude and GPT model under two IDs: the plain one, a direct model, and one with a

@@ -2,7 +2,8 @@ package hermes
 
 // The tests in this file pin, byte for byte, what AIGW writes into a Hermes
 // configuration and into its ownership record. Each case writes its input as
-// config.yaml in a temporary directory, prepares the projection of
+// config.yaml in a temporary directory, with the ownership record of that
+// input beside it when the case has one, prepares the projection of
 // testDesired through Prepare, and compares the bytes that the plan would
 // write with expected files under testdata/projection-bytes/<case>/:
 //
@@ -31,15 +32,20 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/adapter"
 )
 
 const updatePinnedBytes = "AIGW_TEST_UPDATE_YAML"
 
 // pinnedProjection is one Hermes configuration whose projection, ownership
-// record and withdrawal are pinned. A refused case pins the refusal's text.
+// record and withdrawal are pinned. record is the ownership record that AIGW
+// kept of the input, for a configuration that AIGW projected before. A
+// refused case pins the refusal's text.
 type pinnedProjection struct {
 	name    string
 	input   string
+	record  string
 	refused bool
 }
 
@@ -211,6 +217,48 @@ var pinnedProjections = []pinnedProjection{
 	{name: "scalar-model", input: lines(
 		"model: previous-model",
 	)},
+	// The configuration and the record that the released code wrote for the case
+	// scalar-model: the entry lists its models as a sequence of IDs.
+	{name: "earlier-list-of-ids", input: lines(
+		"model:",
+		"  provider: aigw",
+		"  default: model-test",
+		"  base_url: https://provider.test/v1",
+		"  api_mode: codex_responses",
+		"providers:",
+		"  aigw:",
+		"    base_url: https://provider.test/v1",
+		"    transport: codex_responses",
+		"    key_cmd: aigw credential hermes projection-test",
+		"    models:",
+		"      - model-test",
+		"    discover_models: false",
+	), record: lines(
+		`{`,
+		`  "version": 2,`,
+		`  "original_model": {`,
+		`    "Kind": 8,`,
+		`    "Style": 0,`,
+		`    "Tag": "!!str",`,
+		`    "Value": "previous-model",`,
+		`    "Anchor": "",`,
+		`    "Alias": null,`,
+		`    "Content": null,`,
+		`    "HeadComment": "",`,
+		`    "LineComment": "",`,
+		`    "FootComment": "",`,
+		`    "Line": 1,`,
+		`    "Column": 8`,
+		`  },`,
+		`  "model_present": true,`,
+		`  "providers_present": false,`,
+		`  "provider_ids": [`,
+		`    "aigw"`,
+		`  ],`,
+		`  "file_present": true,`,
+		`  "managed_digest": "87b1ca174564f03f3dd71bbe41e1a8b73860f6d44915d587dba15c439f40af98"`,
+		`}`,
+	)},
 }
 
 func TestProjectionWritesPinnedBytes(t *testing.T) {
@@ -219,6 +267,11 @@ func TestProjectionWritesPinnedBytes(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.yaml")
 			if err := os.WriteFile(path, []byte(pinned.input), 0o600); err != nil {
 				t.Fatal(err)
+			}
+			if pinned.record != "" {
+				if err := os.WriteFile(path+adapter.StateSuffix, []byte(pinned.record), 0o600); err != nil {
+					t.Fatal(err)
+				}
 			}
 			desired := testDesired()
 			plan, err := prepare(path, &desired)

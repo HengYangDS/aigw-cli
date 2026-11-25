@@ -39,6 +39,7 @@ func (hermesAdapter) Spec() domain.ClientSpec {
 		},
 		SessionsKeepModel: true,
 		OptionalTarget:    "config.yaml",
+		ContextWindow:     true,
 	}
 }
 
@@ -115,7 +116,7 @@ type hermesCatalogProvider struct {
 	Protocol domain.EndpointProtocol
 	Endpoint string
 	Runtime  domain.Runtime
-	Models   []string
+	Models   []Model
 }
 
 // hermesCatalog groups the models that Hermes can use under one Hermes
@@ -140,7 +141,7 @@ func hermesCatalog(cfg domain.Config) ([]hermesCatalogProvider, error) {
 						Provider: providerID, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected})
 					index = len(items) - 1
 				}
-				items[index].Models = append(items[index].Models, model.ID)
+				items[index].Models = append(items[index].Models, Model{ID: model.ID, ContextWindow: model.Window()})
 			}
 		}
 		slices.SortStableFunc(items, func(left, right hermesCatalogProvider) int {
@@ -182,6 +183,7 @@ func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan
 			return nil, nil, err
 		}
 	}
+	written := hermesListing(before)
 	// The files that the configuration after the transition names come first:
 	// they alone are written, while the client is enabled. A file that the
 	// transition drops, however either configuration spells it, is restored.
@@ -199,12 +201,34 @@ func hermesPlans(deps adapter.Dependencies, before, after domain.Config) ([]Plan
 			projection = &desired
 		}
 		plan, err := PrepareTransition(target, projection, shown, deps.AuthorizedSelectionClient == ID)
+		if err == nil && projection != nil {
+			err = plan.refuseReorderedModels(written)
+		}
 		if err != nil {
 			return nil, nil, err
 		}
 		plans = append(plans, plan)
 	}
 	return plans, targets, nil
+}
+
+// hermesListing is what AIGW wrote into Hermes's file for cfg, the
+// configuration before a change: each provider entry that cfg projects, with
+// its models in AIGW's order, whatever Tokens are stored, and nothing where cfg
+// projects no Hermes.
+func hermesListing(cfg domain.Config) []Provider {
+	if !cfg.Clients[ID].Enabled {
+		return nil
+	}
+	catalog, err := hermesCatalog(cfg)
+	if err != nil {
+		return nil
+	}
+	providers := make([]Provider, 0, len(catalog))
+	for _, item := range catalog {
+		providers = append(providers, Provider{ID: item.ID, Models: item.Models})
+	}
+	return providers
 }
 
 // AdoptSelection records Hermes' own model choice as its Client Binding
@@ -267,7 +291,7 @@ func hermesChoiceOf(cfg domain.Config, native Selection) hermesChoice {
 	entry := catalog[index]
 	return hermesChoice{
 		ref: domain.NewModelRef(entry.Provider, native.Model), protocol: entry.Protocol,
-		written: true, listed: slices.Contains(entry.Models, native.Model),
+		written: true, listed: listsModel(entry.Models, native.Model),
 	}
 }
 
@@ -383,6 +407,11 @@ func hermesInspectionPlan(deps adapter.Dependencies, cfg domain.Config, selected
 	}
 	shown := &Selection{Provider: desired.SelectedProvider, Model: desired.SelectedModel}
 	plan, err := PrepareTransition(target, &desired, shown, false)
+	if err == nil {
+		// An inspection compares the file with the configuration that it
+		// inspects, which AIGW last wrote there.
+		err = plan.refuseReorderedModels(desired.Providers)
+	}
 	if err != nil || plan.Action == "unchanged" || !selected.UsesAIGWCredentialStore() {
 		return plan, err
 	}

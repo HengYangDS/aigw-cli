@@ -95,7 +95,10 @@ func (status Status) NativeModelNote(verb string) string {
 }
 
 // Check is one adapter-owned, read-only diagnostic observation. Target names
-// the native file the observation inspected, when it concerns one.
+// the native file the observation inspected, when it concerns one. Detail is
+// the problem of an observation that is not ready, and what a ready one states
+// of its own; a ready observation without one says that its file matches the
+// selection.
 type Check struct {
 	ID           string
 	Ready        bool

@@ -52,7 +52,7 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	}
 	// The user's catalog names the model as AIGW's own projection would.
 	name := domain.Runtime{ModelLabel: p.manifest.ModelLabel(selection.Model), ProviderLabel: p.manifest.Providers[route.Provider].Label, ProviderID: route.Provider}.ModelName()
-	catalog, _ := document.Project(route.ID, route.Family, name)
+	catalog, _ := document.Project(route.ID, route.Family, name, route.Window())
 	if catalog == nil {
 		t.Fatalf("the installed Codex catalog has no entry for %s", route.ID)
 	}

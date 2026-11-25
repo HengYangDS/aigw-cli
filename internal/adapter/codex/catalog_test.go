@@ -46,65 +46,6 @@ func catalogSlugList(t *testing.T, data []byte) []string {
 	return slugs
 }
 
-// TestCodexCatalogProjectionReusesOnlyTheSameClient is the last-known-good gate.
-// A copy describes exactly one build, so reuse after an upgrade would override
-// the newer bundled table: a worse outcome than the fallback it prevents.
-func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
-	dir := t.TempDir()
-	target := HomeTarget(filepath.Join(dir, "configuration.toml"))
-	target.Executable = filepath.Join(dir, "codex")
-	owned := []byte(`{"models":[{"slug":"openai.gpt-5.5"}]}` + "\n")
-	before := platform.FileSnapshot{Exists: true, Data: owned, SHA256: platform.SHA256(owned), Mode: 0o600}
-	state := codexState{
-		CatalogState:         catalogStateProjected,
-		CatalogHash:          platform.SHA256(owned),
-		CatalogClientVersion: "1.0.0",
-		CatalogClientSHA256:  "aaaa",
-	}
-	original := codexBundledCatalog
-	defer func() { codexBundledCatalog = original }()
-
-	// Same identity, regeneration unavailable: the copy still describes the
-	// installed build, so it is reused.
-	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
-		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
-	}
-	plan := codexCatalogProjection(target, "openai.gpt-5.5", "", "", "", state, before)
-	if plan.state != catalogStateProjected || string(plan.data) != string(owned) {
-		t.Fatalf("same client: plan = %+v", plan)
-	}
-
-	// Upgraded client, regeneration unavailable: refuse the copy and report it.
-	for _, live := range []ExecutableIdentity{
-		{Version: "1.1.0", SHA256: "aaaa"},
-		{Version: "1.0.0", SHA256: "bbbb"},
-		{},
-	} {
-		codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
-			return live, nil, fmt.Errorf("dump failed")
-		}
-		plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", "", state, before)
-		if plan.state != catalogStateStale || plan.data != nil || plan.path != "" {
-			t.Fatalf("changed client %+v: plan = %+v", live, plan)
-		}
-	}
-
-	// Same identity but the file on disk is no longer the one AIGW recorded
-	// writing: it is not AIGW's to reuse.
-	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
-		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
-	}
-	edited := platform.FileSnapshot{Exists: true, Data: []byte("{}"), SHA256: platform.SHA256([]byte("{}")), Mode: 0o600}
-	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", "", state, edited); plan.state != catalogStateStale {
-		t.Fatalf("edited catalog: plan = %+v", plan)
-	}
-
-	// Never owned a catalog here: nothing was lost, so nothing is reported.
-	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", "", codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
-		t.Fatalf("never owned: plan = %+v", plan)
-	}
-}
-
 // TestCodexCatalogProjectionYieldsToUserAuthoredCatalog protects a setting AIGW
 // does not own. The key replaces the bundled table, so adopting it would delete
 // whatever the user put there.
@@ -119,38 +60,13 @@ func TestCodexCatalogProjectionYieldsToUserAuthoredCatalog(t *testing.T) {
 	}
 	base := "model_catalog_json = \"/home/user/own-catalog.json\"\n"
 	for _, model := range []string{"openai.gpt-5.5", "gpt-6.1-sol"} {
-		if plan := codexCatalogProjection(target, model, "", "", base, codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
+		selected := domain.Runtime{UpstreamModel: model, ContextWindow: domain.DefaultContextWindow}
+		if plan := codexCatalogProjection(target, selected, base, codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
 			t.Fatalf("user catalog was not respected for %q: plan = %+v", model, plan)
 		}
 	}
-	if plan := codexCatalogProjection(target, "", "", "", "", codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
+	if plan := codexCatalogProjection(target, domain.Runtime{ContextWindow: domain.DefaultContextWindow}, "", codexState{}, platform.FileSnapshot{}); !emptyCatalogPlan(plan) {
 		t.Fatalf("empty model produced a catalog: plan = %+v", plan)
-	}
-}
-
-func TestKnownBaseModelUsesBundledCatalogForCustomProvider(t *testing.T) {
-	const model = "gpt-6.1-sol"
-	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, model, "gpt-6-luna")
-	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-	target := HomeTarget(path)
-	target.Executable = filepath.Join(filepath.Dir(path), "codex")
-	runtimeConfig := catalogTestRuntime(model)
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
-		t.Fatal(err)
-	}
-	projected, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(projected), "model_catalog_json = ") || !strings.Contains(string(projected), "# managed by AIGW") {
-		t.Fatalf("known model did not pin client-owned metadata: %s", projected)
-	}
-	data, err := os.ReadFile(codexCatalogPath(path))
-	if err != nil || string(data) != string(projectionCatalog(model, "gpt-6-luna")) {
-		t.Fatalf("known model catalog = %q, %v", data, err)
-	}
-	if err := ValidateConfig(path, runtimeConfig); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -160,7 +76,7 @@ func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 		upstreamModel  = "gpt-6.1-sol-cdx"
 	)
 	routeID := domain.NewModelRef("dmxapi", upstreamModel)
-	bundled := []byte(`{"revision":"client-owned","models":[{"slug":"gpt-6.1-sol","display_name":"GPT-6.1 Sol","context_window":500000,"reasoning_effort":"high","future":{"enabled":true}},{"slug":"gpt-6-luna","display_name":"GPT-6 Luna"}]}`)
+	bundled := []byte(`{"revision":"client-owned","models":[{"slug":"gpt-6.1-sol","display_name":"GPT-6.1 Sol","context_window":500000,"max_context_window":872000,"reasoning_effort":"high","future":{"enabled":true}},{"slug":"gpt-6-luna","display_name":"GPT-6 Luna"}]}`)
 	original := codexBundledCatalog
 	t.Cleanup(func() { codexBundledCatalog = original })
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
@@ -268,8 +184,12 @@ func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 }
 
 // channelOwnField reports a field that a channel's alias does not copy from
-// its family: its slug, and its display name, which the next test pins.
-func channelOwnField(field string) bool { return field == "slug" || field == "display_name" }
+// its family: its slug, its display name, which the next test pins, and the
+// two window fields, which TestCodexTableGivesTheSelectedModelItsDeclaredWindow
+// pins.
+func channelOwnField(field string) bool {
+	return field == "slug" || field == "display_name" || field == "context_window" || field == "max_context_window"
+}
 
 // TestCodexCatalogShowsTheChannelByItsOwnName projects a channel's alias
 // under the model's AIGW label without its provider, not under its family's
@@ -281,9 +201,12 @@ func TestCodexCatalogShowsTheChannelByItsOwnName(t *testing.T) {
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 		return ExecutableIdentity{Version: "0.160.0", SHA256: "client-catalog"}, bundled, nil
 	}
-	runtime := domain.Runtime{ModelLabel: "DMXAPI · GPT-6.1 Sol · CDX", ProviderLabel: "DMXAPI", ProviderID: "dmxapi"}
+	runtime := domain.Runtime{
+		ModelLabel: "DMXAPI · GPT-6.1 Sol · CDX", ProviderLabel: "DMXAPI", ProviderID: "dmxapi",
+		UpstreamModel: "gpt-6.1-sol-cdx", FamilyID: "gpt-6.1-sol", ContextWindow: domain.DefaultContextWindow,
+	}
 	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
-	plan := codexCatalogProjection(target, "gpt-6.1-sol-cdx", "gpt-6.1-sol", runtime.ModelName(), "", codexState{}, platform.FileSnapshot{})
+	plan := codexCatalogProjection(target, runtime, "", codexState{}, platform.FileSnapshot{})
 	var projected struct {
 		Models []map[string]json.RawMessage `json:"models"`
 	}
@@ -292,24 +215,6 @@ func TestCodexCatalogShowsTheChannelByItsOwnName(t *testing.T) {
 	}
 	if name := string(projected.Models[1]["display_name"]); name != `"GPT-6.1 Sol · CDX"` {
 		t.Fatalf("channel display name = %s, want the model's label without its provider", name)
-	}
-}
-
-func TestCodexCatalogProjectionKeepsAnExistingNativeWireModel(t *testing.T) {
-	const (
-		canonical = "gpt-6.1-sol"
-		wire      = "gpt-6.1-sol-cdx"
-	)
-	bundled := projectionCatalog(wire, "gpt-6-luna")
-	original := codexBundledCatalog
-	t.Cleanup(func() { codexBundledCatalog = original })
-	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
-		return ExecutableIdentity{Version: "0.160.0", SHA256: "client-catalog"}, bundled, nil
-	}
-	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
-	plan := codexCatalogProjection(target, wire, canonical, "", "", codexState{}, platform.FileSnapshot{})
-	if plan.state != catalogStateProjected || string(plan.data) != string(bundled) {
-		t.Fatalf("existing native wire model was rewritten: plan = %+v", plan)
 	}
 }
 
@@ -326,7 +231,8 @@ func TestCodexCatalogGivesAModelThatIsItsOwnFamilyNoAlias(t *testing.T) {
 		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, bundled, nil
 	}
 	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
-	plan := codexCatalogProjection(target, model, model, "", "", codexState{}, platform.FileSnapshot{})
+	selected := domain.Runtime{UpstreamModel: model, FamilyID: model, ContextWindow: domain.DefaultContextWindow}
+	plan := codexCatalogProjection(target, selected, "", codexState{}, platform.FileSnapshot{})
 	if plan.state != catalogStateProjected || string(plan.data) != string(bundled) {
 		t.Fatalf("a model that is its own family got table metadata: plan = %+v", plan)
 	}
@@ -449,6 +355,7 @@ func catalogTestRuntime(model string) domain.Runtime {
 	runtime := atomicTestRuntime()
 	runtime.UpstreamModel = model
 	runtime.FamilyID = "gpt-5.6-sol"
+	runtime.ContextWindow = domain.DefaultContextWindow
 	return runtime
 }
 

@@ -12,9 +12,10 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
-// TestRecordsOfTheReleasedFormRead decodes each pinned ownership record, which
-// the Hermes code of AIGW 0.8.1 wrote, and encodes it again: the record reads,
-// and its form keeps every byte.
+// TestRecordsOfTheReleasedFormRead decodes each pinned ownership record and
+// encodes it again: the record reads, and its form keeps every byte. The
+// records have the form that the Hermes code of AIGW 0.8.1 wrote; since then
+// only their digests have changed, with the settings that a projection writes.
 func TestRecordsOfTheReleasedFormRead(t *testing.T) {
 	records, err := filepath.Glob(filepath.Join("testdata", "projection-bytes", "*", "record.json.golden"))
 	if err != nil {

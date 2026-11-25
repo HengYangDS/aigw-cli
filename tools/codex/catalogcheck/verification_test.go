@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/domain"
 )
 
 const fakeBundledCatalog = `{"models":[{"slug":"gpt-5.6-sol","display_name":"Sol","priority":1},{"slug":"gpt-5.5","display_name":"Five","priority":2},{"slug":"gpt-6.1-sol","display_name":"Sol 6.1","context_window":500000,"reasoning_effort":"high","future":{"enabled":true}},{"slug":"gpt-6-luna","display_name":"Luna"}]}`
@@ -174,7 +175,7 @@ func TestCatalogVerificationPreservesProbeAndProjectionCleanupFailures(t *testin
 		directory = path
 		return &os.PathError{Op: "remove", Path: path, Err: os.ErrPermission}
 	}
-	_, err := verifyCatalog(executable, "openai.gpt-5.6-sol", "gpt-5.6-sol", "Alias")
+	_, err := verifyCatalog(executable, "openai.gpt-5.6-sol", "gpt-5.6-sol", "Alias", domain.DefaultContextWindow)
 	var exit *exec.ExitError
 	if directory == "" || !errors.As(err, &exit) || exit.ExitCode() != 7 || !errors.Is(err, os.ErrPermission) || !strings.Contains(err.Error(), directory) {
 		t.Fatalf("verification lost probe or cleanup cause: %v; directory %s", err, directory)
@@ -185,7 +186,7 @@ func TestCatalogVerificationPreservesProbeAndProjectionCleanupFailures(t *testin
 }
 
 func TestVerifyCatalogObservesTheClientsEffectiveCatalog(t *testing.T) {
-	verification, err := verifyCatalog(fakeCodexClient(t, true), "openai.gpt-5.6-sol", "gpt-5.6-sol", "Alias")
+	verification, err := verifyCatalog(fakeCodexClient(t, true), "openai.gpt-5.6-sol", "gpt-5.6-sol", "Alias", domain.DefaultContextWindow)
 	if err != nil {
 		t.Fatalf("verifyCatalog() error = %v", err)
 	}
@@ -211,7 +212,7 @@ func TestVerifyCatalogUsesExactFamilyForWireAlias(t *testing.T) {
 		family = "gpt-6.1-sol"
 		wire   = "gpt-6.1-sol-cdx"
 	)
-	verification, err := verifyCatalog(fakeCodexClient(t, true), wire, family, "Alias")
+	verification, err := verifyCatalog(fakeCodexClient(t, true), wire, family, "Alias", domain.DefaultContextWindow)
 	if err != nil {
 		t.Fatalf("verifyCatalog() error = %v", err)
 	}
@@ -229,7 +230,7 @@ func TestVerifyCatalogUsesExactFamilyForWireAlias(t *testing.T) {
 }
 
 func TestVerifyCatalogRejectsMissingFamily(t *testing.T) {
-	_, err := verifyCatalog(fakeCodexClient(t, true), "gpt-6.1-sol-cdx", "gpt-6.1", "Alias")
+	_, err := verifyCatalog(fakeCodexClient(t, true), "gpt-6.1-sol-cdx", "gpt-6.1", "Alias", domain.DefaultContextWindow)
 	if err == nil || !strings.Contains(err.Error(), `family "gpt-6.1" does not prove`) {
 		t.Fatalf("verifyCatalog() error = %v, want the absent family", err)
 	}
@@ -243,7 +244,7 @@ func TestVerifyCatalogPreservesLargeModelMetadata(t *testing.T) {
 	if err := os.WriteFile(os.Getenv(catalogFixturePath), []byte(catalog), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	verification, err := verifyCatalog(executable, "openai.gpt-5.6-sol", "gpt-5.6-sol", "Alias")
+	verification, err := verifyCatalog(executable, "openai.gpt-5.6-sol", "gpt-5.6-sol", "Alias", domain.DefaultContextWindow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +254,7 @@ func TestVerifyCatalogPreservesLargeModelMetadata(t *testing.T) {
 }
 
 func TestVerifyCatalogRejectsAClientThatIgnoresTheConfiguredCatalog(t *testing.T) {
-	verification, err := verifyCatalog(fakeCodexClient(t, false), "openai.gpt-5.6-sol", "gpt-5.6-sol", "Alias")
+	verification, err := verifyCatalog(fakeCodexClient(t, false), "openai.gpt-5.6-sol", "gpt-5.6-sol", "Alias", domain.DefaultContextWindow)
 	if err != nil {
 		t.Fatalf("verifyCatalog() error = %v", err)
 	}
@@ -305,6 +306,7 @@ func TestCheckRejectsAnUnknownModelInTheEffectiveCatalog(t *testing.T) {
 		Adapted:   modelProbe{Model: "openai.gpt-5.6-sol", Present: true, MetadataSHA256: "base"},
 		Unknown:   modelProbe{Model: unknownProbeModel, Present: true, MetadataSHA256: "unknown"},
 	}
+	verification.DeclaredWindow, verification.ContextWindow, verification.MaxContextWindow = loweredWindow, loweredWindow, loweredWindow
 	err := verification.Check()
 	if err == nil || !strings.Contains(err.Error(), "unexpectedly exists in the effective catalog") {
 		t.Fatalf("Check() error = %v", err)
@@ -334,11 +336,10 @@ func TestVerifyCatalogReportsWhatItCannotVerify(t *testing.T) {
 	}{
 		{"client is absent", filepath.Join(t.TempDir(), "absent"), "openai.gpt-5.6-sol", "gpt-5.6-sol", "read Codex executable"},
 		{"family is not in the table", executable, "openai.not-a-model", "not-a-model", "does not prove a Codex catalog entry"},
-		{"model needs no catalog", executable, "gpt-5.6-sol", "gpt-5.6-sol", "does not prove a Codex catalog entry"},
 		{"model is its own family", executable, "openai.gpt-5.6-sol", "openai.gpt-5.6-sol", "does not prove a Codex catalog entry"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			_, err := verifyCatalog(testCase.executable, testCase.model, testCase.family, "Alias")
+			_, err := verifyCatalog(testCase.executable, testCase.model, testCase.family, "Alias", domain.DefaultContextWindow)
 			if err == nil || !strings.Contains(err.Error(), testCase.wantError) {
 				t.Fatalf("verifyCatalog() error = %v, want %q", err, testCase.wantError)
 			}
@@ -361,7 +362,7 @@ func TestProbeCodexCatalogCanReadTheClientsDefaultCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	probe := catalogProbe(document, "gpt-5.6-sol")
+	probe := catalogProbe(document, "gpt-5.6-sol", nil)
 	if !probe.Present {
 		t.Fatalf("catalogProbe() = %+v", probe)
 	}
@@ -378,6 +379,7 @@ func TestCheckRejectsAnAliasShownUnderTheNameOfAnotherEntry(t *testing.T) {
 		Unknown:    modelProbe{Model: unknownProbeModel},
 		SharedName: []string{"gpt-6.2-sol"},
 	}
+	verification.DeclaredWindow, verification.ContextWindow, verification.MaxContextWindow = loweredWindow, loweredWindow, loweredWindow
 	err := verification.Check()
 	if err == nil || !strings.Contains(err.Error(), "under the name of gpt-6.2-sol") {
 		t.Fatalf("Check() error = %v", err)

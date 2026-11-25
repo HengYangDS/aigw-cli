@@ -91,6 +91,10 @@ type ClientSpec struct {
 	// InAppAcceptance marks a client whose session only acceptance inside its
 	// own app proves, so `aigw check` runs no session of it.
 	InAppAcceptance bool
+	// ContextWindow marks a client that AIGW tells a model's context window.
+	// Only such a client's runtime carries one, so a changed window is a
+	// change for no other client.
+	ContextWindow bool
 }
 
 func naturalChoices(choices []string) string {

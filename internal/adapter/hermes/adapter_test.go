@@ -176,7 +176,7 @@ func TestHermesCatalogUsesProviderWireModelIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if desired.SelectedModel != "gpt-6-astra-ssvip" || len(desired.Providers) != 1 || !slices.Equal(desired.Providers[0].Models, []string{"gpt-6-astra", "gpt-6-astra-ssvip"}) {
+	if desired.SelectedModel != "gpt-6-astra-ssvip" || len(desired.Providers) != 1 || !slices.Equal(listedIDs(desired.Providers[0].Models), []string{"gpt-6-astra", "gpt-6-astra-ssvip"}) {
 		t.Fatalf("Hermes wire catalog = %#v", desired)
 	}
 }
@@ -204,7 +204,7 @@ func TestHermesCatalogFollowsConfigurationOrder(t *testing.T) {
 	var got []string
 	for _, provider := range catalog {
 		got = append(got, provider.ID)
-		if !slices.Equal(provider.Models, []string{"wire-z", "wire-a"}) {
+		if !slices.Equal(listedIDs(provider.Models), []string{"wire-z", "wire-a"}) {
 			t.Fatalf("provider %s reordered exact wires lexically: %v", provider.ID, provider.Models)
 		}
 	}
@@ -233,7 +233,7 @@ func TestHermesCatalogCoversShippedModelWireIDs(t *testing.T) {
 	}
 	models := make(map[string][]string, len(catalog))
 	for _, provider := range catalog {
-		models[provider.ID] = provider.Models
+		models[provider.ID] = listedIDs(provider.Models)
 	}
 	spec := New().Spec()
 	for _, routeID := range cfg.ModelRefs() {

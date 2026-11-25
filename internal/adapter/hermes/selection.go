@@ -57,7 +57,9 @@ func classifySelection(root *yaml.Node, state ownership) (Selection, selectionKi
 	if field(model, "default") == nil || models == nil {
 		return selection, kindEdited
 	}
-	if slices.ContainsFunc(models.Content, func(node *yaml.Node) bool { return node.Value == selection.Model }) {
+	// An entry's models are a mapping from model ID, or a list of IDs in a file
+	// that an earlier release wrote; one reader serves both.
+	if slices.Contains(modelIDs(models), selection.Model) {
 		return selection, kindListed
 	}
 	return selection, kindUnlisted
@@ -192,14 +194,14 @@ func onlySelectionDiffers(root *yaml.Node, state ownership) bool {
 	defer setField(root, "model", model)
 	for _, providerID := range state.ProviderIDs {
 		owned := field(field(root, "providers"), providerID)
-		baseURL, transport, candidates := field(owned, "base_url"), field(owned, "transport"), field(owned, "models")
-		if baseURL == nil || transport == nil || candidates == nil {
+		baseURL, transport := field(owned, "base_url"), field(owned, "transport")
+		if baseURL == nil || transport == nil {
 			continue
 		}
-		for _, candidate := range candidates.Content {
+		for _, candidate := range modelIDs(field(owned, "models")) {
 			replacement := mapping()
 			setString(replacement, "provider", providerID)
-			setString(replacement, "default", candidate.Value)
+			setString(replacement, "default", candidate)
 			setString(replacement, "base_url", baseURL.Value)
 			setString(replacement, "api_mode", transport.Value)
 			setField(root, "model", replacement)

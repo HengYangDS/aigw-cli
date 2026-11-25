@@ -43,12 +43,18 @@ type endpointsDocument struct {
 	Chat      string `toml:"chat,omitempty"`
 }
 
+// modelDocument is one model of a provider. ContextWindow is absent for a
+// model whose window is the default, so that such a model is written as it
+// was before the field existed. A file may hold the default all the same,
+// which reads as no declaration (domain.DeclaredContextWindow); a pointer
+// tells an absent field from a zero, which is refused.
 type modelDocument struct {
-	ID         string                                          `toml:"id"`
-	Family     string                                          `toml:"family,omitempty"`
-	Label      string                                          `toml:"label,omitempty"`
-	Protocols  map[domain.EndpointProtocol][]domain.Capability `toml:"protocols,inline"`
-	Deprecated bool                                            `toml:"deprecated,omitempty"`
+	ID            string                                          `toml:"id"`
+	Family        string                                          `toml:"family,omitempty"`
+	Label         string                                          `toml:"label,omitempty"`
+	Protocols     map[domain.EndpointProtocol][]domain.Capability `toml:"protocols,inline"`
+	ContextWindow *int                                            `toml:"context_window,omitempty"`
+	Deprecated    bool                                            `toml:"deprecated,omitempty"`
 }
 
 type familyDocument struct {
@@ -156,11 +162,19 @@ func (d document) config(admission domain.Admission) (domain.Config, error) {
 			return domain.Config{}, domain.NewEntryError("provider `"+provider.ID+"`", err)
 		}
 		for _, model := range provider.Models {
-			if err := cfg.AppendModel(domain.Model{
+			modelEntry := "model `" + provider.ID + "/" + model.ID + "`"
+			described := domain.Model{
 				Provider: provider.ID, ID: model.ID, Family: model.Family, Label: model.Label,
 				Protocols: model.Protocols, Deprecated: model.Deprecated,
-			}); err != nil {
-				return domain.Config{}, domain.NewEntryError("model `"+provider.ID+"/"+model.ID+"`", err)
+			}
+			if model.ContextWindow != nil {
+				if err := domain.ValidateContextWindow(*model.ContextWindow); err != nil {
+					return domain.Config{}, domain.NewEntryError(modelEntry, fmt.Errorf("model %s: %w", described.Ref(), err))
+				}
+				described.ContextWindow = domain.DeclaredContextWindow(*model.ContextWindow)
+			}
+			if err := cfg.AppendModel(described); err != nil {
+				return domain.Config{}, domain.NewEntryError(modelEntry, err)
 			}
 		}
 	}
@@ -245,9 +259,13 @@ func newDocument(cfg domain.Config) document {
 			if protocols == nil {
 				protocols = map[domain.EndpointProtocol][]domain.Capability{}
 			}
-			entry.Models = append(entry.Models, modelDocument{
+			declared := modelDocument{
 				ID: model.ID, Family: model.Family, Label: model.Label, Protocols: protocols, Deprecated: model.Deprecated,
-			})
+			}
+			if window := domain.DeclaredContextWindow(model.Window()); window != 0 {
+				declared.ContextWindow = &window
+			}
+			entry.Models = append(entry.Models, declared)
 		}
 		described.Providers = append(described.Providers, entry)
 	}

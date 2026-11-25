@@ -32,7 +32,7 @@ func TestCredentialReaderIgnoresWhatItsViewLeavesOut(t *testing.T) {
 		"a newer version and unknown fields": {
 			"version = 8", "version = 99\nfuture = 'unknown'",
 			"label = 'Gateway'", "label = 'Gateway'\nregion = 'eu'",
-			"id = 'codex-team'", "id = 'codex-team'\ncontext_window = 1000000",
+			"id = 'codex-team'", "id = 'codex-team'\ntier = 'priority'",
 			"enabled = true", "enabled = true\ntheme = 'dark'\n\n[telemetry]\nlevel = 2",
 		},
 		"malformed fields outside the view": {

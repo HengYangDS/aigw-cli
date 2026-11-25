@@ -17,5 +17,6 @@ providers:
     transport: codex_responses
     key_cmd: aigw credential hermes projection-test
     models:
-      - model-test
+      model-test:
+        context_length: 256000
     discover_models: false

@@ -10,12 +10,14 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/domain"
 )
 
 func stubVerifier(t *testing.T, verification verificationResult, err error) {
 	t.Helper()
 	original := verifyModelCatalog
-	verifyModelCatalog = func(string, string, string, string) (verificationResult, error) {
+	verifyModelCatalog = func(string, string, string, string, int) (verificationResult, error) {
 		return verification, err
 	}
 	t.Cleanup(func() { verifyModelCatalog = original })
@@ -99,7 +101,7 @@ func TestRunPassesFamilyToVerifier(t *testing.T) {
 	original := verifyModelCatalog
 	t.Cleanup(func() { verifyModelCatalog = original })
 	var gotModel, gotFamily, gotName string
-	verifyModelCatalog = func(_, model, family, name string) (verificationResult, error) {
+	verifyModelCatalog = func(_, model, family, name string, _ int) (verificationResult, error) {
 		gotModel, gotFamily, gotName = model, family, name
 		return sampleVerification(), nil
 	}
@@ -232,7 +234,7 @@ func TestReportRendersEveryMeasuredSelection(t *testing.T) {
 		"codex-cli 0.146.0",
 		"openai.gpt-5.6-sol",
 		"gpt-5.6-sol",
-		"family, client's own table",
+		"base, client's own table",
 		"model, no catalog",
 		"model, generated catalog",
 		"unknown model, generated catalog",
@@ -268,14 +270,17 @@ func sampleVerification() verificationResult {
 	unknown := fallback
 	unknown.Model = "no-such-model"
 	return verificationResult{
-		ClientVersion: "codex-cli 0.146.0",
-		ClientSHA256:  "134063e133f0b4244fa3b251acf973d4fe4b4aeeacbdc135211bf480f59f1477",
-		Model:         "openai.gpt-5.6-sol",
-		BaseSlug:      "gpt-5.6-sol",
-		Reference:     resolved,
-		Unadapted:     fallback,
-		Adapted:       adapted,
-		Unknown:       unknown,
+		ClientVersion:    "codex-cli 0.146.0",
+		ClientSHA256:     "134063e133f0b4244fa3b251acf973d4fe4b4aeeacbdc135211bf480f59f1477",
+		Model:            "openai.gpt-5.6-sol",
+		BaseSlug:         "gpt-5.6-sol",
+		DeclaredWindow:   domain.DefaultContextWindow,
+		ContextWindow:    domain.DefaultContextWindow,
+		MaxContextWindow: domain.DefaultContextWindow,
+		Reference:        resolved,
+		Unadapted:        fallback,
+		Adapted:          adapted,
+		Unknown:          unknown,
 	}
 }
 

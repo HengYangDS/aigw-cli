@@ -204,45 +204,8 @@ func validateCodexCatalog(path, text string, state codexState) error {
 	if err := validateCodexCatalogReference(path, text, state); err != nil {
 		return err
 	}
-	if state.CatalogHash == "" {
-		return nil
-	}
-	// The catalog is written beside the canonical configuration path, because that
-	// is the identity the projection transaction resolves targets to. Validation
-	// resolves the caller's path the same way, so a symlinked configuration
-	// directory does not read as a mismatch.
-	canonical, err := platform.CanonicalPath(path)
-	if err != nil {
-		return err
-	}
-	catalogPath := codexCatalogPath(canonical)
-	// The catalog's type and permissions are as much a part of what AIGW owns as
-	// its bytes, so they are checked before the contents: a symlink or a widened
-	// mode at the managed path is a drift worth reporting on its own.
-	info, err := os.Lstat(catalogPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("Codex model catalog is missing")
-		}
-		return fmt.Errorf("read Codex model catalog: %w", err)
-	}
-	if !info.Mode().IsRegular() {
-		return fmt.Errorf("Codex model catalog is not a regular file: %s", info.Mode())
-	}
-	if catalogModeIsEnforceable() && info.Mode().Perm() != 0o600 {
-		return fmt.Errorf("Codex model catalog is not owner-only: %s", info.Mode().Perm())
-	}
-	data, err := os.ReadFile(catalogPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("Codex model catalog is missing")
-		}
-		return fmt.Errorf("read Codex model catalog: %w", err)
-	}
-	if platform.SHA256(data) != state.CatalogHash {
-		return newConflictError("Codex config conflict: AIGW-managed model catalog changed; refusing to overwrite user edits", nil)
-	}
-	return nil
+	_, err := recordedCatalog(path, state)
+	return err
 }
 
 func validateCodexCatalogReference(path, text string, state codexState) error {
@@ -251,7 +214,7 @@ func validateCodexCatalogReference(path, text string, state codexState) error {
 		return fmt.Errorf("parse Codex config catalog reference: %w", err)
 	}
 	if state.CatalogHash == "" {
-		if strings.HasSuffix(strings.TrimSpace(line), "# managed by AIGW") {
+		if managedLine(line) {
 			return newConflictError("Codex config references an AIGW-managed model catalog that AIGW does not own", nil)
 		}
 		return nil
@@ -466,7 +429,13 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 // isManagedSelection compares the parsed TOML value while requiring the owned
 // comment. Equivalent string spelling is not an ownership conflict.
 func isManagedSelection(line, key, value string) bool {
-	return selectionHasValue(line, key, value) && strings.HasSuffix(strings.TrimSpace(line), "# managed by AIGW")
+	return selectionHasValue(line, key, value) && managedLine(line)
+}
+
+// managedLine reports whether a line of a Codex file carries the comment with
+// which AIGW marks a line that it wrote.
+func managedLine(line string) bool {
+	return strings.HasSuffix(strings.TrimSpace(line), "# managed by AIGW")
 }
 
 // selectionValue returns the string that line assigns to key, and whether

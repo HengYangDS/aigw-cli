@@ -23,6 +23,10 @@ const ID = "codex"
 // AIGW-owned Codex projections.
 const modelProviderAIGW = "aigw"
 
+// driftIssue opens the adapter's issue over a file of Codex's that does not
+// match the selection.
+const driftIssue = "Codex configuration drift: "
+
 // codexAdapter is the Codex client adapter behind the client seam.
 type codexAdapter struct{}
 
@@ -33,7 +37,7 @@ func (codexAdapter) Spec() domain.ClientSpec {
 	return domain.ClientSpec{
 		ID: ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses},
 		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
-		DefaultModelProvider: modelProviderAIGW, ClientNativeAuthentication: true,
+		DefaultModelProvider: modelProviderAIGW, ClientNativeAuthentication: true, ContextWindow: true,
 	}
 }
 
@@ -129,7 +133,8 @@ func (codexAdapter) ProjectionChanged(before, after domain.Config) bool {
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
 		beforeRuntime.UpstreamModel != afterRuntime.UpstreamModel ||
 		beforeRuntime.ModelProvider != afterRuntime.ModelProvider ||
-		beforeRuntime.Authentication != afterRuntime.Authentication
+		beforeRuntime.Authentication != afterRuntime.Authentication ||
+		(beforeRuntime.ContextWindow != afterRuntime.ContextWindow && windowReaches(afterBinding.Targets, afterRuntime))
 }
 
 func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime) adapter.Status {
@@ -148,7 +153,7 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 	// first such file decides the client's step, whichever file comes last.
 	edited := false
 	for index, target := range binding.Targets {
-		check := adapter.Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "model " + runtime.Model.String(), Target: target}
+		check := adapter.Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Target: target}
 		issue, detail, repair, conflict := inspectTarget(deps, cfg, runtime, target)
 		if detail != "" {
 			check.Ready = false
@@ -162,6 +167,21 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 		}
 		status.Checks = append(status.Checks, check)
 	}
+	// The window checks follow every target's own check, each numbered as its
+	// target is. One that is not ready is the adapter's issue as a target's own
+	// check is, unless a target's own check failed: a sync repairs a window,
+	// and is not always the repair of a target's own failure.
+	ownReady := status.Ready
+	for index, target := range binding.Targets {
+		check, read := windowCheck(index, target, runtime)
+		if !read {
+			continue
+		}
+		if !check.Ready && ownReady {
+			status.Ready, status.Issue, status.RepairAction = false, driftIssue+check.Detail, check.RepairAction
+		}
+		status.Checks = append(status.Checks, check)
+	}
 
 	return status
 }
@@ -169,7 +189,7 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 // inspectTarget inspects one configured Codex file: what does not match the
 // selection, with its issue and repair, or no detail when it matches.
 func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, target string) (issue, detail, repair string, conflict bool) {
-	issue, repair = "Codex configuration drift: ", "aigw sync"
+	issue, repair = driftIssue, "aigw sync"
 	// A missing file, or a path that a file in the way or a link that leads
 	// nowhere blocks, which Windows reports as missing, is found before the
 	// credential reader that it names is read through it, which would only fail.

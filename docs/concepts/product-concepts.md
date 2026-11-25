@@ -72,6 +72,17 @@ or a model's name.
 Model IDs are the provider's own strings. AIGW does not infer a capability or
 version policy from their spelling.
 
+A model may declare `context_window`, the number of tokens that AIGW tells
+Codex and Hermes to use as the model's context window: a whole number from
+64,000 to 100,000,000. A model that declares none has 1,000,000.
+`aigw model add` and `aigw model edit` set it with
+`--context-window <tokens>`, a team file may declare it, and
+`aigw model edit --default-context-window` removes the declaration.
+`aigw model show` and `aigw model list --json` report every model's window,
+and human output of `aigw model list` a window that differs from the default.
+The number is what AIGW tells a client; it is not evidence that the provider
+serves that many tokens.
+
 Authentication defaults to `provider-token`, which uses the provider's Token in
 the selected backend. A client may instead select admitted client-native
 authentication and its native provider identity. That client then owns
@@ -109,12 +120,19 @@ selection changes.
 ### Client files
 
 - **Codex:** recorded provider and model configuration, with a Token helper or
-  explicit client-native authentication.
+  explicit client-native authentication, and the selected model's declared
+  context window in the model table that AIGW writes. Codex's own table
+  describes families, not every provider's model: for a model whose family it
+  lacks AIGW writes no entry and Codex chooses the window itself. AIGW writes
+  no table for a `model_catalog_json` of the user's own or a model provider of
+  Codex's own, so Codex is not given the declared window there. A check of
+  `aigw check codex` says which applies; human output lists it with
+  `--verbose`, and JSON always holds it.
 - **Claude Code:** official user-settings endpoint and model, and a credential
   helper.
 - **Claude Desktop:** its separate third-party inference library.
-- **Hermes:** its native provider catalog, explicit protocol and model
-  selection, and credential commands.
+- **Hermes:** its native provider catalog with each model's declared context
+  window, explicit protocol and model selection, and credential commands.
 
 An admitted client adapter writes and withdraws only AIGW's settings in its
 client's files; it does not own provider behavior. Missing and unselected

@@ -27,6 +27,17 @@ const (
 	// file that this build reads and writes.
 	ConfigVersion = 8
 
+	// DefaultContextWindow is the context window, in tokens, of a model that
+	// declares none.
+	DefaultContextWindow int = 1_000_000
+	// MinContextWindow is the lowest context window, in tokens, that a model
+	// may declare: Hermes refuses a session below 64,000 tokens.
+	MinContextWindow int = 64_000
+	// MaxContextWindow is the highest context window, in tokens, that a model
+	// may declare: Codex multiplies a window by 95 in 64-bit integers, which
+	// 100,000,000 keeps far from an overflow.
+	MaxContextWindow int = 100_000_000
+
 	// AuthenticationProviderToken sends the provider's Token, which AIGW
 	// stores.
 	AuthenticationProviderToken Authentication = "provider-token"
@@ -95,14 +106,39 @@ type Family struct {
 // Model is one provider's model, named `provider/model`: ID is the provider's
 // own model ID, byte for byte. Family is empty for a model that is its own
 // family. Protocols maps each protocol on which AIGW may use the model to the
-// capabilities qualified there.
+// capabilities qualified there. ContextWindow is the context window, in
+// tokens, that the model declares, or zero for a model that declares none:
+// DeclaredContextWindow gives it for a window, and Window the window for it.
 type Model struct {
-	Provider   string
-	ID         string
-	Family     string
-	Label      string
-	Protocols  map[EndpointProtocol][]Capability
-	Deprecated bool
+	Provider      string
+	ID            string
+	Family        string
+	Label         string
+	Protocols     map[EndpointProtocol][]Capability
+	ContextWindow int
+	Deprecated    bool
+}
+
+// Window returns the context window, in tokens, that AIGW tells a client to
+// use for the model: the one that it declares, or DefaultContextWindow.
+func (model Model) Window() int {
+	if model.ContextWindow != 0 {
+		return model.ContextWindow
+	}
+	return DefaultContextWindow
+}
+
+// DeclaredContextWindow returns what a model stores as its ContextWindow for
+// a context window of tokens: zero, as a model that declares none, for
+// DefaultContextWindow, and tokens for any other window. A model so declares
+// a window only when it differs from the default, and a window has one
+// spelling: whatever gives a model a window, a file or a command, stores what
+// this function returns.
+func DeclaredContextWindow(tokens int) int {
+	if tokens == DefaultContextWindow {
+		return 0
+	}
+	return tokens
 }
 
 // FamilyID returns the model's family: its declared family, or the model ID
@@ -157,6 +193,9 @@ type Runtime struct {
 	// order for any other. A client that knows a vendor's model IDs learns
 	// from it which of them the provider serves, and as what.
 	FamilyVariants map[string]string `json:"-"`
+	// ContextWindow is the selected model's Window, in tokens, for a client
+	// that AIGW tells it (ClientSpec.ContextWindow), and zero for any other.
+	ContextWindow int `json:"-"`
 }
 
 // ModelName is the model's label without the provider's name and its
@@ -522,6 +561,10 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		}
 		endpoint = strings.TrimRight(forwarding, "/")
 	}
+	window := 0
+	if spec.ContextWindow {
+		window = model.Window()
+	}
 	return Runtime{
 		RetryPolicy:       c.retryPolicyFor(client, selection, upstream, protocol),
 		Model:             ref,
@@ -538,6 +581,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
 		FamilyVariants:    c.familyVariants(ref, protocol),
+		ContextWindow:     window,
 	}, nil
 }
 

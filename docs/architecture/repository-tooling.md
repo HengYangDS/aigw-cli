@@ -14,8 +14,9 @@ Repository-only executables follow the same ontology: [CI](../../tools/ci/),
 under its client owner. [Codex catalog verification](../../tools/codex/catalogcheck/) owns catalog acceptance,
 measurements and reporting. It consumes the same [catalog projection](../../internal/adapter/codex/modelcatalog/)
 document transformation as product projection, not a second parser or alias
-builder. That document owner preserves all client metadata and adds only
-uniquely established aliases. [Codex integration](../../internal/adapter/codex/) owns isolated client reads,
+builder. That document owner preserves all client metadata apart from the
+two window fields of the selected model's entry, which hold the model's
+declared context window, and adds only uniquely established aliases. [Codex integration](../../internal/adapter/codex/) owns isolated client reads,
 executable identity, projection state and transactional file ownership; it does
 not carry repository acceptance verdicts.
 

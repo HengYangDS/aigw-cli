@@ -7,9 +7,9 @@ import (
 )
 
 // TeamMerge is what applying a team file did: what it added and changed,
-// what stayed local and why, the capabilities that it dropped, the protocols
-// that it left unusable, and what pruning removed. It names models by
-// reference.
+// the context windows that it changed, what stayed local and why, the
+// capabilities that it dropped, the protocols that it left unusable, and what
+// pruning removed. It names models by reference.
 type TeamMerge struct {
 	AddedProviders, AddedFamilies     []string
 	AddedModels                       []ModelRef
@@ -17,6 +17,7 @@ type TeamMerge struct {
 	ChangedProviders, ChangedFamilies []string
 	ChangedModels                     []ModelRef
 	ChangedLabels                     []ChangedLabel
+	ChangedWindows                    []ChangedWindow
 	ChangedRecommendations            []string
 	KeptEndpoints                     []KeptEndpoint
 	KeptProbes                        []KeptProbe
@@ -31,6 +32,15 @@ type TeamMerge struct {
 	// recommendation names, and the families that no remaining model uses.
 	KeptLocalModels   []ModelRef
 	KeptLocalFamilies []string
+}
+
+// ChangedWindow is an existing model whose context window the team file
+// changes: Local is the window, in tokens, that the model had, and File the
+// one that the file's definition gives it, the file's declaration or the
+// default where it declares none.
+type ChangedWindow struct {
+	Model       ModelRef
+	Local, File int
 }
 
 // ChangedLabel is the label that the team file replaces on an existing
@@ -269,8 +279,9 @@ func removableLocalEntries(merged *Config, incoming Config) ([]ModelRef, []strin
 	return models, families
 }
 
-// compare records what the merge added, changed and pruned, and every label
-// that it replaced: providers', then models', then families'.
+// compare records what the merge added, changed and pruned, every label that
+// it replaced, providers', then models', then families', and every model's
+// window that it changed.
 func (report *TeamMerge) compare(before, after Config) {
 	for _, id := range slices.Sorted(maps.Keys(after.Providers)) {
 		if previous, existed := before.Providers[id]; !existed {
@@ -289,6 +300,9 @@ func (report *TeamMerge) compare(before, after Config) {
 			report.ChangedModels = append(report.ChangedModels, ref)
 			if previous.Label != model.Label {
 				report.ChangedLabels = append(report.ChangedLabels, ChangedLabel{Model: ref, Local: previous.Label, File: model.Label})
+			}
+			if previous.Window() != model.Window() {
+				report.ChangedWindows = append(report.ChangedWindows, ChangedWindow{Model: ref, Local: previous.Window(), File: model.Window()})
 			}
 		}
 	}

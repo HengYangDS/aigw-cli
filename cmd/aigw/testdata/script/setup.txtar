@@ -479,7 +479,7 @@ anthropic = "https://team.invalid"
 -- empty-file --
 -- team-preview.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "dry_run": true,
   "added": {
@@ -568,7 +568,7 @@ Next
 }
 -- team-rejected.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": false,
   "added": {
     "providers": [
@@ -623,7 +623,7 @@ Next
 }
 -- team-connected.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "added": {
     "providers": [],
@@ -671,7 +671,7 @@ Next
 }
 -- again-preview.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "dry_run": true,
   "added": {
@@ -782,7 +782,7 @@ Next
 }
 -- again.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "added": {
     "providers": [],
@@ -911,7 +911,7 @@ Next
   aigw check
 -- pruned.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "added": {
     "providers": [],
@@ -986,7 +986,7 @@ Next
 }
 -- deferred.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "added": {
     "providers": [
@@ -1038,7 +1038,7 @@ Next
 }
 -- deferred-empty.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "added": {
     "providers": [],
@@ -1079,7 +1079,7 @@ Next
 }
 -- away.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "added": {
     "providers": [],
