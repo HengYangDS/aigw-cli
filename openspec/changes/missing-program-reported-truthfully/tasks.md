@@ -68,14 +68,17 @@
 
 ## 7. Local gates
 
-- [ ] 7.1 Pass `mise run check` on the lane head, in the host queue.
-- [ ] 7.2 Pass `mise run native` on the macOS host on the lane head, in the host queue.
+- [x] 7.1 Pass `mise run check` on the lane head, in the host queue. `50696f237`, 2026-11-26 11:25: statement
+      coverage 95.79%.
+- [x] 7.2 Pass `mise run native` on the macOS host on the lane head, in the host queue. `50696f237`, 11:31: every
+      package ok.
 
 ## 8. Review
 
 - [x] 8.1 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
       code or in the design. Twelve findings (`build/evidence/lane-20261125-program-truth/independent-review.md` in the
-      main checkout), answered by the coordinator's rulings of 2026-11-26 in D2, D3 and D4.
+      main checkout), answered by the coordinator's rulings of 2026-11-26 in D2, D3 and D4; a verification review of
+      the answers (same file's sibling `review-answers.md`) found two more, answered in `8037336cf`.
 
 ## 9. Exact-HEAD proof
 
