@@ -82,15 +82,15 @@
 
 ## 9. Exact-HEAD proof
 
-- [ ] 9.1 Pass the ETHOS full proof of the lane head.
+- [x] 9.1 Pass the ETHOS full proof of the lane head. `bc3dd9487`, 2026-11-26 11:48: pass, proven.
 
 ## 10. Hosted CI
 
-- [ ] 10.1 Pass the proposal's GitHub checks `Native macOS acceptance`, `Native Linux acceptance`,
-      `Linux Secret Service` and `Quality and governance`.
-- [ ] 10.2 Pass the proposal's GitLab pipeline on the macOS and Linux runners.
+- [x] 10.1 Pass the proposal's GitHub checks `Native macOS acceptance`, `Native Linux acceptance`,
+      `Linux Secret Service` and `Quality and governance`. Pull request 288 at `bc3dd9487`: 4 passed, 2 skipped.
+- [x] 10.2 Pass the proposal's GitLab pipeline on the macOS and Linux runners. Pipeline 18303 at `bc3dd9487`, 12:20.
 
 ## 11. Publication
 
-- [ ] 11.1 Publish the proven lane head as the lane's proposal branch on both forges. Done when each forge reads back
-      the exact head.
+- [x] 11.1 Publish the proven lane head as the lane's proposal branch on both forges. Done when each forge reads back
+      the exact head. Both read back `bc3dd9487` (GitHub 11:49, GitLab 12:0x).
