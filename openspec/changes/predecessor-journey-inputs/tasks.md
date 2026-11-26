@@ -1,0 +1,14 @@
+## 1. The predecessor journey's inputs
+
+- [ ] 1.1 Give a published baseline the shipped team file without its models' context windows, in the per-client
+      journey and the Codex connection-retries journey. Done when `go vet ./tools/release` passes and the candidate's
+      journeys still prepare the unchanged team file.
+- [ ] 1.2 Run the candidate's sync with its configuration and credential checks before the candidate judges the
+      baseline step. Done when `go vet ./tools/release` passes and the baseline step is the only step that does so.
+
+## 2. Verification
+
+- [ ] 2.1 A fresh review of this Change by a reviewer who has not seen it. Done when its findings are answered in code
+      or in this design.
+- [ ] 2.2 Pass `mise run check` on the lane head.
+- [ ] 2.3 Pass the proposal's hosted checks on both Forges.
