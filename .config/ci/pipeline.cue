@@ -358,12 +358,13 @@ _graphOrder: {
 	}
 }
 
-miseImage:   "docker.io/jdxcode/mise:2026.11.7-debian@sha256:0e4c7634244a6e09b99bf2b5aa2934d29837c400a6af53dd6fb3690b92b1d31f"
+miseImage:   "docker.io/jdxcode/mise:2026.11.14-debian@sha256:a7df8beaeca2fc6d2e829278e5eef253330db5cde50bb196462616573107b120"
 miseVersion: strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
 // AIGW's runner-owned Mise on GitLab's macOS ARM64 host; the other projects
-// keep the host's shared Homebrew Mise.
-miseMacosArm64ExecutableSHA256: "0f7cb85b5c17208cb67088105bd1754c38314cb824cc97d109631b6df638f6fc"
-miseMacosArm64Directory:        "/opt/mise-aigw-cli/bin"
+// keep the host's shared Homebrew Mise. The directory names its release, so the
+// host can hold the next release beside the one that running jobs verify.
+miseMacosArm64ExecutableSHA256: "ad39dddb61236cc546ecbd0294aa3fc72a5ae7f1f8c7e6dc6fd4211f99eb3b79"
+miseMacosArm64Directory:        "/opt/mise-aigw-cli/\(miseVersion)/bin"
 // GitLab's macOS jobs verify that Mise before any locked tool runs and make
 // the word `mise` run it for the rest of the job: first on PATH, and without
 // the shell function that a login profile's `mise activate` defines, which
@@ -426,7 +427,7 @@ nativeArtifactScope: {
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
-	mise:     "jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d"         // v5.2.9
+	mise:     "jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78"         // v5.3.0
 	upload:   "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" // v7.0.2
 }
 

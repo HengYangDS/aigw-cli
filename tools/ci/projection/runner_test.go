@@ -236,6 +236,11 @@ func pinnedMacOSRunnerMise(t *testing.T, root string) macosRunnerMise {
 	if !strings.HasPrefix(identity.Directory, "/opt/mise-aigw-cli/") {
 		t.Fatalf("CUE must name an AIGW-only runner Mise directory, not %q", identity.Directory)
 	}
+	// The directory names its release, so the host can hold the next release
+	// beside the one that running jobs verify.
+	if !slices.Contains(strings.Split(identity.Directory, "/"), identity.Version) {
+		t.Fatalf("CUE must name the runner Mise directory after its release %q, not %q", identity.Version, identity.Directory)
+	}
 	return identity
 }
 

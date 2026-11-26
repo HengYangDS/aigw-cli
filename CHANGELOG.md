@@ -127,6 +127,11 @@ signing, and GA status remain separate evidence.
 - The terminal experience guide states what a dry run runs: read-only probes
   of a client's executable, such as Codex's `--version` and
   `debug models --bundled`, in a temporary directory of its own.
+- CI runs Mise 2026.11.14 in every job on both Forges, and GitHub's jobs
+  install it with mise-action 5.3.0. AIGW's own Mise on GitLab's macOS runner
+  host now lives in a directory named by its release, so the next release can
+  be installed beside the current one before CI moves to it. The released
+  program does not change.
 
 ### Removed
 
