@@ -42,17 +42,17 @@ fallbacks.
   owns, such as GitLab's macOS ARM64 Mise
 - **THEN** the CUE authority SHALL pin that release's version and executable
   digests from the verified upstream release
-- **AND** the runner's executable SHALL be replaced in a window without running
-  jobs before any job consumes the new declaration.
+- **AND** the runner SHALL hold the verified executable before any job consumes
+  the new declaration, without changing the executable that a running job uses.
 
 #### Scenario: A refresh has no window for a runner-owned tool
 
 - **WHEN** the candidate calculation reports a newer release of a tool whose
-  executable a CI runner owns, and the refresh cannot hold that runner's
-  window before its proposal is published
+  executable a CI runner owns, and the runner cannot hold that release before
+  the refresh's proposal is published
 - **THEN** the refresh SHALL keep the pinned release
 - **AND** it SHALL name the Change that moves the declaration together with
-  its window, with an owner and a date.
+  the runner's installation, with an owner and a date.
 
 #### Scenario: An admitted tool release fails its own consistency check
 
@@ -354,7 +354,8 @@ supply chain SHALL NOT be described as current while a pin is unread.
 Local verification and every Forge job SHALL run the Mise release that the
 repository declares. A Mise release whose diagnostics the repository's tests
 assert SHALL become the CUE pin and the repository floor together, and a
-runner-owned Mise SHALL be replaced before a job consumes that declaration.
+runner-owned Mise SHALL be installed and verified before a job consumes that
+declaration.
 
 #### Scenario: A Mise release changes an asserted diagnostic
 
@@ -368,9 +369,11 @@ runner-owned Mise SHALL be replaced before a job consumes that declaration.
 
 - **WHEN** the declared Mise advances while a runner owns its Mise executable,
   such as GitLab's macOS ARM64 runner
-- **THEN** that runner's Mise executable, and its shim where the release ships
-  one, SHALL be replaced with the verified release before any of its jobs
-  consumes the declaration.
+- **THEN** the runner SHALL hold the verified release in a directory that names
+  that release, beside the release of the earlier declaration, before any of
+  its jobs consumes the new declaration
+- **AND** the runner SHALL remove the earlier release once no job consumes the
+  earlier declaration, and not before.
 
 #### Scenario: Projects share a macOS runner host
 
