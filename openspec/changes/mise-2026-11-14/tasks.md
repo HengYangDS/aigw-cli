@@ -30,8 +30,8 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `mise run check` and `mise run dependencies:check` pass on the lane
-      head.
+- [x] 3.1 `mise run check` and `mise run dependencies:check` pass on the lane
+      head. `7f7b0c060`, 2026-11-26 08:14: both pass; statement coverage 95.85%.
 - [ ] 3.2 The hosted graph passes at the proposal head, where
       `native-darwin-review` is the only macOS job and runs under the review
       account; it prints the verified Mise 2026.11.14.
