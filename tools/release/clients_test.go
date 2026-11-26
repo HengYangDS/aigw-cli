@@ -157,7 +157,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		journey.requireVersion(p.version)
 		journey.requireProgramBytes(p.candidate)
 	}
-	if err := journey.prepareNativeClient(client, executable, p.team); err != nil {
+	if err := journey.prepareNativeClient(client, executable, p.baselineTeam(t)); err != nil {
 		t.Fatal(err)
 	}
 	journey.setEnvironment(secret.EnvironmentKey(route.Provider), token)
@@ -179,7 +179,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 			configurationBefore := readFile(t, journey.config)
 			replacement := step.args[0] == "self" && step.args[1] == "update"
 			if replacement && step.program == p.candidate {
-				journey.preprojectReplacement(p.candidate, client, token, configurationBefore, retainedCredential)
+				journey.synchronizeWithCandidate(p.candidate, client, token, configurationBefore, retainedCredential)
 			}
 			projectedCredential := journey.retainedCredential(client)
 			journey.run(step.args...)
@@ -194,6 +194,9 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 				journey.requireReplacementServes(p.candidate, client, token, configurationBefore, projectedCredential, &completions)
 			}
 			continueClient()
+			if step.synchronize {
+				journey.synchronizeWithCandidate(p.candidate, client, token, configurationBefore, retainedCredential)
+			}
 			count := completions.Load()
 			journey.runWith(p.candidate, "check", client, "--depth", "client")
 			journey.requireNativePreferences(client)
@@ -234,13 +237,16 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	}
 }
 
-// preprojectReplacement runs the candidate's sync before a step installs it,
-// which keeps the retained configuration and both credential commands.
-func (j *journeyFixture) preprojectReplacement(candidate, client, token string, configurationBefore []byte, retained process.Plan) {
+// synchronizeWithCandidate runs the candidate's sync while it is not the
+// installed program: before a step installs it, and before it first judges the
+// client files that the baseline wrote, as its release notes direct after an
+// upgrade. The sync keeps the retained configuration and both credential
+// commands.
+func (j *journeyFixture) synchronizeWithCandidate(candidate, client, token string, configurationBefore []byte, retained process.Plan) {
 	j.testing.Helper()
 	j.runWith(candidate, "sync")
 	if !bytes.Equal(readFile(j.testing, j.config), configurationBefore) {
-		j.testing.Fatal("candidate preprojection changed retained client configuration")
+		j.testing.Fatal("candidate synchronization changed retained client configuration")
 	}
 	j.requireCredential(retained, token)
 	j.requireCredential(j.retainedCredential(client), token)
@@ -265,26 +271,54 @@ func (j *journeyFixture) requireReplacementServes(candidate, client, token strin
 	j.requireCredential(j.retainedCredential(client), token)
 }
 
-func (p nativeClientJourneyPlan) clientLifecycle(journey *journeyFixture, client string) []struct {
+// lifecycleStep is one installation state of a native client journey: the
+// command that reaches it, the version and program that it leaves installed,
+// and whether the candidate synchronizes before it judges the client, which
+// only the step whose client files the baseline wrote needs.
+type lifecycleStep struct {
 	name, version, program string
 	args                   []string
-} {
+	synchronize            bool
+}
+
+func (p nativeClientJourneyPlan) clientLifecycle(journey *journeyFixture, client string) []lifecycleStep {
 	if client == hermes.ID && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
-		return []struct {
-			name, version, program string
-			args                   []string
-		}{{"first-adoption", p.version, p.candidate, []string{"status", "--json"}}}
+		return []lifecycleStep{{name: "first-adoption", version: p.version, program: p.candidate, args: []string{"status", "--json"}}}
 	}
 	oldVersion := journey.predecessorVersion(p.version)
-	return []struct {
-		name, version, program string
-		args                   []string
-	}{
-		{"baseline", oldVersion, journey.source, []string{"status", "--json"}},
-		{"candidate", p.version, p.candidate, []string{"self", "update", "--archive", p.archive, "--checksums", p.checksums}},
-		{"rollback", oldVersion, journey.source, []string{"self", "rollback"}},
-		{"re-upgrade", p.version, p.candidate, []string{"self", "update", "--archive", p.archive, "--checksums", p.checksums}},
+	update := []string{"self", "update", "--archive", p.archive, "--checksums", p.checksums}
+	return []lifecycleStep{
+		{name: "baseline", version: oldVersion, program: journey.source, args: []string{"status", "--json"}, synchronize: true},
+		{name: "candidate", version: p.version, program: p.candidate, args: update},
+		{name: "rollback", version: oldVersion, program: journey.source, args: []string{"self", "rollback"}},
+		{name: "re-upgrade", version: p.version, program: p.candidate, args: update},
 	}
+}
+
+// baselineTeam is the team file that a journey applies with the baseline
+// program. A published predecessor gets the shipped file without its models'
+// context windows, a field that 0.10.0 refuses and that the release notes have
+// a member on it remove first; the source baseline and the candidate's own
+// journeys apply the shipped file unchanged. It goes once the oldest
+// admissible baseline reads context windows.
+func (p nativeClientJourneyPlan) baselineTeam(t *testing.T) []byte {
+	t.Helper()
+	if os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
+		return p.team
+	}
+	manifest, err := store.ParseTeamFile(p.team, clients.Admission())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for ref, model := range manifest.Models {
+		model.ContextWindow = 0
+		manifest.Models[ref] = model
+	}
+	team, err := store.ExportTeamFile(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return team
 }
 
 func (j *journeyFixture) verifyNativeConfigEditing(client, executable string) {

@@ -36,15 +36,18 @@ client files unseen, and native coverage of a baseline other than a published pr
    configuration that 0.10.0's `self rollback` refuses at the rollback step. Removal: when the oldest admissible
    baseline reads `context_window` (0.11.0 or later), the helper and its two calls go.
 2. **Only the baseline step synchronizes before the candidate judges it.** It is the one step whose client files
-   another program wrote; the candidate step already synchronizes before the update (`preprojectReplacement`), and
-   the rollback writes no client file. The sync reuses that function, renamed to say what it does in both places.
+   another program wrote; the candidate step already synchronizes before the update (`preprojectReplacement` until
+   this Change), and the rollback writes no client file. The baseline step reuses that function, renamed
+   `synchronizeWithCandidate` for both uses, and a field of the step type (`synchronize`) marks the one step that
+   needs it.
    Alternatives: judging the baseline step with the baseline program would reverse the decision of 2026-10-11;
    synchronizing before every step where the baseline is installed would also repair, unseen, any client file that a
    rollback disturbed.
 
 ## Risks / Trade-offs
 
-- The facts above are read, not run. The candidate acceptance of 0.11.0 (`accept-native --artifacts ... --candidate
---clients --baseline-tag v0.10.0`) measures them; a further failure there goes into a Change of its own.
+- The facts above are read, not run. The candidate acceptance of 0.11.0 measures them:
+  `accept-native --artifacts <dist> --candidate --clients --baseline-tag v0.10.0`. A further failure there goes into
+  a Change of its own.
 - In default runs the added sync repeats what the candidate step's preprojection does and costs one more sync per
   client.

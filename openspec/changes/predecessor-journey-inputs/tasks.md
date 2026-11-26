@@ -1,9 +1,9 @@
 ## 1. The predecessor journey's inputs
 
-- [ ] 1.1 Give a published baseline the shipped team file without its models' context windows, in the per-client
+- [x] 1.1 Give a published baseline the shipped team file without its models' context windows, in the per-client
       journey and the Codex connection-retries journey. Done when `go vet ./tools/release` passes and the candidate's
       journeys still prepare the unchanged team file.
-- [ ] 1.2 Run the candidate's sync with its configuration and credential checks before the candidate judges the
+- [x] 1.2 Run the candidate's sync with its configuration and credential checks before the candidate judges the
       baseline step. Done when `go vet ./tools/release` passes and the baseline step is the only step that does so.
 
 ## 2. Verification
