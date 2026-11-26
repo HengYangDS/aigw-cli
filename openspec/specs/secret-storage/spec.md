@@ -424,6 +424,8 @@ Token when present.
 - **WHEN** `aigw check` finds a missing executable, missing target or invalid
   client configuration file for an enabled client
 - **THEN** it reports that client's `local` failure and its fix
+- **AND** the fix of a missing configured executable SHALL be
+  `aigw client edit <client> --executable <path>`, never `aigw sync`
 - **AND** it reads no Token value and makes no authenticated request for that
   client, even if its Token is missing or unreadable.
 

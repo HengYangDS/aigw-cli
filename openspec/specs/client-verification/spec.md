@@ -192,6 +192,9 @@ Codex client path.
   execution time, or the response marker is absent
 - **THEN** the check SHALL fail with an actionable error scoped to that
   boundary
+- **AND** a missing configured executable SHALL stop the check at the `local`
+  depth, before any request, with the repair
+  `aigw client edit codex --executable <path>`
 - **AND** SHALL NOT write client configuration, operator sessions,
   conversation history, model metadata or external gateway state.
 
