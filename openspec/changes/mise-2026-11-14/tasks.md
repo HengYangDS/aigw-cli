@@ -32,9 +32,11 @@
 
 - [x] 3.1 `mise run check` and `mise run dependencies:check` pass on the lane
       head. `7f7b0c060`, 2026-11-26 08:14: both pass; statement coverage 95.85%.
-- [ ] 3.2 The hosted graph passes at the proposal head, where
+- [x] 3.2 The hosted graph passes at the proposal head, where
       `native-darwin-review` is the only macOS job and runs under the review
-      account; it prints the verified Mise 2026.11.14.
+      account; it prints the verified Mise 2026.11.14. `6b33acc50`, 2026-11-26:
+      pull request 287 (4 passed, 2 skipped) and GitLab pipeline 18261 (10:41;
+      `Runner-owned Mise verified: 2026.11.14 macos-arm64 (2026-11-24)`).
 
 ## Workflow follow-up
 
