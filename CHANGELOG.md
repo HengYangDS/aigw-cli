@@ -11,6 +11,8 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-27
+
 ### Added
 
 - A model can declare its context window, the number of tokens that AIGW tells
