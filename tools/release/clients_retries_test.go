@@ -47,7 +47,7 @@ func TestNativeCodexConnectionRetriesSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan := nativeClientJourneyPlan{team: team, manifest: manifest, baseline: baseline, candidate: candidate}
+	plan := nativeClientJourneyPlan{team: team, manifest: manifest, baseline: baseline, candidate: candidate, publishedBaseline: true}
 	plan.runCodexConnectionRetries(t)
 }
 
@@ -85,11 +85,11 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
-	if err := journey.prepareNativeClient(codex.ID, executable, p.baselineTeam(t)); err != nil {
+	if err := journey.prepareNativeClient(codex.ID, executable, p.team); err != nil {
 		t.Fatal(err)
 	}
 	journey.setEnvironment(secret.EnvironmentKey(route.Provider), token)
-	journey.run("setup", "--from", journey.manifest)
+	journey.run("setup", "--from", p.baselineManifest(journey))
 	journey.enableNativeClient(codex.ID, executable)
 	retained := journey.retainedCredential(codex.ID)
 	journey.runWith(p.candidate, "sync")

@@ -118,6 +118,7 @@ func TestNativeClientJourney(t *testing.T) {
 	plan := nativeClientJourneyPlan{
 		version: version, team: team, manifest: manifest,
 		baseline: baseline, candidate: candidate, archive: archive, checksums: checksums,
+		publishedBaseline: os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "",
 	}
 	for _, client := range construction.NativeAcceptanceClients(runtime.GOOS) {
 		t.Run(client, func(t *testing.T) { plan.run(t, client) })
@@ -128,11 +129,15 @@ func TestNativeClientJourney(t *testing.T) {
 	t.Run("codex-connection-retries", plan.runCodexConnectionRetries)
 }
 
+// nativeClientJourneyPlan holds the inputs of the native client journeys.
+// publishedBaseline says that the baseline is a published predecessor rather
+// than a source build of this tree.
 type nativeClientJourneyPlan struct {
 	version                                 string
 	team                                    []byte
 	manifest                                domain.Config
 	baseline, candidate, archive, checksums string
+	publishedBaseline                       bool
 }
 
 func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
@@ -152,16 +157,16 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	}
 	server, hermesSession := newNativeClientServer(t, client, protocol, route.ID, token, &completions)
 	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
-	if client == hermes.ID && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
+	if client == hermes.ID && !p.publishedBaseline {
 		journey.run("self", "update", "--archive", p.archive, "--checksums", p.checksums)
 		journey.requireVersion(p.version)
 		journey.requireProgramBytes(p.candidate)
 	}
-	if err := journey.prepareNativeClient(client, executable, p.baselineTeam(t)); err != nil {
+	if err := journey.prepareNativeClient(client, executable, p.team); err != nil {
 		t.Fatal(err)
 	}
 	journey.setEnvironment(secret.EnvironmentKey(route.Provider), token)
-	journey.run("setup", "--from", journey.manifest)
+	journey.run("setup", "--from", p.baselineManifest(journey))
 	journey.enableNativeClient(client, executable)
 	retainedCredential := journey.retainedCredential(client)
 	before := journey.preserveClientFiles(client)
@@ -211,6 +216,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		}
 	}
 	journey.testing = t
+	p.requireDeclaredWindows(journey, client, &completions)
 	journey.requireNativeForwarding(client, token, server, continueClient)
 	journey.verifyNativeConfigEditing(client, executable)
 	// The client moves to a provider with another ID, which then serves it,
@@ -238,10 +244,9 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 }
 
 // synchronizeWithCandidate runs the candidate's sync while it is not the
-// installed program: before a step installs it, and before it first judges the
-// client files that the baseline wrote, as its release notes direct after an
-// upgrade. The sync keeps the retained configuration and both credential
-// commands.
+// installed program: before a step installs it, and before the candidate first
+// judges client files that an earlier program wrote. The sync keeps the
+// retained configuration and both credential commands.
 func (j *journeyFixture) synchronizeWithCandidate(candidate, client, token string, configurationBefore []byte, retained process.Plan) {
 	j.testing.Helper()
 	j.runWith(candidate, "sync")
@@ -282,7 +287,7 @@ type lifecycleStep struct {
 }
 
 func (p nativeClientJourneyPlan) clientLifecycle(journey *journeyFixture, client string) []lifecycleStep {
-	if client == hermes.ID && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
+	if client == hermes.ID && !p.publishedBaseline {
 		return []lifecycleStep{{name: "first-adoption", version: p.version, program: p.candidate, args: []string{"status", "--json"}}}
 	}
 	oldVersion := journey.predecessorVersion(p.version)
@@ -295,20 +300,19 @@ func (p nativeClientJourneyPlan) clientLifecycle(journey *journeyFixture, client
 	}
 }
 
-// baselineTeam is the team file that a journey applies with the baseline
-// program. A published predecessor gets the shipped file without its models'
-// context windows, a field that 0.10.0 refuses and that the release notes have
-// a member on it remove first; the source baseline and the candidate's own
-// journeys apply the shipped file unchanged. It goes once the oldest
-// admissible baseline reads context windows.
-func (p nativeClientJourneyPlan) baselineTeam(t *testing.T) []byte {
-	t.Helper()
-	if os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
-		return p.team
+// baselineManifest is the team file that the baseline program applies. 0.10.0
+// refuses a model's context_window, which the shipped file declares since
+// 0.11.0, so a published predecessor applies a copy without the windows; a
+// source build applies the shipped file. It goes once the oldest admissible
+// baseline reads context windows.
+func (p nativeClientJourneyPlan) baselineManifest(j *journeyFixture) string {
+	j.testing.Helper()
+	if !p.publishedBaseline {
+		return j.manifest
 	}
-	manifest, err := store.ParseTeamFile(p.team, clients.Admission())
+	manifest, err := store.ParseTeamFile(readFile(j.testing, j.manifest), clients.Admission())
 	if err != nil {
-		t.Fatal(err)
+		j.testing.Fatal(err)
 	}
 	for ref, model := range manifest.Models {
 		model.ContextWindow = 0
@@ -316,9 +320,38 @@ func (p nativeClientJourneyPlan) baselineTeam(t *testing.T) []byte {
 	}
 	team, err := store.ExportTeamFile(manifest)
 	if err != nil {
-		t.Fatal(err)
+		j.testing.Fatal(err)
 	}
-	return team
+	path := filepath.Join(j.root, "team-without-windows.toml")
+	if err := os.WriteFile(path, team, 0o600); err != nil {
+		j.testing.Fatal(err)
+	}
+	return path
+}
+
+// requireDeclaredWindows judges a client that runs models at their windows
+// with the windows that the shipped file declares. After a published
+// predecessor, the installed candidate first applies the shipped file, whose
+// windows the predecessor refused; this follows the last rollback, which
+// 0.10.0 refuses while a model declares a window. Hermes's file must then give
+// every listed model its window, at least one of them declared.
+func (p nativeClientJourneyPlan) requireDeclaredWindows(j *journeyFixture, client string, completions *atomic.Int64) {
+	j.testing.Helper()
+	spec, _ := clients.Admission().Spec(client)
+	if !spec.ContextWindow {
+		return
+	}
+	if p.publishedBaseline {
+		j.run("setup", "--from", j.manifest)
+		count := completions.Load()
+		j.run("check", client, "--depth", "client")
+		if completions.Load() <= count {
+			j.testing.Fatal("client returned without an authenticated streaming request at the declared windows")
+		}
+	}
+	if client == hermes.ID && j.requireHermesModelWindows() == 0 {
+		j.testing.Fatal("no model that Hermes lists declares a context window")
+	}
 }
 
 func (j *journeyFixture) verifyNativeConfigEditing(client, executable string) {

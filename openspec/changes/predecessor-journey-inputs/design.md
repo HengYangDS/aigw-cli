@@ -28,13 +28,15 @@ client files unseen, and native coverage of a baseline other than a published pr
 
 ## Decisions
 
-1. **The baseline's team file loses its windows only when the baseline is a published predecessor.** A helper
-   re-exports the shipped file without any model's `context_window` when `AIGW_ACCEPTANCE_BASELINE` is set and
-   returns it unchanged otherwise; the two baseline journeys pass its result to `prepareNativeClient`.
+1. **The baseline's team file loses its windows only when the baseline is a published predecessor.** The plan
+   records once whether its baseline is published (`publishedBaseline`). `prepareNativeClient` writes the shipped
+   file as before; `baselineManifest` returns it for a source build, and for a published predecessor writes a copy
+   without any model's `context_window`, which the two baseline journeys apply.
    Alternatives: clearing inside `prepareNativeClient` for every journey would remove the declared windows from the
    candidate's own native journeys, the only native evidence for them; moving `setup` to the candidate would leave a
    configuration that 0.10.0's `self rollback` refuses at the rollback step. Removal: when the oldest admissible
-   baseline reads `context_window` (0.11.0 or later), the helper and its two calls go.
+   baseline reads `context_window` (0.11.0 or later), the helper, its two calls and the re-application of decision 3
+   go.
 2. **Only the baseline step synchronizes before the candidate judges it.** It is the one step whose client files
    another program wrote; the candidate step already synchronizes before the update (`preprojectReplacement` until
    this Change), and the rollback writes no client file. The baseline step reuses that function, renamed
@@ -43,11 +45,23 @@ client files unseen, and native coverage of a baseline other than a published pr
    Alternatives: judging the baseline step with the baseline program would reverse the decision of 2026-10-11;
    synchronizing before every step where the baseline is installed would also repair, unseen, any client file that a
    rollback disturbed.
+3. **The windows return after the lifecycle.** With a published baseline, no native journey of Hermes would see a
+   declared window, and `accept-native --clients` always has one. After the re-upgrade step, the installed candidate
+   applies the shipped file (`requireDeclaredWindows`) and judges each client whose specification runs models at
+   their windows; Hermes's file must give each listed model its configured window, and at least one must be declared.
+   It comes after the last rollback because 0.10.0's `self rollback` refuses a configuration that declares a window,
+   and before forwarding, editing and removal, which then run with the windows. The check of Hermes's file compares
+   with the configuration, so the published-predecessor journey, whose file declares none, still requires the
+   default for each model. Alternative: correcting the documents and leaving the gap would release declared windows
+   with no automated native evidence from Hermes.
 
 ## Risks / Trade-offs
 
 - The facts above are read, not run. The candidate acceptance of 0.11.0 measures them:
   `accept-native --artifacts <dist> --candidate --clients --baseline-tag v0.10.0`. A further failure there goes into
   a Change of its own.
-- In default runs the added sync repeats what the candidate step's preprojection does and costs one more sync per
-  client.
+- In every run with the four lifecycle steps the added sync repeats what the candidate step's sync before the update
+  does, since only the baseline step's check runs between them; the second is kept to check that the candidate's
+  sync leaves the configuration and credentials as they were before it replaces the program. It costs one more sync
+  per client.
+- Decision 3 adds one `setup` and one client turn for Codex and for Hermes in each published-baseline run.

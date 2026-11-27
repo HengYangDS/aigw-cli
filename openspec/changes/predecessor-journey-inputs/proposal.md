@@ -16,9 +16,13 @@ Both are readings of the code and the release notes; the candidate acceptance me
 ## What Changes
 
 - When the baseline is a published predecessor, the journeys that it starts (the per-client journey and the Codex
-  connection-retries journey) apply the shipped team file without its models' context windows, the step that the
-  release notes give a member on 0.10.0. The candidate's own journeys keep the windows, so their native checks still
-  cover the declared windows.
+  connection-retries journey) apply a copy of the shipped team file without its models' context windows, because
+  0.10.0 refuses the field.
+- After the last lifecycle step, with the candidate installed again, the per-client journey applies the shipped file
+  with its windows and judges each client that runs models at their windows, Codex and Hermes, with
+  `check <client> --depth client`; Hermes's file must then give every listed model the window that the configuration
+  gives it, at least one of them declared. This is the only native check of Hermes with declared windows when the
+  baseline is a published predecessor, as it always is in `accept-native --clients`.
 - In the baseline step, the candidate runs its `sync`, with the existing checks that the configuration and both
   credential commands stay as they were, before it judges the client files that the baseline wrote. The other steps
   are unchanged.
@@ -39,7 +43,9 @@ None. This Change changes test inputs of the release acceptance and no behavior 
 
 ## Impact
 
-`tools/release/clients_test.go` and `tools/release/clients_retries_test.go`. Authority stays with the release
+`tools/release/clients_test.go`, `tools/release/clients_retries_test.go` and
+`tools/release/hermes_context_window_test.go`, whose check of Hermes's windows now compares each listed model with
+the configuration instead of the default. Authority stays with the release
 acceptance in `tools/release`; nothing is reused from or added to the product. No compatibility code: the removal of
 the windows applies only to a published baseline that predates them and goes once the oldest admissible baseline
 reads them.
