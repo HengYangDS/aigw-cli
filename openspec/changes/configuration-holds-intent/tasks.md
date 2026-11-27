@@ -116,14 +116,14 @@
 
 ## 9. Exact-HEAD proof
 
-- [ ] 9.1 Pass the ETHOS full proof of the lane head.
+- [x] 9.1 Pass the ETHOS full proof of the lane head.
 
 ## 10. Hosted CI
 
-- [ ] 10.1 Pass the proposal's GitHub checks.
-- [ ] 10.2 Pass the proposal's GitLab pipeline on the macOS and Linux runners.
+- [x] 10.1 Pass the proposal's GitHub checks.
+- [x] 10.2 Pass the proposal's GitLab pipeline on the macOS and Linux runners.
 
 ## 11. Publication
 
-- [ ] 11.1 Publish the proven lane head as the lane's proposal branch on both forges. Done when each forge reads back
+- [x] 11.1 Publish the proven lane head as the lane's proposal branch on both forges. Done when each forge reads back
       the exact head.
