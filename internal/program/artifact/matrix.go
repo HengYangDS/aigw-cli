@@ -19,29 +19,43 @@ func Archives(version string) []string {
 	return archives
 }
 
+// The kinds of a release's JSON documents.
+const (
+	SBOM            = "spdx"
+	Vulnerabilities = "vulnerabilities"
+	Licenses        = "licenses"
+	Provenance      = "provenance"
+)
+
+// DocumentName returns the name of the release document of kind for version.
+func DocumentName(version, kind string) string {
+	return "aigw_" + version + "." + kind + ".json"
+}
+
+// documents returns the documents that every release publishes after its archives, in the matrix's order:
+// the dependency reports, then the provenance that names the archives and the reports as its subjects.
+func documents(version string) []string {
+	return []string{
+		DocumentName(version, SBOM), DocumentName(version, Vulnerabilities), DocumentName(version, Licenses),
+		DocumentName(version, Provenance),
+	}
+}
+
 // Names returns the complete release artifact matrix for version.
 func Names(version string) []string {
-	return append(ProvenanceSubjects(version),
-		"aigw_"+version+".provenance.json",
-		"checksums.txt",
-		"checksums.txt.sig",
-	)
+	return append(Archives(version), append(documents(version), "checksums.txt", "checksums.txt.sig")...)
 }
 
 // ProvenanceSubjects returns the artifacts that the release provenance names as its subjects.
 func ProvenanceSubjects(version string) []string {
-	return append(Archives(version),
-		"aigw_"+version+".spdx.json",
-		"aigw_"+version+".vulnerabilities.json",
-		"aigw_"+version+".licenses.json",
-	)
+	names := Names(version)
+	return names[:len(names)-3]
 }
 
-// PublishedNames returns the matrix that a published release's own checksum manifest names: its
-// checksummed files in the manifest's order, then the manifest and its signature. A predecessor is
-// verified by it, because an earlier release may have published platforms that Names no longer lists.
-// Every name must be a file of version, and the provenance must close the manifest, as
-// RewriteChecksums writes it.
+// PublishedNames returns the matrix that a published release's own checksum manifest names, in the
+// manifest's order, then the manifest and its signature. A predecessor is verified by it, because an
+// earlier release may have published platforms that Names no longer lists. The manifest must name at
+// least one archive of version, then exactly the documents that Names lists, as RewriteChecksums writes it.
 func PublishedNames(directory, version string) ([]string, error) {
 	manifest, err := os.ReadFile(filepath.Join(directory, "checksums.txt"))
 	if err != nil {
@@ -53,13 +67,17 @@ func PublishedNames(directory, version string) ([]string, error) {
 	var names []string
 	for line := range strings.Lines(string(manifest)) {
 		_, name, _ := checksumLine(line)
-		if !FileOf(name, version) {
-			return nil, fmt.Errorf("published release matrix: %s is not a file of release %s", name, version)
-		}
 		names = append(names, name)
 	}
-	if provenance := "aigw_" + version + ".provenance.json"; len(names) == 0 || names[len(names)-1] != provenance {
-		return nil, fmt.Errorf("published release matrix: the manifest must end with %s", provenance)
+	documents := documents(version)
+	archives := len(names) - len(documents)
+	if archives < 1 || !slices.Equal(names[archives:], documents) {
+		return nil, fmt.Errorf("published release matrix: the manifest must name the archives of release %s, then %s", version, strings.Join(documents, ", "))
+	}
+	for _, name := range names[:archives] {
+		if !publishedArchive(name, version) {
+			return nil, fmt.Errorf("published release matrix: %s is not an archive of release %s", name, version)
+		}
 	}
 	return append(names, "checksums.txt", "checksums.txt.sig"), nil
 }
@@ -74,11 +92,33 @@ func PublishedSubjects(directory, version string) ([]string, error) {
 	return names[:len(names)-3], nil
 }
 
-// FileOf reports whether name is a file of the release version: a plain file name that begins with
-// aigw_<version> followed by "_" or ".".
-func FileOf(name, version string) bool {
-	prefix := "aigw_" + version
-	return !strings.ContainsAny(name, `/\`) && (strings.HasPrefix(name, prefix+"_") || strings.HasPrefix(name, prefix+"."))
+// PublishedFile reports whether name may belong to the published matrix of release version: an archive
+// of one platform, one of the documents, or the manifest and its signature.
+func PublishedFile(name, version string) bool {
+	return publishedArchive(name, version) || slices.Contains(documents(version), name) ||
+		name == "checksums.txt" || name == "checksums.txt.sig"
+}
+
+// publishedArchive reports whether name is an archive of release version for one platform:
+// aigw_<version>_<os>_<arch> with a .tar.gz or, as earlier releases published for Windows, a .zip suffix.
+func publishedArchive(name, version string) bool {
+	platform, found := strings.CutPrefix(name, "aigw_"+version+"_")
+	if !found {
+		return false
+	}
+	if trimmed, tar := strings.CutSuffix(platform, ".tar.gz"); tar {
+		platform = trimmed
+	} else if platform, found = strings.CutSuffix(platform, ".zip"); !found {
+		return false
+	}
+	system, arch, found := strings.Cut(platform, "_")
+	return found && platformWord(system) && platformWord(arch)
+}
+
+// platformWord reports whether word is a non-empty run of lowercase letters and digits, as Go names
+// operating systems and architectures.
+func platformWord(word string) bool {
+	return word != "" && strings.Trim(word, "abcdefghijklmnopqrstuvwxyz0123456789") == ""
 }
 
 // ValidateMatrix verifies membership, non-empty files, checksums and the signature

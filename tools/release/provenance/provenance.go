@@ -93,13 +93,18 @@ func VerifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 	return verifyProvenance(ctx, directory, tag, trust, currentSubjects)
 }
 
-// VerifyPublishedProvenance binds a published predecessor to its signed tag, with the subjects that its
-// own signed manifest names, so a predecessor of another platform matrix rebuilds to its own bytes.
-func VerifyPublishedProvenance(ctx context.Context, directory, tag string, trust SourceTrust) error {
+// VerifyPublishedRelease verifies a published predecessor as it was published. Its signed manifest names
+// its own matrix, which may list platforms that the current release no longer publishes, and its
+// provenance is rebuilt from its signed tag with the subjects of that manifest, in the manifest's order.
+func VerifyPublishedRelease(ctx context.Context, directory, tag string, signature SignatureTrust, source SourceTrust) error {
 	if tag == "" {
 		return errors.New("release provenance requires v<semver> tag")
 	}
-	return verifyProvenance(ctx, directory, tag, trust, func(version string) ([]string, error) {
+	version := strings.TrimPrefix(tag, "v")
+	if err := verifyMatrix(ctx, directory, signature, func() error { return artifact.ValidatePublishedMatrix(directory, version) }); err != nil {
+		return err
+	}
+	return verifyProvenance(ctx, directory, tag, source, func(version string) ([]string, error) {
 		return artifact.PublishedSubjects(directory, version)
 	})
 }
@@ -168,7 +173,7 @@ func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 	if err != nil {
 		return err
 	}
-	actual, err := os.ReadFile(filepath.Join(directory, "aigw_"+version+".provenance.json"))
+	actual, err := os.ReadFile(filepath.Join(directory, artifact.DocumentName(version, artifact.Provenance)))
 	if err != nil {
 		return err
 	}

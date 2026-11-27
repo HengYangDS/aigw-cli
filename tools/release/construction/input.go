@@ -132,7 +132,7 @@ func extractNativePackage(ctx context.Context, file io.Reader, workspace, candid
 			return err
 		}
 		seen, selected := expected[header.Name]
-		if name, found := strings.CutPrefix(header.Name, "baseline/"); !selected && found && artifact.FileOf(name, baseline) {
+		if name, found := strings.CutPrefix(header.Name, "baseline/"); !selected && found && artifact.PublishedFile(name, baseline) {
 			selected = true
 		}
 		if !selected {

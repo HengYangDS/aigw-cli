@@ -24,12 +24,6 @@ func VerifyMatrix(ctx context.Context, directory, version string, trust Signatur
 	return verifyMatrix(ctx, directory, trust, func() error { return artifact.ValidateMatrix(directory, version) })
 }
 
-// VerifyPublishedMatrix authorizes a published predecessor by the matrix that its own signed manifest
-// names, which may list platforms that the current release no longer publishes.
-func VerifyPublishedMatrix(ctx context.Context, directory, version string, trust SignatureTrust) error {
-	return verifyMatrix(ctx, directory, trust, func() error { return artifact.ValidatePublishedMatrix(directory, version) })
-}
-
 func verifyMatrix(ctx context.Context, directory string, trust SignatureTrust, validate func() error) error {
 	if trust.AllowedSigners == "" || trust.Principal == "" {
 		return errors.New("release artifact authorization requires allowed-signers file and signer principal")

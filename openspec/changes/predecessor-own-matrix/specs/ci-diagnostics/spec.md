@@ -7,8 +7,9 @@ an existing release's published bytes, it SHALL consume an explicitly selected
 published predecessor of 0.7.0 or later from the same peer, verify that
 predecessor's signed matrix and source, and run the upgrade and rollback
 journeys from it. The predecessor's matrix SHALL be the set of files that its
-own signed checksum manifest names, each bound to the predecessor's version,
-not the current release's platform matrix. It SHALL NOT rebuild, retag, sign or
+own signed checksum manifest names, not the current release's platform matrix:
+at least one platform archive of the predecessor's version, then its
+dependency reports and its provenance. It SHALL NOT rebuild, retag, sign or
 publish either release.
 
 #### Scenario: A maintainer selects a published predecessor
@@ -42,5 +43,5 @@ publish either release.
   that its manifest names, with their digests, its signature and its rebuilt
   provenance
 - **AND** it SHALL refuse a predecessor whose directory holds a file that the
-  manifest does not name, lacks one that it names, or names a file of another
-  version.
+  manifest does not name, lacks one that it names, names a file of another
+  version, or names no dependency reports or provenance.

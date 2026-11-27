@@ -334,23 +334,59 @@ func TestPublishedMatrixIsTheOneItsOwnManifestNames(t *testing.T) {
 	if err != nil || !slices.Equal(subjects, names[:len(names)-1]) {
 		t.Fatalf("published subjects = %v, %v", subjects, err)
 	}
+	remove := func(name string) func(string) error {
+		return func(directory string) error { return os.Remove(filepath.Join(directory, name)) }
+	}
+	replace := func(name string) func(string) error {
+		return func(directory string) error {
+			return os.WriteFile(filepath.Join(directory, name), []byte("changed\n"), 0o600)
+		}
+	}
 	for _, refusal := range []struct {
 		name  string
 		names []string
 		extra map[string]string
+		after func(string) error
 		want  string
 	}{
-		{"unnamed file beside the matrix", names, map[string]string{"aigw_1.2.3_plan9_amd64.tar.gz": "x"}, "unexpected or missing"},
-		{"file of another version", append([]string{"aigw_1.2.2_linux_arm64.tar.gz"}, names...), nil, "not a file of release 1.2.3"},
-		{"path in a name", append([]string{"nested/aigw_1.2.3_linux_arm64.tar.gz"}, names...), nil, "not a file of release 1.2.3"},
-		{"provenance not last", append(slices.Clone(names[1:]), earlier), nil, "must end with aigw_1.2.3.provenance.json"},
+		{"unnamed file beside the matrix", names, map[string]string{"aigw_1.2.3_plan9_amd64.tar.gz": "x"}, nil, "unexpected or missing"},
+		{"named file absent", names, nil, remove(earlier), "missing or empty artifact: " + earlier},
+		{"digest mismatch", names, nil, replace(earlier), "checksum mismatch for " + earlier},
+		{"duplicate name", append([]string{earlier}, names...), nil, nil, "duplicate checksum entry"},
+		{"empty manifest", nil, nil, nil, "must name the archives of release 1.2.3"},
+		{"dependency report absent", slices.DeleteFunc(slices.Clone(names), func(name string) bool { return name == DocumentName(version, SBOM) }), nil, nil, "must name the archives of release 1.2.3"},
+		{"no archive", names[len(names)-4:], nil, nil, "must name the archives of release 1.2.3"},
+		{"provenance not last", append(slices.Clone(names[1:]), earlier), nil, nil, "must name the archives of release 1.2.3"},
+		{"file of another version", append([]string{"aigw_1.2.2_linux_arm64.tar.gz"}, names...), nil, nil, "not an archive of release 1.2.3"},
+		{"name that only begins with the version", append([]string{"aigw_1.2.3.1_linux_arm64.tar.gz"}, names...), nil, nil, "not an archive of release 1.2.3"},
+		{"document among the archives", append([]string{DocumentName(version, Licenses) + ".zip"}, names...), nil, nil, "not an archive of release 1.2.3"},
+		{"path in a name", append([]string{"nested/aigw_1.2.3_linux_arm64.tar.gz"}, names...), nil, nil, "not an archive of release 1.2.3"},
 	} {
 		t.Run(refusal.name, func(t *testing.T) {
 			directory := writePublishedMatrix(t, refusal.names, signer, refusal.extra)
+			if refusal.after != nil {
+				if err := refusal.after(directory); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if err := ValidatePublishedMatrix(directory, version); err == nil || !strings.Contains(err.Error(), refusal.want) {
 				t.Fatalf("published matrix refusal = %v", err)
 			}
 		})
+	}
+	for _, name := range []string{earlier, Archives(version)[0], DocumentName(version, Provenance), "checksums.txt.sig"} {
+		if !PublishedFile(name, version) {
+			t.Errorf("%s is not a published file of %s", name, version)
+		}
+	}
+	for _, other := range []struct{ name, version string }{
+		{"aigw_1.2.3.1_linux_arm64.tar.gz", version}, {"aigw_1.2.3_linux.tar.gz", version},
+		{"aigw_1.2.3_linux_arm64.tar", version}, {"aigw_1.2.30_linux_arm64.tar.gz", version}, {"notes.txt", version},
+		{"aigw_1.0.0-alpha.1_linux_arm64.tar.gz", "1.0.0-alpha"},
+	} {
+		if PublishedFile(other.name, other.version) {
+			t.Errorf("%s is a published file of %s", other.name, other.version)
+		}
 	}
 	unsigned := writePublishedMatrix(t, names, signer, nil)
 	if err := os.WriteFile(filepath.Join(unsigned, "checksums.txt.sig"), []byte("invalid\n"), 0o600); err != nil {

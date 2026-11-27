@@ -98,7 +98,7 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	if err := provenance.WriteProvenance(
 		request.Root,
 		candidate,
-		filepath.Join(candidate, "aigw_"+request.Version+".provenance.json"),
+		filepath.Join(candidate, artifact.DocumentName(request.Version, artifact.Provenance)),
 		request.Version,
 		commit,
 		tree,
@@ -130,7 +130,7 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 // writeReleaseSBOM catalogs the staged programs into the candidate's SBOM and
 // binds their Go standard library to the scanned dependency evidence.
 func writeReleaseSBOM(request buildRequest, stage, candidate string, instant time.Time, run toolRunner) error {
-	sbom := filepath.Join(candidate, "aigw_"+request.Version+".spdx.json")
+	sbom := filepath.Join(candidate, artifact.DocumentName(request.Version, artifact.SBOM))
 	rawSBOM := filepath.Join(stage, "aigw.spdx.json")
 	if err := run(toolCall{Name: "syft", Directory: request.Root, Args: []string{"scan", "dir:" + stage, "--config", filepath.Join(request.Root, ".config", "release", "syft", ".syft.yaml"), "--override-default-catalogers", "go-module-binary-cataloger,file", "--source-name", "aigw", "--source-version", request.Version, "-o", "spdx-json=" + rawSBOM}}); err != nil {
 		return fmt.Errorf("generate release SBOM: %w", err)
@@ -142,7 +142,7 @@ func writeReleaseSBOM(request buildRequest, stage, candidate string, instant tim
 	if err != nil {
 		return err
 	}
-	return bindStandardLibrary(filepath.Join(candidate, "aigw_"+request.Version+".licenses.json"), sbom, module)
+	return bindStandardLibrary(filepath.Join(candidate, artifact.DocumentName(request.Version, artifact.Licenses)), sbom, module)
 }
 
 func admitReleaseInputs(request *buildRequest, run toolRunner) (dependencyInputs, error) {

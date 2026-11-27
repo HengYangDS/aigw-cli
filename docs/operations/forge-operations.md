@@ -278,8 +278,9 @@ explicitly supplied native clients.
 The archive holds complete `candidate/` and `baseline/` matrices, which the
 portable release owner reads. No job reads Hermes source from it.
 The release owner downloads once into private scratch, verifies the exact
-archive SHA256, and extracts only the complete positive candidate/predecessor
-matrix names. The predecessor must be 0.7.0 or later: the owner refuses an older
+archive SHA256, and extracts the candidate's complete current matrix and the
+files that can belong to the predecessor's version; the predecessor's own signed
+manifest then decides its completeness. The predecessor must be 0.7.0 or later: the owner refuses an older
 `AIGW_BASELINE_TAG` before it downloads anything, because older releases cannot
 read `aigw.toml`. Signatures, source identity, published-predecessor admission and
 lifecycle execution retain their existing release owners.

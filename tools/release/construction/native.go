@@ -437,12 +437,10 @@ func preparePublishedBaseline(ctx context.Context, root, directory, tag, stage s
 		return "", err
 	}
 	version := strings.TrimPrefix(tag, "v")
-	trust := provenance.SignatureTrust{AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"), Principal: os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER")}
-	if err := provenance.VerifyPublishedMatrix(ctx, directory, version, trust); err != nil {
+	signature := provenance.SignatureTrust{AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"), Principal: os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER")}
+	source := provenance.SourceTrust{Repository: root, AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
+	if err := provenance.VerifyPublishedRelease(ctx, directory, tag, signature, source); err != nil {
 		return "", fmt.Errorf("verify published baseline: %w", err)
-	}
-	if err := provenance.VerifyPublishedProvenance(ctx, directory, tag, provenance.SourceTrust{Repository: root, AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}); err != nil {
-		return "", err
 	}
 	if err := os.MkdirAll(stage, 0o700); err != nil {
 		return "", err
