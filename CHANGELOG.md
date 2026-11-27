@@ -133,12 +133,12 @@ signing, and GA status remain separate evidence.
   be installed beside the current one before CI moves to it. The released
   program does not change.
 - The shipped team file follows each provider's lines and vendors as of
-  2026-11-27. Gemini 4 Neon joins on UCloud and DMXAPI, DMXAPI's `-ant`
-  channel of Gemini 4 Carbon and UCloud's Doubao Seed 2.1 Pro join, and
-  StepFun returns with Step 3.7 Flash on DMXAPI. Ling-3.1-Flash replaces
-  Ling-3.0-Flash on AIHubMix, with no declared context window: Ant Ling
-  documents 1M tokens for it. Applying the file keeps your clients' explicit
-  selections of Ling-3.0-Flash.
+  2026-11-27. New on UCloud: Gemini 4 Neon and Doubao Seed 2.1 Pro 260915. New
+  on DMXAPI: Gemini 4 Neon, the `-ant` channel of Gemini 4 Carbon, and Step
+  3.7 Flash, which brings StepFun back with a context window of 256,000. On
+  AIHubMix, LongCat 2.0 joins and Ling-3.1-Flash replaces Ling-3.0-Flash,
+  declaring no context window: Ant Ling documents 1M tokens for it. Applying
+  the file keeps your clients' explicit selections of Ling-3.0-Flash.
 
 ### Removed
 

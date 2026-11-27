@@ -448,6 +448,11 @@ family = 'ling-3.1-flash'
 protocols = { chat = [] }
 
 [[providers.models]]
+id = 'longcat-2.0'
+family = 'longcat-2.0'
+protocols = { chat = [] }
+
+[[providers.models]]
 id = 'mistral-large-3'
 family = 'mistral-large-3'
 protocols = { chat = [] }
@@ -670,6 +675,10 @@ label = 'Ling 3.1 Flash'
 [[families]]
 id = 'ling-3.2-flash'
 label = 'Ling 3.2 Flash'
+
+[[families]]
+id = 'longcat-2.0'
+label = 'LongCat 2.0'
 
 [[families]]
 id = 'longcat-2.5'

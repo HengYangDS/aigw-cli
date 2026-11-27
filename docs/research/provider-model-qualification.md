@@ -54,39 +54,53 @@ Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default models; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
 
-## November 27 refresh: new listings of the held lines and vendors
+## November 27 refresh: every held line and vendor on every provider
 
 The owner asked on November 27 for the file to be updated again, naming UCloud's Gemini 4 Neon. The providers'
-catalogs of that day were compared with those of November 23: every model in the file is still listed, and no
-Anthropic or OpenAI line has a newer model. Three runs of the three turns of November 12 used the stock Hermes v0.23.2
-(`ae2a81ccc00e`, clean), the second and third with a control of DMXAPI's GPT-6.2 Sol. Raw results are in the canonical
-checkout's `build/evidence/team-refresh-20261127/`.
+catalogs of that day were compared with those of November 23 for every line and vendor that the file holds: every
+model in the file is still listed, and no Anthropic or OpenAI line has a newer model. Four runs of the three turns of
+November 12 used the stock Hermes v0.23.2 (`ae2a81ccc00e`, clean): 12:19 to 12:27, 12:34 to 12:37, 13:39 to 13:52 and
+14:14 to 14:26, the last three with a control of DMXAPI's GPT-6.2 Sol. The third and fourth ran after a fresh review
+found listings that the first two had not covered. Raw results are in the canonical checkout's
+`build/evidence/team-refresh-20261127/`.
 
-| Model                      | Admitted provider / protocol                     | Note                                            |
-| -------------------------- | ------------------------------------------------ | ----------------------------------------------- |
-| Gemini 4 Neon              | UCloud / Responses (Chat Completions passed too) | Listed there since this refresh                 |
-| Gemini 4 Neon              | DMXAPI / Responses                               | Listed there since this refresh                 |
-| Gemini 4 Carbon, `-ant`    | DMXAPI / Responses                               | A channel whose suffix DMXAPI does not document |
-| Doubao Seed 2.1 Pro 260915 | UCloud / Responses (Chat Completions passed too) | The build the file holds on DMXAPI              |
-| Step 3.7 Flash             | DMXAPI / Responses                               | StepFun returns; declares 256,000               |
-| Ling-3.1-Flash             | AIHubMix / Chat Completions                      | Replaces Ling-3.0-Flash; declares none          |
+| Model                      | Admitted provider / protocol                     | Note                                    |
+| -------------------------- | ------------------------------------------------ | --------------------------------------- |
+| Gemini 4 Neon              | UCloud / Responses (Chat Completions passed too) | New there since November 23             |
+| Gemini 4 Neon              | DMXAPI / Responses                               | New there since November 23             |
+| Gemini 4 Carbon, `-ant`    | DMXAPI / Responses                               | DMXAPI does not document the suffix     |
+| Doubao Seed 2.1 Pro 260915 | UCloud / Responses (Chat Completions passed too) | The build that the file holds on DMXAPI |
+| Step 3.7 Flash             | DMXAPI / Responses                               | StepFun returns; declares 256,000       |
+| Ling-3.1-Flash             | AIHubMix / Chat Completions                      | Replaces Ling-3.0-Flash; declares none  |
+| LongCat 2.0                | AIHubMix / Chat Completions                      | Meituan's strongest model listed there  |
 
-[Ant Ling's developer FAQ](https://developer.ant-ling.com/en/docs/faq/), read on November 27 and relayed by the fetch
-tool's summarising model, gives Ling 3.1 Flash and Ling 3.2 Flash 1M tokens each and Ling 3.0 Flash 256K, shared
-between input and output. [StepFun's model page](https://platform.stepfun.ai/docs/en/guides/models/step-3.7-flash),
-relayed the same way, gives Step 3.7 Flash 256K. [Z.ai's GLM-5.4 page](https://docs.z.ai/guides/llm/glm-5.4) offers
+Windows, each read on November 27 and relayed by the fetch tool's summarising model. [Google's Gemini 4 Neon
+page](https://aistudio.google.com/docs/models/gemini-4-neon) gives a unified window of 1,048,576 and lists
+`gemini-4-neon` as stable. [Ant Ling's developer FAQ](https://developer.ant-ling.com/en/docs/faq/) gives Ling 3.1 Flash
+and Ling 3.2 Flash 1M each and Ling 3.0 Flash 256K, shared between input and output. [StepFun's model
+page](https://platform.stepfun.ai/docs/en/guides/models/step-3.7-flash) gives Step 3.7 Flash 256K. Meituan's LongCat
+2.0 page returned no text; [MarkTechPost's release report](https://www.marktechpost.com/2026/07/05/meituan-releases-longcat-2-0-a-1-6t-parameter-open-moe-model-with-native-1m-context-and-longcat-sparse-attention/)
+gives it a native 1M context, so it declares none. [Z.ai's GLM-5.4 page](https://docs.z.ai/guides/llm/glm-5.4) offers
 GLM-5.4 to GLM Coding Plan users and says "The Model API will be made available upon completion of the security
-assessment"; AIHubMix lists it only as `coding-glm-5.4`, so GLM-5.3 stays.
+assessment". AIHubMix lists it only as `coding-glm-5.4` and `coding-glm-5.4-free`, so GLM-5.4 is not generally
+available, and GLM-5.3 stays on every provider that holds it.
 
-Not admitted, each from the provider's answer: UCloud's Gemini 4 Hydrogen (`content_policy_blocked` at the third
-turn, as on November 23, again over Chat Completions only), Suhe.AI's Gemini 4 Argon, Carbon, Hydrogen and Neon (HTTP
-400 "Model not found" though listed), AIHubMix's Cohere Command A Plus and Mistral Large 4 (HTTP 400 "cannot be served
-at the moment"; Command A and Mistral Large 3 stay), its Step 3.7 Flash (HTTP 402, "You exceeded your current quota")
-and its free Ling 3.2 Flash (the first request answered, then HTTP 429 on all three attempts of the next). Two vendors
-that the file does not hold were run once to inform whether a vendor should be added: Agnes 3.0 Pro on DMXAPI (HTTP
-503, no available channel) and Thinking Machines' Inkling 2 Small on AIHubMix (HTTP 400 "cannot be served at the
-moment"); neither qualified. AIHubMix's `solar-pro-4-contributor`, by its name a second ID of Solar Pro 4, was not
-run.
+Not admitted, each from the provider's answer:
+
+- UCloud's Gemini 4 Hydrogen: `content_policy_blocked` at the third turn over Chat Completions, as on November 23, and
+  HTTP 500 "not implemented" over Responses.
+- DMXAPI's ERNIE 5.1: HTTP 500 "not implemented". AIHubMix keeps ERNIE 5.1.
+- Suhe.AI's Gemini 4 Argon, Carbon, Hydrogen and Neon: HTTP 400 "Model not found" though listed.
+- AIHubMix's Cohere Command A Plus and Mistral Large 4: HTTP 400 "cannot be served at the moment"; Command A and
+  Mistral Large 3 stay.
+- AIHubMix's Step 3.7 Flash: HTTP 402, "You exceeded your current quota".
+- AIHubMix's free Ling 3.2 Flash: HTTP 429 on five of six requests; the first call was answered on its third attempt.
+
+Two vendors that the file does not hold were run once, to inform whether a vendor should be added: Agnes 3.0 Pro on
+DMXAPI (HTTP 503, no available channel) and [Thinking Machines' Inkling 2
+Small](https://thinkingmachines.ai/news/inkling-2-small/) on AIHubMix (HTTP 400 "cannot be served at the moment").
+Neither qualified. DMXAPI's `yinchao-v3.5` and `yinchao-v4.5` name no vendor that the file holds, and AIHubMix's
+`solar-pro-4-contributor`, by its name a second ID of Solar Pro 4, was not run.
 
 ## November 23 refresh: Gemini 4 Neon and the vendors' current models
 
