@@ -84,8 +84,9 @@ without `[clients]`.
 
 - **WHEN** a command loads an `aigw.toml` that has `version = 8`
 - **THEN** it SHALL refuse before reading any other field and change no file
-- **AND** its fix SHALL name three edits: set `version = 9`, rename each client's `executable` to `program`, and
-  delete `authentication` and `model_provider` wherever they appear
+- **AND** its fix SHALL name four edits: set `version = 9`, rename each client's `executable` to `program`, delete
+  `authentication` and `model_provider` wherever they appear, and delete each client's `forwarding` to set it again
+  with `--via <root>`
 - **AND** that text SHALL be the same for every version 8 file, and no command SHALL rewrite the file
 - **AND** the credential reader, which ignores `version`, SHALL still serve Tokens from it.
 

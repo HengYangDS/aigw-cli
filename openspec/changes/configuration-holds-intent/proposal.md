@@ -30,6 +30,11 @@ The design rests on the issue-1 committee and the end-state committee, whose mat
 - **Breaking:** the client-native path is removed: the client keys `authentication` and `model_provider` and the same
   keys of a recommendation leave the schema, and Codex receives only AIGW's own provider table with the credential
   command. Nothing replaces them now; cloud providers return under the rules of DR-0013 when a real journey needs them.
+- **Breaking:** a client's forwarding names the forwarding service's root (`aigw client edit <client> --via <root>`),
+  and AIGW composes the destination from the selected provider's own Responses endpoint as
+  `<root>/<scheme>/<authority>/<base path>`, the grammar of openai-responses-proxy 8.0.0, which refuses the
+  provider-named routes. Forwarding stays when the client changes provider; a provider whose endpoint the grammar
+  cannot name is refused for a forwarded client. A client's `forwarding` becomes one string, the root.
 - **Breaking (output):** `aigw client list` JSON replaces `executable` with `program` and adds `extensions` where one
   is declared; its human output names the declared extensions directory beside the program it resolved.
 - Whether a client's files are projected follows from its enabled state, its targets and AIGW's record, not from a

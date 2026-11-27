@@ -77,9 +77,9 @@ declares the same program without its version. Every repair that named `--execut
 ### Projected follows enabled, targets and the record
 
 Whether a client's files are projected followed from a non-empty `executable` in activation, the local check, Claude
-Code's adapter and Codex's verification (the issue committee's D7). It follows from the enabled state, the targets and AIGW's
-record, so a client whose program is declared but not yet resolved keeps its files' state, and a client stopped by a
-missing program is reported as stopped, not as unprojected.
+Code's adapter and Codex's verification (the issue committee's D7). It follows from the enabled state, the targets and
+AIGW's record, so a client whose program is declared but not yet resolved keeps its files' state, and a client stopped
+by a missing program is reported as stopped, not as unprojected.
 
 ### The client-native path leaves
 
@@ -89,14 +89,42 @@ the credential command. No configuration seen so far uses them: the owner's `aig
 neither key (read 2026-11-27). The accepted requirement "Client-scoped Codex native provider" is removed; nothing
 replaces it until a cloud provider returns under DR-0013.
 
+### Forwarding names a service root and composes the upstream
+
+openai-responses-proxy 8.0.0 (released 2026-11-27, its Change `provider-agnostic-addressing`) knows no provider names:
+the request path names the upstream, as `<root>/<scheme>/<authority>/<base path>`, and it refuses the provider-named
+routes that AIGW's users wrote before. Its contract for AIGW is kept by the proxy session outside every repository; the
+grammar is: `https` for any host or `http` for a loopback host only; a host with an optional port, in lower case and
+without a default port, so that one upstream has one spelling; a base path of zero or more segments without empty or
+dot segments or percent-encoding; no user information, query or fragment. The proxy relays the Responses API only.
+
+So a client's forwarding names the forwarding service's root (`aigw client edit <client> --via <root>`), and each
+resolution composes the destination from the selected provider's own Responses endpoint by that grammar. The
+forwarding record keeps only the root: the destination is a function of the upstream, so the recorded upstream that
+guarded against a silent rebind, and the rule that cleared forwarding on every change of provider or endpoint, go.
+A selection or provider edit whose upstream the grammar cannot name (another protocol than Responses, or an endpoint
+outside the grammar) is refused before any change, naming `aigw client edit <client> --direct`. A synchronization
+that follows a model chosen in the client cannot refuse it (the owner's rule of 2026-11-20: the client's choice
+counts), so when the grammar cannot name that model's upstream it drops the forwarding and says so with
+`forwarding_cleared`. The root itself is refused unless it is an `https` URL or an `http` URL of a loopback host,
+without user information, query or fragment.
+
+This joins schema 9 rather than a later Change so that the schema moves once: a client's `forwarding` becomes one
+string, the root, so a schema 8 table left in place is refused with its line rather than read as a root. Providers keep their real upstream endpoints;
+a configuration that put a forwarding route into a provider's own endpoint, as the owner's does for two providers,
+moves the route to the client when the proxy is upgraded (the proxy session's cutover, step 3).
+
+Alternative rejected: a fixed destination per provider, written by the operator. It repeats the upstream in a second
+place and needs one forwarding per provider, which a client with one forwarding cannot hold.
+
 ### Schema 9 refuses schema 8 with the edits
 
-The store refuses a version 8 file before reading anything else, as it refuses any other version, but names the
-edits that schema 9 needs: set `version = 9`; rename each client's `executable` to `program`; delete `authentication`
-and `model_provider` wherever they appear. The text is fixed; nothing of the old file is parsed for it, so no schema 8
-reader survives. After the edits, a leftover key is refused by the existing undefined-field refusal with its line.
-Alternative rejected: an in-place converter, which DR-0012 already rejected as an importer and which would keep a
-second schema in the program.
+The store refuses a version 8 file before reading anything else, as it refuses any other version, but names the edits
+that schema 9 needs: set `version = 9`; rename each client's `executable` to `program`; delete `authentication` and
+`model_provider` wherever they appear; delete each client's `forwarding` and set it again with `--via <root>`. The
+text is fixed; nothing of the old file is parsed for it, so no schema 8 reader survives. After the edits, a leftover
+key is refused by the existing undefined-field refusal with its line. Alternative rejected: an in-place converter,
+which DR-0012 already rejected as an importer and which would keep a second schema in the program.
 
 ### The credential reader and its file name stay
 
@@ -126,7 +154,7 @@ to keep a copy of `aigw.toml` before the edit.
 ## Migration Plan
 
 The owner's `aigw.toml` declares four `executable` lines and nothing client-native (read 2026-11-27). After the
-release is installed, AIGW's maintainer keeps a copy of the file and makes the three edits; `aigw check --depth
+release is installed, AIGW's maintainer keeps a copy of the file and makes the edits; `aigw check --depth
 local` then proves the result. Rollback: restore the copy and `aigw self rollback`.
 
 ## Open Questions

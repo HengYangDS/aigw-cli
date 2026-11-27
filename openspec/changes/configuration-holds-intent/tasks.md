@@ -9,7 +9,7 @@
 ## 2. Schema 9 without the client-native path
 
 - [ ] 2.1 Move the configuration and team-file version to 9 and refuse version 8 before reading anything else, with the
-      fixed text that names the three edits. Done when a store test pins the refusal of a version 8 file and of a
+      fixed text that names the edits. Done when a store test pins the refusal of a version 8 file and of a
       version 9 file that still holds `executable`, `authentication` or `model_provider`, each by field and line.
 - [x] 2.2 Remove `authentication` and `model_provider` from the client and recommendation documents and the domain,
       the client specification's two client-native fields, and their validation and retry rules. Done when no source
@@ -44,43 +44,62 @@
 - [ ] 3.7 Derive whether a client's files are projected from its enabled state, its targets and AIGW's record. Done
       when a test of an enabled client with a declared but unresolved program reports its files' real state.
 
-## 4. Release journeys
+## 4. Forwarding through a service root
 
-- [ ] 4.1 Make the published-predecessor lifecycle journey migrate a version 8 configuration: the candidate refuses it
-      and changes nothing, the journey makes the three edits, the predecessor's captured credential command returns
+- [ ] 4.1 Make a client's `forwarding` one string, the root, in the document and the domain, and add the fourth
+      schema 9 edit to the version 8 refusal. Done when store and domain tests pin the root's refusals (not
+      `https` or loopback `http`, user information, query, fragment) and the refusal text names the four edits.
+- [ ] 4.2 Compose the destination `<root>/<scheme>/<authority>/<base path>` from the selected provider's Responses
+      endpoint, host in lower case without a default port, and refuse an endpoint outside openai-responses-proxy
+      8.0.0's grammar, in one function of the domain that resolution, selection and provider edits use. Done when
+      table tests pass for the four providers in use, a port, a default port, an upper-case host, a trailing slash
+      and each refused form.
+- [ ] 4.3 Keep forwarding through a change of model, provider or provider endpoint, refuse a command's change that the
+      grammar cannot name with the `--direct` fix, let a synchronization that follows a model chosen in the client
+      drop the forwarding with `forwarding_cleared`, and clear retry budgets on a change of provider as before. Done
+      when the selection, synchronization and provider-edit tests of each scenario of the two forwarding requirements
+      pass.
+- [ ] 4.4 Project the composed destination as Codex's and Hermes's base URL, and name `--via <root>` in help and
+      examples. Done when a Codex projection test reads `http://127.0.0.1:8792/https/www.dmxapi.cn/v1` and no source
+      or golden file names `--via http://127.0.0.1:8792/v1`.
+
+## 5. Release journeys
+
+- [ ] 5.1 Make the published-predecessor lifecycle journey migrate a version 8 configuration: the candidate refuses it
+      and changes nothing, the journey makes the edits, the predecessor's captured credential command returns
       the same Token from the version 9 file, a program rollback refuses until the kept copy is restored, and the
       re-upgrade repeats the migration. Done when the journey compiles with `-tags client_acceptance` and its
       source-baseline path passes in `mise run native`.
-- [ ] 4.2 Use `program` in every other release journey and fixture. Done when
+- [ ] 5.2 Use `program` in every other release journey and fixture. Done when
       `go vet -tags client_acceptance ./tools/release/...` passes.
 
-## 5. Documents
+## 6. Documents
 
-- [ ] 5.1 Update the configuration and client references, the team rollout guide and the terminal-experience document
+- [ ] 6.1 Update the configuration and client references, the team rollout guide and the terminal-experience document
       for `program`, `extensions` and schema 9. Done when the prose and Markdown gates pass.
-- [ ] 5.2 Add the breaking changes and the upgrade edits, with an example, under `## Unreleased` in `CHANGELOG.md`.
+- [ ] 6.2 Add the breaking changes and the upgrade edits, with an example, under `## Unreleased` in `CHANGELOG.md`.
       Done when `go run ./tools/release validate-changelog` passes.
 
-## 6. Local gates
+## 7. Local gates
 
-- [ ] 6.1 Pass `mise run check` on the lane head, in the host queue.
-- [ ] 6.2 Pass `mise run native` on the macOS host on the lane head, in the host queue.
+- [ ] 7.1 Pass `mise run check` on the lane head, in the host queue.
+- [ ] 7.2 Pass `mise run native` on the macOS host on the lane head, in the host queue.
 
-## 7. Review
+## 8. Review
 
-- [ ] 7.1 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
+- [ ] 8.1 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
       code or in the design.
 
-## 8. Exact-HEAD proof
+## 9. Exact-HEAD proof
 
-- [ ] 8.1 Pass the ETHOS full proof of the lane head.
+- [ ] 9.1 Pass the ETHOS full proof of the lane head.
 
-## 9. Hosted CI
+## 10. Hosted CI
 
-- [ ] 9.1 Pass the proposal's GitHub checks.
-- [ ] 9.2 Pass the proposal's GitLab pipeline on the macOS and Linux runners.
+- [ ] 10.1 Pass the proposal's GitHub checks.
+- [ ] 10.2 Pass the proposal's GitLab pipeline on the macOS and Linux runners.
 
-## 10. Publication
+## 11. Publication
 
-- [ ] 10.1 Publish the proven lane head as the lane's proposal branch on both forges. Done when each forge reads back
+- [ ] 11.1 Publish the proven lane head as the lane's proposal branch on both forges. Done when each forge reads back
       the exact head.
