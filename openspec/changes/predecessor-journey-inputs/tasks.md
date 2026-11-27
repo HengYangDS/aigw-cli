@@ -6,10 +6,11 @@
 - [x] 1.2 Run the candidate's sync with its configuration and credential checks before the candidate judges the
       baseline step. Done when `go vet -tags client_acceptance ./tools/release` passes and the baseline step is the
       only step that does so.
-- [x] 1.3 After the re-upgrade step, apply the shipped file with the installed candidate, judge Codex and Hermes at
-      the declared windows, and check Hermes's windows against the configuration. Done when
-      `go vet -tags client_acceptance ./tools/release` passes and `requireDeclaredWindows` fails when no model that
-      Hermes lists declares a window.
+- [x] 1.3 After the re-upgrade step, apply the shipped file with the installed candidate, judge Hermes with it, and
+      check Hermes's windows against the configuration per entry and protocol; stop a Hermes journey at its start when
+      the shipped file declares no window for a model that Hermes would list. Done when
+      `go vet -tags client_acceptance ./tools/release` passes and both checks fail when no listed model declares a
+      window.
 
 ## 2. Verification
 

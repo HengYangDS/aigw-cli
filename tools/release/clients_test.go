@@ -155,6 +155,9 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		spec, _ := clients.Admission().Spec(client)
 		protocol = spec.EndpointProtocols[0]
 	}
+	if client == hermes.ID {
+		p.requireDeclaredWindowSource(t, route.Provider)
+	}
 	server, hermesSession := newNativeClientServer(t, client, protocol, route.ID, token, &completions)
 	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
 	if client == hermes.ID && !p.publishedBaseline {
@@ -216,7 +219,9 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		}
 	}
 	journey.testing = t
-	p.requireDeclaredWindows(journey, client, &completions)
+	if client == hermes.ID {
+		p.requireHermesDeclaredWindows(journey, &completions)
+	}
 	journey.requireNativeForwarding(client, token, server, continueClient)
 	journey.verifyNativeConfigEditing(client, executable)
 	// The client moves to a provider with another ID, which then serves it,
@@ -329,27 +334,41 @@ func (p nativeClientJourneyPlan) baselineManifest(j *journeyFixture) string {
 	return path
 }
 
-// requireDeclaredWindows judges a client that runs models at their windows
-// with the windows that the shipped file declares. After a published
-// predecessor, the installed candidate first applies the shipped file, whose
-// windows the predecessor refused; this follows the last rollback, which
-// 0.10.0 refuses while a model declares a window. Hermes's file must then give
-// every listed model its window, at least one of them declared.
-func (p nativeClientJourneyPlan) requireDeclaredWindows(j *journeyFixture, client string, completions *atomic.Int64) {
-	j.testing.Helper()
-	spec, _ := clients.Admission().Spec(client)
-	if !spec.ContextWindow {
-		return
+// requireDeclaredWindowSource stops a Hermes journey at once when the shipped file declares no window for a model that Hermes would
+// list for the route's provider, the only provider whose Token the journey
+// gives; requireHermesDeclaredWindows would otherwise fail only after the
+// whole lifecycle, for a reason of the file's data alone.
+func (p nativeClientJourneyPlan) requireDeclaredWindowSource(t *testing.T, providerID string) {
+	t.Helper()
+	spec, _ := clients.Admission().Spec(hermes.ID)
+	for _, ref := range p.manifest.ProviderModelRefs(providerID) {
+		model := p.manifest.Models[ref]
+		if model.ContextWindow != 0 && len(spec.CompatibleModelProtocols(p.manifest.Providers[providerID], model)) > 0 {
+			return
+		}
 	}
+	t.Fatalf("manifests/team.toml declares no context window for a model of %s that Hermes lists; the journey needs one to judge Hermes at a declared window", providerID)
+}
+
+// requireHermesDeclaredWindows judges Hermes with a file that declares
+// windows. After a published predecessor, the installed candidate first
+// applies the shipped file, whose windows the predecessor refused, and Hermes
+// then serves a turn with it; this follows the last rollback, which 0.10.0
+// refuses while a model declares a window. Hermes's file must then give every
+// listed model its configured window, at least one of them declared. Codex
+// gains nothing here: AIGW tells it only the selected model's window, and the
+// selected model declares none.
+func (p nativeClientJourneyPlan) requireHermesDeclaredWindows(j *journeyFixture, completions *atomic.Int64) {
+	j.testing.Helper()
 	if p.publishedBaseline {
 		j.run("setup", "--from", j.manifest)
 		count := completions.Load()
-		j.run("check", client, "--depth", "client")
+		j.run("check", hermes.ID, "--depth", "client")
 		if completions.Load() <= count {
-			j.testing.Fatal("client returned without an authenticated streaming request at the declared windows")
+			j.testing.Fatal("Hermes returned without an authenticated streaming request after the file with declared windows")
 		}
 	}
-	if client == hermes.ID && j.requireHermesModelWindows() == 0 {
+	if j.requireHermesModelWindows() == 0 {
 		j.testing.Fatal("no model that Hermes lists declares a context window")
 	}
 }

@@ -18,11 +18,12 @@ Both are readings of the code and the release notes; the candidate acceptance me
 - When the baseline is a published predecessor, the journeys that it starts (the per-client journey and the Codex
   connection-retries journey) apply a copy of the shipped team file without its models' context windows, because
   0.10.0 refuses the field.
-- After the last lifecycle step, with the candidate installed again, the per-client journey applies the shipped file
-  with its windows and judges each client that runs models at their windows, Codex and Hermes, with
-  `check <client> --depth client`; Hermes's file must then give every listed model the window that the configuration
-  gives it, at least one of them declared. This is the only native check of Hermes with declared windows when the
-  baseline is a published predecessor, as it always is in `accept-native --clients`.
+- After the last lifecycle step, with the candidate installed again, the Hermes journey applies the shipped file with
+  its windows and judges Hermes with `check hermes --depth client`; Hermes's file must then give every listed model
+  the window that the configuration gives it, at least one of them declared. This is the only native check of Hermes
+  with declared windows when the baseline is a published predecessor, as it always is in `accept-native --clients`.
+  The Hermes journey stops at its start when the shipped file declares no window for a model that Hermes would list,
+  rather than after the lifecycle.
 - In the baseline step, the candidate runs its `sync`, with the existing checks that the configuration and both
   credential commands stay as they were, before it judges the client files that the baseline wrote. The other steps
   are unchanged.
@@ -44,8 +45,8 @@ None. This Change changes test inputs of the release acceptance and no behavior 
 ## Impact
 
 `tools/release/clients_test.go`, `tools/release/clients_retries_test.go` and
-`tools/release/hermes_context_window_test.go`, whose check of Hermes's windows now compares each listed model with
-the configuration instead of the default. Authority stays with the release
+`tools/release/hermes_context_window_test.go`, whose check of Hermes's windows now compares each listed model, per
+provider entry and protocol, with the configuration instead of the default. Authority stays with the release
 acceptance in `tools/release`; nothing is reused from or added to the product. No compatibility code: the removal of
 the windows applies only to a published baseline that predates them and goes once the oldest admissible baseline
 reads them.

@@ -45,15 +45,21 @@ client files unseen, and native coverage of a baseline other than a published pr
    Alternatives: judging the baseline step with the baseline program would reverse the decision of 2026-10-11;
    synchronizing before every step where the baseline is installed would also repair, unseen, any client file that a
    rollback disturbed.
-3. **The windows return after the lifecycle.** With a published baseline, no native journey of Hermes would see a
-   declared window, and `accept-native --clients` always has one. After the re-upgrade step, the installed candidate
-   applies the shipped file (`requireDeclaredWindows`) and judges each client whose specification runs models at
+3. **Hermes's windows return after the lifecycle.** With a published baseline, no native journey of Hermes would see
+   a declared window, and `accept-native --clients` always has one. After the re-upgrade step, the installed candidate
+   applies the shipped file (`requireHermesDeclaredWindows`) and judges Hermes, which loads a file whose models carry
    their windows; Hermes's file must give each listed model its configured window, and at least one must be declared.
-   It comes after the last rollback because 0.10.0's `self rollback` refuses a configuration that declares a window,
-   and before forwarding, editing and removal, which then run with the windows. The check of Hermes's file compares
-   with the configuration, so the published-predecessor journey, whose file declares none, still requires the
-   default for each model. Alternative: correcting the documents and leaving the gap would release declared windows
-   with no automated native evidence from Hermes.
+   It proves that Hermes accepts and serves with that file, not that a model ran at a declared window: the selected
+   model declares none. Codex is not judged again: AIGW tells it only the selected model's window, which is the
+   default, and the candidate's `codex-general-routes` already selects models that declare one. The step comes after
+   the last rollback because 0.10.0's `self rollback` refuses a configuration that declares a window, and before
+   forwarding, editing and removal, which then run with the windows. The journey's Token is the route provider's
+   only, so the declared window comes from one row of the shipped file (DMXAPI's Grok 4.7 today);
+   `requireDeclaredWindowSource` stops the Hermes journey at its start when no such row is left. The check of
+   Hermes's file builds each entry's models per provider and protocol, as the adapter does, and refuses an entry or
+   model of AIGW's that the configuration does not hold; the published-predecessor journey, whose file declares no
+   window, still requires the default for each model. Alternative: correcting the documents and leaving the gap would
+   release declared windows with no automated native evidence from Hermes.
 
 ## Risks / Trade-offs
 
@@ -64,4 +70,7 @@ client files unseen, and native coverage of a baseline other than a published pr
   does, since only the baseline step's check runs between them; the second is kept to check that the candidate's
   sync leaves the configuration and credentials as they were before it replaces the program. It costs one more sync
   per client.
-- Decision 3 adds one `setup` and one client turn for Codex and for Hermes in each published-baseline run.
+- Decision 3 adds one `setup` and one Hermes turn to each published-baseline run, and ties the Hermes journey to a
+  declared window among the route provider's models in the shipped file.
+- The check of Hermes's file spells the entry ID (`aigw-<provider>-<protocol>`) as the adapter does; a change of that
+  spelling fails the check loudly rather than passing it.
