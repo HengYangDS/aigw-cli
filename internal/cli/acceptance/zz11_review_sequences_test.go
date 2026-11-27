@@ -40,7 +40,7 @@ func TestZZ11GuidedSetupAfterAChoice(t *testing.T) {
 				binding := selection(t, world.app, world.client)
 				world.app.Interactive = true
 				world.app.Discovery = fakeDiscovery{result: discovery.Result{
-					Executables: map[string]string{codex.ID: binding.Executable},
+					Executables: map[string]string{codex.ID: binding.Program},
 					Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: world.files[0], Present: true, AutoManaged: true}},
 				}}
 				prompt := &scriptedPrompt{selections: []string{"gateway"}, texts: []string{named}, secrets: []string{"typed-token"}}
@@ -167,7 +167,7 @@ func TestZZ11ARollbackToADisabledClientOverAChoice(t *testing.T) {
 			world := zz11Codex(codexWorld(t, 1))
 			binding := selection(t, world.app, world.client)
 			world.run(t, "client", "disable", "codex")
-			world.run(t, "client", "enable", "codex", "--executable", binding.Executable, "--target", world.files[0])
+			world.run(t, "client", "enable", "codex", "--program", binding.Program, "--target", world.files[0])
 			recPick(t, world.files[0], "gpt-terra")
 			world.setToken(t, token)
 			run := runIn(t, world, "config", "rollback", "--last-change", "--json")
@@ -364,7 +364,7 @@ func TestZZ11EnablingAnEnabledClientAfterAChoice(t *testing.T) {
 					world.files = append(world.files, target)
 				}
 				world.setToken(t, token)
-				run := runIn(t, world, "client", "enable", "codex", "--executable", binding.Executable, "--target", target, "--json")
+				run := runIn(t, world, "client", "enable", "codex", "--program", binding.Program, "--target", target, "--json")
 				t.Logf("err=%v\n  before: %s\n  after:  %s", run.err, shownLine(run.before), shownLine(run.after))
 				if run.err != nil {
 					if len(run.changed) != 0 {

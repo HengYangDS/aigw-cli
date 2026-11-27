@@ -194,11 +194,12 @@ func projectionAction(spec domain.ClientSpec) string {
 
 // enableAction resumes a disabled client binding that keeps its selection;
 // synchronization skips it. Enabling does not depend on the stored protocol,
-// which selecting the model again would have to equal. Enabling asks for the
-// client's executable, and for a configuration file when the client reads one,
-// so the step names them for the operator to choose.
+// which selecting the model again would have to equal. Enabling keeps the
+// program that the client declares, or adopts the one that discovery finds,
+// and asks for a configuration file when the client reads one, so the step
+// names that file for the operator to choose.
 func enableAction(spec domain.ClientSpec) string {
-	action := "aigw client enable " + spec.ID + " --executable <path>"
+	action := "aigw client enable " + spec.ID
 	if spec.TargetFile != "" {
 		action += " --target <" + spec.TargetFile + ">"
 	}
@@ -206,12 +207,17 @@ func enableAction(spec domain.ClientSpec) string {
 }
 
 // ProjectionPrerequisites derives pending native-client work from selected
-// bindings without reading credential metadata or claiming projection health.
+// bindings without reading credential metadata or claiming projection health:
+// an enabled client that declares no program has not been converged, since
+// convergence adopts the program that discovery finds, so it waits to be
+// installed and synchronized. Whether the files of a client that declares
+// one are projected is its adapter's and AIGW's record's to tell, and a
+// declared program that cannot be used stops the client instead.
 func ProjectionPrerequisites(cfg domain.Config) map[string]string {
 	prerequisites := map[string]string{}
 	for _, spec := range cfg.Admission().Specs() {
 		binding := cfg.Clients[spec.ID]
-		if !binding.Enabled || binding.Executable != "" {
+		if !binding.Enabled || binding.DeclaresProgram() {
 			continue
 		}
 		prerequisites[spec.ID] = projectionAction(spec)
@@ -423,7 +429,7 @@ func NextActionAfterProviderConnection(cfg domain.Config, accountID string) stri
 		switch {
 		case !binding.Enabled:
 			return enableAction(spec)
-		case binding.Executable == "":
+		case !binding.DeclaresProgram():
 			return projectionAction(spec)
 		}
 		return "aigw check"

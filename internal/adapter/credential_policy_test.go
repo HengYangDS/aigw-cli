@@ -45,7 +45,7 @@ func configuredClient(t *testing.T, id string) (domain.Config, adapter.Dependenc
 	if id == claudedesktop.ID {
 		target = filepath.Join(root, "Claude-3p", "configLibrary")
 	}
-	clientAdapter := domain.ClientBinding{Model: ref, Enabled: true, Protocol: spec.EndpointProtocols[0], Executable: executable}
+	clientAdapter := domain.ClientBinding{Model: ref, Enabled: true, Protocol: spec.EndpointProtocols[0], Program: executable}
 	if id != claude.ID {
 		clientAdapter.Targets = []string{target}
 	}

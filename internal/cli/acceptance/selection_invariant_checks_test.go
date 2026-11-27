@@ -262,6 +262,6 @@ func (without selectionRun) twinnedFaults(with selectionRun, command selectionCo
 // program and the configuration files are each world's own paths, so they
 // are not compared.
 func tokenedBinding(binding domain.ClientBinding) domain.ClientBinding {
-	binding.Executable, binding.Targets = "", nil
+	binding.Program, binding.Targets = "", nil
 	return binding
 }

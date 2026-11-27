@@ -38,7 +38,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		cfg := domain.NewConfig(testAdmission())
 		cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
 		cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
-		cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Executable: "/usr/bin/codex", Targets: []string{target}}
+		cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Program: "/usr/bin/codex", Targets: []string{target}}
 		runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 		if err != nil {
 			t.Fatal(err)
@@ -50,14 +50,16 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		return cfg, runtime
 	}
 
-	t.Run("missing executable", func(t *testing.T) {
+	// Whether the files hold the selection follows from the enabled
+	// client, its files and AIGW's record, never from a program path.
+	t.Run("no declared program", func(t *testing.T) {
 		cfg, runtime := newFixture(t)
 		clientAdapter := cfg.Clients[ID]
-		clientAdapter.Executable = ""
+		clientAdapter.Program = ""
 		cfg.Clients[ID] = clientAdapter
 		status := (codexAdapter{}).Inspect(context.Background(), adapter.Dependencies{}, cfg, runtime)
-		if status.Ready || !strings.Contains(status.Issue, "executable") {
-			t.Fatalf("status = %#v", status)
+		if !status.Ready || status.Issue != "" {
+			t.Fatalf("status = %#v, want the files judged by themselves", status)
 		}
 	})
 
@@ -149,7 +151,7 @@ func TestCodexAdapterProjectsTheCredentialHelperIntoAIGWsTable(t *testing.T) {
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
 	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolResponses)
 	cfg.Clients[ID] = domain.ClientBinding{
-		Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Executable: "/usr/bin/codex", Targets: []string{target},
+		Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Program: "/usr/bin/codex", Targets: []string{target},
 	}
 	discovered := discovery.Result{
 		Executables: map[string]string{ID: "/usr/bin/codex"},
@@ -253,7 +255,7 @@ func codexConfiguration(target string) domain.Config {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
 	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
-	cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Program: "/opt/codex", Targets: []string{target}}
 	return cfg
 }
 
@@ -265,9 +267,9 @@ func codexVerificationFixture(t *testing.T) (domain.Config, domain.Runtime) {
 	}
 	cfg := codexConfiguration(target)
 	configured := cfg.Clients[ID]
-	configured.Executable = filepath.Join(t.TempDir(), "codex")
+	configured.Program = filepath.Join(t.TempDir(), "codex")
 	cfg.Clients[ID] = configured
-	if err := os.WriteFile(cfg.Clients[ID].Executable, []byte("fixture"), 0o700); err != nil {
+	if err := os.WriteFile(cfg.Clients[ID].Program, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})

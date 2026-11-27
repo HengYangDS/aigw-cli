@@ -64,12 +64,12 @@ func (claudeDesktopAdapter) Discover(source adapter.DiscoverySource) discovery.R
 }
 
 func (claudeDesktopAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
-	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID)
+	binding, program, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID)
 	if err != nil || !ready {
 		return err
 	}
 	if target := claudeDesktopTarget(binding.Targets, discovered); target != "" {
-		cfg.SetClientActivation(ID, true, executable, []string{target})
+		cfg.SetClientActivation(ID, true, program, []string{target})
 	}
 	return nil
 }
@@ -104,7 +104,7 @@ func (claudeDesktopAdapter) Apply(_ context.Context, deps adapter.Dependencies, 
 
 func (claudeDesktopAdapter) ProjectionChanged(before, after domain.Config) bool {
 	previous, current := before.Clients[ID], after.Clients[ID]
-	if previous.Enabled != current.Enabled || previous.Executable != current.Executable || previous.CredentialCommand != current.CredentialCommand || !slices.Equal(previous.Targets, current.Targets) {
+	if previous.Enabled != current.Enabled || previous.CredentialCommand != current.CredentialCommand || !slices.Equal(previous.Targets, current.Targets) {
 		return true
 	}
 	if !current.Enabled {
@@ -127,11 +127,8 @@ func (claudeDesktopAdapter) Inspect(ctx context.Context, deps adapter.Dependenci
 	if !binding.Enabled {
 		return adapter.Status{Issue: "Claude Desktop adapter is disabled", RepairAction: "aigw sync"}
 	}
-	// A configured executable that is missing is the registry's to report,
+	// A declared program that cannot be used is the registry's to report,
 	// with its own fix, before the client's files are inspected.
-	if binding.Executable == "" {
-		return adapter.Status{Issue: "Claude Desktop executable is not configured", RepairAction: "aigw sync"}
-	}
 	if len(binding.Targets) != 1 {
 		return adapter.Status{Issue: "Claude Desktop configuration library is missing", RepairAction: "aigw sync"}
 	}

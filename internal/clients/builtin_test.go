@@ -45,7 +45,7 @@ func codexConfiguration(t *testing.T, target string) domain.Config {
 	cfg := domain.NewConfig(Admission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
 	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
-	cfg.Clients[codex.ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Executable: processtest.Program(t, "/opt/codex"), Targets: []string{target}}
+	cfg.Clients[codex.ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Program: processtest.Program(t, "/opt/codex"), Targets: []string{target}}
 	return cfg
 }
 
@@ -57,6 +57,7 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 		{
 			ID: claude.ID, Label: "Claude", EndpointProtocols: []domain.EndpointProtocol{anthropic},
 			ProductName: "Claude Code", ModelDiscoveryOptional: true,
+			Extension: domain.ClientExtension{ID: "anthropic.claude-code", Program: "resources/native-binary/claude"},
 		},
 		{
 			ID: claudedesktop.ID, Label: "Claude Desktop", EndpointProtocols: []domain.EndpointProtocol{anthropic},
@@ -67,6 +68,10 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 			ID: codex.ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{responses},
 			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
 			ContextWindow: true,
+			Extension: domain.ClientExtension{
+				ID: "openai.chatgpt", Program: "bin/{os}-{arch}/codex",
+				OS: map[string]string{"darwin": "macos", "linux": "linux"}, Arch: map[string]string{"arm64": "aarch64", "amd64": "x86_64"},
+			},
 		},
 		{
 			ID: hermes.ID, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml", ContextWindow: true,

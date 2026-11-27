@@ -78,8 +78,8 @@ func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
 		t.Fatalf("Verify() disabled error = %v", err)
 	}
 	cfg.SetClientActivation(ID, true, "", nil)
-	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
-		t.Fatalf("Verify() unconfigured error = %v", err)
+	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || err.Error() != "Claude Code program was not found" {
+		t.Fatalf("Verify() without a program error = %v", err)
 	}
 
 	loop := filepath.Join(t.TempDir(), "loop")
@@ -90,13 +90,13 @@ func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
 	// reported with the one fix that can help: another executable.
 	cfg.SetClientActivation(ID, true, loop, nil)
 	status := claudeRegistry().Inspect(context.Background(), adapter.Dependencies{}, cfg, ID, domain.Runtime{})
-	if status.Ready || status.Issue != "Claude Code executable cannot be inspected" || status.RepairAction != "aigw client edit claude --executable <path>" {
+	if status.Ready || status.Issue != "Claude Code program cannot be inspected" || status.RepairAction != "aigw client edit claude --program <path> or --extensions <dir>" {
 		t.Fatalf("status = %#v", status)
 	}
 	gone := cfg.Clone()
 	gone.SetClientActivation(ID, true, filepath.Join(t.TempDir(), "gone"), nil)
 	status = claudeRegistry().Inspect(context.Background(), adapter.Dependencies{}, gone, ID, domain.Runtime{})
-	if status.Ready || status.Issue != "Claude Code executable is missing" || status.RepairAction != "aigw client edit claude --executable <path>" {
+	if status.Ready || status.Issue != "Claude Code program is missing" || status.RepairAction != "aigw client edit claude --program <path> or --extensions <dir>" {
 		t.Fatalf("status = %#v", status)
 	}
 
@@ -201,7 +201,7 @@ func TestClaudeVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing
 			cfg := domain.NewConfig(testAdmission())
 			cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 			cfg.Models[domain.NewModelRef("gateway", "claude-test")] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
-			binding := domain.ClientBinding{Model: domain.NewModelRef("gateway", "claude-test"), Enabled: true, Executable: executable}
+			binding := domain.ClientBinding{Model: domain.NewModelRef("gateway", "claude-test"), Enabled: true, Program: executable}
 			cfg.Clients[ID] = binding
 			selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 			if err != nil {

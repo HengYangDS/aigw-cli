@@ -143,7 +143,7 @@ func TestADeletedClientFileNamesItsRecord(t *testing.T) {
 					t.Fatal(err)
 				}
 				binding := cfg.Clients[id]
-				enable := append([]string{"client", "enable", id, "--executable", binding.Executable}, targetFlags(binding.Targets)...)
+				enable := append([]string{"client", "enable", id, "--program", binding.Program}, targetFlags(binding.Targets)...)
 				for _, command := range [][]string{{"client", "disable", id}, enable} {
 					if err := cli.Execute(client.app, command); err != nil {
 						t.Fatalf("%v: %v\n%s", command, err, client.output)

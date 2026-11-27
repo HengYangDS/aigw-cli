@@ -45,7 +45,7 @@ func packageVersion(path string) string {
 
 // tableFix is the one fix of a configured Codex that cannot produce its model
 // table: another Codex, since a sync runs the same one.
-const tableFix = "Name a Codex executable that prints its model table with `debug models --bundled`: aigw client edit codex --executable <path>"
+const tableFix = "Name a Codex executable that prints its model table with `debug models --bundled`: aigw client edit codex --program <path>"
 
 // tableStop is the stop of a Codex whose configured executable cannot produce
 // the model table that AIGW owns for it, from what the read-only probes of

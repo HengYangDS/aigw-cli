@@ -87,7 +87,7 @@ func TestACommandForOneClientEndsWithTheRefusalOfItsProvidersItem(t *testing.T) 
 			args: func(string) []string { return []string{"use", claude.ID, "one/claude-next"} }},
 		{name: "client enable", selected: "claude-test",
 			args: func(installed string) []string {
-				return []string{"client", "enable", claude.ID, "--executable", installed}
+				return []string{"client", "enable", claude.ID, "--program", installed}
 			}},
 	} {
 		for _, flag := range []string{"", "--json", "--dry-run"} {
@@ -149,7 +149,7 @@ func TestACommandForOneClientCountsAnEmptyTokenAsMissing(t *testing.T) {
 			fix:     "Pipe the Token into `aigw provider rotate one --token-stdin`, then run `aigw use claude one/claude-next`."},
 		{name: "client enable",
 			args: func(installed string) []string {
-				return []string{"client", "enable", claude.ID, "--executable", installed}
+				return []string{"client", "enable", claude.ID, "--program", installed}
 			},
 			problem: `provider "one" is missing a Token; run ` + "`aigw provider rotate one`"},
 	} {

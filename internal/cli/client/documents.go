@@ -8,14 +8,16 @@ import (
 
 // listSchemaVersion and the other constants are the versions of the client
 // subcommands' JSON documents. list replaced the document of `aigw client
-// discover`, version 1, so it continues at 2; enable and disable name their
-// client files as client_files, which replaced projections, so they continue
-// at 2; edit has no predecessor.
+// discover`, version 1, so it continued at 2, and is at 3 since its program
+// replaced its executable; enable and disable name their client files as
+// client_files, which replaced projections, so they continue at 2; edit, which
+// has no predecessor, is at 3 since its program and extensions replaced its
+// executable.
 const (
-	listSchemaVersion    = 2
+	listSchemaVersion    = 3
 	enableSchemaVersion  = 3
 	disableSchemaVersion = 3
-	editSchemaVersion    = 2
+	editSchemaVersion    = 3
 )
 
 // editDocument is `aigw client edit`'s JSON document: the client's settings
@@ -27,7 +29,8 @@ type editDocument struct {
 	Changed    bool     `json:"changed"`
 	Enabled    bool     `json:"enabled"`
 	Model      string   `json:"model,omitempty"`
-	Executable string   `json:"executable,omitempty"`
+	Program    string   `json:"program,omitempty"`
+	Extensions string   `json:"extensions,omitempty"`
 	Targets    []string `json:"targets"`
 	// Forwarding is the endpoint to which the client is sent instead of its
 	// provider's, absent when it reaches the provider directly.
@@ -55,14 +58,17 @@ type listDocument struct {
 	Clients []clientItem `json:"clients"`
 }
 
-// clientItem is one client as list reports it: whether its executable is
-// there and where, whether it is enabled, and its model as provider/model,
-// absent when it selects none. A configured executable that is gone keeps its
-// path, with installed false.
+// clientItem is one client as list reports it: whether its program is there
+// and where, the extensions directory that it declares, whether it is
+// enabled, and its model as provider/model, absent when it selects none. A
+// declared program that is gone keeps its path, with installed false; an
+// extensions directory that resolves to no program has no program, with
+// installed false.
 type clientItem struct {
 	ID         string `json:"id"`
 	Installed  bool   `json:"installed"`
-	Executable string `json:"executable,omitempty"`
+	Program    string `json:"program,omitempty"`
+	Extensions string `json:"extensions,omitempty"`
 	Enabled    bool   `json:"enabled"`
 	Model      string `json:"model,omitempty"`
 }

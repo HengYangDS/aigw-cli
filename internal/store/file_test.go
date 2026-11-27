@@ -13,7 +13,7 @@ import (
 )
 
 // schemaNineText is aigw.toml as AIGW writes it, with every field that
-// schema 9 defines: %[1]s is the Codex executable, %[2]s its target, %[3]s
+// schema 9 defines: %[1]s is the Codex program, %[2]s its target, %[3]s
 // the credential command and %[4]s the upstream that forwarding recorded.
 const schemaNineText = `version = 9
 
@@ -64,7 +64,7 @@ credential_command = '%[3]s'
 enabled = true
 model = 'dmxapi/gpt-6.1-sol-cdx'
 protocol = 'responses'
-executable = '%[1]s'
+program = '%[1]s'
 targets = ['%[2]s']
 retries = { request = 3, stream = 2 }
 forwarding = { endpoint = 'http://127.0.0.1:8792/dmxapi/v1', upstream = '%[4]s', protocol = 'responses' }
@@ -80,7 +80,7 @@ protocol = 'chat'
 func schemaNineConfig(t *testing.T) (domain.Config, string) {
 	t.Helper()
 	root := t.TempDir()
-	executable, target, command := filepath.Join(root, "codex"), filepath.Join(root, ".codex", "config.toml"), filepath.Join(root, "aigw")
+	program, target, command := filepath.Join(root, "codex"), filepath.Join(root, ".codex", "config.toml"), filepath.Join(root, "aigw")
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Version = domain.ConfigVersion
 	if err := cfg.AppendProvider("dmxapi", domain.Provider{
@@ -116,7 +116,7 @@ func schemaNineConfig(t *testing.T) (domain.Config, string) {
 	claudeBinding.CredentialCommand = command
 	cfg.Clients[ClientClaude] = claudeBinding
 	cfg.SetSelectedModel(ClientCodex, sol.Ref(), domain.ProtocolResponses)
-	cfg.SetClientActivation(ClientCodex, true, executable, []string{target})
+	cfg.SetClientActivation(ClientCodex, true, program, []string{target})
 	request, stream := uint64(3), uint64(2)
 	codexBinding := cfg.Clients[ClientCodex]
 	codexBinding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &request, StreamMaxRetries: &stream}
@@ -125,7 +125,7 @@ func schemaNineConfig(t *testing.T) (domain.Config, string) {
 		t.Fatal(err)
 	}
 	cfg.SetSelectedModel(ClientHermes, flash.Ref(), domain.ProtocolChat)
-	text := fmt.Sprintf(schemaNineText, executable, target, command, cfg.Clients[ClientCodex].ForwardingUpstreamIdentity)
+	text := fmt.Sprintf(schemaNineText, program, target, command, cfg.Clients[ClientCodex].ForwardingUpstreamIdentity)
 	return cfg, text
 }
 
@@ -201,8 +201,9 @@ func TestSchemaNineRefusesAnUndefinedFieldOrAnotherVersion(t *testing.T) {
 		{"a retired selection field", "primary = { model = 'dmxapi/claude-opus-5-5' }", "primary = { route = 'claude' }", "recommendations.claude.route", "route ="},
 		{"a retired retry policy", "retries = { request = 3, stream = 2 }", "retry_policy = { request_max_retries = 3 }", "clients.codex.retry_policy", "retry_policy ="},
 		{"an unknown top-level table", "version = 9\n", "version = 9\n[accounts.team]\nlabel = 'Team'\n", "accounts.team", "[accounts.team]"},
-		{"a client's authentication", "protocol = 'responses'\nexecutable", "protocol = 'responses'\nauthentication = 'client-native'\nexecutable", "clients.codex.authentication", "authentication ="},
-		{"a client's model provider", "protocol = 'responses'\nexecutable", "protocol = 'responses'\nmodel_provider = 'amazon-bedrock'\nexecutable", "clients.codex.model_provider", "model_provider ="},
+		{"a client's executable", "program = ", "executable = ", "clients.codex.executable", "executable ="},
+		{"a client's authentication", "protocol = 'responses'\nprogram", "protocol = 'responses'\nauthentication = 'client-native'\nprogram", "clients.codex.authentication", "authentication ="},
+		{"a client's model provider", "protocol = 'responses'\nprogram", "protocol = 'responses'\nmodel_provider = 'amazon-bedrock'\nprogram", "clients.codex.model_provider", "model_provider ="},
 		{"a recommendation's authentication", "primary = { model = 'dmxapi/claude-opus-5-5' }", "primary = { model = 'dmxapi/claude-opus-5-5', authentication = 'client-native' }", "recommendations.claude.authentication", "authentication ="},
 		{"a recommendation's model provider", "alternatives = [{ model = 'dmxapi/gpt-6.1-sol-cdx' }]", "alternatives = [{ model = 'dmxapi/gpt-6.1-sol-cdx', model_provider = 'amazon-bedrock' }]", "recommendations.codex.model_provider", "model_provider ="},
 	} {
@@ -228,6 +229,48 @@ func TestSchemaNineRefusesAnUndefinedFieldOrAnotherVersion(t *testing.T) {
 		if !ok || unsupported.Version != version || unsupported.ExpectedVersion != domain.ConfigVersion || unsupported.Edits() != "" {
 			t.Errorf("version %d = %v", version, err)
 		}
+	}
+}
+
+// A client's program declaration is checked when the file loads: one of
+// program and extensions, each an absolute, clean path without a control
+// character, and a refusal names the client and the field. Whether the path
+// exists is not checked, so a declared program that is gone loads.
+func TestAProgramDeclarationIsCheckedWhenTheFileLoads(t *testing.T) {
+	_, valid := schemaNineConfig(t)
+	_, rest, _ := strings.Cut(valid, "program = '")
+	declared, _, _ := strings.Cut(rest, "'")
+	for _, test := range []struct{ name, to, want string }{
+		{"both declarations", "program = '" + declared + "'\nextensions = '/home/user/.vscode/extensions'", `client "codex" declares both program and extensions`},
+		{"a relative program", "program = 'bin/codex'", `client "codex" program must be an absolute, clean path`},
+		{"a program that is not clean", "program = '/opt/../codex'", `client "codex" program must be an absolute, clean path`},
+		{"extensions with ..", "extensions = '/home/user/../.vscode/extensions'", `client "codex" extensions must be an absolute, clean path`},
+		{"extensions with a control character", "extensions = \"/home/user/.vscode/ext\\u0007ensions\"", `client "codex" extensions must be an absolute, clean path`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			text := strings.Replace(valid, "program = '"+declared+"'", test.to, 1)
+			if text == valid {
+				t.Fatal("the fixture declares no program")
+			}
+			if _, err := decodeTOMLConfig([]byte(text), testAdmission()); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("load error = %v, want %q", err, test.want)
+			}
+		})
+	}
+	for _, test := range []struct{ name, to string }{
+		{"a missing program", "program = '/nowhere/codex'"},
+		{"a missing extensions directory", "extensions = '/nowhere/extensions'"},
+		{"neither", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg, err := decodeTOMLConfig([]byte(strings.Replace(valid, "program = '"+declared+"'\n", test.to+"\n", 1)), testAdmission())
+			if err != nil {
+				t.Fatalf("load error = %v", err)
+			}
+			if binding := cfg.Clients[ClientCodex]; test.to != "" && !binding.DeclaresProgram() || test.to == "" && binding.DeclaresProgram() {
+				t.Fatalf("loaded %+v", binding)
+			}
+		})
 	}
 }
 

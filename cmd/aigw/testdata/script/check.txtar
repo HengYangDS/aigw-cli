@@ -69,7 +69,7 @@ exec aigw use claude-desktop team/team-model
 # Claude Desktop keeps its standard configuration two levels above its
 # library, so the library sits two levels below $WORK: every script's files
 # stay inside its own $WORK.
-exec aigw client edit claude-desktop --executable $BIN/claude$exe --target $WORK/desktop/Claude-3p/configLibrary
+exec aigw client edit claude-desktop --program $BIN/claude$exe --target $WORK/desktop/Claude-3p/configLibrary
 exec aigw check claude-desktop --depth client
 cmp stdout desktop.txt
 
@@ -157,12 +157,11 @@ exec aigw check claude --depth client --json
 cmp stdout disabled.json
 exitcode 1 aigw check --depth local
 cmp stdout none-enabled.txt
-# Its fix names the client's executable for the operator to choose; the script
-# enables the client through it, then the check runs.
+# Its fix enables the first client, which adopts the Claude Code that it
+# finds on the PATH, and runs as written; then the check runs.
 exitcode 1 aigw check --depth local --json
 cp stdout none-enabled.json
-exec aigw client enable claude --executable $BIN/claude$exe
-fixloop -did 'ran aigw client enable claude --executable with the Claude executable' none-enabled.json aigw check --depth local --json
+fixloop none-enabled.json aigw check --depth local --json
 exec aigw check --depth local
 stdout '✓ Claude             team/team-model · local'
 
@@ -826,7 +825,7 @@ Impact
   No client was checked.
 
 Fix
-  aigw client enable claude --executable <path>
+  aigw client enable claude
 -- no-model-list.json --
 {
   "schema_version": 6,
@@ -988,7 +987,7 @@ label = "Team Model"
 enabled = true
 model = "team/team-model"
 protocol = "anthropic"
-executable = '$BIN/claude$exe'
+program = '$BIN/claude$exe'
 credential_command = '$BIN/aigw$exe'
 -- unused.txt --
 AIGW  Check

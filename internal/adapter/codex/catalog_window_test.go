@@ -56,7 +56,7 @@ func windowConfiguration(model, family string, targets ...string) domain.Config 
 	described := qualifiedModel("Gateway · Sol by the gateway", "gateway", model, domain.ProtocolResponses)
 	described.Family = family
 	cfg.Models[described.Ref()] = described
-	cfg.Clients[ID] = domain.ClientBinding{Model: described.Ref(), Enabled: true, Executable: "/opt/codex", Targets: targets}
+	cfg.Clients[ID] = domain.ClientBinding{Model: described.Ref(), Enabled: true, Program: "/opt/codex", Targets: targets}
 	return cfg
 }
 

@@ -19,7 +19,7 @@ func TestRotateReplacesTheTokenOnlyAfterTheProviderAcceptsIt(t *testing.T) {
 	f.decode(t, &document)
 	// Claude selects the provider's model and is not enabled, so the next
 	// step is to enable it.
-	if document.ID != "team" || !document.TokenValidated || !document.TokenStored || document.NextDetail != "aigw client enable claude --executable <path>" {
+	if document.ID != "team" || !document.TokenValidated || !document.TokenStored || document.NextAction != "aigw client enable claude" || document.NextDetail != "" {
 		t.Fatalf("rotation = %+v", document)
 	}
 	// The Responses endpoint, which the provider has, validates the Token.

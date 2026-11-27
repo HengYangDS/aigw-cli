@@ -76,14 +76,14 @@ func TestConvergenceLeavesAClientWithoutAUsableTokenAsItWas(t *testing.T) {
 				// No executable is configured, so a client that is ready takes
 				// the one that discovery found.
 				binding := cfg.Clients[id]
-				binding.Executable = ""
+				binding.Program = ""
 				cfg.Clients[id] = binding
 				deps.Secrets = test.store
 				after, err := registry.Converge(deps, cfg, discovered, id)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if adopted := after.Clients[id].Executable == discovered.Executables[id]; adopted != test.usable {
+				if adopted := after.Clients[id].Program == discovered.Executables[id]; adopted != test.usable {
 					t.Fatalf("the client adopted the discovered executable %t, want %t: %+v", adopted, test.usable, after.Clients[id])
 				}
 			})

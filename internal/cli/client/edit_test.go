@@ -59,7 +59,7 @@ func enabledCodex(t *testing.T) (invocation.Context, *bytes.Buffer, string, *cou
 		t.Fatal(err)
 	}
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: target, Present: true}}}}
-	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex"), "--target", target); err != nil {
+	if err := executeAdapter(t, runtime, "enable", codex.ID, "--program", processtest.Program(t, "/opt/codex"), "--target", target); err != nil {
 		t.Fatal(err)
 	}
 	counting := &countingSecretStore{}
@@ -224,8 +224,8 @@ func TestEditMovesTheConfigurationFileAndTheExecutable(t *testing.T) {
 	}
 	// The executable is named relative to the working directory, where it runs.
 	t.Chdir(filepath.Dir(processtest.Program(t, "/next/codex-next")))
-	document := edited(t, runtime, out, codex.ID, "--target", moved, "--executable", "codex-next")
-	if want, _ := filepath.Abs("codex-next"); document.Executable != want || len(document.Targets) != 1 || document.Targets[0] != moved {
+	document := edited(t, runtime, out, codex.ID, "--target", moved, "--program", "codex-next")
+	if want, _ := filepath.Abs("codex-next"); document.Program != want || len(document.Targets) != 1 || document.Targets[0] != moved {
 		t.Fatalf("moved document = %#v", document)
 	}
 	if old := readTarget(t, target); old != "model = \"original\"\n" {
@@ -356,8 +356,8 @@ func TestEditRefusesItsArgumentsBeforeReadingTheConfiguration(t *testing.T) {
 		{[]string{}, "needs a <client> argument: claude, claude-desktop, codex, or hermes", "aigw client edit --help"},
 		{[]string{codex.ID, hermes.ID, "--direct"}, "takes one <client> argument, not 2", "aigw client edit --help"},
 		{[]string{"codx", "--direct"}, `unknown client "codx"; did you mean codex?`, "aigw client list"},
-		{[]string{codex.ID}, "client edit needs --executable, --target, --via, --direct", "aigw client edit --help"},
-		{[]string{codex.ID, "--executable", ""}, "--executable requires a non-empty path", "aigw client edit --help"},
+		{[]string{codex.ID}, "client edit needs --program, --extensions, --target, --via, --direct", "aigw client edit --help"},
+		{[]string{codex.ID, "--program", ""}, "--program requires a non-empty path", "aigw client edit --help"},
 		{[]string{codex.ID, "--target", " "}, "--target requires a non-empty path", "aigw client edit --help"},
 		{[]string{codex.ID, "--target", "a.toml", "--target", "./a.toml"}, "twice", "aigw client edit --help"},
 		{[]string{claude.ID, "--target", "settings.json"}, "Claude has no configuration file to name; --target is for Claude Desktop, Codex and Hermes", "aigw client edit --help"},
@@ -401,19 +401,22 @@ func TestClientCommandsCompleteOneClient(t *testing.T) {
 	}
 }
 
-// Enabling an enabled client again names the edit that sets its executable and
+// Enabling an enabled client again names the edit that sets its program and
 // configuration files, exactly when every word runs as written.
 func TestEnableOfAnEnabledClientNamesTheEdit(t *testing.T) {
 	runtime, _, target, _ := enabledCodex(t)
 	next := processtest.Program(t, "/next/codex-next")
-	err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", next, "--target", target)
-	if problem := terminal.ProblemFor(err); problem.Title != "Codex is already enabled, so its executable and configuration files change through client edit" ||
-		problem.Fix != "aigw client edit "+codex.ID+" --executable "+next+" --target "+target {
+	err := executeAdapter(t, runtime, "enable", codex.ID, "--program", next, "--target", target)
+	if problem := terminal.ProblemFor(err); problem.Title != "Codex is already enabled, so its program and configuration files change through client edit" ||
+		problem.Fix != "aigw client edit "+codex.ID+" --program "+next+" --target "+target {
 		t.Fatalf("enable of an enabled client = %q, fix %q", problem.Title, problem.Fix)
 	}
 	codexSpec, _ := clients.Admission().Spec(codex.ID)
-	if fix := editInstead(codexSpec, "/opt/codex next", nil); fix != "aigw client edit "+codex.ID+" --executable <path>" {
+	if fix := editInstead(codexSpec, programOptions{program: "/opt/codex next"}, nil); fix != "aigw client edit "+codex.ID+" --program <path> or --extensions <dir>" {
 		t.Fatalf("a path with a space = %q", fix)
+	}
+	if fix := editInstead(codexSpec, programOptions{extensions: "/home/user/.vscode/extensions"}, nil); fix != "aigw client edit "+codex.ID+" --extensions /home/user/.vscode/extensions" {
+		t.Fatalf("an extensions directory = %q", fix)
 	}
 }
 
@@ -433,7 +436,7 @@ func TestEnableStoresAbsolutePathsAndRefusesTargetsThatMeanNothing(t *testing.T)
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: target, Present: true}}}}
 	t.Chdir(filepath.Dir(target))
 	processtest.Write(t, filepath.Join(filepath.Dir(target), "bin", "codex"), processtest.Failing)
-	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", filepath.Join("bin", "codex"), "--target", "config.toml"); err != nil {
+	if err := executeAdapter(t, runtime, "enable", codex.ID, "--program", filepath.Join("bin", "codex"), "--target", "config.toml"); err != nil {
 		t.Fatal(err)
 	}
 	saved, err := runtime.Config.Load()
@@ -441,7 +444,7 @@ func TestEnableStoresAbsolutePathsAndRefusesTargetsThatMeanNothing(t *testing.T)
 		t.Fatal(err)
 	}
 	executable, _ := filepath.Abs(filepath.Join("bin", "codex"))
-	if binding := saved.Clients[codex.ID]; binding.Executable != executable || len(binding.Targets) != 1 || !filepath.IsAbs(binding.Targets[0]) ||
+	if binding := saved.Clients[codex.ID]; binding.Program != executable || len(binding.Targets) != 1 || !filepath.IsAbs(binding.Targets[0]) ||
 		filepath.Base(binding.Targets[0]) != "config.toml" {
 		t.Fatalf("saved Codex = %#v, want %s and an absolute config.toml", binding, executable)
 	}
@@ -449,24 +452,24 @@ func TestEnableStoresAbsolutePathsAndRefusesTargetsThatMeanNothing(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = executeAdapter(t, runtime, "enable", claude.ID, "--executable", processtest.Program(t, "/opt/claude"), "--target", "settings.json")
+	err = executeAdapter(t, runtime, "enable", claude.ID, "--program", processtest.Program(t, "/opt/claude"), "--target", "settings.json")
 	if problem := terminal.ProblemFor(err); problem.Title != "Claude has no configuration file to name; --target is for Claude Desktop, Codex and Hermes; run `aigw client enable --help`" ||
 		problem.Fix != "aigw client enable --help" {
 		t.Fatalf("enable of Claude Code with a target = %q, fix %q", problem.Title, problem.Fix)
 	}
-	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex"), "--target", "a.toml", "--target", "./a.toml"); err == nil || !strings.Contains(err.Error(), "twice") {
+	if err := executeAdapter(t, runtime, "enable", codex.ID, "--program", processtest.Program(t, "/opt/codex"), "--target", "a.toml", "--target", "./a.toml"); err == nil || !strings.Contains(err.Error(), "twice") {
 		t.Fatalf("a file named twice = %v", err)
 	}
 	for _, client := range []string{hermes.ID, claudedesktop.ID} {
 		spec, _ := clients.Admission().Spec(client)
-		err := executeAdapter(t, runtime, "enable", client, "--executable", "/opt/"+client, "--target", "a", "--target", "b")
+		err := executeAdapter(t, runtime, "enable", client, "--program", "/opt/"+client, "--target", "a", "--target", "b")
 		if problem := terminal.ProblemFor(err); problem.Title != spec.Label+" reads one configuration file, so it takes one --target, not 2; run `aigw client enable --help`" ||
 			problem.Fix != "aigw client enable --help" {
 			t.Fatalf("enable of %s with two targets = %q, fix %q", client, problem.Title, problem.Fix)
 		}
 	}
 	// A comma belongs to the path: --target names one file.
-	if err := executeAdapter(t, runtime, "enable", hermes.ID, "--executable", processtest.Program(t, "/opt/hermes"), "--target", "a,b.yaml", "--dry-run"); err != nil &&
+	if err := executeAdapter(t, runtime, "enable", hermes.ID, "--program", processtest.Program(t, "/opt/hermes"), "--target", "a,b.yaml", "--dry-run"); err != nil &&
 		strings.Contains(err.Error(), "takes one --target") {
 		t.Fatalf("a path with a comma was split: %v", err)
 	}

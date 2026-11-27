@@ -25,7 +25,7 @@ func TestCodexAdapterKeepsTheSeamContract(t *testing.T) {
 		}
 		after := codexConfiguration(target)
 		binding := after.Clients[ID]
-		binding.Executable = executable
+		binding.Program = executable
 		after.Clients[ID] = binding
 		before := after.Clone()
 		delete(before.Clients, ID)

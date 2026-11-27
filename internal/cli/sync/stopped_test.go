@@ -67,7 +67,7 @@ func TestSyncStopsAClientWhoseExecutableIsMissing(t *testing.T) {
 			err := cmd.Execute()
 
 			stops := runtime.Stops.Stopped()
-			if err != nil || len(stops) != 1 || stops[0].Client() != codex.ID || stops[0].Error() != "Codex executable is missing" || stops[0].NextAction() != "aigw client edit codex --executable <path>" {
+			if err != nil || len(stops) != 1 || stops[0].Client() != codex.ID || stops[0].Error() != "Codex program is missing" || stops[0].NextAction() != "aigw client edit codex --program <path> or --extensions <dir>" {
 				t.Fatalf("sync = %v with the stops %v, want sync's report and Codex's stop recorded", err, stops)
 			}
 			if written, withdrawn, preview := runtime.Stops.Written(); len(written) != 1 || written[0] != claude.ID || len(withdrawn) != 0 || preview != dryRun {

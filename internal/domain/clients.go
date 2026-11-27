@@ -89,6 +89,23 @@ type ClientSpec struct {
 	// Only such a client's runtime carries one, so a changed window is a
 	// change for no other client.
 	ContextWindow bool
+	// Extension is the editor extension that ships the client's program, for
+	// a client that can declare an extensions directory; its zero value
+	// declares none.
+	Extension ClientExtension
+}
+
+// ClientExtension is the editor extension that ships a client's program, as
+// the client's adapter declares it. Each installed version is a directory of
+// an editor's extensions directory named <ID>-<version>, optionally followed
+// by -<platform>.
+type ClientExtension struct {
+	ID string
+	// Program is the program's slash-separated path inside one installed
+	// version. In it, {os} and {arch} stand for the host's operating system
+	// and processor as OS and Arch name them, by Go's names.
+	Program  string
+	OS, Arch map[string]string
 }
 
 func naturalChoices(choices []string) string {
@@ -230,7 +247,10 @@ func (recommendation ClientRecommendation) Selections() []ClientSelection {
 }
 
 // ClientBinding records one client's explicit selection, enabled intent,
-// owned native targets, retry budgets and forwarding.
+// program declaration, owned native targets, retry budgets and forwarding.
+// Program, the absolute path of the client's program, and Extensions, the
+// absolute path of an editor's extensions directory that holds it, declare
+// the program; a binding declares one of them or neither.
 type ClientBinding struct {
 	RetryPolicy        *RetryPolicy
 	ForwardingEndpoint string
@@ -242,9 +262,16 @@ type ClientBinding struct {
 	Model                      ModelRef
 	Enabled                    bool
 	Protocol                   EndpointProtocol
-	Executable                 string
+	Program                    string
+	Extensions                 string
 	Targets                    []string
 	CredentialCommand          string
+}
+
+// DeclaresProgram reports whether the binding declares the client's program,
+// by path or by extensions directory.
+func (binding ClientBinding) DeclaresProgram() bool {
+	return binding.Program != "" || binding.Extensions != ""
 }
 
 func (binding ClientBinding) withoutForwarding() ClientBinding {
@@ -339,15 +366,33 @@ func (c *Config) SetSelectedModel(client string, ref ModelRef, protocol Endpoint
 	c.Clients[client] = binding
 }
 
-// SetClientActivation changes one client's enabled intent and native location
-// while preserving its selected model and client-specific options.
-func (c *Config) SetClientActivation(client string, enabled bool, executable string, targets []string) {
+// DeclareProgram replaces the client's program declaration with program, a
+// program's path, or extensions, an editor's extensions directory: one of
+// them, or neither, so that the client adopts the program that discovery
+// finds.
+func (c *Config) DeclareProgram(client, program, extensions string) {
+	if c.Clients == nil {
+		c.Clients = map[string]ClientBinding{}
+	}
+	binding := c.Clients[client]
+	binding.Program, binding.Extensions = program, extensions
+	c.Clients[client] = binding
+}
+
+// SetClientActivation changes one client's enabled intent, its program and
+// its configuration files while preserving its selected model and
+// client-specific options. A program replaces the extensions directory that
+// the client declares; without one, the client keeps that directory.
+func (c *Config) SetClientActivation(client string, enabled bool, program string, targets []string) {
 	if c.Clients == nil {
 		c.Clients = map[string]ClientBinding{}
 	}
 	binding := c.Clients[client]
 	binding.Enabled = enabled
-	binding.Executable = executable
+	binding.Program = program
+	if program != "" {
+		binding.Extensions = ""
+	}
 	binding.Targets = append([]string(nil), targets...)
 	c.Clients[client] = binding
 }

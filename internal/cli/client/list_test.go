@@ -48,7 +48,7 @@ func listed(t *testing.T) (int, []clientItem) {
 // A disabled client keeps its selection, and the list reads no Token.
 func TestListReportsEveryClientsExecutableStateAndModel(t *testing.T) {
 	version, items := listed(t)
-	if version != 2 {
+	if version != 3 {
 		t.Fatalf("schema_version = %d", version)
 	}
 	ids := make([]string, 0, len(items))
@@ -62,15 +62,15 @@ func TestListReportsEveryClientsExecutableStateAndModel(t *testing.T) {
 	for _, item := range items {
 		byID[item.ID] = item
 	}
-	if got := byID[claude.ID]; !got.Installed || !strings.HasSuffix(got.Executable, claude.ID) || !got.Enabled || got.Model != "gateway/claude-test" {
+	if got := byID[claude.ID]; !got.Installed || !strings.HasSuffix(got.Program, claude.ID) || !got.Enabled || got.Model != "gateway/claude-test" {
 		t.Fatalf("Claude Code = %#v", got)
 	}
 	// The configured executable is kept and reported missing, never replaced
 	// by the one that discovery finds.
-	if got := byID[codex.ID]; got.Installed || !strings.HasSuffix(got.Executable, "vanished-codex") || got.Enabled || got.Model != "gateway/codex-test" {
+	if got := byID[codex.ID]; got.Installed || !strings.HasSuffix(got.Program, "vanished-codex") || got.Enabled || got.Model != "gateway/codex-test" {
 		t.Fatalf("a disabled Codex with a vanished executable = %#v", got)
 	}
-	if got := byID[hermes.ID]; got.Installed || got.Executable != "" || got.Enabled || got.Model != "" {
+	if got := byID[hermes.ID]; got.Installed || got.Program != "" || got.Enabled || got.Model != "" {
 		t.Fatalf("an absent Hermes = %#v", got)
 	}
 }

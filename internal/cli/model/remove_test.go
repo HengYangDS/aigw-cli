@@ -9,6 +9,7 @@ import (
 
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 )
 
 // TestEveryCommandReportsAConfigurationThatDoesNotLoad runs each subcommand on
@@ -99,7 +100,7 @@ func TestAChangeNamesTheClientFilesThatItWrites(t *testing.T) {
 	target := filepath.Join(home, ".hermes", "config.yaml")
 	cfg := f.load(t)
 	cfg.SetSelectedModel("hermes", domain.NewModelRef("mixed", "Chat-Only"), domain.ProtocolChat)
-	cfg.SetClientActivation("hermes", true, "", []string{target})
+	cfg.SetClientActivation("hermes", true, processtest.Program(t, "/opt/hermes"), []string{target})
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

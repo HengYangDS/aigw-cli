@@ -34,7 +34,7 @@ func TestUsePreviewRefusesAnEditedOwnedTarget(t *testing.T) {
 	run, cfg, out := configuredRuntime(t)
 	target := filepath.Join(t.TempDir(), "config.toml")
 	binding := cfg.Clients[codex.ID]
-	binding.Enabled, binding.Targets = true, []string{target}
+	binding.Enabled, binding.Targets, binding.Program = true, []string{target}, processtest.Program(t, "/opt/codex")
 	binding.CredentialCommand = filepath.Join(t.TempDir(), "codex-reader")
 	cfg.Clients[codex.ID] = binding
 	if err := run.Config.Save(cfg); err != nil {

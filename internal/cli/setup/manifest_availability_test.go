@@ -126,7 +126,7 @@ func TestManifestSetupAvailabilityFollowsTheAdmittedClientRegistry(t *testing.T)
 	for _, clientID := range clients.Admission().IDs() {
 		executables[clientID] = "/installed/" + clientID
 	}
-	available := manifestSetupAvailableClients(domain.NewConfig(clients.Admission()), discovery.Result{Executables: executables})
+	available := manifestSetupAvailableClients(domain.NewConfig(clients.Admission()), discovery.Result{Executables: executables}, discovery.Host{})
 	for _, clientID := range clients.Admission().IDs() {
 		if !available[clientID] {
 			t.Fatalf("admitted installed client %q is unavailable: %#v", clientID, available)
@@ -142,7 +142,7 @@ func TestManifestSetupAvailabilityTakesTheConfiguredProgramFirst(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.SetClientActivation("codex", true, processtest.Program(t, "/extension/codex"), nil)
 	cfg.SetClientActivation("claude", true, filepath.Join(t.TempDir(), "gone"), nil)
-	available := manifestSetupAvailableClients(cfg, discovery.Result{Executables: map[string]string{"claude": processtest.Program(t, "/usr/local/bin/claude")}})
+	available := manifestSetupAvailableClients(cfg, discovery.Result{Executables: map[string]string{"claude": processtest.Program(t, "/usr/local/bin/claude")}}, discovery.Host{})
 	if !available["codex"] || available["claude"] {
 		t.Fatalf("available = %#v, want Codex by its configured program and not Claude Code", available)
 	}

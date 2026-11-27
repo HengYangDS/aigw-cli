@@ -291,7 +291,7 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 		t.Fatal(err)
 	}
 	binding := cfg.Clients[ID]
-	if binding.Executable != executable || !slices.Equal(binding.Targets, []string{library}) {
+	if binding.Program != executable || !slices.Equal(binding.Targets, []string{library}) {
 		t.Fatalf("binding = %#v", binding)
 	}
 }

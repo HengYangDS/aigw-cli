@@ -36,7 +36,7 @@ func TestClaudeDesktopLifecycleReportsRequiredRestart(t *testing.T) {
 	}
 	library := filepath.Join(root, "Claude-3p", "configLibrary")
 
-	if err := executeAdapter(t, runtime, "enable", claudedesktop.ID, "--executable", executable, "--target", library); err != nil {
+	if err := executeAdapter(t, runtime, "enable", claudedesktop.ID, "--program", executable, "--target", library); err != nil {
 		t.Fatal(err)
 	}
 	enabled := out.String()
@@ -68,7 +68,7 @@ func TestEnableMaterializesDeferredClientIntent(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", processtest.Program(t, "/opt/claude")); err != nil {
+	if err := executeAdapter(t, runtime, "enable", claude.ID, "--program", processtest.Program(t, "/opt/claude")); err != nil {
 		t.Fatal(err)
 	}
 	got, err := runtime.Config.Load()
@@ -76,7 +76,7 @@ func TestEnableMaterializesDeferredClientIntent(t *testing.T) {
 		t.Fatal(err)
 	}
 	binding := got.Clients[claude.ID]
-	if want, _ := filepath.Abs(processtest.Program(t, "/opt/claude")); !binding.Enabled || binding.Executable != want {
+	if want, _ := filepath.Abs(processtest.Program(t, "/opt/claude")); !binding.Enabled || binding.Program != want {
 		t.Fatalf("materialized client = %#v", binding)
 	}
 	if strings.Contains(out.String(), "Restart required") {
@@ -88,16 +88,16 @@ func TestEnablePreservesExistingHermesTarget(t *testing.T) {
 	cfg := adapterConfig()
 	target := filepath.Join(t.TempDir(), "config.yaml")
 	cfg.Clients[hermes.ID] = domain.ClientBinding{
-		Model:      domain.NewModelRef("gateway", "claude-test"),
-		Protocol:   domain.ProtocolAnthropic,
-		Executable: "/previous/hermes",
-		Targets:    []string{target},
+		Model:    domain.NewModelRef("gateway", "claude-test"),
+		Protocol: domain.ProtocolAnthropic,
+		Program:  "/previous/hermes",
+		Targets:  []string{target},
 	}
 	runtime, _, secretStore, _ := adapterRuntime(t, cfg)
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := executeAdapter(t, runtime, "enable", hermes.ID, "--executable", processtest.Program(t, "/opt/hermes")); err != nil {
+	if err := executeAdapter(t, runtime, "enable", hermes.ID, "--program", processtest.Program(t, "/opt/hermes")); err != nil {
 		t.Fatal(err)
 	}
 	got, err := runtime.Config.Load()
@@ -105,7 +105,7 @@ func TestEnablePreservesExistingHermesTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	binding := got.Clients[hermes.ID]
-	if want, _ := filepath.Abs(processtest.Program(t, "/opt/hermes")); !binding.Enabled || binding.Executable != want || !slices.Equal(binding.Targets, []string{target}) {
+	if want, _ := filepath.Abs(processtest.Program(t, "/opt/hermes")); !binding.Enabled || binding.Program != want || !slices.Equal(binding.Targets, []string{target}) {
 		t.Fatalf("re-enabled client = %#v", binding)
 	}
 	if err := executeAdapter(t, runtime, "disable", hermes.ID); err != nil {
@@ -118,7 +118,7 @@ func TestEnablePreservesExistingHermesTarget(t *testing.T) {
 	if disabled.Clients[hermes.ID].Enabled || !slices.Equal(disabled.Clients[hermes.ID].Targets, []string{target}) {
 		t.Fatalf("disabled client = %#v", disabled.Clients[hermes.ID])
 	}
-	if err := executeAdapter(t, runtime, "enable", hermes.ID, "--executable", processtest.Program(t, "/opt/hermes")); err != nil {
+	if err := executeAdapter(t, runtime, "enable", hermes.ID, "--program", processtest.Program(t, "/opt/hermes")); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -142,7 +142,7 @@ func TestEnableWithExternalCredentialPreservesUnusedCachedEntrypoint(t *testing.
 	if err := os.WriteFile(reader+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", processtest.Program(t, "/opt/claude")); err != nil {
+	if err := executeAdapter(t, runtime, "enable", claude.ID, "--program", processtest.Program(t, "/opt/claude")); err != nil {
 		t.Fatalf("external credential enablement inspected an unused cached entrypoint: %v", err)
 	}
 	stored, loadErr := runtime.Config.Load()
@@ -177,7 +177,7 @@ func TestEnableResumesADisabledClientWithoutAStoredProtocol(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", processtest.Program(t, "/opt/claude")); err != nil {
+	if err := executeAdapter(t, runtime, "enable", claude.ID, "--program", processtest.Program(t, "/opt/claude")); err != nil {
 		t.Fatal(err)
 	}
 	got, err := runtime.Config.Load()

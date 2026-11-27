@@ -16,9 +16,9 @@ stdout 'Claude Desktop +No model selected · Disabled · '
 normalize stdout list.out 'Claude Desktop .*'
 cmp list.out list.txt
 exec aigw client list --json
-stdout '"schema_version": 2'
-stdout '"id": "claude",\n\s+"installed": true,\n\s+"executable": "[^"]+",\n\s+"enabled": true,\n\s+"model": "team/team-model"\n'
-stdout '"id": "claude-desktop",\n\s+"installed": (?:false|true,\n\s+"executable": "[^"]+"),\n\s+"enabled": false\n'
+stdout '"schema_version": 3'
+stdout '"id": "claude",\n\s+"installed": true,\n\s+"program": "[^"]+",\n\s+"enabled": true,\n\s+"model": "team/team-model"\n'
+stdout '"id": "claude-desktop",\n\s+"installed": (?:false|true,\n\s+"program": "[^"]+"),\n\s+"enabled": false\n'
 stdout '"id": "codex",\n\s+"installed": false,\n\s+"enabled": false\n'
 stdout '"id": "hermes",\n\s+"installed": false,\n\s+"enabled": false\n'
 exitcode 1 aigw client list extra --json
@@ -29,7 +29,7 @@ exec aigw client list
 stdout 'Claude +.*claude'
 exec aigw client disable claude
 cmp stdout disabled.txt
-exec aigw client enable claude --executable $BIN/claude$exe
+exec aigw client enable claude --program $BIN/claude$exe
 normalize stdout enabled.out
 cmp enabled.out enabled.txt
 
@@ -40,7 +40,7 @@ exec aigw client disable claude --json
 cmp stdout disabled.json
 exec aigw client disable claude --json
 cmp stdout already-disabled.json
-exec aigw client enable claude --executable $BIN/claude$exe --json
+exec aigw client enable claude --program $BIN/claude$exe --json
 cmp stdout enabled.json
 exitcode 1 aigw client enable unknown --json
 cmp stdout json-refusal.json
@@ -49,9 +49,9 @@ exitcode 1 aigw client disable unknown --json
 cmp stdout disable-refusal.json
 fixloop -input stdout aigw client disable unknown --json
 # Claude Code reads no configuration file that a target could name.
-exitcode 1 aigw client enable claude --executable $BIN/claude$exe --target settings.json --json
+exitcode 1 aigw client enable claude --program $BIN/claude$exe --target settings.json --json
 cmp stdout enable-target-refusal.json
-fixloop -input stdout aigw client enable claude --executable $BIN/claude$exe --target settings.json --json
+fixloop -input stdout aigw client enable claude --program $BIN/claude$exe --target settings.json --json
 
 # Previews of disabling and enabling write nothing below the private home.
 snapshot $HOME before.txt
@@ -62,13 +62,13 @@ snapshot $HOME after.txt
 cmp after.txt before.txt
 exec aigw client disable claude
 snapshot $HOME disabled.txt
-exec aigw client enable claude --executable $BIN/claude$exe --dry-run
+exec aigw client enable claude --program $BIN/claude$exe --dry-run
 normalize stdout enable-preview.out
 cmp enable-preview.out enable-preview.txt
 snapshot $HOME still-disabled.txt
 cmp still-disabled.txt disabled.txt
 
-# client edit owns a client's connection: its executable, its configuration
+# client edit owns a client's connection: its program, its configuration
 # files, forwarding and retry budgets. Codex selects team's model on a new
 # Responses endpoint; it is not installed, so its edits change the
 # configuration alone until its configuration file is named.
@@ -76,7 +76,7 @@ exec aigw provider edit team --endpoint responses=$UPSTREAM/v1
 exec aigw model edit team/team-model --protocol anthropic --protocol responses
 exec aigw use codex team/team-model
 
-# The script codex stands for Codex's executable, which the edits below name
+# The script codex stands for Codex's program, which the edits below name
 # with Codex's configuration file.
 chmod 0755 codex
 
@@ -86,7 +86,7 @@ exec aigw client edit codex --via http://127.0.0.1:8792/v1 --dry-run --json
 cmp stdout edit-via-preview.json
 exec aigw client edit codex --request-retries 0 --stream-retries 2 --dry-run
 cmp stdout edit-retries-preview.txt
-exec aigw client edit codex --target $HOME/.codex/config.toml --executable $WORK/codex --dry-run --json
+exec aigw client edit codex --target $HOME/.codex/config.toml --program $WORK/codex --dry-run --json
 stdout '"dry_run": true'
 stdout '"file": "~/.codex/config.toml",\n\s+"action": "initial_project"'
 snapshot $HOME edit-after.txt
@@ -116,14 +116,14 @@ cmp stdout edit-native.json
 
 # A preview names the files inside home as ~/…, and a file outside home as
 # given.
-exec aigw client edit codex --target $HOME/.codex/config.toml --executable $WORK/codex --dry-run
+exec aigw client edit codex --target $HOME/.codex/config.toml --program $WORK/codex --dry-run
 normalize stdout home-edit.out
 grep '^  Configuration file +~/\.codex/config\.toml$' home-edit.out
-grep '^  Executable +\$WORK' home-edit.out
-! grep '^  (Configuration file|Executable) +\$HOME' home-edit.out
+grep '^  Program +\$WORK' home-edit.out
+! grep '^  (Configuration file|Program) +\$HOME' home-edit.out
 
 # Naming Codex's configuration file writes AIGW's settings there.
-exec aigw client edit codex --target $HOME/.codex/config.toml --executable $WORK/codex --json
+exec aigw client edit codex --target $HOME/.codex/config.toml --program $WORK/codex --json
 stdout '"changed": true'
 stdout '"targets": \[\n\s+"[^"]+config\.toml"\n\s+\]'
 stdout '"file": "~/.codex/config.toml",\n\s+"action": "initial_project"'
@@ -197,6 +197,29 @@ fixloop -input stdout aigw client edit codex --via http://127.0.0.1:8792/v1 --di
 # Hermes forwards once it selects a model, as its refusal names.
 exec aigw use hermes team/team-model --protocol responses
 fixloop -did 'selected team/team-model for Hermes' edit-no-model.json aigw client edit hermes --via http://127.0.0.1:8792/v1 --json
+
+# In a new home, enable without a program flag, while Claude Code is not on
+# the PATH, saves it enabled, writes none of its files and names the repair;
+# once Claude Code is on the PATH, enable adopts it, saves it as its program
+# and says so.
+mkdir $WORK/fresh
+env HOME=$WORK/fresh
+env XDG_CONFIG_HOME=$WORK/fresh
+env XDG_DATA_HOME=$WORK/fresh
+env PATH=$WORK/fresh
+stdin token.txt
+exec $BIN/aigw$exe provider add team --label 'Team Gateway' --endpoint anthropic=$UPSTREAM --token-stdin
+exec $BIN/aigw$exe use claude team/team-model
+exec $BIN/aigw$exe client disable claude
+exitcode 1 $BIN/aigw$exe client enable claude
+stdout 'Claude Code program was not found'
+stdout 'AIGW saved Claude Code as enabled and wrote none of its files\.'
+stdout 'aigw client edit claude --program <path> or --extensions <dir>'
+! exists $WORK/fresh/.claude/settings.json
+env PATH=$BIN
+exec aigw client enable claude
+stdout 'Adopted program\n  AIGW found Claude Code at .+ and saved it as its program in aigw\.toml\.'
+exists $WORK/fresh/.claude/settings.json
 -- disable-preview.json --
 {
   "schema_version": 3,
@@ -225,7 +248,7 @@ Client files
   ✓ Preview did not write configuration, credentials or client files
 
 Next
-  aigw client enable claude --executable $BIN/claude
+  aigw client enable claude --program $BIN/claude
 -- token.txt --
 sk-team-token-0001
 -- help.txt --
@@ -238,9 +261,9 @@ Usage
 
 Commands
   disable              Disable a client and remove AIGW's settings from its files
-  edit                 Change a client's executable, configuration files, forwarding or retry budgets
+  edit                 Change a client's program, configuration files, forwarding or retry budgets
   enable               Enable a client and write AIGW's settings into its files
-  list                 List every client with its model, whether it is enabled and where it is installed
+  list                 List every client with its model, whether it is enabled and its program
 
 Options
   -h, --help[=true|false]   help for client
@@ -324,7 +347,7 @@ Next
 }
 -- edit-via-preview.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "dry_run": true,
   "client": "codex",
@@ -351,7 +374,7 @@ Next
   aigw client edit codex --request-retries 0 --stream-retries 2
 -- edit-forwarded.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "client": "codex",
   "changed": true,
@@ -368,7 +391,7 @@ Next
 }
 -- edit-direct.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "client": "codex",
   "changed": true,
@@ -384,7 +407,7 @@ Next
 }
 -- edit-unchanged.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "client": "codex",
   "changed": false,
@@ -401,7 +424,7 @@ Next
 {
   "schema_version": 3,
   "ok": false,
-  "error": "client edit needs --executable, --target, --via, --direct, --request-retries, --stream-retries or --native-retries; run `aigw client edit --help`",
+  "error": "client edit needs --program, --extensions, --target, --via, --direct, --request-retries, --stream-retries or --native-retries; run `aigw client edit --help`",
   "next_action": "aigw client edit --help"
 }
 -- edit-no-budgets.txt --
@@ -497,7 +520,7 @@ Next
   aigw client edit codex --native-retries
 -- edit-native.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "client": "codex",
   "changed": true,

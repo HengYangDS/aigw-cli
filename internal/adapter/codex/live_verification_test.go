@@ -32,7 +32,7 @@ type recordingCaptureRunner struct {
 func TestVerifyCodexRejectsTextWithoutToolContinuation(t *testing.T) {
 	cfg, selected := configuredCodexVerification(t, filepath.Join(t.TempDir(), "config.toml"))
 	runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK", textOnly: true}
-	if _, err := VerifyInvocation(t.Context(), runner, cfg, selected, ""); err == nil || !strings.Contains(err.Error(), "native reply preceded its challenge tool read") {
+	if _, err := VerifyInvocation(t.Context(), runner, cfg, cfg.Clients[ID].Program, selected, ""); err == nil || !strings.Contains(err.Error(), "native reply preceded its challenge tool read") {
 		t.Fatalf("correct text without native tool evidence was not rejected by the evidence owner: %v", err)
 	}
 }
@@ -124,7 +124,7 @@ func TestSuccessfulClientDiagnosticsDoNotQualifyVerification(t *testing.T) {
 		t.Run(fmt.Sprintf("%s/missing=%t", input.diagnostic, input.missing), func(t *testing.T) {
 			cfg, selected := configuredCodexVerification(t, filepath.Join(t.TempDir(), "config.toml"))
 			runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: input.marker, removeFinalMessage: input.missing, stderr: []byte(input.diagnostic)}
-			_, err := VerifyInvocation(t.Context(), runner, cfg, selected, "")
+			_, err := VerifyInvocation(t.Context(), runner, cfg, cfg.Clients[ID].Program, selected, "")
 			if err == nil || !strings.Contains(err.Error(), "warning") || strings.Contains(err.Error(), "inference completed") {
 				t.Fatalf("native diagnostics claimed qualified inference: %v", err)
 			}
@@ -138,7 +138,7 @@ func TestSuccessfulClientDiagnosticsDoNotQualifyVerification(t *testing.T) {
 	t.Run("ordinary stderr is not a warning", func(t *testing.T) {
 		cfg, selected := configuredCodexVerification(t, filepath.Join(t.TempDir(), "config.toml"))
 		runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK", stderr: []byte("OpenAI Codex\n2026-10-03T05:00:00Z INFO client initialized\n")}
-		if _, err := VerifyInvocation(t.Context(), runner, cfg, selected, ""); err != nil {
+		if _, err := VerifyInvocation(t.Context(), runner, cfg, cfg.Clients[ID].Program, selected, ""); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -232,9 +232,9 @@ func TestVerifyCodexUsesConfiguredClientAndOneSynchronizedTarget(t *testing.T) {
 	root := t.TempDir()
 	first, second := filepath.Join(root, "a", "config.toml"), filepath.Join(root, "z", "config.toml")
 	cfg, runtime := configuredCodexVerification(t, first, second)
-	executable := cfg.Clients[ID].Executable
+	executable := cfg.Clients[ID].Program
 	runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK"}
-	identity, err := VerifyInvocation(context.Background(), runner, cfg, runtime, "")
+	identity, err := VerifyInvocation(context.Background(), runner, cfg, cfg.Clients[ID].Program, runtime, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +303,7 @@ func TestVerifyCodexOwnsClientWorkspace(t *testing.T) {
 				}
 				return os.WriteFile(filepath.Join(workspace, "client-output"), []byte("owned"), 0o600)
 			}}
-			_, err := VerifyInvocation(t.Context(), probe, cfg, runtime, "")
+			_, err := VerifyInvocation(t.Context(), probe, cfg, cfg.Clients[ID].Program, runtime, "")
 			if test.requestErr != nil && !errors.Is(err, test.requestErr) {
 				t.Fatalf("verification outcome = %v", err)
 			}
@@ -329,39 +329,39 @@ func TestVerifyCodexOwnsClientWorkspace(t *testing.T) {
 func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "codex", "config.toml")
 	cfg, runtime := configuredCodexVerification(t, target)
-	executable := cfg.Clients[ID].Executable
+	executable := cfg.Clients[ID].Program
 
 	disabled := cfg.Clone()
 	disabled.Clients[ID] = domain.ClientBinding{}
-	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, disabled, runtime, ""); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
+	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, disabled, disabled.Clients[ID].Program, runtime, ""); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
 		t.Fatalf("disabled adapter error = %v", err)
 	}
-	missingExecutable := cfg.Clone()
-	missingExecutable.SetClientActivation(ID, true, "", []string{target})
-	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, missingExecutable, runtime, ""); err == nil || !strings.Contains(err.Error(), "executable is not configured") {
-		t.Fatalf("missing executable error = %v", err)
+	missingProgram := cfg.Clone()
+	missingProgram.SetClientActivation(ID, true, "", []string{target})
+	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, missingProgram, "", runtime, ""); err == nil || err.Error() != "Codex program was not found" {
+		t.Fatalf("missing program error = %v", err)
 	}
 	missingTarget := cfg.Clone()
 	missingTarget.SetClientActivation(ID, true, executable, nil)
-	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, missingTarget, runtime, ""); err == nil || !strings.Contains(err.Error(), "configuration target is missing") {
+	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, missingTarget, missingTarget.Clients[ID].Program, runtime, ""); err == nil || !strings.Contains(err.Error(), "configuration target is missing") {
 		t.Fatalf("missing target error = %v", err)
 	}
 	missingModel := runtime
 	missingModel.UpstreamModel = ""
-	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, cfg, missingModel, ""); err == nil || !strings.Contains(err.Error(), "has no model name") {
+	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, cfg, cfg.Clients[ID].Program, missingModel, ""); err == nil || !strings.Contains(err.Error(), "has no model name") {
 		t.Fatalf("missing model error = %v", err)
 	}
-	if _, err := VerifyInvocation(context.Background(), nil, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "capture") {
+	if _, err := VerifyInvocation(context.Background(), nil, cfg, cfg.Clients[ID].Program, runtime, ""); err == nil || !strings.Contains(err.Error(), "capture") {
 		t.Fatalf("capture error = %v", err)
 	}
 	missingOnDisk := cfg.Clone()
 	missingOnDisk.SetClientActivation(ID, true, filepath.Join(t.TempDir(), "missing-codex"), []string{target})
-	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, missingOnDisk, runtime, ""); err == nil || !strings.Contains(err.Error(), "read Codex executable") {
+	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, missingOnDisk, missingOnDisk.Clients[ID].Program, runtime, ""); err == nil || !strings.Contains(err.Error(), "read Codex executable") {
 		t.Fatalf("missing executable file error = %v", err)
 	}
 	drifted := cfg.Clone()
 	drifted.Models[domain.NewModelRef("one", "other")] = domain.Model{Label: "Codex", Provider: "one", Family: "other", ID: "other"}
-	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, drifted, domain.Runtime{Model: domain.NewModelRef("test", "other"), UpstreamModel: "other"}, ""); err == nil || !strings.Contains(err.Error(), "synchronized") {
+	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, drifted, drifted.Clients[ID].Program, domain.Runtime{Model: domain.NewModelRef("test", "other"), UpstreamModel: "other"}, ""); err == nil || !strings.Contains(err.Error(), "synchronized") {
 		t.Fatalf("projection error = %v", err)
 	}
 }
@@ -379,7 +379,7 @@ func TestVerifyCodexRequiresSuccessfulFinalMessage(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: test.marker, removeFinalMessage: test.missing}
-			if _, err := VerifyInvocation(t.Context(), runner, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), test.want) {
+			if _, err := VerifyInvocation(t.Context(), runner, cfg, cfg.Clients[ID].Program, runtime, ""); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("final message error = %v, want %q", err, test.want)
 			}
 			if outputPath := finalMessagePath(runner.plans[len(runner.plans)-1].Args); outputPath == "" {
@@ -395,7 +395,7 @@ func TestVerifyCodexRequiresSuccessfulFinalMessage(t *testing.T) {
 		stderr:        []byte("workdir: /Users/operator/private\n"),
 		requestErr:    errors.New("exit status 1"),
 	}
-	_, err := VerifyInvocation(context.Background(), requestFailure, cfg, runtime, "")
+	_, err := VerifyInvocation(context.Background(), requestFailure, cfg, cfg.Clients[ID].Program, runtime, "")
 	if err == nil {
 		t.Fatal("failed Codex request was accepted")
 	}

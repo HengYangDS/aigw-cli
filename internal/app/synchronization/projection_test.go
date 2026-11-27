@@ -45,10 +45,10 @@ func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adapter := after.Clients[claude.ID]; adapter.Enabled || adapter.Model != domain.NewModelRef("gateway", "claude-test") || adapter.Executable != "" {
+	if adapter := after.Clients[claude.ID]; adapter.Enabled || adapter.Model != domain.NewModelRef("gateway", "claude-test") || adapter.Program != "" {
 		t.Fatalf("discovery changed disabled Claude intent: %#v", adapter)
 	}
-	if got := after.Clients[codex.ID]; !got.Enabled || got.Executable != "/existing/codex" || len(got.Targets) != 1 || got.Targets[0] != "/explicit/config.toml" {
+	if got := after.Clients[codex.ID]; !got.Enabled || got.Program != "/existing/codex" || len(got.Targets) != 1 || got.Targets[0] != "/explicit/config.toml" {
 		t.Fatalf("unselected Codex adapter changed: %#v", got)
 	}
 }
@@ -147,7 +147,7 @@ func TestDesiredClientConfigurationWaitsForATokenThatCannotBeObserved(t *testing
 		if err != nil {
 			t.Fatalf("DesiredClientConfiguration(%q) error = %v; a Token that cannot be observed fails no command", client, err)
 		}
-		if binding := after.Clients[client]; binding.Executable != "" || len(binding.Targets) != 0 {
+		if binding := after.Clients[client]; binding.Program != "" || len(binding.Targets) != 0 {
 			t.Fatalf("%s, whose Token cannot be observed, was activated: %+v", client, binding)
 		}
 	}
@@ -382,7 +382,7 @@ func TestProjectionPlanningRequiresDiscoveryAndValidTargets(t *testing.T) {
 		t.Fatal("expected before-target error")
 	}
 	after := base.Clone()
-	after.SetClientActivation(codex.ID, true, "", []string{""})
+	after.SetClientActivation(codex.ID, true, base.Clients[codex.ID].Program, []string{""})
 	if _, err := syncer.PreviewProjection(base, after); err == nil {
 		t.Fatal("expected after-target error")
 	}

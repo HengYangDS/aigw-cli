@@ -100,8 +100,8 @@ func stoppedFor(t *testing.T, out *bytes.Buffer, command string, err error) stri
 	text := out.String()
 	out.Reset()
 	stop, stopped := errors.AsType[*adapter.StopError](err)
-	if !stopped || stop.Client() != codex.ID || stop.Error() != "Codex executable is missing" || !strings.Contains(text, "Stopped clients") ||
-		!strings.Contains(text, "Codex executable is missing") || !strings.Contains(text, "aigw client edit codex --executable <path>") {
+	if !stopped || stop.Client() != codex.ID || stop.Error() != "Codex program is missing" || !strings.Contains(text, "Stopped clients") ||
+		!strings.Contains(text, "Codex program is missing") || !strings.Contains(text, "aigw client edit codex --program <path> or --extensions <dir>") {
 		t.Fatalf("%s = %v, want Codex stopped for its missing executable after the command's report:\n%s", command, err, text)
 	}
 	return text
@@ -139,13 +139,13 @@ func TestASyncedCodexWhoseExecutableGoesStopsUntilAnotherIsNamed(t *testing.T) {
 	}
 	out.Reset()
 	if err := cli.Execute(app, []string{"check", "codex", "--depth", "local"}); err == nil ||
-		!strings.Contains(out.String(), "Codex executable is missing") || !strings.Contains(out.String(), "aigw client edit codex --executable <path>") {
+		!strings.Contains(out.String(), "Codex program is missing") || !strings.Contains(out.String(), "aigw client edit codex --program <path> or --extensions <dir>") {
 		t.Fatalf("check = %v, want the missing executable and its fix:\n%s", err, out)
 	}
 
 	next := filepath.Join(t.TempDir(), "codex-1.1.0", "bin", "codex")
 	processtest.Write(t, next, fakeCodex)
-	if err := cli.Execute(app, []string{"client", "edit", "codex", "--executable", next}); err != nil {
+	if err := cli.Execute(app, []string{"client", "edit", "codex", "--program", next}); err != nil {
 		t.Fatalf("client edit with a runnable executable: %v", err)
 	}
 	// The edit itself synchronizes Codex with the new executable.
@@ -221,7 +221,7 @@ func TestUseAndRollbackReportAStoppedCodex(t *testing.T) {
 	}
 	out.Reset()
 	if document.OK || document.Model == "" || len(document.Stopped) != 1 || document.Stopped[0].Client != codex.ID ||
-		document.Stopped[0].Files != "left as they were" || document.Stopped[0].NextDetail != "aigw client edit codex --executable <path>" {
+		document.Stopped[0].Files != "left as they were" || document.Stopped[0].NextDetail != "aigw client edit codex --program <path> or --extensions <dir>" {
 		t.Fatalf("use --json = %+v, want its own fields and Codex stopped", document)
 	}
 	selected("gpt-other")

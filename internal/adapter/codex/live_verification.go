@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 
+	"aigw-cli/internal/adapter"
 	clientverification "aigw-cli/internal/adapter/verification"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
@@ -24,16 +25,17 @@ import (
 var removeVerificationWorkspace = robustio.RemoveAll
 
 // VerifyInvocation proves a native file-reading tool and exact-session recall
-// with the selected projection in a disposable, operation-owned home.
+// with the selected projection in a disposable, operation-owned home, by
+// running program, the one that Codex's declaration resolves to.
 // explicitRoute is the provider/model that the check named, which its retry
 // advice repeats.
-func VerifyInvocation(ctx context.Context, runner process.VerificationRunner, cfg domain.Config, clientRuntime domain.Runtime, explicitRoute string) (_ ExecutableIdentity, result error) {
+func VerifyInvocation(ctx context.Context, runner process.VerificationRunner, cfg domain.Config, program string, clientRuntime domain.Runtime, explicitRoute string) (_ ExecutableIdentity, result error) {
 	binding := cfg.Clients[ID]
 	if !binding.Enabled {
 		return ExecutableIdentity{}, fmt.Errorf("Codex adapter is disabled; run `aigw sync`")
 	}
-	if binding.Executable == "" {
-		return ExecutableIdentity{}, fmt.Errorf("Codex executable is not configured; run `aigw sync`")
+	if program == "" {
+		return ExecutableIdentity{}, adapter.ProgramNotFound(cfg, ID)
 	}
 	if len(binding.Targets) == 0 {
 		return ExecutableIdentity{}, fmt.Errorf("Codex configuration target is missing; run `aigw sync`")
@@ -75,7 +77,7 @@ func VerifyInvocation(ctx context.Context, runner process.VerificationRunner, cf
 		return ExecutableIdentity{}, fmt.Errorf("copy Codex verification files: %w", err)
 	}
 	identityCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
-	identity, err := IdentifyExecutable(identityCtx, runner, binding.Executable, filepath.Dir(isolated), filepath.Join(filepath.Dir(isolated), "tmp"))
+	identity, err := IdentifyExecutable(identityCtx, runner, program, filepath.Dir(isolated), filepath.Join(filepath.Dir(isolated), "tmp"))
 	cancel()
 	if err != nil {
 		return ExecutableIdentity{}, err
@@ -100,7 +102,7 @@ func VerifyInvocation(ctx context.Context, runner process.VerificationRunner, cf
 			}
 		}
 		outputPath := filepath.Join(workspace, "response.txt")
-		plan, err := VerificationPlan(binding.Executable, isolated, outputPath, clientRuntime, prompt, session)
+		plan, err := VerificationPlan(program, isolated, outputPath, clientRuntime, prompt, session)
 		if err != nil {
 			return ExecutableIdentity{}, err
 		}

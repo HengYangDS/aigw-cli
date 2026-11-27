@@ -37,8 +37,15 @@ func (claudeAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg 
 			return adapter.Verification{}, fmt.Errorf("Token for provider %q is unavailable: %w; %s", runtime.ProviderID, err, instruction)
 		}
 	}
-	if !clientAdapter.Enabled || clientAdapter.Executable == "" {
+	if !clientAdapter.Enabled {
 		return adapter.Verification{}, fmt.Errorf("claude adapter is disabled; run `aigw sync`")
+	}
+	program, stop := adapter.ResolveProgram(deps, cfg, ID)
+	if stop != nil {
+		return adapter.Verification{}, stop
+	}
+	if program.Path == "" {
+		return adapter.Verification{}, adapter.ProgramNotFound(cfg, ID)
 	}
 	settings, err := SettingsPath(deps.Host)
 	if err != nil {
@@ -75,7 +82,7 @@ func (claudeAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg 
 	if external && runner != nil {
 		runner = adapter.SuppressExternalCredentialDiagnostics(runner)
 	}
-	err = verifyRuntime(verifyCtx, runner, clientAdapter.Executable, settingsPath, runtime, explicitRoute)
+	err = verifyRuntime(verifyCtx, runner, program.Path, settingsPath, runtime, explicitRoute)
 	return adapter.Verification{Scope: "Native text response; tools and continuation are not probed"}, err
 }
 

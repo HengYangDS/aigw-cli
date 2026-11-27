@@ -38,6 +38,11 @@ func (codexAdapter) Spec() domain.ClientSpec {
 		ID: ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses},
 		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
 		ContextWindow: true,
+		Extension: domain.ClientExtension{
+			ID: "openai.chatgpt", Program: "bin/{os}-{arch}/codex",
+			OS:   map[string]string{"darwin": "macos", "linux": "linux"},
+			Arch: map[string]string{"arm64": "aarch64", "amd64": "x86_64"},
+		},
 	}
 }
 
@@ -75,12 +80,12 @@ func (codexAdapter) ValidateTarget(discovered discovery.Result, path string) err
 }
 
 func (codexAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
-	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID)
+	binding, program, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID)
 	if err != nil || !ready {
 		return err
 	}
 	if targets := convergedTargets(discovered, binding.Targets); len(targets) > 0 {
-		cfg.SetClientActivation(ID, true, executable, targets)
+		cfg.SetClientActivation(ID, true, program, targets)
 	}
 	return nil
 }
@@ -139,9 +144,6 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 	binding := cfg.Clients[ID]
 	if !binding.Enabled {
 		return adapter.Status{Issue: "Codex adapter is disabled", RepairAction: "aigw sync"}
-	}
-	if binding.Executable == "" {
-		return adapter.Status{Issue: "Codex executable is not configured", RepairAction: "aigw sync"}
 	}
 	if len(binding.Targets) == 0 {
 		return adapter.Status{Issue: "Codex configuration target is missing", RepairAction: "aigw sync"}
@@ -223,10 +225,12 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 	switch {
 	case err == nil, awaitsRecord(cfg, observed, target):
 		// A file that shows the selection still holds a table of the program
-		// that produced it, which the configured one must be.
+		// that produced it, which the one that Codex's declaration resolves
+		// to must be.
 		state, _ := codexStateForTarget(record)
-		if problem := producerProblem(cfg.Clients[ID].Executable, state); problem != "" {
-			detail, fix := producerRepair(cfg.Clients[ID].Executable, problem)
+		program, _ := adapter.ResolveProgram(deps, cfg, ID)
+		if problem := producerProblem(program.Path, state); problem != "" {
+			detail, fix := producerRepair(program.Path, problem)
 			return "", detail, fix, false
 		}
 		return "", "", repair, false
@@ -303,11 +307,11 @@ func reconciliationInputs(deps adapter.Dependencies, before, after domain.Config
 	if slices.Contains(deps.WithdrawOnly, ID) {
 		beforeTargets, afterTargets = platform.DroppedFiles(beforeTargets, afterTargets), nil
 	}
-	beforeRefs, err := targetRefs(discovered, beforeTargets, adapter.ClientProgram(beforeBinding, discovered, ID))
+	beforeRefs, err := targetRefs(discovered, beforeTargets, programPath(deps, before, discovered))
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
-	afterRefs, err := targetRefs(discovered, afterTargets, adapter.ClientProgram(afterBinding, discovered, ID))
+	afterRefs, err := targetRefs(discovered, afterTargets, programPath(deps, after, discovered))
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
@@ -322,6 +326,13 @@ func reconciliationInputs(deps adapter.Dependencies, before, after domain.Config
 	}
 	runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
 	return beforeRefs, afterRefs, previous, runtime, nil
+}
+
+// programPath is the path of the program that Codex uses in cfg under the
+// one rule of adapter.ClientProgram, empty when it resolves to none.
+func programPath(deps adapter.Dependencies, cfg domain.Config, discovered discovery.Result) string {
+	program, _ := adapter.ClientProgram(cfg, ID, discovered, deps.Host)
+	return program.Path
 }
 
 func discover(deps adapter.Dependencies) (discovery.Result, error) {

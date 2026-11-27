@@ -13,7 +13,6 @@ import (
 
 	"aigw-cli/internal/adapter"
 	clientverification "aigw-cli/internal/adapter/verification"
-	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
 )
 
@@ -53,15 +52,16 @@ func parentSessionVariable(key string) bool {
 }
 
 // verifyIsolated runs the bounded probes from a disposable home that borrows the
-// configured installation's committed dependencies.
-func verifyIsolated(ctx context.Context, deps adapter.Dependencies, configured domain.ClientBinding, data []byte) (_ adapter.Verification, result error) {
-	home, cleanup, err := CreateVerificationHome(configured.Targets[0])
+// configured installation's committed dependencies, running program, the one
+// that Hermes's declaration resolves to, with target, its configuration file.
+func verifyIsolated(ctx context.Context, deps adapter.Dependencies, target, program string, data []byte) (_ adapter.Verification, result error) {
+	home, cleanup, err := CreateVerificationHome(target)
 	if err != nil {
 		return adapter.Verification{}, err
 	}
 	environment := verificationEnvironment(os.Environ(), home, GatewayLockDirectory(home))
 	defer func() {
-		releaseVerificationGateway(ctx, deps.Runner, process.Plan{Executable: configured.Executable, Directory: home, Env: environment, Args: []string{"gateway", "stop"}})
+		releaseVerificationGateway(ctx, deps.Runner, process.Plan{Executable: program, Directory: home, Env: environment, Args: []string{"gateway", "stop"}})
 		result = errors.Join(result, cleanup())
 	}()
 	if err := os.WriteFile(filepath.Join(home, "config.yaml"), data, 0o600); err != nil {
@@ -69,7 +69,7 @@ func verifyIsolated(ctx context.Context, deps adapter.Dependencies, configured d
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	defer cancel()
-	probe := process.Plan{Executable: configured.Executable, Directory: home, Env: environment, Args: []string{"--version"}}
+	probe := process.Plan{Executable: program, Directory: home, Env: environment, Args: []string{"--version"}}
 	version, diagnostic, err := deps.Runner.RunCaptureStreams(probeCtx, probe)
 	if err != nil {
 		switch {
@@ -96,7 +96,7 @@ func verifyIsolated(ctx context.Context, deps adapter.Dependencies, configured d
 	if !strings.Contains(string(response), "AIGW_OK") {
 		return adapter.Verification{}, errors.New("hermes model response did not return the expected AIGW_OK verification marker")
 	}
-	executable, err := os.ReadFile(configured.Executable)
+	executable, err := os.ReadFile(program)
 	if err != nil {
 		return adapter.Verification{}, err
 	}

@@ -209,7 +209,7 @@ func tokenCommands() []credentialCommand {
 			prepare: func(t *testing.T) (*cli.App, *bytes.Buffer, *keychain, []string) {
 				app, out, items, installed := claudeOnOne(t, false)
 				items.hold(t, "one", fixtureToken)
-				return app, out, items, []string{"client", "enable", claude.ID, "--executable", installed}
+				return app, out, items, []string{"client", "enable", claude.ID, "--program", installed}
 			}},
 		{name: "client edit", asks: []string{"exists one"},
 			prepare: func(t *testing.T) (*cli.App, *bytes.Buffer, *keychain, []string) {

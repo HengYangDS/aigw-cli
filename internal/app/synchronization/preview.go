@@ -143,6 +143,7 @@ func project(planner Synchronizer, before, after domain.Config, reconcile bool, 
 	// what it stops.
 	planner.Follows.settle(planner.keeps(settled.followed, before, settled.after))
 	planner.Stops.record(projection, true)
+	planner.Adoptions.settle(before, settled.after, true)
 	projection.Configuration = settled.saves
 	return projection, nil
 }

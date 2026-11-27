@@ -77,7 +77,7 @@ func TestFailedCodexVerificationProjectionRemovesItsWorkspace(t *testing.T) {
 	t.Setenv("TMPDIR", root)
 	_, workspace, err := isolateProjection(
 		domain.NewConfig(testAdmission()), domain.Runtime{},
-		domain.ClientBinding{Targets: []string{root}},
+		domain.ClientBinding{Targets: []string{root}}, "",
 	)
 	if err == nil {
 		t.Fatal("directory source unexpectedly copied as a Codex config")

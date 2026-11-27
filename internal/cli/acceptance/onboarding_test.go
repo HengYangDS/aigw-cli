@@ -61,7 +61,7 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 		t.Fatal(err)
 	}
 	adapter := after.Clients[codex.ID]
-	if !adapter.Enabled || adapter.Executable != processtest.Program(t, "/usr/local/bin/codex") || len(adapter.Targets) != 1 {
+	if !adapter.Enabled || adapter.Program != processtest.Program(t, "/usr/local/bin/codex") || len(adapter.Targets) != 1 {
 		t.Fatalf("Codex adapter after sync = %#v", adapter)
 	}
 	assertSameExistingPath(t, adapter.Targets[0], target)
@@ -108,7 +108,7 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 		t.Fatal(err)
 	}
 	adapter := after.Clients[codex.ID]
-	if adapter.Model != domain.NewModelRef("dmxapi", "gpt-test") || !adapter.Enabled || adapter.Executable != processtest.Program(t, "/usr/local/bin/codex") || len(adapter.Targets) != 1 {
+	if adapter.Model != domain.NewModelRef("dmxapi", "gpt-test") || !adapter.Enabled || adapter.Program != processtest.Program(t, "/usr/local/bin/codex") || len(adapter.Targets) != 1 {
 		t.Fatalf("Codex adapter after sync = %#v", adapter)
 	}
 	if adapter.Targets[0] != target {
@@ -206,7 +206,7 @@ func TestSyncActivatesSelectedEnvironmentProviderAfterManifestSetup(t *testing.T
 		t.Fatalf("bindings = %#v, want selections %#v", after.Clients, wantModels)
 	}
 	adapter := after.Clients[claude.ID]
-	if !adapter.Enabled || adapter.Executable != processtest.Program(t, "/usr/local/bin/claude") {
+	if !adapter.Enabled || adapter.Program != processtest.Program(t, "/usr/local/bin/claude") {
 		t.Fatalf("Claude adapter after sync = %#v", adapter)
 	}
 	data := readFile(t, settingsPath)
@@ -264,7 +264,7 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentModel(t *testing.T) {
 	if after.Clients[claude.ID].Enabled {
 		t.Fatalf("sync activated Claude through an unselected Account: %#v", after.Clients[claude.ID])
 	}
-	if adapter := after.Clients[codex.ID]; !adapter.Enabled || adapter.Executable == "" || len(adapter.Targets) != 1 {
+	if adapter := after.Clients[codex.ID]; !adapter.Enabled || adapter.Program == "" || len(adapter.Targets) != 1 {
 		t.Fatalf("sync did not activate the selected Codex Route: %#v", adapter)
 	}
 	if data := readFile(t, codexTarget); !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {

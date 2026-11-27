@@ -15,6 +15,7 @@ import (
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
+	"aigw-cli/internal/platform/processtest"
 )
 
 const rehearsalID = "rehearsal"
@@ -171,6 +172,10 @@ func TestRehearsalClientJoinsTheBuiltInSet(t *testing.T) {
 		t.Fatalf("registered clients = %q, want %q", registry.IDs(), want)
 	}
 	before, after := rehearsalConfiguration(registry.Admission())
+	// The client's program is installed, so its files are written.
+	binding := after.Clients[rehearsalID]
+	binding.Program = processtest.Program(t, "/opt/rehearsal")
+	after.Clients[rehearsalID] = binding
 	if !after.Admission().Admits(rehearsalID) {
 		t.Fatal("the configuration does not admit the client that the registry serves")
 	}

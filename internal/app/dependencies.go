@@ -65,6 +65,10 @@ type Dependencies struct {
 	// Stops collects the clients that this invocation's transitions stopped,
 	// for the invocation's report; nil records nothing.
 	Stops *synchronization.Stops
+	// Adoptions collects the programs that this invocation adopted for
+	// clients that declared none, for the invocation's report; nil records
+	// nothing.
+	Adoptions *synchronization.Adoptions
 }
 
 // LoadConfiguration reads the configuration that every command works from:
@@ -120,5 +124,6 @@ func (d Dependencies) Synchronizer() synchronization.Synchronizer {
 		Files:                 d.Files,
 		Follows:               d.Follows,
 		Stops:                 d.Stops,
+		Adoptions:             d.Adoptions,
 	}
 }

@@ -244,24 +244,41 @@ func (registry Registry) Plan(deps Dependencies, before, after domain.Config, cl
 
 // PlanStopping prepares the requested adapters as Plan does, and decides,
 // once for the operation, which clients stop: an enabled client whose
-// configured program is missing, or whose adapter cannot produce what its
+// declared program cannot be used, or whose adapter cannot produce what its
 // files are to hold. A stopped client gets no plan and is returned among
-// stops, and the other clients are planned as they would be without it. A
-// client that the dependencies mark withdraw-only needs no program and never
-// stops.
+// stops, and the other clients are planned as they would be without it. An
+// enabled client that declares no program and of which discovery finds none
+// is not installed: it gets no plan, and its files wait for it, as activation
+// reports. A client that the dependencies mark withdraw-only needs no program
+// and never stops.
 func (registry Registry) PlanStopping(deps Dependencies, before, after domain.Config, clientIDs ...string) ([]ProjectionPlan, []*StopError, error) {
+	plans, stops, _, err := registry.planning(deps, before, after, clientIDs)
+	return plans, stops, err
+}
+
+// planning is PlanStopping that also returns the clients whose files wait
+// for their program, which Apply then leaves alone.
+func (registry Registry) planning(deps Dependencies, before, after domain.Config, clientIDs []string) ([]ProjectionPlan, []*StopError, []string, error) {
 	adapters, err := registry.selectAdapters(clientIDs)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	plans := make([]ProjectionPlan, 0)
 	var stops []*StopError
+	var waiting []string
 	for _, adapter := range adapters {
 		id := adapter.Spec().ID
 		withdrawing := slices.Contains(deps.WithdrawOnly, id)
-		if stop := stoppedProgram(after, id); stop != nil && !withdrawing {
-			stops = append(stops, stop)
-			continue
+		if after.Clients[id].Enabled && !withdrawing {
+			program, stop := ResolveProgram(deps, after, id)
+			if stop != nil {
+				stops = append(stops, stop)
+				continue
+			}
+			if program.Path == "" {
+				waiting = append(waiting, id)
+				continue
+			}
 		}
 		adapterPlans, err := planClient(deps, adapter, before, after)
 		if stop, stopped := errors.AsType[*StopError](err); stopped && !withdrawing {
@@ -269,16 +286,17 @@ func (registry Registry) PlanStopping(deps Dependencies, before, after domain.Co
 			continue
 		}
 		if err != nil {
-			return nil, nil, namedTarget(adapter.Spec(), deps.Host.Home, unfollowed(deps, before, adapter, err))
+			return nil, nil, nil, namedTarget(adapter.Spec(), deps.Host.Home, unfollowed(deps, before, adapter, err))
 		}
 		plans = append(plans, adapterPlans...)
 	}
-	return plans, stops, nil
+	return plans, stops, waiting, nil
 }
 
-// Apply rechecks current plans and skips converged, unchanged configurations.
-// On success it reports native state changes and returns one compensation
-// receipt. Earlier adapters are compensated on failure.
+// Apply rechecks current plans and skips converged, unchanged configurations
+// and the clients whose files wait for their program. On success it reports
+// native state changes and returns one compensation receipt. Earlier adapters
+// are compensated on failure.
 func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, after domain.Config, clientIDs ...string) (resultReceipt ProjectionReceipt, projectionChanged bool, resultErr error) {
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
@@ -287,7 +305,10 @@ func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, a
 	if err != nil {
 		return nil, false, err
 	}
-	plans, err := registry.Plan(deps, before, after, clientIDs...)
+	plans, stops, waiting, err := registry.planning(deps, before, after, clientIDs)
+	if err == nil && len(stops) > 0 {
+		err = stops[0]
+	}
 	if err != nil {
 		return nil, false, err
 	}
@@ -319,6 +340,9 @@ func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, a
 		if err := ctx.Err(); err != nil {
 			return nil, false, err
 		}
+		if slices.Contains(waiting, adapter.Spec().ID) {
+			continue
+		}
 		failing = ClientLabel(adapter.Spec().Label)
 		receipt, err := applyClient(ctx, deps, adapter, before, after)
 		if err != nil {
@@ -337,12 +361,17 @@ func (receipts ProjectionReceipts) Rollback() error {
 	return receipts.Restore().Err()
 }
 
-// ChangedClients returns clients whose persistent projection changes, in admission order.
+// ChangedClients returns clients whose persistent projection changes, in
+// admission order: those whose adapter reports a change, and each enabled
+// client that declares another program, which decides whether its files are
+// written at all, as when a client whose files waited adopts its program.
 func (registry Registry) ChangedClients(before, after domain.Config) []string {
 	var changed []string
 	for _, id := range registry.ids {
 		adapter := registry.byID[id]
-		if adapter.ProjectionChanged(before, after) {
+		previous, current := before.Clients[id], after.Clients[id]
+		redeclared := current.Enabled && (previous.Program != current.Program || previous.Extensions != current.Extensions)
+		if redeclared || adapter.ProjectionChanged(before, after) {
 			changed = append(changed, id)
 		}
 	}
@@ -351,14 +380,14 @@ func (registry Registry) ChangedClients(before, after domain.Config) []string {
 
 // Inspect observes one client without mutating it. Unknown clients are reported
 // as an unavailable status so read-only callers need no parallel error path.
-// An enabled client whose configured program is missing is reported as that,
-// with its one fix, before its files are inspected.
+// An enabled client whose declared program cannot be used is reported as
+// that, with its one fix, before its files are inspected.
 func (registry Registry) Inspect(ctx context.Context, deps Dependencies, cfg domain.Config, clientID string, runtime domain.Runtime) Status {
 	adapter, ok := registry.byID[clientID]
 	if !ok {
 		return Status{Issue: fmt.Sprintf("client %q has no admitted operational adapter", clientID), RepairAction: "aigw sync"}
 	}
-	if stop := stoppedProgram(cfg, clientID); stop != nil {
+	if stop := stoppedProgram(cfg, clientID, deps.Host); stop != nil {
 		return Status{Issue: stop.Error(), RepairAction: stop.NextAction()}
 	}
 	status := adapter.Inspect(ctx, deps, cfg, runtime)

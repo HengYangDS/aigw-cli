@@ -26,6 +26,7 @@ func (claudeAdapter) Spec() domain.ClientSpec {
 	return domain.ClientSpec{
 		ID: ID, Label: "Claude", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolAnthropic},
 		ProductName: "Claude Code", ModelDiscoveryOptional: true,
+		Extension: domain.ClientExtension{ID: "anthropic.claude-code", Program: "resources/native-binary/claude"},
 	}
 }
 
@@ -34,11 +35,11 @@ func (claudeAdapter) Discover(source adapter.DiscoverySource) discovery.Result {
 }
 
 func (claudeAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
-	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID)
+	binding, program, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID)
 	if err != nil || !ready {
 		return err
 	}
-	cfg.SetClientActivation(ID, true, executable, binding.Targets)
+	cfg.SetClientActivation(ID, true, program, binding.Targets)
 	return nil
 }
 
@@ -101,10 +102,7 @@ func (claudeAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg d
 	if !clientAdapter.Enabled {
 		return adapter.Status{Issue: "Claude adapter is disabled", RepairAction: "aigw sync"}
 	}
-	if clientAdapter.Executable == "" {
-		return adapter.Status{Issue: "Claude executable is not configured", RepairAction: "aigw sync"}
-	}
-	// A configured executable that is missing is the registry's to report,
+	// A declared program that cannot be used is the registry's to report,
 	// with its own fix, before the client's files are inspected.
 	settings, err := SettingsPath(deps.Host)
 	if err != nil {
@@ -131,10 +129,11 @@ func (claudeAdapter) Withdraw(cfg *domain.Config) {
 	delete(cfg.Clients, ID)
 }
 
+// projectionRequired reports whether either side of a transition enables
+// Claude Code, so that its settings are written or withdrawn. Whether its
+// program is there is the registry's to decide (see Registry.PlanStopping).
 func projectionRequired(before, after domain.Config) bool {
-	previous := before.Clients[ID]
-	current := after.Clients[ID]
-	return previous.Enabled && previous.Executable != "" || current.Enabled && current.Executable != ""
+	return before.Clients[ID].Enabled || after.Clients[ID].Enabled
 }
 
 func projectionInput(cfg domain.Config) (bool, domain.Runtime, error) {

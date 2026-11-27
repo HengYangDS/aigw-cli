@@ -38,8 +38,8 @@ func TestATargetUnderAFileIsRefusedBeforeAnyChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{
-		{"enable", codex.ID, "--executable", executable, "--target", target},
-		{"edit", codex.ID, "--executable", executable, "--target", target},
+		{"enable", codex.ID, "--program", executable, "--target", target},
+		{"edit", codex.ID, "--program", executable, "--target", target},
 	} {
 		problem := terminal.ProblemFor(executeAdapter(t, runtime, args...))
 		if !strings.Contains(problem.Title, "not a directory") || !strings.Contains(problem.Title, target) || !strings.Contains(problem.Fix, file) ||
@@ -76,7 +76,7 @@ func TestEveryClientRefusesATargetUnderAFile(t *testing.T) {
 		}
 		for _, id := range []string{codex.ID, hermes.ID, claudedesktop.ID} {
 			for _, verb := range []string{"edit", "enable"} {
-				problem := terminal.ProblemFor(executeAdapter(t, runtime, verb, id, "--executable", executable, "--target", target))
+				problem := terminal.ProblemFor(executeAdapter(t, runtime, verb, id, "--program", executable, "--target", target))
 				if !strings.Contains(problem.Title, "not a directory") || !strings.Contains(problem.Fix, file) {
 					t.Fatalf("selected=%t %s %s = %+v", selected, verb, id, problem)
 				}

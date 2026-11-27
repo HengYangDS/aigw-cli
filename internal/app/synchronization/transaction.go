@@ -126,6 +126,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 		return committed{}, errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 	}
 	result := committed{configuration: !configAfter.Config.Equal(configBefore.Config)}
+	s.Adoptions.settle(before, after, false)
 	if len(s.reconciled(projection)) == 0 {
 		s.Follows.settle(s.keeps(followed, before, after))
 		return result, nil

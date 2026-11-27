@@ -156,7 +156,7 @@ func TestSetClientActivationPreservesSelectionAndClientOptions(t *testing.T) {
 	if got.Model != NewModelRef("team", "reasoning-model") || got.Protocol != ProtocolResponses || got.CredentialCommand != "/existing/helper" {
 		t.Fatalf("activation replaced client selection or options: %#v", got)
 	}
-	if !got.Enabled || got.Executable != "/opt/codex" || !reflect.DeepEqual(got.Targets, []string{"/one/config.toml", "/two/config.toml"}) {
+	if !got.Enabled || got.Program != "/opt/codex" || !reflect.DeepEqual(got.Targets, []string{"/one/config.toml", "/two/config.toml"}) {
 		t.Fatalf("activation state = %#v", got)
 	}
 }

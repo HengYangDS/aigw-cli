@@ -42,7 +42,7 @@ func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := restored.Clients[claude.ID].Executable; got != claudeExecutable {
+	if got := restored.Clients[claude.ID].Program; got != claudeExecutable {
 		t.Fatalf("repair replaced configured Claude executable: %q", got)
 	}
 	if !strings.Contains(out.String(), "Synchronization completed") || !strings.Contains(out.String(), "Client configuration is aligned") {
@@ -73,7 +73,7 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adapter := got.Clients[claude.ID]; !adapter.Enabled || adapter.Executable != claudeExecutable {
+	if adapter := got.Clients[claude.ID]; !adapter.Enabled || adapter.Program != claudeExecutable {
 		t.Fatalf("Claude adapter changed during repair: %#v", adapter)
 	}
 }
@@ -151,7 +151,7 @@ func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := app.Config.Load()
-	if !got.Clients["claude"].Enabled || !got.Clients["codex"].Enabled || got.Clients["codex"].Executable != processtest.Program(t, "/opt/codex") || len(runner.plans) != 0 {
+	if !got.Clients["claude"].Enabled || !got.Clients["codex"].Enabled || got.Clients["codex"].Program != processtest.Program(t, "/opt/codex") || len(runner.plans) != 0 {
 		t.Fatalf("repair config=%#v plans=%#v", got, runner.plans)
 	}
 	if !strings.Contains(out.String(), "Synchronization completed") || !strings.Contains(out.String(), "Client configuration is aligned") {
@@ -203,7 +203,7 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.Clients[codex.ID].Executable != trustedExecutable {
+	if first.Clients[codex.ID].Program != trustedExecutable {
 		t.Fatalf("repair replaced configured Codex executable: %#v", first.Clients[codex.ID])
 	}
 	if len(runner.plans) != 0 {
@@ -268,17 +268,17 @@ func TestSyncKeepsMovedClientExecutables(t *testing.T) {
 	}}
 
 	err := cli.Execute(app, []string{"sync"})
-	if missing, stopped := errors.AsType[*adapter.StopError](err); !stopped || missing.NextAction() != "aigw client edit claude --executable <path>" {
+	if missing, stopped := errors.AsType[*adapter.StopError](err); !stopped || missing.NextAction() != "aigw client edit claude --program <path> or --extensions <dir>" {
 		t.Fatalf("sync after clients moved = %v, want the missing executables", err)
 	}
 	after, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := after.Clients[claude.ID].Executable; got != oldClaude {
+	if got := after.Clients[claude.ID].Program; got != oldClaude {
 		t.Fatalf("Claude executable = %q, want %q", got, oldClaude)
 	}
-	if got := after.Clients[codex.ID].Executable; got != oldCodex {
+	if got := after.Clients[codex.ID].Program; got != oldCodex {
 		t.Fatalf("Codex executable = %q, want %q", got, oldCodex)
 	}
 	if data, err := os.ReadFile(target); err != nil || string(data) != "model_provider = \"native\"\n" {

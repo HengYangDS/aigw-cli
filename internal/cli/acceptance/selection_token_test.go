@@ -235,7 +235,7 @@ func TestAnEditOfAClientWithoutItsTokenNamesTheTokenAsItsNextStep(t *testing.T) 
 	t.Parallel()
 	for _, edit := range [][]string{
 		{"client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json"},
-		{"client", "edit", "hermes", "--executable", executableFixture(t, "hermes"), "--json"},
+		{"client", "edit", "hermes", "--program", executableFixture(t, "hermes"), "--json"},
 	} {
 		app, output, _, _ := waitingHermes(t)
 		var edited followUp

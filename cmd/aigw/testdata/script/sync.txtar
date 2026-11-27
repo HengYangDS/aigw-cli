@@ -25,23 +25,23 @@ exec aigw sync
 normalize stdout synced.out
 cmp synced.out synced.txt
 
-# Codex's configured executable goes after a sync wrote its file. Sync keeps
-# the executable, synchronizes Claude Code, leaves Codex's file and AIGW's
-# record as they were and fails with the fix that names another executable,
-# as its preview and a check do; a sync is no fix. An --executable that is not
-# a file that can run is refused before anything changes.
+# Codex's declared program goes after a sync wrote its file. Sync keeps the
+# program, synchronizes Claude Code, leaves Codex's file and AIGW's record as
+# they were and fails with the fix that declares another program, as its
+# preview and a check do; a sync is no fix. A --program that is not a file
+# that can run is refused before anything changes.
 exec aigw provider edit team --endpoint responses=$UPSTREAM/v1
 exec aigw model edit team/team-model --protocol anthropic --protocol responses
 exec aigw use codex team/team-model
 mkdir $WORK/codex
 cp codex-config.toml $WORK/codex/config.toml
-exitcode 1 aigw client edit codex --target $WORK/codex/config.toml --executable $WORK/gone/codex
+exitcode 1 aigw client edit codex --target $WORK/codex/config.toml --program $WORK/gone/codex
 stdout 'is not a file that can run'
 cmp $WORK/codex/config.toml codex-config.toml
 mkdir $WORK/gone
 cp codex-program $WORK/gone/codex
 chmod 0755 $WORK/gone/codex
-exec aigw client edit codex --target $WORK/codex/config.toml --executable $WORK/gone/codex
+exec aigw client edit codex --target $WORK/codex/config.toml --program $WORK/gone/codex
 grep 'AIGW managed provider' $WORK/codex/config.toml
 cp $WORK/codex/config.toml synced.toml
 cp $WORK/codex/config.toml.aigw-state.json synced-record.json
@@ -49,16 +49,62 @@ rm $WORK/gone
 exitcode 1 aigw sync --json
 stdout '"ok": false'
 stdout '"enabled_clients": 2'
-stdout '"problem": "Codex executable is missing",\n\s+"files": "left as they were",\n\s+"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
+stdout '"problem": "Codex program is missing",\n\s+"files": "left as they were",\n\s+"next_detail": "aigw client edit codex --program \\u003cpath\\u003e or --extensions \\u003cdir\\u003e"'
 exitcode 1 aigw sync
-stdout 'Codex executable is missing'
+stdout 'Codex program is missing'
 exitcode 1 aigw sync --dry-run --json
-stdout '"stopped_clients": \[\n\s+\{\n\s+"client": "codex",\n\s+"problem": "Codex executable is missing",\n\s+"files": "left as they are",\n\s+"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
+stdout '"stopped_clients": \[\n\s+\{\n\s+"client": "codex",\n\s+"problem": "Codex program is missing",\n\s+"files": "left as they are",\n\s+"next_detail": "aigw client edit codex --program \\u003cpath\\u003e or --extensions \\u003cdir\\u003e"'
 stdout '"client": "claude"'
 exitcode 1 aigw check codex --depth local --json
-stdout '"next_detail": "aigw client edit codex --executable \\u003cpath\\u003e"'
+stdout '"next_detail": "aigw client edit codex --program \\u003cpath\\u003e or --extensions \\u003cdir\\u003e"'
 cmp $WORK/codex/config.toml synced.toml
 cmp $WORK/codex/config.toml.aigw-state.json synced-record.json
+
+# In a new home, a selection made while Claude Code is not on the PATH
+# enables it without a program. A sync then adopts the program that it finds
+# on the PATH and says so, as its preview does without saving it, and saves
+# it once: a second sync adopts nothing and leaves aigw.toml byte for byte as
+# it was.
+mkdir $WORK/fresh
+env HOME=$WORK/fresh
+env XDG_CONFIG_HOME=$WORK/fresh
+env XDG_DATA_HOME=$WORK/fresh
+env PATH=$WORK/fresh
+stdin token.txt
+exec $BIN/aigw$exe provider add team --label 'Team Gateway' --endpoint anthropic=$UPSTREAM --token-stdin
+exec $BIN/aigw$exe use claude team/team-model
+! stdout 'Adopted program'
+! exists $WORK/fresh/.claude/settings.json
+env PATH=$BIN
+exec aigw sync --dry-run
+stdout 'Adopted program\n  A run would save .+, where AIGW found Claude Code, as its program in aigw\.toml\.'
+[darwin] ! grep '^program = ' $WORK/fresh/Library/Application' 'Support/aigw/aigw.toml
+[!darwin] ! grep '^program = ' $WORK/fresh/aigw/aigw.toml
+exec aigw sync
+stdout 'Adopted program\n  AIGW found Claude Code at .+ and saved it as its program in aigw\.toml\.'
+exists $WORK/fresh/.claude/settings.json
+[darwin] cp $WORK/fresh/Library/Application' 'Support/aigw/aigw.toml adopted.toml
+[!darwin] cp $WORK/fresh/aigw/aigw.toml adopted.toml
+grep '^program = ' adopted.toml
+exec aigw sync --json
+! stdout 'adopted_programs'
+[darwin] cmp $WORK/fresh/Library/Application' 'Support/aigw/aigw.toml adopted.toml
+[!darwin] cmp $WORK/fresh/aigw/aigw.toml adopted.toml
+
+# A client that declares an extensions directory uses the program of the
+# newest installed version of its extension, which aigw.toml never names.
+mkdir $WORK/extensions/anthropic.claude-code-2.0.9/resources/native-binary
+mkdir $WORK/extensions/anthropic.claude-code-2.1.0/resources/native-binary
+cp $BIN/claude$exe $WORK/extensions/anthropic.claude-code-2.1.0/resources/native-binary/claude
+chmod 0755 $WORK/extensions/anthropic.claude-code-2.1.0/resources/native-binary/claude
+exec aigw client edit claude --extensions $WORK/extensions --json
+stdout '"extensions": "[^"]+extensions"'
+! stdout '"program"'
+exec aigw sync
+exec aigw client list --json
+stdout '"program": "[^"]+anthropic\.claude-code-2\.1\.0[^"]+claude",\n\s+"extensions": "[^"]+extensions"'
+[darwin] ! grep '^program = ' $WORK/fresh/Library/Application' 'Support/aigw/aigw.toml
+[!darwin] ! grep '^program = ' $WORK/fresh/aigw/aigw.toml
 
 -- codex-program --
 #!/bin/sh

@@ -21,27 +21,28 @@ import (
 
 // editOptions are the flags of `aigw client edit`.
 type editOptions struct {
-	executable string
-	targets    []string
-	via        string
-	direct     bool
-	request    budget
-	stream     budget
-	native     bool
-	dryRun     bool
-	jsonMode   bool
+	declared programOptions
+	targets  []string
+	via      string
+	direct   bool
+	request  budget
+	stream   budget
+	native   bool
+	dryRun   bool
+	jsonMode bool
 }
 
 // editFlags are the flags of `aigw client edit` that change something.
-var editFlags = []string{"executable", "target", "via", "direct", "request-retries", "stream-retries", "native-retries"}
+var editFlags = []string{"program", "extensions", "target", "via", "direct", "request-retries", "stream-retries", "native-retries"}
 
 func newEditCommand(runtime invocation.Context) *cobra.Command {
 	options := &editOptions{}
 	admission := runtime.Clients.Admission()
 	cmd := &cobra.Command{
 		Use:   "edit <client>",
-		Short: "Change a client's executable, configuration files, forwarding or retry budgets",
-		Long: "Change a client's executable, configuration files, forwarding or retry budgets; <client> is " + admission.Usage() + ".\n" +
+		Short: "Change a client's program, configuration files, forwarding or retry budgets",
+		Long: "Change a client's program, configuration files, forwarding or retry budgets; <client> is " + admission.Usage() + ".\n" +
+			"A client declares its program by --program or by --extensions, an editor's extensions directory, and one replaces the other.\n" +
 			"Forwarding sends the client to another endpoint, such as a local proxy; its provider, model and Token stay.\n" +
 			"Retry budgets belong to the client's provider, so they stay when forwarding changes.\n" +
 			"A file that --target drops loses AIGW's settings at once; the files that the client keeps wait for its provider's Token when AIGW cannot use it.",
@@ -59,7 +60,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			return runEdit(cmd, runtime, spec, *options)
 		},
 	}
-	invocation.BindText(cmd, &options.executable, "executable", "Path to the client's executable")
+	bindProgram(cmd, &options.declared, admission)
 	cmd.Flags().StringArrayVar(&options.targets, "target", nil, targetHelp(admission)+"; the files given replace the current ones")
 	invocation.BindText(cmd, &options.via, "via", "Send the client to the endpoint `url` instead of its provider's")
 	cmd.Flags().BoolVar(&options.direct, "direct", false, "Remove forwarding, so the client reaches its provider's endpoint again")
@@ -148,9 +149,7 @@ func checkEdit(cmd *cobra.Command, admission domain.Admission, spec domain.Clien
 	budgets := options.request.given || options.stream.given
 	switch {
 	case !slices.ContainsFunc(editFlags, changed):
-		return fmt.Errorf("client edit needs --executable, --target, --via, --direct, --request-retries, --stream-retries or --native-retries; run `%s --help`", path)
-	case changed("executable") && strings.TrimSpace(options.executable) == "":
-		return fmt.Errorf("--executable requires a non-empty path; run `%s --help`", path)
+		return fmt.Errorf("client edit needs --program, --extensions, --target, --via, --direct, --request-retries, --stream-retries or --native-retries; run `%s --help`", path)
 	case slices.ContainsFunc(options.targets, func(target string) bool { return strings.TrimSpace(target) == "" }):
 		return fmt.Errorf("--target requires a non-empty path; run `%s --help`", path)
 	case changed("via") && options.direct:
@@ -162,6 +161,9 @@ func checkEdit(cmd *cobra.Command, admission domain.Admission, spec domain.Clien
 	case !spec.RetryBudgets && (options.native || budgets):
 		return fmt.Errorf("%s has no native retry budgets; --request-retries, --stream-retries and --native-retries are for %s; run `%s --help`",
 			spec.Label, clientsWith(admission, func(spec domain.ClientSpec) bool { return spec.RetryBudgets }), path)
+	}
+	if err := checkProgram(cmd, admission, spec, options.declared); err != nil {
+		return err
 	}
 	if changed("via") {
 		// The refusal never repeats the URL, which may hold a credential.
@@ -199,14 +201,13 @@ func absoluteTargets(cmd *cobra.Command, given []string) ([]string, error) {
 }
 
 func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientSpec, options editOptions) error {
-	// Args checked both paths, so neither fails here.
+	// Args checked the targets, so they do not fail here.
 	targets, _ := absoluteTargets(cmd, options.targets)
-	if options.executable != "" {
-		options.executable, _ = filepath.Abs(options.executable)
-		if err := refuseExecutable(options.executable); err != nil {
-			return err
-		}
+	declaration, err := declaredProgram(runtime, spec, options.declared, "edit")
+	if err != nil {
+		return err
 	}
+	options.declared = declaration
 	cfg, err := runtime.LoadConfiguration()
 	if err != nil {
 		return err
@@ -336,8 +337,9 @@ func refuseTargetsUnderFiles(targets []string, spec domain.ClientSpec, home stri
 func editClient(cfg *domain.Config, id string, options editOptions, targets []string) error {
 	current := cfg.Clients[id]
 	edited := current
-	if options.executable != "" {
-		edited.Executable = options.executable
+	// A declaration replaces the other one.
+	if options.declared.declares() {
+		edited.Program, edited.Extensions = options.declared.program, options.declared.extensions
 	}
 	if len(targets) > 0 {
 		edited.Targets = targets
@@ -377,7 +379,7 @@ func editClient(cfg *domain.Config, id string, options editOptions, targets []st
 func describeEdit(cfg domain.Config, id string) editDocument {
 	binding := cfg.Clients[id]
 	document := editDocument{
-		Client: id, Enabled: binding.Enabled, Executable: binding.Executable,
+		Client: id, Enabled: binding.Enabled, Program: binding.Program, Extensions: binding.Extensions,
 		Targets: append([]string{}, binding.Targets...), Forwarding: binding.ForwardingEndpoint,
 	}
 	if model, selected := cfg.Models[cfg.SelectedModel(id)]; selected {
@@ -434,8 +436,11 @@ func editRows(runtime invocation.Context, spec domain.ClientSpec, document editD
 		state = "Enabled"
 	}
 	rows := []terminal.Field{{Label: "Client", Value: spec.Label}, {Label: "Model", Value: model}, {Label: "State", Value: state}}
-	if document.Executable != "" {
-		rows = append(rows, terminal.Field{Label: "Executable", Value: invocation.GivenPath(runtime, document.Executable)})
+	if document.Program != "" {
+		rows = append(rows, terminal.Field{Label: "Program", Value: invocation.GivenPath(runtime, document.Program)})
+	}
+	if document.Extensions != "" {
+		rows = append(rows, terminal.Field{Label: "Extensions", Value: invocation.GivenPath(runtime, document.Extensions)})
 	}
 	for _, target := range document.Targets {
 		rows = append(rows, terminal.Field{Label: "Configuration file", Value: invocation.GivenPath(runtime, target)})

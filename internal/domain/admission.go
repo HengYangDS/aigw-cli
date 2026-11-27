@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 )
 
@@ -14,10 +15,14 @@ type Admission struct {
 }
 
 // Validate reports why a specification cannot be admitted: it has no
-// identifier.
+// identifier, or it declares an extension without its program or a program
+// without its extension.
 func (s ClientSpec) Validate() error {
 	if s.ID == "" {
 		return errors.New("client specification has no identifier")
+	}
+	if (s.Extension.ID == "") != (s.Extension.Program == "") {
+		return fmt.Errorf("client %q declares an extension without both its ID and its program", s.ID)
 	}
 	return nil
 }
@@ -102,5 +107,6 @@ func (s ClientSpec) clone() ClientSpec {
 	s.EndpointProtocols = slices.Clone(s.EndpointProtocols)
 	s.QualifiedModes = slices.Clone(s.QualifiedModes)
 	s.QualifiedPlatforms = slices.Clone(s.QualifiedPlatforms)
+	s.Extension.OS, s.Extension.Arch = maps.Clone(s.Extension.OS), maps.Clone(s.Extension.Arch)
 	return s
 }

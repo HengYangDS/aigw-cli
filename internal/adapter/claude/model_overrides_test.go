@@ -187,7 +187,7 @@ func TestClaudeProjectionChangesWhenOnlyTheModelOverridesChange(t *testing.T) {
 	opus := qualifiedModel("", "suhe", "claude-code-opus-5-5", domain.ProtocolAnthropic)
 	opus.Family = "claude-opus-5-5"
 	before.Models[opus.Ref()] = opus
-	before.Clients[ID] = domain.ClientBinding{Model: opus.Ref(), Enabled: true, Executable: "/usr/bin/claude"}
+	before.Clients[ID] = domain.ClientBinding{Model: opus.Ref(), Enabled: true, Program: "/usr/bin/claude"}
 	if (claudeAdapter{}).ProjectionChanged(before, before.Clone()) {
 		t.Fatal("an unchanged configuration changes the projection")
 	}

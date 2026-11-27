@@ -106,25 +106,57 @@ func executeAdapter(t *testing.T, runtime invocation.Context, args ...string) er
 	return root.Execute()
 }
 
+// Enable refuses a declaration of the program that cannot hold, before it
+// changes anything: both declarations, an extensions directory for a client
+// without an editor extension, an extensions directory that resolves to no
+// program, a program that cannot run and a program inside one installed
+// version of the client's extension.
 func TestEnableRejectsInvalidInputsBeforeMutation(t *testing.T) {
 	cfg := adapterConfig()
 	runtime, _, secretStore, _ := adapterRuntime(t, cfg)
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
+	saved, err := os.ReadFile(runtime.Config.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	extensions := t.TempDir()
+	versioned := filepath.Join(extensions, "anthropic.claude-code-2.1.0", "resources", "native-binary", "claude")
+	processtest.Write(t, versioned, processtest.Failing)
+	empty := t.TempDir()
 	for _, test := range []struct {
 		name string
 		args []string
 		want string
+		fix  string
 	}{
-		{name: "unknown client", args: []string{"enable", "future", "--executable", processtest.Program(t, "/opt/future")}, want: `unknown client "future"`},
-		{name: "missing executable", args: []string{"enable", claude.ID}, want: "--executable is required"},
-		{name: "codex target required", args: []string{"enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex")}, want: "requires at least one --target"},
+		{name: "unknown client", args: []string{"enable", "future", "--program", processtest.Program(t, "/opt/future")}, want: `unknown client "future"`},
+		{name: "codex target required", args: []string{"enable", codex.ID, "--program", processtest.Program(t, "/opt/codex")}, want: "requires at least one --target"},
+		{name: "both declarations", args: []string{"enable", claude.ID, "--program", processtest.Program(t, "/opt/claude"), "--extensions", extensions}, want: "--program and --extensions are mutually exclusive"},
+		{name: "extensions for Hermes", args: []string{"enable", "hermes", "--extensions", extensions}, want: "Hermes has no editor extension, so it names its program with --program"},
+		{
+			name: "extensions without the program", args: []string{"enable", claude.ID, "--extensions", empty},
+			want: "The extensions directory holds no installed Claude Code extension (anthropic.claude-code) for this host",
+			fix:  "aigw client edit claude --program <path> or --extensions <dir>",
+		},
+		{name: "a program that cannot run", args: []string{"enable", claude.ID, "--program", filepath.Join(empty, "claude")}, want: "is not a file that can run"},
+		{
+			name: "a program inside an installed version", args: []string{"enable", claude.ID, "--program", versioned},
+			want: "lies in one installed version of the Claude Code extension, which the next version replaces",
+			fix:  "aigw client enable claude --extensions " + extensions,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			err := executeAdapter(t, runtime, test.args...)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
+			}
+			if fix := terminal.ProblemFor(err).Fix; test.fix != "" && fix != test.fix {
+				t.Fatalf("fix = %q, want %q", fix, test.fix)
+			}
+			if after, err := os.ReadFile(runtime.Config.Path()); err != nil || !bytes.Equal(after, saved) {
+				t.Fatalf("a refused enable changed the configuration: %v", err)
 			}
 		})
 	}
@@ -144,13 +176,13 @@ func TestEnableRejectsInvalidConfigurationAndMissingSecret(t *testing.T) {
 	if err := os.WriteFile(runtime.Config.Path(), []byte(missingEndpoint), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err = executeAdapter(t, runtime, "enable", claude.ID, "--executable", processtest.Program(t, "/opt/claude"))
+	err = executeAdapter(t, runtime, "enable", claude.ID, "--program", processtest.Program(t, "/opt/claude"))
 	if err == nil || !strings.Contains(err.Error(), "endpoint") {
 		t.Fatalf("missing endpoint error = %v", err)
 	}
 
 	runtime, _, _, _ = adapterRuntime(t, adapterConfig())
-	err = executeAdapter(t, runtime, "enable", claude.ID, "--executable", processtest.Program(t, "/opt/claude"))
+	err = executeAdapter(t, runtime, "enable", claude.ID, "--program", processtest.Program(t, "/opt/claude"))
 	if err == nil || !strings.Contains(err.Error(), "is missing a Token") {
 		t.Fatalf("missing token error = %v", err)
 	}
@@ -164,7 +196,7 @@ func TestEnableClaudePersistsOnlyTheRealExecutable(t *testing.T) {
 	}
 	executable := filepath.Join(t.TempDir(), "Claude Code", "bin", "claude")
 	processtest.Write(t, executable, processtest.Failing)
-	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", executable); err != nil {
+	if err := executeAdapter(t, runtime, "enable", claude.ID, "--program", executable); err != nil {
 		t.Fatal(err)
 	}
 	got, err := runtime.Config.Load()
@@ -172,14 +204,14 @@ func TestEnableClaudePersistsOnlyTheRealExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	adapter := got.Clients[claude.ID]
-	if !adapter.Enabled || adapter.Executable != executable {
+	if !adapter.Enabled || adapter.Program != executable {
 		t.Fatalf("saved adapter = %#v", adapter)
 	}
 	if !strings.Contains(out.String(), "Client enabled") {
 		t.Fatalf("output = %q", out.String())
 	}
 
-	err = executeAdapter(t, runtime, "enable", claude.ID, "--executable", processtest.Program(t, "/replacement"))
+	err = executeAdapter(t, runtime, "enable", claude.ID, "--program", processtest.Program(t, "/replacement"))
 	if err == nil || !strings.Contains(err.Error(), "already enabled") {
 		t.Fatalf("duplicate enable error = %v", err)
 	}
@@ -201,7 +233,7 @@ func TestEnableCodexValidatesTargetsAndPersistsProjection(t *testing.T) {
 		Present:    true,
 	}}}}
 
-	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex"), "--target", target); err != nil {
+	if err := executeAdapter(t, runtime, "enable", codex.ID, "--program", processtest.Program(t, "/opt/codex"), "--target", target); err != nil {
 		t.Fatal(err)
 	}
 	got, err := runtime.Config.Load()
@@ -209,7 +241,7 @@ func TestEnableCodexValidatesTargetsAndPersistsProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	adapter := got.Clients[codex.ID]
-	if want, _ := filepath.Abs(processtest.Program(t, "/opt/codex")); !adapter.Enabled || adapter.Executable != want || len(adapter.Targets) != 1 || adapter.Targets[0] != target {
+	if want, _ := filepath.Abs(processtest.Program(t, "/opt/codex")); !adapter.Enabled || adapter.Program != want || len(adapter.Targets) != 1 || adapter.Targets[0] != target {
 		t.Fatalf("saved adapter = %#v", adapter)
 	}
 	if len(runner.plans) != 0 {
@@ -232,21 +264,21 @@ func TestEnableCodexRejectsUnsafeTargetsAndUnavailableDiscovery(t *testing.T) {
 	}
 
 	runtime.Discovery = nil
-	err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex"), "--target", "/tmp/configuration.toml")
+	err := executeAdapter(t, runtime, "enable", codex.ID, "--program", processtest.Program(t, "/opt/codex"), "--target", "/tmp/configuration.toml")
 	if err == nil || !strings.Contains(err.Error(), "discovery is unavailable") {
 		t.Fatalf("nil discovery error = %v", err)
 	}
 
 	executable := filepath.Join(t.TempDir(), "codex")
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), Executable: executable}}}}
-	err = executeAdapter(t, runtime, "enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex"), "--target", executable)
+	err = executeAdapter(t, runtime, "enable", codex.ID, "--program", processtest.Program(t, "/opt/codex"), "--target", executable)
 	if err == nil || !strings.Contains(err.Error(), "executable") {
 		t.Fatalf("executable target error = %v", err)
 	}
 
 	foreign := filepath.Join(t.TempDir(), "configuration.toml")
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: "foreign-surface", ConfigPath: foreign}}}}
-	err = executeAdapter(t, runtime, "enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex"), "--target", foreign)
+	err = executeAdapter(t, runtime, "enable", codex.ID, "--program", processtest.Program(t, "/opt/codex"), "--target", foreign)
 	if err == nil || !strings.Contains(err.Error(), "foreign-surface") {
 		t.Fatalf("foreign target error = %v", err)
 	}
@@ -258,7 +290,7 @@ func TestEnableClaudeDoesNotRequireAnAIGWLauncherDirectory(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", processtest.Program(t, "/opt/claude/claude"))
+	err := executeAdapter(t, runtime, "enable", claude.ID, "--program", processtest.Program(t, "/opt/claude/claude"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +347,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", processtest.Program(t, "/opt/claude/claude")); err != nil {
+	if err := executeAdapter(t, runtime, "enable", claude.ID, "--program", processtest.Program(t, "/opt/claude/claude")); err != nil {
 		t.Fatal(err)
 	}
 	verified, err := runtime.Config.Load()
@@ -393,7 +425,7 @@ func TestDisableCodexRestoresProjection(t *testing.T) {
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
 		ID: string(codex.HomeDefault), ConfigPath: target,
 	}}}}
-	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex"), "--target", target); err != nil {
+	if err := executeAdapter(t, runtime, "enable", codex.ID, "--program", processtest.Program(t, "/opt/codex"), "--target", target); err != nil {
 		t.Fatal(err)
 	}
 	if err := executeAdapter(t, runtime, "disable", codex.ID); err != nil {
@@ -421,7 +453,7 @@ func TestCommandsPropagateConfigurationLoadErrors(t *testing.T) {
 		args []string
 	}{
 		{name: "list", args: []string{"list"}},
-		{name: "enable", args: []string{"enable", claude.ID, "--executable", processtest.Program(t, "/opt/claude")}},
+		{name: "enable", args: []string{"enable", claude.ID, "--program", processtest.Program(t, "/opt/claude")}},
 		{name: "edit", args: []string{"edit", codex.ID, "--direct"}},
 		{name: "disable", args: []string{"disable", codex.ID}},
 	} {
@@ -440,7 +472,7 @@ func TestEnablePropagatesRuntimeResolutionError(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", processtest.Program(t, "/opt/claude"))
+	err := executeAdapter(t, runtime, "enable", claude.ID, "--program", processtest.Program(t, "/opt/claude"))
 	if err == nil || !strings.Contains(err.Error(), "no model selected") {
 		t.Fatalf("runtime error = %v", err)
 	}

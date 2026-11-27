@@ -105,11 +105,15 @@ type Synchronizer struct {
 	// Stops receives the clients that a transition, or its preview, stopped,
 	// for the invocation's report.
 	Stops *Stops
+	// Adoptions receives the programs that convergence adopted and a
+	// transition, or its preview, writes, for the invocation's report.
+	Adoptions *Adoptions
 }
 
 // DesiredClientConfiguration discovers the requested clients and derives the
 // configuration that can be activated now. An empty list means every admitted
-// client; unrequested adapters remain unchanged.
+// client; unrequested adapters remain unchanged. The programs that it adopts
+// for clients that declare none are recorded for the invocation's report.
 func (s Synchronizer) DesiredClientConfiguration(before domain.Config, clientIDs ...string) (domain.Config, discovery.Result, error) {
 	discovered, err := s.discoveredResult(clientIDs...)
 	if err != nil {
@@ -120,6 +124,9 @@ func (s Synchronizer) DesiredClientConfiguration(before domain.Config, clientIDs
 		return domain.Config{}, discovered, err
 	}
 	after, err := s.registry().Converge(dependencies, before, discovered, clientIDs...)
+	if err == nil {
+		s.Adoptions.observe(before, after)
+	}
 	return after, discovered, err
 }
 

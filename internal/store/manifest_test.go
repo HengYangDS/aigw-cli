@@ -277,7 +277,7 @@ func TestExportOmitsClientsAndCredentials(t *testing.T) {
 	cfg.SetSelectedModel(ClientClaude, domain.NewModelRef("team", "claude-team"), "")
 	binding := cfg.Clients[ClientClaude]
 	binding.Enabled = true
-	binding.Executable = "/personal/claude"
+	binding.Program = "/personal/claude"
 	cfg.Clients[ClientClaude] = binding
 	data, err := ExportTeamFile(cfg)
 	if err != nil {

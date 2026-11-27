@@ -55,7 +55,7 @@ func TestStatusWarnsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "Claude Code executable is missing") || !strings.Contains(text, "aigw client edit claude --executable <path>") {
+	if !strings.Contains(text, "Claude Code program is missing") || !strings.Contains(text, "aigw client edit claude --program <path> or --extensions <dir>") {
 		t.Fatalf("status did not surface the missing Claude executable:\n%s", text)
 	}
 }
@@ -124,7 +124,7 @@ func TestStatusPrioritizesSelectedActivationWhileRetainingModelGuidance(t *testi
 	if strings.Contains(text, "Claude             ·") || strings.Contains(text, "aigw sync") {
 		t.Fatalf("status should not show blank Claude route or misleading repair:\n%s", text)
 	}
-	for _, want := range []string{"Claude", "No model selected", "aigw client enable codex --executable <path> --target <config.toml>"} {
+	for _, want := range []string{"Claude", "No model selected", "aigw client enable codex --target <config.toml>"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("status lacks %q:\n%s", want, text)
 		}
@@ -140,7 +140,7 @@ func TestStatusPrioritizesSelectedActivationWhileRetainingModelGuidance(t *testi
 			NextAction string `json:"next_action"`
 		} `json:"clients"`
 	}
-	if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.NextAction != "" || result.NextDetail != "aigw client enable codex --executable <path> --target <config.toml>" || result.Clients[claude.ID].NextAction != "aigw use claude dmx/claude-fable-5" {
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.NextAction != "" || result.NextDetail != "aigw client enable codex --target <config.toml>" || result.Clients[claude.ID].NextAction != "aigw use claude dmx/claude-fable-5" {
 		t.Fatalf("JSON status action = %+v, error = %v", result, err)
 	}
 }
@@ -174,7 +174,7 @@ func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 	if err := cli.Execute(app, []string{"status"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Claude Code executable is missing") || !strings.Contains(out.String(), "aigw client edit claude --executable <path>") {
+	if !strings.Contains(out.String(), "Claude Code program is missing") || !strings.Contains(out.String(), "aigw client edit claude --program <path> or --extensions <dir>") {
 		t.Fatalf("status did not surface the missing Claude executable:\n%s", out.String())
 	}
 }

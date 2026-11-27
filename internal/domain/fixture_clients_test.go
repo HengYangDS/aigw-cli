@@ -18,6 +18,7 @@ func testClientSpecs() []ClientSpec {
 		{
 			ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic},
 			ProductName: "Claude Code", ModelDiscoveryOptional: true,
+			Extension: ClientExtension{ID: "anthropic.claude-code", Program: "resources/native-binary/claude"},
 		},
 		{
 			ID: ClientClaudeDesktop, Label: "Claude Desktop", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic},
@@ -28,6 +29,10 @@ func testClientSpecs() []ClientSpec {
 			ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolResponses},
 			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
 			ContextWindow: true,
+			Extension: ClientExtension{
+				ID: "openai.chatgpt", Program: "bin/{os}-{arch}/codex",
+				OS: map[string]string{"darwin": "macos", "linux": "linux"}, Arch: map[string]string{"arm64": "aarch64", "amd64": "x86_64"},
+			},
 		},
 		{
 			ID: ClientHermes, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml", ContextWindow: true,

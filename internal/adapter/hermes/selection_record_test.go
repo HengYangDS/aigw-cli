@@ -188,7 +188,7 @@ func recordedChoiceFixture(t *testing.T) (string, domain.Config, domain.Config) 
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://provider.test"}}
 	cfg.Models[domain.NewModelRef("team", "model-test")] = qualifiedModel("Test", "team", "model-test", domain.ProtocolAnthropic)
 	cfg.Models[chosen] = qualifiedModel("Other", "team", "model-other", domain.ProtocolAnthropic)
-	cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("team", "model-test"), Enabled: true, Protocol: domain.ProtocolAnthropic, Executable: processtest.Program(t, "/opt/hermes"), Targets: []string{path}}
+	cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("team", "model-test"), Enabled: true, Protocol: domain.ProtocolAnthropic, Program: processtest.Program(t, "/opt/hermes"), Targets: []string{path}}
 	tokens := secret.NewMemoryStore()
 	if err := tokens.Set("team", "fixture-token"); err != nil {
 		t.Fatal(err)

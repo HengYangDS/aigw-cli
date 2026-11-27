@@ -31,7 +31,7 @@ func TestDisableScopesProjectionToTheSelectedClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	library := filepath.Join(root, "Claude-3p", "configLibrary")
-	if err := executeAdapter(t, runtime, "enable", claudedesktop.ID, "--executable", executable, "--target", library); err != nil {
+	if err := executeAdapter(t, runtime, "enable", claudedesktop.ID, "--program", executable, "--target", library); err != nil {
 		t.Fatal(err)
 	}
 	configured, err := runtime.Config.Load()

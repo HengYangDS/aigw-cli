@@ -660,7 +660,13 @@ Next
       "state": "not_selected"
     }
   ],
-  "next_action": "aigw check"
+  "next_action": "aigw check",
+  "adopted_programs": [
+    {
+      "client": "claude",
+      "program": "$BIN/claude"
+    }
+  ]
 }
 -- named-without-input.json --
 {

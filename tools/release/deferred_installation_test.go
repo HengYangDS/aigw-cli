@@ -123,7 +123,7 @@ primary = {model = 'native-system-keyring-probe/claude-test', protocol = 'anthro
 				t.Fatal(err)
 			}
 			binding := after.Clients[clientID]
-			if !binding.Enabled || binding.Executable == "" || clientID != claude.ID && len(binding.Targets) == 0 {
+			if !binding.Enabled || binding.Program == "" || clientID != claude.ID && len(binding.Targets) == 0 {
 				t.Fatalf("%s binding was not activated: %#v", clientID, binding)
 			}
 			journey.requireClientProjection(clientID)

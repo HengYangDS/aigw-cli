@@ -72,7 +72,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if binding := after.Clients["hermes"]; !binding.Enabled || binding.Executable != "" || len(binding.Targets) != 0 {
+	if binding := after.Clients["hermes"]; !binding.Enabled || binding.Program != "" || len(binding.Targets) != 0 {
 		t.Fatalf("absent Hermes intent was not deferred: %#v", binding)
 	}
 	name := "hermes"
@@ -84,7 +84,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if binding := after.Clients["hermes"]; !binding.Enabled || binding.Executable == "" || len(binding.Targets) != 1 {
+	if binding := after.Clients["hermes"]; !binding.Enabled || binding.Program == "" || len(binding.Targets) != 1 {
 		t.Fatalf("installed Hermes intent was not materialized: %#v", binding)
 	}
 	receipt, _, err := registry.Apply(context.Background(), deps, cfg, after, "hermes")

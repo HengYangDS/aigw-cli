@@ -10,16 +10,16 @@ import (
 	"aigw-cli/internal/adapter/claude"
 )
 
-// The repair command refuses, before anything is read or written, an
-// --executable that is not a file that can run: a path that is not there, a
+// The repair command refuses, before anything is read or written, a
+// --program that is not a file that can run: a path that is not there, a
 // folder, and a file without an execute bit. Nothing is run.
-func TestAnExecutableThatCannotRunIsRefused(t *testing.T) {
+func TestAProgramThatCannotRunIsRefused(t *testing.T) {
 	plain := filepath.Join(t.TempDir(), "claude")
 	if err := os.WriteFile(plain, []byte("#!/bin/sh\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	for _, executable := range []string{filepath.Join(t.TempDir(), "gone"), t.TempDir(), plain} {
-		for _, args := range [][]string{{"enable", claude.ID, "--executable", executable}, {"edit", claude.ID, "--executable", executable}} {
+		for _, args := range [][]string{{"enable", claude.ID, "--program", executable}, {"edit", claude.ID, "--program", executable}} {
 			runtime, _, secretStore, _ := adapterRuntime(t, adapterConfig())
 			if err := secretStore.Set("gateway", "token"); err != nil {
 				t.Fatal(err)

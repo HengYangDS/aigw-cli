@@ -231,7 +231,7 @@ func zz11EnableAgain(more ...string) func(*testing.T, selectionWorld) []string {
 	return func(t *testing.T, w selectionWorld) []string {
 		t.Helper()
 		binding := selection(t, w.app, w.client)
-		args := []string{"client", "enable", w.client, "--executable", binding.Executable}
+		args := []string{"client", "enable", w.client, "--program", binding.Program}
 		for _, target := range binding.Targets {
 			args = append(args, "--target", target)
 		}

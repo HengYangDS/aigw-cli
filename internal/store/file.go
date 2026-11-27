@@ -76,7 +76,8 @@ type clientDocument struct {
 	Enabled           bool                    `toml:"enabled"`
 	Model             string                  `toml:"model,omitempty"`
 	Protocol          domain.EndpointProtocol `toml:"protocol,omitempty"`
-	Executable        string                  `toml:"executable,omitempty"`
+	Program           string                  `toml:"program,omitempty"`
+	Extensions        string                  `toml:"extensions,omitempty"`
 	Targets           []string                `toml:"targets,omitempty"`
 	CredentialCommand string                  `toml:"credential_command,omitempty"`
 	Retries           *retriesDocument        `toml:"retries,omitempty,inline"`
@@ -98,8 +99,8 @@ type forwardingDocument struct {
 }
 
 // UndefinedFieldError is a field that the schema does not define, such as a
-// retired `order`, `purpose` or `lifecycle`, or a client's `authentication`
-// or `model_provider`, and the line that holds it. The field's path leaves
+// retired `order`, `purpose` or `lifecycle`, or a client's `executable`,
+// `authentication` or `model_provider`, and the line that holds it. The field's path leaves
 // out an inline table that holds it.
 type UndefinedFieldError struct {
 	Field string
@@ -216,7 +217,7 @@ func (selection selectionDocument) selection(client string) (domain.ClientSelect
 
 func (declared clientDocument) binding(client string) (domain.ClientBinding, error) {
 	binding := domain.ClientBinding{
-		Enabled: declared.Enabled, Protocol: declared.Protocol, Executable: declared.Executable,
+		Enabled: declared.Enabled, Protocol: declared.Protocol, Program: declared.Program, Extensions: declared.Extensions,
 		Targets: declared.Targets, CredentialCommand: declared.CredentialCommand,
 	}
 	if declared.Model != "" {
@@ -294,7 +295,7 @@ func newSelectionDocument(selection domain.ClientSelection) selectionDocument {
 func newClientDocument(binding domain.ClientBinding) clientDocument {
 	declared := clientDocument{
 		Enabled: binding.Enabled, Model: binding.Model.String(), Protocol: binding.Protocol,
-		Executable: binding.Executable, Targets: binding.Targets, CredentialCommand: binding.CredentialCommand,
+		Program: binding.Program, Extensions: binding.Extensions, Targets: binding.Targets, CredentialCommand: binding.CredentialCommand,
 	}
 	if policy := binding.RetryPolicy; policy != nil {
 		declared.Retries = &retriesDocument{Request: policy.RequestMaxRetries, Stream: policy.StreamMaxRetries}

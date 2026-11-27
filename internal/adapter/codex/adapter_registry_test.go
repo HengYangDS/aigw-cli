@@ -80,8 +80,8 @@ func TestCodexConvergenceKeepsAnUninspectableConfiguredExecutable(t *testing.T) 
 	}
 	cfg.SetClientActivation(ID, true, loop, []string{"/target"})
 	discovered := discovery.Result{Executables: map[string]string{ID: "/replacement/codex"}}
-	if after, err := codexRegistry().Converge(adapter.Dependencies{}, cfg, discovered, ID); err != nil || after.Clients[ID].Executable != loop {
-		t.Fatalf("Converge(codex) = %q, %v", after.Clients[ID].Executable, err)
+	if after, err := codexRegistry().Converge(adapter.Dependencies{}, cfg, discovered, ID); err != nil || after.Clients[ID].Program != loop {
+		t.Fatalf("Converge(codex) = %q, %v", after.Clients[ID].Program, err)
 	}
 }
 

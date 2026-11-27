@@ -81,6 +81,10 @@ type App struct {
 	// transitions stopped, and stopped its report of them.
 	stops   *synchronization.Stops
 	stopped *invocation.StopReport
+	// adoptions is the running invocation's record of the programs that it
+	// adopted, and adopted its report of them.
+	adoptions *synchronization.Adoptions
+	adopted   *invocation.AdoptionReport
 }
 
 func (a *App) outputWriter() io.Writer {
@@ -95,22 +99,30 @@ func (a *App) Renderer() *terminal.Renderer {
 	return terminal.NewRendererWithWidth(a.outputWriter(), a.Color, terminal.PresentationWidth(a.Out, environmentMap(a.Env)))
 }
 
+// beginReports starts the running invocation's reports of what it makes of
+// the clients' own choices, the clients that its transition stops (which fail
+// the invocation) and the programs that its convergence adopts: its command's
+// document carries them, and its human output names each once. The returned
+// function ends them.
+func (a *App) beginReports() func() {
+	a.follows, a.stops, a.adoptions = &synchronization.Follows{}, &synchronization.Stops{}, &synchronization.Adoptions{}
+	a.followed = invocation.NewFollowedReport(a.follows)
+	a.stopped = invocation.NewStopReport(a.stops, a.Clients.Admission())
+	a.adopted = invocation.NewAdoptionReport(a.adoptions, a.Clients.Admission())
+	return func() {
+		a.follows, a.followed, a.stops, a.stopped, a.adoptions, a.adopted = nil, nil, nil, nil, nil, nil
+	}
+}
+
 // Execute runs one argument vector, serializing mutations and returning any command or output failure.
 func Execute(app *App, args []string) error {
 	output := &invocation.Output{Writer: app.Out}
 	app.output = output
 	defer func() { app.output = nil }()
 	var unlock func() error
-	// What the invocation makes of the clients' own choices: its command's
-	// document carries it, and its human output names it once.
-	app.follows, app.stops = &synchronization.Follows{}, &synchronization.Stops{}
-	app.followed = invocation.NewFollowedReport(app.follows)
-	// The clients that its transition stops follow the command's own report,
-	// and fail the invocation.
-	app.stopped = invocation.NewStopReport(app.stops, app.Clients.Admission())
-	defer func() { app.follows, app.followed, app.stops, app.stopped = nil, nil, nil, nil }()
+	defer app.beginReports()()
 	output.Fields = func() []terminal.DocumentField {
-		return append(app.followed.Document(), app.stopped.Document()...)
+		return slices.Concat(app.followed.Document(), app.adopted.Document(), app.stopped.Document())
 	}
 	output.Failed = func() bool { return app.stopped.Failed() }
 	root := NewRoot(app)
@@ -144,6 +156,7 @@ func Execute(app *App, args []string) error {
 		// invocation followed; its human output ends with it.
 		if jsonMode, _ := command.Flags().GetBool("json"); err == nil && !jsonMode && output.Err() == nil {
 			app.renderFollowed(output.Started())
+			app.adopted.Render(app.continued(output.Started()))
 			app.stopped.Render(app.continued(output.Started()))
 		}
 	}
@@ -386,7 +399,7 @@ func (a *App) invocationContext() invocation.Context {
 		Color: a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
 		Discovery: a.Discovery, Clients: a.Clients, Updater: a.Updater,
-		Follows: a.follows, Followed: a.followed, Stops: a.stops,
+		Follows: a.follows, Followed: a.followed, Stops: a.stops, Adoptions: a.adoptions,
 	}
 }
 

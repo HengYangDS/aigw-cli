@@ -50,8 +50,8 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 	cfg.SetClientActivation(ID, true, missing, nil)
 
 	after, err := claudeRegistry().Converge(adapter.Dependencies{}, cfg, discovery.Result{}, ID)
-	if err != nil || after.Clients[ID].Executable != missing {
-		t.Fatalf("configured missing executable = %q, %v", after.Clients[ID].Executable, err)
+	if err != nil || after.Clients[ID].Program != missing {
+		t.Fatalf("configured missing executable = %q, %v", after.Clients[ID].Program, err)
 	}
 	loop := filepath.Join(t.TempDir(), "loop")
 	if err := os.Symlink(loop, loop); err != nil {
@@ -61,8 +61,8 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 	// one that is gone is: AIGW never replaces a configured executable.
 	cfg.SetClientActivation(ID, true, loop, nil)
 	discovered := discovery.Result{Executables: map[string]string{ID: "/replacement/claude"}}
-	if after, err := claudeRegistry().Converge(adapter.Dependencies{}, cfg, discovered, ID); err != nil || after.Clients[ID].Executable != loop {
-		t.Fatalf("an uninspectable configured executable = %q, %v", after.Clients[ID].Executable, err)
+	if after, err := claudeRegistry().Converge(adapter.Dependencies{}, cfg, discovered, ID); err != nil || after.Clients[ID].Program != loop {
+		t.Fatalf("an uninspectable configured executable = %q, %v", after.Clients[ID].Program, err)
 	}
 }
 

@@ -32,18 +32,18 @@ func TestAMissingCodexProgramEndsTheStaleLoop(t *testing.T) {
 	before := fixture.files(t)
 	for attempt := range 2 {
 		kept, err := fixture.sync(t)
-		if kept.Clients[ID].Executable != fixture.program {
-			t.Fatalf("sync %d replaced the configured program with %q", attempt+2, kept.Clients[ID].Executable)
+		if kept.Clients[ID].Program != fixture.program {
+			t.Fatalf("sync %d replaced the configured program with %q", attempt+2, kept.Clients[ID].Program)
 		}
 		missing, stopped := errors.AsType[*adapter.StopError](err)
-		if !stopped || missing.Error() != "Codex executable is missing" || missing.NextAction() != "aigw client edit codex --executable <path>" {
+		if !stopped || missing.Error() != "Codex program is missing" || missing.NextAction() != "aigw client edit codex --program <path> or --extensions <dir>" {
 			t.Fatalf("sync %d = %v, want Codex stopped for its missing program", attempt+2, err)
 		}
 		if after := fixture.files(t); !slices.EqualFunc(after, before, slices.Equal) {
 			t.Fatalf("sync %d changed Codex's files", attempt+2)
 		}
 		status := fixture.inspect(t, kept)
-		if status.Ready || status.Issue != "Codex executable is missing" || status.RepairAction != "aigw client edit codex --executable <path>" {
+		if status.Ready || status.Issue != "Codex program is missing" || status.RepairAction != "aigw client edit codex --program <path> or --extensions <dir>" {
 			t.Fatalf("check %d = %+v, want the missing program and its fix", attempt+2, status)
 		}
 	}

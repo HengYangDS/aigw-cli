@@ -229,12 +229,13 @@ func (c *checker) fileChecks(ctx context.Context, r *result, selected domain.Run
 		return []localCheck{skippedCheck(name, label, r.spec.Label+" is disabled, so AIGW keeps no client files for it")}
 	case selectErr != nil:
 		return []localCheck{skippedCheck(name, label, "No model resolves, so no client files can match it")}
-	case binding.Executable == "":
+	}
+	// Activation decides which enabled clients wait for their program and
+	// names the same step for every readiness command.
+	if install := clientactivation.ProjectionPrerequisites(c.cfg)[r.spec.ID]; install != "" {
 		if discovered, err := c.deps.Discover(r.spec.ID); err == nil && discovered.Executable(r.spec.ID) != "" {
 			return []localCheck{failedCheck(name, label, r.spec.Label+" is installed, but AIGW has not written its files yet", "aigw sync", domainreadiness.Deferred)}
 		}
-		// Activation names the same step for every readiness command.
-		install := clientactivation.ProjectionPrerequisites(c.cfg)[r.spec.ID]
 		return []localCheck{failedCheck(name, label, r.spec.Label+" is not installed", install, domainreadiness.Deferred)}
 	}
 	status := c.deps.InspectClient(ctx, c.cfg, r.spec.ID, selected)

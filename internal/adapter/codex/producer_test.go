@@ -65,7 +65,7 @@ func newCodexProgram(t *testing.T, layout string) codexProgram {
 	writeTo(t, home, "model_provider = \"native\"\n")
 	cfg := windowConfiguration("gpt-6.2-sol", "gpt-6.2-sol", home)
 	binding := cfg.Clients[ID]
-	binding.Executable = program
+	binding.Program = program
 	cfg.Clients[ID] = binding
 	tokens := secret.NewMemoryStore()
 	if err := tokens.Set("gateway", "token"); err != nil {
@@ -163,7 +163,7 @@ func TestACheckComparesTheTablesProducerWithTheConfiguredProgram(t *testing.T) {
 				other := filepath.Join(filepath.Dir(fixture.program), "codex-next")
 				processtest.Write(t, other, fakeCodexScript)
 				binding := cfg.Clients[ID]
-				binding.Executable = other
+				binding.Program = other
 				cfg.Clients[ID] = binding
 			},
 			problem: "Codex's model table came from another executable than the configured one",

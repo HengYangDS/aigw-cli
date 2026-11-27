@@ -317,7 +317,7 @@ func TestUseActivatesClaudeInstalledAfterManifestSetup(t *testing.T) {
 		t.Fatal(err)
 	}
 	adapter := after.Clients[claude.ID]
-	if !adapter.Enabled || adapter.Executable != claudeExecutable {
+	if !adapter.Enabled || adapter.Program != claudeExecutable {
 		t.Fatalf("Claude adapter after use = %#v", adapter)
 	}
 	settings, err := os.ReadFile(claudeSettingsPath(t, app.Host))

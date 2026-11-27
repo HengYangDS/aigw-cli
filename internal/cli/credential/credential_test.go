@@ -379,7 +379,7 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 		Label: client, Provider: "gateway", ID: client + "-team",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
 	}
-	cfg.Clients[client] = domain.ClientBinding{Model: clientModel(client), Enabled: enabled, Protocol: spec.EndpointProtocols[0], Executable: client}
+	cfg.Clients[client] = domain.ClientBinding{Model: clientModel(client), Enabled: enabled, Protocol: spec.EndpointProtocols[0], Program: "/opt/" + client}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

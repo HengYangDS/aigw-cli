@@ -41,7 +41,7 @@ func TestHermesNativeProjection(t *testing.T) {
 				Label: "Hermes", Provider: "fixture", Family: "fixture-model", ID: "fixture-model",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
-			cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("fixture", "fixture-model"), Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
+			cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("fixture", "fixture-model"), Enabled: true, Protocol: protocol, Program: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
 			if err := store.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -115,7 +115,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	hermesHome := filepath.Join(home, "hermes")
 	binding := cfg.Clients[ID]
 	binding.Enabled = true
-	binding.Executable = python
+	binding.Program = python
 	binding.Targets = []string{filepath.Join(hermesHome, "config.yaml")}
 	cfg.Clients[ID] = binding
 	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})

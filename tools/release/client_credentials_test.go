@@ -234,7 +234,7 @@ func TestClientDisablePreservesRetainedEntrypointAcrossReenable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	executable := cfg.Clients[claude.ID].Executable
+	executable := cfg.Clients[claude.ID].Program
 	helper := journey.credentialEntrypoint()
 	retained := journey.retainedCredential(claude.ID)
 	journey.run("client", "disable", claude.ID)

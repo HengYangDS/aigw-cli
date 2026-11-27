@@ -12,7 +12,7 @@ exec aigw model add team/team-model
 exec aigw model add team/spare-model
 exec aigw use codex team/team-model
 chmod 0755 codex
-exec aigw client edit codex --target $HOME/.codex/config.toml --executable $WORK/codex
+exec aigw client edit codex --target $HOME/.codex/config.toml --program $WORK/codex
 grep '^model = "team-model" # managed by AIGW$' $HOME/.codex/config.toml
 
 replace $HOME/.codex/config.toml 'model = "team-model" # managed by AIGW' 'model = "spare-model"'

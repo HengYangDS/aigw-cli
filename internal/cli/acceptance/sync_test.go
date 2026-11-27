@@ -307,7 +307,7 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 		after.SelectedModel(claude.ID) != cfg.SelectedModel(claude.ID) {
 		t.Fatalf("sync changed Route or client-selection authority: routes=%#v clients=%#v", after.Models, after.Clients)
 	}
-	if after.Clients[claude.ID].Executable != claudeExecutable {
+	if after.Clients[claude.ID].Program != claudeExecutable {
 		t.Fatalf("sync changed the Claude executable: %#v", after.Clients[claude.ID])
 	}
 

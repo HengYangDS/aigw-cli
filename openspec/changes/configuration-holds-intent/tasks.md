@@ -24,24 +24,24 @@
 
 ## 3. The program declaration
 
-- [ ] 3.1 Replace the client's `executable` with `program` and `extensions` in the domain and the store, syntax-checked
+- [x] 3.1 Replace the client's `executable` with `program` and `extensions` in the domain and the store, syntax-checked
       at load (absolute, clean, not both). Done when store and domain tests pin each refusal by field.
-- [ ] 3.2 Resolve `extensions` in `adapter.ClientProgram` from each adapter's declared extension ID and program path:
+- [x] 3.2 Resolve `extensions` in `adapter.ClientProgram` from each adapter's declared extension ID and program path:
       this host's platform, `.obsolete` dropped, highest version. Done when fake-tree tests pass for two versions side
       by side, an obsolete highest version, no `.obsolete`, an unreadable `.obsolete`, no entry for this platform and a
       highest entry without its program.
-- [ ] 3.3 Adopt, for a client that declares neither, the program found on the PATH or at the client's fixed
+- [x] 3.3 Adopt, for a client that declares neither, the program found on the PATH or at the client's fixed
       application path, write it as `program` and report the adoption. Done when a sync test reads the written
       declaration and the report, and a second sync leaves `aigw.toml` byte-identical.
-- [ ] 3.4 Give `aigw client enable` and `aigw client edit` `--program` and `--extensions`, exclusive, with no program
+- [x] 3.4 Give `aigw client enable` and `aigw client edit` `--program` and `--extensions`, exclusive, with no program
       flag required; refuse `--extensions` for Claude Desktop and Hermes, an `--extensions` directory that resolves to
       no runnable program, and a `--program` path inside a versioned extension directory with the `--extensions`
       command. Done when the client command tests and `sync.txtar` pass.
-- [ ] 3.5 Name `--program` in every repair that named `--executable`. Done when no source or golden file outside the
-      CHANGELOG names `--executable`.
-- [ ] 3.6 Report `program` and `extensions` in `aigw client list`, human and JSON. Done when the list tests and their
+- [x] 3.5 Name `--program` in every repair that named `--executable`. Done when no file under `internal/` or `cmd/`
+      names `--executable` except the test that refuses it as an unknown flag.
+- [x] 3.6 Report `program` and `extensions` in `aigw client list`, human and JSON. Done when the list tests and their
       golden files pass.
-- [ ] 3.7 Derive whether a client's files are projected from its enabled state, its targets and AIGW's record. Done
+- [x] 3.7 Derive whether a client's files are projected from its enabled state, its targets and AIGW's record. Done
       when a test of an enabled client with a declared but unresolved program reports its files' real state.
 
 ## 4. Forwarding through a service root
@@ -70,7 +70,8 @@
       the same Token from the version 9 file, a program rollback refuses until the kept copy is restored, and the
       re-upgrade repeats the migration. Done when the journey compiles with `-tags client_acceptance` and its
       source-baseline path passes in `mise run native`.
-- [ ] 5.2 Use `program` in every other release journey and fixture. Done when
+- [ ] 5.2 Use `program` in every other release journey and fixture, so that no file under `tools/` names
+      `--executable`. Done when
       `go vet -tags client_acceptance ./tools/release/...` passes.
 
 ## 6. Documents

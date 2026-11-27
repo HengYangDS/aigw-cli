@@ -31,13 +31,14 @@ type Discoverer interface {
 	Discover(clients ...string) Result
 }
 
-// Host is the platform that one AIGW process observes: its operating system,
-// the user's home directory and the environment. Adapters derive their native
-// client paths from it.
+// Host is the platform that one AIGW process observes: its operating system
+// and processor, by Go's names, the user's home directory and the
+// environment. Adapters derive their native client paths from it.
 type Host struct {
-	GOOS string
-	Home string
-	Env  map[string]string
+	GOOS   string
+	GOARCH string
+	Home   string
+	Env    map[string]string
 }
 
 // Getenv returns one variable of the observed environment, or an empty string.
@@ -45,10 +46,11 @@ func (h Host) Getenv(name string) string { return h.Env[name] }
 
 // System discovers clients from one explicit host and executable search path.
 type System struct {
-	GOOS string
-	Home string
-	Env  map[string]string
-	Path string
+	GOOS   string
+	GOARCH string
+	Home   string
+	Env    map[string]string
+	Path   string
 }
 
 // Current returns the discovery context derived from the current process environment.
@@ -60,11 +62,13 @@ func Current() System {
 			env[key] = value
 		}
 	}
-	return System{GOOS: runtime.GOOS, Home: home, Env: env, Path: os.Getenv("PATH")}
+	return System{GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, Home: home, Env: env, Path: os.Getenv("PATH")}
 }
 
 // Platform returns the observed host from which adapters derive their native paths.
-func (s System) Platform() Host { return Host{GOOS: s.GOOS, Home: s.Home, Env: s.Env} }
+func (s System) Platform() Host {
+	return Host{GOOS: s.GOOS, GOARCH: s.GOARCH, Home: s.Home, Env: s.Env}
+}
 
 // Executable returns the first runnable command with name on this host.
 func (s System) Executable(name string) string { return s.find(name) }

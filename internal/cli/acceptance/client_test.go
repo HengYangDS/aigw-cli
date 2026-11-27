@@ -29,7 +29,7 @@ func TestAdapterEnableSurfacesCredentialObservationFailure(t *testing.T) {
 	want := errors.New("credential observation failed")
 	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: want}
 
-	err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", executableFixture(t, "claude")})
+	err := cli.Execute(app, []string{"client", "enable", "claude", "--program", executableFixture(t, "claude")})
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}
@@ -50,7 +50,7 @@ func TestAdapterEnableReportsConfigurationCommitFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", executableFixture(t, "claude")})
+	err := cli.Execute(app, []string{"client", "enable", "claude", "--program", executableFixture(t, "claude")})
 	if err == nil || !strings.Contains(err.Error(), "Client enablement could not finish") {
 		t.Fatalf("error = %v", err)
 	}
@@ -104,9 +104,9 @@ func TestAdapterValidationBranches(t *testing.T) {
 		args []string
 		want string
 	}{
-		{name: "enable invalid", args: []string{"client", "enable", "other", "--executable", "/x"}, want: `unknown client "other"`},
-		{name: "enable missing executable", args: []string{"client", "enable", "claude"}, want: "--executable is required"},
-		{name: "enable missing target", args: []string{"client", "enable", "codex", "--executable", "/x"}, want: "requires at least one"},
+		{name: "enable invalid", args: []string{"client", "enable", "other", "--program", "/x"}, want: `unknown client "other"`},
+		{name: "enable both declarations", args: []string{"client", "enable", "claude", "--program", "/x", "--extensions", "/y"}, want: "--program and --extensions are mutually exclusive"},
+		{name: "enable missing target", args: []string{"client", "enable", "codex", "--program", "/x"}, want: "requires at least one"},
 		{name: "disable invalid", args: []string{"client", "disable", "other"}, want: `unknown client "other"`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -130,7 +130,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 			t.Fatal(err)
 		}
 		_ = secretStore.Set("one", "token")
-		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", processtest.Program(t, "/new")})
+		err := cli.Execute(app, []string{"client", "enable", "claude", "--program", processtest.Program(t, "/new")})
 		if err == nil || !strings.Contains(err.Error(), "already enabled") {
 			t.Fatalf("error = %v", err)
 		}
@@ -140,7 +140,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
 		saveCommandModel(t, app, domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
 		_ = secretStore.Set("one", "token")
-		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", processtest.Program(t, "/x")})
+		err := cli.Execute(app, []string{"client", "enable", "claude", "--program", processtest.Program(t, "/x")})
 		if err == nil || !strings.Contains(err.Error(), "no model selected for client \"claude\"") {
 			t.Fatalf("error = %v", err)
 		}
@@ -149,7 +149,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 	t.Run("enable missing token", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
-		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", processtest.Program(t, "/x")})
+		err := cli.Execute(app, []string{"client", "enable", "claude", "--program", processtest.Program(t, "/x")})
 		if err == nil || !strings.Contains(err.Error(), "is missing a Token") {
 			t.Fatalf("error = %v", err)
 		}
@@ -160,7 +160,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 		saveCommandModel(t, app, domain.Endpoints{Responses: "https://one.test/v1"}, codex.ID, "gpt")
 		_ = secretStore.Set("one", "token")
 		app.Discovery = nil
-		err := cli.Execute(app, []string{"client", "enable", "codex", "--executable", processtest.Program(t, "/x"), "--target", filepath.Join(t.TempDir(), "configuration.toml")})
+		err := cli.Execute(app, []string{"client", "enable", "codex", "--program", processtest.Program(t, "/x"), "--target", filepath.Join(t.TempDir(), "configuration.toml")})
 		if err == nil || !strings.Contains(err.Error(), "discovery is unavailable") {
 			t.Fatalf("error = %v", err)
 		}
@@ -188,11 +188,11 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("team", "secret")
-	if err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", claudeExecutable}); err != nil {
+	if err := cli.Execute(app, []string{"client", "enable", "claude", "--program", claudeExecutable}); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := app.Config.Load()
-	if !got.Clients["claude"].Enabled || got.Clients["claude"].Executable != claudeExecutable {
+	if !got.Clients["claude"].Enabled || got.Clients["claude"].Program != claudeExecutable {
 		t.Fatalf("Claude adapter = %#v", got.Clients["claude"])
 	}
 	if _, exists := got.Clients["codex"]; exists {
@@ -211,17 +211,17 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	var status struct {
-		NextDetail string `json:"next_detail"`
+		NextAction string `json:"next_action"`
 	}
-	if err := json.Unmarshal(out.Bytes(), &status); err != nil || status.NextDetail != "aigw client enable claude --executable <path>" {
-		t.Fatalf("disabled binding continuation = %q, %v\n%s", status.NextDetail, err, out)
+	if err := json.Unmarshal(out.Bytes(), &status); err != nil || status.NextAction != "aigw client enable claude" {
+		t.Fatalf("disabled binding continuation = %q, %v\n%s", status.NextAction, err, out)
 	}
 	out.Reset()
 	app.In = strings.NewReader("rotated-secret\n")
 	if err := cli.Execute(app, []string{"provider", "rotate", "team", "--token-stdin"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "aigw client enable claude --executable <path>") || strings.Contains(out.String(), "Install Claude") {
+	if !strings.Contains(out.String(), "aigw client enable claude") || strings.Contains(out.String(), "Install Claude") {
 		t.Fatalf("rotation named the wrong continuation for a disabled binding:\n%s", out)
 	}
 }
@@ -244,7 +244,7 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("team", "secret")
-	if err := cli.Execute(app, []string{"client", "enable", "codex", "--executable", processtest.Program(t, "/opt/codex-real"), "--target", target}); err != nil {
+	if err := cli.Execute(app, []string{"client", "enable", "codex", "--program", processtest.Program(t, "/opt/codex-real"), "--target", target}); err != nil {
 		t.Fatal(err)
 	}
 	if len(runner.plans) != 0 {
@@ -372,7 +372,7 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 		if clientAdapter.Enabled || clientAdapter.CredentialCommand != command {
 			t.Fatalf("sync did not preserve disabled %s policy: %#v", id, clientAdapter)
 		}
-		args := []string{"client", "enable", id, "--executable", filepath.Join(root, id)}
+		args := []string{"client", "enable", id, "--program", filepath.Join(root, id)}
 		if id == codex.ID {
 			args = append(args, "--target", target)
 		}
@@ -415,7 +415,7 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 	if err := cli.Execute(app, []string{"check", "claude", "--depth", "client"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.plans) != 1 || runner.plans[0].Executable != cfg.Clients[claude.ID].Executable {
+	if len(runner.plans) != 1 || runner.plans[0].Executable != cfg.Clients[claude.ID].Program {
 		t.Fatal("verification did not use the sole native client plan")
 	}
 	if !bytes.Equal(beforeConfig, readFile(t, app.Config.Path())) || !bytes.Equal(beforeSettings, readFile(t, claudeSettingsPath(t, app.Host))) {

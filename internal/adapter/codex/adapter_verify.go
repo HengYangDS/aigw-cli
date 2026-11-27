@@ -17,8 +17,12 @@ import (
 
 func (codexAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, explicitRoute string) (_ adapter.Verification, result error) {
 	binding := cfg.Clients[ID]
+	program, stop := adapter.ResolveProgram(deps, cfg, ID)
+	if stop != nil {
+		return adapter.Verification{}, stop
+	}
 	reader := deps.AIGWExecutable
-	if binding.Enabled && binding.Executable != "" && len(binding.Targets) > 0 && !binding.Model.IsZero() {
+	if binding.Enabled && len(binding.Targets) > 0 && !binding.Model.IsZero() {
 		targets := append([]string(nil), binding.Targets...)
 		sort.Strings(targets)
 		selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
@@ -34,8 +38,8 @@ func (codexAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg d
 		}
 	}
 	runtime.CredentialCommand = runtime.CredentialExecutable(reader)
-	if explicitRoute != "" && binding.Enabled && binding.Executable != "" && len(binding.Targets) > 0 {
-		isolated, workspace, err := isolateProjection(cfg, runtime, binding)
+	if explicitRoute != "" && binding.Enabled && program.Path != "" && len(binding.Targets) > 0 {
+		isolated, workspace, err := isolateProjection(cfg, runtime, binding, program.Path)
 		if err != nil {
 			return adapter.Verification{}, err
 		}
@@ -52,7 +56,7 @@ func (codexAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg d
 	if external && runner != nil {
 		runner = adapter.SuppressExternalCredentialDiagnostics(runner)
 	}
-	identity, err := VerifyInvocation(verifyCtx, runner, cfg, runtime, explicitRoute)
+	identity, err := VerifyInvocation(verifyCtx, runner, cfg, program.Path, runtime, explicitRoute)
 	return adapter.Verification{Version: identity.Version, SHA256: identity.SHA256, Scope: "Native file-tool execution and same-session recall"}, err
 }
 
@@ -75,7 +79,7 @@ func retainedRuntime(target string, cfg domain.Config, runtime domain.Runtime, c
 	return runtime, nil
 }
 
-func isolateProjection(cfg domain.Config, runtime domain.Runtime, binding domain.ClientBinding) (isolated domain.Config, workspace string, result error) {
+func isolateProjection(cfg domain.Config, runtime domain.Runtime, binding domain.ClientBinding, program string) (isolated domain.Config, workspace string, result error) {
 	workspace, err := os.MkdirTemp("", "aigw-codex-route-verification-")
 	if err != nil {
 		return domain.Config{}, "", fmt.Errorf("create isolated Codex verification files: %w", err)
@@ -98,7 +102,7 @@ func isolateProjection(cfg domain.Config, runtime domain.Runtime, binding domain
 	}
 	before := HomeTarget(target)
 	after := before
-	after.Executable = binding.Executable
+	after.Executable = program
 	after.CreateIfAbsent = true
 	selected, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {

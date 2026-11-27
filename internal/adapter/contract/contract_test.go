@@ -115,7 +115,7 @@ func (clientAdapter fixtureAdapter) write(name, content string) error {
 func (clientAdapter fixtureAdapter) mutate(operation string, cfg domain.Config) {
 	if clientAdapter.breaks == operation {
 		binding := cfg.Clients["foreign"]
-		binding.Executable += "/mutated"
+		binding.Program += "/mutated"
 		cfg.Clients["foreign"] = binding
 	}
 }

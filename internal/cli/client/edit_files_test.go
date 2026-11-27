@@ -140,7 +140,7 @@ func TestAFailedWriteNamesTheFileAndWhatWasRestored(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex"), "--target", files["o"]); err != nil {
+	if err := executeAdapter(t, runtime, "enable", codex.ID, "--program", processtest.Program(t, "/opt/codex"), "--target", files["o"]); err != nil {
 		t.Fatal(err)
 	}
 	before, err := runtime.Config.CaptureSnapshot()

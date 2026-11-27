@@ -142,7 +142,7 @@ func TestExecuteCredentialStaleProjectionExplainsRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(codex.ID, true, "codex", nil)
+	cfg.SetClientActivation(codex.ID, true, "/opt/codex", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -127,7 +127,7 @@ exec aigw model add desk/spare-model --protocol chat --capability text --capabil
 mkdir $WORK/desktop/Claude-3p/configLibrary
 chmod 0755 Claude
 exec aigw use claude-desktop desk/team-model
-exec aigw client edit claude-desktop --executable $WORK/Claude --target $WORK/desktop/Claude-3p/configLibrary
+exec aigw client edit claude-desktop --program $WORK/Claude --target $WORK/desktop/Claude-3p/configLibrary
 exec aigw use claude desk/spare-model --dry-run
 stdout '! Tool search +Off in Claude Desktop, because desk/spare-model declares no tool_search'
 stdout 'Other clients +Claude Desktop: their files change too; restart Claude Desktop to apply them'
@@ -301,6 +301,9 @@ Client files
 
 Next
   aigw check claude
+
+Adopted program
+  AIGW found Claude Code at $BIN/claude and saved it as its program in aigw.toml.
 -- again.txt --
 AIGW  Model already selected
 ────────────────────────────────────────

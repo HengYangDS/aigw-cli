@@ -97,7 +97,7 @@ protocols = {anthropic = []}
 	if got.SelectedModel(ClientClaude) != domain.NewModelRef("personal", "claude-personal") {
 		t.Fatalf("personal selection changed: %#v", got.Clients)
 	}
-	if got.Clients[ClientClaude].Executable != "/personal/claude" {
+	if got.Clients[ClientClaude].Program != "/personal/claude" {
 		t.Fatalf("personal adapter changed: %#v", got.Clients)
 	}
 	if got.Models[domain.NewModelRef("team", "claude-team")].Label != "Team Gateway" {

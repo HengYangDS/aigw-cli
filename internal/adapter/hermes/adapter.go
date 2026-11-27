@@ -60,7 +60,7 @@ func homeDirectory(host discovery.Host) string {
 }
 
 func (hermesAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
-	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID)
+	binding, program, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID)
 	if err != nil || !ready {
 		return err
 	}
@@ -71,7 +71,7 @@ func (hermesAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, dis
 		}
 		binding.Targets = []string{surface.ConfigPath}
 	}
-	cfg.SetClientActivation(ID, true, executable, binding.Targets)
+	cfg.SetClientActivation(ID, true, program, binding.Targets)
 	return nil
 }
 
@@ -365,11 +365,11 @@ func (hermesAdapter) Inspect(ctx context.Context, deps adapter.Dependencies, cfg
 	if err := ctx.Err(); err != nil {
 		return adapter.Status{Issue: err.Error()}
 	}
-	// A configured executable that is missing is the registry's to report,
+	// A declared program that cannot be used is the registry's to report,
 	// with its own fix, before the client's files are inspected.
 	clientAdapter := cfg.Clients[ID]
-	if !clientAdapter.Enabled || clientAdapter.Executable == "" || len(clientAdapter.Targets) != 1 {
-		return adapter.Status{Issue: "Hermes executable or configuration home is unavailable", RepairAction: "aigw sync"}
+	if !clientAdapter.Enabled || len(clientAdapter.Targets) != 1 {
+		return adapter.Status{Issue: "Hermes configuration home is unavailable", RepairAction: "aigw sync"}
 	}
 	plan, err := hermesInspectionPlan(deps, cfg, selected, clientAdapter.Targets[0])
 	if err != nil {
@@ -472,6 +472,13 @@ func (clientAdapter hermesAdapter) Verify(ctx context.Context, deps adapter.Depe
 	if len(configured.Targets) != 1 {
 		return adapter.Verification{}, errors.New("hermes verification requires one configured home; run aigw sync")
 	}
+	program, stop := adapter.ResolveProgram(deps, cfg, ID)
+	if stop != nil {
+		return adapter.Verification{}, stop
+	}
+	if program.Path == "" {
+		return adapter.Verification{}, adapter.ProgramNotFound(cfg, ID)
+	}
 	plan, err := hermesInspectionPlan(deps, cfg, selected, configured.Targets[0])
 	if err != nil {
 		return adapter.Verification{}, err
@@ -480,5 +487,5 @@ func (clientAdapter hermesAdapter) Verify(ctx context.Context, deps adapter.Depe
 	if err != nil {
 		return adapter.Verification{}, err
 	}
-	return verifyIsolated(ctx, deps, configured, data)
+	return verifyIsolated(ctx, deps, configured.Targets[0], program.Path, data)
 }

@@ -12,6 +12,7 @@ import (
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/processtest"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 )
@@ -70,7 +71,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			return value
 		}, want: "client discovery is unavailable"},
 		{name: "planning", prepare: func(value invocation.Context, cfg domain.Config) invocation.Context {
-			cfg.SetClientActivation(codex.ID, true, "", []string{filepath.Join(t.TempDir(), "missing", "configuration.toml")})
+			cfg.SetClientActivation(codex.ID, true, processtest.Program(t, "/opt/codex"), []string{filepath.Join(t.TempDir(), "missing", "configuration.toml")})
 			binding := cfg.Clients[codex.ID]
 			binding.CredentialCommand = filepath.Join(t.TempDir(), "codex-reader")
 			cfg.Clients[codex.ID] = binding

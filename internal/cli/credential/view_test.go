@@ -43,7 +43,7 @@ func TestCredentialReaderIgnoresWhatItsViewLeavesOut(t *testing.T) {
 			"protocol = 'responses'", "protocol = 'messages'\nretries = 'many'",
 		},
 		"the fields that schema 9 removed": {
-			"executable = 'codex'", "executable = 'codex'\nauthentication = 'client-native'\nmodel_provider = 'amazon-bedrock'",
+			"program = '/opt/codex'", "program = '/opt/codex'\nexecutable = 'codex'\nauthentication = 'client-native'\nmodel_provider = 'amazon-bedrock'",
 		},
 		"protocols that the reader does not know": {
 			"endpoints = { responses = 'https://gateway.test/v1' }", "endpoints = { responses = 'https://gateway.test/v1', messages = 'https://gateway.test/messages' }",

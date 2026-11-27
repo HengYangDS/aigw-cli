@@ -1,17 +1,15 @@
 // Package client implements `aigw client`, which lists the clients with their
-// installed executables, and enables, disables and edits them.
+// programs, and enables, disables and edits them.
 package client
 
 import (
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 
-	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
@@ -39,18 +37,20 @@ func clientArgument(cmd *cobra.Command, admission domain.Admission, args []strin
 	}
 }
 
-// enableExamples enables a client that finds its own configuration file, and
-// previews enabling one that is told its file with --target.
+// enableExamples enables a client that finds its own configuration file and
+// its program, one that declares its program, and previews enabling one that
+// is told its file with --target and finds its program in an editor's
+// extensions directory.
 func enableExamples(admission domain.Admission) string {
 	var lines []string
 	specs := admission.Specs()
 	if index := slices.IndexFunc(specs, func(spec domain.ClientSpec) bool { return spec.TargetFile == "" }); index >= 0 {
 		id := specs[index].ID
-		lines = append(lines, "aigw client enable "+id+" --executable ~/.local/bin/"+id)
+		lines = append(lines, "aigw client enable "+id, "aigw client enable "+id+" --program ~/.local/bin/"+id)
 	}
-	if index := slices.IndexFunc(specs, func(spec domain.ClientSpec) bool { return spec.TargetFile != "" }); index >= 0 {
+	if index := slices.IndexFunc(specs, func(spec domain.ClientSpec) bool { return spec.TargetFile != "" && hasExtension(spec) }); index >= 0 {
 		id := specs[index].ID
-		lines = append(lines, "aigw client enable "+id+" --executable ~/.local/bin/"+id+" --target ~/."+id+"/"+specs[index].TargetFile+" --dry-run")
+		lines = append(lines, "aigw client enable "+id+" --extensions ~/.vscode/extensions --target ~/."+id+"/"+specs[index].TargetFile+" --dry-run")
 	}
 	return strings.Join(lines, "\n")
 }
@@ -76,44 +76,52 @@ func completeClient(runtime invocation.Context) cobra.CompletionFunc {
 	}
 }
 
+// checkEnableArguments checks `aigw client enable`'s client, its program
+// declaration and its targets before anything runs: a target file that no
+// client can read is refused before any validator, discovery or route check,
+// which would report it otherwise.
+func checkEnableArguments(cmd *cobra.Command, runtime invocation.Context, args []string, declared programOptions, targets []string) error {
+	spec, err := clientArgument(cmd, runtime.Clients.Admission(), args)
+	if err != nil {
+		return err
+	}
+	if err := checkProgram(cmd, runtime.Clients.Admission(), spec, declared); err != nil {
+		return err
+	}
+	if spec.TargetFile != "" && len(targets) == 0 {
+		return fmt.Errorf("%s requires at least one --target %s; run `aigw client enable --help`", spec.Label, spec.TargetFile)
+	}
+	for _, target := range targets {
+		if strings.TrimSpace(target) == "" {
+			return fmt.Errorf("--target requires a non-empty path; run `aigw client enable --help`")
+		}
+	}
+	if err := checkTargetsRead(cmd, runtime.Clients.Admission(), spec, targets); err != nil {
+		return err
+	}
+	absolute, err := absoluteTargets(cmd, targets)
+	if err != nil {
+		return err
+	}
+	// A file that no client can read is refused before any validator,
+	// discovery or route check, which would report it otherwise.
+	return refuseTargetsUnderFiles(absolute, spec, invocation.Home(runtime.Dependencies))
+}
+
 func newEnableCommand(runtime invocation.Context) *cobra.Command {
-	var executable string
+	var declared programOptions
 	var targets []string
 	var jsonMode, dryRun bool
 	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client and write AIGW's settings into its files", ValidArgsFunction: completeClient(runtime), Args: func(cmd *cobra.Command, args []string) error {
-		spec, err := clientArgument(cmd, runtime.Clients.Admission(), args)
-		if err != nil {
-			return err
-		}
-		if strings.TrimSpace(executable) == "" {
-			return fmt.Errorf("--executable is required; run `aigw client list`, which shows where each client is installed")
-		}
-		if spec.TargetFile != "" && len(targets) == 0 {
-			return fmt.Errorf("%s requires at least one --target %s; run `aigw client enable --help`", spec.Label, spec.TargetFile)
-		}
-		for _, target := range targets {
-			if strings.TrimSpace(target) == "" {
-				return fmt.Errorf("--target requires a non-empty path; run `aigw client enable --help`")
-			}
-		}
-		if err := checkTargetsRead(cmd, runtime.Clients.Admission(), spec, targets); err != nil {
-			return err
-		}
-		absolute, err := absoluteTargets(cmd, targets)
-		if err != nil {
-			return err
-		}
-		// A file that no client can read is refused before any validator,
-		// discovery or route check, which would report it otherwise.
-		return refuseTargetsUnderFiles(absolute, spec, invocation.Home(runtime.Dependencies))
+		return checkEnableArguments(cmd, runtime, args, declared, targets)
 	}, RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
 		spec, _ := runtime.Clients.Admission().Spec(client)
-		// Args checked both paths, so neither fails here. The configuration
+		// Args checked the paths, so they do not fail here. The configuration
 		// names them absolute, so that they mean the same from any directory.
 		targets, _ = absoluteTargets(cmd, targets)
-		executable, _ = filepath.Abs(executable)
-		if err := refuseExecutable(executable); err != nil {
+		declaration, err := declaredProgram(runtime, spec, declared, "enable", targetWords(targets)...)
+		if err != nil {
 			return err
 		}
 		cfg, err := runtime.LoadConfiguration()
@@ -122,8 +130,8 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		}
 		before := cfg.Clone()
 		current := before.Clients[client]
-		if current.Enabled && (current.Executable != "" || len(current.Targets) > 0) {
-			return terminal.ProblemError(spec.Label+" is already enabled, so its executable and configuration files change through client edit", "", "", editInstead(spec, executable, targets), nil)
+		if current.Enabled && (current.DeclaresProgram() || len(current.Targets) > 0) {
+			return terminal.ProblemError(spec.Label+" is already enabled, so its program and configuration files change through client edit", "", "", editInstead(spec, declaration, targets), nil)
 		}
 		if err := admitEnablement(runtime, cfg, client, targets); err != nil {
 			return err
@@ -131,16 +139,33 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if len(targets) == 0 {
 			targets = current.Targets
 		}
-		cfg.SetClientActivation(client, true, executable, targets)
+		// The client keeps the program that it declares unless a flag
+		// declares another; one that declares none adopts the program that
+		// discovery finds.
+		cfg.SetClientActivation(client, true, current.Program, targets)
+		if declaration.declares() {
+			cfg.DeclareProgram(client, declaration.program, declaration.extensions)
+		}
+		if cfg, err = runtime.Synchronizer().AdoptProgram(cfg, client); err != nil {
+			return err
+		}
 		if dryRun {
 			preview, err := invocation.PreviewChange(runtime, before, cfg)
 			if err != nil {
 				return fmt.Errorf("Client enablement preview could not finish: %w", err)
 			}
+			if !cfg.Clients[client].DeclaresProgram() {
+				return programNotFound(cfg, spec, "A run would save "+cfg.Admission().ProductName(client)+" as enabled and write none of its files.")
+			}
 			return writeProjectionPreview(runtime, enableSchemaVersion, jsonMode, spec, "enabled", preview, invocation.ApplyCommand(cmd, args))
 		}
 		if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
 			return fmt.Errorf("Client enablement could not finish: %w", err)
+		}
+		// A client whose program is not found stays enabled, as a client that
+		// is not installed yet does, and its files wait for its program.
+		if !cfg.Clients[client].DeclaresProgram() {
+			return programNotFound(cfg, spec, "AIGW saved "+cfg.Admission().ProductName(client)+" as enabled and wrote none of its files.")
 		}
 		if jsonMode {
 			return terminal.WriteDocument(runtime.Out, enableSchemaVersion, true,
@@ -151,10 +176,28 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	}}
 	cmd.Example = enableExamples(runtime.Clients.Admission())
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the client files that enabling would change without writing them")
-	cmd.Flags().StringVar(&executable, "executable", "", "Path to the real client executable")
+	bindProgram(cmd, &declared, runtime.Clients.Admission())
 	cmd.Flags().StringArrayVar(&targets, "target", nil, targetHelp(runtime.Clients.Admission()))
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the enabled client as JSON")
 	return cmd
+}
+
+// programNotFound is the refusal of enabling a client that declares no
+// program and of which discovery found none: the missing program's problem
+// and repair, with impact, what became of the client.
+func programNotFound(cfg domain.Config, spec domain.ClientSpec, impact string) error {
+	stop := adapter.ProgramNotFound(cfg, spec.ID)
+	return terminal.ProblemError(stop.Error(), "AIGW looks for "+cfg.Admission().ProductName(spec.ID)+" on the PATH, and at its application path where it has one; it searches no extensions directory.",
+		impact, stop.NextAction(), stop)
+}
+
+// targetWords are the --target flags of targets.
+func targetWords(targets []string) []string {
+	words := make([]string, 0, 2*len(targets))
+	for _, target := range targets {
+		words = append(words, "--target", target)
+	}
+	return words
 }
 
 // holdsToken reports whether the store holds provider's Token: a slot that is
@@ -357,28 +400,22 @@ func renderDisabled(r *terminal.Renderer, spec domain.ClientSpec) {
 	}
 }
 
-// editInstead is the edit that sets an enabled client's executable and
+// editInstead is the edit that sets an enabled client's program and
 // configuration files, as enabling it again would have: the exact command, or
-// one with a placeholder when a path would need quoting. Enable refuses
-// targets for a client that reads none, so the edit names none for it.
-func editInstead(spec domain.ClientSpec, executable string, targets []string) string {
-	// Command accepts the values only when each runs as written.
-	if platform.AIGWCommand(append([]string{"client", "edit", spec.ID, executable}, targets...)...) == "" {
-		return "aigw client edit " + spec.ID + " --executable <path>"
+// the program's repair when a path would need quoting or nothing would
+// change. Enable refuses targets for a client that reads none, so the edit
+// names none for it.
+func editInstead(spec domain.ClientSpec, declaration programOptions, targets []string) string {
+	var flags []string
+	switch {
+	case declaration.program != "":
+		flags = []string{"--program", declaration.program}
+	case declaration.extensions != "":
+		flags = []string{"--extensions", declaration.extensions}
 	}
-	words := []string{"aigw client edit " + spec.ID, "--executable", executable}
-	for _, target := range targets {
-		words = append(words, "--target", target)
+	flags = append(flags, targetWords(targets)...)
+	if command := clientCommand("edit", spec.ID, flags...); command != "" && len(flags) > 0 {
+		return command
 	}
-	return strings.Join(words, " ")
-}
-
-// refuseExecutable refuses an --executable that is not a file that can run,
-// before anything is read or written: a regular file, or a link to one, with
-// an execute bit. Nothing is run.
-func refuseExecutable(path string) error {
-	if runnable, err := discovery.ExecutableAvailable(path); err != nil || !runnable {
-		return fmt.Errorf("--executable %s is not a file that can run; run `aigw client list`, which shows where each client is installed", path)
-	}
-	return nil
+	return adapter.ProgramRepair(spec)
 }

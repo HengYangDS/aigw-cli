@@ -217,7 +217,29 @@ func (binding ClientBinding) validate(client string, spec ClientSpec) error {
 	if command != "" && (!filepath.IsAbs(command) || strings.TrimSpace(command) != command || strings.ContainsFunc(command, unicode.IsControl)) {
 		return fmt.Errorf("client %q credential_command must be one absolute executable path", client)
 	}
+	return binding.validateProgram(client)
+}
+
+// validateProgram checks the syntax of the client's program declaration: at
+// most one of program and extensions, each an absolute, clean path without a
+// control character. Whether the path exists is each operation's to decide,
+// so that a missing program stops only its client.
+func (binding ClientBinding) validateProgram(client string) error {
+	if binding.Program != "" && binding.Extensions != "" {
+		return fmt.Errorf("client %q declares both program and extensions; declare one of them", client)
+	}
+	for _, declared := range []struct{ field, path string }{{"program", binding.Program}, {"extensions", binding.Extensions}} {
+		if declared.path != "" && !cleanAbsolutePath(declared.path) {
+			return fmt.Errorf("client %q %s must be an absolute, clean path without control characters", client, declared.field)
+		}
+	}
 	return nil
+}
+
+// cleanAbsolutePath reports whether path is absolute and clean, as
+// [filepath.Clean] leaves it, and holds no control character.
+func cleanAbsolutePath(path string) bool {
+	return filepath.IsAbs(path) && filepath.Clean(path) == path && !strings.ContainsFunc(path, unicode.IsControl)
 }
 
 func (provider Provider) validate(name string) error {
