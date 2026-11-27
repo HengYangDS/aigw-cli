@@ -12,6 +12,7 @@ relations:
 
 - Date: 2026-11-12
 - Supersedes: [DR-0003](dr-0003-account-rename-credential-migration.md) and [DR-0004](dr-0004-account-route-client-binding-authority.md)
+- Amended by: [DR-0013](dr-0013-configuration-holds-intent.md) (point 4)
 - Owner: AIGW maintainers
 
 ## Context
@@ -72,7 +73,9 @@ then remove the old provider.
    running session keeps its provider's Token while the provider and its
    endpoint exist. It refuses a disabled client, a client that authenticates
    itself and a client whose authentication kind it does not know. Changing a
-   frozen field takes a new file name, as this release does.
+   frozen field takes a new file name, as this release does. Removing a field
+   whose absence every released reader takes as the only value that remains is
+   no change: DR-0013 removes `authentication` so.
 5. The program rollback command gives the retained program the current
    configuration and refuses a program that cannot read it, so it cannot return
    to a release older than 0.7.0. A program rollback moves no credential;

@@ -48,3 +48,4 @@ posture, or another costly-to-reverse ruling.
 | [DR-0010](dr-0010-lifecycle-scoped-ci-evidence.md)                       | Route one CI execution to each product lifecycle stage.              |
 | [DR-0011](dr-0011-single-portable-token-backend.md)                      | Select one portable provider Token backend per installation.         |
 | [DR-0012](dr-0012-provider-model-client-and-upgrade-without-importer.md) | Name providers, models and clients, and upgrade without an importer. |
+| [DR-0013](dr-0013-configuration-holds-intent.md)                         | Keep intent in configuration; a provider is an endpoint or a cloud.  |
