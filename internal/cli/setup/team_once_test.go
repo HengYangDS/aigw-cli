@@ -13,7 +13,7 @@ func TestTeamSetupReportsAModelOnceThatTheFileAndTheConfigurationBothName(t *tes
 	home := newGuidedHome(t)
 	home.runtime.Interactive = false
 	configuredTeam(t, home)
-	path := writeTeamFile(t, `version = 8
+	path := writeTeamFile(t, `version = 9
 
 [[providers]]
 id = "team"

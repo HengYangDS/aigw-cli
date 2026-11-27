@@ -13,7 +13,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-// document is aigw.toml in schema 8: providers with their models, families,
+// document is aigw.toml in schema 9: providers with their models, families,
 // recommendations and clients. A team file has the same form without
 // clients. Its arrays are the configuration's display order.
 type document struct {
@@ -68,18 +68,14 @@ type recommendationDocument struct {
 }
 
 type selectionDocument struct {
-	Model          string                  `toml:"model"`
-	Protocol       domain.EndpointProtocol `toml:"protocol,omitempty"`
-	ModelProvider  string                  `toml:"model_provider,omitempty"`
-	Authentication domain.Authentication   `toml:"authentication,omitempty"`
+	Model    string                  `toml:"model"`
+	Protocol domain.EndpointProtocol `toml:"protocol,omitempty"`
 }
 
 type clientDocument struct {
 	Enabled           bool                    `toml:"enabled"`
 	Model             string                  `toml:"model,omitempty"`
 	Protocol          domain.EndpointProtocol `toml:"protocol,omitempty"`
-	ModelProvider     string                  `toml:"model_provider,omitempty"`
-	Authentication    domain.Authentication   `toml:"authentication,omitempty"`
 	Executable        string                  `toml:"executable,omitempty"`
 	Targets           []string                `toml:"targets,omitempty"`
 	CredentialCommand string                  `toml:"credential_command,omitempty"`
@@ -101,9 +97,10 @@ type forwardingDocument struct {
 	Protocol domain.EndpointProtocol `toml:"protocol"`
 }
 
-// UndefinedFieldError is a field that schema 8 does not define, such as a
-// retired `order`, `purpose` or `lifecycle`, and the line that holds it. The
-// field's path leaves out an inline table that holds it.
+// UndefinedFieldError is a field that the schema does not define, such as a
+// retired `order`, `purpose` or `lifecycle`, or a client's `authentication`
+// or `model_provider`, and the line that holds it. The field's path leaves
+// out an inline table that holds it.
 type UndefinedFieldError struct {
 	Field string
 	Line  int
@@ -114,7 +111,7 @@ func (e *UndefinedFieldError) Error() string {
 	return fmt.Sprintf("schema %d does not define the field %s, on line %d", domain.ConfigVersion, e.Field, e.Line)
 }
 
-// MissingFieldError is a field that schema 8 requires and the file leaves
+// MissingFieldError is a field that the schema requires and the file leaves
 // out, such as the endpoint of a client's forwarding.
 type MissingFieldError struct{ Field string }
 
@@ -132,8 +129,8 @@ func readVersion(data []byte) (int, error) {
 	return header.Version, err
 }
 
-// decodeDocument decodes data strictly: a field that schema 8 does not define
-// is refused by its name.
+// decodeDocument decodes data strictly: a field that the schema does not
+// define is refused by its name.
 func decodeDocument(data []byte) (document, error) {
 	var decoded document
 	decoder := toml.NewDecoder(bytes.NewReader(data))
@@ -214,14 +211,13 @@ func (selection selectionDocument) selection(client string) (domain.ClientSelect
 	if err != nil {
 		return domain.ClientSelection{}, fmt.Errorf("the %s recommendation: %w", client, err)
 	}
-	return domain.ClientSelection{Model: ref, Protocol: selection.Protocol, ModelProvider: selection.ModelProvider, Authentication: selection.Authentication}, nil
+	return domain.ClientSelection{Model: ref, Protocol: selection.Protocol}, nil
 }
 
 func (declared clientDocument) binding(client string) (domain.ClientBinding, error) {
 	binding := domain.ClientBinding{
-		Enabled: declared.Enabled, Protocol: declared.Protocol, ModelProvider: declared.ModelProvider,
-		Authentication: declared.Authentication, Executable: declared.Executable, Targets: declared.Targets,
-		CredentialCommand: declared.CredentialCommand,
+		Enabled: declared.Enabled, Protocol: declared.Protocol, Executable: declared.Executable,
+		Targets: declared.Targets, CredentialCommand: declared.CredentialCommand,
 	}
 	if declared.Model != "" {
 		ref, err := domain.ParseModelRef(declared.Model)
@@ -292,14 +288,13 @@ func newDocument(cfg domain.Config) document {
 }
 
 func newSelectionDocument(selection domain.ClientSelection) selectionDocument {
-	return selectionDocument{Model: selection.Model.String(), Protocol: selection.Protocol, ModelProvider: selection.ModelProvider, Authentication: selection.Authentication}
+	return selectionDocument{Model: selection.Model.String(), Protocol: selection.Protocol}
 }
 
 func newClientDocument(binding domain.ClientBinding) clientDocument {
 	declared := clientDocument{
-		Enabled: binding.Enabled, Model: binding.Model.String(), Protocol: binding.Protocol, ModelProvider: binding.ModelProvider,
-		Authentication: binding.Authentication, Executable: binding.Executable, Targets: binding.Targets,
-		CredentialCommand: binding.CredentialCommand,
+		Enabled: binding.Enabled, Model: binding.Model.String(), Protocol: binding.Protocol,
+		Executable: binding.Executable, Targets: binding.Targets, CredentialCommand: binding.CredentialCommand,
 	}
 	if policy := binding.RetryPolicy; policy != nil {
 		declared.Retries = &retriesDocument{Request: policy.RequestMaxRetries, Stream: policy.StreamMaxRetries}

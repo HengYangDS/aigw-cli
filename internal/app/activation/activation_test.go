@@ -109,22 +109,13 @@ func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 	}
 
 	cfg.SetSelectedModel(codex.ID, domain.NewModelRef("team", "gpt"), "")
-	for _, test := range []struct {
-		authentication domain.Authentication
-		provider       string
-		command        string
-	}{
-		{authentication: domain.AuthenticationClientNative, provider: "native-provider"},
-		{authentication: domain.AuthenticationProviderToken, command: filepath.Join(t.TempDir(), "external-credential")},
-	} {
-		binding := cfg.Clients[codex.ID]
-		binding.Authentication, binding.ModelProvider, binding.CredentialCommand = test.authentication, test.provider, test.command
-		cfg.Clients[codex.ID] = binding
-		for _, store := range []secret.Store{nil, unobservedWritableStore{}} {
-			decision := AssessActivation(cfg, store)
-			if decision.State != domainreadiness.Deferred || decision.NextActionFor(nil) != "aigw client enable codex --executable <path> --target <config.toml>" || len(decision.ClientCredentialPrerequisites) != 0 {
-				t.Fatalf("independent credential selection required an unused AIGW Token backend: %+v", decision)
-			}
+	binding := cfg.Clients[codex.ID]
+	binding.CredentialCommand = filepath.Join(t.TempDir(), "external-credential")
+	cfg.Clients[codex.ID] = binding
+	for _, store := range []secret.Store{nil, unobservedWritableStore{}} {
+		decision := AssessActivation(cfg, store)
+		if decision.State != domainreadiness.Deferred || decision.NextActionFor(nil) != "aigw client enable codex --executable <path> --target <config.toml>" || len(decision.ClientCredentialPrerequisites) != 0 {
+			t.Fatalf("an external credential command required an unused AIGW Token backend: %+v", decision)
 		}
 	}
 }

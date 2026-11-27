@@ -27,7 +27,7 @@ func testClientSpecs() []ClientSpec {
 		{
 			ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolResponses},
 			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
-			DefaultModelProvider: "aigw", ClientNativeAuthentication: true, ContextWindow: true,
+			ContextWindow: true,
 		},
 		{
 			ID: ClientHermes, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml", ContextWindow: true,

@@ -3,6 +3,7 @@ package setup
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -23,7 +24,7 @@ import (
 // differs from the configured one's, with a balance probe, a capability that
 // was qualified on its endpoint, a model on a protocol that the configured
 // team has no endpoint for, and a recommendation for Claude Code.
-const teamFileText = `version = 8
+const teamFileText = `version = 9
 
 [[providers]]
 id = "spare"
@@ -165,9 +166,10 @@ func TestTeamSetupRefusesWhatItCannotRead(t *testing.T) {
 	for _, test := range []struct {
 		text, title, want string
 	}{
-		{"version = 7\n", "the team file has version 7, and this AIGW reads version 8", "Use a team file of version 8, which `aigw config export` writes"},
-		{"version = 9\n", "the team file has version 9, and this AIGW reads version 8", "Use a team file of version 8, which `aigw config export` writes"},
-		{"version = 8\n[clients.claude]\nmodel = \"team/team-model\"\n", "", "Remove the [clients] section"},
+		{"version = 7\n", fmt.Sprintf("the team file has version 7, and this AIGW reads version %d", domain.ConfigVersion), fmt.Sprintf("Use a team file of version %d, which `aigw config export` writes", domain.ConfigVersion)},
+		{"version = 8\n", fmt.Sprintf("the team file has version 8, and this AIGW reads version %d", domain.ConfigVersion), "Edit the team file: set `version = 9`; rename each client's `executable` to `program`"},
+		{fmt.Sprintf("version = %d\n", domain.ConfigVersion+1), fmt.Sprintf("the team file has version %d, and this AIGW reads version %d", domain.ConfigVersion+1, domain.ConfigVersion), fmt.Sprintf("Use a team file of version %d, which `aigw config export` writes", domain.ConfigVersion)},
+		{"version = 9\n[clients.claude]\nmodel = \"team/team-model\"\n", "", "Remove the [clients] section"},
 	} {
 		err := home.run(t, &guidedPrompt{}, "--from", writeTeamFile(t, test.text), "--json")
 		if problem := terminal.ProblemFor(err); !strings.Contains(problem.Title, test.title) || !strings.Contains(problem.Fix, test.want) || problem.Impact != "Nothing changed." {
@@ -354,7 +356,7 @@ func TestTeamSetupPreviewMatchesItsRun(t *testing.T) {
 func TestTeamSetupRefusesANewProviderWithoutTheModelsEndpoint(t *testing.T) {
 	home := newGuidedHome(t)
 	home.runtime.Interactive = false
-	path := writeTeamFile(t, `version = 8
+	path := writeTeamFile(t, `version = 9
 
 [[providers]]
 id = "fresh"

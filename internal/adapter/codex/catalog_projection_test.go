@@ -134,37 +134,6 @@ func TestCodexCatalogReferenceAcceptsEquivalentTOMLButRejectsChangedTarget(t *te
 	}
 }
 
-// TestReconcileConfigsLeavesNativeProviderCatalogAlone keeps the bundled table
-// untouched when AIGW is not selecting its custom provider.
-func TestReconcileConfigsLeavesNativeProviderCatalogAlone(t *testing.T) {
-	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol", "gpt-5.5")
-	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-	target := HomeTarget(path)
-	target.Executable = filepath.Join(filepath.Dir(path), "codex")
-	runtimeConfig := catalogTestRuntime("gpt-5.6-sol")
-	runtimeConfig.ModelProvider = "openai"
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
-		t.Fatal(err)
-	}
-	projected, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(projected), "model_catalog_json") {
-		t.Fatalf("the native provider was given a custom catalog:\n%s", projected)
-	}
-	if _, err := os.Stat(codexCatalogPath(path)); !os.IsNotExist(err) {
-		t.Fatalf("catalog file exists for the native provider: %v", err)
-	}
-	state := readCodexSidecar(t, path)
-	if state.CatalogState != "" || state.CatalogHash != "" {
-		t.Fatalf("sidecar records a catalog for the native provider: %+v", state)
-	}
-	if err := ValidateConfig(path, runtimeConfig); err != nil {
-		t.Fatalf("ValidateConfig() error = %v", err)
-	}
-}
-
 func TestUnknownModelPinsCompleteBundledCatalogWithoutInventingMetadata(t *testing.T) {
 	for _, test := range []struct {
 		name      string

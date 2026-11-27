@@ -17,10 +17,11 @@ import (
 // second one, which Codex would refuse to read. The record restored from a
 // copy proves the table; AIGW's table taken out lets a first projection begin
 // again.
-func refuseUnrecordedProvider(config, state platform.FileSnapshot, provider, configPath, statePath string) error {
+func refuseUnrecordedProvider(config, state platform.FileSnapshot, configPath, statePath string) error {
 	if !config.Exists || state.Exists {
 		return nil
 	}
+	provider := modelProviderAIGW
 	ranges, err := codexProviderRanges(string(config.Data), provider)
 	if err != nil || len(ranges) == 0 {
 		return nil

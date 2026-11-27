@@ -29,7 +29,7 @@ func TestCodexConvergencePreservesEnabledIntentWithoutDiscoveredTargets(t *testi
 }
 
 func TestCodexAdapterReportsReadinessStates(t *testing.T) {
-	newFixture := func(t *testing.T, provider string) (domain.Config, domain.Runtime) {
+	newFixture := func(t *testing.T) (domain.Config, domain.Runtime) {
 		t.Helper()
 		target := filepath.Join(t.TempDir(), "config.toml")
 		if err := os.WriteFile(target, nil, 0o600); err != nil {
@@ -38,7 +38,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		cfg := domain.NewConfig(testAdmission())
 		cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
 		cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolResponses)
-		cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
+		cfg.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Executable: "/usr/bin/codex", Targets: []string{target}}
 		runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 		if err != nil {
 			t.Fatal(err)
@@ -51,7 +51,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	}
 
 	t.Run("missing executable", func(t *testing.T) {
-		cfg, runtime := newFixture(t, modelProviderAIGW)
+		cfg, runtime := newFixture(t)
 		clientAdapter := cfg.Clients[ID]
 		clientAdapter.Executable = ""
 		cfg.Clients[ID] = clientAdapter
@@ -62,7 +62,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	})
 
 	t.Run("missing target", func(t *testing.T) {
-		cfg, runtime := newFixture(t, modelProviderAIGW)
+		cfg, runtime := newFixture(t)
 		clientAdapter := cfg.Clients[ID]
 		clientAdapter.Targets = nil
 		cfg.Clients[ID] = clientAdapter
@@ -73,7 +73,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	})
 
 	t.Run("projection drift", func(t *testing.T) {
-		cfg, runtime := newFixture(t, modelProviderAIGW)
+		cfg, runtime := newFixture(t)
 		clientAdapter := cfg.Clients[ID]
 		clientAdapter.Targets = []string{filepath.Join(t.TempDir(), "missing.toml")}
 		cfg.Clients[ID] = clientAdapter
@@ -91,7 +91,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	// reader is read through it. Outside Codex's default home, sync does not
 	// create it, so the step creates its folder or moves Codex to another file.
 	t.Run("deleted file with the credential reader", func(t *testing.T) {
-		cfg, runtime := newFixture(t, modelProviderAIGW)
+		cfg, runtime := newFixture(t)
 		if err := os.RemoveAll(filepath.Dir(cfg.Clients[ID].Targets[0])); err != nil {
 			t.Fatal(err)
 		}
@@ -115,16 +115,8 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		}
 	})
 
-	t.Run("external provider", func(t *testing.T) {
-		cfg, runtime := newFixture(t, "amazon-bedrock")
-		status := (codexAdapter{}).Inspect(context.Background(), adapter.Dependencies{}, cfg, runtime)
-		if !status.Ready {
-			t.Fatalf("status = %#v", status)
-		}
-	})
-
 	t.Run("capture unavailable", func(t *testing.T) {
-		cfg, runtime := newFixture(t, modelProviderAIGW)
+		cfg, runtime := newFixture(t)
 		status := (codexAdapter{}).Inspect(context.Background(), adapter.Dependencies{}, cfg, runtime)
 		if !status.Ready {
 			t.Fatalf("status = %#v", status)
@@ -132,7 +124,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	})
 
 	t.Run("inspection does not invoke the client", func(t *testing.T) {
-		cfg, runtime := newFixture(t, modelProviderAIGW)
+		cfg, runtime := newFixture(t)
 		runner := &captureAdapterRunner{err: errors.New("status failed")}
 		status := (codexAdapter{}).Inspect(context.Background(), adapter.Dependencies{Runner: runner}, cfg, runtime)
 		if !status.Ready || runner.calls != 0 {
@@ -149,61 +141,45 @@ func TestCodexAdapterApplyRequiresDiscovery(t *testing.T) {
 	}
 }
 
-func TestCodexAdapterProjectsCredentialHelperOnlyForProviderTokenProviders(t *testing.T) {
-	for _, test := range []struct {
-		name           string
-		provider       string
-		authentication domain.Authentication
-		wantCommand    bool
-	}{
-		{name: "aigw account token", provider: modelProviderAIGW, authentication: domain.AuthenticationProviderToken, wantCommand: true},
-		{name: "provider account token", provider: "amazon-bedrock", authentication: domain.AuthenticationProviderToken, wantCommand: true},
-		{name: "client native", provider: "amazon-bedrock", authentication: domain.AuthenticationClientNative},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			target := filepath.Join(t.TempDir(), "config.toml")
-			cfg := domain.NewConfig(testAdmission())
-			cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
-			cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolResponses)
-			cfg.Clients[ID] = domain.ClientBinding{
-				Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, ModelProvider: test.provider,
-				Authentication: test.authentication, Executable: "/usr/bin/codex", Targets: []string{target},
-			}
-			discovered := discovery.Result{
-				Executables: map[string]string{ID: "/usr/bin/codex"},
-				Surfaces: []discovery.Surface{{
-					ID:          "codex-home-default",
-					ConfigPath:  target,
-					AutoManaged: true,
-				}},
-			}
-			command := filepath.Join(t.TempDir(), "aigw")
-			_, err := (codexAdapter{}).Apply(context.Background(), adapter.Dependencies{
-				Discovery:      fixedDiscoverer{result: discovered},
-				AIGWExecutable: command,
-			}, domain.NewConfig(testAdmission()), cfg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			projected, err := os.ReadFile(target)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var document struct {
-				ModelProviders map[string]struct {
-					Auth struct {
-						Command string `toml:"command"`
-					} `toml:"auth"`
-				} `toml:"model_providers"`
-			}
-			if err := toml.Unmarshal(projected, &document); err != nil {
-				t.Fatalf("decode Codex projection: %v", err)
-			}
-			hasCommand := document.ModelProviders[test.provider].Auth.Command == command
-			if hasCommand != test.wantCommand {
-				t.Fatalf("credential command present = %t, want %t:\n%s", hasCommand, test.wantCommand, projected)
-			}
-		})
+// Codex's one provider table is AIGW's own, and its credential command is the
+// AIGW program that the adapter was given.
+func TestCodexAdapterProjectsTheCredentialHelperIntoAIGWsTable(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "config.toml")
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://gateway.test/v1"}}
+	cfg.Models[domain.NewModelRef("gateway", "gpt-test")] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolResponses)
+	cfg.Clients[ID] = domain.ClientBinding{
+		Model: domain.NewModelRef("gateway", "gpt-test"), Enabled: true, Executable: "/usr/bin/codex", Targets: []string{target},
+	}
+	discovered := discovery.Result{
+		Executables: map[string]string{ID: "/usr/bin/codex"},
+		Surfaces:    []discovery.Surface{{ID: "codex-home-default", ConfigPath: target, AutoManaged: true}},
+	}
+	command := filepath.Join(t.TempDir(), "aigw")
+	_, err := (codexAdapter{}).Apply(context.Background(), adapter.Dependencies{
+		Discovery:      fixedDiscoverer{result: discovered},
+		AIGWExecutable: command,
+	}, domain.NewConfig(testAdmission()), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		ModelProvider  string `toml:"model_provider"`
+		ModelProviders map[string]struct {
+			Auth struct {
+				Command string `toml:"command"`
+			} `toml:"auth"`
+		} `toml:"model_providers"`
+	}
+	if err := toml.Unmarshal(projected, &document); err != nil {
+		t.Fatalf("decode Codex projection: %v", err)
+	}
+	if document.ModelProvider != modelProviderAIGW || len(document.ModelProviders) != 1 || document.ModelProviders[modelProviderAIGW].Auth.Command != command {
+		t.Fatalf("Codex's provider table is not AIGW's own with its credential command:\n%s", projected)
 	}
 }
 
@@ -315,9 +291,6 @@ func TestACodexAdapterInspectsAFileInTheWay(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := codexConfiguration(target)
-	configured := cfg.Clients[ID]
-	configured.ModelProvider = modelProviderAIGW
-	cfg.Clients[ID] = configured
 	runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)

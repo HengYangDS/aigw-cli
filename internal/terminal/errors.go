@@ -596,7 +596,8 @@ func statedFix(err error, message string) (string, bool) {
 
 // typedErrorFix is the fix of a failure that AIGW recognizes by its type,
 // independent of its text: a client without a selected Route, a configuration
-// that does not load, and a TOML document that does not decode.
+// that does not load, whose version that this schema replaced is fixed by
+// the edits that bring it here, and a TOML document that does not decode.
 func typedErrorFix(err error, at platform.PathContext) (string, bool) {
 	if unselected, ok := errors.AsType[*domain.RuntimeBindingUnselectedError](err); ok {
 		return fmt.Sprintf("aigw use %s <provider/model>", unselected.Client), true
@@ -611,6 +612,9 @@ func typedErrorFix(err error, at platform.PathContext) (string, bool) {
 		return fmt.Sprintf("Give the model a label of its own with --label, or relabel the other with `aigw model edit %s --label <label>`.", shared.Models[0]), true
 	}
 	if failure, ok := errors.AsType[*store.LoadError](err); ok {
+		if version, ok := errors.AsType[*domain.UnsupportedConfigVersionError](err); ok && version.Edits() != "" {
+			return "Edit the configuration file: " + version.Edits() + ". AIGW never rewrites it; `aigw config path` prints its location.", true
+		}
 		return configurationFix(failure.Phase, pathFailureIn(err), at), true
 	}
 	if _, ok := errors.AsType[*toml.DecodeError](err); ok {

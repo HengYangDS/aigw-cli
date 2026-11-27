@@ -63,12 +63,9 @@ func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *tes
 	}
 }
 
-func TestExplicitTokenVerificationRefusesUnresolvedReaderFromNativeBinding(t *testing.T) {
+func TestExplicitTokenVerificationRefusesUnresolvedReader(t *testing.T) {
 	cfg := testConfig(t, filepath.Join(t.TempDir(), "codex.toml"))
 	binding := cfg.Clients[codex.ID]
-	binding.Authentication = domain.AuthenticationClientNative
-	binding.ModelProvider = "amazon-bedrock"
-	cfg.Clients[codex.ID] = binding
 	cfg.Providers["explicit"] = cfg.Providers["gateway"]
 	route := cfg.Models[domain.NewModelRef("gateway", "gpt-test")]
 	route.Provider = "explicit"
@@ -82,8 +79,8 @@ func TestExplicitTokenVerificationRefusesUnresolvedReaderFromNativeBinding(t *te
 	if _, err := syncer.Verify(t.Context(), cfg, codex.ID, runtime, "explicit"); !errors.Is(err, problem) {
 		t.Fatalf("explicit Token verification used the public fallback: %v", err)
 	}
-	if current := cfg.Clients[codex.ID]; current.Authentication != binding.Authentication || current.Model != binding.Model || current.ModelProvider != binding.ModelProvider {
-		t.Fatal("explicit verification changed the configured native binding")
+	if current := cfg.Clients[codex.ID]; current.Model != binding.Model || current.CredentialCommand != binding.CredentialCommand {
+		t.Fatal("explicit verification changed the configured binding")
 	}
 }
 

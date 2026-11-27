@@ -38,7 +38,7 @@ func TestSnapshotMatchesOnlyItsOwnConfiguration(t *testing.T) {
 	if matches, err := saved.MatchesConfiguration(changed, nil); err != nil || matches {
 		t.Fatalf("a saved file matches a changed configuration: %v", err)
 	}
-	saved.Config.Data = []byte("version = 8\n[[providers]\n")
+	saved.Config.Data = []byte("version = 9\n[[providers]\n")
 	if _, err := saved.MatchesConfiguration(cfg, nil); err == nil {
 		t.Fatal("a file that does not parse matched")
 	}
@@ -70,7 +70,7 @@ func TestSnapshotDecodesItsOwnConfiguration(t *testing.T) {
 	if same, err := configurationsEqual(decoded, cfg); err != nil || !same {
 		t.Fatalf("a saved file decodes to another configuration: %v", err)
 	}
-	saved.Config.Data = []byte("version = 8\n[[providers]\n")
+	saved.Config.Data = []byte("version = 9\n[[providers]\n")
 	if _, exists, err := saved.Configuration(store.Admission()); err == nil || exists {
 		t.Fatalf("a file that does not parse decoded: exists %t", exists)
 	}

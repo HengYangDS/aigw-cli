@@ -96,14 +96,11 @@ func (plan ProjectionPlan) ChangesState() bool {
 // trusted. The caller must validate the intact reader and the complete owned
 // projection before executing it.
 func ObservedCredentialCommand(path string, runtime domain.Runtime) (string, error) {
-	if !runtime.RequiresProviderToken() {
-		return "", fmt.Errorf("Codex model %q does not use a Token", runtime.Model)
-	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("read Codex config: %w", err)
 	}
-	projection, err := codexProviderForProviderIn(string(data), codexRuntimeProvider(runtime))
+	projection, err := codexProviderForProviderIn(string(data), modelProviderAIGW)
 	if err != nil {
 		return "", err
 	}
@@ -124,7 +121,7 @@ func ValidateConfig(path string, runtime domain.Runtime) error {
 // root model that the file is to hold: runtime's own model, or Codex's own
 // choice when the rest of the file is checked against the recorded Route.
 func validateConfig(path string, runtime domain.Runtime, shown string) error {
-	if runtime.RequiresProviderToken() && runtime.CredentialCommand == "" {
+	if runtime.CredentialCommand == "" {
 		executable, err := os.Executable()
 		if err != nil {
 			return fmt.Errorf("resolve AIGW executable: %w", err)
@@ -146,7 +143,7 @@ func validateConfig(path string, runtime domain.Runtime, shown string) error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Synchronization refuses AIGW's table without its record too.
-			if refusal := refuseUnrecordedProvider(platform.FileSnapshot{Exists: true, Data: current}, platform.FileSnapshot{}, codexRuntimeProvider(runtime), path, recordPath); refusal != nil {
+			if refusal := refuseUnrecordedProvider(platform.FileSnapshot{Exists: true, Data: current}, platform.FileSnapshot{}, path, recordPath); refusal != nil {
 				return refusal
 			}
 			return fmt.Errorf("Codex config AIGW state is missing")
@@ -288,25 +285,23 @@ func codexEndpoint(runtime domain.Runtime) (string, error) {
 	if runtime.Endpoint == "" {
 		return "", fmt.Errorf("Codex has no endpoint for model %q", runtime.Model)
 	}
-	if runtime.RequiresProviderToken() {
-		if runtime.CredentialCommand == "" {
-			return "", fmt.Errorf("model %q provider-token Codex provider requires a credential command", runtime.Model)
-		}
-		if !filepath.IsAbs(runtime.CredentialCommand) {
-			return "", fmt.Errorf("model %q provider-token Codex provider credential command must be absolute", runtime.Model)
-		}
+	if runtime.CredentialCommand == "" {
+		return "", fmt.Errorf("model %q Codex provider requires a credential command", runtime.Model)
+	}
+	if !filepath.IsAbs(runtime.CredentialCommand) {
+		return "", fmt.Errorf("model %q Codex provider credential command must be absolute", runtime.Model)
 	}
 	return runtime.Endpoint, nil
 }
 
-func projectCodex(original, block, model, catalogPath, provider string) (string, error) {
+func projectCodex(original, block, model, catalogPath string) (string, error) {
 	base, err := projectCodexScheduler(original)
 	if err != nil {
 		return "", err
 	}
 	base = strings.TrimRight(base, "\r\n")
 	for _, selection := range []struct{ key, value string }{
-		{"model_provider", provider}, {"model", model}, {"model_catalog_json", catalogPath},
+		{"model_provider", modelProviderAIGW}, {"model", model}, {"model_catalog_json", catalogPath},
 	} {
 		if selection.value == "" {
 			continue
@@ -333,24 +328,21 @@ func projectCodex(original, block, model, catalogPath, provider string) (string,
 	return base + "\n" + codexBegin + "\n" + block, nil
 }
 
+// codexManagedBlock is the one provider table that AIGW writes for Codex:
+// AIGW's own provider, named after the selected model, whose credential
+// command returns the selected provider's Token.
 func codexManagedBlock(runtime domain.Runtime, endpoint string) string {
-	provider := codexRuntimeProvider(runtime)
-	projection := codexProviderProjection{BaseURL: endpoint, WireAPI: "responses"}
+	name := "AIGW: " + runtime.ModelLabel
+	projection := codexProviderProjection{Name: &name, BaseURL: endpoint, WireAPI: "responses"}
 	if runtime.RetryPolicy != nil {
 		projection.RequestMaxRetries = runtime.RetryPolicy.RequestMaxRetries
 		projection.StreamMaxRetries = runtime.RetryPolicy.StreamMaxRetries
 	}
-	if provider == modelProviderAIGW {
-		name := "AIGW: " + runtime.ModelLabel
-		projection.Name = &name
-	}
-	if runtime.RequiresProviderToken() {
-		projection.Auth = &struct {
-			Command string   `toml:"command"`
-			Args    []string `toml:"args"`
-		}{runtime.CredentialCommand, []string{"credential", "codex", runtime.CredentialProjectionFingerprint(ID)}}
-	}
-	return projection.render(provider)
+	projection.Auth = &struct {
+		Command string   `toml:"command"`
+		Args    []string `toml:"args"`
+	}{runtime.CredentialCommand, []string{"credential", "codex", runtime.CredentialProjectionFingerprint(ID)}}
+	return projection.render(modelProviderAIGW)
 }
 
 // rootModelAdmitted reports whether Codex's root model line holds one of the
@@ -475,13 +467,10 @@ func selectionHasValue(line, key, value string) bool {
 	return assigned && selected == value
 }
 
-func codexRuntimeProvider(runtime domain.Runtime) string {
-	if runtime.ModelProvider == "" {
-		return modelProviderAIGW
-	}
-	return runtime.ModelProvider
-}
-
+// codexStateProvider is the provider table that AIGW's record of a Codex file
+// names: AIGW's own, or the one that an earlier release wrote for a client's
+// explicit model_provider, which the next transition removes as it writes
+// AIGW's own.
 func codexStateProvider(state codexState) string {
 	if state.ProjectedProvider == "" {
 		return modelProviderAIGW

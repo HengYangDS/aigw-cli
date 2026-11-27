@@ -52,9 +52,7 @@ func (c *Config) retryPolicyFor(client string, selection ClientSelection, upstre
 	bound, exists := c.Models[binding.Model]
 	selected := c.Models[selection.Model]
 	spec, _ := c.admission.Spec(client)
-	if !exists || bound.Provider != selected.Provider || binding.RetryPolicy == nil ||
-		selectedModelProvider(spec, binding.selection()) != selectedModelProvider(spec, selection) ||
-		selectedAuthentication(binding.selection()) != selectedAuthentication(selection) {
+	if !exists || bound.Provider != selected.Provider || binding.RetryPolicy == nil {
 		return nil
 	}
 	endpoint, boundProtocol, err := spec.resolveModelEndpoint(c.Providers[bound.Provider], bound, binding.Protocol)

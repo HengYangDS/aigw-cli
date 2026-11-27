@@ -66,7 +66,7 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 		{
 			ID: codex.ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{responses},
 			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
-			DefaultModelProvider: "aigw", ClientNativeAuthentication: true, ContextWindow: true,
+			ContextWindow: true,
 		},
 		{
 			ID: hermes.ID, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml", ContextWindow: true,

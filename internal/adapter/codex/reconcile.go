@@ -288,7 +288,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 		return prepareCodexRestoreTransition(target.ref, configSnapshot, stateSnapshot, catalogSnapshot, previous, replaceRootSelections)
 	}
 	block := codexManagedBlock(runtime, endpoint)
-	if err := refuseUnrecordedProvider(configSnapshot, stateSnapshot, codexRuntimeProvider(runtime), target.ref.Path, statePath); err != nil {
+	if err := refuseUnrecordedProvider(configSnapshot, stateSnapshot, target.ref.Path, statePath); err != nil {
 		return codexPreparedTarget{}, err
 	}
 	base, state, err := codexUserConfigTransition(configSnapshot, stateSnapshot, previous, runtime.UpstreamModel, replaceRootSelections)
@@ -299,12 +299,11 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	// the only proof of which catalog bytes are AIGW's own, and therefore the only
 	// safe authorization to remove the file.
 	ownedCatalogHash := state.CatalogHash
-	provider := codexRuntimeProvider(runtime)
 	catalog, err := codexCatalogProjection(target.ref, runtime, base, state, catalogSnapshot)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	projection, err := projectCodex(base, block, runtime.UpstreamModel, catalog.path, provider)
+	projection, err := projectCodex(base, block, runtime.UpstreamModel, catalog.path)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -319,11 +318,9 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	}
 	state.ManagedBlockHash = platform.SHA256([]byte(block))
 	state.ProjectedModel = runtime.UpstreamModel
-	if provider == modelProviderAIGW {
-		state.ProjectedProvider = ""
-	} else {
-		state.ProjectedProvider = provider
-	}
+	// The record names AIGW's own provider by naming none. A provider that an
+	// earlier release recorded was removed with its table above.
+	state.ProjectedProvider = ""
 	state.ProjectedSchedulerHash = codexSchedulerHash(string(projected))
 	state.ProjectionMode = ProjectionFullSelection
 	state.WriterID = ProjectionWriterID

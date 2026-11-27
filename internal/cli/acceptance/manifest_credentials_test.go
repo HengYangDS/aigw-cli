@@ -100,7 +100,7 @@ func TestSetupFromTeamManifestConnectsExplicitManualProviderFromEnvironment(t *t
 		return ""
 	})
 	app.Discovery = fakeDiscovery{}
-	manifestPath := writeConfigurationManifest(t, `version = 8
+	manifestPath := writeConfigurationManifest(t, `version = 9
 
 [[providers]]
 id = "used"

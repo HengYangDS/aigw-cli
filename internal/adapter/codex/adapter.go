@@ -19,8 +19,8 @@ import (
 // ID identifies the admitted Codex client family.
 const ID = "codex"
 
-// modelProviderAIGW is the stable provider identifier written into
-// AIGW-owned Codex projections.
+// modelProviderAIGW is AIGW's own provider name, the one provider table that
+// AIGW writes into Codex's configuration.
 const modelProviderAIGW = "aigw"
 
 // driftIssue opens the adapter's issue over a file of Codex's that does not
@@ -37,7 +37,7 @@ func (codexAdapter) Spec() domain.ClientSpec {
 	return domain.ClientSpec{
 		ID: ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolResponses},
 		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true, OperatorCreatesTargets: true,
-		DefaultModelProvider: modelProviderAIGW, ClientNativeAuthentication: true, ContextWindow: true,
+		ContextWindow: true,
 	}
 }
 
@@ -132,8 +132,6 @@ func (codexAdapter) ProjectionChanged(before, after domain.Config) bool {
 		beforeRuntime.ModelLabel != afterRuntime.ModelLabel ||
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
 		beforeRuntime.UpstreamModel != afterRuntime.UpstreamModel ||
-		beforeRuntime.ModelProvider != afterRuntime.ModelProvider ||
-		beforeRuntime.Authentication != afterRuntime.Authentication ||
 		(beforeRuntime.ContextWindow != afterRuntime.ContextWindow && windowReaches(afterBinding.Targets, afterRuntime))
 }
 
@@ -314,9 +312,7 @@ func reconciliationInputs(deps adapter.Dependencies, before, after domain.Config
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
 	previous, _ := before.ResolveRuntime(ID, domain.ModelRef{})
-	if previous.RequiresProviderToken() {
-		previous.CredentialCommand = previous.CredentialExecutable(deps.AIGWExecutable)
-	}
+	previous.CredentialCommand = previous.CredentialExecutable(deps.AIGWExecutable)
 	if !afterBinding.Enabled {
 		return beforeRefs, nil, previous, domain.Runtime{}, nil
 	}
@@ -324,9 +320,7 @@ func reconciliationInputs(deps adapter.Dependencies, before, after domain.Config
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
-	if runtime.RequiresProviderToken() {
-		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
-	}
+	runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
 	return beforeRefs, afterRefs, previous, runtime, nil
 }
 

@@ -16,7 +16,6 @@ import (
 // ClientStatus is one client's readiness as status and check report it.
 type ClientStatus struct {
 	domainreadiness.Client
-	Authentication     domain.Authentication `json:"authentication"`
 	EndpointConfigured bool                  `json:"endpoint_configured"`
 	Transport          EndpointTransportKind `json:"transport,omitempty"`
 	ProjectionReady    bool                  `json:"client_files_ready"`
@@ -91,7 +90,6 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 		}
 		client := ClientStatus{
 			Client:             state,
-			Authentication:     clientRuntime.Authentication,
 			EndpointConfigured: strings.TrimSpace(clientRuntime.Endpoint) != "",
 			Transport:          EndpointTransport(clientRuntime.Endpoint),
 			ProjectionReady:    adapterStatus.Ready,
@@ -100,10 +98,7 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 		}
 		if adapterStatus.Ready && !clientRuntime.UsesAIGWCredentialStore() {
 			client.State = domainreadiness.Configured
-			client.Detail = "Client files ready; the client's own authentication is not proven"
-			if clientRuntime.CredentialCommand != "" {
-				client.Detail = "Client files ready; the external credential helper is not verified"
-			}
+			client.Detail = "Client files ready; the external credential helper is not verified"
 			client.NextAction = "aigw check " + clientID + " --depth client"
 		}
 		clients[clientID] = client

@@ -205,7 +205,7 @@ sk-desk-token-0001
 -- Claude --
 #!/bin/sh
 -- mixed.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "mixed"

@@ -42,7 +42,6 @@ type clientState struct {
 	// ClientModel is the model that the client's own settings name in place
 	// of the selection.
 	ClientModel        string                    `json:"client_model,omitempty"`
-	Authentication     domain.Authentication     `json:"authentication"`
 	EndpointConfigured bool                      `json:"endpoint_configured"`
 	Transport          app.EndpointTransportKind `json:"transport,omitempty"`
 	FilesReady         bool                      `json:"client_files_ready"`
@@ -59,7 +58,7 @@ func clientStates(cfg domain.Config, observed map[string]app.ClientStatus) map[s
 			State: status.State, Model: status.Model.String(), Provider: status.Provider,
 			Detail: status.Detail, NextAction: status.NextAction, NextDetail: status.NextDetail,
 			FilesDeferred: status.ProjectionDeferred, NativeModel: status.NativeModelOverride, ClientModel: status.NativeModel,
-			Authentication: status.Authentication, EndpointConfigured: status.EndpointConfigured, Transport: status.Transport,
+			EndpointConfigured: status.EndpointConfigured, Transport: status.Transport,
 			FilesReady: status.ProjectionReady, QualifiedModes: status.QualifiedModes, QualifiedPlatforms: status.QualifiedPlatforms,
 		}
 	}

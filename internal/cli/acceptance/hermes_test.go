@@ -25,7 +25,7 @@ func TestHermesSetupDeferredSyncCredentialCheckAndWithdrawal(t *testing.T) {
 	app, output, credentials, runner, httpClient := testApp(t, "")
 	root := t.TempDir()
 	manifest := filepath.Join(root, "team.toml")
-	writeFile(t, manifest, []byte(`version = 8
+	writeFile(t, manifest, []byte(`version = 9
 
 [[providers]]
 id = "team"

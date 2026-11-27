@@ -103,12 +103,13 @@ func TestCheckStopsAClientAtItsFirstFailedDepth(t *testing.T) {
 }
 
 // A depth that a client cannot run is skipped with its reason and fails
-// nothing. A client that authenticates itself runs neither request and reads
-// no Token, and the deeper check that proves its authentication is a session.
-func TestCheckSkipsTheRequestsOfAClientWithItsOwnAuthentication(t *testing.T) {
+// nothing. A client whose Token an external credential helper supplies runs
+// neither request and reads no Token, and the deeper check that proves that
+// Token is a session.
+func TestCheckSkipsTheRequestsOfAClientWithAnExternalCredentialHelper(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
 	binding := cfg.Clients[codex.ID]
-	binding.ModelProvider, binding.Authentication = "amazon-bedrock", domain.AuthenticationClientNative
+	binding.CredentialCommand = filepath.Join(t.TempDir(), "external-credential")
 	cfg.Clients[codex.ID] = binding
 	enable(t, runtime, &cfg, codex.ID)
 	provider := &recorder{respond: answer}
@@ -118,12 +119,12 @@ func TestCheckSkipsTheRequestsOfAClientWithItsOwnAuthentication(t *testing.T) {
 	}
 	client := decode(t, out).client(t, codex.ID)
 	if client.Depth != depthLocal || len(client.Skipped) != 2 || client.Skipped[0].Depth != depthEndpoint || client.Skipped[1].Depth != depthModel ||
-		!strings.Contains(client.Skipped[0].Reason, "Codex uses its own authentication") || client.NextAction != "aigw check codex --depth client" {
-		t.Fatalf("a client with its own authentication = %+v", client)
+		!strings.Contains(client.Skipped[0].Reason, "An external credential helper gives Codex its Token") || client.NextAction != "aigw check codex --depth client" {
+		t.Fatalf("a client with an external credential helper = %+v", client)
 	}
 	store := secrets(t, runtime)
 	if len(provider.requests) != 0 || len(store.getProviders) != 0 || len(store.existsProviders) != 0 {
-		t.Fatalf("a client with its own authentication sent %q and read %q, %q", provider.requests, store.getProviders, store.existsProviders)
+		t.Fatalf("a client with an external credential helper sent %q and read %q, %q", provider.requests, store.getProviders, store.existsProviders)
 	}
 }
 

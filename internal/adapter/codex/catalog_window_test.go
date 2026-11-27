@@ -292,23 +292,6 @@ func TestAWindowIsNoChangedProjectionWhereAIGWWritesNoTable(t *testing.T) {
 	}
 }
 
-// TestAWindowIsNoChangedProjectionUnderCodexsOwnModelProvider holds the same
-// edit to a model that runs under a model provider of Codex's own: AIGW writes
-// no model table for it, so no window reaches the file.
-func TestAWindowIsNoChangedProjectionUnderCodexsOwnModelProvider(t *testing.T) {
-	const model, family = "grok-4.7-fast", "grok-4.7"
-	stubWindowedTable(t)
-	target := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-	cfg, client := windowConfiguration(model, family, target), codexAdapter{}
-	binding := cfg.Clients[ID]
-	binding.ModelProvider = "native"
-	cfg.Clients[ID] = binding
-	edited := declareWindow(cfg, 500_000)
-	if client.ProjectionChanged(cfg, edited) {
-		t.Fatal("a changed window counts as a changed projection of a model under Codex's own model provider")
-	}
-}
-
 // TestCodexCatalogProjectionReusesOnlyTheSameClient is the last-known-good gate.
 // A copy describes exactly one build, so reuse after an upgrade would override
 // the newer bundled table: a worse outcome than the fallback it prevents.

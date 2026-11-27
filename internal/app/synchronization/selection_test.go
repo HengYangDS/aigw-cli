@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
-	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -123,33 +122,16 @@ func TestModelSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 	}
 }
 
-func TestModelSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
-	for _, route := range []string{"unknown", "native"} {
-		t.Run(route, func(t *testing.T) {
-			cfg := testConfig(t, filepath.Join(t.TempDir(), "config.toml"))
-			cfg.Models[domain.NewModelRef("gateway", "model")] = domain.Model{Label: "Native", Provider: "gateway", Family: "model", ID: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-			binding := cfg.Clients[codex.ID]
-			binding.ModelProvider = "provider"
-			binding.Authentication = domain.AuthenticationClientNative
-			cfg.Clients[codex.ID] = binding
-			configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
-			credentials := &setupCredentials{Store: secret.NewMemoryStore()}
-			client := claude.ID
-			if route == "native" {
-				client = codex.ID
-			}
-			ref := domain.NewModelRef("gateway", "unknown")
-			if route == "native" {
-				ref = domain.NewModelRef("gateway", "model")
-			}
-			_, _, _, err := selectModel(t.Context(), Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Secrets: credentials}, cfg, client, ref, "token")
-			if err == nil || credentials.writes != 0 {
-				t.Fatalf("invalid selection reached credential mutation: writes=%d, error=%v", credentials.writes, err)
-			}
-			if _, err := os.Stat(configStore.Path()); !os.IsNotExist(err) {
-				t.Fatalf("invalid selection created configuration: %v", err)
-			}
-		})
+func TestModelSelectionValidatesTheModelBeforeTokenWrites(t *testing.T) {
+	cfg := testConfig(t, filepath.Join(t.TempDir(), "config.toml"))
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
+	credentials := &setupCredentials{Store: secret.NewMemoryStore()}
+	_, _, _, err := selectModel(t.Context(), Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Secrets: credentials}, cfg, claude.ID, domain.NewModelRef("gateway", "unknown"), "token")
+	if err == nil || credentials.writes != 0 {
+		t.Fatalf("invalid selection reached credential mutation: writes=%d, error=%v", credentials.writes, err)
+	}
+	if _, err := os.Stat(configStore.Path()); !os.IsNotExist(err) {
+		t.Fatalf("invalid selection created configuration: %v", err)
 	}
 }
 

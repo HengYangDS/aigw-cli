@@ -43,7 +43,7 @@ func TestEnabledClientIDsFollowConfigurationNotSupportedCapabilities(t *testing.
 	}
 }
 
-func TestRequiredProviderTokensFollowEnabledModelsAndAuthentication(t *testing.T) {
+func TestRequiredProviderTokensFollowEnabledModelsAndCredentialCommands(t *testing.T) {
 	cfg := validConfig()
 	cfg.Normalize()
 	if got := cfg.RequiredProviderTokenIDs(); len(got) != 0 {
@@ -62,8 +62,8 @@ func TestRequiredProviderTokensFollowEnabledModelsAndAuthentication(t *testing.T
 		t.Fatalf("external credential ownership requires a duplicate Token: %v", got)
 	}
 	runtime, err := cfg.ResolveRuntime(ClientCodex, ModelRef{})
-	if err != nil || !runtime.RequiresProviderToken() || runtime.UsesAIGWCredentialStore() {
-		t.Fatalf("external credential ownership changed wire authentication: %+v, %v", runtime, err)
+	if err != nil || runtime.UsesAIGWCredentialStore() || runtime.ProviderID != want[0] {
+		t.Fatalf("external credential ownership changed the provider: %+v, %v", runtime, err)
 	}
 	cfg.Providers[want[0]] = cfg.Providers["dmx"]
 	cfg.Models[NewModelRef("dmx", "claude-test")] = testModel("Shared", want[0], "claude-test", ProtocolAnthropic)
@@ -77,14 +77,6 @@ func TestRequiredProviderTokensFollowEnabledModelsAndAuthentication(t *testing.T
 	cfg.Clients[ClientClaude] = claude
 	if got := cfg.RequiredProviderTokenIDs(); len(got) != 0 {
 		t.Fatalf("shared external credential consumers require a duplicate Token: %v", got)
-	}
-	delete(cfg.Clients, ClientClaude)
-	binding.CredentialCommand = ""
-	binding.Authentication = AuthenticationClientNative
-	binding.ModelProvider = "native"
-	cfg.Clients[ClientCodex] = binding
-	if got := cfg.RequiredProviderTokenIDs(); len(got) != 0 {
-		t.Fatalf("client-native authentication requires Tokens: %v", got)
 	}
 }
 
@@ -129,6 +121,30 @@ func TestValidateRejectsNonCanonicalSchemaVersion(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unsupported config version 1") {
 		t.Fatalf("version error text = %q", err)
+	}
+}
+
+// The refusal of a file of the schema that this one replaced names the three
+// edits that bring it here, the same for a configuration and a team file;
+// any other version names none.
+func TestTheReplacedSchemaIsRefusedWithItsEdits(t *testing.T) {
+	edits := []string{"set `version = 9`", "rename each client's `executable` to `program`", "delete `authentication` and `model_provider` wherever they appear"}
+	configuration := &UnsupportedConfigVersionError{Version: 8, ExpectedVersion: ConfigVersion}
+	team := &UnsupportedTeamFileVersionError{Version: 8}
+	for _, got := range []string{configuration.Edits(), team.Edits(), configuration.Error()} {
+		for _, edit := range edits {
+			if !strings.Contains(got, edit) {
+				t.Errorf("%q does not name %q", got, edit)
+			}
+		}
+	}
+	for _, version := range []int{1, 7, ConfigVersion + 1} {
+		if edits := (&UnsupportedConfigVersionError{Version: version, ExpectedVersion: ConfigVersion}).Edits(); edits != "" {
+			t.Errorf("version %d names the edits %q", version, edits)
+		}
+		if edits := (&UnsupportedTeamFileVersionError{Version: version}).Edits(); edits != "" {
+			t.Errorf("team file version %d names the edits %q", version, edits)
+		}
 	}
 }
 
@@ -293,8 +309,8 @@ func TestValidateRejectsRuntimeModelReferencingUnknownProviderOrInvalidClientOpt
 	delete(cfg.Models, NewModelRef("missing", "gpt-5.6"))
 	delete(cfg.Clients, ClientCodex)
 	cfg.Models[NewModelRef("dmx", "claude-opus")] = testModel("Codex", "dmx", "claude-opus", ProtocolAnthropic)
-	cfg.Clients[ClientClaude] = ClientBinding{Model: NewModelRef("dmx", "claude-opus"), ModelProvider: "amazon-bedrock"}
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "only supported for codex") {
+	cfg.Clients[ClientClaude] = ClientBinding{Model: NewModelRef("dmx", "claude-opus"), RetryPolicy: &RetryPolicy{RequestMaxRetries: new(uint64)}}
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "no admitted native retry-budget capability") {
 		t.Fatalf("error = %v", err)
 	}
 }

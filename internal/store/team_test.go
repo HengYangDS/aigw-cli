@@ -46,12 +46,12 @@ func teamModel(t *testing.T, file domain.Config, name string) (domain.Model, boo
 	return model, ok
 }
 
-// The shipped file is version 8, every provider it names holds a model, and
+// The shipped file is version 9, every provider it names holds a model, and
 // the parsed providers keep the file's order; which providers and how many
 // models it holds is the file's to say, not this test's.
-func TestTeamFileIsReviewedVersionEight(t *testing.T) {
+func TestTeamFileIsReviewedVersionNine(t *testing.T) {
 	data, parsedManifest := loadTeamManifest(t)
-	if parsedManifest.Version != 8 || len(parsedManifest.Providers) == 0 || len(parsedManifest.Families) == 0 {
+	if parsedManifest.Version != 9 || len(parsedManifest.Providers) == 0 || len(parsedManifest.Families) == 0 {
 		t.Fatalf("team file = version %d, %d providers, %d families", parsedManifest.Version, len(parsedManifest.Providers), len(parsedManifest.Families))
 	}
 	var declared []string

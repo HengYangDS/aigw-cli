@@ -8,6 +8,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/store"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -72,7 +73,7 @@ func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
 	}
 	text := out.String()
 	for _, want := range []string{
-		"unsupported configuration version: found 0, expected 8",
+		fmt.Sprintf("unsupported configuration version: found 0, expected %d", domain.ConfigVersion),
 		"AIGW does not reinterpret configuration schemas",
 		"\nFix\n",
 		"aigw config path",
@@ -200,7 +201,7 @@ func TestStatusShowsIndependentModelsAndJSONNeverContainsToken(t *testing.T) {
 	if err := cli.Execute(app, []string{"status", "--json"}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out.String(), "never-print-this-secret") || !strings.Contains(out.String(), `"authentication": "provider-token"`) || strings.Contains(out.String(), `"profiles"`) {
+	if strings.Contains(out.String(), "never-print-this-secret") || strings.Contains(out.String(), `"authentication"`) || strings.Contains(out.String(), `"profiles"`) {
 		t.Fatalf("unsafe JSON status = %s", out.String())
 	}
 }
@@ -248,7 +249,6 @@ func TestStatusReportsModelTransport(t *testing.T) {
 				"model":               json.RawMessage(`"team/model-test"`),
 				"provider":            json.RawMessage(`"team"`),
 				"detail":              json.RawMessage(`"The client is not installed or enabled"`),
-				"authentication":      json.RawMessage(`"provider-token"`),
 				"endpoint_configured": json.RawMessage(`true`),
 				"client_files_ready":  json.RawMessage(`false`),
 			}

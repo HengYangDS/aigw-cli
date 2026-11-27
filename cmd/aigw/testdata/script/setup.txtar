@@ -217,7 +217,7 @@ exitcode 1 aigw setup --from old.toml --json
 normalize stdout old-refusal.out
 cmp old-refusal.out old-refusal.json
 cp team.toml old.toml
-fixloop -did 'used the team file of version 8 that aigw config export wrote' stdout aigw setup --from old.toml --json
+fixloop -did 'used the team file of version 9 that aigw config export wrote' stdout aigw setup --from old.toml --json
 
 # A team file that cannot be applied names the entry of the file to change,
 # never `aigw check`, which would not read the file. The fix is an edit of
@@ -318,7 +318,7 @@ stdout 'Team file applied'
 
 
 -- families.toml --
-version = 8
+version = 9
 
 [[families]]
 id = "team-model"
@@ -359,7 +359,7 @@ Options
       --provider stringArray       With --from, a provider whose Token to read, at a prompt or from --token-stdin, unless one is stored; repeatable
       --token-stdin[=true|false]   With --from, read the one --provider's Token from standard input
 -- team.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "spare"
@@ -388,7 +388,7 @@ label = "Team Model"
 [recommendations.claude]
 primary = {model = "team/team-model"}
 -- again.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "team"
@@ -411,7 +411,7 @@ primary = {model = "team/team-model"}
 [recommendations.hermes]
 primary = {model = "team/team-model", protocol = "chat"}
 -- away.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "team"
@@ -428,7 +428,7 @@ protocols = {responses = []}
 id = "team-model"
 label = "Team Model Again"
 -- fresh-chat.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "fresh"
@@ -440,7 +440,7 @@ id = "fresh-chat"
 family = "fresh-chat"
 protocols = {chat = []}
 -- fresh-chat-fixed.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "fresh"
@@ -460,7 +460,7 @@ protocols = {chat = []}
   "next_detail": "Correct model `fresh/fresh-chat` in the team file, then run the same command again."
 }
 -- clients.toml --
-version = 8
+version = 9
 
 [[providers]]
 id = "team"
@@ -1165,9 +1165,9 @@ Next
 {
   "schema_version": 3,
   "ok": false,
-  "error": "the team file has version 7, and this AIGW reads version 8",
+  "error": "the team file has version 7, and this AIGW reads version 9",
   "impact": "Nothing changed.",
-  "next_detail": "Use a team file of version 8, which `aigw config export` writes, then run the same command again."
+  "next_detail": "Use a team file of version 9, which `aigw config export` writes, then run the same command again."
 }
 -- missing.json --
 {
@@ -1244,13 +1244,13 @@ Fix
   "next_detail": "aigw setup --from \u003cfile\u003e --dry-run"
 }
 -- undefined-field.toml --
-version = 8
+version = 9
 
 [[providers]]
 id = 'a'
 bogus = 1
 -- credential-field.toml --
-version = 8
+version = 9
 
 [[providers]]
 id = 'a'
@@ -1258,14 +1258,14 @@ label = 'A'
 endpoints = { responses = 'https://a.test/v1' }
 token = 'x'
 -- bad-provider.toml --
-version = 8
+version = 9
 
 [[providers]]
 id = 'A b'
 label = 'A'
 endpoints = { responses = 'https://a.test/v1' }
 -- bad-model.toml --
-version = 8
+version = 9
 
 [[providers]]
 id = 'a'
@@ -1276,22 +1276,22 @@ endpoints = { responses = 'https://a.test/v1' }
 id = 'm'
 protocols = { bogus = [] }
 -- bad-family.toml --
-version = 8
+version = 9
 
 [[families]]
 id = 'f'
 -- bad-recommendation.toml --
-version = 8
+version = 9
 
 [recommendations.codex]
 primary = { model = 'nope' }
 -- unknown-model.toml --
-version = 8
+version = 9
 
 [recommendations.codex]
 primary = { model = 'a/m' }
 -- no-endpoint.toml --
-version = 8
+version = 9
 
 [[providers]]
 id = 'a'

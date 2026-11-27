@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -298,7 +299,7 @@ func TestMergeTeamFileRefusesWhatItCannotApply(t *testing.T) {
 	}
 	version := teamFile(t)
 	version.Version = ConfigVersion - 1
-	if _, _, err := MergeTeamFile(cfg, version, true); err == nil || !strings.Contains(err.Error(), "the team file has version 7, and this AIGW reads version 8") {
+	if _, _, err := MergeTeamFile(cfg, version, true); err == nil || !strings.Contains(err.Error(), fmt.Sprintf("the team file has version %d, and this AIGW reads version %d", ConfigVersion-1, ConfigVersion)) {
 		t.Errorf("another version: %v", err)
 	}
 }

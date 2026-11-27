@@ -6,7 +6,7 @@ import (
 )
 
 func TestRecommendationsAreValidatedExportedAndDoNotOverridePersonalChoices(t *testing.T) {
-	raw := []byte(`version = 8
+	raw := []byte(`version = 9
 
 [[providers]]
 id = "team"
@@ -68,7 +68,7 @@ primary = {model = "team/gpt-test"}
 }
 
 func TestParseConfigurationManifestAndMergePreservesPersonalState(t *testing.T) {
-	raw := []byte(`version = 8
+	raw := []byte(`version = 9
 
 [[providers]]
 id = "team"
@@ -106,7 +106,7 @@ protocols = {anthropic = []}
 }
 
 func TestMergeDefaultsToFirstImportedModelWhenNeitherSideChoosesADefault(t *testing.T) {
-	team, err := ParseTeamFile([]byte(`version = 8
+	team, err := ParseTeamFile([]byte(`version = 9
 
 [[providers]]
 id = "team"

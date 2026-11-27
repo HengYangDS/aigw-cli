@@ -86,7 +86,9 @@ func TestCodexEndpointRequiresConfiguration(t *testing.T) {
 		wantErr  bool
 	}{
 		{"missing", domain.Runtime{Model: domain.NewModelRef("test", "p")}, "", true},
-		{"valid", domain.Runtime{Model: domain.NewModelRef("test", "p"), Endpoint: "https://example.com/", Authentication: domain.AuthenticationClientNative}, "https://example.com/", false},
+		{"no credential command", domain.Runtime{Model: domain.NewModelRef("test", "p"), Endpoint: "https://example.com/"}, "", true},
+		{"a relative credential command", domain.Runtime{Model: domain.NewModelRef("test", "p"), Endpoint: "https://example.com/", CredentialCommand: "aigw"}, "", true},
+		{"valid", domain.Runtime{Model: domain.NewModelRef("test", "p"), Endpoint: "https://example.com/", CredentialCommand: "/opt/aigw/bin/aigw"}, "https://example.com/", false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -141,7 +143,7 @@ func TestRestoreModelSelectionPreservesOriginalState(t *testing.T) {
 }
 
 func TestProjectCodexRejectsMalformedUserConfiguration(t *testing.T) {
-	if _, err := projectCodex("[broken", "", "", "", modelProviderAIGW); err == nil || !strings.Contains(err.Error(), "parse Codex config") {
+	if _, err := projectCodex("[broken", "", "", ""); err == nil || !strings.Contains(err.Error(), "parse Codex config") {
 		t.Fatalf("projectCodex() error = %v", err)
 	}
 }
@@ -149,7 +151,7 @@ func TestProjectCodexRejectsMalformedUserConfiguration(t *testing.T) {
 func TestRemoveCodexProjectionRejectsInvalidCapturedSchedulerState(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	current, err := projectCodex("external = true\n", block, runtime.UpstreamModel, "", modelProviderAIGW)
+	current, err := projectCodex("external = true\n", block, runtime.UpstreamModel, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +227,7 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 
 	t.Run("sidecar is directory", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		projection, err := projectCodex("", block, runtime.UpstreamModel, "", modelProviderAIGW)
+		projection, err := projectCodex("", block, runtime.UpstreamModel, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -240,7 +242,7 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 
 	t.Run("invalid sidecar", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		projection, err := projectCodex("", block, runtime.UpstreamModel, "", modelProviderAIGW)
+		projection, err := projectCodex("", block, runtime.UpstreamModel, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -263,7 +265,7 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 	t.Run("provider profile mismatch", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		otherBlock := codexManagedBlock(runtime, "https://other.example/v1")
-		projection, err := projectCodex("", otherBlock, runtime.UpstreamModel, "", modelProviderAIGW)
+		projection, err := projectCodex("", otherBlock, runtime.UpstreamModel, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -286,7 +288,7 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 
 	t.Run("scheduler key missing", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		projection, err := projectCodex("", block, runtime.UpstreamModel, "", modelProviderAIGW)
+		projection, err := projectCodex("", block, runtime.UpstreamModel, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -300,7 +302,7 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 
 	t.Run("scheduler state hash mismatch", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
-		projection, err := projectCodex("", block, runtime.UpstreamModel, "", modelProviderAIGW)
+		projection, err := projectCodex("", block, runtime.UpstreamModel, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -328,7 +330,7 @@ func TestCodexProjectionReconcilesOwnedNativeAuthenticationPreference(t *testing
 			runtime := atomicTestRuntime()
 			block := codexProviderTable(modelProviderAIGW) + "\n" +
 				fmt.Sprintf("name = %q\nbase_url = %q\nwire_api = \"responses\"\nrequires_openai_auth = %s\n", "AIGW: "+runtime.ModelLabel, runtime.Endpoint, preference) + codexEnd + "\n"
-			projection, err := projectCodex("", block, runtime.UpstreamModel, "", modelProviderAIGW)
+			projection, err := projectCodex("", block, runtime.UpstreamModel, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -367,7 +369,7 @@ func TestCodexProjectionReconcilesOwnedNativeAuthenticationPreference(t *testing
 func TestCodexUserConfigRejectsInvalidCapturedSchedulerState(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	projection, err := projectCodex("external = true\n", block, runtime.UpstreamModel, "", modelProviderAIGW)
+	projection, err := projectCodex("external = true\n", block, runtime.UpstreamModel, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -387,7 +389,7 @@ func TestCodexUserConfigRejectsInvalidCapturedSchedulerState(t *testing.T) {
 func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	current, err := projectCodex("external = true\n", block, runtime.UpstreamModel, "", modelProviderAIGW)
+	current, err := projectCodex("external = true\n", block, runtime.UpstreamModel, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -409,7 +411,7 @@ func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 func TestRemoveCodexProjectionRejectsIncompleteSchedulerState(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	current, err := projectCodex("external = true\n", block, runtime.UpstreamModel, "", modelProviderAIGW)
+	current, err := projectCodex("external = true\n", block, runtime.UpstreamModel, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -428,7 +430,7 @@ func TestRemoveCodexProjectionRejectsIncompleteSchedulerState(t *testing.T) {
 func TestRemoveCodexProjectionRejectsChangedManagedBlock(t *testing.T) {
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	current, err := projectCodex("external = true\n", block, runtime.UpstreamModel, "", modelProviderAIGW)
+	current, err := projectCodex("external = true\n", block, runtime.UpstreamModel, "")
 	if err != nil {
 		t.Fatal(err)
 	}

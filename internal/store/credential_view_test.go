@@ -13,11 +13,12 @@ import (
 )
 
 // TestCredentialViewHoldsOnlyTheFrozenFields pins the reader's view of a
-// file with every schema 8 field: each provider's ID and endpoints and each
-// client's enabled state and authentication, which a newer version, unknown
-// fields and malformed models leave as they are.
+// file with every schema 9 field: each provider's ID and endpoints and each
+// client's enabled state, which a newer version, unknown fields, malformed
+// models and the client-native keys that a version 8 file may hold leave as
+// they are.
 func TestCredentialViewHoldsOnlyTheFrozenFields(t *testing.T) {
-	_, text := schemaEightConfig(t)
+	_, text := schemaNineConfig(t)
 	want := domain.CredentialView{
 		Providers: []domain.CredentialProvider{
 			{ID: "dmxapi", Endpoints: domain.Endpoints{Anthropic: "https://www.dmxapi.cn", Responses: "https://www.dmxapi.cn/v1"}},
@@ -26,13 +27,18 @@ func TestCredentialViewHoldsOnlyTheFrozenFields(t *testing.T) {
 		Clients: map[string]domain.CredentialClient{ClientClaude: {}, ClientCodex: {Enabled: true}, ClientHermes: {}},
 	}
 	newer := strings.NewReplacer(
-		"version = 8", "version = 99\nreader = 'unknown'",
+		"version = 9", "version = 99\nreader = 'unknown'",
 		"label = 'AIHubMix'", "label = 2\nregion = 'eu'",
 		"protocols = { chat = [] }", "protocols = 'chat'\ncontext = 'large'",
 		"endpoints = { chat = 'https://aihubmix.com/v1' }", "endpoints = { chat = 'https://aihubmix.com/v1', messages = 'https://aihubmix.com/messages' }",
 		"enabled = true", "enabled = true\ntheme = 'dark'",
 	).Replace(text)
-	for name, document := range map[string]string{"schema 8": text, "a newer file": newer} {
+	schemaEight := strings.NewReplacer(
+		"version = 9", "version = 8",
+		"protocol = 'anthropic'\n", "protocol = 'anthropic'\nauthentication = 'device-code'\n",
+		"protocol = 'responses'\nexecutable", "protocol = 'responses'\nmodel_provider = 'amazon-bedrock'\nauthentication = 'client-native'\nexecutable",
+	).Replace(text)
+	for name, document := range map[string]string{"schema 9": text, "a newer file": newer, "a version 8 file": schemaEight} {
 		path := filepath.Join(t.TempDir(), "aigw.toml")
 		if err := os.WriteFile(path, []byte(document), 0o600); err != nil {
 			t.Fatal(err)
@@ -41,14 +47,6 @@ func TestCredentialViewHoldsOnlyTheFrozenFields(t *testing.T) {
 		if err != nil || !reflect.DeepEqual(view, want) {
 			t.Fatalf("the view of %s = %+v, %v; want %+v", name, view, err, want)
 		}
-	}
-	authenticated := strings.Replace(text, "protocol = 'anthropic'\n", "protocol = 'anthropic'\nauthentication = 'device-code'\n", 1)
-	path := filepath.Join(t.TempDir(), "aigw.toml")
-	if err := os.WriteFile(path, []byte(authenticated), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if view, err := NewStore(path, testAdmission()).LoadCredentialView(); err != nil || view.Clients[ClientClaude].Authentication != "device-code" {
-		t.Fatalf("an unknown authentication = %+v, %v", view.Clients[ClientClaude], err)
 	}
 }
 
@@ -77,8 +75,8 @@ func TestCredentialViewNamesTheStageThatFailed(t *testing.T) {
 	}
 	for name, document := range map[string]string{
 		"not TOML":       "[[providers]\n",
-		"a wrong client": "version = 8\n[clients.codex]\nenabled = 'yes'\n",
-		"a wrong ID":     "version = 8\n[[providers]]\nid = 7\n",
+		"a wrong client": "version = 9\n[clients.codex]\nenabled = 'yes'\n",
+		"a wrong ID":     "version = 9\n[[providers]]\nid = 7\n",
 	} {
 		path := filepath.Join(root, strings.ReplaceAll(name, " ", "-")+".toml")
 		if err := os.WriteFile(path, []byte(document), 0o600); err != nil {

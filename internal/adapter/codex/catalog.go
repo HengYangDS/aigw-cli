@@ -191,17 +191,13 @@ func recordedCatalog(path string, state codexState) ([]byte, error) {
 	return data, nil
 }
 
-// noTableReason names why AIGW writes no model table for a model that runs as
-// runtime, given the model_catalog_json line of the configuration that the
-// projection starts from: the model runs under a model provider of Codex's own,
-// or that line names a table that AIGW did not write. It is empty where AIGW
-// writes a table. The projection and the window check both ask it, so the two
-// cannot disagree; each reads its own text for the line and decides what a line
-// that it cannot read means.
-func noTableReason(runtime domain.Runtime, ownLine string) string {
-	if provider := codexRuntimeProvider(runtime); provider != modelProviderAIGW {
-		return "the model runs under Codex's model provider " + provider + ", for which AIGW writes no model table"
-	}
+// noTableReason names why AIGW writes no model table, given the
+// model_catalog_json line of the configuration that the projection starts
+// from: that line names a table that AIGW did not write. It is empty where
+// AIGW writes a table. The projection and the window check both ask it, so
+// the two cannot disagree; each reads its own text for the line and decides
+// what a line that it cannot read means.
+func noTableReason(ownLine string) string {
 	if ownLine != "" {
 		return "this configuration names its own model table in model_catalog_json, which AIGW leaves alone"
 	}
@@ -215,14 +211,14 @@ func noTableReason(runtime domain.Runtime, ownLine string) string {
 // private metadata format. The entry that describes the model, its own or an
 // alias of its family's, carries the model's declared context window; a model
 // that the table describes by neither keeps the client's fallback rather than
-// a guessed entry. A model under another provider gets no table of AIGW's.
+// a guessed entry.
 func codexCatalogProjection(target TargetRef, selected domain.Runtime, base string, state codexState, before platform.FileSnapshot) (codexCatalogPlan, error) {
 	// A user-authored model_catalog_json is the user's own client policy. AIGW
 	// replaces the bundled table wholesale, so adopting that key here would
 	// silently drop models the user added.
 	selection, selectionErr := codexSelectionLine(base, "model_catalog_json")
 	model := selected.UpstreamModel
-	if model == "" || selectionErr != nil || noTableReason(selected, selection) != "" {
+	if model == "" || selectionErr != nil || noTableReason(selection) != "" {
 		return codexCatalogPlan{}, nil
 	}
 	live, bundled, err := codexBundledCatalog(target.Executable)

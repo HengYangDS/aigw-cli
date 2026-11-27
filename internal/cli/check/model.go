@@ -42,18 +42,14 @@ func resolveNamed(cfg domain.Config, client, text string) (named, error) {
 }
 
 // tokenOwner refuses a one-time Token that no request of the check would
-// send: a client that authenticates itself, or whose Token an external helper
-// supplies, sends none from AIGW, and only a session proves it.
+// send: a client whose Token an external helper supplies sends none from
+// AIGW, and only a session proves it.
 func tokenOwner(cfg domain.Config, client string, model named) error {
 	runtime, err := cfg.ResolveRuntime(client, model.ref)
 	if err != nil || runtime.UsesAIGWCredentialStore() {
 		return err
 	}
-	product := cfg.Admission().ProductName(client)
-	reason := product + " uses its own authentication"
-	if runtime.RequiresProviderToken() {
-		reason = "an external credential helper gives " + product + " its Token"
-	}
+	reason := "an external credential helper gives " + cfg.Admission().ProductName(client) + " its Token"
 	return terminal.ProblemError("--token-stdin needs a client that sends a Token from AIGW, and "+reason, "", "Nothing was read.",
 		checkCommand(client, model, depthClient), nil)
 }

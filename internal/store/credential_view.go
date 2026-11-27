@@ -10,11 +10,11 @@ import (
 )
 
 // credentialViewDocument is all of aigw.toml that the credential reader
-// decodes: each provider's ID and endpoints, and each client's enabled state
-// and authentication. The decoding is not strict, so the version and every
-// other field, whatever its value, pass unread, as does an endpoint of a
-// protocol that the reader does not know. A field of the view with a value of
-// the wrong type is a parse failure.
+// decodes: each provider's ID and endpoints, and each client's enabled state.
+// The decoding is not strict, so the version and every other field, whatever
+// its value, pass unread, as do an endpoint of a protocol that the reader does
+// not know and the `authentication` that a version 8 file may still hold. A
+// field of the view with a value of the wrong type is a parse failure.
 type credentialViewDocument struct {
 	Providers []struct {
 		ID        string `toml:"id"`
@@ -25,8 +25,7 @@ type credentialViewDocument struct {
 		} `toml:"endpoints"`
 	} `toml:"providers"`
 	Clients map[string]struct {
-		Enabled        bool   `toml:"enabled"`
-		Authentication string `toml:"authentication"`
+		Enabled bool `toml:"enabled"`
 	} `toml:"clients"`
 }
 
@@ -54,7 +53,7 @@ func (s Store) LoadCredentialView() (domain.CredentialView, error) {
 		view.Providers = append(view.Providers, domain.CredentialProvider{ID: declared.ID, Endpoints: domain.Endpoints(declared.Endpoints)})
 	}
 	for client, declared := range document.Clients {
-		view.Clients[client] = domain.CredentialClient{Enabled: declared.Enabled, Authentication: domain.Authentication(declared.Authentication)}
+		view.Clients[client] = domain.CredentialClient{Enabled: declared.Enabled}
 	}
 	return view, nil
 }

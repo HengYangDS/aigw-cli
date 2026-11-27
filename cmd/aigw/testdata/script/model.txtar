@@ -275,7 +275,7 @@ sk-mixed-token-0001
 -- fresh-token.txt --
 sk-fresh-token-0001
 -- search.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "bare"
@@ -329,12 +329,12 @@ label = "Fresh Old"
 id = "gone-model"
 label = "Gone Model"
 -- recommended.in --
-version = 8
+version = 9
 
 [recommendations.hermes]
 primary = {model = "mixed/chat-only", protocol = "chat"}
 -- mixed.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "mixed"
@@ -1217,7 +1217,7 @@ Next
   "next_action": "aigw model search --json --provider broken"
 }
 -- no-endpoint.in --
-version = 8
+version = 9
 
 [[providers]]
 id = 'team'

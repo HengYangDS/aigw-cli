@@ -33,7 +33,7 @@ func TestSetupFromKeepsAnExistingProvidersEndpointAndToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 8
+	manifest := `version = 9
 
 [[providers]]
 id = "team"
@@ -146,7 +146,7 @@ func TestSetupFromAndExportAreSecretFree(t *testing.T) {
 	t.Parallel()
 	app, out, secrets, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 8
+	manifest := `version = 9
 
 [[providers]]
 id = "team"
@@ -197,7 +197,7 @@ func TestSetupFromKeepsAModelWhoseChangeWouldMoveASelection(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 8
+	manifest := `version = 9
 
 [[providers]]
 id = "team"

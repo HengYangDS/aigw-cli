@@ -429,7 +429,7 @@ func TestSaveVerifiedCheckpointRefusesAConfigurationThatNoLongerReads(t *testing
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(store.Path(), []byte("version = 8\n[[providers]\n"), 0o600); err != nil {
+	if err := os.WriteFile(store.Path(), []byte("version = 9\n[[providers]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex), nil); err == nil {

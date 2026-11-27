@@ -41,7 +41,7 @@ func TestRollbackRetryCapabilityRefusalPreservesPrograms(t *testing.T) {
 		}
 		return nil, exit
 	}}
-	_, err = (Updater{Executable: current, Runner: runner}).Rollback(t.Context(), []byte("version = 8\n\n[clients.codex]\nenabled = true\nretries = {request = 0}\n"))
+	_, err = (Updater{Executable: current, Runner: runner}).Rollback(t.Context(), []byte("version = 9\n\n[clients.codex]\nenabled = true\nretries = {request = 0}\n"))
 	if !errors.Is(err, ErrRollbackConfiguration) || !errors.Is(err, exit) {
 		t.Fatalf("reader's policy refusal lost its semantic category: %v", err)
 	}

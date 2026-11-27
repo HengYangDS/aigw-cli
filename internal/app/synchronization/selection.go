@@ -3,7 +3,6 @@ package synchronization
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 
 	"aigw-cli/internal/domain"
@@ -101,9 +100,6 @@ func (s Synchronizer) selectModel(ctx context.Context, before, after domain.Conf
 	after.Clients[client] = binding
 	var tokens map[string]string
 	if token != "" {
-		if !selected.RequiresProviderToken() {
-			return false, false, domain.ClientBinding{}, fmt.Errorf("model %q uses client-owned authentication; Token storage is not part of selection", binding.Model)
-		}
 		tokens = map[string]string{selected.ProviderID: token}
 	}
 	rollback, err := secret.Replace(s.Secrets, tokens)

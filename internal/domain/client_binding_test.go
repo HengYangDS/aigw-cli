@@ -23,7 +23,7 @@ func TestClientForwardingPreservesUpstreamCredentialIdentity(t *testing.T) {
 	if forwarded.Endpoint != strings.TrimRight(binding.ForwardingEndpoint, "/") || forwarded.UpstreamEndpoint != direct.Endpoint {
 		t.Fatalf("forwarded endpoint identities = %#v", forwarded)
 	}
-	if forwarded.ProviderID != direct.ProviderID || forwarded.UpstreamModel != direct.UpstreamModel || forwarded.ModelProvider != direct.ModelProvider || forwarded.CredentialProjectionFingerprint(ClientCodex) != direct.CredentialProjectionFingerprint(ClientCodex) {
+	if forwarded.ProviderID != direct.ProviderID || forwarded.UpstreamModel != direct.UpstreamModel || forwarded.CredentialProjectionFingerprint(ClientCodex) != direct.CredentialProjectionFingerprint(ClientCodex) {
 		t.Fatalf("client forwarding changed the upstream credential or model identity: %#v", forwarded)
 	}
 	claude, err := cfg.ResolveRuntime(ClientClaude, ModelRef{})
@@ -84,8 +84,8 @@ func TestClientForwardingSurvivesEquivalentAutomaticProtocolSelection(t *testing
 }
 
 func TestCurrentSchemaKeepsClientConcernsOutOfModels(t *testing.T) {
-	if ConfigVersion != 8 {
-		t.Fatalf("config version = %d, want 8", ConfigVersion)
+	if ConfigVersion != 9 {
+		t.Fatalf("config version = %d, want 9", ConfigVersion)
 	}
 	for _, field := range []string{"Client", "ModelProvider", "Authentication", "UpstreamModel", "Purpose", "Lifecycle"} {
 		if _, exists := reflect.TypeFor[Model]().FieldByName(field); exists {
@@ -142,48 +142,18 @@ func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 	}
 }
 
-func TestClientBindingOwnsNativeAuthentication(t *testing.T) {
-	cfg := NewConfig(testAdmission())
-	cfg.Providers["native"] = Provider{
-		Label:     "Native",
-		Endpoints: Endpoints{Responses: "https://native.test/v1"},
-	}
-	cfg.Models[NewModelRef("native", "model-id")] = testModel("Model", "native", "model-id", ProtocolResponses)
-	cfg.Clients[ClientCodex] = ClientBinding{
-		Enabled:        true,
-		Model:          NewModelRef("native", "model-id"),
-		Protocol:       ProtocolResponses,
-		ModelProvider:  "amazon-bedrock",
-		Authentication: AuthenticationClientNative,
-	}
-
-	cfg.SetSelectedModel(ClientCodex, NewModelRef("native", "model-id"), ProtocolResponses)
-	runtime, err := cfg.ResolveRuntime(ClientCodex, ModelRef{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if runtime.ModelProvider != "amazon-bedrock" || runtime.Authentication != AuthenticationClientNative {
-		t.Fatalf("client-specific runtime options = %#v", runtime)
-	}
-	if runtime.RequiresProviderToken() {
-		t.Fatal("client-native binding unexpectedly requires an Account Token")
-	}
-}
-
 func TestSetClientActivationPreservesSelectionAndClientOptions(t *testing.T) {
 	cfg := NewConfig(testAdmission())
 	cfg.Clients[ClientCodex] = ClientBinding{
 		Model:             NewModelRef("team", "reasoning-model"),
 		Protocol:          ProtocolResponses,
-		ModelProvider:     "provider",
-		Authentication:    AuthenticationClientNative,
 		CredentialCommand: "/existing/helper",
 	}
 
 	cfg.SetClientActivation(ClientCodex, true, "/opt/codex", []string{"/one/config.toml", "/two/config.toml"})
 
 	got := cfg.Clients[ClientCodex]
-	if got.Model != NewModelRef("team", "reasoning-model") || got.Protocol != ProtocolResponses || got.ModelProvider != "provider" || got.Authentication != AuthenticationClientNative || got.CredentialCommand != "/existing/helper" {
+	if got.Model != NewModelRef("team", "reasoning-model") || got.Protocol != ProtocolResponses || got.CredentialCommand != "/existing/helper" {
 		t.Fatalf("activation replaced client selection or options: %#v", got)
 	}
 	if !got.Enabled || got.Executable != "/opt/codex" || !reflect.DeepEqual(got.Targets, []string{"/one/config.toml", "/two/config.toml"}) {

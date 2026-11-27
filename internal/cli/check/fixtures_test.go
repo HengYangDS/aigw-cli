@@ -194,7 +194,9 @@ func enable(t *testing.T, runtime invocation.Context, cfg *domain.Config, ids ..
 			}
 			cfg.SetClientActivation(id, true, executable, []string{target})
 			selected := resolve(t, *cfg, id)
-			selected.CredentialCommand = runtime.Executable
+			if selected.CredentialCommand == "" {
+				selected.CredentialCommand = runtime.Executable
+			}
 			if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, selected, selected, false); err != nil {
 				t.Fatal(err)
 			}

@@ -37,7 +37,7 @@ func (files *countingFiles) Open(name string) (*os.File, error) {
 func gatewayTeamFile(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "team.toml")
-	writeFile(t, path, []byte(`version = 8
+	writeFile(t, path, []byte(`version = 9
 
 [[providers]]
 id = "gateway"

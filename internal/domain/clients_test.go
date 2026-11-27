@@ -112,18 +112,18 @@ func TestCredentialCommandRejectsAmbiguousPaths(t *testing.T) {
 	}
 }
 
-func TestCredentialRetrievalDoesNotChangeWireAuthentication(t *testing.T) {
+// AIGW reads the provider's Token for a client unless an explicit
+// credential command, an external reader, supplies it.
+func TestCredentialRetrievalFollowsTheCredentialCommand(t *testing.T) {
 	for _, test := range []struct {
 		runtime Runtime
-		account bool
-		native  bool
+		aigw    bool
 	}{
-		{runtime: Runtime{}, account: true, native: true},
-		{runtime: Runtime{CredentialCommand: filepath.Join(t.TempDir(), "helper")}, account: true},
-		{runtime: Runtime{Authentication: AuthenticationClientNative}},
+		{runtime: Runtime{}, aigw: true},
+		{runtime: Runtime{CredentialCommand: filepath.Join(t.TempDir(), "helper")}},
 	} {
-		if test.runtime.RequiresProviderToken() != test.account || test.runtime.UsesAIGWCredentialStore() != test.native {
-			t.Fatalf("credential ownership differs from protocol: %#v", test)
+		if test.runtime.UsesAIGWCredentialStore() != test.aigw {
+			t.Fatalf("UsesAIGWCredentialStore() of %#v = %t", test.runtime, !test.aigw)
 		}
 	}
 }

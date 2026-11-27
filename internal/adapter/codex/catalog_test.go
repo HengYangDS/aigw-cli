@@ -107,7 +107,6 @@ func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 			Model:             routeID,
 			Enabled:           true,
 			Protocol:          domain.ProtocolResponses,
-			ModelProvider:     modelProviderAIGW,
 			CredentialCommand: filepath.Join(t.TempDir(), "credential-reader"),
 		},
 	}

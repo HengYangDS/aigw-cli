@@ -69,7 +69,7 @@ stdout 'Claude +team/team-model · Configured'
 -- token.txt --
 sk-team-token-0001
 -- broken.toml --
-version = 8
+version = 9
 [providers
 -- help.txt --
 AIGW  aigw status
@@ -97,7 +97,7 @@ Next
   aigw setup
 -- empty.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -110,14 +110,12 @@ Next
     "claude": {
       "state": "deferred",
       "detail": "No model is selected",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false
     },
     "claude-desktop": {
       "state": "deferred",
       "detail": "No model is selected",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false,
       "qualified_modes": [
@@ -132,14 +130,12 @@ Next
     "codex": {
       "state": "deferred",
       "detail": "No model is selected",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false
     },
     "hermes": {
       "state": "deferred",
       "detail": "No model is selected",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false
     }
@@ -151,7 +147,7 @@ Next
 }
 -- connected.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -165,7 +161,6 @@ Next
       "state": "configured",
       "model": "team/team-model",
       "provider": "team",
-      "authentication": "provider-token",
       "endpoint_configured": true,
       "transport": "external_loopback",
       "client_files_ready": true
@@ -173,7 +168,6 @@ Next
     "claude-desktop": {
       "state": "deferred",
       "detail": "No model is selected",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false,
       "qualified_modes": [
@@ -192,7 +186,6 @@ Next
       "detail": "The client is not installed",
       "next_detail": "Install Codex if needed, then run `aigw sync`",
       "client_files_deferred": true,
-      "authentication": "provider-token",
       "endpoint_configured": true,
       "transport": "external_loopback",
       "client_files_ready": false
@@ -200,7 +193,6 @@ Next
     "hermes": {
       "state": "deferred",
       "detail": "No model is selected",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false
     }
@@ -233,7 +225,7 @@ Next
   Install Codex if needed, then run `aigw sync`
 -- disabled.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -247,7 +239,6 @@ Next
       "state": "configured",
       "model": "team/team-model",
       "provider": "team",
-      "authentication": "provider-token",
       "endpoint_configured": true,
       "transport": "external_loopback",
       "client_files_ready": true
@@ -255,7 +246,6 @@ Next
     "claude-desktop": {
       "state": "deferred",
       "detail": "No model is selected",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false,
       "qualified_modes": [
@@ -272,7 +262,6 @@ Next
       "model": "team/team-model",
       "provider": "team",
       "detail": "The client is not installed or enabled",
-      "authentication": "provider-token",
       "endpoint_configured": true,
       "transport": "external_loopback",
       "client_files_ready": false
@@ -280,7 +269,6 @@ Next
     "hermes": {
       "state": "deferred",
       "detail": "No model is selected",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false
     }
@@ -361,7 +349,7 @@ Next
   Install Claude if needed, then run `aigw sync`
 -- installed.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -378,7 +366,6 @@ Next
       "detail": "The client is installed, but AIGW has not written its files yet",
       "next_action": "aigw sync",
       "client_files_deferred": true,
-      "authentication": "provider-token",
       "endpoint_configured": true,
       "transport": "external_loopback",
       "client_files_ready": false
@@ -386,7 +373,6 @@ Next
     "claude-desktop": {
       "state": "deferred",
       "detail": "No model is selected",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false,
       "qualified_modes": [
@@ -401,14 +387,12 @@ Next
     "codex": {
       "state": "deferred",
       "detail": "No model is selected",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false
     },
     "hermes": {
       "state": "deferred",
       "detail": "No model is selected",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false
     }

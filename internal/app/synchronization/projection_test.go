@@ -460,45 +460,6 @@ func TestCommitProjectionRepairsUnchangedConfiguration(t *testing.T) {
 	}
 }
 
-func TestClientNativeModelProviderChangesProjectionWithoutAIGWCredentialHelper(t *testing.T) {
-	target := filepath.Join(t.TempDir(), "config.toml")
-	credentialCommand := filepath.Join(t.TempDir(), "aigw")
-	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	before := testConfig(t, target)
-	after := before.Clone()
-	route := after.Models[domain.NewModelRef("gateway", "gpt-test")]
-	route.Family = "openai.gpt-5.6-sol"
-	after.Models[domain.NewModelRef("gateway", "gpt-test")] = route
-	binding := after.Clients[codex.ID]
-	binding.ModelProvider = "amazon-bedrock"
-	binding.Authentication = domain.AuthenticationClientNative
-	after.Clients[codex.ID] = binding
-
-	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
-	if err := configStore.Save(before); err != nil {
-		t.Fatal(err)
-	}
-	syncer := Synchronizer{Stops: &Stops{}, Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), AIGWExecutable: credentialCommand}
-	if err := syncer.Commit(t.Context(), before, after, "native provider"); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(data)
-	if !strings.Contains(text, `model_provider = "amazon-bedrock"`) {
-		t.Fatalf("native projection missing provider:\n%s", text)
-	}
-	for _, forbidden := range []string{"command = " + credentialCommand, `[model_providers.amazon-bedrock.auth]`, `args = ["credential", "codex"]`} {
-		if strings.Contains(text, forbidden) {
-			t.Fatalf("native projection contains AIGW command authentication %q:\n%s", forbidden, text)
-		}
-	}
-}
-
 // environmentBackend is the read-only environment backend that getenv
 // supplies, as an invocation selects it.
 func environmentBackend(getenv func(string) string) secret.Store {

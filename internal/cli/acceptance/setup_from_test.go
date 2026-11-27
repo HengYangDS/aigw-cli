@@ -15,7 +15,6 @@ import (
 	"errors"
 	"io/fs"
 	"maps"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -60,78 +59,6 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output missing %q:\n%s", want, out.String())
 		}
-	}
-}
-
-func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutProviderToken(t *testing.T) {
-	t.Parallel()
-	app, out, _, _, _ := testApp(t, "")
-	credentials := &recordingCredentialStore[string]{backend: secret.NewMemoryStore()}
-	app.Secrets = credentials
-	httpCalls := 0
-	app.HTTP = &fakeHTTP{handler: func(*http.Request) (*http.Response, error) {
-		httpCalls++
-		return nil, errors.New("provider Token probe must not run")
-	}}
-	target := filepath.Join(t.TempDir(), "codex", "config.toml")
-	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{codex.ID: executableFixture(t, "codex")},
-		Surfaces: []discovery.Surface{{
-			ID:          string(codex.HomeDefault),
-			ConfigPath:  target,
-			Present:     true,
-			AutoManaged: true,
-		}},
-	}}
-	manifestPath := writeConfigurationManifest(t, `version = 8
-
-[[providers]]
-id = "aws"
-label = "AWS"
-endpoints = {responses = "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"}
-
-[[providers.models]]
-id = "openai.gpt-5.6-sol"
-family = "gpt-5-6-sol"
-label = "AWS Bedrock"
-protocols = {responses = ["text", "reasoning", "streaming", "tools"]}
-
-[[families]]
-id = "gpt-5-6-sol"
-label = "GPT-5.6 Sol"
-
-[recommendations.codex]
-primary = {model = "aws/openai.gpt-5.6-sol", model_provider = "amazon-bedrock", authentication = "client-native"}
-`)
-
-	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--json"}); err != nil {
-		t.Fatalf("setup client-native Codex: %v", err)
-	}
-	if len(credentials.getCalls)+len(credentials.existsCalls)+len(credentials.setCalls)+len(credentials.deleteCalls) != 0 {
-		t.Fatalf("client-native setup accessed AIGW credentials: get %q exists %q set %q", credentials.getCalls, credentials.existsCalls, credentials.setCalls)
-	}
-	if httpCalls != 0 {
-		t.Fatalf("setup made %d provider Token probes", httpCalls)
-	}
-	var result teamSetupDocument
-	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
-		t.Fatalf("decode setup result: %v\n%s", err, out.String())
-	}
-	if len(result.Tokens) != 0 || result.client(codex.ID).Model != "aws/openai.gpt-5.6-sol" || result.client(codex.ID).State != "configured" {
-		t.Fatalf("setup state = %#v", result)
-	}
-	if !wantNext(result.NextAction, result.NextDetail, "aigw check") {
-		t.Fatalf("setup continuation = %#v", result)
-	}
-	projection := string(readFile(t, target))
-	if !strings.Contains(projection, `model_provider = "amazon-bedrock"`) || strings.Contains(projection, "credential") || strings.Contains(projection, ".auth]") {
-		t.Fatalf("client-native Codex projection is not self-owned:\n%s", projection)
 	}
 }
 

@@ -79,12 +79,6 @@ type ClientSpec struct {
 	OperatorCreatesTargets bool
 	// RetryBudgets marks a client that honors per-connection retry budgets.
 	RetryBudgets bool
-	// DefaultModelProvider is the model provider that a selection uses when it
-	// names none. Only a client with one accepts an explicit model provider.
-	DefaultModelProvider string
-	// ClientNativeAuthentication marks a client that can authenticate with its
-	// own native credentials instead of an Account Token.
-	ClientNativeAuthentication bool
 	// ModelDiscoveryOptional marks a client that works without its endpoint's
 	// model discovery, so a missing discovery endpoint still counts as reachable.
 	ModelDiscoveryOptional bool
@@ -212,13 +206,11 @@ func (endpoints Endpoints) For(protocol EndpointProtocol) string {
 	}
 }
 
-// ClientSelection names one model and the client-specific choices needed to
-// resolve it, without coupling the model to a client brand.
+// ClientSelection names one model and the protocol on which a client uses
+// it, without coupling the model to a client brand.
 type ClientSelection struct {
-	Model          ModelRef
-	Protocol       EndpointProtocol
-	ModelProvider  string
-	Authentication Authentication
+	Model    ModelRef
+	Protocol EndpointProtocol
 }
 
 // ClientRecommendation orders reviewed choices without creating an active
@@ -250,8 +242,6 @@ type ClientBinding struct {
 	Model                      ModelRef
 	Enabled                    bool
 	Protocol                   EndpointProtocol
-	ModelProvider              string
-	Authentication             Authentication
 	Executable                 string
 	Targets                    []string
 	CredentialCommand          string
@@ -289,19 +279,12 @@ func (c *Config) SetForwardingEndpoint(client, endpoint string) error {
 }
 
 func (binding ClientBinding) selection() ClientSelection {
-	return ClientSelection{
-		Model:          binding.Model,
-		Protocol:       binding.Protocol,
-		ModelProvider:  binding.ModelProvider,
-		Authentication: binding.Authentication,
-	}
+	return ClientSelection{Model: binding.Model, Protocol: binding.Protocol}
 }
 
 func (binding ClientBinding) withSelection(selection ClientSelection) ClientBinding {
 	binding.Model = selection.Model
 	binding.Protocol = selection.Protocol
-	binding.ModelProvider = selection.ModelProvider
-	binding.Authentication = selection.Authentication
 	return binding
 }
 
@@ -314,10 +297,11 @@ func (runtime Runtime) CredentialExecutable(native string) string {
 	return native
 }
 
-// UsesAIGWCredentialStore distinguishes AIGW-owned retrieval from an explicitly
-// configured client helper without changing the Provider authentication protocol.
+// UsesAIGWCredentialStore reports whether AIGW reads the provider's Token for
+// the client, rather than an explicitly configured credential command. Every
+// selection sends its provider's Token; only the reader differs.
 func (runtime Runtime) UsesAIGWCredentialStore() bool {
-	return runtime.RequiresProviderToken() && runtime.CredentialCommand == ""
+	return runtime.CredentialCommand == ""
 }
 
 // SetSelectedModel changes one client's model and endpoint protocol while

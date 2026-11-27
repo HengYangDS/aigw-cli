@@ -224,32 +224,6 @@ func TestEnableCodexValidatesTargetsAndPersistsProjection(t *testing.T) {
 	}
 }
 
-func TestEnableCodexWithClientNativeAuthenticationDoesNotAccessProviderTokens(t *testing.T) {
-	cfg := adapterConfig()
-	binding := cfg.Clients[codex.ID]
-	binding.ModelProvider = "amazon-bedrock"
-	binding.Authentication = domain.AuthenticationClientNative
-	cfg.Clients[codex.ID] = binding
-	runtime, _, _, runner := adapterRuntime(t, cfg)
-	runtime.Secrets = unavailableAdapterSecretStore{}
-	target := filepath.Join(t.TempDir(), "configuration.toml")
-	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
-		ID:         string(codex.HomeDefault),
-		ConfigPath: target,
-		Present:    true,
-	}}}}
-
-	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", processtest.Program(t, "/opt/codex"), "--target", target); err != nil {
-		t.Fatalf("enable client-native Codex: %v", err)
-	}
-	if len(runner.plans) != 0 {
-		t.Fatalf("client-native enable attempted credential binding: %#v", runner.plans)
-	}
-}
-
 func TestEnableCodexRejectsUnsafeTargetsAndUnavailableDiscovery(t *testing.T) {
 	cfg := adapterConfig()
 	runtime, _, secretStore, _ := adapterRuntime(t, cfg)

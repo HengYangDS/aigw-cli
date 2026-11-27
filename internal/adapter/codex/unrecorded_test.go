@@ -121,7 +121,7 @@ func TestAnUnparsableRenderingIsRefused(t *testing.T) {
 	if err := requireParsableCodexConfig("[a]\nx = 1\n"); err != nil {
 		t.Fatalf("valid settings = %v", err)
 	}
-	if _, refused := adapter.ConflictStatus(refuseUnrecordedProvider(platform.FileSnapshot{Exists: true, Data: []byte("x = 1\n")}, platform.FileSnapshot{}, "aigw", "config.toml", "config.toml.aigw-state.json")); refused {
+	if _, refused := adapter.ConflictStatus(refuseUnrecordedProvider(platform.FileSnapshot{Exists: true, Data: []byte("x = 1\n")}, platform.FileSnapshot{}, "config.toml", "config.toml.aigw-state.json")); refused {
 		t.Fatal("a file without AIGW's table was refused")
 	}
 }

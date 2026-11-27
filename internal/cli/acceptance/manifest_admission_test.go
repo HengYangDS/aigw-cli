@@ -129,7 +129,7 @@ func TestSetupFromATeamFilePromptsOnlyForTheChosenProviders(t *testing.T) {
 	app.Interactive = true
 	prompt := &scriptedPrompt{multi: [][]string{{"used"}}, secrets: []string{"aigw-test-used-token"}}
 	app.Prompt = prompt
-	manifestPath := writeConfigurationManifest(t, `version = 8
+	manifestPath := writeConfigurationManifest(t, `version = 9
 
 [[providers]]
 id = "unused"
@@ -170,7 +170,7 @@ primary = {model = "used/claude-test"}
 func TestSetupFromConfigurationManifestRejectsModelWithoutID(t *testing.T) {
 	t.Parallel()
 	app, _, secretStore, _, _ := testApp(t, "")
-	manifestPath := writeConfigurationManifest(t, `version = 8
+	manifestPath := writeConfigurationManifest(t, `version = 9
 
 [[providers]]
 id = "team"
@@ -255,7 +255,7 @@ func TestManifestDecodeFailureKeepsNativeTypesOutOfPublicOutput(t *testing.T) {
 	}{{name: "human"}, {name: "JSON", json: true}} {
 		t.Run(mode.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
-			path := writeConfigurationManifest(t, "version = 8\n[recommendations.codex]\nprimary = 'invalid-shape'\n")
+			path := writeConfigurationManifest(t, "version = 9\n[recommendations.codex]\nprimary = 'invalid-shape'\n")
 			args := []string{"setup", "--from", path}
 			if mode.json {
 				args = append(args, "--json")

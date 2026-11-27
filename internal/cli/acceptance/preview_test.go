@@ -111,7 +111,7 @@ func TestSetupPreviewsUseNoCredential(t *testing.T) {
 func recommendingManifest(t *testing.T) string {
 	t.Helper()
 	manifest := filepath.Join(t.TempDir(), "team.toml")
-	writeFile(t, manifest, []byte(`version = 8
+	writeFile(t, manifest, []byte(`version = 9
 
 [[providers]]
 id = "team"

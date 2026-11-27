@@ -7,15 +7,16 @@ import (
 	"aigw-cli/internal/app"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 )
 
 // schemaVersion is the version of `aigw check`'s JSON document, which
 // replaces the documents of check, doctor, test and verify, the highest of
-// which was 2. Version 4 adds failure.client_report.
-const schemaVersion = 5
+// which was 2. Version 4 adds failure.client_report; version 6 drops each
+// client's authentication, which every client now takes from its provider's
+// Token.
+const schemaVersion = 6
 
 // document is `aigw check`'s JSON document: the depth asked for, each checked
 // client's climb with its local checks, the checks that every client shares,
@@ -50,7 +51,6 @@ type clientDocument struct {
 	Model                 string                    `json:"model,omitempty"`
 	Provider              string                    `json:"provider,omitempty"`
 	Protocol              string                    `json:"protocol,omitempty"`
-	Authentication        domain.Authentication     `json:"authentication,omitempty"`
 	Transport             app.EndpointTransportKind `json:"transport,omitempty"`
 	State                 domainreadiness.State     `json:"state"`
 	Depth                 depth                     `json:"depth,omitempty"`
@@ -109,7 +109,7 @@ func (r *result) documented(verbose bool) clientDocument {
 		Skipped: append([]skip{}, r.skipped...), Checks: documentedChecks(r.checks), NativeModelPreference: r.native, ClientModel: r.nativeModel,
 	}
 	if r.resolved {
-		doc.Provider, doc.Protocol, doc.Authentication = r.runtime.ProviderID, r.runtime.Protocol.Name(), r.runtime.Authentication
+		doc.Provider, doc.Protocol = r.runtime.ProviderID, r.runtime.Protocol.Name()
 		doc.Transport = app.EndpointTransport(r.runtime.Endpoint)
 	}
 	if r.session != nil {

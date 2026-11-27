@@ -13,18 +13,18 @@ import (
 func TestARefusedTeamFileNamesTheEntryToChange(t *testing.T) {
 	const provider = "[[providers]]\nid = \"a\"\nlabel = \"A\"\nendpoints = {responses = \"https://a.test/v1\"}\n"
 	for _, test := range []struct{ name, file, entry string }{
-		{"an undefined field", "version = 8\n[[providers]]\nid = \"a\"\nbogus = 1\n", "the field `providers.bogus` on line 4"},
-		{"a credential field", "version = 8\n" + provider + "token = \"x\"\n", "the field `providers.token`"},
-		{"an invalid provider ID", "version = 8\n[[providers]]\nid = \"A b\"\nlabel = \"A\"\nendpoints = {responses = \"https://a.test/v1\"}\n", "provider `A b`"},
-		{"an empty label", "version = 8\n[[providers]]\nid = \"a\"\nendpoints = {responses = \"https://a.test/v1\"}\n", "provider `a`"},
-		{"an invalid endpoint", "version = 8\n[[providers]]\nid = \"a\"\nlabel = \"A\"\nendpoints = {responses = \"ftp://a.test\"}\n", "provider `a`"},
-		{"an unknown protocol", "version = 8\n" + provider + "[[providers.models]]\nid = \"m\"\nprotocols = {bogus = []}\n", "model `a/m`"},
-		{"an unknown capability", "version = 8\n" + provider + "[[providers.models]]\nid = \"m\"\nprotocols = {responses = [\"bogus\"]}\n", "model `a/m`"},
-		{"an invalid family", "version = 8\n" + provider + "[[providers.models]]\nid = \"m\"\nfamily = \"a b\"\nprotocols = {responses = []}\n", "model `a/m`"},
-		{"a family without a label", "version = 8\n" + provider + "[[families]]\nid = \"f\"\n", "family `f`"},
-		{"a recommendation of an unknown client", "version = 8\n" + provider + "[recommendations.nobody]\nprimary = {model = \"a/m\"}\n", "the `nobody` recommendation"},
-		{"a recommendation of an unknown model", "version = 8\n" + provider + "[recommendations.codex]\nprimary = {model = \"a/m\"}\n", "the `codex` recommendation"},
-		{"a model on a protocol without an endpoint", "version = 8\n" + provider + "[[providers.models]]\nid = \"m\"\nprotocols = {chat = []}\n", "model `a/m`"},
+		{"an undefined field", "version = 9\n[[providers]]\nid = \"a\"\nbogus = 1\n", "the field `providers.bogus` on line 4"},
+		{"a credential field", "version = 9\n" + provider + "token = \"x\"\n", "the field `providers.token`"},
+		{"an invalid provider ID", "version = 9\n[[providers]]\nid = \"A b\"\nlabel = \"A\"\nendpoints = {responses = \"https://a.test/v1\"}\n", "provider `A b`"},
+		{"an empty label", "version = 9\n[[providers]]\nid = \"a\"\nendpoints = {responses = \"https://a.test/v1\"}\n", "provider `a`"},
+		{"an invalid endpoint", "version = 9\n[[providers]]\nid = \"a\"\nlabel = \"A\"\nendpoints = {responses = \"ftp://a.test\"}\n", "provider `a`"},
+		{"an unknown protocol", "version = 9\n" + provider + "[[providers.models]]\nid = \"m\"\nprotocols = {bogus = []}\n", "model `a/m`"},
+		{"an unknown capability", "version = 9\n" + provider + "[[providers.models]]\nid = \"m\"\nprotocols = {responses = [\"bogus\"]}\n", "model `a/m`"},
+		{"an invalid family", "version = 9\n" + provider + "[[providers.models]]\nid = \"m\"\nfamily = \"a b\"\nprotocols = {responses = []}\n", "model `a/m`"},
+		{"a family without a label", "version = 9\n" + provider + "[[families]]\nid = \"f\"\n", "family `f`"},
+		{"a recommendation of an unknown client", "version = 9\n" + provider + "[recommendations.nobody]\nprimary = {model = \"a/m\"}\n", "the `nobody` recommendation"},
+		{"a recommendation of an unknown model", "version = 9\n" + provider + "[recommendations.codex]\nprimary = {model = \"a/m\"}\n", "the `codex` recommendation"},
+		{"a model on a protocol without an endpoint", "version = 9\n" + provider + "[[providers.models]]\nid = \"m\"\nprotocols = {chat = []}\n", "model `a/m`"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			home := newGuidedHome(t)
@@ -50,7 +50,7 @@ func TestARefusedTeamFileNamesTheEntryToChange(t *testing.T) {
 // local configuration holds is relabelled or removed by its own command, and
 // two of the file's own models in the file.
 func TestATeamFileThatSharesALabelNamesWhereToCorrectIt(t *testing.T) {
-	const file = "version = 8\n[[providers]]\nid = \"a\"\nlabel = \"A\"\nendpoints = {responses = \"https://a.test/v1\"}\n" +
+	const file = "version = 9\n[[providers]]\nid = \"a\"\nlabel = \"A\"\nendpoints = {responses = \"https://a.test/v1\"}\n" +
 		"[[providers.models]]\nid = \"new-id\"\nfamily = \"f\"\nprotocols = {responses = []}\n" +
 		"[[families]]\nid = \"f\"\nlabel = \"Shared\"\n"
 	home := newGuidedHome(t)

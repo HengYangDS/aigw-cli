@@ -181,7 +181,7 @@ func TestShowNamesTheCredentialBackend(t *testing.T) {
 // installed AIGW and the configuration's location.
 func TestProviderCommandsRefuseAConfigurationFromANewerSchema(t *testing.T) {
 	f := newFixture(t)
-	data := strings.Replace(f.configuration(t), "version = 8", "version = 99", 1)
+	data := strings.Replace(f.configuration(t), "version = 9", "version = 99", 1)
 	if err := os.WriteFile(f.path, []byte(data), 0o600); err != nil {
 		t.Fatal(err)
 	}

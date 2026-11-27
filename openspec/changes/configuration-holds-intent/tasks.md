@@ -3,7 +3,7 @@
 - [x] 1.1 Write the deltas of every capability that schema 9 changes. Done when
       `openspec validate configuration-holds-intent --strict` passes and the lane's archive rehearsal reports every
       merged specification within the size limit.
-- [ ] 1.2 Add DR-0013 to `docs/decisions/` with its index entry, and DR-0012 point 4's sentence on removing
+- [x] 1.2 Add DR-0013 to `docs/decisions/` with its index entry, and DR-0012 point 4's sentence on removing
       `authentication`. Done when the prose and Markdown gates pass on the three files.
 
 ## 2. Schema 9 without the client-native path
@@ -11,15 +11,15 @@
 - [ ] 2.1 Move the configuration and team-file version to 9 and refuse version 8 before reading anything else, with the
       fixed text that names the three edits. Done when a store test pins the refusal of a version 8 file and of a
       version 9 file that still holds `executable`, `authentication` or `model_provider`, each by field and line.
-- [ ] 2.2 Remove `authentication` and `model_provider` from the client and recommendation documents and the domain,
+- [x] 2.2 Remove `authentication` and `model_provider` from the client and recommendation documents and the domain,
       the client specification's two client-native fields, and their validation and retry rules. Done when no source
       outside tests names the removed identifiers and the package tests of `internal/domain/...`, `internal/store/...`
       and `internal/cli/setup/...` pass.
-- [ ] 2.3 Write Codex's provider table always under AIGW's own provider name with the credential command. Done when
+- [x] 2.3 Write Codex's provider table always under AIGW's own provider name with the credential command. Done when
       the package tests of `internal/adapter/codex/...` pass and no Codex test projects a client-native table.
-- [ ] 2.4 Stop decoding `authentication` in the credential reader's view. Done when the reader's tests pass and the
+- [x] 2.4 Stop decoding `authentication` in the credential reader's view. Done when the reader's tests pass and the
       view decodes only providers' IDs and endpoints and clients' enabled state.
-- [ ] 2.5 Move `manifests/team.toml` and `aigw config export` to version 9. Done when the shipped team file's test and
+- [x] 2.5 Move `manifests/team.toml` and `aigw config export` to version 9. Done when the shipped team file's test and
       the export tests pass.
 
 ## 3. The program declaration

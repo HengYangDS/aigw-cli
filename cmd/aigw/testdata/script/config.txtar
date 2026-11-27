@@ -71,7 +71,7 @@ cmp stdout path-refusal.json
 fixloop -input stdout aigw config path extra --json
 
 -- manifest.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "team"
@@ -88,7 +88,7 @@ protocols = {anthropic = ["text"]}
 id = "team-model"
 label = "Team Model"
 -- broken.toml --
-version = 8
+version = 9
 [providers
 -- help.txt --
 AIGW  aigw config
@@ -110,7 +110,7 @@ $HOME/Library/Application Support/aigw/aigw.toml
 -- path-linux.txt --
 $HOME/aigw/aigw.toml
 -- export.toml --
-version = 8
+version = 9
 
 [[providers]]
 id = 'team'

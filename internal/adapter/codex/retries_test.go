@@ -19,7 +19,7 @@ func TestCodexConnectionRetryProjectionIsExplicitAndGuarded(t *testing.T) {
 	runtime := domain.Runtime{
 		Client: ID, Model: domain.NewModelRef("test", "gpt-6.1-sol"), ModelLabel: "Test",
 		ProviderID: "test", Endpoint: "https://endpoint.test/v1", UpstreamModel: "gpt-6.1-sol",
-		ModelProvider: "test-provider", Authentication: domain.AuthenticationClientNative,
+		CredentialCommand: filepath.Join(t.TempDir(), "aigw"),
 	}
 	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)

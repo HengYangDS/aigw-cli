@@ -426,40 +426,6 @@ func (store *refusingSecretStore) Exists(string) (bool, error) {
 	return false, errors.New("credential observation is forbidden")
 }
 
-func TestCredentialHelperRejectsClientNativeBeforeSecretAccess(t *testing.T) {
-	runtime, buffer := helperRuntime(t, codex.ID, true)
-	cfg, err := runtime.Config.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	binding := cfg.Clients[codex.ID]
-	binding.ModelProvider = "amazon-bedrock"
-	binding.Authentication = domain.AuthenticationClientNative
-	cfg.Clients[codex.ID] = binding
-	if err := runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	store := &refusingSecretStore{}
-	runtime.Secrets = store
-	command := NewCommand(runtime)
-
-	err = command.RunE(command, helperArgs(t, runtime, codex.ID))
-	if err == nil || !strings.Contains(err.Error(), "client-owned authentication") {
-		t.Fatalf("credential helper error = %v", err)
-	}
-	var stderr bytes.Buffer
-	terminal.RenderError(terminal.NewRenderer(&stderr, false), err, false)
-	if !strings.Contains(stderr.String(), "aigw check codex --depth client") {
-		t.Fatalf("client-owned recovery action missing: %q", stderr.String())
-	}
-	if store.getCalls != 0 || store.existsCalls != 0 {
-		t.Fatalf("credential helper accessed client-native credentials: get=%d exists=%d", store.getCalls, store.existsCalls)
-	}
-	if buffer.Len() != 0 {
-		t.Fatalf("credential helper wrote stdout: %q", buffer.String())
-	}
-}
-
 func TestCredentialHelperReportsSafeNativeStatusWithoutRetry(t *testing.T) {
 	runtime, output := helperRuntime(t, codex.ID, true)
 	store := &refusingSecretStore{readError: &native.KeychainError{Status: -25308}}

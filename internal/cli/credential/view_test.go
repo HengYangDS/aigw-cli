@@ -1,6 +1,7 @@
 package credential
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -24,13 +25,14 @@ func editConfiguration(t *testing.T, data []byte, replacements ...string) []byte
 }
 
 // The reader decodes only its view: a newer version, fields that it does not
-// know, a field outside the view that the program would refuse, and a
-// protocol that it does not know leave the Token that the fingerprint names,
-// and standard output holds that Token alone.
+// know, a field outside the view that the program would refuse, the fields
+// that schema 8 held and schema 9 removed, and a protocol that it does not
+// know leave the Token that the fingerprint names, and standard output holds
+// that Token alone.
 func TestCredentialReaderIgnoresWhatItsViewLeavesOut(t *testing.T) {
 	for name, replacements := range map[string][]string{
 		"a newer version and unknown fields": {
-			"version = 8", "version = 99\nfuture = 'unknown'",
+			fmt.Sprintf("version = %d", domain.ConfigVersion), "version = 99\nfuture = 'unknown'",
 			"label = 'Gateway'", "label = 'Gateway'\nregion = 'eu'",
 			"id = 'codex-team'", "id = 'codex-team'\ntier = 'priority'",
 			"enabled = true", "enabled = true\ntheme = 'dark'\n\n[telemetry]\nlevel = 2",
@@ -39,6 +41,9 @@ func TestCredentialReaderIgnoresWhatItsViewLeavesOut(t *testing.T) {
 			"label = 'Gateway'", "label = 5",
 			"protocols = { responses = [] }", "protocols = 'responses'\ndeprecated = 'yes'\nfamily = 7",
 			"protocol = 'responses'", "protocol = 'messages'\nretries = 'many'",
+		},
+		"the fields that schema 9 removed": {
+			"executable = 'codex'", "executable = 'codex'\nauthentication = 'client-native'\nmodel_provider = 'amazon-bedrock'",
 		},
 		"protocols that the reader does not know": {
 			"endpoints = { responses = 'https://gateway.test/v1' }", "endpoints = { responses = 'https://gateway.test/v1', messages = 'https://gateway.test/messages' }",
@@ -78,8 +83,6 @@ func TestCredentialReaderRefusesAClientItCannotServe(t *testing.T) {
 		args                 func([]string) []string
 	}{
 		{name: "disabled", from: "enabled = true", to: "enabled = false", want: "adapter is not enabled"},
-		{name: "authenticated by the client", from: "executable = 'codex'", to: "executable = 'codex'\nauthentication = 'client-native'", want: "client-owned authentication"},
-		{name: "an unknown authentication", from: "executable = 'codex'", to: "executable = 'codex'\nauthentication = 'device-code'", want: `the authentication "device-code", which this credential reader does not know`},
 		{name: "an endpoint that matches no fingerprint", from: "https://gateway.test/v1", to: "https://moved.test/v1", want: "no longer matches"},
 		{name: "a fingerprint of another client", want: "no longer matches", args: func(args []string) []string {
 			return []string{args[0], strings.Repeat("0", len(args[1]))}

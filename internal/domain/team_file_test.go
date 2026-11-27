@@ -139,26 +139,10 @@ func TestModelLabelsAndProtocolClients(t *testing.T) {
 	}
 }
 
-// TestSelectionValidationNamesTheField refuses a recommendation's model
-// provider and authentication that its client cannot use.
+// TestSelectionValidationNamesTheField refuses, naming the field, a client's
+// credential command that is not one absolute path and a family ID that is
+// not an identifier.
 func TestSelectionValidationNamesTheField(t *testing.T) {
-	ref := NewModelRef("gateway", "gpt-test")
-	for _, test := range []struct {
-		selection ClientSelection
-		want      string
-	}{
-		{ClientSelection{Model: ref, ModelProvider: "Bad Provider"}, `invalid model provider "Bad Provider"`},
-		{ClientSelection{Model: ref, Authentication: AuthenticationClientNative}, "client-native authentication requires model_provider"},
-		{ClientSelection{Model: ref, Authentication: "password"}, `invalid authentication "password"`},
-	} {
-		cfg := NewConfig(testAdmission())
-		cfg.Providers["gateway"] = Provider{Label: "Gateway", Endpoints: Endpoints{Responses: "https://gateway.test/v1"}}
-		cfg.Models[ref] = Model{Provider: "gateway", ID: "gpt-test", Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}}}
-		cfg.Recommendations[ClientCodex] = ClientRecommendation{Primary: test.selection}
-		if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), test.want) {
-			t.Errorf("%+v = %v, want %q", test.selection, err, test.want)
-		}
-	}
 	cfg := NewConfig(testAdmission())
 	cfg.Clients[ClientCodex] = ClientBinding{CredentialCommand: "relative/aigw"}
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "credential_command must be one absolute executable path") {

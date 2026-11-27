@@ -278,9 +278,11 @@ func (s Store) LoadBackup() (domain.Config, error) {
 	return decodeTOMLConfig(data, s.admission)
 }
 
-// decodeTOMLConfig decodes a schema 8 configuration: another version is
-// refused by its number before any other field is read, and a field that
-// schema 8 does not define by its name.
+// decodeTOMLConfig decodes a configuration of the schema that this build
+// reads. Another version is refused by its number before any other field is
+// read, and the refusal of the version that this schema replaced names the
+// edits that bring a file here; a field that the schema does not define is
+// refused by its name.
 func decodeTOMLConfig(data []byte, admission domain.Admission) (domain.Config, error) {
 	version, err := readVersion(data)
 	if err != nil {

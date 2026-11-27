@@ -240,7 +240,7 @@ func (t teamSetup) client(after domain.Config, spec domain.ClientSpec, connected
 	}
 	item.Model, item.State = selected.Model.String(), clientConfigured
 	switch next := clientactivation.ProjectionPrerequisites(after)[spec.ID]; {
-	case selected.RequiresProviderToken() && !slices.Contains(connected, selected.ProviderID):
+	case !slices.Contains(connected, selected.ProviderID):
 		item.State, item.problem = clientWaitsForToken, t.tokenProblem(selected.ProviderID)
 		item.NextAction, item.NextDetail = terminal.NextSteps(t.tokenStep(selected.ProviderID, states[selected.ProviderID]))
 	case next != "":

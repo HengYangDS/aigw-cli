@@ -221,8 +221,7 @@ func TestACodexTargetsOwnFailureKeepsTheAdaptersStatus(t *testing.T) {
 
 // TestCodexInspectionSaysWhereAIGWWritesNoTable holds the scenario "AIGW
 // writes no table for a Codex target": the configuration names a model table
-// of the user's own, or the model runs under a model provider of Codex's own,
-// so Codex is not given the declared window. The passing check names the
+// of the user's own, so Codex is not given the declared window. The passing check names the
 // window, the model and the reason, beside the target's own check.
 func TestCodexInspectionSaysWhereAIGWWritesNoTable(t *testing.T) {
 	const model = "gpt-6.2-sol-cdx"
@@ -238,16 +237,6 @@ func TestCodexInspectionSaysWhereAIGWWritesNoTable(t *testing.T) {
 			},
 			edit:   func(cfg domain.Config) domain.Config { return declareWindow(cfg, 400_000) },
 			reason: "this configuration names its own model table in model_catalog_json, which AIGW leaves alone",
-		},
-		"a model provider of Codex's own": {
-			config: func(*testing.T) string { return "model_provider = \"native\"\n" },
-			edit: func(cfg domain.Config) domain.Config {
-				binding := cfg.Clients[ID]
-				binding.ModelProvider, binding.Authentication = "amazon-bedrock", domain.AuthenticationClientNative
-				cfg.Clients[ID] = binding
-				return cfg
-			},
-			reason: "the model runs under Codex's model provider amazon-bedrock, for which AIGW writes no model table",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

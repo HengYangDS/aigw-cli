@@ -3,7 +3,7 @@
 # reader, is a home without a configuration: bare aigw names aigw setup and
 # exits 0, and a command that needs a configuration names it. setup, use and
 # sync leave each of those files as it was, and once aigw.toml exists, only
-# it loads. An aigw.toml with a field that schema 8 does not define, or in
+# it loads. An aigw.toml with a field that schema 9 does not define, or in
 # another version, is refused by name, and nothing is written.
 [darwin] env CONF=$HOME/Library/Application' 'Support/aigw
 [!darwin] env CONF=$HOME/aigw
@@ -76,28 +76,37 @@ exec aigw status
 stdout 'Claude +team/team-model'
 cmp $CONF/config.toml earlier/config.toml
 
-# aigw.toml with a field that schema 8 does not define, or in another
+# aigw.toml with a field that schema 9 does not define, or in another
 # version: the full program refuses, naming the field or the version, and
-# writes nothing.
+# writes nothing. A file of version 8 is refused with the three edits that
+# make it schema 9, before any of its fields is read.
 cp $CONF/aigw.toml valid.toml
 envsubst undefined.in $CONF/aigw.toml
 snapshot $HOME undefined-before.txt
 exitcode 1 aigw status
-stdout 'stopped at the configuration validate stage: schema 8 does not define the field providers.order, on line 6\.'
+stdout 'stopped at the configuration validate stage: schema 9 does not define the field providers.order, on line 6\.'
 exitcode 1 aigw use claude team/team-model
-stdout 'schema 8 does not define the field providers.order, on line 6'
+stdout 'schema 9 does not define the field providers.order, on line 6'
 exitcode 1 aigw sync --json
-stdout '"evidence": "AIGW [^"]+ stopped at the configuration validate stage: schema 8 does not define the field providers.order, on line 6\."'
+stdout '"evidence": "AIGW [^"]+ stopped at the configuration validate stage: schema 9 does not define the field providers.order, on line 6\."'
 snapshot $HOME undefined-after.txt
 cmp undefined-after.txt undefined-before.txt
 envsubst newer.in $CONF/aigw.toml
 snapshot $HOME newer-before.txt
 exitcode 1 aigw status
-stdout 'unsupported configuration version: found 9, expected 8'
+stdout 'unsupported configuration version: found 10, expected 9'
 exitcode 1 aigw use claude team/team-model
-stdout 'found 9, expected 8'
+stdout 'found 10, expected 9'
 snapshot $HOME newer-after.txt
 cmp newer-after.txt newer-before.txt
+envsubst replaced.in $CONF/aigw.toml
+snapshot $HOME replaced-before.txt
+exitcode 1 aigw status
+stdout 'unsupported configuration version: found 8, expected 9'
+stdout 'Edit the configuration file: set `version = 9`; rename each client''s `executable` to `program`; delete `authentication` and `model_provider` wherever they appear\.'
+! stdout 'does not define'
+snapshot $HOME replaced-after.txt
+cmp replaced-after.txt replaced-before.txt
 cp valid.toml $CONF/aigw.toml
 
 # The first setup after an upgrade has no earlier selection. It keeps the
@@ -160,7 +169,7 @@ sk-team-token-0001
 -- legacy-token.txt --
 sk-legacy-token-0002
 -- team.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "team"
@@ -179,7 +188,7 @@ label = "Team Model"
 [recommendations.claude]
 primary = {model = "team/team-model"}
 -- desktop-team.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "team"
@@ -256,15 +265,26 @@ Get started
 Next
   aigw setup
 -- undefined.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "team"
 label = "Team Gateway"
 order = 10
 endpoints = { anthropic = "$UPSTREAM" }
+-- replaced.in --
+version = 8
+
+[[providers]]
+id = "team"
+label = "Team Gateway"
+endpoints = { anthropic = "$UPSTREAM" }
+
+[clients.claude]
+model_provider = "amazon-bedrock"
+authentication = "client-native"
 -- newer.in --
-version = 9
+version = 10
 
 [[providers]]
 id = "team"

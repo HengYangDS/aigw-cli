@@ -180,8 +180,8 @@ func (c *checker) selectionFix(id string) string {
 }
 
 // tokenCheck observes whether the client's provider has a Token, reading its
-// metadata only. A client that authenticates itself, or whose Token an
-// external helper supplies, needs none from AIGW. A Keychain item that macOS
+// metadata only. A client whose Token an external helper supplies needs none
+// from AIGW. A Keychain item that macOS
 // refuses AIGW is there and is no Token that the client can use: the check
 // fails with that item's title and fix.
 func (c *checker) tokenCheck(r result) localCheck {
@@ -191,8 +191,6 @@ func (c *checker) tokenCheck(r result) localCheck {
 		return skippedCheck(name, label, "No model resolves, so no provider's Token applies")
 	case c.named.token != "":
 		return skippedCheck(name, label, "The one-time Token from standard input replaces the stored Token for this check")
-	case !r.runtime.RequiresProviderToken():
-		return skippedCheck(name, label, c.admission().ProductName(r.spec.ID)+" uses its own authentication, so AIGW reads no Token for it")
 	case r.runtime.CredentialCommand != "":
 		return skippedCheck(name, label, "An external credential helper gives "+c.admission().ProductName(r.spec.ID)+" its Token")
 	}

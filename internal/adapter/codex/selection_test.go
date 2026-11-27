@@ -21,7 +21,7 @@ func BenchmarkCodexProjection(b *testing.B) {
 	b.SetBytes(int64(len(original)))
 	b.ResetTimer()
 	for b.Loop() {
-		if _, err := projectCodex(original, block, runtime.UpstreamModel, "", "aigw"); err != nil {
+		if _, err := projectCodex(original, block, runtime.UpstreamModel, ""); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -20,16 +20,16 @@ import (
 // of the client that uses the model.
 
 // A model read observes no credential: `aigw model list` and `aigw model
-// show`, in text and JSON, never ask the credential backend, name no client's
-// authentication, which belongs to the client, and write nothing.
-func TestModelReadsNeitherObserveCredentialsNorShowClientAuthentication(t *testing.T) {
+// show`, in text and JSON, never ask the credential backend, show no Token
+// and no field of a client, and write nothing.
+func TestModelReadsNeitherObserveCredentialsNorShowClientFields(t *testing.T) {
 	t.Parallel()
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["native"] = domain.Provider{Label: "Native", Endpoints: domain.Endpoints{Responses: "https://native.test/v1"}}
 	cfg.Models[domain.NewModelRef("native", "native-model")] = domain.Model{Label: "Native", Provider: "native", Family: "native-model", ID: "native-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
-	cfg.Clients[codex.ID] = domain.ClientBinding{Model: domain.NewModelRef("native", "native-model"), ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative}
+	cfg.Clients[codex.ID] = domain.ClientBinding{Model: domain.NewModelRef("native", "native-model")}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -45,8 +45,8 @@ func TestModelReadsNeitherObserveCredentialsNorShowClientAuthentication(t *testi
 			t.Fatalf("%v: %v\n%s", args, err, out)
 		}
 		text := out.String()
-		if strings.Contains(text, "model-read-token-must-not-appear") || strings.Contains(text, "Authentication") || strings.Contains(text, "amazon-bedrock") {
-			t.Fatalf("%v shows a Token or the client's authentication:\n%s", args, text)
+		if strings.Contains(text, "model-read-token-must-not-appear") || strings.Contains(text, "Authentication") {
+			t.Fatalf("%v shows a Token or an authentication:\n%s", args, text)
 		}
 		for _, field := range []string{"authentication", "model_provider", "secret_available", "credential_ownership"} {
 			if strings.Contains(text, `"`+field+`"`) {

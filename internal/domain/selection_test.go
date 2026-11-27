@@ -408,26 +408,26 @@ func TestDomainErrorTextAndModelSelectionBranches(t *testing.T) {
 	}
 }
 
+// A recommendation's protocol comes with its own model and its provider's
+// models; another provider's model takes none of it.
 func TestSelectedModelCopiesRecommendedOptionsOnlyForItsProvider(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Providers["native"] = Provider{Label: "Native", Endpoints: Endpoints{Responses: "https://native.test/v1"}}
-	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{Responses: "https://team.test/v1"}}
-	cfg.Models[NewModelRef("native", "gpt-native")] = testModel("Native", "native", "gpt-native", ProtocolResponses)
-	cfg.Models[NewModelRef("team", "gpt-team")] = testModel("Team", "team", "gpt-team", ProtocolResponses)
-	cfg.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{
-		Model: NewModelRef("native", "gpt-native"), ModelProvider: "native-provider", Authentication: AuthenticationClientNative,
-	}}
+	both := Endpoints{Anthropic: "https://native.test", Responses: "https://native.test/v1"}
+	cfg.Providers["native"] = Provider{Label: "Native", Endpoints: both}
+	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: both}
+	cfg.Models[NewModelRef("native", "gpt-native")] = testModel("Native", "native", "gpt-native", ProtocolAnthropic, ProtocolResponses)
+	cfg.Models[NewModelRef("team", "gpt-team")] = testModel("Team", "team", "gpt-team", ProtocolAnthropic, ProtocolResponses)
+	cfg.Recommendations[ClientHermes] = ClientRecommendation{Primary: ClientSelection{Model: NewModelRef("native", "gpt-native"), Protocol: ProtocolAnthropic}}
 
 	other := cfg.Clone()
-	other.SetSelectedModel(ClientCodex, NewModelRef("team", "gpt-team"), "")
-	runtime, err := other.ResolveRuntime(ClientCodex, ModelRef{})
-	if err != nil || !runtime.RequiresProviderToken() || other.Clients[ClientCodex].ModelProvider != "" {
-		t.Fatalf("another Account's Route inherited the recommendation's native options: %#v, %v", other.Clients[ClientCodex], err)
+	other.SetSelectedModel(ClientHermes, NewModelRef("team", "gpt-team"), "")
+	if binding := other.Clients[ClientHermes]; binding.Protocol != "" {
+		t.Fatalf("another provider's model inherited the recommendation's protocol: %#v", binding)
 	}
 	recommended := cfg.Clone()
-	recommended.SetSelectedModel(ClientCodex, NewModelRef("native", "gpt-native"), "")
-	if binding := recommended.Clients[ClientCodex]; binding.Authentication != AuthenticationClientNative || binding.ModelProvider != "native-provider" {
-		t.Fatalf("the recommended Route lost its native options: %#v", binding)
+	recommended.SetSelectedModel(ClientHermes, NewModelRef("native", "gpt-native"), "")
+	if binding := recommended.Clients[ClientHermes]; binding.Protocol != ProtocolAnthropic {
+		t.Fatalf("the recommended model lost its protocol: %#v", binding)
 	}
 }
 

@@ -15,17 +15,13 @@ import (
 	"strings"
 )
 
-// Authentication identifies which boundary owns the credentials of a
-// client's selection.
-type Authentication string
-
 // Capability identifies one behavior qualified for a model on one protocol.
 type Capability string
 
 const (
 	// ConfigVersion is the only schema version of aigw.toml and of a team
 	// file that this build reads and writes.
-	ConfigVersion = 8
+	ConfigVersion = 9
 
 	// DefaultContextWindow is the context window, in tokens, of a model that
 	// declares none.
@@ -37,12 +33,6 @@ const (
 	// may declare: Codex multiplies a window by 95 in 64-bit integers, which
 	// 100,000,000 keeps far from an overflow.
 	MaxContextWindow int = 100_000_000
-
-	// AuthenticationProviderToken sends the provider's Token, which AIGW
-	// stores.
-	AuthenticationProviderToken Authentication = "provider-token"
-	// AuthenticationClientNative delegates authentication to the selected client's native credential chain.
-	AuthenticationClientNative Authentication = "client-native"
 
 	// CapabilityText identifies ordinary text input and output.
 	CapabilityText Capability = "text"
@@ -66,7 +56,6 @@ const (
 )
 
 var identifierPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
-var modelProviderPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 
 // Config is the typed source of truth for providers and their models,
 // families, recommendations and clients. Its maps find an entry by its
@@ -184,8 +173,6 @@ type Runtime struct {
 	Protocol          EndpointProtocol `json:"protocol"`
 	UpstreamModel     string           `json:"upstream_model,omitempty"`
 	FamilyID          string           `json:"family,omitempty"`
-	ModelProvider     string           `json:"model_provider"`
-	Authentication    Authentication   `json:"authentication"`
 	CredentialCommand string           `json:"-"`
 	// FamilyVariants maps the family of each of the selection's FamilyModels
 	// that serves its family under another ID to that model's ID: the
@@ -212,12 +199,6 @@ func (runtime Runtime) ModelName() string {
 		return runtime.ModelLabel[len(prefix):]
 	}
 	return runtime.ModelLabel
-}
-
-// RequiresProviderToken reports whether the selection sends the provider's
-// Token. A selection that names no authentication sends it.
-func (runtime Runtime) RequiresProviderToken() bool {
-	return runtime.Authentication == "" || runtime.Authentication == AuthenticationProviderToken
 }
 
 // CredentialProjectionFingerprint hashes the client, provider and upstream
@@ -405,8 +386,8 @@ func (c *Config) SelectedProviderIDs() []string {
 }
 
 // RequiredProviderTokenIDs returns the providers whose Tokens AIGW reads for
-// the enabled clients, in sorted order. Client-native authentication and
-// external readers keep their credential ownership.
+// the enabled clients, in sorted order. A client whose Token an external
+// reader supplies needs none from AIGW.
 func (c *Config) RequiredProviderTokenIDs() []string {
 	required := map[string]bool{}
 	for _, client := range c.EnabledClientIDs() {
@@ -419,10 +400,9 @@ func (c *Config) RequiredProviderTokenIDs() []string {
 }
 
 // SelectModelsForConnectedProviders keeps every model while filling the
-// selections of clients without one whose authentication is usable now. A
-// client-native selection is usable without a Token; a provider-token
-// selection only when its provider is connected. The first usable
-// recommendation wins, and an existing selection is never replaced.
+// selections of clients without one from the recommendations whose provider
+// is connected. The first such recommendation wins, and an existing
+// selection is never replaced.
 func (c *Config) SelectModelsForConnectedProviders(providerIDs []string, clients ...string) (Config, error) {
 	selected := c.Clone()
 	connected := make(map[string]bool, len(providerIDs))
@@ -440,7 +420,7 @@ func (c *Config) SelectModelsForConnectedProviders(providerIDs []string, clients
 		if !binding.Model.IsZero() {
 			continue
 		}
-		selection := selected.modelForAvailableAuthentication(client, connected)
+		selection := selected.modelForConnectedProvider(client, connected)
 		if selection.Model.IsZero() {
 			continue
 		}
@@ -451,23 +431,19 @@ func (c *Config) SelectModelsForConnectedProviders(providerIDs []string, clients
 	return selected, nil
 }
 
-func (c *Config) modelForAvailableAuthentication(client string, connected map[string]bool) ClientSelection {
+func (c *Config) modelForConnectedProvider(client string, connected map[string]bool) ClientSelection {
 	for _, selection := range c.Recommendations[client].Selections() {
-		runtime, err := c.resolveSelection(client, selection)
-		if err != nil {
-			continue
-		}
-		if !runtime.RequiresProviderToken() || connected[runtime.ProviderID] {
+		if runtime, err := c.resolveSelection(client, selection); err == nil && connected[runtime.ProviderID] {
 			return selection
 		}
 	}
 	return ClientSelection{}
 }
 
-// recommendedSelectionFor applies the client's recommended native options to
-// ref when it is the recommended model, or when the recommended model shares
-// its provider and ref declares the recommended protocol. Another provider's
-// model keeps default options.
+// recommendedSelectionFor applies the client's recommended protocol to ref
+// when it is the recommended model, or when the recommended model shares its
+// provider and ref declares the recommended protocol. Another provider's
+// model takes no recommended protocol.
 func (c *Config) recommendedSelectionFor(client string, ref ModelRef) ClientSelection {
 	recommended := c.Recommendations[client].Primary
 	if recommended.Model == ref {
@@ -510,13 +486,9 @@ func (c *Config) ResolveRuntime(client string, explicit ModelRef) (Runtime, erro
 }
 
 // ResolveModelProtocol resolves one model through an exact client protocol
-// while retaining that client's authentication and credential policy.
+// while retaining that client's credential policy.
 func (c *Config) ResolveModelProtocol(client string, ref ModelRef, protocol EndpointProtocol) (Runtime, error) {
-	binding := c.clientBinding(client)
-	return c.resolveSelection(client, ClientSelection{
-		Model: ref, Protocol: protocol,
-		ModelProvider: binding.ModelProvider, Authentication: binding.Authentication,
-	})
+	return c.resolveSelection(client, ClientSelection{Model: ref, Protocol: protocol})
 }
 
 // ResolveSelection resolves one recommendation choice of client, as
@@ -577,8 +549,6 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		Protocol:          protocol,
 		UpstreamModel:     model.ID,
 		FamilyID:          model.FamilyID(),
-		ModelProvider:     selectedModelProvider(spec, selection),
-		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
 		FamilyVariants:    c.familyVariants(ref, protocol),
 		ContextWindow:     window,
@@ -674,18 +644,4 @@ func variantPart(id, family string) string {
 		return strings.Trim(id[:len(id)-len(family)], separators)
 	}
 	return ""
-}
-
-func selectedModelProvider(spec ClientSpec, selection ClientSelection) string {
-	if selection.ModelProvider != "" {
-		return selection.ModelProvider
-	}
-	return spec.DefaultModelProvider
-}
-
-func selectedAuthentication(selection ClientSelection) Authentication {
-	if selection.Authentication != "" {
-		return selection.Authentication
-	}
-	return AuthenticationProviderToken
 }

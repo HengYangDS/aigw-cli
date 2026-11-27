@@ -31,7 +31,7 @@ type windowDocument struct {
 
 // windowTeamFile is a team file whose provider serves small, which declares
 // the context window that %s is, and large, which declares none.
-const windowTeamFile = `version = 8
+const windowTeamFile = `version = 9
 
 [[providers]]
 id = "team"

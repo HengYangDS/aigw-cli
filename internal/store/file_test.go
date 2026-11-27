@@ -12,10 +12,10 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-// schemaEightText is aigw.toml as AIGW writes it, with every field that
-// schema 8 defines: %[1]s is the Codex executable, %[2]s its target, %[3]s
+// schemaNineText is aigw.toml as AIGW writes it, with every field that
+// schema 9 defines: %[1]s is the Codex executable, %[2]s its target, %[3]s
 // the credential command and %[4]s the upstream that forwarding recorded.
-const schemaEightText = `version = 8
+const schemaNineText = `version = 9
 
 [[providers]]
 id = 'dmxapi'
@@ -52,7 +52,7 @@ primary = { model = 'dmxapi/claude-opus-5-5' }
 
 [recommendations.codex]
 primary = { model = 'dmxapi/gpt-6.1-sol-cdx', protocol = 'responses' }
-alternatives = [{ model = 'dmxapi/gpt-6.1-sol-cdx', protocol = 'responses', model_provider = 'amazon-bedrock', authentication = 'client-native' }]
+alternatives = [{ model = 'dmxapi/gpt-6.1-sol-cdx' }]
 
 [clients.claude]
 enabled = false
@@ -75,9 +75,9 @@ model = 'aihubmix/gemini-3.8-flash'
 protocol = 'chat'
 `
 
-// schemaEightConfig builds, as commands do, the configuration that
-// schemaEightText holds, and returns the text with its paths.
-func schemaEightConfig(t *testing.T) (domain.Config, string) {
+// schemaNineConfig builds, as commands do, the configuration that
+// schemaNineText holds, and returns the text with its paths.
+func schemaNineConfig(t *testing.T) (domain.Config, string) {
 	t.Helper()
 	root := t.TempDir()
 	executable, target, command := filepath.Join(root, "codex"), filepath.Join(root, ".codex", "config.toml"), filepath.Join(root, "aigw")
@@ -108,9 +108,8 @@ func schemaEightConfig(t *testing.T) (domain.Config, string) {
 	}
 	cfg.Recommendations[ClientClaude] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: opus.Ref()}}
 	cfg.Recommendations[ClientCodex] = domain.ClientRecommendation{
-		Primary: domain.ClientSelection{Model: sol.Ref(), Protocol: domain.ProtocolResponses},
-		Alternatives: []domain.ClientSelection{{Model: sol.Ref(), Protocol: domain.ProtocolResponses, ModelProvider: "amazon-bedrock",
-			Authentication: domain.AuthenticationClientNative}},
+		Primary:      domain.ClientSelection{Model: sol.Ref(), Protocol: domain.ProtocolResponses},
+		Alternatives: []domain.ClientSelection{{Model: sol.Ref()}},
 	}
 	cfg.SetSelectedModel(ClientClaude, opus.Ref(), "")
 	claudeBinding := cfg.Clients[ClientClaude]
@@ -126,15 +125,15 @@ func schemaEightConfig(t *testing.T) (domain.Config, string) {
 		t.Fatal(err)
 	}
 	cfg.SetSelectedModel(ClientHermes, flash.Ref(), domain.ProtocolChat)
-	text := fmt.Sprintf(schemaEightText, executable, target, command, cfg.Clients[ClientCodex].ForwardingUpstreamIdentity)
+	text := fmt.Sprintf(schemaNineText, executable, target, command, cfg.Clients[ClientCodex].ForwardingUpstreamIdentity)
 	return cfg, text
 }
 
-// A configuration with every schema 8 field is written in its display
+// A configuration with every schema 9 field is written in its display
 // order, reads back as the same configuration, and a save without a change
 // writes the same bytes and no backup.
-func TestSchemaEightRoundTripsEveryField(t *testing.T) {
-	cfg, want := schemaEightConfig(t)
+func TestSchemaNineRoundTripsEveryField(t *testing.T) {
+	cfg, want := schemaNineConfig(t)
 	data, err := encodeConfig(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -186,11 +185,11 @@ func readTestFile(t *testing.T, path string) []byte {
 	return data
 }
 
-// A field that schema 8 does not define is refused by its dotted name and
-// its line, and another version by its number, before the configuration is
-// used.
-func TestSchemaEightRefusesAnUndefinedFieldOrAnotherVersion(t *testing.T) {
-	_, valid := schemaEightConfig(t)
+// A field that schema 9 does not define, among them the client-native keys of
+// schema 8, is refused by its dotted name and its line, and another version
+// by its number, before the configuration is used.
+func TestSchemaNineRefusesAnUndefinedFieldOrAnotherVersion(t *testing.T) {
+	_, valid := schemaNineConfig(t)
 	for _, test := range []struct {
 		name, from, to, field, line string
 	}{
@@ -201,7 +200,11 @@ func TestSchemaEightRefusesAnUndefinedFieldOrAnotherVersion(t *testing.T) {
 		{"a retired endpoint name", "endpoints = { chat = ", "endpoints = { openai_chat_completions = ", "providers.openai_chat_completions", "openai_chat_completions"},
 		{"a retired selection field", "primary = { model = 'dmxapi/claude-opus-5-5' }", "primary = { route = 'claude' }", "recommendations.claude.route", "route ="},
 		{"a retired retry policy", "retries = { request = 3, stream = 2 }", "retry_policy = { request_max_retries = 3 }", "clients.codex.retry_policy", "retry_policy ="},
-		{"an unknown top-level table", "version = 8\n", "version = 8\n[accounts.team]\nlabel = 'Team'\n", "accounts.team", "[accounts.team]"},
+		{"an unknown top-level table", "version = 9\n", "version = 9\n[accounts.team]\nlabel = 'Team'\n", "accounts.team", "[accounts.team]"},
+		{"a client's authentication", "protocol = 'responses'\nexecutable", "protocol = 'responses'\nauthentication = 'client-native'\nexecutable", "clients.codex.authentication", "authentication ="},
+		{"a client's model provider", "protocol = 'responses'\nexecutable", "protocol = 'responses'\nmodel_provider = 'amazon-bedrock'\nexecutable", "clients.codex.model_provider", "model_provider ="},
+		{"a recommendation's authentication", "primary = { model = 'dmxapi/claude-opus-5-5' }", "primary = { model = 'dmxapi/claude-opus-5-5', authentication = 'client-native' }", "recommendations.claude.authentication", "authentication ="},
+		{"a recommendation's model provider", "alternatives = [{ model = 'dmxapi/gpt-6.1-sol-cdx' }]", "alternatives = [{ model = 'dmxapi/gpt-6.1-sol-cdx', model_provider = 'amazon-bedrock' }]", "recommendations.codex.model_provider", "model_provider ="},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			text := strings.Replace(valid, test.from, test.to, 1)
@@ -213,26 +216,74 @@ func TestSchemaEightRefusesAnUndefinedFieldOrAnotherVersion(t *testing.T) {
 			loadErr, isLoad := errors.AsType[*LoadError](err)
 			undefined, isUndefined := errors.AsType[*UndefinedFieldError](err)
 			if !isLoad || loadErr.Phase != LoadPhaseValidate || !isUndefined || undefined.Field != test.field ||
-				!strings.Contains(err.Error(), fmt.Sprintf("schema 8 does not define the field %s, on line %d", test.field, line)) {
+				!strings.Contains(err.Error(), fmt.Sprintf("schema %d does not define the field %s, on line %d", domain.ConfigVersion, test.field, line)) {
 				t.Fatalf("load error = %v, want %s on line %d", err, test.field, line)
 			}
 		})
 	}
-	for _, version := range []int{0, 7, 9} {
-		text := strings.Replace(valid, "version = 8\n", fmt.Sprintf("version = %d\n", version), 1)
+	for _, version := range []int{0, 7, 10} {
+		text := strings.Replace(valid, "version = 9\n", fmt.Sprintf("version = %d\n", version), 1)
 		_, err := decodeTOMLConfig([]byte(text), testAdmission())
 		unsupported, ok := errors.AsType[*domain.UnsupportedConfigVersionError](err)
-		if !ok || unsupported.Version != version || unsupported.ExpectedVersion != domain.ConfigVersion {
+		if !ok || unsupported.Version != version || unsupported.ExpectedVersion != domain.ConfigVersion || unsupported.Edits() != "" {
 			t.Errorf("version %d = %v", version, err)
 		}
+	}
+}
+
+// A version 8 file is refused before any other field is read, whatever it
+// holds, with the edits that schema 9 needs, and no file changes.
+func TestAVersionEightFileIsRefusedWithItsEdits(t *testing.T) {
+	const schemaEight = `version = 8
+
+[[providers]]
+id = 'team'
+label = 'Team'
+endpoints = { responses = 'https://team.test/v1' }
+
+[[providers.models]]
+id = 'gpt-team'
+protocols = { responses = [] }
+
+[recommendations.codex]
+primary = { model = 'team/gpt-team', model_provider = 'amazon-bedrock', authentication = 'client-native' }
+
+[clients.codex]
+enabled = true
+model = 'team/gpt-team'
+model_provider = 'amazon-bedrock'
+authentication = 'client-native'
+executable = '/opt/codex'
+retired = 'a field that no schema defines'
+`
+	path := filepath.Join(t.TempDir(), "aigw.toml")
+	if err := os.WriteFile(path, []byte(schemaEight), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := NewStore(path, testAdmission()).Load()
+	loadErr, isLoad := errors.AsType[*LoadError](err)
+	unsupported, isVersion := errors.AsType[*domain.UnsupportedConfigVersionError](err)
+	if !isLoad || loadErr.Phase != LoadPhaseValidate || !isVersion || unsupported.Version != 8 {
+		t.Fatalf("load error = %v", err)
+	}
+	for _, edit := range []string{"set `version = 9`", "rename each client's `executable` to `program`", "delete `authentication` and `model_provider` wherever they appear"} {
+		if !strings.Contains(unsupported.Edits(), edit) || !strings.Contains(err.Error(), edit) {
+			t.Errorf("the refusal %q does not name %q", err, edit)
+		}
+	}
+	if kept := readTestFile(t, path); string(kept) != schemaEight {
+		t.Fatalf("the refused file changed:\n%s", kept)
+	}
+	if entries, err := os.ReadDir(filepath.Dir(path)); err != nil || len(entries) != 1 {
+		t.Fatalf("the refusal wrote beside the file: %v, %v", entries, err)
 	}
 }
 
 // A repeated provider, model or family, a selection that is not
 // provider/model and a value of the wrong type are refused at the stage
 // that finds them.
-func TestSchemaEightRefusesWhatItCannotHold(t *testing.T) {
-	_, valid := schemaEightConfig(t)
+func TestSchemaNineRefusesWhatItCannotHold(t *testing.T) {
+	_, valid := schemaNineConfig(t)
 	repeatedModel := strings.Replace(valid, "[[providers]]\nid = 'aihubmix'", "[[providers.models]]\nid = 'claude-opus-5-5'\nprotocols = {anthropic = []}\n\n[[providers]]\nid = 'aihubmix'", 1)
 	for _, test := range []struct {
 		name, text string
@@ -245,7 +296,7 @@ func TestSchemaEightRefusesWhatItCannotHold(t *testing.T) {
 		{"a client selection without a provider", strings.Replace(valid, "model = 'aihubmix/gemini-3.8-flash'", "model = 'gemini-3.8-flash'", 1), LoadPhaseValidate, `client "hermes"`},
 		{"a recommendation without a provider", strings.Replace(valid, "primary = { model = 'dmxapi/claude-opus-5-5' }", "primary = { model = 'claude-opus-5-5' }", 1), LoadPhaseValidate, "the claude recommendation"},
 		{"a value of the wrong type", strings.Replace(valid, "enabled = true", "enabled = 'yes'", 1), LoadPhaseParse, ""},
-		{"a version of the wrong type", strings.Replace(valid, "version = 8", "version = 'eight'", 1), LoadPhaseParse, ""},
+		{"a version of the wrong type", strings.Replace(valid, "version = 9", "version = 'nine'", 1), LoadPhaseParse, ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if test.text == valid {
@@ -262,8 +313,8 @@ func TestSchemaEightRefusesWhatItCannotHold(t *testing.T) {
 
 // A model that declares no protocol, absent or empty, is refused when read,
 // naming the model: no client can use it.
-func TestSchemaEightRefusesAModelWithoutProtocols(t *testing.T) {
-	const head = "version = 8\n\n[[providers]]\nid = 'team'\nlabel = 'Team'\nendpoints = { anthropic = 'https://team.test' }\n\n[[providers.models]]\nid = 'bare'\n"
+func TestSchemaNineRefusesAModelWithoutProtocols(t *testing.T) {
+	const head = "version = 9\n\n[[providers]]\nid = 'team'\nlabel = 'Team'\nendpoints = { anthropic = 'https://team.test' }\n\n[[providers.models]]\nid = 'bare'\n"
 	for name, protocols := range map[string]string{"absent": "", "empty": "protocols = {}\n"} {
 		t.Run(name, func(t *testing.T) {
 			_, err := decodeTOMLConfig([]byte(head+protocols), testAdmission())
@@ -278,8 +329,8 @@ func TestSchemaEightRefusesAModelWithoutProtocols(t *testing.T) {
 // without an endpoint, empty or not, is refused by the field's name, rather
 // than loaded as a client that forwards nothing and dropped on the next
 // write.
-func TestSchemaEightRefusesAForwardingTableWithoutAnEndpoint(t *testing.T) {
-	_, valid := schemaEightConfig(t)
+func TestSchemaNineRefusesAForwardingTableWithoutAnEndpoint(t *testing.T) {
+	_, valid := schemaNineConfig(t)
 	lines := strings.Split(valid, "\n")
 	index := slices.IndexFunc(lines, func(line string) bool { return strings.HasPrefix(line, "forwarding = ") })
 	if index < 0 {
@@ -296,7 +347,7 @@ func TestSchemaEightRefusesAForwardingTableWithoutAnEndpoint(t *testing.T) {
 			loadErr, isLoad := errors.AsType[*LoadError](err)
 			missing, isMissing := errors.AsType[*MissingFieldError](err)
 			if !isLoad || loadErr.Phase != LoadPhaseValidate || !isMissing || missing.Field != "clients.codex.forwarding.endpoint" ||
-				!strings.Contains(err.Error(), "schema 8 requires the field clients.codex.forwarding.endpoint") {
+				!strings.Contains(err.Error(), fmt.Sprintf("schema %d requires the field clients.codex.forwarding.endpoint", domain.ConfigVersion)) {
 				t.Fatalf("load error = %v", err)
 			}
 		})
@@ -323,7 +374,7 @@ func TestEncoderExpandsAWideArrayAsTaploDoes(t *testing.T) {
 
 // The encoder spaces the braces of each inline table as taplo does, and
 // leaves braces and quotes inside strings alone, so a label keeps its text.
-func TestSchemaEightSpacesInlineTablesOutsideStrings(t *testing.T) {
+func TestSchemaNineSpacesInlineTablesOutsideStrings(t *testing.T) {
 	for line, want := range map[string]string{
 		"a = {b = 'c'}":               "a = { b = 'c' }",
 		"a = {}":                      "a = {}",

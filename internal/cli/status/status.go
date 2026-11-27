@@ -10,8 +10,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// schemaVersion is the version of `aigw status`'s JSON document.
-const schemaVersion = 4
+// schemaVersion is the version of `aigw status`'s JSON document. Version 5
+// drops each client's authentication, which every client now takes from its
+// provider's Token.
+const schemaVersion = 5
 
 // NewCommand constructs the read-only configuration and client readiness command.
 func NewCommand(runtime invocation.Context) *cobra.Command {

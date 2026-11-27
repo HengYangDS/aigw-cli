@@ -3,6 +3,7 @@ package store
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 
 // teamFileText is a team file with a channel variant, a model that is its own
 // family, a deprecated model and recommendations.
-const teamFileText = `version = 8
+const teamFileText = `version = 9
 
 [[providers]]
 id = "dmxapi"
@@ -103,8 +104,8 @@ func TestTeamFileExportOmitsDerivedLabelsAndRoundTrips(t *testing.T) {
 	if label := cfg.ModelLabel(dmxapiModel("GPT-6-Astra-CDX")); label != "DMXAPI · GPT-6 Astra · CDX" {
 		t.Fatalf("channel label = %q", label)
 	}
-	if strings.Contains(text, "[clients") || !strings.HasPrefix(text, "version = 8\n") {
-		t.Fatalf("export is not a version 8 team file without clients:\n%s", text)
+	if strings.Contains(text, "[clients") || !strings.HasPrefix(text, fmt.Sprintf("version = %d\n", domain.ConfigVersion)) {
+		t.Fatalf("export is not a team file of version %d without clients:\n%s", domain.ConfigVersion, text)
 	}
 	again, err := ParseTeamFile(exported, testAdmission())
 	if err != nil {
@@ -154,7 +155,7 @@ func TestTeamFileRecommendationsFollowTheAdmission(t *testing.T) {
 }
 
 func TestTeamFileSyntheticProviderUsesOnlyFileData(t *testing.T) {
-	incoming, err := ParseTeamFile([]byte(`version = 8
+	incoming, err := ParseTeamFile([]byte(`version = 9
 
 [[providers]]
 id = "northstar"
@@ -167,7 +168,7 @@ label = "Northstar Codex"
 protocols = {responses = []}
 
 [recommendations.codex]
-primary = {model = "northstar/northstar-model", model_provider = "northstar", authentication = "provider-token"}
+primary = {model = "northstar/northstar-model"}
 `), testAdmission())
 	if err != nil {
 		t.Fatal(err)
@@ -185,14 +186,14 @@ primary = {model = "northstar/northstar-model", model_provider = "northstar", au
 		t.Fatal(err)
 	}
 	if runtime.ProviderID != "northstar" || runtime.Endpoint != "https://northstar.example.test/v1" || runtime.UpstreamModel != "northstar-model" ||
-		runtime.ModelProvider != "northstar" || runtime.Authentication != domain.AuthenticationProviderToken || !runtime.RequiresProviderToken() {
+		!runtime.UsesAIGWCredentialStore() {
 		t.Fatalf("runtime = %#v", runtime)
 	}
 }
 
 // TestTeamFileRefusals refuses, before anything is applied, a file that is not
 // TOML, carries a credential field, sets clients, has another version, uses a
-// field that version 8 does not define, repeats a provider, model or family,
+// field that version 9 does not define, repeats a provider, model or family,
 // names a model without its provider, or recommends a model that its client
 // cannot use.
 func TestTeamFileRefusals(t *testing.T) {
@@ -200,12 +201,15 @@ func TestTeamFileRefusals(t *testing.T) {
 		name, text, want string
 	}{
 		{"not TOML", "version = [1, 2\n", "parse the team file"},
-		{"a version that is not a number", strings.Replace(teamFileText, "version = 8", "version = \"eight\"", 1), "parse the team file"},
-		{"credential", "version = 8\napi_key = \"must-not-exist\"\n", `credential field "api_key"`},
+		{"a version that is not a number", strings.Replace(teamFileText, "version = 9", "version = \"nine\"", 1), "parse the team file"},
+		{"credential", "version = 9\napi_key = \"must-not-exist\"\n", `credential field "api_key"`},
 		{"nested credential", strings.Replace(teamFileText, `id = "legacy"`, "id = \"legacy\"\nauth_header = \"x\"", 1), `credential field "providers.models.auth_header"`},
 		{"clients", teamFileText + "\n[clients.codex]\nenabled = true\n", "[clients] section"},
-		{"version 7", strings.Replace(teamFileText, "version = 8", "version = 7", 1), "the team file has version 7, and this AIGW reads version 8"},
-		{"version 9", strings.Replace(teamFileText, "version = 8", "version = 9", 1), "the team file has version 9"},
+		{"version 7", strings.Replace(teamFileText, "version = 9", "version = 7", 1), fmt.Sprintf("the team file has version 7, and this AIGW reads version %d", domain.ConfigVersion)},
+		{"version 8", strings.Replace(teamFileText, "version = 9", "version = 8", 1), "the team file has version 8"},
+		{"version 10", strings.Replace(teamFileText, "version = 9", "version = 10", 1), "the team file has version 10"},
+		{"a recommendation's model provider", strings.Replace(teamFileText, `{model = "dmxapi/GPT-6-Astra"}`, `{model = "dmxapi/GPT-6-Astra", model_provider = "amazon-bedrock"}`, 1), "does not define the field recommendations.codex.model_provider"},
+		{"a recommendation's authentication", strings.Replace(teamFileText, `protocol = "responses"}`, `protocol = "responses", authentication = "client-native"}`, 1), "does not define the field recommendations.codex.authentication"},
 		{"retired order", strings.Replace(teamFileText, `label = "DMXAPI"`, "label = \"DMXAPI\"\norder = 10", 1), "does not define the field providers.order"},
 		{"retired purpose", strings.Replace(teamFileText, `id = "legacy"`, "id = \"legacy\"\npurpose = \"x\"", 1), "does not define the field providers.models.purpose"},
 		{"retired lifecycle", strings.Replace(teamFileText, "deprecated = true", "lifecycle = \"deprecated\"", 1), "does not define the field providers.models.lifecycle"},
@@ -224,16 +228,29 @@ func TestTeamFileRefusals(t *testing.T) {
 			}
 		})
 	}
-	_, err := ParseTeamFile([]byte(strings.Replace(teamFileText, "version = 8", "version = 7", 1)), testAdmission())
-	if version, ok := errors.AsType[*domain.UnsupportedTeamFileVersionError](err); !ok || version.Version != 7 {
+	_, err := ParseTeamFile([]byte(strings.Replace(teamFileText, "version = 9", "version = 7", 1)), testAdmission())
+	if version, ok := errors.AsType[*domain.UnsupportedTeamFileVersionError](err); !ok || version.Version != 7 || version.Edits() != "" {
 		t.Fatalf("version refusal = %v", err)
+	}
+	// A version 8 file is refused by its version before the client-native
+	// keys that it holds are read, with the edits that schema 9 needs.
+	schemaEight := strings.NewReplacer("version = 9", "version = 8", `{model = "dmxapi/GPT-6-Astra"}`, `{model = "dmxapi/GPT-6-Astra", model_provider = "amazon-bedrock", authentication = "client-native"}`).Replace(teamFileText)
+	_, err = ParseTeamFile([]byte(schemaEight), testAdmission())
+	version, ok := errors.AsType[*domain.UnsupportedTeamFileVersionError](err)
+	if !ok || version.Version != 8 {
+		t.Fatalf("version 8 refusal = %v", err)
+	}
+	for _, edit := range []string{"set `version = 9`", "rename each client's `executable` to `program`", "delete `authentication` and `model_provider` wherever they appear"} {
+		if !strings.Contains(version.Edits(), edit) {
+			t.Errorf("the edits %q do not name %q", version.Edits(), edit)
+		}
 	}
 }
 
 // A team file may declare providers without models, as a configuration may
 // hold providers without models.
 func TestTeamFileWithProvidersOnly(t *testing.T) {
-	file, err := ParseTeamFile([]byte("version = 8\n\n[[providers]]\nid = \"team\"\nlabel = \"Team\"\nendpoints = {anthropic = \"https://team.test\"}\n"), testAdmission())
+	file, err := ParseTeamFile([]byte("version = 9\n\n[[providers]]\nid = \"team\"\nlabel = \"Team\"\nendpoints = {anthropic = \"https://team.test\"}\n"), testAdmission())
 	if err != nil || len(file.Providers) != 1 || len(file.Models) != 0 {
 		t.Fatalf("a team file with providers only = %+v, %v", file, err)
 	}

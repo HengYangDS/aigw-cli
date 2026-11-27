@@ -198,18 +198,14 @@ exec aigw check claude --json
 stdout '"depth": "model",\n\s+"skipped": \[\n\s+\{\n\s+"depth": "endpoint"'
 ! stdout '"next_action"'
 
-# A client that authenticates itself and one whose Token an external helper
-# supplies send no Token from AIGW, so their endpoint and model depths are
-# skipped, which fails nothing, and only a session proves them. No command
-# sets either, so the script writes the configuration.
-envsubst own-authentication.toml expanded.toml
+# A client whose Token an external helper supplies sends no Token from AIGW,
+# so its endpoint and model depths are skipped, which fails nothing, and only
+# a session proves them. No command sets the helper, so the script writes the
+# configuration.
+envsubst external-helper.toml expanded.toml
 [darwin] cp expanded.toml $HOME/Library/Application' 'Support/aigw/aigw.toml
 [!darwin] cp expanded.toml $HOME/aigw/aigw.toml
-mkdir $HOME/.codex
-cp empty-file $HOME/.codex/config.toml
 exec aigw sync
-exec aigw check codex --json
-cmp stdout own-authentication.json
 exec aigw check claude --json
 cmp stdout external-helper.json
 exec aigw check claude
@@ -245,7 +241,7 @@ sk-team-token-0001
 sk-once-token-0002
 -- once.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "depth": "endpoint",
   "model": "team/spare-model",
@@ -256,7 +252,6 @@ sk-once-token-0002
       "model": "team/spare-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "endpoint",
@@ -349,7 +344,7 @@ Fix
   aigw setup
 -- empty.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": false,
   "depth": "model",
   "clients": [],
@@ -388,7 +383,7 @@ Fix
 }
 -- local.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "depth": "local",
   "clients": [
@@ -398,7 +393,6 @@ Fix
       "model": "team/team-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "local",
@@ -534,7 +528,7 @@ Result
   ✓ No checked client failed
 -- native.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "depth": "model",
   "clients": [
@@ -544,7 +538,6 @@ Result
       "model": "team/team-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "endpoint",
@@ -650,7 +643,7 @@ Next
   aigw check claude-desktop
 -- down.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": false,
   "depth": "model",
   "clients": [
@@ -660,7 +653,6 @@ Next
       "model": "team/team-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "model",
@@ -689,7 +681,6 @@ Next
       "model": "down/team-model",
       "provider": "down",
       "protocol": "anthropic",
-      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "degraded",
       "depth": "local",
@@ -756,7 +747,7 @@ Next
 }
 -- disabled.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "depth": "client",
   "clients": [
@@ -766,7 +757,6 @@ Next
       "model": "team/team-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "model",
@@ -837,10 +827,9 @@ Impact
 
 Fix
   aigw client enable claude --executable <path>
--- empty-file --
 -- no-model-list.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "depth": "endpoint",
   "clients": [
@@ -850,7 +839,6 @@ Fix
       "model": "team/team-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "local",
@@ -907,94 +895,9 @@ Fix
   "enabled_clients": 1,
   "next_action": "aigw check claude"
 }
--- own-authentication.json --
-{
-  "schema_version": 5,
-  "ok": true,
-  "depth": "model",
-  "clients": [
-    {
-      "id": "codex",
-      "enabled": true,
-      "model": "team/native-model",
-      "provider": "team",
-      "protocol": "responses",
-      "authentication": "client-native",
-      "transport": "external_loopback",
-      "state": "configured",
-      "depth": "local",
-      "skipped": [
-        {
-          "depth": "endpoint",
-          "reason": "Codex uses its own authentication, which only a session of it proves"
-        },
-        {
-          "depth": "model",
-          "reason": "Codex uses its own authentication, which only a session of it proves"
-        }
-      ],
-      "checks": [
-        {
-          "name": "codex:model",
-          "state": "passed",
-          "detail": "team/native-model on OpenAI Responses"
-        },
-        {
-          "name": "codex:token",
-          "state": "skipped",
-          "detail": "Codex uses its own authentication, so AIGW reads no Token for it"
-        },
-        {
-          "name": "codex:files",
-          "state": "passed",
-          "detail": "Match the selection"
-        },
-        {
-          "name": "codex:target-1",
-          "state": "passed",
-          "detail": "Matches the selection",
-          "target": "~/.codex/config.toml"
-        },
-        {
-          "name": "codex:window-1",
-          "state": "passed",
-          "detail": "Codex is not given the window of 1000000 tokens that team/native-model declares, because the model runs under Codex's model provider amazon-bedrock, for which AIGW writes no model table",
-          "target": "~/.codex/config.toml"
-        }
-      ],
-      "next_action": "aigw check codex --depth client"
-    }
-  ],
-  "checks": [
-    {
-      "name": "environment",
-      "state": "passed",
-      "detail": "No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set"
-    },
-    {
-      "name": "configuration",
-      "state": "passed",
-      "detail": "Valid"
-    },
-    {
-      "name": "credential_backend",
-      "state": "passed",
-      "detail": "file, read and write"
-    }
-  ],
-  "credential_backend": {
-    "kind": "file",
-    "availability": "available",
-    "mutability": "read_write",
-    "persistence": "explicit",
-    "recovery_action": ""
-  },
-  "enabled_clients": 1,
-  "next_action": "aigw check codex --depth client"
-}
 -- external-helper.json --
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "ok": true,
   "depth": "model",
   "clients": [
@@ -1004,7 +907,6 @@ Fix
       "model": "team/team-model",
       "provider": "team",
       "protocol": "anthropic",
-      "authentication": "provider-token",
       "transport": "external_loopback",
       "state": "configured",
       "depth": "local",
@@ -1065,8 +967,8 @@ Fix
   "enabled_clients": 1,
   "next_action": "aigw check claude --depth client"
 }
--- own-authentication.toml --
-version = 8
+-- external-helper.toml --
+version = 9
 
 [[providers]]
 id = "team"
@@ -1078,12 +980,6 @@ id = "team-model"
 family = "team-model"
 protocols = {anthropic = []}
 
-[[providers.models]]
-id = "native-model"
-family = "team-model"
-label = "Team Gateway · Team Model · native"
-protocols = {responses = []}
-
 [[families]]
 id = "team-model"
 label = "Team Model"
@@ -1094,15 +990,6 @@ model = "team/team-model"
 protocol = "anthropic"
 executable = '$BIN/claude$exe'
 credential_command = '$BIN/aigw$exe'
-
-[clients.codex]
-enabled = true
-model = "team/native-model"
-protocol = "responses"
-model_provider = "amazon-bedrock"
-authentication = "client-native"
-executable = '$BIN/claude$exe'
-targets = ['$HOME/.codex/config.toml']
 -- unused.txt --
 AIGW  Check
 ────────────────────────────────────────
@@ -1117,7 +1004,7 @@ Stored Tokens that no provider uses
 Result
   ✓ No checked client failed
 -- broken.toml --
-version = 8
+version = 9
 [providers
 -- broken.json --
 {

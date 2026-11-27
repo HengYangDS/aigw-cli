@@ -414,52 +414,6 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 	}
 }
 
-func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
-	runtime, cfg, buffer := configuredReadinessRuntime(t)
-	codexBinding := cfg.Clients[codex.ID]
-	codexBinding.Enabled = true
-	codexBinding.Executable = processtest.Program(t, "/opt/codex")
-	codexBinding.ModelProvider = "amazon-bedrock"
-	codexBinding.Authentication = domain.AuthenticationClientNative
-	cfg.Clients[codex.ID] = codexBinding
-	claudeBinding := cfg.Clients[claude.ID]
-	claudeBinding.Enabled = true
-	cfg.Clients[claude.ID] = claudeBinding
-	if err := runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	store := &observingSecretStore{value: "account-token"}
-	runtime.Secrets = store
-	inspectProjections(t, &runtime, everyProjectionReady)
-
-	if err := RunStatus(runtime, false); err != nil {
-		t.Fatal(err)
-	}
-	human := buffer.String()
-	if store.existsCalls != 1 || store.getCalls != 0 {
-		t.Fatalf("status credential observations = exists %d, get %d; want only the Claude Account-Token lookup", store.existsCalls, store.getCalls)
-	}
-	for _, want := range []string{"the client's own authentication", "The client is not installed", "aigw check codex --depth client"} {
-		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
-			t.Fatalf("client-native status = %q, want %q", human, want)
-		}
-	}
-	for _, unwanted := range []string{"Token", "rotate", "aigw client auth"} {
-		if strings.Contains(human, unwanted) {
-			t.Fatalf("client-native status = %q, contains %q", human, unwanted)
-		}
-	}
-
-	buffer.Reset()
-	if err := RunStatus(runtime, true); err != nil {
-		t.Fatal(err)
-	}
-	machine := buffer.String()
-	if !strings.Contains(machine, `"authentication": "client-native"`) || strings.Contains(machine, `"secret_available"`) {
-		t.Fatalf("client-native JSON status = %q", machine)
-	}
-}
-
 func TestStatusClassifiesCredentialObservationFailureWithoutReadingValues(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
 	want := errors.New("credential metadata unavailable")
@@ -497,17 +451,17 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 		t.Fatal(err)
 	}
 	var result struct {
-		Clients map[string]struct {
-			ProjectionReady bool   `json:"client_files_ready"`
-			Authentication  string `json:"authentication"`
-		} `json:"clients"`
+		Clients map[string]map[string]json.RawMessage `json:"clients"`
 	}
 	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
 	observed := result.Clients[codex.ID]
-	if !observed.ProjectionReady || observed.Authentication != string(domain.AuthenticationProviderToken) {
-		t.Fatalf("local projection observation = %#v", observed)
+	if string(observed["client_files_ready"]) != "true" {
+		t.Fatalf("local projection observation = %s", buffer.String())
+	}
+	if _, claimed := observed["authentication"]; claimed {
+		t.Fatalf("status claims an authentication: %s", buffer.String())
 	}
 }
 

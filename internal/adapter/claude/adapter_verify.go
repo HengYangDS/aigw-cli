@@ -16,9 +16,6 @@ import (
 )
 
 func retainedExecutable(path string, cfg domain.Config, runtime domain.Runtime, currentReader string) (string, error) {
-	if !runtime.RequiresProviderToken() {
-		return runtime.CredentialExecutable(currentReader), nil
-	}
 	reader, err := adapter.RetainedDefaultReader(currentReader, cfg.Clients[ID].CredentialCommand != "", func() (string, error) {
 		return ObservedCredentialExecutable(path, runtime)
 	})

@@ -15,6 +15,26 @@ func (e *RuntimeBindingUnselectedError) Error() string {
 	return fmt.Sprintf("no model selected for client %q", e.Client)
 }
 
+// previousConfigVersion is the schema that ConfigVersion replaced, and
+// previousSchemaEdits the edits that turn a file of it into one of
+// ConfigVersion. The text is fixed: AIGW reads nothing of such a file but its
+// version, keeps no reader of that schema and never rewrites the file.
+const (
+	previousConfigVersion = 8
+	previousSchemaEdits   = "set `version = 9`; rename each client's `executable` to `program`; delete `authentication` and `model_provider` wherever they appear"
+)
+
+// schemaEdits names the edits that turn a file of version into one of
+// ConfigVersion: those of the schema that ConfigVersion replaced, and none
+// for any other version, whose file only the AIGW release that reads it
+// can use.
+func schemaEdits(version int) string {
+	if version == previousConfigVersion {
+		return previousSchemaEdits
+	}
+	return ""
+}
+
 // UnsupportedConfigVersionError reports a configuration schema newer or older than the one accepted by this build.
 type UnsupportedConfigVersionError struct {
 	Version         int
@@ -23,12 +43,23 @@ type UnsupportedConfigVersionError struct {
 
 // Error formats the unsupported-version failure without exposing configuration contents.
 func (e *UnsupportedConfigVersionError) Error() string {
+	if edits := e.Edits(); edits != "" {
+		return fmt.Sprintf(
+			"unsupported config version %d; expected %d; AIGW does not reinterpret configuration schemas; edit the file to schema %d: %s",
+			e.Version, e.ExpectedVersion, ConfigVersion, edits,
+		)
+	}
 	return fmt.Sprintf(
 		"unsupported config version %d; expected %d; AIGW does not reinterpret configuration schemas; restore a configuration supported by this program or use the matching AIGW release",
 		e.Version,
 		e.ExpectedVersion,
 	)
 }
+
+// Edits names the edits that turn the refused file into one that this build
+// reads: those of the schema that ConfigVersion replaced, and nothing for any
+// other version.
+func (e *UnsupportedConfigVersionError) Edits() string { return schemaEdits(e.Version) }
 
 // RuntimeModelUnknownProviderError reports a model whose provider is absent.
 type RuntimeModelUnknownProviderError struct {

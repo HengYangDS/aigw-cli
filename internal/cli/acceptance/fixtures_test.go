@@ -402,7 +402,7 @@ func directoryNames(t *testing.T, path string) []string {
 	return names
 }
 
-const configurationManifestFixture = `version = 8
+const configurationManifestFixture = `version = 9
 
 [[providers]]
 id = "aihubmix"

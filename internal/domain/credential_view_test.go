@@ -12,7 +12,7 @@ func credentialViewOf(cfg Config) CredentialView {
 		view.Providers = append(view.Providers, CredentialProvider{ID: id, Endpoints: cfg.Providers[id].Endpoints})
 	}
 	for client, binding := range cfg.Clients {
-		view.Clients[client] = CredentialClient{Enabled: binding.Enabled, Authentication: binding.Authentication}
+		view.Clients[client] = CredentialClient{Enabled: binding.Enabled}
 	}
 	return view
 }
@@ -80,19 +80,14 @@ func TestCredentialViewRefusesWhatItCannotServe(t *testing.T) {
 		view CredentialView
 		want error
 	}{
-		"disabled":                {view(CredentialClient{Authentication: AuthenticationProviderToken}, responses), ErrCredentialClientDisabled},
-		"absent":                  {CredentialView{}, ErrCredentialClientDisabled},
-		"authenticated by itself": {view(CredentialClient{Enabled: true, Authentication: AuthenticationClientNative}, responses), ErrCredentialClientOwned},
-		"another protocol":        {view(CredentialClient{Enabled: true}, Endpoints{Anthropic: "https://gateway.test/v1"}), errCredentialUnmatched},
-		"another endpoint":        {view(CredentialClient{Enabled: true}, Endpoints{Responses: "https://moved.test/v1"}), errCredentialUnmatched},
-		"no provider":             {CredentialView{Clients: map[string]CredentialClient{ClientCodex: {Enabled: true}}}, errCredentialUnmatched},
+		"disabled":         {view(CredentialClient{}, responses), ErrCredentialClientDisabled},
+		"absent":           {CredentialView{}, ErrCredentialClientDisabled},
+		"another protocol": {view(CredentialClient{Enabled: true}, Endpoints{Anthropic: "https://gateway.test/v1"}), errCredentialUnmatched},
+		"another endpoint": {view(CredentialClient{Enabled: true}, Endpoints{Responses: "https://moved.test/v1"}), errCredentialUnmatched},
+		"no provider":      {CredentialView{Clients: map[string]CredentialClient{ClientCodex: {Enabled: true}}}, errCredentialUnmatched},
 	} {
 		if provider, err := test.view.TokenProvider(spec, fingerprint); !errors.Is(err, test.want) || provider != "" {
 			t.Errorf("%s = %q, %v; want %v", name, provider, err, test.want)
 		}
-	}
-	_, err := view(CredentialClient{Enabled: true, Authentication: "device-code"}, responses).TokenProvider(spec, fingerprint)
-	if unknown, ok := errors.AsType[*UnknownAuthenticationError](err); !ok || unknown.Authentication != "device-code" || err.Error() != `the client's authentication "device-code" is unknown to this reader` {
-		t.Fatalf("an unknown authentication = %v", err)
 	}
 }

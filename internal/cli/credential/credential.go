@@ -128,14 +128,8 @@ func configurationProblem(version string, err error) error {
 // refusal explains why the view names no provider for the client, before any
 // Token is read.
 func refusal(client string, err error) error {
-	switch {
-	case errors.Is(err, domain.ErrCredentialClientDisabled):
+	if errors.Is(err, domain.ErrCredentialClientDisabled) {
 		return terminal.ProblemError(fmt.Sprintf("%s adapter is not enabled", client), "", "Credential lookup did not start.", fmt.Sprintf("Enable the %s adapter before using its credential helper.", client), nil)
-	case errors.Is(err, domain.ErrCredentialClientOwned):
-		return terminal.ProblemError(fmt.Sprintf("%s uses client-owned authentication", client), "", "AIGW does not supply a Token for this model.", fmt.Sprintf("Run `aigw check %s --depth client` to verify authentication through the client.", client), nil)
-	}
-	if unknown, ok := errors.AsType[*domain.UnknownAuthenticationError](err); ok {
-		return terminal.ProblemError(fmt.Sprintf("%s uses the authentication %q, which this credential reader does not know", client, unknown.Authentication), "", "No Token was read or returned.", "Run `aigw sync` with the installed AIGW and reload the client to use its current reader.", err)
 	}
 	return terminal.ProblemError(fmt.Sprintf("%s credential reader no longer matches an available provider and endpoint", client), "", "No Token was read or returned.", "Run `aigw sync` and reload the client's configuration.", err)
 }

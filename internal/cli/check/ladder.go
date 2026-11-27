@@ -61,16 +61,13 @@ func (c *checker) climb(ctx context.Context, id string) result {
 }
 
 // remote runs the endpoint depth, and the model depth when the check asks for
-// it, with one read of the provider's Token for both. A client that
-// authenticates itself, or whose Token an external helper supplies, cannot run
-// either: only a session of it proves its authentication.
+// it, with one read of the provider's Token for both. A client whose Token an
+// external helper supplies cannot run either: only a session of it proves
+// that Token.
 func (c *checker) remote(ctx context.Context, r *result) {
 	product := c.admission().ProductName(r.spec.ID)
 	if !r.runtime.UsesAIGWCredentialStore() {
-		reason := product + " uses its own authentication, which only a session of it proves"
-		if r.runtime.RequiresProviderToken() {
-			reason = "An external credential helper gives " + product + " its Token, which only a session of it proves"
-		}
+		reason := "An external credential helper gives " + product + " its Token, which only a session of it proves"
 		r.skipDepth(depthEndpoint, reason)
 		if c.plan.requested.runs(depthModel) {
 			r.skipDepth(depthModel, reason)
@@ -161,8 +158,8 @@ func (c *checker) sessionFailure(r result, err error) failure {
 		return f
 	}
 	// The Token that the endpoint depth read is the session's credential. A
-	// client that authenticates itself, or through an external helper, has
-	// none here, and so no report: AIGW cannot take its credential out of one.
+	// client whose Token an external helper supplies has none here, and so no
+	// report: AIGW cannot take its credential out of one.
 	f.report = reporter.ClientReport(r.token)
 	switch remedy := reporter.Remedy(); {
 	case remedy != "":

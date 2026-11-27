@@ -13,7 +13,7 @@ import (
 // recommendation of it waits, until the provider has one; a provider that
 // the file adds is refused.
 func TestParseAdmitsAModelOnAProtocolWithoutAnEndpoint(t *testing.T) {
-	manifest, err := ParseTeamFile([]byte(`version = 8
+	manifest, err := ParseTeamFile([]byte(`version = 9
 
 [[providers]]
 id = "gateway"
@@ -53,7 +53,7 @@ primary = {model = "gateway/model"}
 // A recommendation may name a model that only the configuration defines, so
 // the merge, not the parser, refuses one that neither defines.
 func TestMergeRejectsRecommendedModelReferencingUnknownModel(t *testing.T) {
-	raw := []byte(`version = 8
+	raw := []byte(`version = 9
 
 [[providers]]
 id = "team"
@@ -81,7 +81,7 @@ primary = {model = "unknown/missing"}
 // A team file never sets a client's selection, so a [clients] section is
 // refused before anything else of it is read.
 func TestParseRefusesATeamFileThatSetsClients(t *testing.T) {
-	_, err := ParseTeamFile([]byte("version = 8\n[clients.claude]\nmodel = \"team/model\"\n"), testAdmission())
+	_, err := ParseTeamFile([]byte("version = 9\n[clients.claude]\nmodel = \"team/model\"\n"), testAdmission())
 	if !errors.Is(err, ErrTeamFileClients) {
 		t.Fatalf("a [clients] section = %v", err)
 	}

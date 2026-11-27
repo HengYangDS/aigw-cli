@@ -174,8 +174,11 @@ func readTeamFile(runtime invocation.Context, path string) (domain.Config, error
 // location it names.
 func teamFileRefusal(err error) error {
 	if version, ok := errors.AsType[*domain.UnsupportedTeamFileVersionError](err); ok {
-		return terminal.ProblemError(version.Error(), "", "Nothing changed.",
-			fmt.Sprintf("Use a team file of version %d, which `aigw config export` writes, then run the same command again.", domain.ConfigVersion), err)
+		fix := fmt.Sprintf("Use a team file of version %d, which `aigw config export` writes, then run the same command again.", domain.ConfigVersion)
+		if edits := version.Edits(); edits != "" {
+			fix = "Edit the team file: " + edits + "; then run the same command again."
+		}
+		return terminal.ProblemError(version.Error(), "", "Nothing changed.", fix, err)
 	}
 	if errors.Is(err, store.ErrTeamFileClients) {
 		return terminal.ProblemError(err.Error(), "", "Nothing changed.",
@@ -432,9 +435,6 @@ func recommendedChoiceProviders(cfg domain.Config) []string {
 			continue
 		}
 		for _, choice := range cfg.Recommendations[client].Selections() {
-			if choice.Authentication == domain.AuthenticationClientNative {
-				continue
-			}
 			if _, err := cfg.ResolveSelection(client, choice); err == nil && !slices.Contains(providers, cfg.Models[choice.Model].Provider) {
 				providers = append(providers, cfg.Models[choice.Model].Provider)
 			}
@@ -472,7 +472,8 @@ func installedProgram(cfg domain.Config, discovered discovery.Result, clientID s
 }
 
 // manifestSetupSelectedClients are the installed, enabled clients whose
-// selection's provider has a Token, or that authenticate themselves.
+// selection's provider has a Token, or whose Token an external reader
+// supplies.
 func manifestSetupSelectedClients(cfg domain.Config, connected []string, available map[string]bool) []string {
 	clients := make([]string, 0, len(cfg.Admission().IDs()))
 	for _, client := range cfg.Admission().IDs() {

@@ -150,7 +150,7 @@ func TestManifestSetupClientSelectionRequiresConnectedModelAndUsableSurface(t *t
 func TestManifestSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
-	manifest := `version = 8
+	manifest := `version = 9
 
 [[providers]]
 id = "team"
@@ -239,7 +239,7 @@ func TestBeforeConfigurationNamesSyncOnlyWithAConfiguration(t *testing.T) {
 	if got := next(beforeConfiguration(runtime, refusal)); !strings.HasSuffix(got, "run the same command again.") {
 		t.Fatalf("without a configuration: %q", got)
 	}
-	if err := os.WriteFile(filepath.Join(home, "aigw.toml"), []byte("version = 8\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(home, "aigw.toml"), []byte("version = 9\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if got := next(beforeConfiguration(runtime, refusal)); !strings.HasSuffix(got, "run `aigw sync`") {

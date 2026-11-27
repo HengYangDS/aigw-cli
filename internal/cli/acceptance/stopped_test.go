@@ -278,7 +278,7 @@ func TestSetupReportsAStoppedCodex(t *testing.T) {
 		t.Fatal(err)
 	}
 	team := filepath.Join(t.TempDir(), "team.toml")
-	writeFile(t, team, []byte(`version = 8
+	writeFile(t, team, []byte(`version = 9
 
 [[providers]]
 id = "gateway"

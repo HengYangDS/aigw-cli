@@ -104,7 +104,7 @@ func main() {
 	}
 }
 
-func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t *testing.T) {
+func TestMissingTokenDoesNotBlockAClientWithItsOwnCredentialCommandWhenReaderUnavailable(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "codex.toml")
 	if err := os.WriteFile(target, nil, 0o600); err != nil {
@@ -112,8 +112,7 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	}
 	cfg := testConfig(t, target)
 	codexBinding := cfg.Clients[codex.ID]
-	codexBinding.Authentication = domain.AuthenticationClientNative
-	codexBinding.ModelProvider = "amazon-bedrock"
+	codexBinding.CredentialCommand = filepath.Join(root, "external-credential")
 	cfg.Clients[codex.ID] = codexBinding
 	cfg.Providers["missing"] = domain.Provider{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
 	cfg.Models[domain.NewModelRef("missing", "claude-test")] = domain.Model{Label: "Claude", Provider: "missing", Family: "claude-test", ID: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
@@ -142,16 +141,16 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	projection, err := syncer.PreviewProjection(cfg, cfg)
 	plans := projection.Targets
 	if err != nil || len(plans) == 0 {
-		t.Fatalf("ready native Codex has no projection plan: plans=%v error=%v", plans, err)
+		t.Fatalf("Codex with its own credential command has no projection plan: plans=%v error=%v", plans, err)
 	}
 	if action, err := syncer.CredentialEntrypointPlan(cfg); err != nil || action != CredentialEntrypointUnchanged {
 		t.Fatalf("missing Claude Token planned an unused reader: action=%q error=%v", action, err)
 	}
 	if err := syncer.CommitProjection(t.Context(), cfg, cfg, "sync"); err != nil {
-		t.Fatalf("missing Claude Token blocked independent native Codex: %v", err)
+		t.Fatalf("missing Claude Token blocked Codex with its own credential command: %v", err)
 	}
 	data, err := os.ReadFile(target)
 	if err != nil || len(data) == 0 {
-		t.Fatalf("native Codex was not projected: %v", err)
+		t.Fatalf("Codex with its own credential command was not projected: %v", err)
 	}
 }

@@ -231,7 +231,7 @@ sk-rejected-token
 -- system.txt --
 dmx-system-token
 -- probe.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "spare"
@@ -239,7 +239,7 @@ label = "spare"
 balance = {kind = "dmxapi", base_url = "$UPSTREAM"}
 endpoints = {responses = "$UPSTREAM/spare/v1"}
 -- manifest.in --
-version = 8
+version = 9
 
 [[providers]]
 id = "mixed"
@@ -795,7 +795,7 @@ Next
   aigw provider show <provider>
 -- fresh-status.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -809,7 +809,6 @@ Next
       "state": "deferred",
       "detail": "No model is selected",
       "next_detail": "aigw use claude \u003cprovider/model\u003e",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false
     },
@@ -817,7 +816,6 @@ Next
       "state": "deferred",
       "detail": "No model is selected",
       "next_detail": "aigw use claude-desktop \u003cprovider/model\u003e",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false,
       "qualified_modes": [
@@ -833,7 +831,6 @@ Next
       "state": "deferred",
       "detail": "No model is selected",
       "next_detail": "aigw use codex \u003cprovider/model\u003e",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false
     },
@@ -841,7 +838,6 @@ Next
       "state": "deferred",
       "detail": "No model is selected",
       "next_detail": "aigw use hermes \u003cprovider/model\u003e",
-      "authentication": "",
       "endpoint_configured": false,
       "client_files_ready": false
     }

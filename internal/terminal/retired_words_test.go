@@ -22,10 +22,12 @@ func TestEveryExplanationOfADomainErrorSpeaksTheProductVocabulary(t *testing.T) 
 	ref := domain.NewModelRef("team", "m")
 	for name, err := range map[string]error{
 		"an unselected client":     &domain.RuntimeBindingUnselectedError{Client: "codex"},
-		"an unsupported version":   &domain.UnsupportedConfigVersionError{Version: 3, ExpectedVersion: 8},
+		"an unsupported version":   &domain.UnsupportedConfigVersionError{Version: 3, ExpectedVersion: domain.ConfigVersion},
+		"the replaced schema":      &domain.UnsupportedConfigVersionError{Version: 8, ExpectedVersion: domain.ConfigVersion},
 		"an unknown provider":      &domain.RuntimeModelUnknownProviderError{Model: ref, ProviderID: "ghost"},
 		"a missing endpoint":       &domain.RuntimeMissingEndpointError{ProviderID: "team", Protocol: domain.ProtocolChat},
 		"a team file version":      &domain.UnsupportedTeamFileVersionError{Version: 7},
+		"a replaced team file":     &domain.UnsupportedTeamFileVersionError{Version: 8},
 		"an entry":                 domain.NewEntryError("provider `team`", errors.New("provider \"team\" has an empty label")),
 		"an unverified reader":     fmt.Errorf("read: %w", secret.ErrNativeReaderUnverified),
 		"a refused Token item":     &secret.KeychainItemRefusedError{Kind: secret.APIToken, Provider: "team", Status: -25293},

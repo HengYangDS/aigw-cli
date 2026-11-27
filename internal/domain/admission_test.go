@@ -57,9 +57,6 @@ func TestAdmissionRefusesAnInvalidSpecification(t *testing.T) {
 	for name, specs := range map[string][]ClientSpec{
 		"empty identifier":    {{ID: ""}},
 		"repeated identifier": {{ID: "one"}, {ID: "one"}},
-		// Client-native authentication requires an explicit model provider,
-		// which only a client with a default model provider accepts.
-		"native authentication without a model provider": {{ID: "native", ClientNativeAuthentication: true}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {
@@ -81,19 +78,13 @@ func TestConfigCarriesItsAdmissionThroughClone(t *testing.T) {
 }
 
 // TestClientRulesFollowTheAdmittedCapabilities admits fixture clients so that
-// each client-specific rule and each error that names the capable clients is
-// shown to come from the specifications, not from a built-in client name.
+// a client-specific rule, retry budgets, is shown to come from the
+// specifications, not from a built-in client name.
 func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
 	responses := []EndpointProtocol{ProtocolResponses}
 	plain := ClientSpec{ID: "plain", Label: "Plain", EndpointProtocols: responses}
-	provider := ClientSpec{ID: "provider", Label: "Provider", EndpointProtocols: responses, DefaultModelProvider: "provider-default"}
-	native := ClientSpec{
-		ID: "native", Label: "Native", EndpointProtocols: responses, DefaultModelProvider: "native-default",
-		ClientNativeAuthentication: true, RetryBudgets: true,
-	}
-	other := native
-	other.ID, other.Label = "other", "Other"
-	admission := NewAdmission(plain, provider, native, other)
+	native := ClientSpec{ID: "native", Label: "Native", EndpointProtocols: responses, RetryBudgets: true}
+	admission := NewAdmission(plain, native)
 	base := NewConfig(admission)
 	base.Providers["gateway"] = Provider{Label: "Gateway", Endpoints: Endpoints{Responses: "https://gateway.test/v1"}}
 	base.Models[NewModelRef("gateway", "model")] = testModel("Route", "gateway", "model", ProtocolResponses)
@@ -103,17 +94,9 @@ func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
 		binding ClientBinding
 		want    string
 	}{
-		"model provider": {
-			client: "plain", binding: ClientBinding{Model: NewModelRef("gateway", "model"), ModelProvider: "explicit"},
-			want: "model_provider is only supported for provider, native, or other",
-		},
-		"client-native authentication": {
-			client: "provider", binding: ClientBinding{Model: NewModelRef("gateway", "model"), ModelProvider: "explicit", Authentication: AuthenticationClientNative},
-			want: "client-native authentication is only supported for native or other",
-		},
 		"retry budgets": {
-			client: "provider", binding: ClientBinding{Model: NewModelRef("gateway", "model"), RetryPolicy: &RetryPolicy{RequestMaxRetries: new(uint64)}},
-			want: `client "provider" has no admitted native retry-budget capability`,
+			client: "plain", binding: ClientBinding{Model: NewModelRef("gateway", "model"), RetryPolicy: &RetryPolicy{RequestMaxRetries: new(uint64)}},
+			want: `client "plain" has no admitted native retry-budget capability`,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -130,10 +113,5 @@ func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
 	cfg.Clients["native"] = ClientBinding{Model: NewModelRef("gateway", "model"), RetryPolicy: &RetryPolicy{RequestMaxRetries: new(uint64)}}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("capable clients are refused: %v", err)
-	}
-	for client, want := range map[string]string{"plain": "", "native": "native-default"} {
-		if runtime, err := cfg.ResolveRuntime(client, ModelRef{}); err != nil || runtime.ModelProvider != want {
-			t.Fatalf("%s model provider = %q, %v; want %q", client, runtime.ModelProvider, err, want)
-		}
 	}
 }

@@ -90,7 +90,7 @@ func TestCheckUsesAOneTimeTokenOnce(t *testing.T) {
 func TestCheckRefusesANamedModelBeforeReadingInput(t *testing.T) {
 	fixture := namedModelRuntime(t)
 	binding := fixture.cfg.Clients[codex.ID]
-	binding.ModelProvider, binding.Authentication = "amazon-bedrock", domain.AuthenticationClientNative
+	binding.CredentialCommand = "/opt/external/credential"
 	fixture.cfg.Clients[codex.ID] = binding
 	save(t, fixture.ctx, fixture.cfg)
 	input := strings.NewReader("sk-never-read\n")
@@ -112,7 +112,7 @@ func TestCheckRefusesANamedModelBeforeReadingInput(t *testing.T) {
 		{args: []string{claude.ID, "--model", "one/spare-test", "--token-stdin", "--depth", "local"}, want: "--token-stdin works at the endpoint or model depth, not at local"},
 		{args: []string{claude.ID, "--model", "one/spare-test", "--token-stdin", "--depth", "client"}, want: "--token-stdin works at the endpoint or model depth, not at client"},
 		{args: []string{claude.ID, "--model", "one/spare-test", "--model", "one/claude-test"}, want: "this flag takes one value"},
-		{args: []string{codex.ID, "--model", "one/gpt-test", "--token-stdin"}, want: "--token-stdin needs a client that sends a Token from AIGW, and Codex uses its own authentication"},
+		{args: []string{codex.ID, "--model", "one/gpt-test", "--token-stdin"}, want: "--token-stdin needs a client that sends a Token from AIGW, and an external credential helper gives Codex its Token"},
 	} {
 		if err := execute(fixture.ctx, test.args...); err == nil || !strings.Contains(err.Error(), test.want) {
 			t.Fatalf("check %q = %v, want %q", test.args, err, test.want)

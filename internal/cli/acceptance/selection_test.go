@@ -8,7 +8,6 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/processtest"
-	"aigw-cli/internal/secret"
 	"bytes"
 	"errors"
 	"os"
@@ -16,67 +15,6 @@ import (
 	"strings"
 	"testing"
 )
-
-func TestUseSelectsClientNativeModelWithoutAccessingProviderTokens(t *testing.T) {
-	t.Parallel()
-	app, _, _, _, _ := testApp(t, "")
-	credentials := &recordingCredentialStore[string]{backend: secret.NewMemoryStore()}
-	app.Secrets = credentials
-	target := filepath.Join(t.TempDir(), "config.toml")
-	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{codex.ID: executableFixture(t, "codex")},
-		Surfaces: []discovery.Surface{{
-			ID:          string(codex.HomeDefault),
-			ConfigPath:  target,
-			AutoManaged: true,
-		}},
-	}}
-	cfg := domain.NewConfig(clients.Admission())
-	cfg.Providers["aws"] = domain.Provider{
-		Label:     "AWS Bedrock",
-		Endpoints: domain.Endpoints{Responses: "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"},
-	}
-	cfg.Models[domain.NewModelRef("aws", "openai.gpt-5.6-sol")] = domain.Model{
-		Label:    "AWS Bedrock",
-		Provider: "aws",
-		Family:   "openai.gpt-5.6-sol", ID: "openai.gpt-5.6-sol",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolResponses: {},
-		},
-	}
-	cfg.Clients[codex.ID] = domain.ClientBinding{
-		Model: domain.NewModelRef("aws", "openai.gpt-5.6-sol"), ModelProvider: "amazon-bedrock",
-		Authentication: domain.AuthenticationClientNative,
-	}
-	if err := app.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := cli.Execute(app, []string{"use", "codex", "aws/openai.gpt-5.6-sol"}); err != nil {
-		t.Fatalf("select client-native route: %v", err)
-	}
-	if len(credentials.getCalls)+len(credentials.existsCalls)+len(credentials.setCalls)+len(credentials.deleteCalls) != 0 {
-		t.Fatal("client-native selection accessed AIGW credentials")
-	}
-	selected, err := app.Config.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := selected.SelectedModel(codex.ID); got != domain.NewModelRef("aws", "openai.gpt-5.6-sol") {
-		t.Fatalf("Codex route = %q", got)
-	}
-	projection := string(readFile(t, target))
-	for _, want := range []string{`model_provider = "amazon-bedrock"`, `[model_providers.amazon-bedrock]`} {
-		if !strings.Contains(projection, want) {
-			t.Fatalf("Codex projection lacks %q:\n%s", want, projection)
-		}
-	}
-	for _, forbidden := range []string{"credential", "auth]"} {
-		if strings.Contains(projection, forbidden) {
-			t.Fatalf("Codex projection contains AIGW Token material %q:\n%s", forbidden, projection)
-		}
-	}
-}
 
 func TestUseForClaudeLeavesUnselectedCodexDriftUntouched(t *testing.T) {
 	t.Parallel()

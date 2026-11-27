@@ -18,7 +18,7 @@ func declareWindow(cfg *domain.Config, ref domain.ModelRef, window int) {
 	cfg.Models[ref] = model
 }
 
-// holdingWindow returns text, the aigw.toml of schemaEightConfig, in which
+// holdingWindow returns text, the aigw.toml of schemaNineConfig, in which
 // the model dmxapi/claude-opus-5-5 holds `context_window = value`.
 func holdingWindow(t *testing.T, text, value string) []byte {
 	t.Helper()
@@ -33,7 +33,7 @@ func holdingWindow(t *testing.T, text, value string) []byte {
 // A declared context window is written under its model, after the model's
 // protocols, reads back as declared, and encodes as the same bytes again.
 func TestADeclaredContextWindowRoundTrips(t *testing.T) {
-	cfg, text := schemaEightConfig(t)
+	cfg, text := schemaNineConfig(t)
 	sol := dmxapiModel("gpt-6.1-sol-cdx")
 	declareWindow(&cfg, sol, 256000)
 	const protocols = "protocols = { responses = ['text', 'reasoning'] }\n"
@@ -68,7 +68,7 @@ func TestADeclaredContextWindowRoundTrips(t *testing.T) {
 // export as a team file holds the key. A model that stores the default, which
 // no file and no command gives it, is written as one that declares none.
 func TestAModelWithoutAContextWindowEncodesNoSuchKey(t *testing.T) {
-	cfg, want := schemaEightConfig(t)
+	cfg, want := schemaNineConfig(t)
 	stored := cfg.Clone()
 	declareWindow(&stored, dmxapiModel("gpt-6.1-sol-cdx"), domain.DefaultContextWindow)
 	for name, cfg := range map[string]domain.Config{"no model declares a window": cfg, "a model stores the default": stored} {
@@ -90,7 +90,7 @@ func TestAModelWithoutAContextWindowEncodesNoSuchKey(t *testing.T) {
 // applied to is stored and exported without the key.
 func TestAFileThatDeclaresTheDefaultContextWindowDeclaresNone(t *testing.T) {
 	window := strconv.Itoa(domain.DefaultContextWindow)
-	_, plain := schemaEightConfig(t)
+	_, plain := schemaNineConfig(t)
 	want, err := decodeTOMLConfig([]byte(plain), testAdmission())
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +135,7 @@ func TestAFileThatDeclaresTheDefaultContextWindowDeclaresNone(t *testing.T) {
 // windowTeamFile is a team file whose provider serves two models: small,
 // which declares the context window that %s is, and large, which declares
 // none.
-const windowTeamFile = `version = 8
+const windowTeamFile = `version = 9
 
 [[providers]]
 id = "team"
@@ -188,7 +188,7 @@ func TestATeamFilesContextWindowReachesTheConfiguration(t *testing.T) {
 // with both bounds; a value that is no whole number is refused as a value of
 // the wrong type.
 func TestAContextWindowOutsideTheBoundsIsRefusedByItsModel(t *testing.T) {
-	_, valid := schemaEightConfig(t)
+	_, valid := schemaNineConfig(t)
 	declared := func(value string) []byte { return holdingWindow(t, valid, value) }
 	for _, value := range []string{"0", "-1", strconv.Itoa(domain.MinContextWindow - 1), strconv.Itoa(domain.MaxContextWindow + 1)} {
 		refusal := fmt.Sprintf("a context window is a whole number of tokens from %d to %d, not %s", domain.MinContextWindow, domain.MaxContextWindow, value)

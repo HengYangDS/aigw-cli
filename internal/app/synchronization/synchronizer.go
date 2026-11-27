@@ -36,9 +36,6 @@ func (s Synchronizer) Inspect(ctx context.Context, cfg domain.Config, clientID s
 func (s Synchronizer) Verify(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime, explicitRoute string) (adapter.Verification, error) {
 	selected := cfg.Clone()
 	selected.SetSelectedModel(clientID, runtime.Model, runtime.Protocol)
-	binding := selected.Clients[clientID]
-	binding.ModelProvider, binding.Authentication = runtime.ModelProvider, runtime.Authentication
-	selected.Clients[clientID] = binding
 	dependencies, err := s.clientDependencies([]string{clientID}, cfg, selected)
 	if err != nil {
 		return adapter.Verification{}, err
@@ -263,7 +260,7 @@ func (s Synchronizer) credentialEntrypointProviders(cfg domain.Config, clientIDs
 		if err != nil {
 			return nil, err
 		}
-		if runtime.RequiresProviderToken() && runtime.CredentialCommand == "" && !slices.Contains(accounts, runtime.ProviderID) {
+		if runtime.UsesAIGWCredentialStore() && !slices.Contains(accounts, runtime.ProviderID) {
 			accounts = append(accounts, runtime.ProviderID)
 		}
 	}

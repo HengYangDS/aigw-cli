@@ -90,12 +90,12 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 		"undefined field": {
 			err: &store.LoadError{Phase: store.LoadPhaseValidate, Err: fmt.Errorf("%s: %w", content, &store.UndefinedFieldError{Field: "providers.order", Line: 6})},
 			want: []string{"Cannot validate local configuration",
-				"AIGW 9.8.7 stopped at the configuration validate stage: schema 8 does not define the field providers.order, on line 6.", "aigw config path"},
+				fmt.Sprintf("AIGW 9.8.7 stopped at the configuration validate stage: schema %d does not define the field providers.order, on line 6.", domain.ConfigVersion), "aigw config path"},
 		},
 		"missing field": {
 			err: &store.LoadError{Phase: store.LoadPhaseValidate, Err: fmt.Errorf("%s: %w", content, &store.MissingFieldError{Field: "clients.codex.forwarding.endpoint"})},
 			want: []string{"Cannot validate local configuration",
-				"AIGW 9.8.7 stopped at the configuration validate stage: schema 8 requires the field clients.codex.forwarding.endpoint.", "aigw config path"},
+				fmt.Sprintf("AIGW 9.8.7 stopped at the configuration validate stage: schema %d requires the field clients.codex.forwarding.endpoint.", domain.ConfigVersion), "aigw config path"},
 		},
 		// Two models that share a label are named, and the fix is the
 		// file's: a command that loads it would stop the same way.
@@ -244,11 +244,26 @@ func TestConfigurationLoadFixWithoutAStage(t *testing.T) {
 // The verified checkpoint carries an unsupported version outside a load
 // failure; it is not the configuration file, so its fix is the diagnostic.
 func TestUnsupportedCheckpointVersionNamesTheDiagnostic(t *testing.T) {
-	err := fmt.Errorf("validate verified checkpoint: %w", &domain.UnsupportedConfigVersionError{Version: 9, ExpectedVersion: domain.ConfigVersion})
-	problem := ProblemFor(err)
-	if problem.Title != fmt.Sprintf("unsupported configuration version: found 9, expected %d. AIGW does not reinterpret configuration schemas", domain.ConfigVersion) ||
-		problem.Fix != "aigw check" || problem.Impact != "" {
-		t.Fatalf("checkpoint version problem = %+v", problem)
+	for _, version := range []int{8, domain.ConfigVersion + 1} {
+		err := fmt.Errorf("validate verified checkpoint: %w", &domain.UnsupportedConfigVersionError{Version: version, ExpectedVersion: domain.ConfigVersion})
+		problem := ProblemFor(err)
+		if problem.Title != fmt.Sprintf("unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas", version, domain.ConfigVersion) ||
+			problem.Fix != "aigw check" || problem.Impact != "" {
+			t.Fatalf("checkpoint version %d problem = %+v", version, problem)
+		}
+	}
+}
+
+// A configuration file of the schema that this one replaced is fixed by the
+// edits that bring it here, which AIGW never makes itself.
+func TestAVersionEightConfigurationNamesItsEdits(t *testing.T) {
+	unsupported := &domain.UnsupportedConfigVersionError{Version: 8, ExpectedVersion: domain.ConfigVersion}
+	err := LocalFailure("9.8.7", platform.PathContext{}, &store.LoadError{Phase: store.LoadPhaseValidate, Err: unsupported})
+	fix := ProblemFor(err).Fix
+	for _, want := range []string{unsupported.Edits(), "never rewrites", "aigw config path"} {
+		if !strings.Contains(fix, want) {
+			t.Fatalf("the fix %q does not name %q", fix, want)
+		}
 	}
 }
 
