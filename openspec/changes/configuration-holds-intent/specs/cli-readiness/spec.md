@@ -45,3 +45,24 @@ named and none is enabled, and 0 otherwise.
 - **THEN** its `client` depth SHALL be skipped, because Claude Desktop needs
   acceptance inside the app
 - **AND** the command SHALL exit 0 when no checked client failed.
+
+### Requirement: A check names why Codex's files fall short
+
+`aigw check` SHALL name a Codex model table that an earlier release marked stale, a table that another program
+produced, a configured program that cannot produce a table and a missing configured program each as such. It SHALL say
+that a Codex configuration file does not match the selected model only when the file's settings differ from what AIGW
+writes for that model.
+
+#### Scenario: Another program produced the table
+
+- **GIVEN** the file of Codex's program, declared or resolved from its extensions directory, changed after it
+  produced the model table, and the new file can produce one
+- **WHEN** `aigw check --depth local` runs
+- **THEN** Codex's problem SHALL say that its program changed after it produced the table, and not that
+  its file does not match the selected model.
+
+#### Scenario: The selected model changed after the last sync
+
+- **GIVEN** the selected model's endpoint changed after the last sync
+- **WHEN** `aigw check --depth local` runs
+- **THEN** Codex's problem SHALL say that its configuration file does not match the selected model.

@@ -169,9 +169,9 @@ that cannot read the current configuration, and changes nothing.
 ## Configuration boundary
 
 Team file validation uses public metadata, not Token values. A client that
-uses a provider's Token requires credential availability before activation. Client-native
-Codex authentication needs no AIGW Token and remains client-owned. Public
-configuration never carries credentials.
+uses a provider's Token requires credential availability before activation. A client
+that names its own `credential_command` needs no AIGW Token, and its secret
+remains client-owned. Public configuration never carries credentials.
 
 A team file never changes an existing provider's endpoints or Token: a
 differing endpoint stays local and is reported, because a file must not

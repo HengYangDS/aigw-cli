@@ -262,8 +262,9 @@ make selection and a native credential service one cross-process transaction.
 Credential rotation validates and replaces only the selected provider Token.
 It does not invoke clients or change configuration. Every admitted client reads
 provider Tokens through a command helper; same-provider rotation becomes visible
-on its next invocation, subject to the client's refresh policy. Client-native
-authentication is outside AIGW's credential ownership.
+on its next invocation, subject to the client's refresh policy. A client that
+names its own `credential_command` reads its secret outside AIGW's credential
+ownership.
 
 Credential validation, endpoint tests and readiness diagnostics share the
 credential owner's authenticated request boundary. Native HTTP clients are
@@ -388,13 +389,11 @@ are explicit Adapter targets. AIGW owns the recorded provider tables, root
 selections, configured scheduler fields, derived catalog and sidecar, including
 its credential-helper configuration. Decorative markers are not the ownership
 boundary. Dry-run exposes
-the plan without reading credentials or changing files. A Codex client
-selection may name one explicit native provider identity. AIGW then projects
-that exact table with the provider's endpoint and an absolute
-command-authentication helper; the provider still owns the Token and Codex
-still owns conversation state.
-Client-native authentication projects no AIGW credential helper. The Provider
-name and model catalog are independent of credential ownership.
+the plan without reading credentials or changing files. AIGW projects one
+provider table, under its own name, with the provider's endpoint and an
+absolute command-authentication helper; the provider still owns the Token and
+Codex still owns conversation state. The Provider name and model catalog are
+independent of credential ownership.
 
 Codex provider ownership binds the recorded canonical values, not the text span
 between decorative comments. The native TOML parser locates the provider and

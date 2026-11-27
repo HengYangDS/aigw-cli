@@ -23,11 +23,14 @@ engine; new clients.
 
 A client section declares `program` (an absolute path to the program) or `extensions` (the absolute path of an
 editor's extensions directory), one of the two or neither. Both are syntax-checked when the file loads: absolute,
-clean, no control character, not both. Whether the path exists is decided on each operation, never at load, so a
-missing program stops only its client (Change A's behavior). AIGW writes `program` only when it adopts a program for a
+clean, no control character, not both. A `program` inside a version of the client's editor extension is refused with
+the `extensions` declaration that names its directory, as `--program` refuses it, so that a schema 8 `executable`
+renamed as it stands cannot bring issue 1 back; `extensions` is refused for a client without an extension. Whether the
+path exists is decided on each operation, never at load, so a missing program stops only its client (Change A's
+behavior). AIGW writes `program` only when it adopts a program for a
 client that declares neither, and never changes or removes a declaration afterwards; only `aigw client enable`,
-`aigw client edit` and a configuration rollback do. What a run observed (the resolved path, the extension version)
-goes to command output and to Codex's record, as today.
+`aigw client edit` and a configuration rollback do. What a run observed (the resolved path) goes to command output
+and to Codex's record, as today; an extension's version appears in the stops that concern it.
 
 Alternative rejected: keeping `executable` with a narrower meaning (the issue committee's recommendation). The owner
 chose the rename, so that no existing automatically written path silently becomes a declaration.
@@ -61,7 +64,8 @@ its entries are dropped and nothing else is inferred from it.
 
 A client that declares neither adopts, in a converging command, the program that discovery finds: the PATH first,
 then the client's fixed application path (Claude Desktop's application bundle). It writes that path as `program` and
-says so in the command's output. Extension directories are not searched: the issue committee's member 4 and its
+says so in the command's output. Extension directories are not searched, and a program found on the PATH inside a version of an editor extension is
+not adopted: the issue committee's member 4 and its
 cross-examiner judged the built-in list of editor directories the part to cut, and a declared `--extensions` covers
 every editor without one. Where a later need for automatic extension discovery would join: a list owned by
 `discovery`, consulted after the fixed paths. Adding it is additive.
@@ -79,7 +83,9 @@ declares the same program without its version. Every repair that named `--execut
 Whether a client's files are projected followed from a non-empty `executable` in activation, the local check, Claude
 Code's adapter and Codex's verification (the issue committee's D7). It follows from the enabled state, the targets and
 AIGW's record, so a client whose program is declared but not yet resolved keeps its files' state, and a client stopped
-by a missing program is reported as stopped, not as unprojected.
+by a missing program is reported as stopped, not as unprojected. A client whose record holds files is judged against
+it even when its declaration was deleted; a client with no usable program is given the step that declares one
+(`--program`, or `--extensions` for a client with an editor extension), since a synchronization would find nothing.
 
 ### The client-native path leaves
 
@@ -94,9 +100,10 @@ replaces it until a cloud provider returns under DR-0013.
 openai-responses-proxy 8.0.0 (released 2026-11-27, its Change `provider-agnostic-addressing`) knows no provider names:
 the request path names the upstream, as `<root>/<scheme>/<authority>/<base path>`, and it refuses the provider-named
 routes that AIGW's users wrote before. Its contract for AIGW is kept by the proxy session outside every repository; the
-grammar is: `https` for any host or `http` for a loopback host only; a host with an optional port, in lower case and
-without a default port, so that one upstream has one spelling; a base path of zero or more segments without empty or
-dot segments or percent-encoding; no user information, query or fragment. The proxy relays the Responses API only.
+grammar is: `https` for any host or `http` for `127.0.0.1`, `localhost` or `[::1]` only, the hosts that the service
+admits; a host that a URL carries as written, with an optional port, in lower case and without a default port, so
+that one upstream has one spelling; a base path of zero or more segments of ASCII letters,
+digits and `-._~` only, none empty or a dot segment; no user information, query or fragment. The proxy relays the Responses API only.
 
 So a client's forwarding names the forwarding service's root (`aigw client edit <client> --via <root>`), and each
 resolution composes the destination from the selected provider's own Responses endpoint by that grammar. The
@@ -116,7 +123,10 @@ moves the route to the client when the proxy is upgraded (the proxy session's cu
 
 `aigw client edit <client> --via <root>` for a selection that the forwarding cannot carry is refused with the
 selection to make first (`aigw use <client> <provider/model>`), since `--direct` would change nothing there; Claude
-Code and Claude Desktop, which speak no Responses, are refused `--via` at their arguments. Because Claude Code no
+Code and Claude Desktop, which speak no Responses, are refused `--via` at their arguments. A client whose file lists
+the models of several providers, as Hermes's does, reaches each other provider through the root when the grammar names
+its Responses endpoint and directly otherwise: the rules above are about the selection, and an entry that the operator
+did not select is never a reason to refuse a command. Because Claude Code no
 longer forwards, the release tool's candidate-only `forwarding-performance` scope, which measured Claude Code
 through a forwarding endpoint and which no specification, CI job or release step uses, is removed with its
 `--performance-forwarding` flag rather than rebuilt on Codex: AIGW carries no traffic, so a forwarding changes only
@@ -129,8 +139,11 @@ place and needs one forwarding per provider, which a client with one forwarding 
 
 The store refuses a version 8 file before reading anything else, as it refuses any other version, but names the edits
 that schema 9 needs: set `version = 9`; rename each client's `executable` to `program`; delete `authentication` and
-`model_provider` wherever they appear; delete each client's `forwarding` and set it again with `--via <root>`. The
-text is fixed; nothing of the old file is parsed for it, so no schema 8 reader survives. After the edits, a leftover
+`model_provider` wherever they appear; delete each client's `forwarding` and set it again with `aigw client edit <client> --via <root>`. The
+text is fixed; nothing of the old file is parsed for it, so no schema 8 reader survives. The `executable` edit also
+says that a path inside a version of an editor extension becomes `extensions` naming the extensions directory. A team
+file has no clients, so its refusal names only its own edits: the version, and `authentication` and `model_provider`
+in each recommendation, or a team file that `aigw config export` writes. After the edits, a leftover
 key is refused by the existing undefined-field refusal with its line. Alternative rejected: an in-place converter,
 which DR-0012 already rejected as an importer and which would keep a second schema in the program.
 
@@ -148,7 +161,11 @@ every other command.
 
 A team file is the configuration without `[clients]`, so it moves to version 9 and loses the recommendation keys;
 `aigw config export` writes version 9. A member on 0.11.0 cannot apply it, and `aigw self rollback` to a release
-before this one refuses while `aigw.toml` is at version 9, as DR-0012 point 5 already provides. The upgrade note says
+before this one refuses while `aigw.toml` is at version 9, as DR-0012 point 5 already provides, and goes ahead once the copy kept
+before the edits is restored: rollback admission compares the retained program's export with the given file's own
+version, not with this release's. A release before 0.7.0 cannot pass that comparison by exporting its own empty
+configuration, since `aigw.toml` has only ever been written at version 8 or later, and the schema number only grows: 0.6.1,
+the last release before 0.7.0, uses version 6 (read from the tags on 2026-11-28). The upgrade note says
 to keep a copy of `aigw.toml` before the edit.
 
 ## Risks / Trade-offs

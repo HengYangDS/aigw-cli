@@ -49,13 +49,30 @@ or carry requests.
 
 - **WHEN** the provider's Responses endpoint is `https://API.Example.com:443/v1/`
 - **THEN** the destination SHALL be `<root>/https/api.example.com/v1`
-- **AND** an endpoint with another port SHALL keep it, as in `<root>/https/api.example.com:8443/v1`.
+- **AND** an endpoint with another port SHALL keep it, as in `<root>/https/api.example.com:8443/v1`, and a port is
+  read as its number, so `:0443` is the default port.
 
 #### Scenario: An upstream outside the grammar
 
-- **WHEN** a forwarded client would reach a Responses endpoint with a query, a fragment, user information,
-  percent-encoding, an empty or dot path segment, or `http` to a host that is not a loopback host
+- **WHEN** a forwarded client would reach a Responses endpoint with a query, a fragment, user information, a port
+  above 65535, a host or path segment with a character other than an ASCII letter, a digit or `-._~` (such as a
+  non-ASCII name, percent-encoding, `;` or `@`), an empty or dot path segment anywhere, including `https://host//`,
+  or `http` to a host other than `127.0.0.1`, `localhost` or `[::1]`, the hosts that the service admits
 - **THEN** the command SHALL refuse before any change, naming `aigw client edit <client> --direct`.
+
+#### Scenario: Forwarding cannot carry the selection
+
+- **WHEN** `aigw client edit <client> --via <root>` runs while the client's selection reaches an upstream that the
+  grammar cannot name
+- **THEN** the command SHALL refuse before any change, naming `aigw use <client> <provider/model>`
+- **AND** Claude Code and Claude Desktop, which speak no Responses, SHALL refuse `--via` among their arguments.
+
+#### Scenario: A catalog holds another provider
+
+- **GIVEN** a forwarded Hermes whose catalog holds models of another provider
+- **WHEN** AIGW writes Hermes's file, or `aigw check hermes --model` names such a model
+- **THEN** that provider's entries SHALL reach it through the root when the grammar names its Responses endpoint, and
+  directly otherwise, without a refusal.
 
 #### Scenario: The root is checked
 

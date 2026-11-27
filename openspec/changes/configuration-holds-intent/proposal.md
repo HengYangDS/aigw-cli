@@ -20,9 +20,11 @@ The design rests on the issue-1 committee and the end-state committee, whose mat
   refuses a version 9 file, so a program rollback to it needs the copy of `aigw.toml` kept before the edit.
 - **Breaking:** a client declares its program by `program` (an absolute path) or by `extensions` (an editor's
   extensions directory), one of the two or neither. AIGW reads the declaration and never rewrites it. For
-  `extensions`, each operation takes the newest installed version of the client's extension that holds a program for
-  this host, ignoring versions that the editor lists as obsolete. A client with no declaration adopts the program that
-  it finds on the PATH or at the client's fixed application path, once, and writes it as `program`, saying so.
+  `extensions`, each operation takes the newest installed version of the client's extension for this host, ignoring
+  versions that the editor lists as obsolete, and stops the client when that version holds no program. A `program`
+  inside a version of an editor extension is refused with the `extensions` declaration that names its directory. A client with no declaration adopts the program that
+  it finds on the PATH, outside any editor extension, or at the client's fixed application path, once, and writes it
+  as `program`, saying so.
 - **Breaking:** `aigw client enable` and `aigw client edit` take `--program <path>` or `--extensions <dir>`, which
   exclude each other; `--executable` is gone. A versioned path inside an extensions directory given to `--program` is
   refused with the `--extensions` command that declares it instead. Every repair that named `--executable` names

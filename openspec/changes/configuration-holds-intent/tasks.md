@@ -97,8 +97,18 @@
 
 ## 8. Review
 
-- [ ] 8.1 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
+- [x] 8.1 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
       code or in the design.
+- [ ] 8.2 Refuse a `program` inside a version of an editor extension when the file loads and in adoption, judge a
+      client's files by AIGW's record, give a client without a usable program the declaration step, and test Codex
+      with `extensions`. Done when the domain, adapter, synchronization, check and status tests pass.
+- [ ] 8.3 Reach a catalog's other providers through the root only where the grammar names them, match the
+      destination grammar to the forwarding service's, give team files their own version 8 edits, and correct the
+      stale tests and expectations. Done when the domain, Hermes adapter, setup, store and acceptance tests pass.
+- [x] 8.4 Make the retry journey's two rollbacks swap the candidate and the baseline, and make the crossing journeys'
+      state and forwarding checks able to fail. Done when `go vet` of `tools/release/...` passes under every tag.
+- [x] 8.5 Carry the answers into the specifications, the design, the proposal, the CHANGELOG and the documents. Done
+      when the rehearsed archive validates within the size limit and the prose gate passes.
 
 ## 9. Exact-HEAD proof
 

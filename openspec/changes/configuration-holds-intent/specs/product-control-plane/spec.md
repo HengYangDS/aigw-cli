@@ -84,16 +84,20 @@ without `[clients]`.
 
 - **WHEN** a command loads an `aigw.toml` that has `version = 8`
 - **THEN** it SHALL refuse before reading any other field and change no file
-- **AND** its fix SHALL name four edits: set `version = 9`, rename each client's `executable` to `program`, delete
-  `authentication` and `model_provider` wherever they appear, and delete each client's `forwarding` to set it again
-  with `--via <root>`
+- **AND** its fix SHALL name four edits: set `version = 9`; rename each client's `executable` to `program`, or to
+  `extensions` naming the editor's extensions directory where it lies inside a version of an editor extension; delete
+  `authentication` and `model_provider` wherever they appear; and delete each client's `forwarding` to set it again
+  with `aigw client edit <client> --via <root>`
 - **AND** that text SHALL be the same for every version 8 file, and no command SHALL rewrite the file
 - **AND** the credential reader, which ignores `version`, SHALL still serve Tokens from it.
 
 #### Scenario: A schema 8 key remains after the edits
 
-- **WHEN** an `aigw.toml` with `version = 9` still holds `executable`, `authentication` or `model_provider`
-- **THEN** loading it SHALL fail, naming that field and its line, without changing any file.
+- **WHEN** an `aigw.toml` with `version = 9` still holds `executable`, `authentication` or `model_provider`, or a
+  client's `forwarding` as a table
+- **THEN** loading it SHALL fail, naming that field and its line, without changing any file
+- **AND** for a `forwarding` table it SHALL name the edit that sets it again with
+  `aigw client edit <client> --via <root>`.
 
 ## REMOVED Requirements
 

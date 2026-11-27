@@ -8,10 +8,11 @@ commands that declare it; and how a program that is missing stops only its clien
 
 ### Requirement: A client declares its program by path or by extensions directory
 
-A client section MAY declare `program`, the absolute path of the client's program, or `extensions`, the absolute path
-of an editor's extensions directory, and SHALL NOT declare both. Loading SHALL refuse a declared path that is not
-absolute and clean or that holds a control character. Loading SHALL NOT check whether the path exists; each operation
-decides that, so that a missing program stops only its client.
+A client section MAY declare `program`, the path of the client's program, or `extensions`, the path of an editor's
+extensions directory, not both. Loading SHALL refuse a path that is not absolute and clean or holds a control
+character, a `program` inside a version of the client's editor extension, and `extensions` for a client without one.
+Loading SHALL NOT check whether the path exists; each operation decides that, so that a missing program stops only its
+client.
 
 #### Scenario: A client declares both
 
@@ -22,6 +23,17 @@ decides that, so that a missing program stops only its client.
 
 - **WHEN** a client declares `program = "bin/codex"`, or an `extensions` path that holds `..` or a control character
 - **THEN** loading SHALL fail, naming the field, without changing any file.
+
+#### Scenario: A program inside a version of an editor extension
+
+- **WHEN** Codex declares `program = "<dir>/openai.chatgpt-<version>-darwin-arm64/bin/macos-aarch64/codex"`, as a
+  renamed schema 8 `executable` may
+- **THEN** loading SHALL fail, naming the field and `extensions = "<dir>"`, without changing any file.
+
+#### Scenario: A client without an editor extension declares one
+
+- **WHEN** Hermes or Claude Desktop declares `extensions`
+- **THEN** loading SHALL fail, naming the client and the field, without changing any file.
 
 #### Scenario: A declared program is missing when the file loads
 
@@ -40,8 +52,8 @@ decides that, so that a missing program stops only its client.
 
 A client SHALL use the program that it declares, as `program` or through `extensions`, and only when it declares
 neither the program that discovery finds on the PATH, or else at the client's fixed application path, which the
-command that converges the client then writes once as its `program` and names in its output. No command but
-`aigw client enable`, `aigw client edit` and a configuration rollback SHALL change or remove a declaration, even when
+converging command then writes once as its `program` and names in its output. Only `aigw client enable`,
+`aigw client edit`, a configuration rollback and `aigw self uninstall` SHALL change or remove a declaration, even when
 the declared program is gone.
 
 #### Scenario: The configured program is gone while discovery finds another
@@ -78,8 +90,8 @@ the declared program is gone.
 
 #### Scenario: Discovery searches no extensions directory
 
-- **WHEN** `aigw client enable codex` runs without a program flag and Codex's only program lies inside an editor's
-  extensions directory
+- **WHEN** `aigw client enable codex` or `aigw sync` runs without a declaration and Codex's only program lies inside a
+  version of an editor's extension, whether or not that directory is on the PATH
 - **THEN** discovery SHALL NOT adopt it
 - **AND** the missing-program repair that the command gives SHALL name `--extensions <dir>` beside `--program`.
 
@@ -296,6 +308,20 @@ command that writes client files SHALL report a client that its program stops as
 - **WHEN** `aigw status` or `aigw check --depth local` runs
 - **THEN** Codex SHALL be reported as stopped by its missing program, with the stop's cause and repair
 - **AND** not as a client whose files AIGW has not written.
+
+#### Scenario: A client whose declaration was deleted keeps its record
+
+- **GIVEN** Codex is enabled, AIGW's record holds the files that a sync wrote, and the operator deleted its declaration
+- **WHEN** `aigw status` or `aigw check --depth local` runs
+- **THEN** Codex's files SHALL be judged against that record, and the step SHALL be the one that gives Codex a program.
+
+#### Scenario: A client without a usable program names its declaration
+
+- **GIVEN** Codex is enabled, declares neither `program` nor `extensions`, and discovery finds no program outside an
+  editor's extensions
+- **WHEN** `aigw status` or `aigw check --depth local` runs
+- **THEN** the step SHALL name `--program <path>` and `--extensions <dir>`, not only a synchronization that would find
+  nothing.
 
 #### Scenario: A disabled client keeps its declaration
 

@@ -3,8 +3,9 @@
 ### Requirement: Setup refuses a team file in another form
 
 `aigw setup --from` SHALL refuse, before any write, a team file that has a `[clients]` section or a `version` other
-than 9. The refusal for version 8 SHALL name the edits that schema 9 needs, as for `aigw.toml`. The refusal for
-version 7 SHALL name that file's conversion path.
+than 9. The refusal for version 8 SHALL name a team file's own edits, which name no client field: set the version,
+delete `authentication` and `model_provider` from each recommendation, or use a team file that `aigw config export`
+writes. The refusal for version 7 SHALL name that file's conversion path.
 
 #### Scenario: A team file has a clients section
 

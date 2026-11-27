@@ -92,7 +92,7 @@ family or identifier. No provider Token is mandatory, and a team file
 preserves each client's existing selection.
 
 Reasoning effort remains a native client preference, outside the team file's
-version 8 schema. Choose a level supported by the selected model through Codex's
+schema. Choose a level supported by the selected model through Codex's
 `model_reasoning_effort`, Claude Code's `effortLevel` or Hermes's
 `reasoning_effort` in their active settings. Merge those fields; do not replace
 any document. Applying the team file does not set these preferences.
