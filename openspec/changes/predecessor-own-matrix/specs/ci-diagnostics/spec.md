@@ -5,12 +5,9 @@
 When a peer's read-only release verification runs the native lifecycle against
 an existing release's published bytes, it SHALL consume an explicitly selected
 published predecessor of 0.7.0 or later from the same peer, verify that
-predecessor's signed matrix and source, and run the upgrade and rollback
-journeys from it. The predecessor's matrix SHALL be the set of files that its
-own signed checksum manifest names, not the current release's platform matrix:
-at least one platform archive of the predecessor's version, then its
-dependency reports and its provenance. It SHALL NOT rebuild, retag, sign or
-publish either release.
+predecessor by its own signed matrix and its source, and run the upgrade and
+rollback journeys from it. Its own matrix SHALL be the files that its signed
+manifest names. It SHALL NOT rebuild, retag, sign or publish either release.
 
 #### Scenario: A maintainer selects a published predecessor
 
@@ -41,7 +38,8 @@ publish either release.
   platforms that the current release no longer publishes
 - **THEN** native acceptance SHALL verify the predecessor against the files
   that its manifest names, with their digests, its signature and its rebuilt
-  provenance
-- **AND** it SHALL refuse a predecessor whose directory holds a file that the
-  manifest does not name, lacks one that it names, names a file of another
-  version, or names no dependency reports or provenance.
+  provenance, not against the current release's platform matrix
+- **AND** it SHALL refuse a predecessor whose manifest does not name at least
+  one platform archive of its version followed by its dependency reports and
+  its provenance, or whose directory holds a file that the manifest does not
+  name or lacks one that it names.
