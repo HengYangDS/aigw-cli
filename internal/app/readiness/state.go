@@ -133,7 +133,7 @@ func ClassifyClient(facts ClientFacts) Client {
 		}
 	case facts.ProjectionDeferred && facts.ClientInstalled:
 		state.State = Deferred
-		state.Detail = "The client is installed, but AIGW has not written its files yet"
+		state.Detail = "The client is installed, but its files do not match the selection yet"
 		state.NextAction = "aigw sync"
 	case facts.ProjectionDeferred || facts.ProgramAction != "":
 		state.State = Deferred

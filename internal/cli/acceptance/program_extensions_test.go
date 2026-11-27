@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -146,5 +147,40 @@ func TestCodexExtensionsDirectoryProducesTheModelTable(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), newer+" (the newest version in "+extensions+")") {
 		t.Fatalf("client list does not name the new program beside the directory:\n%s", out)
+	}
+}
+
+// A Codex section whose program lies inside a version of the editor
+// extension, as a schema 8 `executable` renamed as it stands may, stops every
+// command when the file loads: the evidence names the field and why, and the
+// fix is the edit of the file, the `extensions` declaration of the same
+// program, since `aigw client edit` loads the file too. Nothing is written.
+func TestAProgramInsideAnExtensionVersionIsRefusedWithItsEdit(t *testing.T) {
+	t.Parallel()
+	app, out, extensions, program, _ := extensionCodex(t)
+	lines := strings.Split(string(readFile(t, app.Config.Path())), "\n")
+	index := slices.IndexFunc(lines, func(line string) bool { return strings.HasPrefix(strings.TrimSpace(line), "extensions = ") })
+	if index < 0 {
+		t.Fatalf("aigw.toml declares no extensions:\n%s", strings.Join(lines, "\n"))
+	}
+	lines[index] = fmt.Sprintf("program = %q", program)
+	edited := []byte(strings.Join(lines, "\n"))
+	writeFile(t, app.Config.Path(), edited, 0o600)
+	for _, args := range [][]string{{"status"}, {"sync"}, {"client", "edit", codex.ID, "--extensions", extensions}} {
+		out.Reset()
+		if err := cli.Execute(app, args); err == nil {
+			t.Fatalf("%v loaded a program inside an extension version:\n%s", args, out)
+		}
+		for _, want := range []string{
+			`stopped at the configuration validate stage: client "codex" program lies in one installed version of its editor extension`,
+			"Edit the configuration file: in the section of client codex, replace `program` with `extensions = \"" + extensions + "\"`",
+		} {
+			if !strings.Contains(out.String(), want) {
+				t.Fatalf("%v omits %q:\n%s", args, want, out)
+			}
+		}
+	}
+	if after := readFile(t, app.Config.Path()); !bytes.Equal(after, edited) {
+		t.Fatalf("a refused command changed aigw.toml:\n%s", after)
 	}
 }

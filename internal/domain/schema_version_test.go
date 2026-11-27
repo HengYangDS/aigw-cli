@@ -29,7 +29,12 @@ func TestValidateRejectsNonCanonicalSchemaVersion(t *testing.T) {
 // removed; for a team file, which holds no clients, the version and the keys
 // of its recommendations, and no client field. Any other version names none.
 func TestTheReplacedSchemaIsRefusedWithItsEdits(t *testing.T) {
-	replaced := ConfigVersion - 1
+	// The edits are written for the schema just before this one: a schema that
+	// moves ConfigVersion on writes its own edits and moves this version too.
+	replaced := previousConfigVersion
+	if replaced != ConfigVersion-1 {
+		t.Fatalf("the edits are written for version %d, but version %d precedes the current schema", replaced, ConfigVersion-1)
+	}
 	version := "`version = " + strconv.Itoa(ConfigVersion) + "`"
 	configuration := &UnsupportedConfigVersionError{Version: replaced, ExpectedVersion: ConfigVersion}
 	team := &UnsupportedTeamFileVersionError{Version: replaced}

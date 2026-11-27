@@ -242,7 +242,7 @@ func AwaitedFiles(cfg domain.Config, clientID string, inspected adapter.Status, 
 			awaited.Problem += recorded
 		}
 	case unwritten:
-		awaited.Problem, awaited.Step = spec.Label+" is installed, but AIGW has not written its files yet", syncStep
+		awaited.Problem, awaited.Step = spec.Label+" is installed, but its files do not match the selection yet", syncStep
 	default:
 		awaited.Problem, awaited.Step = cfg.Admission().ProductName(clientID)+" declares no program, and a sync adopts the one that discovery finds"+recorded, syncStep
 	}

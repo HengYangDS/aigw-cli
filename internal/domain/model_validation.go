@@ -210,19 +210,25 @@ func (binding ClientBinding) validate(client string, spec ClientSpec) error {
 // Whether the path exists is each operation's to decide, so that a missing
 // program stops only its client.
 func (binding ClientBinding) validateProgram(client string, spec ClientSpec) error {
+	refuse := func(reason, change string) error {
+		return &ProgramDeclarationError{Client: client, Reason: reason, Change: change}
+	}
 	if binding.Program != "" && binding.Extensions != "" {
-		return fmt.Errorf("client %q declares both program and extensions; declare one of them", client)
+		return refuse("declares both program and extensions", "keep one of `program` and `extensions`")
 	}
 	for _, declared := range []struct{ field, path string }{{"program", binding.Program}, {"extensions", binding.Extensions}} {
 		if declared.path != "" && !cleanAbsolutePath(declared.path) {
-			return fmt.Errorf("client %q %s must be an absolute, clean path without control characters", client, declared.field)
+			return refuse(declared.field+" must be an absolute, clean path without control characters",
+				fmt.Sprintf("write `%s` as one", declared.field))
 		}
 	}
 	if binding.Extensions != "" && spec.Extension.ID == "" {
-		return fmt.Errorf("client %q extensions cannot be declared, since %s has no editor extension; declare its program instead", client, spec.Label)
+		return refuse("extensions cannot be declared, since "+spec.Label+" has no editor extension",
+			"replace `extensions` with `program`, the path of its program")
 	}
 	if directory, inside := spec.ExtensionsDirectoryOf(binding.Program); inside {
-		return fmt.Errorf("client %q program lies in one installed version of its editor extension, which the next version replaces; declare extensions = %q instead of program", client, directory)
+		return refuse("program lies in one installed version of its editor extension, which the next version replaces",
+			fmt.Sprintf("replace `program` with `extensions = %q`", directory))
 	}
 	return nil
 }

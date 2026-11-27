@@ -363,7 +363,7 @@ Next
       "state": "deferred",
       "model": "team/team-model",
       "provider": "team",
-      "detail": "The client is installed, but AIGW has not written its files yet",
+      "detail": "The client is installed, but its files do not match the selection yet",
       "next_action": "aigw sync",
       "client_files_deferred": true,
       "endpoint_configured": true,
@@ -408,7 +408,7 @@ AIGW  Configuration status
   Each client's model and readiness, and the smallest next action.
 
 Clients
-  · Claude             team/team-model · Deferred · The client is installed, but AIGW has not written its files yet
+  · Claude             team/team-model · Deferred · The client is installed, but its files do not match the selection yet
   · Claude Desktop     No model selected · Qualified: Chat, Cowork, Code · macOS
   · Codex              No model selected
   · Hermes             No model selected

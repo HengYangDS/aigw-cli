@@ -390,7 +390,8 @@ selections, configured scheduler fields, derived catalog and sidecar, including
 its credential-helper configuration. Decorative markers are not the ownership
 boundary. Dry-run exposes
 the plan without reading credentials or changing files. AIGW projects one
-provider table, under its own name, with the provider's endpoint and an
+provider table, under its own name, with the provider's endpoint, or the
+destination composed through the client's forwarding service, and an
 absolute command-authentication helper; the provider still owns the Token and
 Codex still owns conversation state. The Provider name and model catalog are
 independent of credential ownership.

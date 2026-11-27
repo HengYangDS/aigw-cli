@@ -113,10 +113,13 @@ type ForwardingTableError struct {
 	Line   int
 }
 
-// Error names the field, its line and what the schema holds there. The edit
-// that replaces the table is Edit, a fix of the file: until it is made, no
-// command loads the configuration.
-func (e *ForwardingTableError) Error() string {
+// Error names the field, its line and what the schema holds there. It is a
+// [domain.FileRefusal]: the edit that replaces the table is Edit, a fix of
+// the file, since until it is made no command loads the configuration.
+func (e *ForwardingTableError) Error() string { return e.Refusal() }
+
+// Refusal names the field, its line and what the schema holds there.
+func (e *ForwardingTableError) Refusal() string {
 	return fmt.Sprintf("the field clients.%s.forwarding on line %d holds a table, where schema %d holds the root of a forwarding service", e.Client, e.Line, domain.ConfigVersion)
 }
 

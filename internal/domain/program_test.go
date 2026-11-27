@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -54,28 +55,43 @@ func TestLoadingRefusesAVersionedProgramAndExtensionsWithoutAnExtension(t *testi
 		return cfg
 	}
 	for name, test := range map[string]struct {
-		cfg  Config
-		want []string
+		cfg     Config
+		refusal string
+		edit    string
 	}{
 		"a program inside a version of the extension": {
 			declare(ClientCodex, versioned, ""),
-			[]string{`client "codex" program lies in one installed version of its editor extension`, `extensions = "` + extensionsDirectory + `"`},
+			`client "codex" program lies in one installed version of its editor extension`,
+			"in the section of client codex, replace `program` with `extensions = \"" + extensionsDirectory + "\"`",
 		},
 		"extensions for Hermes": {
 			declare(ClientHermes, "", extensionsDirectory),
-			[]string{`client "hermes" extensions cannot be declared`, "Hermes has no editor extension"},
+			`client "hermes" extensions cannot be declared, since Hermes has no editor extension`,
+			"in the section of client hermes, replace `extensions` with `program`",
 		},
 		"extensions for Claude Desktop": {
 			declare(ClientClaudeDesktop, "", extensionsDirectory),
-			[]string{`client "claude-desktop" extensions cannot be declared`, "Claude Desktop has no editor extension"},
+			`client "claude-desktop" extensions cannot be declared, since Claude Desktop has no editor extension`,
+			"in the section of client claude-desktop, replace `extensions` with `program`",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			err := test.cfg.Validate()
-			for _, want := range test.want {
-				if err == nil || !strings.Contains(err.Error(), want) {
-					t.Fatalf("Validate() = %v, want %q", err, want)
-				}
+			var refused FileRefusal
+			if !errors.As(err, &refused) {
+				t.Fatalf("Validate() = %v, want a refusal of the file", err)
+			}
+			// The refusal names no command and no edit, each of which is
+			// written in backticks; the edit is the file's own, since no
+			// command loads the file until it is made.
+			if got := refused.Refusal(); !strings.HasPrefix(got, test.refusal) || strings.Contains(got, "`") {
+				t.Errorf("Refusal() = %q, want %q alone", got, test.refusal)
+			}
+			if got := refused.Edit(); !strings.HasPrefix(got, test.edit) {
+				t.Errorf("Edit() = %q, want %q", got, test.edit)
+			}
+			if !strings.HasPrefix(err.Error(), refused.Refusal()+"; ") || !strings.Contains(err.Error(), "`") {
+				t.Errorf("Error() = %q, want the refusal, then its change", err)
 			}
 		})
 	}

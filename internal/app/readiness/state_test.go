@@ -123,7 +123,7 @@ func TestClassifyClientTellsAnInstalledClientFromOneThatIsNot(t *testing.T) {
 		t.Fatalf("a client that is not installed = %#v", got)
 	}
 	facts.ClientInstalled = true
-	if got := ClassifyClient(facts); got.State != Deferred || got.Detail != "The client is installed, but AIGW has not written its files yet" || got.NextAction != "aigw sync" {
+	if got := ClassifyClient(facts); got.State != Deferred || got.Detail != "The client is installed, but its files do not match the selection yet" || got.NextAction != "aigw sync" {
 		t.Fatalf("an installed client = %#v", got)
 	}
 	facts.ProjectionDeferred, facts.ClientInstalled, facts.ProjectionReady = false, false, true

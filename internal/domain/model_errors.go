@@ -18,9 +18,12 @@ func (e *RuntimeBindingUnselectedError) Error() string {
 
 // previousConfigVersion is the schema that ConfigVersion replaced, the only
 // one whose refusal names the edits that bring a file to ConfigVersion. The
-// edits are fixed text: AIGW reads nothing of such a file but its version,
-// keeps no reader of that schema and never rewrites the file.
-const previousConfigVersion = ConfigVersion - 1
+// edits are fixed text written for this one schema, so the version is written
+// here and not derived from ConfigVersion: a schema that moves ConfigVersion
+// on fails the test that keeps the two adjacent until its own edits replace
+// these. AIGW reads nothing of such a file but its version, keeps no reader
+// of that schema and never rewrites the file.
+const previousConfigVersion = 8
 
 // versionEdit is the edit that sets a file's version to ConfigVersion.
 func versionEdit() string { return fmt.Sprintf("set `version = %d`", ConfigVersion) }

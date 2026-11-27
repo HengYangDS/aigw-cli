@@ -158,18 +158,30 @@ type ForwardingUpstreamError struct {
 }
 
 // Error names the client, the provider and the reason, and the command that
-// fixes it. It names no URL.
+// fixes it for a command that loaded the file. It names no URL.
 func (e *ForwardingUpstreamError) Error() string {
-	reason := fmt.Sprintf("the forwarding service relays only %s, and the selection uses %s", ProtocolLabel(ProtocolResponses), ProtocolLabel(e.Protocol))
-	if e.Err != nil {
-		reason = "the forwarding service cannot name the provider's " + ProtocolLabel(ProtocolResponses) + " endpoint, which " + e.Err.Error()
-	}
 	fix := fmt.Sprintf("run `aigw client edit %s --direct` to connect it to the provider directly", e.Client)
 	if e.Requested {
 		fix = fmt.Sprintf("first select a %s model that it can carry with `aigw use %s <provider/model>`, then set the forwarding again",
 			ProtocolLabel(ProtocolResponses), e.Client)
 	}
-	return fmt.Sprintf("client %q cannot forward its traffic for provider %q: %s; %s", e.Client, e.Provider, reason, fix)
+	return e.Refusal() + "; " + fix
+}
+
+// Refusal names the client, the provider and the reason, and no command: a
+// file that holds such a forwarding does not load, so Edit is its fix.
+func (e *ForwardingUpstreamError) Refusal() string {
+	reason := fmt.Sprintf("the forwarding service relays only %s, and the selection uses %s", ProtocolLabel(ProtocolResponses), ProtocolLabel(e.Protocol))
+	if e.Err != nil {
+		reason = "the forwarding service cannot name the provider's " + ProtocolLabel(ProtocolResponses) + " endpoint, which " + e.Err.Error()
+	}
+	return fmt.Sprintf("client %q cannot forward its traffic for provider %q: %s", e.Client, e.Provider, reason)
+}
+
+// Edit is the edit of a file that holds the forwarding: deleting it connects
+// the client to its provider directly.
+func (e *ForwardingUpstreamError) Edit() string {
+	return fmt.Sprintf("delete client %s's `forwarding`, which connects it to its provider directly", e.Client)
 }
 
 // Unwrap returns why the grammar cannot name the upstream.

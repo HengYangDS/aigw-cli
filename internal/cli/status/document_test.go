@@ -92,7 +92,7 @@ func TestStatusTellsAnInstalledClientFromOneThatIsNot(t *testing.T) {
 		detail, action, why string
 	}{
 		{foundExecutables{}, missing.Error(), "", missing.NextAction()},
-		{foundExecutables{codex.ID: processtest.Program(t, "/opt/codex")}, "The client is installed, but AIGW has not written its files yet", "aigw sync", ""},
+		{foundExecutables{codex.ID: processtest.Program(t, "/opt/codex")}, "The client is installed, but its files do not match the selection yet", "aigw sync", ""},
 	} {
 		runtime.Discovery = test.found
 		out.Reset()

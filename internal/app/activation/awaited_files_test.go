@@ -42,7 +42,7 @@ func TestAwaitedFilesFollowTheRecordAndNameTheProgramStep(t *testing.T) {
 		"an edit outside AIGW":                  {cfg, edited, true, Awaited{}},
 		"files that match, a program found":     {cfg, ready, true, Awaited{Problem: "Codex declares no program, and a sync adopts the one that discovery finds" + recorded, Step: "aigw sync", Found: true}},
 		"files that match, no program found":    {cfg, ready, false, Awaited{Problem: missing.Error() + recorded, Step: missing.NextAction()}},
-		"files AIGW has not written, found":     {cfg, unwritten, true, Awaited{Problem: "Codex is installed, but AIGW has not written its files yet", Step: "aigw sync", Found: true, Unwritten: true}},
+		"files AIGW has not written, found":     {cfg, unwritten, true, Awaited{Problem: "Codex is installed, but its files do not match the selection yet", Step: "aigw sync", Found: true, Unwritten: true}},
 		"files AIGW has not written, not found": {cfg, unwritten, false, Awaited{Problem: missing.Error(), Step: missing.NextAction(), Unwritten: true}},
 	} {
 		t.Run(name, func(t *testing.T) {

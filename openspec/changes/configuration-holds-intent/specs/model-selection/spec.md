@@ -58,7 +58,9 @@ or carry requests.
   above 65535, a host or path segment with a character other than an ASCII letter, a digit or `-._~` (such as a
   non-ASCII name, percent-encoding, `;` or `@`), an empty or dot path segment anywhere, including `https://host//`,
   or `http` to a host other than `127.0.0.1`, `localhost` or `[::1]`, the hosts that the service admits
-- **THEN** the command SHALL refuse before any change, naming `aigw client edit <client> --direct`.
+- **THEN** the command SHALL refuse before any change, naming `aigw client edit <client> --direct`
+- **AND** a file that an edit outside AIGW left so SHALL stop every command when it loads, with the edit that deletes
+  the client's `forwarding` as its fix, since that command loads the file too.
 
 #### Scenario: Forwarding cannot carry the selection
 

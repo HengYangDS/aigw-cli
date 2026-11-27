@@ -28,12 +28,19 @@ client.
 
 - **WHEN** Codex declares `program = "<dir>/openai.chatgpt-<version>-darwin-arm64/bin/macos-aarch64/codex"`, as a
   renamed schema 8 `executable` may
-- **THEN** loading SHALL fail, naming the field and `extensions = "<dir>"`, without changing any file.
+- **THEN** every command SHALL stop when the file loads, naming the field, with the edit that replaces it by
+  `extensions = "<dir>"` as its fix, without changing any file.
 
 #### Scenario: A client without an editor extension declares one
 
 - **WHEN** Hermes or Claude Desktop declares `extensions`
 - **THEN** loading SHALL fail, naming the client and the field, without changing any file.
+
+#### Scenario: A refused declaration is fixed in the file
+
+- **WHEN** any of these refusals stops a command, `aigw client edit` included
+- **THEN** it SHALL state why the declaration is refused and give the edit of the file as its fix, never a command,
+  since every command loads the file first.
 
 #### Scenario: A declared program is missing when the file loads
 

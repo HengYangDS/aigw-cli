@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -35,4 +36,33 @@ func (s ClientSpec) ExtensionsDirectoryOf(path string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// FileRefusal is a refusal of the configuration file when it loads. Every
+// command loads the file first, so no command repairs it: Refusal says why
+// the file is refused, naming no command, and Edit is the edit of the file
+// that resolves it.
+type FileRefusal interface {
+	Refusal() string
+	Edit() string
+}
+
+// ProgramDeclarationError refuses a client's declaration of its program:
+// Reason says why, and Change is the change of the client's section that
+// resolves it.
+type ProgramDeclarationError struct {
+	Client, Reason, Change string
+}
+
+// Error names the client, the reason and the change.
+func (e *ProgramDeclarationError) Error() string { return e.Refusal() + "; " + e.Change }
+
+// Refusal names the client and the reason.
+func (e *ProgramDeclarationError) Refusal() string {
+	return fmt.Sprintf("client %q %s", e.Client, e.Reason)
+}
+
+// Edit is the change, made in the client's section of the file.
+func (e *ProgramDeclarationError) Edit() string {
+	return fmt.Sprintf("in the section of client %s, %s", e.Client, e.Change)
 }
