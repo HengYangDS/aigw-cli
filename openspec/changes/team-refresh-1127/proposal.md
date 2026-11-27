@@ -1,21 +1,26 @@
 ## Why
 
 The owner asked on 2026-11-27 for the shipped team file to be updated again, naming UCloud's Gemini 4 Neon, and for
-its other parts as well. Since the November 23 refresh, UCloud and DMXAPI list Gemini 4 Neon, and AIHubMix lists
-Ling-3.1-Flash. Each candidate provider model ran the three Hermes turns on the stock Hermes that CI pins.
+its other parts as well. The providers' catalogs of that day were compared with those of November 23 for every line and
+vendor that the file holds. Each candidate that a cell ran went through the three Hermes turns on the stock Hermes that
+CI pins.
 
 ## What Changes
 
 - Gemini 4 Neon enters on UCloud and DMXAPI, on Responses. UCloud's Chat Completions passed too.
+- DMXAPI's `gemini-4-carbon-ant` channel of Gemini 4 Carbon enters, on Responses. DMXAPI documents no meaning for the
+  suffix; the entry is labelled `DMXAPI · Gemini 4 Carbon · ANT`.
+- Doubao Seed 2.1 Pro 260915 enters on UCloud, on Responses, which lists that build since this refresh. Chat
+  Completions passed too.
+- StepFun returns: Step 3.7 Flash, its strongest model that is not a preview, enters on DMXAPI, on Responses, and
+  declares StepFun's documented window of 256K as 256,000.
 - Ant Ling: Ling-3.1-Flash replaces Ling-3.0-Flash on AIHubMix, on Chat Completions. Ant Ling documents a window of
-  1M tokens for it, so it declares none; Ling-3.0-Flash declared 256,000. AIHubMix lists Ling 3.2 only as a free
-  variant, which answered HTTP 429 to every request.
-- Kept: AIHubMix's Cohere Command A. Command A Plus answered "cannot be served at the moment" again, and the
-  specification keeps a vendor's current family until its successor qualifies.
-- Not entering: UCloud's Gemini 4 Hydrogen (the provider's safety filter refused the third turn, as on November 23)
-  and Suhe.AI's Gemini 4 Argon, Carbon, Hydrogen and Neon ("Model not found" though listed).
-- Not run in this refresh: AIHubMix's Mistral Large 4 and Step 3.7 Flash on DMXAPI and AIHubMix, which failed on
-  November 23. Mistral Large 3 stays, and StepFun stays out of the file.
+  1M tokens for it, so it declares none; Ling-3.0-Flash declared 256,000.
+- Kept, because their successors did not qualify: AIHubMix's Cohere Command A, Mistral Large 3 and GLM-5.3. Z.ai
+  offers GLM-5.4 only in its GLM Coding Plan, so it is not generally available.
+- Not entering, each from the provider's answer: UCloud's Gemini 4 Hydrogen, Suhe.AI's four Gemini 4 models,
+  AIHubMix's Step 3.7 Flash and its free Ling 3.2 Flash. Two vendors that the file does not hold, Agnes on DMXAPI
+  and Thinking Machines on AIHubMix, failed their cells, so adding a vendor does not arise here.
 
 ## Capabilities
 
@@ -29,7 +34,7 @@ None. The line rule of `shipped-team-file` names each case, so this Change decla
 
 ## Impact
 
-`manifests/team.toml`, the tests that pin its models and lines, the qualification record and `CHANGELOG.md`. The
+`manifests/team.toml`, the tests that pin its models and families, the qualification record and `CHANGELOG.md`. The
 program does not change; `aigw setup --from manifests/team.toml` takes the new models and keeps explicit client
 selections of the replaced one.
 

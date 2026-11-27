@@ -167,7 +167,7 @@ func TestTeamManifestUsesRequestedFamilies(t *testing.T) {
 		"gemini-4-carbon", "gemini-4-hydrogen", "gemini-4-neon", "glm-5.2", "glm-5.3", "gpt-6-luna", "gpt-6.1-terra",
 		"gpt-6.2-astra", "gpt-6.2-sol", "grok-4.7", "hy4", "kimi-k3.1-pro", "laguna-s-2.1", "ling-3.1-flash", "ling-3.2-flash",
 		"longcat-2.5", "mimo-v2.6-pro", "minimax-m2.5", "minimax-m3.1-flash", "mistral-large-3", "muse-spark-1.3",
-		"nemotron-3-ultra-550b-a55b", "qwen4-max", "solar-pro4",
+		"nemotron-3-ultra-550b-a55b", "qwen4-max", "solar-pro4", "step-3.7-flash",
 	}
 	if got := slices.Sorted(maps.Keys(manifest.Families)); !slices.Equal(got, want) {
 		t.Fatalf("team logical Models = %v, want %v", got, want)
@@ -188,9 +188,9 @@ func TestTeamManifestUsesRequestedFamilies(t *testing.T) {
 				t.Errorf("verified Route %q = %+v, want exact Account, Model, and wire identity", id, route)
 			}
 		}
-		// Doubao keeps one family, Volcengine's recommended 260915 build, which only DMXAPI serves.
+		// Doubao keeps one family, Volcengine's recommended 260915 build, which DMXAPI and UCloud serve.
 		models := []string{"deepseek-v4.1-flash-1017"}
-		if account == "dmxapi" {
+		if account != "aihubmix" {
 			models = append(models, "doubao-seed-2-1-pro-260915")
 		}
 		if _, retained := teamModel(t, manifest, account+"/doubao-seed-2-1-pro-260628"); retained {

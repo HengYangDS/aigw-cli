@@ -151,6 +151,12 @@ label = 'DMXAPI · Gemini 4 Carbon · SSVIP'
 protocols = { responses = [] }
 
 [[providers.models]]
+id = 'gemini-4-carbon-ant'
+family = 'gemini-4-carbon'
+label = 'DMXAPI · Gemini 4 Carbon · ANT'
+protocols = { responses = [] }
+
+[[providers.models]]
 id = 'gemini-4-hydrogen'
 family = 'gemini-4-hydrogen'
 protocols = { responses = [] }
@@ -201,6 +207,12 @@ id = 'qwen4-max'
 family = 'qwen4-max'
 protocols = { responses = [] }
 
+[[providers.models]]
+id = 'step-3.7-flash'
+family = 'step-3.7-flash'
+protocols = { responses = [] }
+context_window = 256000
+
 [[providers]]
 id = 'ucloud'
 label = 'UCloud'
@@ -249,6 +261,11 @@ protocols = { responses = [] }
 [[providers.models]]
 id = 'deepseek-v4.1-flash-1017'
 family = 'deepseek-v4.1-flash-1017'
+protocols = { responses = [] }
+
+[[providers.models]]
+id = 'doubao-seed-2-1-pro-260915'
+family = 'doubao-seed-2-1-pro-260915'
 protocols = { responses = [] }
 
 [[providers.models]]
@@ -685,6 +702,10 @@ label = 'Qwen4-Max'
 [[families]]
 id = 'solar-pro4'
 label = 'Solar Pro 4'
+
+[[families]]
+id = 'step-3.7-flash'
+label = 'Step 3.7 Flash'
 
 [[families]]
 id = 'deepseek-v4.1-flash'
