@@ -21,7 +21,7 @@ func (e *RuntimeBindingUnselectedError) Error() string {
 // version, keeps no reader of that schema and never rewrites the file.
 const (
 	previousConfigVersion = 8
-	previousSchemaEdits   = "set `version = 9`; rename each client's `executable` to `program`; delete `authentication` and `model_provider` wherever they appear"
+	previousSchemaEdits   = "set `version = 9`; rename each client's `executable` to `program`; delete `authentication` and `model_provider` wherever they appear; delete each client's `forwarding` and set it again with `--via <root>`"
 )
 
 // schemaEdits names the edits that turn a file of version into one of

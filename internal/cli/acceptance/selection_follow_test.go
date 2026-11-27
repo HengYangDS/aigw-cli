@@ -245,26 +245,64 @@ func TestAnExplicitSelectionWinsOverAModelChosenInCodex(t *testing.T) {
 }
 
 // Hermes: a command that writes Hermes' file works from the listed model that
-// was chosen in Hermes, and keeps its own edit of Hermes' binding.
+// was chosen in Hermes, and keeps its own edit of Hermes' binding: here a
+// forwarding, which carries the chosen Responses model.
 func TestACommandThatWritesHermesFilesFollowsAModelChosenInHermes(t *testing.T) {
 	t.Parallel()
 	app, output, _, target := shippedHermesApp(t)
-	hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-opus-5-5", nil)
-	if got := followedIn(t, app, output, "client", "edit", hermes.ID, "--via", "http://127.0.0.1:8792", "--json"); !slices.Equal(got, hermesChoice) {
+	hermesNativeSelection(t, target, "aigw-ucloud-responses", "gpt-6.2-sol", nil)
+	want := []followed{{
+		Client: "hermes", Model: "ucloud/gpt-6.2-sol", Protocol: "responses", Earlier: "dmxapi/gpt-6.2-sol", EarlierProtocol: "responses",
+		ReturnsWith: "aigw use hermes dmxapi/gpt-6.2-sol --protocol responses",
+	}}
+	if got := followedIn(t, app, output, "client", "edit", hermes.ID, "--via", "http://127.0.0.1:8792", "--json"); !slices.Equal(got, want) {
 		t.Fatalf("the run follows %+v\n%s", got, output)
 	}
 	binding := selection(t, app, hermes.ID)
-	if binding.Model != domain.NewModelRef("dmxapi", "claude-opus-5-5") || binding.ForwardingEndpoint != "http://127.0.0.1:8792" {
+	if binding.Model != domain.NewModelRef("ucloud", "gpt-6.2-sol") || binding.ForwardingRoot != "http://127.0.0.1:8792" {
 		t.Fatalf("the saved binding lost the choice or the command's own edit: %#v", binding)
 	}
-	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-dmxapi-anthropic" || model != "claude-opus-5-5" {
+	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-ucloud-responses" || model != "gpt-6.2-sol" {
 		t.Fatalf("Hermes lost its choice: %s %s", provider, model)
+	}
+	if !strings.Contains(string(readFile(t, target)), "http://127.0.0.1:8792/https/api.modelverse.cn/v1") {
+		t.Fatalf("Hermes's file does not forward the chosen model's upstream:\n%s", readFile(t, target))
 	}
 	syncAndCheckPass(t, app, output, hermes.ID)
 }
 
-// A choice of another provider's model in Hermes ends the forwarding that
-// belonged to the earlier upstream endpoint, and the result says so.
+// A choice in a forwarded Hermes of a Responses model of another upstream,
+// which the forwarding names, keeps the forwarding: the destination follows
+// the chosen model's upstream, and no result says that the forwarding ended.
+func TestAFollowedChoiceOfAnotherResponsesUpstreamKeepsTheForwarding(t *testing.T) {
+	t.Parallel()
+	app, output, _, target := shippedHermesApp(t)
+	if err := cli.Execute(app, []string{"client", "edit", hermes.ID, "--via", "http://127.0.0.1:8792"}); err != nil {
+		t.Fatalf("forward Hermes: %v\n%s", err, output)
+	}
+	hermesNativeSelection(t, target, "aigw-ucloud-responses", "gpt-6.2-sol", nil)
+	want := []followed{{
+		Client: "hermes", Model: "ucloud/gpt-6.2-sol", Protocol: "responses", Earlier: "dmxapi/gpt-6.2-sol", EarlierProtocol: "responses",
+		ReturnsWith: "aigw use hermes dmxapi/gpt-6.2-sol --protocol responses",
+	}}
+	if got := followedIn(t, app, output, "status", "--json"); !slices.Equal(got, want) {
+		t.Fatalf("status follows %+v", got)
+	}
+	output.Reset()
+	if err := cli.Execute(app, []string{"sync"}); err != nil {
+		t.Fatalf("sync: %v\n%s", err, output)
+	}
+	if strings.Contains(output.String(), "forwarding ended") {
+		t.Fatalf("sync says that the forwarding ended:\n%s", output)
+	}
+	if binding := selection(t, app, hermes.ID); binding.Model != domain.NewModelRef("ucloud", "gpt-6.2-sol") || binding.ForwardingRoot != "http://127.0.0.1:8792" {
+		t.Fatalf("the saved binding: %#v", binding)
+	}
+	syncAndCheckPass(t, app, output, hermes.ID)
+}
+
+// A choice in Hermes of an Anthropic model, which a forwarding cannot carry,
+// ends the forwarding, and the result says so.
 func TestAFollowedChoiceSaysThatForwardingEnded(t *testing.T) {
 	t.Parallel()
 	app, output, _, target := shippedHermesApp(t)
@@ -285,14 +323,14 @@ func TestAFollowedChoiceSaysThatForwardingEnded(t *testing.T) {
 	}
 	for _, text := range []string{
 		"Hermes uses ucloud/claude-opus-5-5 on Anthropic Messages, chosen in Hermes; AIGW held dmxapi/gpt-6.2-sol on OpenAI Responses.",
-		"Its forwarding ended, because the client's upstream endpoint changed.",
+		"Its forwarding ended, because the forwarding service cannot reach the chosen model's upstream.",
 		"  aigw use hermes dmxapi/gpt-6.2-sol --protocol responses\n",
 	} {
 		if !strings.Contains(output.String(), text) {
 			t.Fatalf("sync lacks %q:\n%s", text, output)
 		}
 	}
-	if binding := selection(t, app, hermes.ID); binding.Model != domain.NewModelRef("ucloud", "claude-opus-5-5") || binding.ForwardingEndpoint != "" {
+	if binding := selection(t, app, hermes.ID); binding.Model != domain.NewModelRef("ucloud", "claude-opus-5-5") || binding.ForwardingRoot != "" {
 		t.Fatalf("the saved binding: %#v", binding)
 	}
 	syncAndCheckPass(t, app, output, hermes.ID)

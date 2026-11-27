@@ -11,9 +11,10 @@ import (
 // AdoptSelection records Codex's own model choice as its Client Binding when
 // the root model is the only changed value AIGW owns in the Codex targets and
 // it names a model of the selected provider on the selected protocol. The
-// binding keeps its protocol, provider and forwarding. A model that the
-// provider has not added, or targets that name different models, are refused
-// with the command that restores the recorded selection.
+// binding keeps its protocol, provider and forwarding, whose destination
+// names the same upstream. A model that the provider has not added, or
+// targets that name different models, are refused with the command that
+// restores the recorded selection.
 func (codexAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) (domain.ModelRef, error) {
 	binding := cfg.Clients[ID]
 	if !binding.Enabled || len(binding.Targets) == 0 {
@@ -56,7 +57,7 @@ func followChosen(cfg *domain.Config, selected domain.Runtime, recorded adapter.
 		// up, with the file or by a write of the record alone.
 		return domain.ModelRef{}, nil
 	}
-	cfg.SetSelectedModel(ID, ref, "")
+	cfg.FollowSelectedModel(ID, ref, "")
 	return ref, nil
 }
 

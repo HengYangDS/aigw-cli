@@ -433,8 +433,10 @@ func TestSelectedModelCopiesRecommendedOptionsOnlyForItsProvider(t *testing.T) {
 
 // Retry budgets belong to the client's provider: selecting another model or
 // another protocol of the provider keeps them, and selecting another
-// provider's model clears them. Forwarding follows the upstream endpoint,
-// which a change of protocol or provider moves.
+// provider's model clears them. Forwarding stays and its destination follows
+// the upstream; a selection on a protocol other than Responses, which the
+// forwarding cannot carry, is refused, and a model chosen in the client on
+// that protocol is followed without the forwarding.
 func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
 	spec := ClientSpec{ID: "native", Label: "Native", EndpointProtocols: []EndpointProtocol{ProtocolResponses, ProtocolChat}, RetryBudgets: true}
 	base := NewConfig(NewAdmission(spec))
@@ -448,30 +450,51 @@ func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
 	binding := base.Clients["native"]
 	binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &three}
 	base.Clients["native"] = binding
-	if err := base.SetForwardingEndpoint("native", "http://127.0.0.1:8792/v1"); err != nil {
+	if err := base.SetForwardingRoot("native", "http://127.0.0.1:8792"); err != nil {
 		t.Fatal(err)
 	}
 	for _, test := range []struct {
-		name, model         string
-		protocol            EndpointProtocol
-		budgets, forwarding bool
+		name, provider, model string
+		protocol              EndpointProtocol
+		budgets               bool
+		destination           string
 	}{
-		{"another model on the same protocol", "second", ProtocolResponses, true, true},
-		{"the same provider on another protocol", "first", ProtocolChat, true, false},
-		{"another provider", "other", ProtocolResponses, false, false},
+		{"another model on the same protocol", "one", "second", ProtocolResponses, true, "http://127.0.0.1:8792/https/one.test/v1"},
+		{"the same provider on another protocol", "one", "first", ProtocolChat, true, ""},
+		{"another provider", "two", "other", ProtocolResponses, false, "http://127.0.0.1:8792/https/two.test/v1"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := base.Clone()
-			cfg.SetSelectedModel("native", NewModelRef(map[string]string{"second": "one", "first": "one", "other": "two"}[test.model], test.model), test.protocol)
+			cfg.SetSelectedModel("native", NewModelRef(test.provider, test.model), test.protocol)
 			selected := cfg.Clients["native"]
 			if budgets := selected.RetryPolicy != nil; budgets != test.budgets {
 				t.Fatalf("retry budgets = %#v, want them kept: %t", selected.RetryPolicy, test.budgets)
 			}
-			if forwarding := selected.ForwardingEndpoint != ""; forwarding != test.forwarding {
-				t.Fatalf("forwarding = %q, want it kept: %t", selected.ForwardingEndpoint, test.forwarding)
+			if selected.ForwardingRoot == "" {
+				t.Fatal("the selection dropped the forwarding")
 			}
-			if err := cfg.Validate(); err != nil {
+			err := cfg.Validate()
+			if test.destination == "" {
+				if refused, ok := errors.AsType[*ForwardingUpstreamError](err); !ok || refused.Protocol != ProtocolChat || !strings.Contains(err.Error(), "`aigw client edit native --direct`") {
+					t.Fatalf("a forwarded selection on another protocol = %v", err)
+				}
+				followed := base.Clone()
+				followed.FollowSelectedModel("native", NewModelRef(test.provider, test.model), test.protocol)
+				if binding := followed.Clients["native"]; binding.ForwardingRoot != "" || binding.RetryPolicy == nil || followed.Validate() != nil {
+					t.Fatalf("a followed choice on another protocol = %#v, %v", binding, followed.Validate())
+				}
+				return
+			}
+			if err != nil {
 				t.Fatal(err)
+			}
+			if runtime, err := cfg.ResolveRuntime("native", ModelRef{}); err != nil || runtime.Endpoint != test.destination {
+				t.Fatalf("the destination = %#v, %v, want %s", runtime, err, test.destination)
+			}
+			followed := base.Clone()
+			followed.FollowSelectedModel("native", NewModelRef(test.provider, test.model), test.protocol)
+			if followed.Clients["native"].ForwardingRoot == "" {
+				t.Fatal("a followed choice that the forwarding carries dropped it")
 			}
 		})
 	}

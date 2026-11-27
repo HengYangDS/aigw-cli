@@ -27,7 +27,7 @@ func TestCodexProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://first.test/v1", Anthropic: "https://first.test"}}
 	before.Models[domain.NewModelRef("gateway", "model")] = qualifiedModel("Route", "gateway", "model", domain.ProtocolResponses)
 	before.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "model"), Enabled: true}
-	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
+	if err := before.SetForwardingRoot(ID, "http://127.0.0.1:8792"); err != nil {
 		t.Fatal(err)
 	}
 	after := before.Clone()
@@ -35,7 +35,7 @@ func TestCodexProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T
 	account.Endpoints = domain.Endpoints{Responses: "https://second.test/v1", Anthropic: "https://second.test"}
 	after.Providers["gateway"] = account
 	if !(codexAdapter{}).ProjectionChanged(before, after) {
-		t.Fatal("unchanged forwarding hid a changed credential projection identity")
+		t.Fatal("an unchanged forwarding root hid a changed credential projection identity")
 	}
 }
 

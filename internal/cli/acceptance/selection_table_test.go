@@ -12,6 +12,7 @@ import (
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/terminal"
 )
 
 // commandsAfterAChoice are commands of every group, none of which selects a
@@ -59,7 +60,10 @@ var hermesCommandsAfterAChoice = []commandAfterAChoice{
 	{[]string{"sync", "--dry-run", "--json"}, true},
 	{[]string{"provider", "edit", "ucloud", "--label", "Other"}, true},
 	{[]string{"model", "list"}, true},
-	{[]string{"client", "edit", "hermes", "--via", "http://127.0.0.1:8792"}, true},
+	// The forwarding service relays only OpenAI Responses, so `--via` after
+	// the Anthropic choice below is refused as it is after an `aigw use` of
+	// that model; `--direct` edits Hermes's own settings for every selection.
+	{[]string{"client", "edit", "hermes", "--direct"}, true},
 	{[]string{"client", "disable", "hermes", "--dry-run"}, true},
 	{[]string{"client", "disable", "hermes"}, true},
 	{[]string{"self", "uninstall", "--dry-run"}, true},
@@ -237,23 +241,29 @@ func TestTheModelChosenAgainAfterARecordIsKept(t *testing.T) {
 // for its Token records the choice with its own change, as it does with the
 // Token: the stored selection is the chosen model with the edit, AIGW's
 // record of the file moves with it, and the file is left. The synchronization
-// after the Token is stored writes the file. Holds the cell chosen/edits.
+// after the Token is stored writes the file. The chosen model is on OpenAI
+// Responses, the protocol that the edit's forwarding relays. Holds the cell
+// chosen/edits.
 func TestAnEditOfAClientThatWaitsForATokenRecordsTheChoiceWithTheEdit(t *testing.T) {
 	t.Parallel()
-	app, output, target, chosen := waitingHermes(t)
+	app, output, _, target := shippedHermesAppWith(t, true)
+	if err := app.Secrets.Delete("ucloud"); err != nil {
+		t.Fatal(err)
+	}
+	chosen := hermesNativeSelection(t, target, "aigw-ucloud-responses", "gpt-6.2-sol", nil)
 	edit := []string{"client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json"}
-	if got := followedIn(t, app, output, edit...); len(got) != 1 || got[0].Client != hermes.ID || got[0].Model != "ucloud/claude-opus-5-5" {
+	if got := followedIn(t, app, output, edit...); len(got) != 1 || got[0].Client != hermes.ID || got[0].Model != "ucloud/gpt-6.2-sol" {
 		t.Fatalf("%v follows %+v; want Hermes's choice", edit, got)
 	}
 	var edited struct {
 		Model      string `json:"model"`
 		Forwarding string `json:"forwarding"`
 	}
-	if err := json.Unmarshal(output.Bytes(), &edited); err != nil || edited.Model != "ucloud/claude-opus-5-5" || edited.Forwarding != "http://127.0.0.1:8792" {
+	if err := json.Unmarshal(output.Bytes(), &edited); err != nil || edited.Model != "ucloud/gpt-6.2-sol" || edited.Forwarding != "http://127.0.0.1:8792" {
 		t.Fatalf("the edit's result does not name what it saved: %+v, %v\n%s", edited, err, output)
 	}
 	binding := selection(t, app, hermes.ID)
-	if binding.Model != domain.NewModelRef("ucloud", "claude-opus-5-5") || binding.Protocol != domain.ProtocolAnthropic || binding.ForwardingEndpoint != "http://127.0.0.1:8792" {
+	if binding.Model != domain.NewModelRef("ucloud", "gpt-6.2-sol") || binding.Protocol != domain.ProtocolResponses || binding.ForwardingRoot != "http://127.0.0.1:8792" {
 		t.Fatalf("the edit did not save the choice with its own change: %#v", binding)
 	}
 	if !bytes.Equal(readFile(t, target), chosen) {
@@ -269,10 +279,10 @@ func TestAnEditOfAClientThatWaitsForATokenRecordsTheChoiceWithTheEdit(t *testing
 	if got := followedIn(t, app, output, "sync", "--json"); len(got) != 0 {
 		t.Fatalf("synchronization after the Token follows %+v; the choice is recorded", got)
 	}
-	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-ucloud-anthropic" || model != "claude-opus-5-5" {
+	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-ucloud-responses" || model != "gpt-6.2-sol" {
 		t.Fatalf("synchronization after the Token wrote %s %s", provider, model)
 	}
-	if written := string(readFile(t, target)); !strings.Contains(written, "http://127.0.0.1:8792") {
+	if written := string(readFile(t, target)); !strings.Contains(written, "http://127.0.0.1:8792/https/api.modelverse.cn/v1") {
 		t.Fatalf("synchronization after the Token did not write the edit's forwarding:\n%s", written)
 	}
 	syncAndCheckPass(t, app, output, hermes.ID)
@@ -300,7 +310,7 @@ func endsTheStoredForwarding(t *testing.T, app *cli.App, output *bytes.Buffer) {
 	if err := json.Unmarshal(output.Bytes(), &edited); err != nil || !edited.Changed || edited.Model != "ucloud/claude-opus-5-5" || edited.Forwarding != "" {
 		t.Fatalf("--direct reports %+v, %v; want the choice saved without a forwarding\n%s", edited, err, output)
 	}
-	if binding := selection(t, app, hermes.ID); binding.ForwardingEndpoint != "" || binding.Model != domain.NewModelRef("ucloud", "claude-opus-5-5") {
+	if binding := selection(t, app, hermes.ID); binding.ForwardingRoot != "" || binding.Model != domain.NewModelRef("ucloud", "claude-opus-5-5") {
 		t.Fatalf("--direct did not reach what is saved: %#v", binding)
 	}
 	if again := followedIn(t, app, output, "client", "edit", "hermes", "--direct", "--json"); len(again) != 0 {
@@ -313,13 +323,14 @@ func endsTheStoredForwarding(t *testing.T, app *cli.App, output *bytes.Buffer) {
 
 // An edit of the forwarding of such a client acts on the model chosen in it,
 // which is the client's selection, and is judged against what is stored: the
-// stored selection still forwards, though the choice of another upstream
-// ended that forwarding in the configuration that the command works from. So
-// `--direct` saves the choice without the forwarding and says that the choice
-// ended it, and a `--via` after it forwards the chosen model. Before the
-// tenth review `--direct` found nothing to change here and saved nothing, so
-// the stored model, picked again, forwarded again. Holds the cell
-// chosen/edits.
+// stored selection still forwards, though the choice of an Anthropic model,
+// which the forwarding service does not relay, ended that forwarding in the
+// configuration that the command works from. So `--direct` saves the choice
+// without the forwarding and says that the choice ended it, and a `--via`
+// after it is refused for the chosen model, with the step that connects it
+// directly, and changes nothing. Before the tenth review `--direct` found
+// nothing to change here and saved nothing, so the stored model, picked
+// again, forwarded again. Holds the cell chosen/edits.
 func TestAForwardingEditOfAClientThatWaitsForATokenActsOnTheChosenModel(t *testing.T) {
 	t.Parallel()
 	app, output, _, target := shippedHermesAppWith(t, true)
@@ -331,15 +342,13 @@ func TestAForwardingEditOfAClientThatWaitsForATokenActsOnTheChosenModel(t *testi
 	}
 	chosen := hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
 	endsTheStoredForwarding(t, app, output)
-	var edited editedClient
-	if err := runDocument(t, app, output, &edited, "client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json"); err != nil {
-		t.Fatalf("--via: %v\n%s", err, output)
+	stored := readFile(t, app.Config.Path())
+	err := runDocument(t, app, output, nil, "client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json")
+	if problem := terminal.ProblemFor(err); err == nil || problem.Fix != "aigw client edit hermes --direct" {
+		t.Fatalf("--via for the chosen Anthropic model was not refused with the direct connection: %v\n%s", err, output)
 	}
-	if !edited.Changed || edited.Model != "ucloud/claude-opus-5-5" || edited.Forwarding != "http://127.0.0.1:8792" {
-		t.Fatalf("the edit's result does not name what it saved: %+v\n%s", edited, output)
-	}
-	if binding := selection(t, app, hermes.ID); binding.ForwardingEndpoint != "http://127.0.0.1:8792" || binding.Model != domain.NewModelRef("ucloud", "claude-opus-5-5") {
-		t.Fatalf("--via did not reach what is saved: %#v", binding)
+	if !bytes.Equal(readFile(t, app.Config.Path()), stored) {
+		t.Fatal("the refused --via changed the configuration")
 	}
 	if !bytes.Equal(readFile(t, target), chosen) {
 		t.Fatal("an edit wrote the file of a client that waits for its Token")
@@ -351,7 +360,7 @@ func TestAForwardingEditOfAClientThatWaitsForATokenActsOnTheChosenModel(t *testi
 	if got := followedIn(t, app, output, "sync", "--json"); len(got) != 0 {
 		t.Fatalf("synchronization after the Token follows %+v; the choice is recorded", got)
 	}
-	if binding := selection(t, app, hermes.ID); binding.Model != domain.NewModelRef("ucloud", "claude-opus-5-5") || binding.ForwardingEndpoint != "http://127.0.0.1:8792" {
+	if binding := selection(t, app, hermes.ID); binding.Model != domain.NewModelRef("ucloud", "claude-opus-5-5") || binding.ForwardingRoot != "" {
 		t.Fatalf("synchronization after the Token changed what the edit saved: %#v", binding)
 	}
 	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-ucloud-anthropic" || model != "claude-opus-5-5" {

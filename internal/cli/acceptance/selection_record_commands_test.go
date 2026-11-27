@@ -61,7 +61,7 @@ func TestRecordExplicitReturnAndTheStoredForwarding(t *testing.T) {
 	if err := recRun(t, app, output, back...); err != nil {
 		t.Fatal(err)
 	}
-	if got := selection(t, app, hermes.ID).ForwardingEndpoint; got != "http://127.0.0.1:9000" {
+	if got := selection(t, app, hermes.ID).ForwardingRoot; got != "http://127.0.0.1:9000" {
 		t.Fatalf("without a choice, selecting the stored model changed the forwarding to %q", got)
 	}
 	hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
@@ -70,7 +70,7 @@ func TestRecordExplicitReturnAndTheStoredForwarding(t *testing.T) {
 		t.Fatal(err)
 	}
 	said := strings.Contains(output.String(), "forwarding_cleared")
-	if got := selection(t, app, hermes.ID).ForwardingEndpoint; got != "http://127.0.0.1:9000" {
+	if got := selection(t, app, hermes.ID).ForwardingRoot; got != "http://127.0.0.1:9000" {
 		t.Errorf("after a choice in Hermes, `aigw use` of the stored model left forwarding %q (was http://127.0.0.1:9000); the result says forwarding_cleared: %t", got, said)
 	}
 	t.Logf("file after the return:\n%s", readFile(t, target)[:400])

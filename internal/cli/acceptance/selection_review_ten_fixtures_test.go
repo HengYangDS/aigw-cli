@@ -177,10 +177,11 @@ func followedOf(entries []followed, client string) (followed, bool) {
 
 // forwardedThenChose is the state that the forwarding tests start from.
 // Hermes's stored selection, dmxapi/gpt-6.2-sol on the Responses protocol,
-// forwards to a local address; Hermes's file selects that model, and AIGW's
-// record names it. Then the person picks claude-opus-5-5 of account on the
-// Anthropic protocol in Hermes: the file selects it, and the record and the
-// stored selection stay. The file still holds the forwarding address.
+// forwards through a local forwarding service; Hermes's file selects that
+// model, and AIGW's record names it. Then the person picks claude-opus-5-5 of
+// account on the Anthropic protocol in Hermes: the file selects it, and the
+// record and the stored selection stay. The file still holds the forwarding
+// address.
 func forwardedThenChose(t *testing.T, account string) selectionWorld {
 	t.Helper()
 	world := hermesForwarding(t).choosing(t, account, "anthropic", "claude-opus-5-5", plainScalars)

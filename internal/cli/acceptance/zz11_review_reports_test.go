@@ -163,8 +163,9 @@ func (c zz11Clients) run(t *testing.T, args ...string) zz11ClaudeRun {
 // The Change's requirement: no command changes Claude Code's own model except
 // an explicit `aigw use claude`. A command that names nothing of Claude Code
 // leaves its settings and record as they are, byte for byte; a command that
-// must rewrite the settings for another value (the provider's endpoint, a
-// forwarding) keeps "opus[1m]". Claude Desktop keeps no model of the person's
+// must rewrite the settings for another value (the provider's endpoint)
+// keeps "opus[1m]". A forwarding is refused for Claude Code, which speaks no
+// OpenAI Responses, so its probe writes nothing. Claude Desktop keeps no model of the person's
 // in a file: a command that names nothing of it leaves its files as they are.
 func TestZZ11ClaudeCodesOwnModelBesideEveryCommand(t *testing.T) {
 	t.Parallel()
@@ -192,7 +193,7 @@ func TestZZ11ClaudeCodesOwnModelBesideEveryCommand(t *testing.T) {
 		{name: "remove a model that nobody uses", args: []string{"model", "remove", "spare/gpt-spare", "--json"}},
 		{name: "the provider's label", args: []string{"provider", "edit", "gateway", "--label", "Renamed", "--json"}, rewrites: true, desktop: true},
 		{name: "the provider's endpoint", args: []string{"provider", "edit", "gateway", "--endpoint", "anthropic=https://gateway-two.test", "--json"}, rewrites: true, desktop: true},
-		{name: "a forwarding for Claude Code", args: []string{"client", "edit", "claude", "--via", "http://127.0.0.1:8792", "--json"}, rewrites: true},
+		{name: "a forwarding for Claude Code, which it refuses", args: []string{"client", "edit", "claude", "--via", "http://127.0.0.1:8792", "--json"}},
 		{name: "add a model", args: []string{"model", "add", "gateway/claude-three", "--unlisted", "--protocol", "anthropic", "--json"}, rewrites: true, desktop: true},
 		{name: "relabel the selected model", args: []string{"model", "edit", "gateway/claude-test", "--label", "Test Two", "--json"}, rewrites: true, desktop: true},
 		{name: "rollback of the last change", args: []string{"config", "rollback", "--last-change", "--json"}, rewrites: true, desktop: true},
@@ -258,9 +259,6 @@ func TestZZ11ClaudeCodesOwnModelBesideARewriteOfItsSettings(t *testing.T) {
 			three.codex.setToken(t, false)
 			return [][]string{{"provider", "edit", "gateway", "--endpoint", "anthropic=https://gateway-two.test", "--json"}, {"TOKEN"}, {"sync", "--json"}}
 		},
-		"a forwarding, then its end": func(*testing.T, zz11Clients) [][]string {
-			return [][]string{{"client", "edit", "claude", "--via", "http://127.0.0.1:8792", "--json"}, {"client", "edit", "claude", "--direct", "--json"}}
-		},
 		"a new credential reader, as a new program has, then a synchronization": func(t *testing.T, three zz11Clients) [][]string {
 			bindCredentialReader(t, three.codex.app)
 			return [][]string{{"sync", "--json"}}
@@ -313,9 +311,9 @@ func TestZZ11ClaudeCodesOwnModelBesideARewriteOfItsSettings(t *testing.T) {
 // The scenario "The choice ended a forwarding that Hermes's file still
 // holds" names `aigw status` beside the local check; the lane's regression
 // test reads the check. This probe reads the status in the same state, for a
-// choice of another provider and for one of the same provider on another
-// protocol: the followed selection is named with forwarding_cleared, and the
-// status writes nothing.
+// choice on the Anthropic protocol, which the forwarding service does not
+// relay, of another provider and of the same provider: the followed
+// selection is named with forwarding_cleared, and the status writes nothing.
 func TestZZ11StatusAfterAChoiceThatEndsAForwarding(t *testing.T) {
 	t.Parallel()
 	for _, account := range []string{"ucloud", "dmxapi"} {

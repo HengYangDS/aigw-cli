@@ -20,20 +20,20 @@ func TestSettingsSurfaceIdentityIsStable(t *testing.T) {
 	}
 }
 
-func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
+// A changed upstream endpoint changes Claude Code's projection, whose
+// credential command names the upstream. Claude Code speaks no protocol that
+// a forwarding service relays, so its endpoint is always its provider's.
+func TestClaudeProjectionChangesWhenTheUpstreamChanges(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Responses: "https://first.test/v1", Anthropic: "https://first.test"}}
 	before.Models[domain.NewModelRef("gateway", "model")] = qualifiedModel("Route", "gateway", "model", domain.ProtocolAnthropic)
 	before.Clients[ID] = domain.ClientBinding{Model: domain.NewModelRef("gateway", "model"), Enabled: true}
-	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
-		t.Fatal(err)
-	}
 	after := before.Clone()
 	account := after.Providers["gateway"]
 	account.Endpoints = domain.Endpoints{Responses: "https://second.test/v1", Anthropic: "https://second.test"}
 	after.Providers["gateway"] = account
 	if !(claudeAdapter{}).ProjectionChanged(before, after) {
-		t.Fatal("unchanged forwarding hid a changed credential projection identity")
+		t.Fatal("a changed upstream left the credential projection identity unchanged")
 	}
 }
 

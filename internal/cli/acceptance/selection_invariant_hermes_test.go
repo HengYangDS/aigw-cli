@@ -9,8 +9,9 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-// hermesForwardedTo is the local address that the forwarding state forwards
-// to, and that the command "own setting" selects.
+// hermesForwardedTo is the root of the forwarding service that the
+// forwarding state forwards through, and that the command "own setting"
+// selects.
 const hermesForwardedTo = "http://127.0.0.1:8792"
 
 // hermesWorld is Hermes on one file whose stored selection is a model of
@@ -71,13 +72,13 @@ func hermesPendingWorld(t *testing.T) selectionWorld {
 }
 
 // hermesForwarding is hermesPlain whose last change forwards the stored
-// selection to a local address, so that a rollback restores the same model
-// without the forwarding.
+// selection through a local forwarding service, so that a rollback restores
+// the same model without the forwarding.
 func hermesForwarding(t *testing.T) selectionWorld {
 	t.Helper()
 	world := hermesPlain(t)
 	world.run(t, "client", "edit", "hermes", "--via", hermesForwardedTo)
-	if got := selection(t, world.app, hermes.ID).ForwardingEndpoint; got != hermesForwardedTo {
+	if got := selection(t, world.app, hermes.ID).ForwardingRoot; got != hermesForwardedTo {
 		t.Fatalf("the stored selection forwards to %q", got)
 	}
 	return world
@@ -101,10 +102,10 @@ func hermesRestoring(model, protocol, shown string) func(t *testing.T) selection
 // withoutForwarding is what `aigw client edit hermes --direct` leaves: the
 // stored binding, read from the saved configuration, forwards nowhere.
 func withoutForwarding(after selectionSnapshot) string {
-	if after.binding.ForwardingEndpoint == "" {
+	if after.binding.ForwardingRoot == "" {
 		return ""
 	}
-	return "the stored selection " + after.binding.Model.String() + " still forwards to " + after.binding.ForwardingEndpoint
+	return "the stored selection " + after.binding.Model.String() + " still forwards to " + after.binding.ForwardingRoot
 }
 
 // nothingToEnd reports that `aigw client edit hermes --direct` asks for what
@@ -112,7 +113,7 @@ func withoutForwarding(after selectionSnapshot) string {
 // the client chose a model, which an edit of the client's own settings would
 // save with them.
 func nothingToEnd(before selectionSnapshot) bool {
-	if before.binding.ForwardingEndpoint != "" {
+	if before.binding.ForwardingRoot != "" {
 		return false
 	}
 	for _, shown := range before.shows {
@@ -158,8 +159,10 @@ func hermesMatrix() selectionMatrix {
 		"chosen on another protocol, the record missing": func(t *testing.T) selectionWorld {
 			return hermesPlain(t).choosing(t, "dmxapi", "anthropic", "claude-opus-5-5", plainScalars).losingRecord(t, 0)
 		},
-		// The stored selection forwards, and the person chose a model of
-		// another upstream, which the forwarding does not reach.
+		// The stored selection forwards, and the person chose an Anthropic
+		// model of another provider, which the forwarding service does not
+		// relay: following the choice ends the forwarding, and an explicit
+		// command that keeps it is refused.
 		"forwards, chosen of another provider": func(t *testing.T) selectionWorld {
 			return hermesForwarding(t).choosing(t, "ucloud", "anthropic", "claude-opus-5-5", plainScalars)
 		},

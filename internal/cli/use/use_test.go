@@ -88,7 +88,7 @@ func TestUseRefusesAConfigurationChangedDuringDiscovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	newer := cfg.Clone()
-	if err := newer.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/operator/v1"); err != nil {
+	if err := newer.SetForwardingRoot(codex.ID, "http://127.0.0.1:8792"); err != nil {
 		t.Fatal(err)
 	}
 	var saved []byte
@@ -174,10 +174,11 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 	}
 }
 
-// A selection of another model of the provider keeps the client's forwarding
-// and retry budgets; one of another provider's model clears both and says
-// so, in human output and JSON.
-func TestUseClearsForwardingAndRetriesOnlyForAnotherProvider(t *testing.T) {
+// A selection keeps the client's forwarding, whose destination follows the
+// selected provider's endpoint; one of another model of the provider keeps
+// its retry budgets too, and one of another provider's model clears them and
+// says so, in human output and JSON.
+func TestUseKeepsForwardingAndClearsRetriesOnlyForAnotherProvider(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
 	credentials := secret.NewMemoryStore()
 	runtime.Secrets = credentials
@@ -190,7 +191,7 @@ func TestUseClearsForwardingAndRetriesOnlyForAnotherProvider(t *testing.T) {
 	binding := cfg.Clients[codex.ID]
 	binding.RetryPolicy = &domain.RetryPolicy{StreamMaxRetries: &three}
 	cfg.Clients[codex.ID] = binding
-	if err := cfg.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/v1"); err != nil {
+	if err := cfg.SetForwardingRoot(codex.ID, "http://127.0.0.1:8792"); err != nil {
 		t.Fatal(err)
 	}
 	cfg.Models[domain.NewModelRef("gateway", "gpt-next")] = domain.Model{Label: "Next", Provider: "gateway", Family: "gpt-next", ID: "gpt-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
@@ -203,17 +204,17 @@ func TestUseClearsForwardingAndRetriesOnlyForAnotherProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 	var kept document
-	if err := json.Unmarshal(out.Bytes(), &kept); err != nil || kept.ForwardingCleared || kept.RetriesCleared || kept.Retries == nil ||
-		kept.Endpoint != "http://127.0.0.1:8792/v1" || kept.ProviderEndpoint != "https://gateway.example.test/v1" {
+	if err := json.Unmarshal(out.Bytes(), &kept); err != nil || kept.RetriesCleared || kept.Retries == nil ||
+		kept.Endpoint != "http://127.0.0.1:8792/https/gateway.example.test/v1" || kept.ProviderEndpoint != "https://gateway.example.test/v1" {
 		t.Fatalf("selection within the provider = %s, %v", out.Bytes(), err)
 	}
 	// A person sees the kept budget and both endpoints that the client now
-	// uses: the forwarding endpoint, and the provider's behind it.
+	// uses: the forwarding destination, and the provider's behind it.
 	out.Reset()
 	if err := execute(runtime, codex.ID, "gateway/gpt-test"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Stream retries", "3", "http://127.0.0.1:8792/v1", "Provider endpoint", "https://gateway.example.test/v1"} {
+	for _, want := range []string{"Stream retries", "3", "http://127.0.0.1:8792/https/gateway.example.test/v1", "Provider endpoint", "https://gateway.example.test/v1"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("selection within the provider lacks %q:\n%s", want, out)
 		}
@@ -225,14 +226,17 @@ func TestUseClearsForwardingAndRetriesOnlyForAnotherProvider(t *testing.T) {
 	if err := execute(runtime, codex.ID, "other/gpt-test"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Forwarding", "Cleared, because the client's upstream endpoint changed", "Retries", "Cleared, because they belonged to the previous provider"} {
+	for _, want := range []string{"http://127.0.0.1:8792/https/other.example.test/v1", "Retries", "Cleared, because they belonged to the previous provider"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("selection of another provider lacks %q:\n%s", want, out)
 		}
 	}
+	if strings.Contains(out.String(), "Forwarding") {
+		t.Fatalf("selection of another provider reports its forwarding as changed:\n%s", out)
+	}
 	saved, err := runtime.Config.Load()
-	if binding := saved.Clients[codex.ID]; err != nil || binding.ForwardingEndpoint != "" || binding.RetryPolicy != nil {
-		t.Fatalf("another provider kept the connection settings: %#v, %v", binding, err)
+	if binding := saved.Clients[codex.ID]; err != nil || binding.ForwardingRoot != "http://127.0.0.1:8792" || binding.RetryPolicy != nil {
+		t.Fatalf("another provider = %#v, %v; want the forwarding kept and the retry budgets cleared", binding, err)
 	}
 }
 

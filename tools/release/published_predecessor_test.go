@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -102,19 +103,22 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
 	upstream := newNativeJourneyServer(t)
 	// A check at the model depth sends one request without a model and one
-	// inference request, both through the forwarding endpoint.
+	// inference request, both through the forwarding service, which relays
+	// them to the upstream.
 	requests := make(chan string, 2)
-	forwarding := newNativeJourneyServer(t, func(request *http.Request) {
-		observed := request.Method + " " + request.URL.Path
+	forwarding := newForwardingService(t, upstream, func(request *http.Request, relayed string) {
+		observed := request.Method + " " + relayed
 		if request.Method == http.MethodPost {
-			var body struct {
+			body, err := io.ReadAll(request.Body)
+			request.Body = io.NopCloser(bytes.NewReader(body))
+			var decoded struct {
 				Model string `json:"model"`
 			}
-			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			if err != nil || json.Unmarshal(body, &decoded) != nil {
 				t.Errorf("decode forwarded model: %v", err)
 				return
 			}
-			observed += " " + body.Model
+			observed += " " + decoded.Model
 		}
 		select {
 		case requests <- observed:
@@ -128,10 +132,11 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	journey.run("self", "update", "--archive", archive, "--checksums", checksums)
 	configStore := store.NewStore(journey.config, builtinclients.Admission())
 	before := capturePublishedSnapshot(t, configStore)
-	endpoint := forwarding.URL + "/selected/v1"
-	args := []string{"client", "edit", codex.ID, "--via", endpoint}
+	forwardingRoot := forwarding.URL
+	destination := forwardingRoot + "/http/" + strings.TrimPrefix(upstream.URL, "http://") + "/v1"
+	args := []string{"client", "edit", codex.ID, "--via", forwardingRoot}
 	preview := journey.run(append(slices.Clone(args), "--dry-run", "--json")...)
-	if bytes.Contains(preview, []byte("native-journey-token")) || !bytes.Contains(preview, []byte(endpoint)) {
+	if bytes.Contains(preview, []byte("native-journey-token")) || !bytes.Contains(preview, []byte(destination)) {
 		t.Fatal("forwarding preview lost its destination or exposed credentials")
 	}
 	unchanged, err := configStore.CaptureSnapshot()
@@ -143,7 +148,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	}
 	journey.run(args...)
 	cfg, err := configStore.Load()
-	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint || cfg.Providers["native-system-keyring-probe"].Endpoints.Responses != upstream.URL+"/v1" {
+	if err != nil || cfg.Clients[codex.ID].ForwardingRoot != forwardingRoot || cfg.Providers["native-system-keyring-probe"].Endpoints.Responses != upstream.URL+"/v1" {
 		t.Fatalf("forwarding did not preserve Account ownership: %v", err)
 	}
 	journey.run("check", codex.ID)
@@ -152,7 +157,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	for range len(requests) {
 		got = append(got, <-requests)
 	}
-	if want := []string{"GET /selected/v1/models", "POST /selected/v1/responses gpt-test"}; !slices.Equal(got, want) {
+	if want := []string{"GET /v1/models", "POST /v1/responses gpt-test"}; !slices.Equal(got, want) {
 		t.Fatalf("forwarded requests = %q, want %q", got, want)
 	}
 	for _, client := range state.clients {
@@ -170,7 +175,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(selected, converged) {
 		t.Fatalf("converged native sync rewrote forwarding state: %v", err)
 	}
-	state.rollbackForwarding(t, endpoint, selected, baseline)
+	state.rollbackForwarding(t, forwardingRoot, selected, baseline)
 	state.finish(t)
 }
 
@@ -183,12 +188,12 @@ func capturePublishedSnapshot(t *testing.T, configStore store.Store) store.Snaps
 	return snapshot
 }
 
-func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint string, selected store.Snapshot, baseline string) {
+func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, forwardingRoot string, selected store.Snapshot, baseline string) {
 	journey := state.journey
 	configStore := store.NewStore(journey.config, builtinclients.Admission())
 	journey.run("config", "rollback", "--last-change")
 	cfg, err := configStore.Load()
-	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != "" {
+	if err != nil || cfg.Clients[codex.ID].ForwardingRoot != "" {
 		t.Fatalf("configuration rollback retained forwarding: %v", err)
 	}
 	journey.run("config", "rollback", "--last-change")
@@ -205,7 +210,7 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint s
 	journey.run("self", "update", "--archive", state.archive, "--checksums", state.checksums)
 	journey.requireProgramBytes(state.candidate)
 	cfg, err = configStore.Load()
-	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint {
+	if err != nil || cfg.Clients[codex.ID].ForwardingRoot != forwardingRoot {
 		t.Fatalf("program rollback and forward restore lost forwarding: %v", err)
 	}
 	for _, client := range state.clients {

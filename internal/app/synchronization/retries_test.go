@@ -12,15 +12,16 @@ import (
 )
 
 // Retry budgets belong to the client's provider: selecting another model of
-// the provider keeps them and its forwarding, and selecting another
-// provider's model clears both, without a refusal.
+// the provider keeps them, and selecting another provider's model clears
+// them, without a refusal. The forwarding stays through both, its
+// destination following the upstream.
 func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
 	cfg := testConfig(t, filepath.Join(t.TempDir(), "config.toml"))
 	zero, two := uint64(0), uint64(2)
 	binding := cfg.Clients[codex.ID]
 	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero, StreamMaxRetries: &two}
 	cfg.Clients[codex.ID] = binding
-	if err := cfg.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/v1"); err != nil {
+	if err := cfg.SetForwardingRoot(codex.ID, "http://127.0.0.1:8792"); err != nil {
 		t.Fatal(err)
 	}
 	model := cfg.Models[domain.NewModelRef("gateway", "gpt-test")]
@@ -31,12 +32,12 @@ func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
 	cfg.Models[domain.NewModelRef("other", "gpt-test")] = domain.Model{Label: "Other", Provider: "other", Family: "gpt-test", ID: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
 	cfg.Normalize()
 	for _, test := range []struct {
-		name  string
-		route domain.ModelRef
-		kept  bool
+		name, destination string
+		route             domain.ModelRef
+		kept              bool
 	}{
-		{"another model of the provider", domain.NewModelRef("gateway", "other-model"), true},
-		{"another provider", domain.NewModelRef("other", "gpt-test"), false},
+		{"another model of the provider", "http://127.0.0.1:8792/https/gateway.test/v1", domain.NewModelRef("gateway", "other-model"), true},
+		{"another provider", "http://127.0.0.1:8792/https/other.test/v1", domain.NewModelRef("other", "gpt-test"), false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			before := cfg.Clone()
@@ -48,8 +49,8 @@ func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
 			if kept := selected.RetryPolicy != nil && reflect.DeepEqual(runtime.RetryPolicy, binding.RetryPolicy); kept != test.kept {
 				t.Fatalf("retry budgets = %#v, want them kept: %t", selected.RetryPolicy, test.kept)
 			}
-			if forwarded := selected.ForwardingEndpoint != ""; forwarded != test.kept {
-				t.Fatalf("forwarding = %q, want it kept: %t", selected.ForwardingEndpoint, test.kept)
+			if selected.ForwardingRoot == "" || runtime.Endpoint != test.destination {
+				t.Fatalf("forwarding = %q to %s, want it kept to %s", selected.ForwardingRoot, runtime.Endpoint, test.destination)
 			}
 			if !reflect.DeepEqual(cfg, before) {
 				t.Fatal("selection mutated its input")

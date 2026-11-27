@@ -109,7 +109,7 @@ func (report *FollowedReport) Render(r *terminal.Renderer) {
 	for _, choice := range selections {
 		sentence := choice.Now.Product + " uses " + named(choice.Now) + ", chosen in " + choice.Now.Product + "; AIGW held " + named(choice.Earlier) + "."
 		if choice.ForwardingCleared {
-			sentence += " Its forwarding ended, because the client's upstream endpoint changed."
+			sentence += " Its forwarding ended, because the forwarding service cannot reach the chosen model's upstream."
 		}
 		if choice.RetriesCleared {
 			sentence += " Its retry budgets ended, because they belonged to the earlier provider."

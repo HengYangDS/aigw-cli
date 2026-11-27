@@ -23,7 +23,7 @@ func TestForwardingChangedDuringVerificationRejectsCheckpoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	changed := cfg.Clone()
-	if err := changed.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+	if err := changed.SetForwardingRoot(ClientCodex, "http://127.0.0.1:8792"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := encodeConfig(changed)
@@ -53,7 +53,7 @@ func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) 
 		t.Fatal(err)
 	}
 	changed := cfg.Clone()
-	if err := changed.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+	if err := changed.SetForwardingRoot(ClientCodex, "http://127.0.0.1:8792"); err != nil {
 		t.Fatal(err)
 	}
 	newer, err := encodeConfig(changed)
@@ -460,12 +460,12 @@ func TestVerifiedCheckpointAndPreimageCompareThroughTheView(t *testing.T) {
 		t.Fatal(err)
 	}
 	read := stored.Clone()
-	if err := read.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+	if err := read.SetForwardingRoot(ClientCodex, "http://127.0.0.1:8792"); err != nil {
 		t.Fatal(err)
 	}
 	view := func(current domain.Config) domain.Config {
 		viewed := current.Clone()
-		if err := viewed.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+		if err := viewed.SetForwardingRoot(ClientCodex, "http://127.0.0.1:8792"); err != nil {
 			t.Fatal(err)
 		}
 		return viewed

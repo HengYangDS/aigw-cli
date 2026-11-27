@@ -1,9 +1,9 @@
 package cli_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -11,13 +11,15 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/terminal"
 )
 
-// A forwarded client reaches the upstream that its forwarding records. A
-// provider edit that moves that upstream clears the forwarding in the same
-// write and says so; the client's file then reaches the edited endpoint
-// directly, and the client's retry budgets stay.
-func TestProviderEditClearsTheForwardingOfAMovedUpstream(t *testing.T) {
+// A forwarded client's destination follows its provider's endpoint: a
+// provider edit that moves the endpoint keeps the forwarding, Codex's file
+// names the destination composed from the edited endpoint, and the client's
+// retry budgets stay. An endpoint that the forwarding cannot name is refused
+// before anything changes, naming the direct connection.
+func TestProviderEditMovesTheDestinationOfAForwardedClient(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name      string
@@ -41,33 +43,43 @@ func TestProviderEditClearsTheForwardingOfAMovedUpstream(t *testing.T) {
 			if err := secretStore.Set("gateway", "fixture-token"); err != nil {
 				t.Fatal(err)
 			}
-			forwarding := append([]string{"client", "edit", "codex", "--via", "http://127.0.0.1:8792/v1"}, test.selection...)
+			forwarding := append([]string{"client", "edit", "codex", "--via", "http://127.0.0.1:8792"}, test.selection...)
 			if err := cli.Execute(app, forwarding); err != nil {
 				t.Fatalf("forward Codex: %v\n%s", err, output)
 			}
+			if projected := string(readFile(t, target)); !strings.Contains(projected, `base_url = "http://127.0.0.1:8792/https/gateway.test/v1"`) {
+				t.Fatalf("Codex does not forward to its provider's upstream:\n%s", projected)
+			}
 
 			output.Reset()
-			if err := cli.Execute(app, []string{"provider", "edit", "gateway", "--endpoint", "responses=https://moved.test/v1", "--json"}); err != nil {
+			if err := cli.Execute(app, []string{"provider", "edit", "gateway", "--endpoint", "responses=https://moved.test:8443/v1", "--json"}); err != nil {
 				t.Fatalf("the provider edit: %v\n%s", err, output)
 			}
-			var document struct {
-				ClearedForwarding []string `json:"cleared_forwarding"`
+			var document map[string]any
+			if err := json.Unmarshal(output.Bytes(), &document); err != nil || document["cleared_forwarding"] != nil {
+				t.Fatalf("the edit's document = %v, %v\n%s", document, err, output)
 			}
-			if err := json.Unmarshal(output.Bytes(), &document); err != nil || !slices.Equal(document.ClearedForwarding, []string{codex.ID}) {
-				t.Fatalf("the edit's cleared forwarding = %q, %v\n%s", document.ClearedForwarding, err, output)
-			}
-			if projected := string(readFile(t, target)); !strings.Contains(projected, `base_url = "https://moved.test/v1"`) {
-				t.Fatalf("Codex does not reach the edited endpoint directly:\n%s", projected)
+			if projected := string(readFile(t, target)); !strings.Contains(projected, `base_url = "http://127.0.0.1:8792/https/moved.test:8443/v1"`) {
+				t.Fatalf("Codex's destination does not follow the edited endpoint:\n%s", projected)
 			}
 			saved, err := app.Config.Load()
 			if err != nil {
 				t.Fatal(err)
 			}
-			if saved.Clients[codex.ID].ForwardingEndpoint != "" {
-				t.Fatalf("the forwarding stays: %q", saved.Clients[codex.ID].ForwardingEndpoint)
+			if saved.Clients[codex.ID].ForwardingRoot != "http://127.0.0.1:8792" {
+				t.Fatalf("the forwarding = %q", saved.Clients[codex.ID].ForwardingRoot)
 			}
 			if policy := saved.Clients[codex.ID].RetryPolicy; test.selection != nil && (policy == nil || policy.RequestMaxRetries == nil || *policy.RequestMaxRetries != 2) {
 				t.Fatalf("the edit dropped the retry budget: %#v", policy)
+			}
+
+			file, stored := readFile(t, target), readFile(t, app.Config.Path())
+			err = cli.Execute(app, []string{"provider", "edit", "gateway", "--endpoint", "responses=https://moved.test/v1/../v2"})
+			if problem := terminal.ProblemFor(err); !strings.Contains(problem.Title, "empty or dot path segment") || problem.Fix != "aigw client edit codex --direct" {
+				t.Fatalf("an endpoint that the forwarding cannot name = %q, fix %q", problem.Title, problem.Fix)
+			}
+			if !bytes.Equal(readFile(t, target), file) || !bytes.Equal(readFile(t, app.Config.Path()), stored) {
+				t.Fatal("a refused provider edit changed the configuration or Codex's file")
 			}
 		})
 	}

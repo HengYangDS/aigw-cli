@@ -143,14 +143,15 @@ func hermesEntries(t *testing.T, path string) []string {
 // client, one that names nothing, `aigw sync` and an edit of Hermes's own
 // setting each end alike in both twins: Hermes is written without
 // aihubmix's models, as for a provider without a Token, and AIGW's record of
-// Hermes's file names the model that the file selects.
+// Hermes's file names the model that the file selects. The edit is
+// `--direct`, since a forwarding service relays no Anthropic traffic.
 func TestHermesLeavesOutAnotherProviderWhoseTokenCannotBeObserved(t *testing.T) {
 	t.Parallel()
 	commands := map[string][]string{
 		"another client": {"use", "claude", "ucloud/claude-opus-5-5", "--json"},
 		"names nothing":  {"provider", "add", "extra", "--endpoint", "responses=https://extra.test/v1", "--token-stdin", "--json"},
 		"sync":           {"sync", "--json"},
-		"own setting":    {"client", "edit", "hermes", "--via", hermesForwardedTo, "--json"},
+		"own setting":    {"client", "edit", "hermes", "--direct", "--json"},
 	}
 	for _, kind := range unobservableStores() {
 		for _, name := range slices.Sorted(mapKeys(commands)) {

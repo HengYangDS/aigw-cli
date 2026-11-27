@@ -230,11 +230,13 @@ func TestATargetEditOfAClientWithoutItsTokenLeavesNothingBehind(t *testing.T) {
 
 // An edit of another setting of such a client is saved, and its next step
 // names the Token that the client waits for; the model chosen in Hermes is no
-// outside edit. Holds the cell chosen/edits (the review's F5).
+// outside edit. The chosen model is on the Anthropic protocol, which a
+// forwarding service does not relay, so the edit of Hermes's connection is
+// `--direct`. Holds the cell chosen/edits (the review's F5).
 func TestAnEditOfAClientWithoutItsTokenNamesTheTokenAsItsNextStep(t *testing.T) {
 	t.Parallel()
 	for _, edit := range [][]string{
-		{"client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json"},
+		{"client", "edit", "hermes", "--direct", "--json"},
 		{"client", "edit", "hermes", "--program", executableFixture(t, "hermes"), "--json"},
 	} {
 		app, output, _, _ := waitingHermes(t)

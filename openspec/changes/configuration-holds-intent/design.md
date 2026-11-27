@@ -114,6 +114,14 @@ string, the root, so a schema 8 table left in place is refused with its line rat
 a configuration that put a forwarding route into a provider's own endpoint, as the owner's does for two providers,
 moves the route to the client when the proxy is upgraded (the proxy session's cutover, step 3).
 
+`aigw client edit <client> --via <root>` for a selection that the forwarding cannot carry is refused with the
+selection to make first (`aigw use <client> <provider/model>`), since `--direct` would change nothing there; Claude
+Code and Claude Desktop, which speak no Responses, are refused `--via` at their arguments. Because Claude Code no
+longer forwards, the release tool's candidate-only `forwarding-performance` scope, which measured Claude Code
+through a forwarding endpoint and which no specification, CI job or release step uses, is removed with its
+`--performance-forwarding` flag rather than rebuilt on Codex: AIGW carries no traffic, so a forwarding changes only
+an address in a client's file.
+
 Alternative rejected: a fixed destination per provider, written by the operator. It repeats the upstream in a second
 place and needs one forwarding per provider, which a client with one forwarding cannot hold.
 

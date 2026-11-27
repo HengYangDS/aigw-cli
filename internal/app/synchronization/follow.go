@@ -20,8 +20,9 @@ type Followed struct {
 	// Returns is the step that selects the earlier model again, or "" when
 	// the configuration no longer holds that model.
 	Returns string
-	// ForwardingCleared and RetriesCleared say that the earlier selection's
-	// forwarding or retry budgets ended with its upstream or its provider.
+	// ForwardingCleared says that the earlier selection's forwarding ended,
+	// because it cannot carry the followed selection, and RetriesCleared
+	// that its retry budgets ended with its provider.
 	ForwardingCleared, RetriesCleared bool
 }
 
@@ -97,7 +98,7 @@ func (s Synchronizer) Working(stored domain.Config) (domain.Config, []Followed) 
 		was, is := working.Clients[client], candidate.Clients[client]
 		followed = append(followed, Followed{
 			Now: now, Earlier: earlier, Returns: earlier.Restore(),
-			ForwardingCleared: was.ForwardingEndpoint != "" && is.ForwardingEndpoint == "",
+			ForwardingCleared: was.ForwardingRoot != "" && is.ForwardingRoot == "",
 			RetriesCleared:    was.RetryPolicy != nil && is.RetryPolicy == nil,
 		})
 		working = candidate

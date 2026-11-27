@@ -59,7 +59,10 @@ The design rests on the issue-1 committee and the end-state committee, whose mat
 - `client-adapters`: the client-native Codex provider is removed; its program requirements move to `client-programs`.
 - `credential-continuity`: the frozen view across schema 9.
 - `progressive-team-onboarding` and `shipped-team-file`: team files at version 9 without client-native keys.
-- `model-selection`: the client list's program fields; it takes the compatible-model requirement.
+- `model-selection`: the client list's program fields; forwarding through a service root; it takes the
+  compatible-model requirement.
+- `client-chosen-model`: a followed model ends a forwarding only when the grammar cannot name its upstream, and an
+  explicit selection of another upstream keeps the forwarding.
 - `projection-format`: Codex's provider table without a client-native form.
 - `secret-storage` and `client-verification`: repairs that name `--program`.
 - `secret-storage` and `cli-readiness`: the client-native case leaves, and an own `credential_command` takes its place.

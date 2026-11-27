@@ -526,12 +526,13 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 	if err != nil {
 		return Runtime{}, err
 	}
+	destination, err := c.forwardingFor(client, provider.ID, endpoint, protocol)
+	if err != nil {
+		return Runtime{}, err
+	}
 	upstream := endpoint
-	if forwarding := c.forwardingFor(client, provider.ID, upstream, protocol); forwarding != "" {
-		if err := ValidateEndpoint(forwarding); err != nil {
-			return Runtime{}, fmt.Errorf("client %q forwarding endpoint: %w", client, err)
-		}
-		endpoint = strings.TrimRight(forwarding, "/")
+	if destination != "" {
+		endpoint = destination
 	}
 	window := 0
 	if spec.ContextWindow {
@@ -592,17 +593,6 @@ func (c *Config) familyVariants(selected ModelRef, protocol EndpointProtocol) ma
 		}
 	}
 	return mapped
-}
-
-// forwardingFor returns a client's forwarding destination for a selection that
-// reaches the upstream the binding recorded, and nothing for any other.
-func (c *Config) forwardingFor(client, providerID, upstream string, protocol EndpointProtocol) string {
-	binding := c.Clients[client]
-	if binding.ForwardingEndpoint == "" || protocol != binding.ForwardingProtocol ||
-		upstreamIdentity(client, providerID, upstream) != binding.ForwardingUpstreamIdentity {
-		return ""
-	}
-	return binding.ForwardingEndpoint
 }
 
 // modelLabel is the model's explicit label, or `Provider · Family`, or

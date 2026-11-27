@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
@@ -48,26 +49,30 @@ func TestModelSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	}
 }
 
-func TestModelSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
+// A forwarded selection keeps its forwarding through a change of model,
+// protocol or provider, its destination following the upstream that the
+// selection's protocol resolves; one on a protocol that the forwarding does
+// not carry is refused before any change.
+func TestModelSelectionResolvesProtocolBeforeForwarding(t *testing.T) {
 	for _, test := range []struct {
 		name, wantEndpoint string
 		route              domain.ModelRef
 		protocol           domain.EndpointProtocol
 	}{
-		{name: "same upstream", route: domain.NewModelRef("team", "shared"), protocol: domain.ProtocolChat, wantEndpoint: "http://127.0.0.1:8792/selected/v1"},
-		{name: "new protocol", route: domain.NewModelRef("team", "shared"), protocol: domain.ProtocolResponses, wantEndpoint: "https://team.test/responses/v1"},
-		{name: "new provider", route: domain.NewModelRef("other", "shared"), protocol: domain.ProtocolChat, wantEndpoint: "https://other.test/v1"},
+		{name: "same upstream", route: domain.NewModelRef("team", "shared"), protocol: domain.ProtocolResponses, wantEndpoint: "http://127.0.0.1:8792/https/team.test/responses/v1"},
+		{name: "new protocol", route: domain.NewModelRef("team", "shared"), protocol: domain.ProtocolChat},
+		{name: "new provider", route: domain.NewModelRef("other", "shared"), protocol: domain.ProtocolResponses, wantEndpoint: "http://127.0.0.1:8792/https/other.test/v1"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := setupConfiguration()
 			cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{
 				Anthropic: "https://team.test", Chat: "https://team.test/v1", Responses: "https://team.test/responses/v1",
 			}}
-			cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Chat: "https://other.test/v1"}}
+			cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Responses: "https://other.test/v1"}}
 			cfg.Models[domain.NewModelRef("team", "shared")] = domain.Model{Label: "Dual", Provider: "team", Family: "shared", ID: "shared", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}, domain.ProtocolResponses: {}}}
-			cfg.Models[domain.NewModelRef("other", "shared")] = domain.Model{Label: "Other", Provider: "other", Family: "shared", ID: "shared", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
-			cfg.Clients[hermes.ID] = domain.ClientBinding{Model: domain.NewModelRef("team", "shared"), Protocol: domain.ProtocolChat, Enabled: true}
-			if err := cfg.SetForwardingEndpoint(hermes.ID, "http://127.0.0.1:8792/selected/v1"); err != nil {
+			cfg.Models[domain.NewModelRef("other", "shared")] = domain.Model{Label: "Other", Provider: "other", Family: "shared", ID: "shared", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}}}
+			cfg.Clients[hermes.ID] = domain.ClientBinding{Model: domain.NewModelRef("team", "shared"), Protocol: domain.ProtocolResponses, Enabled: true}
+			if err := cfg.SetForwardingRoot(hermes.ID, "http://127.0.0.1:8792"); err != nil {
 				t.Fatal(err)
 			}
 			binding := cfg.Clients[hermes.ID]
@@ -75,6 +80,12 @@ func TestModelSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 				t.Fatal(err)
 			}
 			proposed, selected, err := (Synchronizer{Stops: &Stops{}, Registry: builtinClients}).PrepareSelection(cfg, hermes.ID, test.route, test.protocol)
+			if test.wantEndpoint == "" {
+				if _, refused := errors.AsType[*domain.ForwardingUpstreamError](err); !refused || !strings.Contains(err.Error(), "`aigw client edit hermes --direct`") {
+					t.Fatalf("a forwarded selection on %s = %v", test.protocol, err)
+				}
+				return
+			}
 			if err != nil {
 				t.Fatal(err)
 			}

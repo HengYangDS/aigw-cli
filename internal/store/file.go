@@ -81,21 +81,14 @@ type clientDocument struct {
 	Targets           []string                `toml:"targets,omitempty"`
 	CredentialCommand string                  `toml:"credential_command,omitempty"`
 	Retries           *retriesDocument        `toml:"retries,omitempty,inline"`
-	Forwarding        *forwardingDocument     `toml:"forwarding,omitempty,inline"`
+	// Forwarding is the root of the forwarding service through which the
+	// client's Responses traffic goes.
+	Forwarding string `toml:"forwarding,omitempty"`
 }
 
 type retriesDocument struct {
 	Request *uint64 `toml:"request,omitempty"`
 	Stream  *uint64 `toml:"stream,omitempty"`
-}
-
-// forwardingDocument records a client's forwarding destination and the
-// upstream that its selection reached when the destination was set, so that a
-// later change of upstream cannot rebind the destination silently.
-type forwardingDocument struct {
-	Endpoint string                  `toml:"endpoint"`
-	Upstream string                  `toml:"upstream"`
-	Protocol domain.EndpointProtocol `toml:"protocol"`
 }
 
 // UndefinedFieldError is a field that the schema does not define, such as a
@@ -110,15 +103,6 @@ type UndefinedFieldError struct {
 // Error names the field, its line and the schema.
 func (e *UndefinedFieldError) Error() string {
 	return fmt.Sprintf("schema %d does not define the field %s, on line %d", domain.ConfigVersion, e.Field, e.Line)
-}
-
-// MissingFieldError is a field that the schema requires and the file leaves
-// out, such as the endpoint of a client's forwarding.
-type MissingFieldError struct{ Field string }
-
-// Error names the field and the schema.
-func (e *MissingFieldError) Error() string {
-	return fmt.Sprintf("schema %d requires the field %s", domain.ConfigVersion, e.Field)
 }
 
 // readVersion reads only the document's version.
@@ -218,7 +202,7 @@ func (selection selectionDocument) selection(client string) (domain.ClientSelect
 func (declared clientDocument) binding(client string) (domain.ClientBinding, error) {
 	binding := domain.ClientBinding{
 		Enabled: declared.Enabled, Protocol: declared.Protocol, Program: declared.Program, Extensions: declared.Extensions,
-		Targets: declared.Targets, CredentialCommand: declared.CredentialCommand,
+		Targets: declared.Targets, CredentialCommand: declared.CredentialCommand, ForwardingRoot: declared.Forwarding,
 	}
 	if declared.Model != "" {
 		ref, err := domain.ParseModelRef(declared.Model)
@@ -229,14 +213,6 @@ func (declared clientDocument) binding(client string) (domain.ClientBinding, err
 	}
 	if declared.Retries != nil {
 		binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: declared.Retries.Request, StreamMaxRetries: declared.Retries.Stream}
-	}
-	if forwarding := declared.Forwarding; forwarding != nil {
-		// A table without an endpoint would forward nothing, and the next
-		// write would drop it.
-		if forwarding.Endpoint == "" {
-			return domain.ClientBinding{}, &MissingFieldError{Field: "clients." + client + ".forwarding.endpoint"}
-		}
-		binding.ForwardingEndpoint, binding.ForwardingUpstreamIdentity, binding.ForwardingProtocol = forwarding.Endpoint, forwarding.Upstream, forwarding.Protocol
 	}
 	return binding, nil
 }
@@ -296,12 +272,10 @@ func newClientDocument(binding domain.ClientBinding) clientDocument {
 	declared := clientDocument{
 		Enabled: binding.Enabled, Model: binding.Model.String(), Protocol: binding.Protocol,
 		Program: binding.Program, Extensions: binding.Extensions, Targets: binding.Targets, CredentialCommand: binding.CredentialCommand,
+		Forwarding: binding.ForwardingRoot,
 	}
 	if policy := binding.RetryPolicy; policy != nil {
 		declared.Retries = &retriesDocument{Request: policy.RequestMaxRetries, Stream: policy.StreamMaxRetries}
-	}
-	if binding.ForwardingEndpoint != "" {
-		declared.Forwarding = &forwardingDocument{Endpoint: binding.ForwardingEndpoint, Upstream: binding.ForwardingUpstreamIdentity, Protocol: binding.ForwardingProtocol}
 	}
 	return declared
 }

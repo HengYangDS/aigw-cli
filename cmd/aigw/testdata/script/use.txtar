@@ -1,8 +1,9 @@
 # use points one client at a model named provider/model, as JSON and in text,
 # and adds a model that the provider's catalog lists. A preview reads no Token
-# value or catalog and writes nothing. Within a provider a client keeps its
-# forwarding and retry budgets; on another provider's model it loses both, and
-# the result says so. A model on several protocols that a client speaks needs
+# value or catalog and writes nothing. A client keeps its forwarding on
+# another provider's model, its destination naming the new upstream, and its
+# retry budgets only within a provider: on another provider's model it loses
+# the budgets, and the result says so. A model on several protocols that a client speaks needs
 # --protocol without a terminal, and the selection that a model edit names
 # runs as named. A selection that changes Claude Desktop's list names Desktop,
 # its restart and its lost tool search, with the command that declares it. A
@@ -45,20 +46,23 @@ normalize stdout again.out
 cmp again.out again.txt
 
 # Codex keeps its forwarding and retry budgets on another model of its
-# provider, and loses both, with a report, on another provider's model.
+# provider. On another provider's model it keeps the forwarding, whose
+# destination names that provider's endpoint, and loses the budgets, with a
+# report. The destination names the upstream's port, which varies.
 exec aigw model edit team/team-model --protocol anthropic --protocol responses
 exec aigw model edit team/spare-model --protocol anthropic --protocol responses
 exec aigw use codex team/team-model
-exec aigw client edit codex --via http://127.0.0.1:8792/v1 --request-retries 2 --stream-retries 1
+exec aigw client edit codex --via http://127.0.0.1:8792 --request-retries 2 --stream-retries 1
 exec aigw use codex team/spare-model --json
-stdout '"endpoint": "http://127.0.0.1:8792/v1"'
+stdout '"endpoint": "http://127\.0\.0\.1:8792/http/127\.0\.0\.1:[0-9]+/v1"'
 stdout '"retries": \{\n\s+"request": 2,\n\s+"stream": 1\n\s+\}'
 ! stdout '_cleared'
 stdin other-token.txt
 exec aigw provider add other --endpoint responses=$UPSTREAM/other/v1 --token-stdin
 exec aigw model add other/team-model
 exec aigw use codex other/team-model
-normalize stdout moved.out
+stdout 'http://127\.0\.0\.1:8792/http/127\.0\.0\.1:[0-9]+/other/v1'
+normalize stdout moved.out '127\.0\.0\.1:[0-9]+/other/v1'
 cmp moved.out moved.txt
 
 # A model that the provider's catalog lists is added and selected in one
@@ -243,7 +247,7 @@ Options
       --unlisted[=true|false]   Add a model that the provider's catalog does not list, without reading the catalog
 -- preview.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "dry_run": true,
   "changed": true,
@@ -266,7 +270,7 @@ Options
 }
 -- spare.json --
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "ok": true,
   "changed": true,
   "client": "claude",
@@ -324,8 +328,8 @@ AIGW  Model selected
   Client               Codex
   Model                other/team-model
   Protocol             OpenAI Responses
-  Endpoint             $UPSTREAM/other/v1
-  ! Forwarding         Cleared, because the client's upstream endpoint changed
+  Endpoint             http://127.0.0.1:8792/http/<varies>
+  Provider endpoint    $UPSTREAM/other/v1
   ! Retries            Cleared, because they belonged to the previous provider; Codex uses its own defaults
   Client files         Written once Codex is installed
   ✓ Saved; the other clients' selections are unchanged

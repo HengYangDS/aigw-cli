@@ -131,7 +131,7 @@ func (c *Config) validateClientBindings() error {
 		}
 		binding := c.clientBinding(client)
 		if binding.Model.IsZero() {
-			if binding.Enabled || binding.Protocol != "" || binding.ForwardingEndpoint != "" || binding.RetryPolicy != nil {
+			if binding.Enabled || binding.Protocol != "" || binding.ForwardingRoot != "" || binding.RetryPolicy != nil {
 				return fmt.Errorf("client %q must select a model before it can be enabled or define runtime options", client)
 			}
 			if err := binding.validate(client, spec); err != nil {
@@ -150,25 +150,6 @@ func (c *Config) validateClientBindings() error {
 		}
 	}
 	return nil
-}
-
-// validateForwarding refuses a forwarded binding whose model no longer reaches
-// the upstream recorded with its endpoint. Rebinding the destination silently
-// would send the client's traffic somewhere the operator did not choose.
-func (c *Config) validateForwarding(client string, binding ClientBinding) error {
-	if binding.ForwardingEndpoint == "" {
-		return nil
-	}
-	runtime, err := c.ResolveRuntime(client, ModelRef{})
-	if err != nil {
-		return fmt.Errorf("client %q: %w", client, err)
-	}
-	if runtime.CredentialProjectionFingerprint(client) == binding.ForwardingUpstreamIdentity && runtime.Protocol == binding.ForwardingProtocol {
-		return nil
-	}
-	// The direct connection reaches the same provider, so it keeps the
-	// client's retry budgets.
-	return fmt.Errorf("client %q forwards to the upstream it was selected with, and this change would move that upstream; run `aigw client edit %s --direct` first", client, client)
 }
 
 func (c *Config) validateSelection(client string, selection ClientSelection) error {
@@ -208,9 +189,9 @@ func (binding ClientBinding) validate(client string, spec ClientSpec) error {
 	if err := binding.RetryPolicy.validate(client, spec); err != nil {
 		return err
 	}
-	if binding.ForwardingEndpoint != "" {
-		if err := ValidateEndpoint(binding.ForwardingEndpoint); err != nil {
-			return fmt.Errorf("client %q forwarding endpoint: %w", client, err)
+	if binding.ForwardingRoot != "" {
+		if err := ValidateForwardingRoot(binding.ForwardingRoot); err != nil {
+			return fmt.Errorf("client %q forwarding: %w", client, err)
 		}
 	}
 	command := binding.CredentialCommand
@@ -369,10 +350,10 @@ func (protocol EndpointProtocol) Admits(capability Capability) bool {
 	return capability != CapabilityToolSearch || protocol == ProtocolAnthropic
 }
 
-// ValidateEndpoint checks a URL that a provider endpoint, a balance probe or a
-// forwarding destination may use: HTTPS, or plain HTTP to a loopback host,
-// without userinfo or a credential-like query parameter. Its errors name at
-// most a query parameter, never a value from the URL.
+// ValidateEndpoint checks a URL that a provider endpoint or a balance probe
+// may use: HTTPS, or plain HTTP to a loopback host, without userinfo or a
+// credential-like query parameter. Its errors name at most a query
+// parameter, never a value from the URL.
 func ValidateEndpoint(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {

@@ -9,12 +9,13 @@ import (
 // documents of earlier commands continues from their highest schema_version,
 // 1, plus one: list replaces `aigw account list`, add `aigw add`, edit
 // `aigw account edit` and `aigw account diagnostics`, rotate `aigw rotate` and
-// balance `aigw balance`. show and remove have no predecessor.
+// balance `aigw balance`. show and remove have no predecessor. edit is at 4
+// since it no longer clears a client's forwarding.
 const (
 	listSchemaVersion    = 2
 	showSchemaVersion    = 1
 	addSchemaVersion     = 3
-	editSchemaVersion    = 3
+	editSchemaVersion    = 4
 	rotateSchemaVersion  = 2
 	balanceSchemaVersion = 2
 	removeSchemaVersion  = 2
@@ -81,12 +82,10 @@ type changeDocument struct {
 	// does not store.
 	TokenValidated *bool `json:"token_validated,omitempty"`
 	TokenStored    *bool `json:"token_stored,omitempty"`
-	// ClearedCapabilities and ClearedForwarding report what an edit of an
-	// endpoint clears, because it was qualified or set up for the old one,
-	// and KeptRetryBudgets the clients whose retry budgets stay, because they
-	// belong to the provider.
+	// ClearedCapabilities report what an edit of an endpoint clears, because
+	// it was qualified on the old one, and KeptRetryBudgets the clients whose
+	// retry budgets stay, because they belong to the provider.
 	ClearedCapabilities []clearedCapability `json:"cleared_capabilities,omitempty"`
-	ClearedForwarding   []string            `json:"cleared_forwarding,omitempty"`
 	KeptRetryBudgets    []string            `json:"kept_retry_budgets,omitempty"`
 	// BalanceCredential is stored or removed when an edit changes it.
 	BalanceCredential string                        `json:"balance_credential,omitempty"`

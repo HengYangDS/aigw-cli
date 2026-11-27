@@ -80,10 +80,14 @@ exec aigw use codex team/team-model
 # with Codex's configuration file.
 chmod 0755 codex
 
-# Previews write nothing below the private home.
+# Previews write nothing below the private home. A forwarding names the
+# forwarding service's root, and the destination adds the scheme, authority
+# and base path of the provider's Responses endpoint, whose port varies.
 snapshot $HOME edit-before.txt
-exec aigw client edit codex --via http://127.0.0.1:8792/v1 --dry-run --json
-cmp stdout edit-via-preview.json
+exec aigw client edit codex --via http://127.0.0.1:8792 --dry-run --json
+stdout '"forwarding_destination": "http://127\.0\.0\.1:8792/http/127\.0\.0\.1:[0-9]+/v1"'
+normalize stdout edit-via-preview.out '127\.0\.0\.1:[0-9]+/v1'
+cmp edit-via-preview.out edit-via-preview.json
 exec aigw client edit codex --request-retries 0 --stream-retries 2 --dry-run
 cmp stdout edit-retries-preview.txt
 exec aigw client edit codex --target $HOME/.codex/config.toml --program $WORK/codex --dry-run --json
@@ -98,8 +102,9 @@ cmp edit-after.txt edit-before.txt
 # them.
 exec aigw client edit codex --request-retries 4
 cmp stdout edit-deferred.txt
-exec aigw client edit codex --via http://127.0.0.1:8792/v1 --request-retries 0 --stream-retries 2 --json
-cmp stdout edit-forwarded.json
+exec aigw client edit codex --via http://127.0.0.1:8792 --request-retries 0 --stream-retries 2 --json
+normalize stdout edit-forwarded.out '127\.0\.0\.1:[0-9]+/v1'
+cmp edit-forwarded.out edit-forwarded.json
 exec aigw client edit codex --direct --dry-run
 cmp stdout edit-direct-preview.txt
 exec aigw client edit codex --direct --stream-retries 3 --json
@@ -185,18 +190,21 @@ fixloop -input stdout aigw client edit claude --json --request-retries 1
 exitcode 1 aigw client edit codx --direct --json
 cmp stdout edit-unknown.json
 fixloop -input stdout aigw client edit codx --direct --json
-exitcode 1 aigw client edit hermes --via http://127.0.0.1:8792/v1 --json
+exitcode 1 aigw client edit hermes --via http://127.0.0.1:8792 --json
 cmp stdout edit-no-model.json
-exitcode 1 aigw client edit codex --via http://proxy.test/v1 --json
+exitcode 1 aigw client edit codex --via http://proxy.test --json
 cmp stdout edit-plain-http.json
-fixloop -input stdout aigw client edit codex --via http://proxy.test/v1 --json
-exitcode 1 aigw client edit codex --via http://127.0.0.1:8792/v1 --direct --json
+fixloop -input stdout aigw client edit codex --via http://proxy.test --json
+exitcode 1 aigw client edit codex --via http://127.0.0.1:8792 --direct --json
 cmp stdout edit-both.json
-fixloop -input stdout aigw client edit codex --via http://127.0.0.1:8792/v1 --direct --json
+fixloop -input stdout aigw client edit codex --via http://127.0.0.1:8792 --direct --json
+exitcode 1 aigw client edit claude --via http://127.0.0.1:8792 --json
+cmp stdout edit-no-responses.json
+fixloop -input stdout aigw client edit claude --via http://127.0.0.1:8792 --json
 
 # Hermes forwards once it selects a model, as its refusal names.
 exec aigw use hermes team/team-model --protocol responses
-fixloop -did 'selected team/team-model for Hermes' edit-no-model.json aigw client edit hermes --via http://127.0.0.1:8792/v1 --json
+fixloop -did 'selected team/team-model for Hermes' edit-no-model.json aigw client edit hermes --via http://127.0.0.1:8792 --json
 
 # In a new home, enable without a program flag, while Claude Code is not on
 # the PATH, saves it enabled, writes none of its files and names the repair;
@@ -355,9 +363,10 @@ Next
   "enabled": true,
   "model": "team/team-model",
   "targets": [],
-  "forwarding": "http://127.0.0.1:8792/v1",
+  "forwarding": "http://127.0.0.1:8792",
+  "forwarding_destination": "http://127.0.0.1:8792/http/<varies>",
   "client_files": [],
-  "next_action": "aigw client edit codex --via http://127.0.0.1:8792/v1"
+  "next_action": "aigw client edit codex --via http://127.0.0.1:8792"
 }
 -- edit-retries-preview.txt --
 AIGW  Client edited (preview)
@@ -381,7 +390,8 @@ Next
   "enabled": true,
   "model": "team/team-model",
   "targets": [],
-  "forwarding": "http://127.0.0.1:8792/v1",
+  "forwarding": "http://127.0.0.1:8792",
+  "forwarding_destination": "http://127.0.0.1:8792/http/<varies>",
   "retries": {
     "request": 0,
     "stream": 2
@@ -454,7 +464,7 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "--via: plain HTTP is allowed only for a loopback endpoint; run `aigw client edit --help`",
+  "error": "--via: plain HTTP is allowed only for a loopback root; run `aigw client edit --help`",
   "next_action": "aigw client edit --help"
 }
 -- edit-both.json --
@@ -462,6 +472,13 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "--via and --direct are mutually exclusive; run `aigw client edit --help`",
+  "next_action": "aigw client edit --help"
+}
+-- edit-no-responses.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Claude speaks no OpenAI Responses, the only protocol that a forwarding service relays; --via is for Codex and Hermes; run `aigw client edit --help`",
   "next_action": "aigw client edit --help"
 }
 -- enable-target-refusal.json --

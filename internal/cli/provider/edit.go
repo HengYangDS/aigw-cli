@@ -34,7 +34,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 		Short: "Change a provider's label, endpoints or balance credentials; its Token stays",
 		Long: "Change a provider's label, endpoints or balance credentials; its Token stays.\n" +
 			"Replacing a protocol's endpoint clears the capabilities of the provider's models on that protocol, " +
-			"which were qualified on the old endpoint, and the forwarding of each client that reaches it.",
+			"which were qualified on the old endpoint; a client that forwards keeps its forwarding, whose destination follows the new endpoint.",
 		Example: "aigw provider edit dmxapi --label DMXAPI\n" +
 			"aigw provider edit ucloud --endpoint anthropic=https://api.modelverse.cn --dry-run\n" +
 			"aigw provider edit dmxapi --balance-token-stdin --balance-user-id 42",
@@ -134,7 +134,7 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, opti
 		}
 	}
 	document := changeDocument{
-		providerItem: describe(cfg, id), ClearedCapabilities: cleared.capabilities, ClearedForwarding: cleared.forwarding, KeptRetryBudgets: cleared.budgets,
+		providerItem: describe(cfg, id), ClearedCapabilities: cleared.capabilities, KeptRetryBudgets: cleared.budgets,
 		BalanceCredential: balanceChange(options), ClientFiles: invocation.ClientFiles(runtime, preview), CredentialReader: preview.CredentialEntrypoint,
 	}
 	return result{
@@ -168,20 +168,21 @@ func admitBalanceChange(runtime invocation.Context, provider domain.Provider, op
 
 // clearedSettings is what an edit of a provider's endpoints clears: the
 // capabilities of its models on each replaced protocol, qualified on the old
-// endpoint, and the forwarding of each client that reached it.
+// endpoint. A client's forwarding stays, its destination following the new
+// endpoint, and the preview refuses an endpoint that the forwarding cannot
+// name.
 type clearedSettings struct {
 	capabilities []clearedCapability
-	forwarding   []string
 	// budgets are the clients that reached a replaced endpoint with retry
 	// budgets, which stay, because they belong to the provider.
 	budgets []string
 }
 
 // editProvider applies a label and endpoints to the provider in cfg. Replacing
-// a protocol's endpoint clears what was qualified or set up for the old one;
-// an endpoint for a new protocol, or the same URL again, clears nothing.
+// a protocol's endpoint clears what was qualified for the old one; an
+// endpoint for a new protocol, or the same URL again, clears nothing.
 func editProvider(cfg *domain.Config, id, label string, endpoints []endpoint) clearedSettings {
-	cleared := clearedSettings{capabilities: []clearedCapability{}, forwarding: []string{}, budgets: []string{}}
+	cleared := clearedSettings{capabilities: []clearedCapability{}, budgets: []string{}}
 	provider := cfg.Providers[id]
 	if label = strings.TrimSpace(label); label != "" {
 		provider.Label = label
@@ -194,7 +195,6 @@ func editProvider(cfg *domain.Config, id, label string, endpoints []endpoint) cl
 		if current != "" {
 			cleared.budgets = append(cleared.budgets, budgetClients(*cfg, id, given.protocol)...)
 			cleared.capabilities = append(cleared.capabilities, clearCapabilities(cfg, id, given.protocol)...)
-			cleared.forwarding = append(cleared.forwarding, clearForwarding(cfg, id, given.protocol)...)
 		}
 		setEndpoint(&provider.Endpoints, given.protocol, given.url)
 	}
@@ -237,25 +237,6 @@ func budgetClients(cfg domain.Config, id string, protocol domain.EndpointProtoco
 		}
 	}
 	return clients
-}
-
-// clearForwarding drops the forwarding of each client that reaches the
-// provider's endpoint for protocol, and returns those clients in admission
-// order. Its retry budgets stay, because they belong to the provider.
-func clearForwarding(cfg *domain.Config, id string, protocol domain.EndpointProtocol) []string {
-	cleared := []string{}
-	for _, client := range cfg.Admission().IDs() {
-		if cfg.Clients[client].ForwardingEndpoint == "" {
-			continue
-		}
-		if runtime, err := cfg.ResolveRuntime(client, domain.ModelRef{}); err != nil || runtime.ProviderID != id || runtime.Protocol != protocol {
-			continue
-		}
-		// Clearing forwarding sets no endpoint, which cannot fail.
-		_ = cfg.SetForwardingEndpoint(client, "")
-		cleared = append(cleared, client)
-	}
-	return cleared
 }
 
 // applyEdit writes an edit. The balance token is read first, so that input
@@ -347,9 +328,6 @@ func editRows(runtime invocation.Context, id string, provider domain.Provider, c
 			State: terminal.Warn, Label: "Capabilities cleared",
 			Value: capability.Model + " on " + protocolLabel(capability.Protocol) + ": " + strings.Join(capability.Capabilities, ", "),
 		})
-	}
-	if len(cleared.forwarding) > 0 {
-		rows = append(rows, terminal.Field{State: terminal.Warn, Label: "Forwarding cleared", Value: clientLabels(runtime.Clients.Admission(), cleared.forwarding)})
 	}
 	if len(cleared.budgets) > 0 {
 		rows = append(rows, terminal.Field{State: terminal.Info, Label: "Retry budgets kept", Value: clientLabels(runtime.Clients.Admission(), cleared.budgets)})

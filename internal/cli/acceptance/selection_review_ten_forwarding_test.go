@@ -10,7 +10,9 @@ import (
 
 // This file holds the regression tests for what the tenth review of version
 // ten found for Hermes (2026-11-22), both about a stored forwarding that a
-// choice in Hermes ends. Each test states its sequence with three values: the
+// choice in Hermes ends: the chosen model is on the Anthropic protocol, which
+// the forwarding service does not relay. Each test states its sequence with
+// three values: the
 // model that Hermes's file selects, the model that AIGW's record of the file
 // names, and the selection that AIGW has stored.
 
@@ -19,10 +21,10 @@ import (
 // without it.
 //
 // Before: dmxapi/gpt-6.2-sol on the Responses protocol is stored and forwards
-// to a local address. Hermes's file selects that model and holds the address,
-// and the record names the model. The person picks ucloud's claude-opus-5-5
-// in Hermes: the file selects it, and the record and the stored selection
-// stay.
+// through a local forwarding service. Hermes's file selects that model and
+// holds the service's address, and the record names the model. The person
+// picks ucloud's claude-opus-5-5 on the Anthropic protocol in Hermes: the
+// file selects it, and the record and the stored selection stay.
 //
 // `aigw client edit hermes --direct --json` succeeds. It reports
 // `changed: true` and the followed selection, whose forwarding the choice
@@ -49,8 +51,8 @@ func TestReviewTenEndingAForwardingAfterAChoiceIsSaved(t *testing.T) {
 				t.Fatalf("client edit hermes --direct: %v\n%s", direct.err, direct.output)
 			}
 			earlier, chosen := direct.before.stored, direct.before.shows[0]
-			if saved := direct.after.binding; saved.ForwardingEndpoint != "" {
-				t.Errorf("`aigw client edit hermes --direct` succeeded, and the stored selection %s still forwards to %s", saved.Model, saved.ForwardingEndpoint)
+			if saved := direct.after.binding; saved.ForwardingRoot != "" {
+				t.Errorf("`aigw client edit hermes --direct` succeeded, and the stored selection %s still forwards to %s", saved.Model, saved.ForwardingRoot)
 			}
 			if !settledOn(direct.after, chosen) {
 				t.Errorf("an edit of Hermes's own setting did not save the chosen %s with its record:\n  before: %s\n  after:  %s",
@@ -75,8 +77,8 @@ func TestReviewTenEndingAForwardingAfterAChoiceIsSaved(t *testing.T) {
 			if after.after.stored != earlier {
 				t.Errorf("the person returned to %s in Hermes, and the synchronization left: %s", earlier, shownLine(after.after))
 			}
-			if saved := after.after.binding; saved.ForwardingEndpoint != "" {
-				t.Errorf("the person removed the forwarding and returned to %s in Hermes, and Hermes forwards to %s again", saved.Model, saved.ForwardingEndpoint)
+			if saved := after.after.binding; saved.ForwardingRoot != "" {
+				t.Errorf("the person removed the forwarding and returned to %s in Hermes, and Hermes forwards to %s again", saved.Model, saved.ForwardingRoot)
 			}
 			if forwardsInFile(t, world) {
 				t.Errorf("Hermes's file still holds the forwarding address after `--direct` and a synchronization")
@@ -110,11 +112,11 @@ func returnTo(t *testing.T, world selectionWorld, shown string, withEveryToken b
 // The local check after a choice in Hermes that ends a stored forwarding.
 //
 // Before: dmxapi/gpt-6.2-sol on the Responses protocol is stored and forwards
-// to a local address. Hermes's file selects that model and holds the address,
-// and the record names the model. The person picks claude-opus-5-5 in Hermes,
-// of ucloud (another upstream endpoint) or of dmxapi on the Anthropic
-// protocol (the same provider on another protocol): the file selects it and
-// still holds the address, and the record and the stored selection stay.
+// through a local forwarding service. Hermes's file selects that model and
+// holds the service's address, and the record names the model. The person
+// picks claude-opus-5-5 on the Anthropic protocol in Hermes, of ucloud
+// (another provider) or of dmxapi (the same provider): the file selects it
+// and still holds the address, and the record and the stored selection stay.
 //
 // `aigw check hermes --depth local --json` does not pass and changes no file.
 // Hermes is `invalid`, its check `hermes:files` failed, and the next step is
@@ -164,8 +166,8 @@ func TestReviewTenTheLocalCheckAfterAChoiceThatEndsAForwarding(t *testing.T) {
 			if sync.err != nil {
 				t.Fatalf("sync after the check: %v\n%s", sync.err, sync.output)
 			}
-			if saved := sync.after.binding; !settledOn(sync.after, chosen) || saved.ForwardingEndpoint != "" {
-				t.Errorf("the synchronization did not save the chosen %s without a forwarding (it forwards to %q): %s", chosen, saved.ForwardingEndpoint, shownLine(sync.after))
+			if saved := sync.after.binding; !settledOn(sync.after, chosen) || saved.ForwardingRoot != "" {
+				t.Errorf("the synchronization did not save the chosen %s without a forwarding (it forwards to %q): %s", chosen, saved.ForwardingRoot, shownLine(sync.after))
 			}
 			if forwardsInFile(t, world) {
 				t.Errorf("Hermes's file still holds the forwarding address after the synchronization")

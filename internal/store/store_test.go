@@ -18,20 +18,18 @@ import (
 func TestForwardingRoundTripsInTheConfiguration(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
-	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
+	if err := cfg.SetForwardingRoot(ClientCodex, "http://127.0.0.1:8792/"); err != nil {
 		t.Fatal(err)
 	}
-	binding := cfg.Clients[ClientCodex]
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(store.Path())
-	if err != nil || !strings.Contains(string(data), `forwarding = { endpoint = 'http://127.0.0.1:8792/backup/v1', upstream = '`+binding.ForwardingUpstreamIdentity+`', protocol = 'responses' }`) {
-		t.Fatalf("forwarding is not inline in its client:\n%s\n%v", data, err)
+	if err != nil || !strings.Contains(string(data), "\nforwarding = 'http://127.0.0.1:8792'\n") {
+		t.Fatalf("forwarding is not its client's root:\n%s\n%v", data, err)
 	}
 	loaded, err := store.Load()
-	if err != nil || loaded.Clients[ClientCodex].ForwardingEndpoint != binding.ForwardingEndpoint ||
-		loaded.Clients[ClientCodex].ForwardingUpstreamIdentity != binding.ForwardingUpstreamIdentity {
+	if err != nil || loaded.Clients[ClientCodex].ForwardingRoot != "http://127.0.0.1:8792" {
 		t.Fatalf("forwarding did not survive a round trip: %#v, %v", loaded.Clients, err)
 	}
 	before, err := store.CaptureSnapshot()
@@ -54,7 +52,7 @@ func TestForwardingSnapshotRestoresPresenceAndPriorBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
+	if err := cfg.SetForwardingRoot(ClientCodex, "http://127.0.0.1:8792"); err != nil {
 		t.Fatal(err)
 	}
 	after, err := store.Commit(before, cfg)
@@ -69,33 +67,34 @@ func TestForwardingSnapshotRestoresPresenceAndPriorBinding(t *testing.T) {
 		t.Fatalf("forwarding rollback did not restore exact prior presence: %v", err)
 	}
 	loaded, err := store.Load()
-	if err != nil || loaded.Clients[ClientCodex].ForwardingEndpoint != "" {
+	if err != nil || loaded.Clients[ClientCodex].ForwardingRoot != "" {
 		t.Fatalf("forwarding remained after rollback: %#v, %v", loaded.Clients, err)
 	}
 }
 
-// TestForwardingRefusesAnUpstreamThatTheSelectionNoLongerReaches loads a file
-// whose forwarding records another upstream than the client's selection
-// reaches, which would send the client's traffic somewhere it was not set up
-// for, and refuses it at the validate stage.
-func TestForwardingRefusesAnUpstreamThatTheSelectionNoLongerReaches(t *testing.T) {
+// TestForwardingRefusesAnUpstreamThatTheGrammarCannotName loads a file whose
+// forwarded client selects a provider whose Responses endpoint carries a
+// query, which the forwarding service cannot name, and refuses it at the
+// validate stage with the step that connects the client directly.
+func TestForwardingRefusesAnUpstreamThatTheGrammarCannotName(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
-	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
+	if err := cfg.SetForwardingRoot(ClientCodex, "http://127.0.0.1:8792"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := encodeConfig(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	moved := strings.Replace(string(data), cfg.Clients[ClientCodex].ForwardingUpstreamIdentity, "another-upstream", 1)
+	moved := strings.Replace(string(data), "'https://backup.test/v1'", "'https://backup.test/v1?region=east'", 1)
 	if err := os.WriteFile(store.Path(), []byte(moved), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err = store.Load()
 	var loadErr *LoadError
-	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseValidate || !strings.Contains(err.Error(), "forwards to the upstream it was selected with") {
-		t.Fatalf("a moved forwarding upstream = %v", err)
+	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseValidate || !strings.Contains(err.Error(), "carries a query") ||
+		!strings.Contains(err.Error(), "`aigw client edit codex --direct`") || strings.Contains(err.Error(), "region") {
+		t.Fatalf("an upstream outside the grammar = %v", err)
 	}
 }
 
@@ -113,7 +112,7 @@ func TestForwardingUnchangedCanonicalRejectsStalePreimage(t *testing.T) {
 	if err := os.WriteFile(store.Path(), newer, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+	if err := cfg.SetForwardingRoot(ClientCodex, "http://127.0.0.1:8792"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.Commit(before, cfg); err == nil {

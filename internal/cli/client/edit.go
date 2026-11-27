@@ -43,7 +43,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 		Short: "Change a client's program, configuration files, forwarding or retry budgets",
 		Long: "Change a client's program, configuration files, forwarding or retry budgets; <client> is " + admission.Usage() + ".\n" +
 			"A client declares its program by --program or by --extensions, an editor's extensions directory, and one replaces the other.\n" +
-			"Forwarding sends the client to another endpoint, such as a local proxy; its provider, model and Token stay.\n" +
+			"Forwarding sends the client's Responses traffic through the forwarding service at a root, such as a local proxy, which reaches the provider's endpoint; its provider, model and Token stay.\n" +
 			"Retry budgets belong to the client's provider, so they stay when forwarding changes.\n" +
 			"A file that --target drops loses AIGW's settings at once; the files that the client keeps wait for its provider's Token when AIGW cannot use it.",
 		Example: editExamples(admission),
@@ -62,7 +62,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 	}
 	bindProgram(cmd, &options.declared, admission)
 	cmd.Flags().StringArrayVar(&options.targets, "target", nil, targetHelp(admission)+"; the files given replace the current ones")
-	invocation.BindText(cmd, &options.via, "via", "Send the client to the endpoint `url` instead of its provider's")
+	invocation.BindText(cmd, &options.via, "via", "Send the client's Responses traffic through the forwarding service at the root `url`")
 	cmd.Flags().BoolVar(&options.direct, "direct", false, "Remove forwarding, so the client reaches its provider's endpoint again")
 	retries := clientsWith(admission, func(spec domain.ClientSpec) bool { return spec.RetryBudgets })
 	cmd.Flags().Var(&options.request, "request-retries", "The client's native request retry budget, 0 for none, for "+retries)
@@ -80,13 +80,19 @@ func editExamples(admission domain.Admission) string {
 	for _, spec := range admission.Specs() {
 		if spec.RetryBudgets {
 			return strings.Join([]string{
-				"aigw client edit " + spec.ID + " --via http://127.0.0.1:8792/v1",
+				"aigw client edit " + spec.ID + " --via http://127.0.0.1:8792",
 				"aigw client edit " + spec.ID + " --request-retries 0 --stream-retries 0 --dry-run",
 				"aigw client edit " + spec.ID + " --direct --native-retries",
 			}, "\n")
 		}
 	}
 	return ""
+}
+
+// forwards reports whether a client speaks the Responses protocol, which a
+// forwarding service relays.
+func forwards(spec domain.ClientSpec) bool {
+	return slices.Contains(spec.EndpointProtocols, domain.ProtocolResponses)
 }
 
 // clientsWith names, in prose, the labels of the clients that accept
@@ -140,10 +146,11 @@ func (b *budget) String() string {
 func (*budget) Type() string { return "count" }
 
 // checkEdit checks an edit's flags before any configuration access: at least
-// one change, non-empty paths and URL, a URL that an endpoint may have, and
-// only the flags that the client accepts. --target names configuration files
-// of a client that has them, and the retry flags are for a client with native
-// retry budgets.
+// one change, non-empty paths and URL, a root that a forwarding service may
+// have, and only the flags that the client accepts. --target names
+// configuration files of a client that has them, --via is for a client that
+// speaks the Responses protocol, the only one that a forwarding service
+// relays, and the retry flags are for a client with native retry budgets.
 func checkEdit(cmd *cobra.Command, admission domain.Admission, spec domain.ClientSpec, options *editOptions, home string) error {
 	path, changed := cmd.CommandPath(), cmd.Flags().Changed
 	budgets := options.request.given || options.stream.given
@@ -155,7 +162,10 @@ func checkEdit(cmd *cobra.Command, admission domain.Admission, spec domain.Clien
 	case changed("via") && options.direct:
 		return fmt.Errorf("--via and --direct are mutually exclusive; run `%s --help`", path)
 	case changed("via") && strings.TrimSpace(options.via) == "":
-		return fmt.Errorf("--via requires an endpoint URL, and --direct removes forwarding; run `%s --help`", path)
+		return fmt.Errorf("--via requires the root URL of a forwarding service, and --direct removes forwarding; run `%s --help`", path)
+	case changed("via") && !forwards(spec):
+		return fmt.Errorf("%s speaks no %s, the only protocol that a forwarding service relays; --via is for %s; run `%s --help`",
+			spec.Label, domain.ProtocolLabel(domain.ProtocolResponses), clientsWith(admission, forwards), path)
 	case options.native && budgets:
 		return fmt.Errorf("--native-retries and explicit retry budgets are mutually exclusive; run `%s --help`", path)
 	case !spec.RetryBudgets && (options.native || budgets):
@@ -167,7 +177,7 @@ func checkEdit(cmd *cobra.Command, admission domain.Admission, spec domain.Clien
 	}
 	if changed("via") {
 		// The refusal never repeats the URL, which may hold a credential.
-		if err := domain.ValidateEndpoint(options.via); err != nil {
+		if err := domain.ValidateForwardingRoot(options.via); err != nil {
 			return fmt.Errorf("--via: %w; run `%s --help`", err, path)
 		}
 	}
@@ -331,9 +341,8 @@ func refuseTargetsUnderFiles(targets []string, spec domain.ClientSpec, home stri
 	return nil
 }
 
-// editClient applies an edit to the client's settings in cfg. Forwarding comes
-// last, because it records the upstream that the client's model reaches. An
-// edit that changes nothing leaves cfg as it was.
+// editClient applies an edit to the client's settings in cfg. An edit that
+// changes nothing leaves cfg as it was.
 func editClient(cfg *domain.Config, id string, options editOptions, targets []string) error {
 	current := cfg.Clients[id]
 	edited := current
@@ -368,19 +377,31 @@ func editClient(cfg *domain.Config, id string, options editOptions, targets []st
 	}
 	switch {
 	case options.via != "":
-		return cfg.SetForwardingEndpoint(id, strings.TrimRight(options.via, "/"))
-	case options.direct && edited.ForwardingEndpoint != "":
-		return cfg.SetForwardingEndpoint(id, "")
+		if err := cfg.SetForwardingRoot(id, options.via); err != nil {
+			return err
+		}
+		// A forwarding that cannot carry the client's selection is refused
+		// here, so that its fix is another selection, not `--direct`.
+		if refused, cannot := errors.AsType[*domain.ForwardingUpstreamError](cfg.Validate()); cannot && refused.Client == id {
+			refused.Requested = true
+			return refused
+		}
+	case options.direct && edited.ForwardingRoot != "":
+		return cfg.SetForwardingRoot(id, "")
 	}
 	return nil
 }
 
-// describeEdit reports the client's settings in cfg as an edit's result does.
+// describeEdit reports the client's settings in cfg as an edit's result does:
+// a forwarding with the destination that it composes for the selection.
 func describeEdit(cfg domain.Config, id string) editDocument {
 	binding := cfg.Clients[id]
 	document := editDocument{
 		Client: id, Enabled: binding.Enabled, Program: binding.Program, Extensions: binding.Extensions,
-		Targets: append([]string{}, binding.Targets...), Forwarding: binding.ForwardingEndpoint,
+		Targets: append([]string{}, binding.Targets...), Forwarding: binding.ForwardingRoot,
+	}
+	if runtime, err := cfg.ResolveRuntime(id, domain.ModelRef{}); err == nil && binding.ForwardingRoot != "" {
+		document.ForwardingDestination = runtime.Endpoint
 	}
 	if model, selected := cfg.Models[cfg.SelectedModel(id)]; selected {
 		document.Model = model.Ref().String()
@@ -448,11 +469,11 @@ func editRows(runtime invocation.Context, spec domain.ClientSpec, document editD
 	if document.Model == "" {
 		return rows
 	}
-	forwarding := document.Forwarding
-	if forwarding == "" {
-		forwarding = "None; the client reaches its provider's endpoint"
+	if document.Forwarding == "" {
+		rows = append(rows, terminal.Field{Label: "Forwarding", Value: "None; the client reaches its provider's endpoint"})
+	} else {
+		rows = append(rows, terminal.Field{Label: "Forwarding", Value: document.Forwarding}, terminal.Field{Label: "Destination", Value: document.ForwardingDestination})
 	}
-	rows = append(rows, terminal.Field{Label: "Forwarding", Value: forwarding})
 	if !spec.RetryBudgets {
 		return rows
 	}

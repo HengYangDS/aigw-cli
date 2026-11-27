@@ -172,15 +172,15 @@ func TestZZ11HoldsRejectsARollbackThatKeepsWhatTheLastChangeSet(t *testing.T) {
 	t.Parallel()
 	world := hermesForwarding(t)
 	before := world.snapshot(t)
-	if before.binding.ForwardingEndpoint == "" {
+	if before.binding.ForwardingRoot == "" {
 		t.Fatal("the state forwards nowhere")
 	}
 	// The binding that the last change replaced, which a rollback restores.
 	restored := before.binding
-	restored.ForwardingEndpoint, restored.ForwardingUpstreamIdentity, restored.ForwardingProtocol = "", "", ""
+	restored.ForwardingRoot = ""
 	world.restoredBinding = &restored
 	world.run(t, "use", "hermes", "dmxapi/gpt-6.2-sol", "--protocol", "responses")
-	if after := selection(t, world.app, world.client); after.ForwardingEndpoint == "" {
+	if after := selection(t, world.app, world.client); after.ForwardingRoot == "" {
 		t.Fatal("the hand-made outcome ended the forwarding")
 	}
 	faults := world.faults(t, before, world.snapshot(t), zz11MatrixCommand(t, hermesCommands(), "rollback"), nil)

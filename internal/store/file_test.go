@@ -10,11 +10,13 @@ import (
 	"testing"
 
 	"aigw-cli/internal/domain"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 // schemaNineText is aigw.toml as AIGW writes it, with every field that
-// schema 9 defines: %[1]s is the Codex program, %[2]s its target, %[3]s
-// the credential command and %[4]s the upstream that forwarding recorded.
+// schema 9 defines: %[1]s is the Codex program, %[2]s its target and %[3]s
+// the credential command.
 const schemaNineText = `version = 9
 
 [[providers]]
@@ -67,7 +69,7 @@ protocol = 'responses'
 program = '%[1]s'
 targets = ['%[2]s']
 retries = { request = 3, stream = 2 }
-forwarding = { endpoint = 'http://127.0.0.1:8792/dmxapi/v1', upstream = '%[4]s', protocol = 'responses' }
+forwarding = 'http://127.0.0.1:8792'
 
 [clients.hermes]
 enabled = false
@@ -121,11 +123,11 @@ func schemaNineConfig(t *testing.T) (domain.Config, string) {
 	codexBinding := cfg.Clients[ClientCodex]
 	codexBinding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &request, StreamMaxRetries: &stream}
 	cfg.Clients[ClientCodex] = codexBinding
-	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/dmxapi/v1"); err != nil {
+	if err := cfg.SetForwardingRoot(ClientCodex, "http://127.0.0.1:8792/"); err != nil {
 		t.Fatal(err)
 	}
 	cfg.SetSelectedModel(ClientHermes, flash.Ref(), domain.ProtocolChat)
-	text := fmt.Sprintf(schemaNineText, program, target, command, cfg.Clients[ClientCodex].ForwardingUpstreamIdentity)
+	text := fmt.Sprintf(schemaNineText, program, target, command)
 	return cfg, text
 }
 
@@ -297,6 +299,7 @@ model = 'team/gpt-team'
 model_provider = 'amazon-bedrock'
 authentication = 'client-native'
 executable = '/opt/codex'
+forwarding = { endpoint = 'http://127.0.0.1:8792/team/v1', upstream = 'abc', protocol = 'responses' }
 retired = 'a field that no schema defines'
 `
 	path := filepath.Join(t.TempDir(), "aigw.toml")
@@ -309,7 +312,10 @@ retired = 'a field that no schema defines'
 	if !isLoad || loadErr.Phase != LoadPhaseValidate || !isVersion || unsupported.Version != 8 {
 		t.Fatalf("load error = %v", err)
 	}
-	for _, edit := range []string{"set `version = 9`", "rename each client's `executable` to `program`", "delete `authentication` and `model_provider` wherever they appear"} {
+	for _, edit := range []string{
+		"set `version = 9`", "rename each client's `executable` to `program`", "delete `authentication` and `model_provider` wherever they appear",
+		"delete each client's `forwarding` and set it again with `--via <root>`",
+	} {
 		if !strings.Contains(unsupported.Edits(), edit) || !strings.Contains(err.Error(), edit) {
 			t.Errorf("the refusal %q does not name %q", err, edit)
 		}
@@ -368,29 +374,42 @@ func TestSchemaNineRefusesAModelWithoutProtocols(t *testing.T) {
 	}
 }
 
-// A forwarding table names the endpoint that the client forwards to; one
-// without an endpoint, empty or not, is refused by the field's name, rather
-// than loaded as a client that forwards nothing and dropped on the next
-// write.
-func TestSchemaNineRefusesAForwardingTableWithoutAnEndpoint(t *testing.T) {
+// A client's forwarding is one string, the root of the forwarding service. A
+// schema 8 table left in its place is refused as a value of the wrong type,
+// with the field and its line, rather than read as a root; a root that is not
+// HTTPS or loopback HTTP, or that carries user information, a query or a
+// fragment, is refused by the client's name.
+func TestSchemaNineHoldsForwardingAsARoot(t *testing.T) {
 	_, valid := schemaNineConfig(t)
 	lines := strings.Split(valid, "\n")
 	index := slices.IndexFunc(lines, func(line string) bool { return strings.HasPrefix(line, "forwarding = ") })
 	if index < 0 {
-		t.Fatalf("the fixture has no forwarding table:\n%s", valid)
+		t.Fatalf("the fixture has no forwarding:\n%s", valid)
 	}
-	for name, table := range map[string]string{
-		"an empty table":           "forwarding = {}",
-		"a table without endpoint": "forwarding = { upstream = 'abc', protocol = 'responses' }",
+	edited := slices.Clone(lines)
+	edited[index] = "forwarding = { endpoint = 'http://127.0.0.1:8792/dmxapi/v1', upstream = 'abc', protocol = 'responses' }"
+	_, err := decodeTOMLConfig([]byte(strings.Join(edited, "\n")), testAdmission())
+	loadErr, isLoad := errors.AsType[*LoadError](err)
+	mistyped, isDecode := errors.AsType[*toml.DecodeError](err)
+	if !isLoad || loadErr.Phase != LoadPhaseParse || !isDecode || strings.Join(mistyped.Key(), ".") != "clients.codex.forwarding" {
+		t.Fatalf("load error = %v, want clients.codex.forwarding on line %d", err, index+1)
+	}
+	if line, _ := mistyped.Position(); line != index+1 {
+		t.Fatalf("the refusal names line %d, want %d", line, index+1)
+	}
+	for name, root := range map[string]string{
+		"plain HTTP to another host": "http://proxy.test:8792",
+		"user information":           "https://user@proxy.test",
+		"a query":                    "https://proxy.test/?route=v1",
+		"a fragment":                 "https://proxy.test/#v1",
+		"another scheme":             "ftp://127.0.0.1:8792",
 	} {
 		t.Run(name, func(t *testing.T) {
 			edited := slices.Clone(lines)
-			edited[index] = table
+			edited[index] = "forwarding = '" + root + "'"
 			_, err := decodeTOMLConfig([]byte(strings.Join(edited, "\n")), testAdmission())
-			loadErr, isLoad := errors.AsType[*LoadError](err)
-			missing, isMissing := errors.AsType[*MissingFieldError](err)
-			if !isLoad || loadErr.Phase != LoadPhaseValidate || !isMissing || missing.Field != "clients.codex.forwarding.endpoint" ||
-				!strings.Contains(err.Error(), fmt.Sprintf("schema %d requires the field clients.codex.forwarding.endpoint", domain.ConfigVersion)) {
+			if loadErr, isLoad := errors.AsType[*LoadError](err); !isLoad || loadErr.Phase != LoadPhaseValidate || !strings.Contains(err.Error(), `client "codex" forwarding: `) ||
+				strings.Contains(err.Error(), root) {
 				t.Fatalf("load error = %v", err)
 			}
 		})

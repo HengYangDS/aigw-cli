@@ -230,11 +230,12 @@ func hermesListing(cfg domain.Config) []Provider {
 
 // AdoptSelection records Hermes' own model choice as its Client Binding
 // when the operator selected another listed model of a provider entry that
-// AIGW wrote and nothing else that AIGW owns changed. It returns the adopted
-// model, or the zero reference when Hermes shows the bound selection. A
-// selection that AIGW cannot follow is refused with the step that restores
-// the recorded selection. It reads Hermes' file and AIGW's record of it, and
-// no Token or credential command.
+// AIGW wrote and nothing else that AIGW owns changed, without the forwarding
+// when it cannot carry that model. It returns the adopted model, or the zero
+// reference when Hermes shows the bound selection. A selection that AIGW
+// cannot follow is refused with the step that restores the recorded
+// selection. It reads Hermes' file and AIGW's record of it, and no Token or
+// credential command.
 func (hermesAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) (domain.ModelRef, error) {
 	binding := cfg.Clients[ID]
 	if !binding.Enabled || len(binding.Targets) != 1 {
@@ -260,7 +261,7 @@ func (hermesAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) 
 		// The binding already names the native choice; only the record is stale.
 		return domain.ModelRef{}, nil
 	}
-	cfg.SetSelectedModel(ID, choice.ref, choice.protocol)
+	cfg.FollowSelectedModel(ID, choice.ref, choice.protocol)
 	return choice.ref, nil
 }
 

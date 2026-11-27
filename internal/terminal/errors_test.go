@@ -92,11 +92,6 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 			want: []string{"Cannot validate local configuration",
 				fmt.Sprintf("AIGW 9.8.7 stopped at the configuration validate stage: schema %d does not define the field providers.order, on line 6.", domain.ConfigVersion), "aigw config path"},
 		},
-		"missing field": {
-			err: &store.LoadError{Phase: store.LoadPhaseValidate, Err: fmt.Errorf("%s: %w", content, &store.MissingFieldError{Field: "clients.codex.forwarding.endpoint"})},
-			want: []string{"Cannot validate local configuration",
-				fmt.Sprintf("AIGW 9.8.7 stopped at the configuration validate stage: schema %d requires the field clients.codex.forwarding.endpoint.", domain.ConfigVersion), "aigw config path"},
-		},
 		// Two models that share a label are named, and the fix is the
 		// file's: a command that loads it would stop the same way.
 		"shared label": {

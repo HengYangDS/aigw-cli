@@ -37,35 +37,34 @@ type selectionOutcome struct {
 
 // document is `aigw use`'s JSON document.
 type document struct {
-	DryRun            bool                          `json:"dry_run,omitempty"`
-	Changed           bool                          `json:"changed"`
-	Client            string                        `json:"client"`
-	Model             string                        `json:"model"`
-	Enabled           bool                          `json:"enabled,omitempty"`
-	WasDisabled       bool                          `json:"was_disabled,omitempty"`
-	StaysDisabled     bool                          `json:"stays_disabled,omitempty"`
-	Added             bool                          `json:"added,omitempty"`
-	GainedProtocol    string                        `json:"gained_protocol,omitempty"`
-	CatalogChecked    *bool                         `json:"catalog_checked,omitempty"`
-	Label             string                        `json:"label"`
-	Provider          string                        `json:"provider"`
-	Family            string                        `json:"family"`
-	Protocol          string                        `json:"protocol"`
-	Endpoint          string                        `json:"endpoint"`
-	ProviderEndpoint  string                        `json:"provider_endpoint"`
-	Retries           *retriesItem                  `json:"retries,omitempty"`
-	ForwardingCleared bool                          `json:"forwarding_cleared,omitempty"`
-	RetriesCleared    bool                          `json:"retries_cleared,omitempty"`
-	TokenMissing      bool                          `json:"token_missing,omitempty"`
-	TokenStored       bool                          `json:"token_stored,omitempty"`
-	ClientFiles       []invocation.ClientFile       `json:"client_files"`
-	OtherClients      []otherClientItem             `json:"other_clients,omitempty"`
-	ToolSearchOff     []toolSearchItem              `json:"tool_search_off,omitempty"`
-	CredentialReader  *app.CredentialEntrypointPlan `json:"credential_reader,omitempty"`
-	FilesDeferred     bool                          `json:"files_deferred,omitempty"`
-	RestartRequired   bool                          `json:"restart_required,omitempty"`
-	NextAction        string                        `json:"next_action,omitempty"`
-	NextDetail        string                        `json:"next_detail,omitempty"`
+	DryRun           bool                          `json:"dry_run,omitempty"`
+	Changed          bool                          `json:"changed"`
+	Client           string                        `json:"client"`
+	Model            string                        `json:"model"`
+	Enabled          bool                          `json:"enabled,omitempty"`
+	WasDisabled      bool                          `json:"was_disabled,omitempty"`
+	StaysDisabled    bool                          `json:"stays_disabled,omitempty"`
+	Added            bool                          `json:"added,omitempty"`
+	GainedProtocol   string                        `json:"gained_protocol,omitempty"`
+	CatalogChecked   *bool                         `json:"catalog_checked,omitempty"`
+	Label            string                        `json:"label"`
+	Provider         string                        `json:"provider"`
+	Family           string                        `json:"family"`
+	Protocol         string                        `json:"protocol"`
+	Endpoint         string                        `json:"endpoint"`
+	ProviderEndpoint string                        `json:"provider_endpoint"`
+	Retries          *retriesItem                  `json:"retries,omitempty"`
+	RetriesCleared   bool                          `json:"retries_cleared,omitempty"`
+	TokenMissing     bool                          `json:"token_missing,omitempty"`
+	TokenStored      bool                          `json:"token_stored,omitempty"`
+	ClientFiles      []invocation.ClientFile       `json:"client_files"`
+	OtherClients     []otherClientItem             `json:"other_clients,omitempty"`
+	ToolSearchOff    []toolSearchItem              `json:"tool_search_off,omitempty"`
+	CredentialReader *app.CredentialEntrypointPlan `json:"credential_reader,omitempty"`
+	FilesDeferred    bool                          `json:"files_deferred,omitempty"`
+	RestartRequired  bool                          `json:"restart_required,omitempty"`
+	NextAction       string                        `json:"next_action,omitempty"`
+	NextDetail       string                        `json:"next_detail,omitempty"`
 }
 
 // retriesItem is a client's retry budgets, each absent while undeclared.
@@ -185,12 +184,11 @@ func (o selectionOutcome) describe(runtime invocation.Context, dryRun bool) docu
 		// A first selection enables its client, which the result says, and
 		// that the client was disabled when it had a binding; a client that
 		// is disabled on a selection stays so until `aigw client enable`.
-		Enabled:           current.Enabled && !previous.Enabled,
-		WasDisabled:       bound && current.Enabled && !previous.Enabled,
-		StaysDisabled:     !current.Enabled,
-		ForwardingCleared: previous.ForwardingEndpoint != "" && current.ForwardingEndpoint == "",
-		RetriesCleared:    previous.RetryPolicy != nil && current.RetryPolicy == nil,
-		TokenMissing:      dryRun && o.tokenMissing, TokenStored: o.tokenStored,
+		Enabled:        current.Enabled && !previous.Enabled,
+		WasDisabled:    bound && current.Enabled && !previous.Enabled,
+		StaysDisabled:  !current.Enabled,
+		RetriesCleared: previous.RetryPolicy != nil && current.RetryPolicy == nil,
+		TokenMissing:   dryRun && o.tokenMissing, TokenStored: o.tokenStored,
 		ClientFiles: invocation.ClientFiles(runtime, o.preview), CredentialReader: o.preview.CredentialEntrypoint,
 	}
 	if policy := current.RetryPolicy; policy != nil {
@@ -345,9 +343,6 @@ func (o selectionOutcome) rows(doc document) []terminal.Field {
 	}
 	if doc.Endpoint != doc.ProviderEndpoint {
 		rows = append(rows, terminal.Field{Label: "Provider endpoint", Value: doc.ProviderEndpoint})
-	}
-	if doc.ForwardingCleared {
-		rows = append(rows, terminal.Field{State: terminal.Warn, Label: "Forwarding", Value: "Cleared, because the client's upstream endpoint changed"})
 	}
 	switch {
 	case doc.RetriesCleared:

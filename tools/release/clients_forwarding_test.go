@@ -3,10 +3,13 @@
 package main
 
 import (
+	clientverification "aigw-cli/internal/adapter/verification"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/store"
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -17,10 +20,14 @@ import (
 	"sync/atomic"
 )
 
-// requireNativeForwarding points client at a forwarding endpoint in front of
-// upstream: the preview leaks no Token and changes nothing, the client then
-// sends its requests through the endpoint, and a rollback of the change
-// withdraws it while a retained session still completes.
+// requireNativeForwarding sends client through a forwarding service in front
+// of upstream (newForwardingService): the preview names the destination that
+// the service's root composes with the provider's endpoint, leaks no Token
+// and changes nothing, the client then sends its requests through the
+// service, and a rollback of the change withdraws it while a retained session
+// still completes. A forwarding service relays only OpenAI Responses, so the
+// edit of a client on another protocol, Claude Code, is refused and changes
+// nothing.
 func (j *journeyFixture) requireNativeForwarding(client, token string, upstream *httptest.Server, continueClient func()) {
 	j.testing.Helper()
 	configStore := store.NewStore(j.config, clients.Admission())
@@ -37,20 +44,22 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	path, _ := streamRequest(direct.Protocol, "")
 	// Only the native client's streamed requests count; AIGW's own check of
 	// the model depth sends its request without a stream.
-	forwarding := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Method == http.MethodPost && request.URL.Path == path && streamed(request) {
+	forwarding := newForwardingService(j.testing, upstream, func(request *http.Request, relayed string) {
+		if request.Method == http.MethodPost && relayed == path && streamed(request) {
 			requests.Add(1)
 		}
-		upstream.Config.Handler.ServeHTTP(response, request)
-	}))
-	defer forwarding.Close()
-	endpoint := forwarding.URL + strings.TrimPrefix(direct.Endpoint, upstream.URL)
+	})
+	destination := forwarding.URL + "/http/" + strings.TrimPrefix(direct.Endpoint, "http://")
 	j.run("use", client, j.modelName(direct.Model), "--protocol", direct.Protocol.Name())
-	args := []string{"client", "edit", client, "--via", endpoint}
+	args := []string{"client", "edit", client, "--via", forwarding.URL}
 	before := capturePublishedSnapshot(j.testing, configStore)
+	if direct.Protocol != domain.ProtocolResponses {
+		j.requireForwardingRefused(append(slices.Clone(args), "--json"), configStore, before)
+		return
+	}
 	preview := j.run(append(slices.Clone(args), "--dry-run", "--json")...)
-	if !bytes.Contains(preview, []byte(endpoint)) || bytes.Contains(preview, []byte(token)) || !reflect.DeepEqual(before, capturePublishedSnapshot(j.testing, configStore)) {
-		j.testing.Fatal("native forwarding preview leaked credentials or mutated state")
+	if !bytes.Contains(preview, []byte(destination)) || bytes.Contains(preview, []byte(token)) || !reflect.DeepEqual(before, capturePublishedSnapshot(j.testing, configStore)) {
+		j.testing.Fatal("native forwarding preview lost its destination, leaked credentials or mutated state")
 	}
 	j.run(args...)
 	cfg, err = configStore.Load()
@@ -59,7 +68,7 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	}
 	resolved, err := cfg.ResolveRuntime(client, domain.ModelRef{})
 	expected := direct
-	expected.Endpoint = endpoint
+	expected.Endpoint = destination
 	if err != nil || !resolved.Equal(expected) {
 		j.testing.Fatalf("native forwarding changed Account, model or protocol ownership: %v", err)
 	}
@@ -68,7 +77,7 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	count := requests.Load()
 	j.run("check", client, "--depth", "client")
 	if requests.Load() <= count {
-		j.testing.Fatal("native client did not load the selected forwarding endpoint")
+		j.testing.Fatal("native client did not load the selected forwarding destination")
 	}
 	// A retained session keeps the route it was created with where the native
 	// client freezes it, as Hermes does for its CLI sessions; it must still
@@ -84,7 +93,20 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	j.run("check", client, "--depth", "client")
 	continueClient()
 	if requests.Load() != count {
-		j.testing.Fatal("native client retained the withdrawn forwarding endpoint")
+		j.testing.Fatal("native client retained the withdrawn forwarding destination")
+	}
+}
+
+// requireForwardingRefused runs a forwarding edit that the product must
+// refuse, and requires that the refusal names the clients that forward and
+// that the configuration and its recovery state are unchanged.
+func (j *journeyFixture) requireForwardingRefused(args []string, configStore store.Store, before store.Snapshot) {
+	j.testing.Helper()
+	ctx, cancel := context.WithTimeout(j.testing.Context(), clientverification.ProtocolTimeout)
+	defer cancel()
+	stdout, _, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: j.binary, Args: args, Env: j.environment})
+	if err == nil || !bytes.Contains(stdout, []byte("--via is for")) || !reflect.DeepEqual(before, capturePublishedSnapshot(j.testing, configStore)) {
+		j.testing.Fatalf("a forwarding that the client cannot use was not refused, or its refusal changed state: %v\n%s", err, stdout)
 	}
 }
 

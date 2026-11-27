@@ -184,13 +184,13 @@ func withRequestRetries(retries uint64) func(after selectionSnapshot) string {
 }
 
 // forwardingTo is what `aigw client edit hermes --via` leaves: the stored
-// binding forwards to that address.
+// binding forwards through the service at that root.
 func forwardingTo(address string) func(after selectionSnapshot) string {
 	return func(after selectionSnapshot) string {
-		if after.binding.ForwardingEndpoint == address {
+		if after.binding.ForwardingRoot == address {
 			return ""
 		}
-		return "the stored selection forwards to " + strconv.Quote(after.binding.ForwardingEndpoint) + ", not to " + strconv.Quote(address)
+		return "the stored selection forwards to " + strconv.Quote(after.binding.ForwardingRoot) + ", not to " + strconv.Quote(address)
 	}
 }
 

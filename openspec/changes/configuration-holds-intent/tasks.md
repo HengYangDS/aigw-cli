@@ -46,20 +46,20 @@
 
 ## 4. Forwarding through a service root
 
-- [ ] 4.1 Make a client's `forwarding` one string, the root, in the document and the domain, and add the fourth
+- [x] 4.1 Make a client's `forwarding` one string, the root, in the document and the domain, and add the fourth
       schema 9 edit to the version 8 refusal. Done when store and domain tests pin the root's refusals (not
       `https` or loopback `http`, user information, query, fragment) and the refusal text names the four edits.
-- [ ] 4.2 Compose the destination `<root>/<scheme>/<authority>/<base path>` from the selected provider's Responses
+- [x] 4.2 Compose the destination `<root>/<scheme>/<authority>/<base path>` from the selected provider's Responses
       endpoint, host in lower case without a default port, and refuse an endpoint outside openai-responses-proxy
       8.0.0's grammar, in one function of the domain that resolution, selection and provider edits use. Done when
       table tests pass for the four providers in use, a port, a default port, an upper-case host, a trailing slash
       and each refused form.
-- [ ] 4.3 Keep forwarding through a change of model, provider or provider endpoint, refuse a command's change that the
+- [x] 4.3 Keep forwarding through a change of model, provider or provider endpoint, refuse a command's change that the
       grammar cannot name with the `--direct` fix, let a synchronization that follows a model chosen in the client
       drop the forwarding with `forwarding_cleared`, and clear retry budgets on a change of provider as before. Done
       when the selection, synchronization and provider-edit tests of each scenario of the two forwarding requirements
       pass.
-- [ ] 4.4 Project the composed destination as Codex's and Hermes's base URL, and name `--via <root>` in help and
+- [x] 4.4 Project the composed destination as Codex's and Hermes's base URL, and name `--via <root>` in help and
       examples. Done when a Codex projection test reads `http://127.0.0.1:8792/https/www.dmxapi.cn/v1` and no source
       or golden file names `--via http://127.0.0.1:8792/v1`.
 
@@ -73,6 +73,9 @@
 - [ ] 5.2 Use `program` in every other release journey and fixture, so that no file under `tools/` names
       `--executable`. Done when
       `go vet -tags client_acceptance ./tools/release/...` passes.
+- [ ] 5.3 Remove the `forwarding-performance` scope and the `--performance-forwarding` flag from the release tool,
+      its samples and its documentation. Done when `go vet -tags performance_acceptance ./tools/release/...` passes
+      and no file outside the CHANGELOG and archived Changes names either.
 
 ## 6. Documents
 

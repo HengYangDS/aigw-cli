@@ -78,7 +78,7 @@ cmp $CONF/config.toml earlier/config.toml
 
 # aigw.toml with a field that schema 9 does not define, or in another
 # version: the full program refuses, naming the field or the version, and
-# writes nothing. A file of version 8 is refused with the three edits that
+# writes nothing. A file of version 8 is refused with the four edits that
 # make it schema 9, before any of its fields is read.
 cp $CONF/aigw.toml valid.toml
 envsubst undefined.in $CONF/aigw.toml
@@ -103,7 +103,7 @@ envsubst replaced.in $CONF/aigw.toml
 snapshot $HOME replaced-before.txt
 exitcode 1 aigw status
 stdout 'unsupported configuration version: found 8, expected 9'
-stdout 'Edit the configuration file: set `version = 9`; rename each client''s `executable` to `program`; delete `authentication` and `model_provider` wherever they appear\.'
+stdout 'Edit the configuration file: set `version = 9`; rename each client''s `executable` to `program`; delete `authentication` and `model_provider` wherever they appear; delete each client''s `forwarding` and set it again with `--via <root>`\.'
 ! stdout 'does not define'
 snapshot $HOME replaced-after.txt
 cmp replaced-after.txt replaced-before.txt

@@ -27,7 +27,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const forwardingEndpoint = "http://127.0.0.1:8792/v1"
+// forwardingRoot is the root of a forwarding service, and
+// forwardingDestination the address through which it reaches the gateway's
+// Responses endpoint.
+const (
+	forwardingRoot        = "http://127.0.0.1:8792"
+	forwardingDestination = forwardingRoot + "/https/gateway.test/v1"
+)
 
 // countingSecretStore is a credential store that holds the gateway's Token and
 // counts reads of a Token value, which no edit makes.
@@ -91,24 +97,25 @@ func readTarget(t *testing.T, path string) string {
 	return string(data)
 }
 
-// Forwarding sends Codex to another endpoint and back while its provider,
-// model and retry budgets stay; Codex's file follows each change, and no edit
+// Forwarding sends Codex through a forwarding service and back while its
+// provider, model and retry budgets stay; Codex's file names the destination
+// that the root composes, then the provider's endpoint again, and no edit
 // reads a Token.
 func TestEditForwardsAClientAndKeepsItsRetryBudgets(t *testing.T) {
 	runtime, out, target, secrets := enabledCodex(t)
-	document := edited(t, runtime, out, codex.ID, "--via", forwardingEndpoint+"/")
-	if !document.Changed || document.Forwarding != forwardingEndpoint || document.Model != "gateway/codex-test" ||
+	document := edited(t, runtime, out, codex.ID, "--via", forwardingRoot+"/")
+	if !document.Changed || document.Forwarding != forwardingRoot || document.ForwardingDestination != forwardingDestination || document.Model != "gateway/codex-test" ||
 		document.Retries == nil || *document.Retries.Request != 3 || *document.Retries.Stream != 1 || document.NextAction != "aigw check" {
 		t.Fatalf("forwarding document = %#v", document)
 	}
-	if projected := readTarget(t, target); !strings.Contains(projected, `base_url = "`+forwardingEndpoint+`"`) || !strings.Contains(projected, "request_max_retries = 3") {
+	if projected := readTarget(t, target); !strings.Contains(projected, `base_url = "`+forwardingDestination+`"`) || !strings.Contains(projected, "request_max_retries = 3") {
 		t.Fatalf("Codex's file does not forward with its budgets:\n%s", projected)
 	}
 	if len(document.ClientFiles) != 1 || document.ClientFiles[0].Client != codex.ID || document.ClientFiles[0].Action == "" {
 		t.Fatalf("client files = %#v", document.ClientFiles)
 	}
 	document = edited(t, runtime, out, codex.ID, "--direct")
-	if !document.Changed || document.Forwarding != "" || document.Retries == nil || *document.Retries.Request != 3 {
+	if !document.Changed || document.Forwarding != "" || document.ForwardingDestination != "" || document.Retries == nil || *document.Retries.Request != 3 {
 		t.Fatalf("direct document = %#v", document)
 	}
 	if projected := readTarget(t, target); !strings.Contains(projected, `base_url = "https://gateway.test/v1"`) {
@@ -150,8 +157,8 @@ func TestEditWithoutTheTokenNamesTheToken(t *testing.T) {
 // once dropped the other budget for this edit, which it no longer makes.
 func TestEditForwardingWithOneBudgetKeepsTheOther(t *testing.T) {
 	runtime, out, target, _ := enabledCodex(t)
-	document := edited(t, runtime, out, codex.ID, "--via", forwardingEndpoint, "--request-retries", "5")
-	if document.Forwarding != forwardingEndpoint || document.Retries == nil || document.Retries.Request == nil || *document.Retries.Request != 5 ||
+	document := edited(t, runtime, out, codex.ID, "--via", forwardingRoot, "--request-retries", "5")
+	if document.Forwarding != forwardingRoot || document.Retries == nil || document.Retries.Request == nil || *document.Retries.Request != 5 ||
 		document.Retries.Stream == nil || *document.Retries.Stream != 1 {
 		t.Fatalf("forwarding with one budget = %#v", document)
 	}
@@ -194,8 +201,8 @@ func TestEditPreviewAndUnchangedEditWriteNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	file := readTarget(t, target)
-	document := edited(t, runtime, out, codex.ID, "--via", forwardingEndpoint, "--dry-run")
-	if !document.DryRun || !document.Changed || len(document.ClientFiles) != 1 || document.NextAction != "aigw client edit "+codex.ID+" --via "+forwardingEndpoint {
+	document := edited(t, runtime, out, codex.ID, "--via", forwardingRoot, "--dry-run")
+	if !document.DryRun || !document.Changed || len(document.ClientFiles) != 1 || document.NextAction != "aigw client edit "+codex.ID+" --via "+forwardingRoot {
 		t.Fatalf("preview document = %#v", document)
 	}
 	document = edited(t, runtime, out, codex.ID, "--direct")
@@ -247,7 +254,7 @@ func TestEditRefusesAConnectionWithoutAModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"edit", hermes.ID, "--via", forwardingEndpoint}, {"edit", codex.ID, "--request-retries", "0"}} {
+	for _, args := range [][]string{{"edit", hermes.ID, "--via", forwardingRoot}, {"edit", codex.ID, "--request-retries", "0"}} {
 		err := executeAdapter(t, runtime, args...)
 		problem := terminal.ProblemFor(err)
 		if !strings.Contains(problem.Title, "selects no model") || problem.Fix != "aigw use "+args[1]+" <provider/model>" {
@@ -263,13 +270,34 @@ func TestEditRefusesAConnectionWithoutAModel(t *testing.T) {
 // file changes until it is enabled.
 func TestEditOfADisabledClientChangesOnlyTheConfiguration(t *testing.T) {
 	runtime, out, _, _ := adapterRuntime(t, adapterConfig())
-	document := edited(t, runtime, out, claude.ID, "--via", forwardingEndpoint)
-	if !document.Changed || document.Enabled || document.Forwarding != forwardingEndpoint || len(document.ClientFiles) != 0 || document.NextAction != "" {
+	document := edited(t, runtime, out, codex.ID, "--via", forwardingRoot)
+	if !document.Changed || document.Enabled || document.Forwarding != forwardingRoot || len(document.ClientFiles) != 0 || document.NextAction != "" {
 		t.Fatalf("disabled document = %#v", document)
 	}
 	saved, err := runtime.Config.Load()
-	if err != nil || saved.Clients[claude.ID].ForwardingEndpoint != forwardingEndpoint {
-		t.Fatalf("saved forwarding = %#v, %v", saved.Clients[claude.ID], err)
+	if err != nil || saved.Clients[codex.ID].ForwardingRoot != forwardingRoot {
+		t.Fatalf("saved forwarding = %#v, %v", saved.Clients[codex.ID], err)
+	}
+}
+
+// Hermes forwards only a selection on the Responses protocol, the only one
+// that a forwarding service relays: a forwarding of its Anthropic selection is
+// refused before anything is written, naming a selection that it can carry.
+func TestEditRefusesAForwardingThatCannotCarryTheSelection(t *testing.T) {
+	cfg := adapterConfig()
+	cfg.SetSelectedModel(hermes.ID, domain.NewModelRef("gateway", "claude-test"), domain.ProtocolAnthropic)
+	runtime, _, _, _ := adapterRuntime(t, cfg)
+	before, err := runtime.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = executeAdapter(t, runtime, "edit", hermes.ID, "--via", forwardingRoot, "--dry-run")
+	if refused, ok := errors.AsType[*domain.ForwardingUpstreamError](err); !ok || refused.Protocol != domain.ProtocolAnthropic ||
+		terminal.ProblemFor(err).Fix != "aigw use "+hermes.ID+" <provider/model>" {
+		t.Fatalf("a forwarding of an Anthropic selection = %v", err)
+	}
+	if after, err := runtime.Config.CaptureSnapshot(); err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatalf("a refused edit wrote the configuration: %v", err)
 	}
 }
 
@@ -323,6 +351,15 @@ func TestEditShowsTheClientsSettings(t *testing.T) {
 			t.Fatalf("preview output lacks %q:\n%s", want, out)
 		}
 	}
+	out.Reset()
+	if err := executeAdapter(t, runtime, "edit", codex.ID, "--via", forwardingRoot, "--dry-run"); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Forwarding", forwardingRoot, "Destination", forwardingDestination} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("forwarding preview lacks %q:\n%s", want, out)
+		}
+	}
 }
 
 func TestEditExamplesAndHelpNameTheClientsThatAcceptEachFlag(t *testing.T) {
@@ -363,9 +400,13 @@ func TestEditRefusesItsArgumentsBeforeReadingTheConfiguration(t *testing.T) {
 		{[]string{claude.ID, "--target", "settings.json"}, "Claude has no configuration file to name; --target is for Claude Desktop, Codex and Hermes", "aigw client edit --help"},
 		{[]string{hermes.ID, "--target", "a.yaml", "--target", "b.yaml"}, "Hermes reads one configuration file, so it takes one --target, not 2", "aigw client edit --help"},
 		{[]string{claudedesktop.ID, "--target", "a", "--target", "b"}, "Claude Desktop reads one configuration file, so it takes one --target, not 2", "aigw client edit --help"},
-		{[]string{codex.ID, "--via", forwardingEndpoint, "--direct"}, "--via and --direct are mutually exclusive", "aigw client edit --help"},
-		{[]string{codex.ID, "--via", ""}, "--via requires an endpoint URL", "aigw client edit --help"},
-		{[]string{codex.ID, "--via", "https://user:secret@proxy.test/v1"}, "--via: URL userinfo is forbidden", "aigw client edit --help"},
+		{[]string{codex.ID, "--via", forwardingRoot, "--direct"}, "--via and --direct are mutually exclusive", "aigw client edit --help"},
+		{[]string{codex.ID, "--via", ""}, "--via requires the root URL of a forwarding service", "aigw client edit --help"},
+		{[]string{codex.ID, "--via", "https://user:secret@proxy.test"}, "--via: the root must not carry user information", "aigw client edit --help"},
+		{[]string{codex.ID, "--via", "https://proxy.test/?token=secret"}, "--via: the root must not carry a query", "aigw client edit --help"},
+		{[]string{codex.ID, "--via", "https://proxy.test/#secret"}, "--via: the root must not carry a fragment", "aigw client edit --help"},
+		{[]string{codex.ID, "--via", "http://proxy.test:8792"}, "--via: plain HTTP is allowed only for a loopback root", "aigw client edit --help"},
+		{[]string{claude.ID, "--via", forwardingRoot}, "Claude speaks no OpenAI Responses, the only protocol that a forwarding service relays; --via is for Codex and Hermes", "aigw client edit --help"},
 		{[]string{codex.ID, "--native-retries", "--request-retries", "1"}, "mutually exclusive", "aigw client edit --help"},
 		{[]string{hermes.ID, "--stream-retries", "1"}, "Hermes has no native retry budgets; --request-retries, --stream-retries and --native-retries are for Codex", "aigw client edit --help"},
 		{[]string{codex.ID, "--stream-retries", "1", "--stream-retries", "2"}, "this flag takes one value", ""},
@@ -501,11 +542,11 @@ func TestEditWithTheEnvironmentBackend(t *testing.T) {
 		}
 		return ""
 	})
-	document := edited(t, runtime, out, codex.ID, "--via", forwardingEndpoint)
+	document := edited(t, runtime, out, codex.ID, "--via", forwardingRoot)
 	if !document.Changed || len(document.ClientFiles) != 1 {
 		t.Fatalf("environment-backed edit = %#v", document)
 	}
-	if projected := readTarget(t, target); !strings.Contains(projected, `base_url = "`+forwardingEndpoint+`"`) {
+	if projected := readTarget(t, target); !strings.Contains(projected, `base_url = "`+forwardingDestination+`"`) {
 		t.Fatalf("Codex's file does not forward:\n%s", projected)
 	}
 }

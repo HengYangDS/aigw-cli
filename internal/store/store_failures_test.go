@@ -19,24 +19,24 @@ import (
 // requires every owned file back as it was, except newer content that another
 // writer left, which compensation keeps and reports.
 func TestWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *testing.T) {
-	const oldEndpoint = "http://127.0.0.1:8792/old/v1"
-	const nextEndpoint = "http://127.0.0.1:8792/next/v1"
+	const oldRoot = "http://127.0.0.1:8792"
+	const nextRoot = "http://127.0.0.1:8793"
 	for _, test := range []struct {
-		name, component, oldEndpoint, nextEndpoint string
-		concurrent                                 bool
+		name, component, oldRoot, nextRoot string
+		concurrent                         bool
 	}{
-		{name: "create", component: "config", nextEndpoint: nextEndpoint},
-		{name: "replace", component: "config", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
-		{name: "withdraw", component: "config", oldEndpoint: oldEndpoint},
-		{name: "backup", component: "backup", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
-		{name: "checkpoint", component: "checkpoint", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
-		{name: "direct checkpoint", component: "checkpoint", nextEndpoint: nextEndpoint},
-		{name: "concurrent", component: "checkpoint", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint, concurrent: true},
+		{name: "create", component: "config", nextRoot: nextRoot},
+		{name: "replace", component: "config", oldRoot: oldRoot, nextRoot: nextRoot},
+		{name: "withdraw", component: "config", oldRoot: oldRoot},
+		{name: "backup", component: "backup", oldRoot: oldRoot, nextRoot: nextRoot},
+		{name: "checkpoint", component: "checkpoint", oldRoot: oldRoot, nextRoot: nextRoot},
+		{name: "direct checkpoint", component: "checkpoint", nextRoot: nextRoot},
+		{name: "concurrent", component: "checkpoint", oldRoot: oldRoot, nextRoot: nextRoot, concurrent: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 			cfg := convergenceConfig("current")
-			forwardTo(t, &cfg, test.oldEndpoint)
+			forwardTo(t, &cfg, test.oldRoot)
 			// An earlier generation gives every owned file a backup to restore.
 			previous := cfg.Clone()
 			provider := previous.Providers["current"]
@@ -55,7 +55,7 @@ func TestWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			forwardTo(t, &cfg, test.nextEndpoint)
+			forwardTo(t, &cfg, test.nextRoot)
 			account := cfg.Providers["current"]
 			account.Label = "Updated Account"
 			cfg.Providers["current"] = account

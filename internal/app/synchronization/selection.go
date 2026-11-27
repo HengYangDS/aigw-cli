@@ -16,9 +16,10 @@ import (
 // client's binding is taken from the stored configuration first (see
 // FromStoredBinding), so the selection replaces what was saved and not a
 // model that the client's own file chose in between. Setting
-// the selection drops forwarding when the upstream endpoint changes and retry
-// budgets when the provider changes. The same result is used for credential
-// admission and commit.
+// the selection keeps forwarding, its destination following the upstream, and
+// refuses one that the forwarding cannot carry; it drops retry budgets when
+// the provider changes. The same result is used for credential admission and
+// commit.
 func (s Synchronizer) PrepareSelection(cfg domain.Config, client string, ref domain.ModelRef, protocol domain.EndpointProtocol) (domain.Config, domain.Runtime, error) {
 	if protocol == "" {
 		resolved, err := cfg.ResolveRuntime(client, ref)
@@ -43,7 +44,7 @@ func (s Synchronizer) PrepareSelection(cfg domain.Config, client string, ref dom
 // configuration holds it. An explicit selection replaces the client's
 // selection, so it starts from what the operator last saved for the client and
 // not from a model that the client's own file chose in between: following
-// that choice has already dropped the forwarding and the retry budgets of the
+// that choice may have dropped the forwarding and the retry budgets of the
 // stored selection, which selecting the stored model again must keep, and the
 // protocol that an explicit selection keeps by default is the stored one.
 // Without a stored binding, or without a store, cfg is used as it is.

@@ -240,20 +240,30 @@ credentials.
 
 ### Client forwarding
 
-Send one client through a local endpoint, such as the Responses Proxy, while
-its provider and model stay the same:
+Send the OpenAI Responses traffic of Codex or Hermes through a forwarding
+service, such as the Responses Proxy, while its provider and model stay the
+same. `--via` names the service's root:
 
 ```bash
-aigw client edit <client> --via http://127.0.0.1:8792/v1 --dry-run --json
-aigw client edit <client> --via http://127.0.0.1:8792/v1
+aigw client edit <client> --via http://127.0.0.1:8792 --dry-run --json
+aigw client edit <client> --via http://127.0.0.1:8792
 aigw client edit <client> --direct
 ```
 
-The client's selection records the upstream that forwarding reaches. AIGW
-clears forwarding, and says so, whenever the client's upstream endpoint
-changes: `aigw use` with another provider or protocol, or
-`aigw provider edit --endpoint` for the endpoint that the client reaches.
-`--direct` drops the forwarding endpoint and its recorded upstream together.
+The root is an `https` URL, or an `http` URL of `127.0.0.1`, `localhost` or
+`[::1]`, without user information, a query or a fragment. The client reaches
+`<root>/<scheme>/<authority>/<base path>`, composed from its provider's
+Responses endpoint: through `http://127.0.0.1:8792`, the endpoint
+`https://www.dmxapi.cn/v1` becomes
+`http://127.0.0.1:8792/https/www.dmxapi.cn/v1`. The destination follows the
+provider: `aigw use` of another provider's model and
+`aigw provider edit --endpoint` keep the forwarding and move the destination.
+A command whose upstream the destination cannot name, such as a model on
+another protocol or an endpoint with a query, is refused before it changes
+anything and names `aigw client edit <client> --direct`. A model chosen in the
+client that the forwarding cannot carry is followed without the forwarding,
+and the result says so (`forwarding_cleared`). `--direct` removes the
+forwarding.
 
 ### Client configuration files
 

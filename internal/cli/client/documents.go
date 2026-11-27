@@ -12,7 +12,7 @@ import (
 // replaced its executable; enable and disable name their client files as
 // client_files, which replaced projections, so they continue at 2; edit, which
 // has no predecessor, is at 3 since its program and extensions replaced its
-// executable.
+// executable and its forwarding became the root of a forwarding service.
 const (
 	listSchemaVersion    = 3
 	enableSchemaVersion  = 3
@@ -32,9 +32,12 @@ type editDocument struct {
 	Program    string   `json:"program,omitempty"`
 	Extensions string   `json:"extensions,omitempty"`
 	Targets    []string `json:"targets"`
-	// Forwarding is the endpoint to which the client is sent instead of its
-	// provider's, absent when it reaches the provider directly.
-	Forwarding string `json:"forwarding,omitempty"`
+	// Forwarding is the root of the forwarding service through which the
+	// client's Responses traffic goes, and ForwardingDestination the address
+	// that it composes from the selected provider's endpoint; both are absent
+	// when the client reaches the provider directly.
+	Forwarding            string `json:"forwarding,omitempty"`
+	ForwardingDestination string `json:"forwarding_destination,omitempty"`
 	// Retries are the client's native retry budgets, absent when it uses
 	// its own defaults.
 	Retries          *retriesItem                  `json:"retries,omitempty"`

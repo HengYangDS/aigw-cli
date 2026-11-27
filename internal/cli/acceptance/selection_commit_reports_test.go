@@ -10,6 +10,7 @@ import (
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/terminal"
 )
 
 // selDocument runs a command and decodes the JSON document that it printed,
@@ -25,18 +26,23 @@ func selDocument(t *testing.T, app *cli.App, output *bytes.Buffer, args ...strin
 	return document, err
 }
 
-// Ninth review, probe 6: the stored selection forwards to a local address, the
-// operator picks a model of another upstream in Hermes (following it ends the
-// forwarding in the working configuration), and then selects explicitly a
-// model that is neither the stored one nor reachable through the stored
-// upstream. The stored forwarding ends with this command: does its result say
-// so? The entry of a followed selection is left out for the client that an
-// explicit selection names, so the selection's own document is the only place.
-func TestSelectionAnExplicitSelectionOfAnotherUpstreamAfterAChoiceSaysThatForwardingEnded(t *testing.T) {
+// Ninth review, probe 6, under the rule of openai-responses-proxy 8.0.0: the
+// stored selection forwards, the operator picks an Anthropic model in Hermes
+// (following it ends the forwarding in the working configuration), and then
+// selects explicitly a model of another upstream. As without the choice, a
+// Responses model whose endpoint the grammar names keeps the forwarding, its
+// destination following the new upstream, and an Anthropic model, which the
+// forwarding cannot carry, is refused before anything changes, naming the
+// direct connection.
+func TestSelectionAnExplicitSelectionOfAnotherUpstreamAfterAChoiceKeepsOrRefusesTheForwarding(t *testing.T) {
 	t.Parallel()
-	for _, selects := range [][]string{
-		{"use", "hermes", "dmxapi/claude-opus-5-5", "--protocol", "anthropic", "--json"},
-		{"use", "hermes", "ucloud/claude-opus-5-5", "--protocol", "anthropic", "--json"},
+	for _, test := range []struct {
+		selects     []string
+		destination string
+	}{
+		{[]string{"use", "hermes", "ucloud/gpt-6.2-sol", "--protocol", "responses", "--json"}, "http://127.0.0.1:9000/https/api.modelverse.cn/v1"},
+		{[]string{"use", "hermes", "dmxapi/claude-opus-5-5", "--protocol", "anthropic", "--json"}, ""},
+		{[]string{"use", "hermes", "ucloud/claude-opus-5-5", "--protocol", "anthropic", "--json"}, ""},
 	} {
 		// The control: the same selection without a choice in between.
 		for _, choice := range []bool{false, true} {
@@ -47,17 +53,22 @@ func TestSelectionAnExplicitSelectionOfAnotherUpstreamAfterAChoiceSaysThatForwar
 			if choice {
 				hermesNativeSelection(t, target, "aigw-ucloud-anthropic", "claude-opus-5-5", nil)
 			}
-			stored := selection(t, app, hermes.ID).ForwardingEndpoint
-			for _, command := range [][]string{append(slices.Clone(selects), "--dry-run"), selects} {
+			for _, command := range [][]string{append(slices.Clone(test.selects), "--dry-run"), test.selects} {
+				stored := readFile(t, app.Config.Path())
 				document, err := selDocument(t, app, output, command...)
-				if err != nil {
-					t.Fatalf("%v: %v\n%s", command, err, output)
+				saved := selection(t, app, hermes.ID)
+				if test.destination == "" {
+					if problem := terminal.ProblemFor(err); err == nil || problem.Fix != "aigw client edit hermes --direct" || !bytes.Equal(readFile(t, app.Config.Path()), stored) {
+						t.Errorf("%v choice=%t: err=%v fix=%q; want a refusal that names the direct connection and changes nothing", command, choice, err, problem.Fix)
+					}
+					continue
 				}
-				saved := selection(t, app, hermes.ID).ForwardingEndpoint
-				t.Logf("%v choice=%t: stored forwarding %q, after %q, forwarding_cleared=%v, followed_selections=%v", command, choice, stored, saved, document["forwarding_cleared"], document["followed_selections"])
-				ends := !slices.Contains(command, "--dry-run") && stored != "" && saved == ""
-				if (ends || slices.Contains(command, "--dry-run")) && document["forwarding_cleared"] != true && document["followed_selections"] == nil {
-					t.Errorf("%v choice=%t: the stored forwarding %q ends with this selection and neither forwarding_cleared nor a followed selection says so", command, choice, stored)
+				if err != nil {
+					t.Fatalf("%v choice=%t: %v\n%s", command, choice, err, output)
+				}
+				if document["endpoint"] != test.destination || document["forwarding_cleared"] != nil || saved.ForwardingRoot != "http://127.0.0.1:9000" {
+					t.Errorf("%v choice=%t: endpoint %v, forwarding_cleared %v, stored root %q; want %s through the kept forwarding",
+						command, choice, document["endpoint"], document["forwarding_cleared"], saved.ForwardingRoot, test.destination)
 				}
 			}
 		}

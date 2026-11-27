@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -250,22 +251,20 @@ func (recommendation ClientRecommendation) Selections() []ClientSelection {
 // program declaration, owned native targets, retry budgets and forwarding.
 // Program, the absolute path of the client's program, and Extensions, the
 // absolute path of an editor's extensions directory that holds it, declare
-// the program; a binding declares one of them or neither.
+// the program; a binding declares one of them or neither. ForwardingRoot is
+// the root of the forwarding service through which the client's Responses
+// traffic goes, or empty for its provider's endpoint; each resolution
+// composes the destination from the upstream (see forwardingDestination).
 type ClientBinding struct {
-	RetryPolicy        *RetryPolicy
-	ForwardingEndpoint string
-	// ForwardingUpstreamIdentity and ForwardingProtocol record the upstream that
-	// a forwarded binding reaches. SetForwardingEndpoint sets them with the
-	// endpoint, and a binding forwards only while its model still reaches them.
-	ForwardingUpstreamIdentity string
-	ForwardingProtocol         EndpointProtocol
-	Model                      ModelRef
-	Enabled                    bool
-	Protocol                   EndpointProtocol
-	Program                    string
-	Extensions                 string
-	Targets                    []string
-	CredentialCommand          string
+	RetryPolicy       *RetryPolicy
+	ForwardingRoot    string
+	Model             ModelRef
+	Enabled           bool
+	Protocol          EndpointProtocol
+	Program           string
+	Extensions        string
+	Targets           []string
+	CredentialCommand string
 }
 
 // DeclaresProgram reports whether the binding declares the client's program,
@@ -274,33 +273,23 @@ func (binding ClientBinding) DeclaresProgram() bool {
 	return binding.Program != "" || binding.Extensions != ""
 }
 
-func (binding ClientBinding) withoutForwarding() ClientBinding {
-	binding.ForwardingEndpoint, binding.ForwardingUpstreamIdentity, binding.ForwardingProtocol = "", "", ""
-	return binding
-}
-
-// SetForwardingEndpoint forwards one client to endpoint and records the
-// upstream that its selected Route reaches now. An empty endpoint selects the
-// direct connection and drops the recorded upstream with it.
-func (c *Config) SetForwardingEndpoint(client, endpoint string) error {
-	binding := c.Clients[client].withoutForwarding()
-	if endpoint != "" {
-		if err := ValidateEndpoint(endpoint); err != nil {
-			return fmt.Errorf("client %q forwarding endpoint: %w", client, err)
+// SetForwardingRoot sends one client's Responses traffic through the
+// forwarding service at root, its trailing slashes trimmed, or, for an empty
+// root, connects the client to its provider directly. A root that
+// ValidateForwardingRoot refuses is refused, and nothing changes; validation
+// refuses a selection that the forwarding cannot carry.
+func (c *Config) SetForwardingRoot(client, root string) error {
+	root = strings.TrimRight(root, "/")
+	if root != "" {
+		if err := ValidateForwardingRoot(root); err != nil {
+			return fmt.Errorf("client %q forwarding: %w", client, err)
 		}
-		// The recorded identity names the Account upstream, which forwarding
-		// never replaces, so the current destination does not affect it.
-		runtime, err := c.ResolveRuntime(client, ModelRef{})
-		if err != nil {
-			return err
-		}
-		binding.ForwardingEndpoint = endpoint
-		binding.ForwardingUpstreamIdentity = runtime.CredentialProjectionFingerprint(client)
-		binding.ForwardingProtocol = runtime.Protocol
 	}
 	if c.Clients == nil {
 		c.Clients = map[string]ClientBinding{}
 	}
+	binding := c.Clients[client]
+	binding.ForwardingRoot = root
 	c.Clients[client] = binding
 	return nil
 }
@@ -333,10 +322,10 @@ func (runtime Runtime) UsesAIGWCredentialStore() bool {
 
 // SetSelectedModel changes one client's model and endpoint protocol while
 // preserving enabled intent and native options. An empty protocol retains
-// compatible selection or infers the model's only protocol. Forwarding
-// follows the upstream endpoint, so a change of provider, protocol or
-// endpoint drops it; retry budgets belong to the provider, so only a change
-// of provider drops them.
+// compatible selection or infers the model's only protocol. Forwarding stays,
+// its destination following the new upstream, and validation refuses a
+// selection that it cannot carry; retry budgets belong to the provider, so a
+// change of provider drops them.
 func (c *Config) SetSelectedModel(client string, ref ModelRef, protocol EndpointProtocol) {
 	if c.Clients == nil {
 		c.Clients = map[string]ClientBinding{}
@@ -345,7 +334,6 @@ func (c *Config) SetSelectedModel(client string, ref ModelRef, protocol Endpoint
 	if bound, selected := c.Models[binding.Model]; !selected || bound.Provider != c.Models[ref].Provider {
 		binding.RetryPolicy = nil
 	}
-	previous, previousErr := c.ResolveRuntime(client, ModelRef{})
 	if binding.Model.IsZero() {
 		binding = binding.withSelection(c.recommendedSelectionFor(client, ref))
 	}
@@ -359,11 +347,19 @@ func (c *Config) SetSelectedModel(client string, ref ModelRef, protocol Endpoint
 		}
 	}
 	c.Clients[client] = binding
-	current, currentErr := c.ResolveRuntime(client, ModelRef{})
-	if previousErr != nil || currentErr != nil || !previous.SameUpstream(current) {
-		binding = binding.withoutForwarding()
+}
+
+// FollowSelectedModel records ref on protocol, a model chosen in the client's
+// own file, as SetSelectedModel does, and drops the client's forwarding when
+// it cannot carry that selection: the client's choice counts, so following it
+// never stops at the forwarding.
+func (c *Config) FollowSelectedModel(client string, ref ModelRef, protocol EndpointProtocol) {
+	c.SetSelectedModel(client, ref, protocol)
+	binding := c.Clients[client]
+	if _, cannot := errors.AsType[*ForwardingUpstreamError](c.validateForwarding(client, binding)); cannot {
+		binding.ForwardingRoot = ""
+		c.Clients[client] = binding
 	}
-	c.Clients[client] = binding
 }
 
 // DeclareProgram replaces the client's program declaration with program, a

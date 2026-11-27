@@ -138,7 +138,7 @@ func newFixture(t *testing.T) *fixture {
 	cfg.Models[domain.NewModelRef("mixed", "chat-only")] = domain.Model{Provider: "mixed", Family: "chat-only", ID: "chat-only", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolChat: {}}}
 	cfg.SetSelectedModel("claude", domain.NewModelRef("team", "team-model"), "")
 	cfg.SetSelectedModel("codex", domain.NewModelRef("team", "codex-model"), "")
-	if err := cfg.SetForwardingEndpoint("codex", "http://127.0.0.1:8792/v1"); err != nil {
+	if err := cfg.SetForwardingRoot("codex", "http://127.0.0.1:8792"); err != nil {
 		t.Fatal(err)
 	}
 	budget := uint64(3)

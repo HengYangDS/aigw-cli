@@ -25,7 +25,11 @@ func TestEditChangesTheLabelAndKeepsTheToken(t *testing.T) {
 	}
 }
 
-func TestEditReplacingAnEndpointClearsWhatWasQualifiedOrSetUpForIt(t *testing.T) {
+// Replacing an endpoint clears the capabilities that were qualified on it. A
+// client that forwards through it keeps its forwarding and its retry budgets,
+// and its destination follows the new endpoint; an endpoint that the
+// forwarding cannot name is refused before anything changes.
+func TestEditReplacingAnEndpointClearsWhatWasQualifiedForIt(t *testing.T) {
 	f := newFixture(t)
 	if err := f.run("", "edit", "team", "--endpoint", "anthropic=https://new.test/", "--json"); err != nil {
 		t.Fatal(err)
@@ -34,25 +38,37 @@ func TestEditReplacingAnEndpointClearsWhatWasQualifiedOrSetUpForIt(t *testing.T)
 	f.decode(t, &document)
 	if len(document.ClearedCapabilities) != 1 || document.ClearedCapabilities[0].Protocol != "anthropic" ||
 		document.ClearedCapabilities[0].Model != "team/team-model" || strings.Join(document.ClearedCapabilities[0].Capabilities, ",") != "tool_search" ||
-		len(document.ClearedForwarding) != 0 || document.NextAction != "aigw check" {
+		document.NextAction != "aigw check" {
 		t.Fatalf("anthropic edit = %+v", document)
 	}
 	cfg := f.load(t)
 	if cfg.Providers["team"].Endpoints.Anthropic != "https://new.test" || len(cfg.Models[domain.NewModelRef("team", "team-model")].Protocols[domain.ProtocolAnthropic]) != 0 ||
-		cfg.Clients["codex"].ForwardingEndpoint == "" {
+		cfg.Clients["codex"].ForwardingRoot == "" {
 		t.Fatalf("saved anthropic edit = %+v", cfg)
 	}
 	// The Responses endpoint, which Codex reaches through forwarding, keeps
-	// Codex's retry budgets, which belong to the provider.
+	// Codex's forwarding, whose destination follows it, and its retry
+	// budgets, which belong to the provider.
 	if err := f.run("", "edit", "team", "--endpoint", "responses=https://new.test/v1"); err != nil {
 		t.Fatal(err)
 	}
-	if text := f.text(); !strings.Contains(text, "! Forwarding cleared Codex") || strings.Contains(text, "Capabilities cleared") {
+	if text := f.text(); strings.Contains(text, "Forwarding") || strings.Contains(text, "Capabilities cleared") {
 		t.Fatalf("responses edit = %s", text)
 	}
 	cfg = f.load(t)
-	if binding := cfg.Clients["codex"]; binding.ForwardingEndpoint != "" || binding.RetryPolicy == nil || *binding.RetryPolicy.RequestMaxRetries != 3 {
+	if binding := cfg.Clients["codex"]; binding.ForwardingRoot != "http://127.0.0.1:8792" || binding.RetryPolicy == nil || *binding.RetryPolicy.RequestMaxRetries != 3 {
 		t.Fatalf("Codex after the responses edit = %+v", binding)
+	}
+	if runtime, err := cfg.ResolveRuntime("codex", domain.ModelRef{}); err != nil || runtime.Endpoint != "http://127.0.0.1:8792/https/new.test/v1" {
+		t.Fatalf("Codex's destination after the responses edit = %#v, %v", runtime, err)
+	}
+	before := f.configuration(t)
+	err := f.run("", "edit", "team", "--endpoint", "responses=https://new.test/v1?region=east")
+	if problem := terminal.ProblemFor(err); !strings.Contains(problem.Title, "carries a query") || problem.Fix != "aigw client edit codex --direct" {
+		t.Fatalf("an endpoint that the forwarding cannot name = %q, fix %q", problem.Title, problem.Fix)
+	}
+	if after := f.configuration(t); after != before {
+		t.Fatal("a refused endpoint changed the configuration")
 	}
 	// A new protocol and the same URL again clear nothing.
 	if err := f.run("", "edit", "team", "--endpoint", "chat=https://new.test/v1", "--endpoint", "anthropic=https://new.test", "--json"); err != nil {
@@ -60,7 +76,7 @@ func TestEditReplacingAnEndpointClearsWhatWasQualifiedOrSetUpForIt(t *testing.T)
 	}
 	document = changeDocument{}
 	f.decode(t, &document)
-	if len(document.ClearedCapabilities) != 0 || len(document.ClearedForwarding) != 0 || f.load(t).Providers["team"].Endpoints.Chat != "https://new.test/v1" {
+	if len(document.ClearedCapabilities) != 0 || f.load(t).Providers["team"].Endpoints.Chat != "https://new.test/v1" {
 		t.Fatalf("an added endpoint = %+v", document)
 	}
 }
@@ -246,7 +262,7 @@ func TestEditReportsTheRetryBudgetsThatAnEndpointChangeKeeps(t *testing.T) {
 	}
 	var document changeDocument
 	f.decode(t, &document)
-	if strings.Join(document.KeptRetryBudgets, ",") != "codex" || strings.Join(document.ClearedForwarding, ",") != "codex" {
+	if strings.Join(document.KeptRetryBudgets, ",") != "codex" {
 		t.Fatalf("edit = %+v", document)
 	}
 	if err := f.run("", "edit", "team", "--endpoint", "responses=https://newer.test/v1"); err != nil || !strings.Contains(f.text(), "· Retry budgets kept Codex") {

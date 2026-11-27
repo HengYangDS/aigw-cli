@@ -124,11 +124,14 @@ func TestValidateRejectsNonCanonicalSchemaVersion(t *testing.T) {
 	}
 }
 
-// The refusal of a file of the schema that this one replaced names the three
+// The refusal of a file of the schema that this one replaced names the four
 // edits that bring it here, the same for a configuration and a team file;
 // any other version names none.
 func TestTheReplacedSchemaIsRefusedWithItsEdits(t *testing.T) {
-	edits := []string{"set `version = 9`", "rename each client's `executable` to `program`", "delete `authentication` and `model_provider` wherever they appear"}
+	edits := []string{
+		"set `version = 9`", "rename each client's `executable` to `program`", "delete `authentication` and `model_provider` wherever they appear",
+		"delete each client's `forwarding` and set it again with `--via <root>`",
+	}
 	configuration := &UnsupportedConfigVersionError{Version: 8, ExpectedVersion: ConfigVersion}
 	team := &UnsupportedTeamFileVersionError{Version: 8}
 	for _, got := range []string{configuration.Edits(), team.Edits(), configuration.Error()} {

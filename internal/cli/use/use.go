@@ -17,8 +17,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// schemaVersion is the version of `aigw use`'s JSON document.
-const schemaVersion = 4
+// schemaVersion is the version of `aigw use`'s JSON document, at 5 since a
+// selection keeps the client's forwarding and reports no forwarding_cleared.
+const schemaVersion = 5
 
 // options are the flags of `aigw use`.
 type options struct {
