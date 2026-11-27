@@ -65,7 +65,7 @@
 
 ## 5. Release journeys
 
-- [ ] 5.1 Make the published-predecessor lifecycle journey migrate a version 8 configuration: the candidate refuses it
+- [x] 5.1 Make the published-predecessor lifecycle journey migrate a version 8 configuration: the candidate refuses it
       and changes nothing, the journey makes the edits, the predecessor's captured credential command returns
       the same Token from the version 9 file, a program rollback refuses until the kept copy is restored, and the
       re-upgrade repeats the migration. Done when the journey compiles with `-tags client_acceptance` and its
@@ -92,8 +92,8 @@
 
 ## 7. Local gates
 
-- [ ] 7.1 Pass `mise run check` on the lane head, in the host queue.
-- [ ] 7.2 Pass `mise run native` on the macOS host on the lane head, in the host queue.
+- [x] 7.1 Pass `mise run check` on the lane head, in the host queue.
+- [x] 7.2 Pass `mise run native` on the macOS host on the lane head, in the host queue.
 
 ## 8. Review
 
@@ -109,7 +109,7 @@
       state and forwarding checks able to fail. Done when `go vet` of `tools/release/...` passes under every tag.
 - [x] 8.5 Carry the answers into the specifications, the design, the proposal, the CHANGELOG and the documents. Done
       when the rehearsed archive validates within the size limit and the prose gate passes.
-- [ ] 8.6 Answer a second fresh review of the answers: a refusal of the file when it loads states why and gives the
+- [x] 8.6 Answer a second fresh review of the answers: a refusal of the file when it loads states why and gives the
       edit of the file as its fix, never a command; the sentence for an undeclared client's files that a sync writes
       holds for files never written and files that drifted; the replaced schema's version is written, not derived.
       Done when the domain, store, terminal, activation, readiness, status and acceptance tests pass.
