@@ -24,9 +24,9 @@ deliver. Model names and shared directories do not establish admission.
 
 Provider and Client Adapter are independent extension axes. Ordinary
 Responses Bearer authentication and Anthropic API-key authentication use the
-provider schema, not provider-specific packages. Prefer an admitted client's
-existing credential chain and signing through explicit client-native
-authentication. Unsupported authentication or wire behavior needs a reviewed
+provider schema, not provider-specific packages. A provider whose access needs
+an admitted client's own credential chain and signing returns as a cloud
+provider under DR-0013, not as a client option. Unsupported authentication or wire behavior needs a reviewed
 extension at its own boundary, not provider-name branching or implicit client
 admission.
 
@@ -52,16 +52,16 @@ The table describes the source-level operational registry. Stable release
 support additionally requires the native evidence listed below; source
 registration alone is not a release support claim.
 
-| Client                      | Configuration and authentication boundary                                                                                                                               | Required provider capability           |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| Claude Code                 | Official per-user settings projection; Token is read on demand through the absolute versioned AIGW reader's `credential claude` command                                 | Verified Anthropic-compatible endpoint |
-| Claude Desktop              | Official per-user third-party inference library; Token is read on demand through an executable helper and argument array                                                | Verified Anthropic-compatible endpoint |
-| Codex CLI and Codex Desktop | AIGW-owned `config.toml` projection in the shared Codex Home; projection-matching command helper for provider Tokens; client-native authentication remains client-owned | Verified OpenAI Responses endpoint     |
-| Hermes Agent                | Native provider and model configuration with a provider-scoped credential command                                                                                       | Verified declared endpoint protocol    |
+| Client                      | Configuration and authentication boundary                                                                                               | Required provider capability           |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Claude Code                 | Official per-user settings projection; Token is read on demand through the absolute versioned AIGW reader's `credential claude` command | Verified Anthropic-compatible endpoint |
+| Claude Desktop              | Official per-user third-party inference library; Token is read on demand through an executable helper and argument array                | Verified Anthropic-compatible endpoint |
+| Codex CLI and Codex Desktop | AIGW-owned `config.toml` projection in the shared Codex Home; projection-matching command helper for provider Tokens                    | Verified OpenAI Responses endpoint     |
+| Hermes Agent                | Native provider and model configuration with a provider-scoped credential command                                                       | Verified declared endpoint protocol    |
 
-A provider Token, when required, stays in the selected backend. Client-native
-authentication stays with the client. Selecting another model does not copy Tokens
-into client files.
+A provider Token, when required, stays in the selected backend, and every client
+reads it through AIGW's credential command or its own `credential_command`.
+Selecting another model does not copy Tokens into client files.
 
 Hermes has native tool-loop evidence. The
 [Codex real-client tool-loop fixture](../../tools/release/client_protocol_test.go)
@@ -136,7 +136,7 @@ Every new adapter must supply all of the following before merge:
 3. Protocol contract: authentication, model selection, streaming, tools, and
    required image or long-context behavior.
 4. Secret proof: provider Tokens come only from the selected AIGW backend's
-   API-token slot; client-native authentication remains client-owned. Tokens
+   API-token slot or from a client's own `credential_command`. Tokens
    never appear in public configuration, logs, arguments, manifests, or backups.
 5. Rollback proof: byte-exact owned-state restoration; user drift fails closed.
 6. User-authorized minimal real verification with non-sensitive evidence.

@@ -11,6 +11,80 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `aigw.toml` and team files move to `version = 9`. Every
+  command refuses a version 8 file before reading anything else, changes no
+  file, and names the four edits that schema 9 needs: set `version = 9`;
+  rename each client's `executable` to `program`; delete `authentication` and
+  `model_provider` wherever they appear; delete each client's `forwarding` and
+  set it again with `aigw client edit <client> --via <root>`. AIGW never
+  rewrites the file itself. Keep a copy of `aigw.toml` before the edit: a
+  release before this one refuses a version 9 file, so `aigw self rollback`
+  needs the copy restored. A leftover key is refused with its line. Running
+  sessions keep their Token through the upgrade: the credential reader never
+  read `program` and treats a missing `authentication` as before.
+  ```toml
+  version = 9
+
+  [clients.codex]
+  enabled = true
+  program = "/opt/homebrew/bin/codex" # was: executable = "/opt/homebrew/bin/codex"
+  ```
+- **Breaking:** a client declares its program by `program`, an absolute path,
+  or by `extensions`, an editor's extensions directory, one of the two or
+  neither. AIGW reads the declaration and never rewrites it. For `extensions`,
+  each command takes the newest installed version of the client's extension
+  that holds a program for this host (Codex `openai.chatgpt`, Claude Code
+  `anthropic.claude-code`), leaving out versions that the editor lists as
+  obsolete; it stops the client rather than take a lower version. A client
+  that declares neither adopts the program found on the PATH or at its fixed
+  application path, once, writes it as `program` and says so: JSON gains
+  `adopted_programs`, and human output an "Adopted program" section.
+- **Breaking:** `aigw client enable` and `aigw client edit` take
+  `--program <path>` or `--extensions <dir>`, which exclude each other;
+  `--executable` is gone. A versioned path inside an extensions directory given
+  to `--program` is refused with the `--extensions` command that declares the
+  same program. `aigw client enable` no longer requires a program: a client
+  enabled without one adopts it at its first convergence or stops with the
+  repair. Every repair that named `--executable` names `--program`.
+- **Breaking:** forwarding names the forwarding service's root, as in
+  `aigw client edit codex --via http://127.0.0.1:8792`, and `forwarding` in
+  `aigw.toml` is that one string. AIGW composes each destination from the
+  selected provider's Responses endpoint as
+  `<root>/<scheme>/<authority>/<base path>`, the grammar of
+  openai-responses-proxy 8.0.0, which refuses the provider-named routes. The
+  forwarding now stays when the client changes model, provider or provider
+  endpoint, its destination following the new upstream. A command whose
+  upstream the grammar cannot name, such as a model on another protocol than
+  Responses, is refused before any change; a synchronization that follows such
+  a model chosen in the client drops the forwarding and reports
+  `forwarding_cleared`. Only
+  Responses traffic forwards: Claude Code and Claude Desktop refuse `--via`. A
+  provider endpoint that names a forwarding route, such as
+  `http://127.0.0.1:8792/<provider>/v1`, goes back to the provider's own URL,
+  and the client takes `--via` instead.
+- **Breaking (output):** `aigw client list` and `aigw client edit` JSON move to
+  `schema_version` 3 and carry `program` and `extensions` in place of
+  `executable`; `aigw client edit` also names the composed
+  `forwarding_destination`. `aigw use` drops `forwarding_cleared` and moves to
+  5, `aigw provider edit` drops `cleared_forwarding` and moves to 4, and
+  `aigw check` moves to 6 and `aigw status` to 5 without the client-native
+  fields.
+- Whether a client's files are projected follows its enabled state, its
+  targets and AIGW's record, not a non-empty program path; a client whose
+  declared program is missing is reported as stopped.
+
+### Removed
+
+- The release tool's candidate-only `forwarding-performance` scope and its
+  `--performance-forwarding` flag: Claude Code, the client that it measured,
+  no longer forwards.
+- **Breaking:** the client-native Codex path: the client keys
+  `authentication` and `model_provider`, the same keys of a team file's
+  recommendation, and the Codex provider table that it wrote. Codex always
+  receives AIGW's own provider table with the credential command.
+
 ## [0.11.0] - 2026-11-27
 
 ### Added

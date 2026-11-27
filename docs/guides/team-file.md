@@ -13,7 +13,7 @@ A team distributes one reviewed, token-free [team file](../../manifests/team.tom
 reference defines what the file holds and what may enter it.
 
 The team file is a curated catalog, not a collection of personal notes. It has
-`version = 8`, the format of `aigw.toml` without `[clients]`, and nests each
+`version = 9`, the format of `aigw.toml` without `[clients]`, and nests each
 provider's models under the provider.
 
 ## Fields

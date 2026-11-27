@@ -350,7 +350,9 @@ aigw check
 Program rollback first gives the retained program an isolated copy of the
 current configuration and, when that program cannot read it, refuses and
 changes nothing. A release older than 0.7.0 cannot read `aigw.toml`, so
-`aigw self rollback` cannot return to one. An earlier release that you install
+`aigw self rollback` cannot return to one. A release before 0.12.0 reads
+schema 8, so restore the copy of `aigw.toml` kept before the schema 9 edits
+first; the rollback then admits it. An earlier release that you install
 by other means finds its own files as they were before the upgrade, without
 later changes.
 

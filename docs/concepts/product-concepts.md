@@ -53,10 +53,8 @@ A provider contains:
 - a Token slot in the selected backend when authentication requires it;
 - an optional balance probe.
 
-A team file can add a provider before its Token is available. A client that
-uses client-native authentication delegates authentication to the client
-instead of requiring that slot. Configuration and team files never contain the
-Token. The reviewed distribution is [`manifests/team.toml`](../../manifests/team.toml);
+A team file can add a provider before its Token is available. Configuration
+and team files never contain the Token. The reviewed distribution is [`manifests/team.toml`](../../manifests/team.toml);
 it is the sole tracked team configuration and is directly consumable by
 `aigw setup --from`.
 
@@ -83,11 +81,11 @@ and human output of `aigw model list` a window that differs from the default.
 The number is what AIGW tells a client; it is not evidence that the provider
 serves that many tokens.
 
-Authentication defaults to `provider-token`, which uses the provider's Token in
-the selected backend. A client may instead select admitted client-native
-authentication and its native provider identity. That client then owns
-credentials and any signing, so AIGW does not require a Token. This
-declaration is not evidence that the client or provider supports the selected
+A client authenticates with the provider's Token in the selected backend,
+through AIGW's credential reader or a `credential_command` of the client's own.
+A provider whose access needs the client's own credential chain and signing,
+such as a cloud location, is not admitted today; DR-0013 states how one
+returns. A selection is not evidence that the client or provider supports the
 combination; check the actual invocation.
 
 ### Family
@@ -103,9 +101,9 @@ aigw use codex dmxapi/gpt-6.1-sol-cdx
 aigw use claude dmxapi/claude-opus-5-5
 ```
 
-Each client owns its selected model, enabled intent, client files, protocol,
-authentication mode, and genuinely client-specific options. There is no global
-default, inheritance, or cross-client fallback. AIGW selects before the
+Each client owns its selected model, enabled intent, program declaration,
+client files, protocol, and genuinely client-specific options. There is no
+global default, inheritance, or cross-client fallback. AIGW selects before the
 request; it does not retry traffic through another endpoint or model.
 
 Team recommendations are not local selections. A team file stores them
@@ -117,15 +115,22 @@ survives a missing Token or a newly connected provider. See
 [team activation](../guides/team-rollout.md#local-choices) for deliberate
 selection changes.
 
+A client declares its program by `program`, an absolute path, or by
+`extensions`, an editor's extensions directory, where each command uses the
+newest installed version of the client's extension for this host and skips the
+versions that the editor lists as obsolete. AIGW never rewrites a declaration.
+A client that declares neither adopts the program on the `PATH` or at its fixed
+application path once, records it as `program` and says so.
+
 ### Client files
 
-- **Codex:** recorded provider and model configuration, with a Token helper or
-  explicit client-native authentication, and the selected model's declared
+- **Codex:** recorded provider and model configuration, with the Token helper,
+  and the selected model's declared
   context window in the model table that AIGW writes. Codex's own table
   describes families, not every provider's model: for a model whose family it
   lacks AIGW writes no entry and Codex chooses the window itself. AIGW writes
-  no table for a `model_catalog_json` of the user's own or a model provider of
-  Codex's own, so Codex is not given the declared window there. A check of
+  no table for a `model_catalog_json` of the user's own, so Codex is not given
+  the declared window there. A check of
   `aigw check codex` says which applies; human output lists it with
   `--verbose`, and JSON always holds it.
 - **Claude Code:** official user-settings endpoint and model, and a credential

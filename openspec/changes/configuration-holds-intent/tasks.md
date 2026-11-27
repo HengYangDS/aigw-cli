@@ -84,9 +84,10 @@
 
 ## 6. Documents
 
-- [ ] 6.1 Update the configuration and client references, the team rollout guide and the terminal-experience document
-      for `program`, `extensions` and schema 9. Done when the prose and Markdown gates pass.
-- [ ] 6.2 Add the breaking changes and the upgrade edits, with an example, under `## Unreleased` in `CHANGELOG.md`.
+- [x] 6.1 Update the README's rollback note, the authority boundary, the product concepts, the adapter admission, the
+      team-file and team rollout guides and the terminal-experience document for `program`, `extensions`, forwarding
+      through a service root and schema 9. Done when the prose and Markdown gates pass.
+- [x] 6.2 Add the breaking changes and the upgrade edits, with an example, under `## Unreleased` in `CHANGELOG.md`.
       Done when `go run ./tools/release validate-changelog` passes.
 
 ## 7. Local gates

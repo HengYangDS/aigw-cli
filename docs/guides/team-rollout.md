@@ -132,8 +132,8 @@ succeed.
   it above the entry's; `model_auto_compact_token_limit` can lower the
   compaction threshold. A model whose family Codex's own table lacks has no
   entry, and Codex chooses its window itself whatever the model declares; for a
-  `model_catalog_json` of your own or a model provider of Codex's own, AIGW
-  writes no table and Codex is not given the declared window. A check of
+  `model_catalog_json` of your own, AIGW writes no table and Codex is not given
+  the declared window. A check of
   `aigw check codex` says which applies: `aigw check codex --verbose` lists it,
   and `--json` always holds it. The optional
   `model_auto_compact_token_limit_scope` selects `total` (the default, counting
@@ -374,8 +374,8 @@ clients and converges only its owned configuration. Claude Desktop uses
 `Claude-3p/configLibrary`, independently of Claude Code's `~/.claude` settings.
 If a client has a selected model and usable authentication, sync enables it
 and writes only AIGW's settings in its files. A client that uses a provider's
-Token receives a credential helper; client-native authentication continues to
-use the client's own:
+Token receives AIGW's credential helper, or the `credential_command` that you
+named for it:
 
 ```bash
 aigw sync
@@ -383,12 +383,19 @@ aigw check
 aigw check <client> --depth client
 ```
 
-AIGW keeps the executable that it adopted for a client, or that you named with
-`aigw client edit <client> --executable`, and never swaps in another. When that
-file goes, as an editor extension's versioned folder does after an upgrade,
+Each client uses the program that it declares: `program`, a path that AIGW
+adopted once from the `PATH` or that you named with
+`aigw client edit <client> --program <path>`, or `extensions`, an editor's
+extensions directory that you named with `--extensions <dir>`, where each
+command takes the newest installed version of the client's extension for this
+host. AIGW never rewrites the declaration and never swaps in another program.
+Declare the extensions directory for Codex or Claude Code installed only as an
+editor extension, as on a remote host of VS Code: a versioned folder inside it
+disappears at the extension's next upgrade, so `--program` refuses one and
+names the `--extensions` command instead. When the declared program goes,
 `aigw sync` leaves that client's files as they are, synchronizes the other
-clients and exits 1. `aigw client list` shows the path that AIGW kept; name the
-client's executable again with `aigw client edit <client> --executable <path>`.
+clients and exits 1; `aigw client list` shows the declaration, and the repair
+names it again.
 
 `aigw status` observes selections and client-file readiness without client
 execution or Token reads. `aigw check` adds one bounded inference request per
@@ -461,7 +468,7 @@ provider's Token appears in the read-only environment backend; it does not
 search unused native credentials. An existing selection is preserved even if
 its Token is unavailable, and a manual-only model is never selected
 automatically. Use `aigw use <client> <provider/model>` to change a selection
-explicitly. Client-native authentication does not require an AIGW Token.
+explicitly.
 
 ## Local choices
 

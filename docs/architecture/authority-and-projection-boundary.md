@@ -370,16 +370,16 @@ fingerprint with each provider endpoint on the client's protocols and checks no
 selection. A mismatch requires synchronization and client reload without
 credential access. Model and label changes preserve the fingerprint; it detects
 stale projections, not caller authorization.
-Client-native Codex authentication uses no AIGW Token helper.
 
 The credential reader decodes a frozen view of `aigw.toml`: each provider's
-`id` and `endpoints`, and each client's `enabled` and `authentication`. It
-ignores everything else, including `version` and any protocol key it does not
-know, checks no selection, and refuses a client whose authentication kind it
-does not know. The fingerprint check stays exact. Every other field of
-`aigw.toml` can change in any release without touching a reader; changing a
-frozen field takes a new file name, as 0.7.0 did when it replaced `config.toml`
-with `aigw.toml`.
+`id` and `endpoints`, and each client's `enabled`. It ignores everything else,
+including `version` and any protocol key it does not know, and checks no
+selection. The fingerprint check stays exact. Every other field of `aigw.toml`
+can change in any release without touching a reader; changing a frozen field
+takes a new file name, as 0.7.0 did when it replaced `config.toml` with
+`aigw.toml`. Readers from 0.7.0 to 0.11.0 also decoded each client's
+`authentication`, which schema 9 removed; they read its absence as the
+provider-Token kind, so they keep serving every client (DR-0013).
 
 ### Codex
 
@@ -452,8 +452,8 @@ provider-named implementation of all of them.
   - **Extension path:** Provider data
   - **AIGW implementation consequence:** Configuration only
 - **Distinct credential exchange**
-  - **Extension path:** Existing client-native authentication when supported
-  - **AIGW implementation consequence:** Declare the client selection's authentication owner; extend a credential boundary only when the admitted client cannot supply it
+  - **Extension path:** A cloud provider under DR-0013, when a real journey needs it
+  - **AIGW implementation consequence:** The client's own SDK owns the credential chain and signing; AIGW never signs, issues or caches a short-lived token
 - **New local configuration target**
   - **Extension path:** Client Adapter
   - **AIGW implementation consequence:** Add one complete client transaction
@@ -474,20 +474,19 @@ own proven wire incompatibilities.
 
 An ordinary OpenAI Responses endpoint using Bearer authentication, or an
 Anthropic endpoint using an API-key header, is provider data rather than a new
-provider class. A Codex client selection may instead declare `authentication =
-"client-native"` with an explicit `model_provider` when that client already
-owns the required credential chain and signing. AIGW projects the selection
-without reading client credentials or adding a signer. The selected client,
-endpoint and model still require real invocation evidence.
+provider class. A provider whose access needs a client's own credential chain
+and signing, such as a cloud location, is not admitted today: schema 9 removed
+the client-native selection, and DR-0013 states how a cloud provider returns.
+The selected client, endpoint and model still require real invocation evidence.
 
 AWS Bedrock illustrates all three extension classes without requiring an
 AWS-specific AIGW core:
 
-| Required behavior                                                                       | AIGW path                                                | Owner                                                            |
-| --------------------------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
-| OpenAI-compatible endpoint with an ordinary bearer Token                                | Provider endpoint and model data                         | AIGW stores the selected provider Token                          |
-| Codex `amazon-bedrock` provider using a Bedrock API key or the AWS SDK credential chain | Client selection with `authentication = "client-native"` | Codex and AWS own credentials, signing, refresh, Region, and IAM |
-| A capability unavailable through either admitted endpoint                               | Independently selected protocol adapter                  | The adapter owns wire translation and runtime lifecycle          |
+| Required behavior                                                                       | AIGW path                                          | Owner                                                            |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------- |
+| OpenAI-compatible endpoint with an ordinary bearer Token                                | Provider endpoint and model data                   | AIGW stores the selected provider Token                          |
+| Codex `amazon-bedrock` provider using a Bedrock API key or the AWS SDK credential chain | A cloud provider under DR-0013, not admitted today | Codex and AWS own credentials, signing, refresh, Region, and IAM |
+| A capability unavailable through either admitted endpoint                               | Independently selected protocol adapter            | The adapter owns wire translation and runtime lifecycle          |
 
 For new Responses workloads, AWS recommends the regional `bedrock-runtime`
 endpoint and retains `bedrock-mantle` for capabilities that are not yet
@@ -525,11 +524,14 @@ recovery remains outside AIGW.
 ## External endpoints
 
 A provider endpoint may be direct HTTPS or an explicit loopback URL. The
-endpoint identifies the upstream. An independent, explicit client forwarding
-destination overrides only that client's projected endpoint; it preserves the
-provider, its identity and credential scope. Selection, sync and rollback
-share the same selection and guarded projection owners. Direct operation remains
-valid without a forwarding service.
+endpoint identifies the upstream. A client's explicit forwarding names a
+forwarding service's root, and AIGW composes that client's projected endpoint
+from the root and the selected provider's Responses endpoint as
+`<root>/<scheme>/<authority>/<base path>`, the grammar of
+openai-responses-proxy 8.0.0. It overrides only that client's projected
+endpoint and preserves the provider, its identity and credential scope.
+Selection, sync and rollback share the same selection and guarded projection
+owners. Direct operation remains valid without a forwarding service.
 
 AIGW does not infer provider behavior from a provider name, manage listeners,
 or duplicate their retry and concurrency policy. External services are optional

@@ -155,8 +155,8 @@ otherwise, including when no client is enabled: an empty check is not health
 evidence.
 
 A depth that a client cannot run is skipped with its reason, and a skip is not
-a failure. For client-native authentication, `check` checks the local client
-files without accessing client credentials or calling the endpoint. If Claude
+a failure. For a client that names its own `credential_command`, `check`
+checks the local client files without reading a Token or calling the endpoint. If Claude
 Code has changed only its native model and the AIGW sidecar still proves the
 endpoint and helper, Claude has no `model` depth, because AIGW does not know
 which model Claude Code sends; it never treats the native alias as the
