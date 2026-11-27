@@ -54,6 +54,28 @@ Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default models; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
 
+## November 27 refresh: Gemini 4 Neon on UCloud and DMXAPI, Ling 3.1 Flash
+
+The owner asked on November 27 for the file to be updated again, naming UCloud's Gemini 4 Neon. The providers'
+catalogs were read that day: every model in the file is still listed, no Anthropic or OpenAI line has a newer model,
+UCloud, DMXAPI and Suhe.AI now list Gemini 4 Neon, and AIHubMix lists `ling-3.1-flash`. Ant Ling's developer FAQ (last
+updated November 24, relayed by the fetch tool's summarising model) gives Ling 3.1 Flash and Ling 3.2 Flash 1M tokens
+each and Ling 3.0 Flash 256K, shared between input and output. Each cell ran the three turns of November 12 on the
+stock Hermes v0.23.2 (`ae2a81ccc00e`, clean), with a control of DMXAPI's GPT-6.2 Sol in the second run. Raw results
+are in the canonical checkout's `build/evidence/team-refresh-20261127/`.
+
+| Model          | Admitted provider / protocol                     | Note                                   |
+| -------------- | ------------------------------------------------ | -------------------------------------- |
+| Gemini 4 Neon  | UCloud / Responses (Chat Completions passed too) | Listed there since this refresh        |
+| Gemini 4 Neon  | DMXAPI / Responses                               | Listed there since this refresh        |
+| Ling-3.1-Flash | AIHubMix / Chat Completions                      | Replaces Ling-3.0-Flash; declares none |
+
+Not admitted, each from the provider's answer: UCloud's Gemini 4 Hydrogen (`content_policy_blocked` at the third
+turn, as on November 23), Suhe.AI's Gemini 4 Argon, Carbon, Hydrogen and Neon (HTTP 400 "Model not found" though
+listed), AIHubMix's Cohere Command A Plus (HTTP 400 "cannot be served at the moment"; Command A stays) and its free
+Ling 3.2 Flash (HTTP 429 to every request). Mistral Large 4 and Step 3.7 Flash, which failed on November 23, were not
+run again. Some providers serve Ling 3.1 Flash with 262,144 tokens; AIHubMix's served window is not established.
+
 ## November 23 refresh: Gemini 4 Neon and the vendors' current models
 
 The owner asked on November 22 for the whole file per provider and line, naming Gemini 4 Neon and Qwen4. Google's

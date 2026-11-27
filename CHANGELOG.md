@@ -132,6 +132,11 @@ signing, and GA status remain separate evidence.
   host now lives in a directory named by its release, so the next release can
   be installed beside the current one before CI moves to it. The released
   program does not change.
+- The shipped team file follows each provider's lines and vendors as of
+  2026-11-27. Gemini 4 Neon joins on UCloud and DMXAPI, and Ling-3.1-Flash
+  replaces Ling-3.0-Flash on AIHubMix, with no declared context window: Ant
+  Ling documents 1M tokens for it. Applying the file keeps your clients'
+  explicit selections of Ling-3.0-Flash.
 
 ### Removed
 

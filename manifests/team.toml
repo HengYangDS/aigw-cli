@@ -156,6 +156,11 @@ family = 'gemini-4-hydrogen'
 protocols = { responses = [] }
 
 [[providers.models]]
+id = 'gemini-4-neon'
+family = 'gemini-4-neon'
+protocols = { responses = [] }
+
+[[providers.models]]
 id = 'glm-5.3'
 family = 'glm-5.3'
 protocols = { responses = [] }
@@ -288,6 +293,11 @@ family = 'gemini-4-argon'
 protocols = { chat = [] }
 
 [[providers.models]]
+id = 'gemini-4-neon'
+family = 'gemini-4-neon'
+protocols = { responses = [] }
+
+[[providers.models]]
 id = 'glm-5.3'
 family = 'glm-5.3'
 protocols = { chat = [] }
@@ -416,10 +426,9 @@ family = 'laguna-s-2.1'
 protocols = { chat = [] }
 
 [[providers.models]]
-id = 'ling-3.0-flash'
-family = 'ling-3.0-flash'
+id = 'ling-3.1-flash'
+family = 'ling-3.1-flash'
 protocols = { chat = [] }
-context_window = 256000
 
 [[providers.models]]
 id = 'mistral-large-3'
@@ -638,8 +647,8 @@ id = 'laguna-s-2.1'
 label = 'Poolside Laguna S 2.1'
 
 [[families]]
-id = 'ling-3.0-flash'
-label = 'Ling 3.0 Flash'
+id = 'ling-3.1-flash'
+label = 'Ling 3.1 Flash'
 
 [[families]]
 id = 'ling-3.2-flash'
