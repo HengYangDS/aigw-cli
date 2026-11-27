@@ -15,5 +15,5 @@
 
 - [x] 2.1 A fresh review of this Change by a reviewer who has not seen it. Done when its findings are answered in the
       code or in this design.
-- [ ] 2.2 Pass `mise run check` on the lane head.
-- [ ] 2.3 Pass the proposal's hosted checks on both Forges.
+- [x] 2.2 Pass `mise run check` on the lane head.
+- [x] 2.3 Pass the proposal's hosted checks on both Forges.
