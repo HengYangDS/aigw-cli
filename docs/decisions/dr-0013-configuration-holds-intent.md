@@ -68,8 +68,17 @@ only shrinks.
 - **A generic adapter engine with path-level ownership now:** deferred until the first new client, when Codex's TOML
   and Hermes's YAML are tried on it before any adapter moves.
 
-## Consequences
+## Consequences and Boundary
 
 `aigw.toml` moves to schema 9 in one release. The Codex client-native path, the only cloud path today, is removed;
 cloud providers return by this record's rules when the owner has a real journey. pi is the next candidate client;
-opencode waits for an upstream credential command.
+opencode waits for an upstream credential command. This record admits no cloud provider, identity reference or new
+client by itself: each comes with its own Change and a real client journey.
+
+## Evidence and Revisit
+
+The OpenSpec Change `configuration-holds-intent` holds the design, which draws on the issue-1 and end-state
+committees, the specifications and the acceptance of the release that moves to schema 9.
+
+Revisit when a real journey needs a cloud provider or a client that authenticates itself, or when the first new
+client is admitted, which reopens the adapter engine that this record defers.
