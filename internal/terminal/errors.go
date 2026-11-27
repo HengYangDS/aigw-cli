@@ -137,9 +137,9 @@ func configurationFix(phase store.LoadPhase, path *platform.PathConditionError, 
 // stopped, with the operation and operating-system error of a read, the
 // position of a parse failure, which a value of another type than the schema
 // holds is too, the name and line of a field that the schema does not
-// define, or the two models whose labels clash and that label, which the
-// operator needs to find them. It never includes a path or any other value of
-// the document.
+// define or of a forwarding table that the replaced schema left, or the two
+// models whose labels clash and that label, which the operator needs to find
+// them. It never includes a path or any other value of the document.
 func ConfigurationLoadEvidence(subject string, err error) (string, bool) {
 	failure, ok := errors.AsType[*store.LoadError](err)
 	if !ok {
@@ -159,6 +159,8 @@ func ConfigurationLoadEvidence(subject string, err error) (string, bool) {
 	case store.LoadPhaseValidate:
 		if undefined, ok := errors.AsType[*store.UndefinedFieldError](err); ok {
 			detail = ": " + undefined.Error()
+		} else if table, ok := errors.AsType[*store.ForwardingTableError](err); ok {
+			detail = ": " + table.Error()
 		} else if shared, ok := errors.AsType[*domain.SharedModelLabelError](err); ok {
 			detail = ": " + shared.Error()
 		}
@@ -592,10 +594,17 @@ func statedFix(err error, message string) (string, bool) {
 	return command, command != ""
 }
 
+// configurationEditFix is the fix of a configuration that does not load until
+// the operator makes edits in the file, which AIGW never makes itself.
+func configurationEditFix(edits string) string {
+	return "Edit the configuration file: " + edits + ". AIGW never rewrites it; `aigw config path` prints its location."
+}
+
 // typedErrorFix is the fix of a failure that AIGW recognizes by its type,
 // independent of its text: a client without a selected Route, a configuration
-// that does not load, whose version that this schema replaced is fixed by
-// the edits that bring it here, and a TOML document that does not decode.
+// that does not load, whose version that this schema replaced, or a
+// forwarding table that it left, is fixed by the edits that bring it here,
+// and a TOML document that does not decode.
 func typedErrorFix(err error, at platform.PathContext) (string, bool) {
 	if unselected, ok := errors.AsType[*domain.RuntimeBindingUnselectedError](err); ok {
 		return fmt.Sprintf("aigw use %s <provider/model>", unselected.Client), true
@@ -611,7 +620,10 @@ func typedErrorFix(err error, at platform.PathContext) (string, bool) {
 	}
 	if failure, ok := errors.AsType[*store.LoadError](err); ok {
 		if version, ok := errors.AsType[*domain.UnsupportedConfigVersionError](err); ok && version.Edits() != "" {
-			return "Edit the configuration file: " + version.Edits() + ". AIGW never rewrites it; `aigw config path` prints its location.", true
+			return configurationEditFix(version.Edits()), true
+		}
+		if table, ok := errors.AsType[*store.ForwardingTableError](err); ok {
+			return configurationEditFix(table.Edit()), true
 		}
 		return configurationFix(failure.Phase, pathFailureIn(err), at), true
 	}

@@ -211,12 +211,13 @@ func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testi
 	if cfg.SelectedModel(claude.ID) != domain.NewModelRef("dmxapi", "claude-test") || cfg.SelectedModel(codex.ID) != domain.NewModelRef("dmxapi", "gpt-test") {
 		t.Fatalf("available Account did not become usable: %#v", cfg.Clients)
 	}
-	for _, want := range []string{"dmxapi/claude-test; Install Claude if needed, then run `aigw sync`", "dmxapi/gpt-test; Install Codex if needed, then run `aigw sync`", "Next", "aigw sync"} {
+	claudeStep, codexStep := programNotFound(claude.ID).NextAction(), programNotFound(codex.ID).NextAction()
+	for _, want := range []string{"dmxapi/claude-test; " + claudeStep, "dmxapi/gpt-test; " + codexStep, "Next", "aigw sync"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output missing %q:\n%s", want, out.String())
 		}
 	}
-	if !strings.HasSuffix(strings.TrimSpace(out.String()), "Install Claude if needed, then run `aigw sync`") {
+	if !strings.HasSuffix(strings.TrimSpace(out.String()), claudeStep) {
 		t.Fatalf("setup omitted the selected client's installation prerequisite:\n%s", out.String())
 	}
 	if strings.Contains(out.String(), "aigw status") {

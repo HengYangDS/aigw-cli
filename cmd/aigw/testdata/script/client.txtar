@@ -397,7 +397,7 @@ Next
     "stream": 2
   },
   "client_files": [],
-  "next_detail": "Install Codex if needed, then run `aigw sync`"
+  "next_detail": "Install Codex if needed, then run `aigw sync`, or declare its program: aigw client edit codex --program \u003cpath\u003e or --extensions \u003cdir\u003e"
 }
 -- edit-direct.json --
 {
@@ -413,7 +413,7 @@ Next
     "stream": 3
   },
   "client_files": [],
-  "next_detail": "Install Codex if needed, then run `aigw sync`"
+  "next_detail": "Install Codex if needed, then run `aigw sync`, or declare its program: aigw client edit codex --program \u003cpath\u003e or --extensions \u003cdir\u003e"
 }
 -- edit-unchanged.json --
 {
@@ -509,7 +509,7 @@ AIGW  Client edited
   ✓ Saved; the provider, its Token and the other clients are unchanged
 
 Next
-  Install Codex if needed, then run `aigw sync`
+  Install Codex if needed, then run `aigw sync`, or declare its program: aigw client edit codex --program <path> or --extensions <dir>
 -- edit-direct-preview.txt --
 AIGW  Client edited (preview)
 ────────────────────────────────────────
@@ -545,7 +545,7 @@ Next
   "model": "team/team-model",
   "targets": [],
   "client_files": [],
-  "next_detail": "Install Codex if needed, then run `aigw sync`"
+  "next_detail": "Install Codex if needed, then run `aigw sync`, or declare its program: aigw client edit codex --program \u003cpath\u003e or --extensions \u003cdir\u003e"
 }
 -- codex --
 #!/bin/sh

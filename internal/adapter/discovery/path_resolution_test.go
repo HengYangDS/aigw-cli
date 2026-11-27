@@ -54,8 +54,8 @@ func TestFindTreatsClaudeAsTheNativeClientExecutable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := system.find("claude"); got != want {
-		t.Fatalf("find(claude) = %q, want %q", got, want)
+	if got := system.Executable("claude"); got != want {
+		t.Fatalf("Executable(claude) = %q, want %q", got, want)
 	}
 }
 
@@ -85,8 +85,8 @@ func TestFindRejectsDirectoriesAndNonExecutableUnixFiles(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			tt.setup(t, filepath.Join(dir, "codex"))
-			if got := (System{GOOS: "linux", Path: dir}).find("codex"); got != "" {
-				t.Fatalf("find(codex) = %q", got)
+			if got := (System{GOOS: "linux", Path: dir}).Executable("codex"); got != "" {
+				t.Fatalf("Executable(codex) = %q", got)
 			}
 		})
 	}

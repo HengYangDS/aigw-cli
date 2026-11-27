@@ -327,10 +327,11 @@ func endsTheStoredForwarding(t *testing.T, app *cli.App, output *bytes.Buffer) {
 // which the forwarding service does not relay, ended that forwarding in the
 // configuration that the command works from. So `--direct` saves the choice
 // without the forwarding and says that the choice ended it, and a `--via`
-// after it is refused for the chosen model, with the step that connects it
-// directly, and changes nothing. Before the tenth review `--direct` found
-// nothing to change here and saved nothing, so the stored model, picked
-// again, forwarded again. Holds the cell chosen/edits.
+// after it is refused for the chosen model, naming the selection to make
+// first, since `--direct` would change nothing there, and changes nothing.
+// Before the tenth review `--direct` found nothing to change here and saved
+// nothing, so the stored model, picked again, forwarded again. Holds the cell
+// chosen/edits.
 func TestAForwardingEditOfAClientThatWaitsForATokenActsOnTheChosenModel(t *testing.T) {
 	t.Parallel()
 	app, output, _, target := shippedHermesAppWith(t, true)
@@ -344,8 +345,8 @@ func TestAForwardingEditOfAClientThatWaitsForATokenActsOnTheChosenModel(t *testi
 	endsTheStoredForwarding(t, app, output)
 	stored := readFile(t, app.Config.Path())
 	err := runDocument(t, app, output, nil, "client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json")
-	if problem := terminal.ProblemFor(err); err == nil || problem.Fix != "aigw client edit hermes --direct" {
-		t.Fatalf("--via for the chosen Anthropic model was not refused with the direct connection: %v\n%s", err, output)
+	if problem := terminal.ProblemFor(err); err == nil || problem.Fix != "aigw use hermes <provider/model>" {
+		t.Fatalf("--via for the chosen Anthropic model was not refused with the selection to make first: %v\n%s", err, output)
 	}
 	if !bytes.Equal(readFile(t, app.Config.Path()), stored) {
 		t.Fatal("the refused --via changed the configuration")

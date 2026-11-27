@@ -103,7 +103,10 @@ envsubst replaced.in $CONF/aigw.toml
 snapshot $HOME replaced-before.txt
 exitcode 1 aigw status
 stdout 'unsupported configuration version: found 8, expected 9'
-stdout 'Edit the configuration file: set `version = 9`; rename each client''s `executable` to `program`; delete `authentication` and `model_provider` wherever they appear; delete each client''s `forwarding` and set it again with `--via <root>`\.'
+stdout 'Edit the configuration file: set `version = 9`; '
+stdout 'rename each client''s `executable` to `program`, or to `extensions` '
+stdout 'delete `authentication` and `model_provider` wherever they appear; '
+stdout 'delete each client''s `forwarding` and set it again with `aigw client edit <client> --via <root>`\.'
 ! stdout 'does not define'
 snapshot $HOME replaced-after.txt
 cmp replaced-after.txt replaced-before.txt

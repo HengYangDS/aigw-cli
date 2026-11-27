@@ -46,7 +46,7 @@ func TestDepthsClimbInOrder(t *testing.T) {
 func TestCheckExitRule(t *testing.T) {
 	passed := result{spec: domain.ClientSpec{ID: "codex"}, enabled: true, reached: depthModel}
 	skipped := result{spec: domain.ClientSpec{ID: "claude"}, enabled: true, reached: depthLocal,
-		skipped: []skip{{Depth: depthEndpoint, Reason: "own authentication"}, {Depth: depthModel, Reason: "own authentication"}}}
+		skipped: []skip{{Depth: depthEndpoint, Reason: "an external credential helper"}, {Depth: depthModel, Reason: "an external credential helper"}}}
 	disabled := result{spec: domain.ClientSpec{ID: "hermes"}, reached: depthModel}
 	failed := result{spec: domain.ClientSpec{ID: "hermes"}, enabled: true, reached: depthLocal, failure: &failure{depth: depthEndpoint, problem: "HTTP 401"}}
 	for _, test := range []struct {

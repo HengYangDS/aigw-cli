@@ -261,7 +261,7 @@ func codexCatalogProjection(target TargetRef, selected domain.Runtime, base stri
 	// AIGW owns a table that the configured program can neither produce
 	// again nor prove to be its own: the client stops, and its table stays,
 	// rather than being withdrawn for a sync that cannot produce another.
-	return codexCatalogPlan{}, tableStop(live, err, parseErr)
+	return codexCatalogPlan{}, tableStop(target.Executable, live, err, parseErr)
 }
 
 // codexCatalogDesiredSnapshot converts a catalog decision into the desired file

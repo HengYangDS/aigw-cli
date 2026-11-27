@@ -3,6 +3,7 @@ package setup
 import (
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	clientactivation "aigw-cli/internal/app/activation"
@@ -41,7 +42,8 @@ func TestTeamSetupOffersEqualCompatibleProvidersWithoutTokens(t *testing.T) {
 }
 
 // A selected client without its provider's Token waits for the Token before
-// its installation, because a client installed later reads it.
+// its program, which installing the client or declaring the program gives,
+// because a client installed or declared later reads it.
 func TestTeamSetupReportsTheTokenBeforeTheClient(t *testing.T) {
 	cfg := manifestSetupConfig()
 	team := teamSetup{runtime: invocation.Context{Clients: clients.Registry(), Stops: &synchronization.Stops{}, Secrets: secret.NewMemoryStore()}, merged: cfg}
@@ -49,7 +51,7 @@ func TestTeamSetupReportsTheTokenBeforeTheClient(t *testing.T) {
 	if item := team.client(cfg, spec, nil, nil); item.State != clientWaitsForToken || item.NextDetail != "aigw provider rotate team" {
 		t.Fatalf("client without a Token = %+v", item)
 	}
-	if item := team.client(cfg, spec, []string{"team"}, nil); item.State != clientWaitsForClient || item.NextDetail != "Install Codex if needed, then run `aigw sync`" {
+	if item := team.client(cfg, spec, []string{"team"}, nil); item.State != clientWaitsForClient || item.NextDetail != adapter.ProgramNotFound(cfg, codex.ID).NextAction() {
 		t.Fatalf("client without its installation = %+v", item)
 	}
 }

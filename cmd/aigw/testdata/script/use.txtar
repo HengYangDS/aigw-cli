@@ -335,7 +335,7 @@ AIGW  Model selected
   ✓ Saved; the other clients' selections are unchanged
 
 Next
-  Install Codex if needed, then run `aigw sync`
+  Install Codex if needed, then run `aigw sync`, or declare its program: aigw client edit codex --program <path> or --extensions <dir>
 -- fresh-preview.txt --
 AIGW  Model selected (preview)
 ────────────────────────────────────────

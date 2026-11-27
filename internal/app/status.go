@@ -1,6 +1,7 @@
 package app
 
 import (
+	"aigw-cli/internal/adapter"
 	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/app/diagnostics"
 	domainreadiness "aigw-cli/internal/app/readiness"
@@ -36,21 +37,19 @@ type EndpointTransportKind string
 const EndpointTransportExternalLoopback EndpointTransportKind = "external_loopback"
 
 // InspectStatusClients observes every admitted client without authenticating
-// an endpoint or reading Token values. For an enabled client whose files wait,
-// discovery tells whether it is installed, so that a sync writes them.
+// an endpoint or reading Token values. Whether an enabled client's files wait,
+// and for what, is clientactivation.AwaitedFiles's to decide from the client's
+// inspection, and activation then follows what it decided for every client
+// observed (see Activation.ObserveFiles), so that its state and step agree
+// with the clients'.
 func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *clientactivation.Activation, selected string) map[string]ClientStatus {
 	if activation == nil {
 		assessed := clientactivation.AssessActivation(cfg, runtime.Secrets)
 		activation = &assessed
 	}
-	// Discovery observes only the client whose files wait, so a status of one
-	// client looks for no other client; a host without discovery finds none.
-	installed := func(clientID string) bool {
-		discovered, _ := runtime.Discover(clientID)
-		return discovered.Executable(clientID) != ""
-	}
 	clientIDs := runtime.Synchronizer().ClientIDs()
 	clients := make(map[string]ClientStatus, len(clientIDs))
+	observed := map[string]clientactivation.Awaited{}
 	for _, clientID := range clientIDs {
 		if selected != "" && clientID != selected {
 			continue
@@ -65,22 +64,10 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 			continue
 		}
 		adapterStatus := runtime.InspectClient(context.Background(), cfg, clientID, clientRuntime)
-		projectionPrerequisite := activation.ProjectionPrerequisites[clientID]
-		projectionAction := adapterStatus.RepairAction
-		if projectionPrerequisite != "" {
-			projectionAction = projectionPrerequisite
-		}
-		facts := domainreadiness.ClientFacts{
-			Model:              clientRuntime.Model,
-			Provider:           clientRuntime.ProviderID,
-			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
-			ProjectionEnabled:  cfg.Clients[clientID].Enabled,
-			ProjectionDeferred: cfg.Clients[clientID].Enabled && projectionPrerequisite != "",
-			ProjectionReady:    adapterStatus.Ready,
-			ProjectionIssue:    adapterStatus.Issue,
-			ProjectionAction:   projectionAction,
-		}
-		facts.ClientInstalled = facts.ProjectionDeferred && installed(clientID)
+		facts, awaited := projectionFacts(runtime, cfg, clientID, adapterStatus)
+		observed[clientID] = awaited
+		facts.Model, facts.Provider = clientRuntime.Model, clientRuntime.ProviderID
+		facts.CredentialRequired = clientRuntime.UsesAIGWCredentialStore()
 		applyCredentialFacts(&facts, activation, runtime.Secrets, clientID, clientRuntime.ProviderID, runtime.Host.Home)
 		state := domainreadiness.ClassifyClient(facts)
 		if adapterStatus.NativeModelOverride && state.State == domainreadiness.Configured {
@@ -96,14 +83,40 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 			QualifiedModes:     spec.QualifiedModes,
 			QualifiedPlatforms: spec.QualifiedPlatforms,
 		}
-		if adapterStatus.Ready && !clientRuntime.UsesAIGWCredentialStore() {
+		if adapterStatus.Ready && awaited.Step == "" && !clientRuntime.UsesAIGWCredentialStore() {
 			client.State = domainreadiness.Configured
 			client.Detail = "Client files ready; the external credential helper is not verified"
 			client.NextAction = "aigw check " + clientID + " --depth client"
 		}
 		clients[clientID] = client
 	}
+	if selected == "" {
+		activation.ObserveFiles(observed)
+	}
 	return clients
+}
+
+// projectionFacts are the readiness facts of an admitted client's files from
+// its inspection, and what the client waits for, as
+// clientactivation.AwaitedFiles decides it. Discovery is asked only whether
+// the program of a client that declares none is installed, so a status of one
+// client looks for no other client; a host without discovery finds none.
+func projectionFacts(runtime Dependencies, cfg domain.Config, clientID string, inspected adapter.Status) (domainreadiness.ClientFacts, clientactivation.Awaited) {
+	found := func() bool {
+		discovered, _ := runtime.Discover(clientID)
+		return discovered.Executable(clientID) != ""
+	}
+	awaited := clientactivation.AwaitedFiles(cfg, clientID, inspected, found)
+	return domainreadiness.ClientFacts{
+		ProjectionEnabled:  cfg.Clients[clientID].Enabled,
+		ProjectionDeferred: awaited.Unwritten,
+		ClientInstalled:    awaited.Unwritten && awaited.Found,
+		ProjectionReady:    inspected.Ready,
+		ProjectionIssue:    inspected.Issue,
+		ProjectionAction:   inspected.RepairAction,
+		ProgramIssue:       awaited.Problem,
+		ProgramAction:      awaited.Step,
+	}, awaited
 }
 
 func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *clientactivation.Activation, store secret.Store, clientID, accountID, home string) {

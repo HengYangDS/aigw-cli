@@ -56,7 +56,7 @@ func TestNativeClientInputs(t *testing.T) {
 	t.Run("isolated client capabilities", func(t *testing.T) {
 		journey := &journeyFixture{
 			testing: t, root: root, manifest: filepath.Join(root, "team.toml"),
-			endpoint: "http://127.0.0.1:1/v1", sourceSchema: domain.ConfigVersion,
+			endpoint: "http://127.0.0.1:1/v1", firstProgramSchema: domain.ConfigVersion,
 		}
 		team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
 		manifest, err := store.ParseTeamFile(team, clients.Admission())
@@ -504,7 +504,7 @@ func (j *journeyFixture) enableNativeClient(client, executable string) {
 	j.testing.Helper()
 	path := strings.Join([]string{j.clientBin, os.Getenv("AIGW_ACCEPTANCE_CLIENT_PATH")}, string(os.PathListSeparator))
 	j.setEnvironment("PATH", strings.TrimRight(path, string(os.PathListSeparator)))
-	args := []string{"client", "enable", client, j.sourceProgramFlag(), executable}
+	args := []string{"client", "enable", client, j.firstProgramFlag(), executable}
 	if client == codex.ID {
 		args = append(args, "--target", filepath.Join(j.root, "home", ".codex", "config.toml"))
 	}
@@ -522,19 +522,19 @@ func (j *journeyFixture) enableNativeClient(client, executable string) {
 	j.testing.Logf("client %s version=%s", client, version)
 }
 
-// sourceProgramFlag is the flag through which the program that the journey
+// firstProgramFlag is the flag through which the program that the journey
 // installed first takes a client's program. 0.11.0, which writes the schema
 // that the candidate replaced, knows only `--executable`, which the
 // candidate's schema renamed `--program`. This is the one place under tools/
 // that names the old flag; it goes once no admissible predecessor writes that
 // schema.
-func (j *journeyFixture) sourceProgramFlag() string {
+func (j *journeyFixture) firstProgramFlag() string {
 	j.testing.Helper()
-	if j.sourceSchema == domain.ConfigVersion {
+	if j.firstProgramSchema == domain.ConfigVersion {
 		return "--program"
 	}
-	if candidateSchemaEdits(j.sourceSchema) == "" {
-		j.testing.Fatalf("a journey knows no flag for a client's program in schema %d", j.sourceSchema)
+	if candidateSchemaEdits(j.firstProgramSchema) == "" {
+		j.testing.Fatalf("a journey knows no flag for a client's program in schema %d", j.firstProgramSchema)
 	}
 	return "--executable"
 }

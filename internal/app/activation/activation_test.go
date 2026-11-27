@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/hermes"
@@ -256,7 +257,7 @@ func TestAssessActivationDoesNotInstallAClientWhoseSelectedTokenIsMissing(t *tes
 	})
 
 	got := AssessActivation(cfg, store)
-	want := "Install Codex if needed, then run `aigw sync`"
+	want := adapter.ProgramNotFound(cfg, codex.ID).NextAction()
 	if got.NextActionFor(nil) != want {
 		t.Fatalf("unavailable selected Token concealed a usable client: %+v; want %q", got, want)
 	}
@@ -313,7 +314,7 @@ func TestAssessActivationSeparatesEnabledIntentFromDeferredProjection(t *testing
 	cfg.SetClientActivation(hermes.ID, true, "", nil)
 
 	got := AssessActivation(cfg, selectedMetadataStore{})
-	want := "Install Hermes if needed, then run `aigw sync`"
+	want := adapter.ProgramNotFound(cfg, hermes.ID).NextAction()
 	if got.EnabledClients != 1 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != want || got.ProjectionPrerequisites[hermes.ID] != want {
 		t.Fatalf("selected but unprojected client = %+v", got)
 	}
@@ -336,7 +337,7 @@ func TestAssessActivationSeparatesMissingTokenFromDeferredProjection(t *testing.
 	missing := environmentBackend(func(string) string { return "" })
 	got := AssessActivation(cfg, missing)
 	wantCredential := "set environment variable " + secret.EnvironmentKey("team")
-	wantProjection := "Install Hermes if needed, then run `aigw sync`"
+	wantProjection := adapter.ProgramNotFound(cfg, hermes.ID).NextAction()
 	if got.State != domainreadiness.Deferred || got.ClientCredentialPrerequisites[hermes.ID] != wantCredential || got.NextActionFor(nil) != wantCredential || got.ProjectionPrerequisites[hermes.ID] != wantProjection {
 		t.Fatalf("missing Token and client = %+v", got)
 	}

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/platform/processtest"
@@ -57,8 +58,9 @@ func TestEditWithdrawsTheDroppedFileWhileTheTokenIsMissing(t *testing.T) {
 }
 
 // An edit of an enabled client whose files AIGW has not written names the step
-// that writes them, as status does: installing the client first, aigw sync
-// once it is installed, and storing its provider's Token when that is missing.
+// that writes them, as status does: installing the client or declaring its
+// program first, aigw sync once it is installed, and storing its provider's
+// Token when that is missing.
 func TestEditOfAClientWithoutFilesNamesTheStepThatWritesThem(t *testing.T) {
 	cfg := adapterConfig()
 	cfg.SetClientActivation(codex.ID, true, "", nil)
@@ -72,7 +74,7 @@ func TestEditOfAClientWithoutFilesNamesTheStepThatWritesThem(t *testing.T) {
 		removeToken  bool
 		action, step string
 	}{
-		{budget: "1", step: "Install Codex if needed, then run `aigw sync`"},
+		{budget: "1", step: adapter.ProgramNotFound(cfg, codex.ID).NextAction()},
 		{budget: "2", found: map[string]string{codex.ID: processtest.Program(t, "/opt/codex")}, action: "aigw sync"},
 		{budget: "3", found: map[string]string{codex.ID: processtest.Program(t, "/opt/codex")}, removeToken: true, step: "run `aigw provider rotate gateway`"},
 	} {

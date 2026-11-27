@@ -160,20 +160,33 @@ func TestTeamSetupReadsTheTokensThatItNeeds(t *testing.T) {
 	}
 }
 
+// A team file of another version is refused by its version. The schema that
+// the current one replaced is refused with the team file's own edits, which
+// name no client field, and with the file that `aigw config export` writes
+// as the alternative.
 func TestTeamSetupRefusesWhatItCannotRead(t *testing.T) {
 	home := newGuidedHome(t)
 	home.runtime.Interactive = false
+	export := fmt.Sprintf("a team file of version %d, which `aigw config export` writes", domain.ConfigVersion)
+	replaced := domain.ConfigVersion - 1
 	for _, test := range []struct {
 		text, title, want string
 	}{
-		{"version = 7\n", fmt.Sprintf("the team file has version 7, and this AIGW reads version %d", domain.ConfigVersion), fmt.Sprintf("Use a team file of version %d, which `aigw config export` writes", domain.ConfigVersion)},
-		{"version = 8\n", fmt.Sprintf("the team file has version 8, and this AIGW reads version %d", domain.ConfigVersion), "Edit the team file: set `version = 9`; rename each client's `executable` to `program`"},
-		{fmt.Sprintf("version = %d\n", domain.ConfigVersion+1), fmt.Sprintf("the team file has version %d, and this AIGW reads version %d", domain.ConfigVersion+1, domain.ConfigVersion), fmt.Sprintf("Use a team file of version %d, which `aigw config export` writes", domain.ConfigVersion)},
-		{"version = 9\n[clients.claude]\nmodel = \"team/team-model\"\n", "", "Remove the [clients] section"},
+		{"version = 7\n", fmt.Sprintf("the team file has version 7, and this AIGW reads version %d", domain.ConfigVersion), "Use " + export},
+		{fmt.Sprintf("version = %d\n", replaced), fmt.Sprintf("the team file has version %d, and this AIGW reads version %d", replaced, domain.ConfigVersion),
+			"Edit the team file (" + (&domain.UnsupportedTeamFileVersionError{Version: replaced}).Edits() + "), or use " + export},
+		{fmt.Sprintf("version = %d\n", domain.ConfigVersion+1), fmt.Sprintf("the team file has version %d, and this AIGW reads version %d", domain.ConfigVersion+1, domain.ConfigVersion), "Use " + export},
+		{fmt.Sprintf("version = %d\n[clients.claude]\nmodel = \"team/team-model\"\n", domain.ConfigVersion), "", "Remove the [clients] section"},
 	} {
 		err := home.run(t, &guidedPrompt{}, "--from", writeTeamFile(t, test.text), "--json")
-		if problem := terminal.ProblemFor(err); !strings.Contains(problem.Title, test.title) || !strings.Contains(problem.Fix, test.want) || problem.Impact != "Nothing changed." {
+		problem := terminal.ProblemFor(err)
+		if !strings.Contains(problem.Title, test.title) || !strings.Contains(problem.Fix, test.want) || problem.Impact != "Nothing changed." {
 			t.Errorf("%q: %#v", test.text, problem)
+		}
+		for _, clientField := range []string{"`executable`", "`forwarding`", "--via"} {
+			if strings.Contains(problem.Fix, clientField) {
+				t.Errorf("%q: the fix %q names %s, which a team file cannot hold", test.text, problem.Fix, clientField)
+			}
 		}
 	}
 	if err := home.run(t, &guidedPrompt{}, "--from", filepath.Join(t.TempDir(), "missing.toml")); err == nil || !strings.Contains(err.Error(), "Cannot read the team file") {

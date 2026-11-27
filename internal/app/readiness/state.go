@@ -89,6 +89,9 @@ type ClientFacts struct {
 	// ClientInstalled marks a client whose files wait while discovery finds
 	// its executable, so that a sync writes them.
 	ClientInstalled bool
+	// ProgramIssue says why an enabled client that declares no program waits
+	// for one, and ProgramAction names the step that gives it one.
+	ProgramIssue, ProgramAction string
 }
 
 // ClassifyClient classifies local readiness facts without performing probes or
@@ -132,13 +135,10 @@ func ClassifyClient(facts ClientFacts) Client {
 		state.State = Deferred
 		state.Detail = "The client is installed, but AIGW has not written its files yet"
 		state.NextAction = "aigw sync"
-	case facts.ProjectionDeferred:
+	case facts.ProjectionDeferred || facts.ProgramAction != "":
 		state.State = Deferred
-		state.Detail = "The client is not installed"
-		state.NextAction = facts.ProjectionAction
-		if state.NextAction == "" {
-			state.NextAction = "aigw sync"
-		}
+		state.Detail = facts.ProgramIssue
+		state.NextAction = facts.ProgramAction
 	case !facts.ProjectionEnabled:
 		// A disabled client names no step of its own, so it cannot change
 		// the step that the enabled clients need: sync skips it, and only

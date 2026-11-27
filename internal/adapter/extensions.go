@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"aigw-cli/internal/adapter/discovery"
@@ -65,7 +66,10 @@ func resolveExtensions(spec domain.ClientSpec, product, directory string, host d
 		return stop("", product+" has no editor extension, so it cannot declare an extensions directory", nil)
 	}
 	entries, err := os.ReadDir(directory)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return stop("", product+"'s extensions directory does not exist", nil)
+	case err != nil:
 		return stop("", product+"'s extensions directory cannot be read", err)
 	}
 	obsolete, err := obsoleteVersions(directory)
@@ -75,7 +79,7 @@ func resolveExtensions(spec domain.ClientSpec, product, directory string, host d
 	platform := hostPlatforms[host.GOOS+"/"+host.GOARCH]
 	var highest installedVersion
 	for _, entry := range entries {
-		version, platformed, named := entryVersion(extension.ID, entry.Name(), platform)
+		version, platformed, named := entryVersion(extension, entry.Name(), platform)
 		if !named || obsolete[entry.Name()] || !isDirectory(directory, entry) {
 			continue
 		}
@@ -98,11 +102,12 @@ func resolveExtensions(spec domain.ClientSpec, product, directory string, host d
 }
 
 // entryVersion reads the version of an extensions directory's entry named
-// <id>-<version> or <id>-<version>-<platform>: named is false for an entry of
-// another extension, an entry for another platform than platform, the host's,
-// and a version that does not start with a digit.
-func entryVersion(id, name, platform string) (version string, platformed, named bool) {
-	version, named = strings.CutPrefix(name, id+"-")
+// <id>-<version> or <id>-<version>-<platform>, as domain.ClientExtension.VersionOf
+// reads its name: named is false for an entry of another extension, an entry
+// for another platform than platform, the host's, and a version that does not
+// start with a digit.
+func entryVersion(extension domain.ClientExtension, name, platform string) (version string, platformed, named bool) {
+	version, named = extension.VersionOf(name)
 	if !named {
 		return "", false, false
 	}
@@ -111,35 +116,39 @@ func entryVersion(id, name, platform string) (version string, platformed, named 
 			if built != platform {
 				return "", false, false
 			}
-			version, platformed = rest, true
-			break
+			return rest, true, true
 		}
 	}
-	if !versioned(version) {
-		return "", false, false
-	}
-	return version, platformed, true
+	return version, false, true
 }
 
-// versioned reports whether the part of an entry's name after its extension's
-// ID and a hyphen starts as a version does, with a digit.
-func versioned(rest string) bool { return rest != "" && rest[0] >= '0' && rest[0] <= '9' }
+// outsideExtension is one client's discovery source that passes over each
+// candidate program inside an installed version of the client's extension
+// (see domain.ClientSpec.ExtensionsDirectoryOf), so that discovery finds the
+// next candidate or none: AIGW never adopts such a program, which the
+// editor's next version of the extension replaces, and the client declares
+// the extensions directory instead.
+type outsideExtension struct {
+	DiscoverySource
+	spec domain.ClientSpec
+}
 
-// ExtensionsDirectoryOf returns the extensions directory that holds path in an
-// installed version of the client's extension, for any platform, and false
-// for a path that lies in none: a program there is that version's, which the
-// next version of the extension replaces, so the client declares the
-// directory instead.
-func ExtensionsDirectoryOf(spec domain.ClientSpec, path string) (string, bool) {
-	if spec.Extension.ID == "" {
-		return "", false
+// Executables returns the runnable commands with name that the source finds,
+// in its order, without those inside an installed version of the client's
+// extension.
+func (source outsideExtension) Executables(name string) []string {
+	return slices.DeleteFunc(source.DiscoverySource.Executables(name), func(path string) bool {
+		_, inside := source.spec.ExtensionsDirectoryOf(path)
+		return inside
+	})
+}
+
+// Executable returns the first of Executables, or nothing.
+func (source outsideExtension) Executable(name string) string {
+	if candidates := source.Executables(name); len(candidates) > 0 {
+		return candidates[0]
 	}
-	for directory := filepath.Dir(path); filepath.Dir(directory) != directory; directory = filepath.Dir(directory) {
-		if rest, named := strings.CutPrefix(filepath.Base(directory), spec.Extension.ID+"-"); named && versioned(rest) {
-			return filepath.Dir(directory), true
-		}
-	}
-	return "", false
+	return ""
 }
 
 // isDirectory reports whether an entry of directory is one, or a link to one.

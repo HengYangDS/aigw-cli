@@ -282,7 +282,8 @@ func (s Store) LoadBackup() (domain.Config, error) {
 // reads. Another version is refused by its number before any other field is
 // read, and the refusal of the version that this schema replaced names the
 // edits that bring a file here; a field that the schema does not define is
-// refused by its name.
+// refused by its name, and a forwarding table that the replaced schema left
+// by its edit.
 func decodeTOMLConfig(data []byte, admission domain.Admission) (domain.Config, error) {
 	version, err := readVersion(data)
 	if err != nil {
@@ -295,7 +296,8 @@ func decodeTOMLConfig(data []byte, admission domain.Admission) (domain.Config, e
 		})
 	}
 	decoded, err := decodeDocument(data)
-	if _, undefined := errors.AsType[*UndefinedFieldError](err); undefined {
+	_, undefined := errors.AsType[*UndefinedFieldError](err)
+	if _, table := errors.AsType[*ForwardingTableError](err); undefined || table {
 		return domain.Config{}, newLoadError(LoadPhaseValidate, err)
 	}
 	if err != nil {

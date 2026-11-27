@@ -198,14 +198,18 @@ func (binding ClientBinding) validate(client string, spec ClientSpec) error {
 	if command != "" && (!filepath.IsAbs(command) || strings.TrimSpace(command) != command || strings.ContainsFunc(command, unicode.IsControl)) {
 		return fmt.Errorf("client %q credential_command must be one absolute executable path", client)
 	}
-	return binding.validateProgram(client)
+	return binding.validateProgram(client, spec)
 }
 
-// validateProgram checks the syntax of the client's program declaration: at
-// most one of program and extensions, each an absolute, clean path without a
-// control character. Whether the path exists is each operation's to decide,
-// so that a missing program stops only its client.
-func (binding ClientBinding) validateProgram(client string) error {
+// validateProgram checks the client's program declaration: at most one of
+// program and extensions, each an absolute, clean path without a control
+// character; extensions only for a client whose program an editor extension
+// ships; and no program inside an installed version of the client's
+// extension, which the editor's next version replaces, so the client declares
+// that extensions directory instead (see ClientSpec.ExtensionsDirectoryOf).
+// Whether the path exists is each operation's to decide, so that a missing
+// program stops only its client.
+func (binding ClientBinding) validateProgram(client string, spec ClientSpec) error {
 	if binding.Program != "" && binding.Extensions != "" {
 		return fmt.Errorf("client %q declares both program and extensions; declare one of them", client)
 	}
@@ -213,6 +217,12 @@ func (binding ClientBinding) validateProgram(client string) error {
 		if declared.path != "" && !cleanAbsolutePath(declared.path) {
 			return fmt.Errorf("client %q %s must be an absolute, clean path without control characters", client, declared.field)
 		}
+	}
+	if binding.Extensions != "" && spec.Extension.ID == "" {
+		return fmt.Errorf("client %q extensions cannot be declared, since %s has no editor extension; declare its program instead", client, spec.Label)
+	}
+	if directory, inside := spec.ExtensionsDirectoryOf(binding.Program); inside {
+		return fmt.Errorf("client %q program lies in one installed version of its editor extension, which the next version replaces; declare extensions = %q instead of program", client, directory)
 	}
 	return nil
 }

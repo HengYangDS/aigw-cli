@@ -27,6 +27,8 @@ import (
 	"aigw-cli/tools/release/identity"
 
 	builtinclients "aigw-cli/internal/clients"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 // publishedNativeJourney is a lifecycle from a published predecessor to the
@@ -181,7 +183,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(selected, converged) {
 		t.Fatalf("converged native sync rewrote forwarding state: %v", err)
 	}
-	state.rollbackForwarding(t, forwardingRoot, selected, baseline)
+	state.rollbackForwarding(t, forwardingRoot, destination, selected, baseline)
 	state.finish(t)
 }
 
@@ -194,7 +196,7 @@ func capturePublishedSnapshot(t *testing.T, configStore store.Store) store.Snaps
 	return snapshot
 }
 
-func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, forwardingRoot string, selected store.Snapshot, baseline string) {
+func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, forwardingRoot, destination string, selected store.Snapshot, baseline string) {
 	journey := state.journey
 	configStore := store.NewStore(journey.config, builtinclients.Admission())
 	journey.run("config", "rollback", "--last-change")
@@ -207,7 +209,7 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, forwarding
 	if err != nil || !restored.Config.Equal(selected.Config) {
 		t.Fatalf("configuration forward restore lost exact binding bytes: %v", err)
 	}
-	crossing := !journey.sourceReadsConfiguration()
+	crossing := !journey.firstProgramReadsConfiguration()
 	journey.prepareProgramRollback()
 	journey.run("self", "rollback")
 	journey.requireProgramBytes(baseline)
@@ -216,8 +218,11 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, forwarding
 	}
 	if crossing {
 		// Before the edits the candidate refuses the predecessor's schema,
-		// so it cannot project ahead of the update.
+		// so it cannot project ahead of the update. The predecessor then
+		// forwards the client in its own form, to an endpoint, which gives
+		// the fourth edit a forwarding to delete.
 		journey.requireSchemaRefusal(state.candidate)
+		journey.run("client", "edit", codex.ID, "--via", destination)
 	} else {
 		journey.runWith(state.candidate, "sync")
 	}
@@ -225,23 +230,47 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, forwarding
 	journey.requireProgramBytes(state.candidate)
 	journey.crossSchema(journey.binary)
 	if crossing {
-		// The copy kept before the edits predates the forwarding, so the
-		// edits leave none, and the client sets it again, as the last edit
-		// says.
-		cfg, err = configStore.Load()
-		if err != nil || cfg.Clients[codex.ID].ForwardingRoot != "" {
-			t.Fatalf("the edited copy kept a forwarding that it never held: %v", err)
-		}
-		journey.run("client", "edit", codex.ID, "--via", forwardingRoot)
-	}
-	cfg, err = configStore.Load()
-	if err != nil || cfg.Clients[codex.ID].ForwardingRoot != forwardingRoot {
+		state.requireForwardingSetAgain(t, forwardingRoot, destination)
+	} else if cfg, err = configStore.Load(); err != nil || cfg.Clients[codex.ID].ForwardingRoot != forwardingRoot {
 		t.Fatalf("program rollback and forward restore lost forwarding: %v", err)
 	}
 	for _, client := range state.clients {
 		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
 	}
 	journey.run("client", "edit", codex.ID, "--direct")
+}
+
+// requireForwardingSetAgain checks the fourth edit after the predecessor
+// forwarded the client to destination: the copy kept before the edits holds
+// that forwarding, the edits delete it, and `--via` sets it again from root,
+// which composes the same destination.
+func (state *publishedNativeJourney) requireForwardingSetAgain(t *testing.T, root, destination string) {
+	t.Helper()
+	journey := state.journey
+	var kept struct {
+		Clients map[string]struct {
+			Forwarding struct {
+				Endpoint string `toml:"endpoint"`
+			} `toml:"forwarding"`
+		} `toml:"clients"`
+	}
+	if err := toml.Unmarshal(journey.keptConfiguration, &kept); err != nil || kept.Clients[codex.ID].Forwarding.Endpoint != destination {
+		t.Fatalf("the copy kept before the edits lacks the predecessor's forwarding: %v", err)
+	}
+	configStore := store.NewStore(journey.config, builtinclients.Admission())
+	cfg, err := configStore.Load()
+	if err != nil || cfg.Clients[codex.ID].ForwardingRoot != "" {
+		t.Fatalf("the edits kept the predecessor's forwarding: %v", err)
+	}
+	journey.run("client", "edit", codex.ID, "--via", root)
+	cfg, err = configStore.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := cfg.ResolveRuntime(codex.ID, domain.ModelRef{})
+	if err != nil || cfg.Clients[codex.ID].ForwardingRoot != root || resolved.Endpoint != destination {
+		t.Fatalf("--via did not set the forwarding again with the destination that the predecessor used: %v", err)
+	}
 }
 
 // nativeProbeTeamFile is the team file of the published journeys in schema,
@@ -271,7 +300,7 @@ primary = {model = "native-system-keyring-probe/claude-test"}
 
 func (state *publishedNativeJourney) prepare(t *testing.T) {
 	journey := state.journey
-	if err := os.WriteFile(journey.manifest, []byte(nativeProbeTeamFile(journey.sourceSchema, journey.endpoint)), 0o600); err != nil {
+	if err := os.WriteFile(journey.manifest, []byte(nativeProbeTeamFile(journey.firstProgramSchema, journey.endpoint)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	journey.prepareCodexLifecycle()
@@ -307,10 +336,10 @@ func (state *publishedNativeJourney) prepare(t *testing.T) {
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest)
 	predecessor := readFile(t, journey.config)
-	if !bytes.HasPrefix(predecessor, []byte(fmt.Sprintf("version = %d\n", journey.sourceSchema))) {
+	if !bytes.HasPrefix(predecessor, []byte(fmt.Sprintf("version = %d\n", journey.firstProgramSchema))) {
 		t.Fatal("published predecessor did not create its own schema")
 	}
-	t.Logf("predecessor schema %d; candidate schema %d", journey.sourceSchema, domain.ConfigVersion)
+	t.Logf("predecessor schema %d; candidate schema %d", journey.firstProgramSchema, domain.ConfigVersion)
 	journey.run("check")
 	state.retained = make(map[string]process.Plan, len(state.clients))
 	for _, client := range state.clients {

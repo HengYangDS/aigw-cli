@@ -240,9 +240,15 @@ func TestTeamFileRefusals(t *testing.T) {
 	if !ok || version.Version != 8 {
 		t.Fatalf("version 8 refusal = %v", err)
 	}
-	for _, edit := range []string{"set `version = 9`", "rename each client's `executable` to `program`", "delete `authentication` and `model_provider` wherever they appear"} {
-		if !strings.Contains(version.Edits(), edit) {
-			t.Errorf("the edits %q do not name %q", version.Edits(), edit)
+	for _, key := range []string{fmt.Sprintf("`version = %d`", domain.ConfigVersion), "`authentication`", "`model_provider`", "recommendation"} {
+		if !strings.Contains(version.Edits(), key) {
+			t.Errorf("the edits %q do not name %s", version.Edits(), key)
+		}
+	}
+	// A team file holds no clients, so its edits name no client field.
+	for _, clientField := range []string{"`executable`", "`forwarding`", "--via"} {
+		if strings.Contains(version.Edits(), clientField) {
+			t.Errorf("the edits %q name %s", version.Edits(), clientField)
 		}
 	}
 }

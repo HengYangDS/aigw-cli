@@ -105,7 +105,7 @@ func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
 	const rotated = "native-system-keyring-rotated-after-rollback"
 	journey := state.journey
 	retained := append(prior, journey.retainedCredentials()...)
-	crossing := !journey.sourceReadsConfiguration()
+	crossing := !journey.firstProgramReadsConfiguration()
 	journey.prepareProgramRollback()
 	journey.run("self", "rollback")
 	journey.requireVersion(predecessorVersion)

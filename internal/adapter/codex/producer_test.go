@@ -42,7 +42,9 @@ type codexProgram struct {
 
 // caskLayout is Homebrew's: <package>/bin/codex, with the package manifest in
 // the package folder. extensionLayout is an editor extension's
-// bin/<os>-<arch>/codex, for which AIGW declares no manifest.
+// bin/<os>-<arch>/codex, for which AIGW declares no manifest, in a version of
+// Codex's extension built for Linux on ARM64: Codex declares the extensions
+// directory that holds it, as AIGW requires of such a program, on that host.
 const (
 	caskLayout      = "Caskroom/codex/1.0.0"
 	extensionLayout = ".vscode-server/extensions/openai.chatgpt-1.0.0-linux-arm64"
@@ -66,6 +68,11 @@ func newCodexProgram(t *testing.T, layout string) codexProgram {
 	cfg := windowConfiguration("gpt-6.2-sol", "gpt-6.2-sol", home)
 	binding := cfg.Clients[ID]
 	binding.Program = program
+	host := discovery.Host{Home: root}
+	if layout == extensionLayout {
+		binding.Program, binding.Extensions = "", filepath.Dir(pkg)
+		host.GOOS, host.GOARCH = "linux", "arm64"
+	}
 	cfg.Clients[ID] = binding
 	tokens := secret.NewMemoryStore()
 	if err := tokens.Set("gateway", "token"); err != nil {
@@ -73,7 +80,7 @@ func newCodexProgram(t *testing.T, layout string) codexProgram {
 	}
 	// Discovery finds no Codex: the program is in no folder of PATH.
 	deps := adapter.Dependencies{
-		Secrets: tokens, AIGWExecutable: filepath.Join(root, "aigw"), Host: discovery.Host{Home: root},
+		Secrets: tokens, AIGWExecutable: filepath.Join(root, "aigw"), Host: host,
 		Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(HomeDefault), ConfigPath: home, AutoManaged: true}}}},
 	}
 	return codexProgram{program: program, pkg: pkg, home: home, cfg: cfg, deps: deps}
@@ -155,7 +162,7 @@ func TestACheckComparesTheTablesProducerWithTheConfiguredProgram(t *testing.T) {
 			change: func(t *testing.T, fixture codexProgram, _ *domain.Config) {
 				appendTo(t, fixture.program, "# another build\n")
 			},
-			problem: "Codex's configured executable changed after it produced Codex's model table",
+			problem: "Codex's program changed after it produced Codex's model table",
 		},
 		"another program is configured": {
 			layout: caskLayout,
@@ -166,14 +173,14 @@ func TestACheckComparesTheTablesProducerWithTheConfiguredProgram(t *testing.T) {
 				binding.Program = other
 				cfg.Clients[ID] = binding
 			},
-			problem: "Codex's model table came from another executable than the configured one",
+			problem: "Codex's model table came from another program than the one that Codex uses now",
 		},
 		"the manifest declares another version": {
 			layout: caskLayout,
 			change: func(t *testing.T, fixture codexProgram, _ *domain.Config) {
 				writeTo(t, filepath.Join(fixture.pkg, "codex-package.json"), `{"version":"1.1.0"}`)
 			},
-			problem: "The package of Codex's configured executable now declares version 1.1.0, and Codex's model table came from version 1.0.0",
+			problem: "The package of Codex's program now declares version 1.1.0, and Codex's model table came from version 1.0.0",
 		},
 		"the manifest is gone": {
 			layout: caskLayout,
@@ -182,7 +189,7 @@ func TestACheckComparesTheTablesProducerWithTheConfiguredProgram(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			problem: "The package of Codex's configured executable now declares no version, and Codex's model table came from version 1.0.0",
+			problem: "The package of Codex's program now declares no version, and Codex's model table came from version 1.0.0",
 		},
 		"the record names no producer": {
 			layout: caskLayout,
@@ -194,7 +201,7 @@ func TestACheckComparesTheTablesProducerWithTheConfiguredProgram(t *testing.T) {
 				}
 				writeTo(t, record, strings.Replace(string(data), `  "catalog_client_path": "`+fixture.program+`",`+"\n", "", 1))
 			},
-			problem: "AIGW's record does not name the executable that produced Codex's model table",
+			problem: "AIGW's record does not name the program that produced Codex's model table",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -231,7 +238,7 @@ func TestACheckComparesTheTablesProducerWithTheConfiguredProgram(t *testing.T) {
 	}
 }
 
-// A Codex whose configured executable runs but cannot produce its model table
+// A Codex whose program runs but cannot produce its model table
 // stops: each sync keeps Codex's file, AIGW's record and the table byte for
 // byte and fails, and a check names the same problem and fix, which points at
 // the executable, never at a sync.
@@ -250,7 +257,7 @@ func TestACodexThatCannotProduceItsTableStops(t *testing.T) {
 	for attempt := range 2 {
 		_, err := fixture.sync(t)
 		stop, stopped := errors.AsType[*adapter.StopError](err)
-		if !stopped || stop.NextAction() != tableFix || !strings.HasPrefix(stop.Error(), "Codex's configured executable cannot produce its model table") {
+		if !stopped || stop.NextAction() != tableFix || !strings.HasPrefix(stop.Error(), "Codex's program cannot produce its model table") {
 			t.Fatalf("sync %d = %v, want Codex stopped for its table", attempt+2, err)
 		}
 		if after := fixture.files(t); !slices.EqualFunc(after, before, slices.Equal) {
@@ -264,7 +271,65 @@ func TestACodexThatCannotProduceItsTableStops(t *testing.T) {
 	}
 }
 
-// A Codex whose configured executable runs and has never produced a model
+// A Codex whose extensions directory resolves to a program that cannot
+// produce its model table stops as any other, and its fix sends the operator
+// to another version of the extension or to a program outside the directory,
+// never to a --program inside it, which AIGW refuses.
+func TestACodexExtensionThatCannotProduceItsTableNamesTheExtension(t *testing.T) {
+	fixture := newCodexProgram(t, extensionLayout)
+	if _, err := fixture.sync(t); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(filepath.Dir(fixture.program), "models.json")); err != nil {
+		t.Fatal(err)
+	}
+	appendTo(t, fixture.program, "# a build that prints no table\n")
+	_, err := fixture.sync(t)
+	stop, stopped := errors.AsType[*adapter.StopError](err)
+	if !stopped || stop.NextAction() != extensionTableFix || !strings.HasPrefix(stop.Error(), "Codex's program cannot produce its model table") {
+		t.Fatalf("sync = %v, want Codex stopped with the extension's fix", err)
+	}
+	if status := fixture.inspect(t, fixture.cfg); status.Ready || status.Issue != stop.Error() || status.RepairAction != extensionTableFix {
+		t.Fatalf("status = %+v, want the sync's problem and fix", status)
+	}
+	if tableRepair(filepath.Join(t.TempDir(), "codex")) != tableFix {
+		t.Fatal("a program outside an extension gets the extension's fix")
+	}
+}
+
+// When the editor installs a newer version of Codex's extension, the
+// declared directory resolves to its program: a check finds that the model
+// table came from the older one, with a sync as its fix, and the sync records
+// the newer program as the table's producer, keeps the declaration and leaves
+// the check ready.
+func TestANewerVersionOfCodexsExtensionProducesTheTable(t *testing.T) {
+	fixture := newCodexProgram(t, extensionLayout)
+	if _, err := fixture.sync(t); err != nil {
+		t.Fatal(err)
+	}
+	newer := filepath.Join(filepath.Dir(fixture.pkg), (codexAdapter{}).Spec().Extension.ID+"-1.1.0-linux-arm64", "bin", "linux-aarch64")
+	writeTo(t, filepath.Join(newer, "models.json"), windowedTable)
+	program := filepath.Join(newer, "codex")
+	processtest.Write(t, program, fakeCodexScript)
+	if status := fixture.inspect(t, fixture.cfg); status.Ready || status.Issue != "Codex's model table came from another program than the one that Codex uses now" || status.RepairAction != "aigw sync" {
+		t.Fatalf("status = %+v, want the older producer and a sync", status)
+	}
+	after, err := fixture.sync(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state := readCodexSidecar(t, fixture.home); state.CatalogHash == "" || state.CatalogClientPath != program {
+		t.Fatalf("the record names the producer %q, want %q", state.CatalogClientPath, program)
+	}
+	if binding := after.Clients[ID]; binding.Program != "" || binding.Extensions != fixture.cfg.Clients[ID].Extensions {
+		t.Fatalf("the sync changed the declaration to %+v", binding)
+	}
+	if status := fixture.inspect(t, after); !status.Ready {
+		t.Fatalf("status after the sync = %+v, want ready", status)
+	}
+}
+
+// A Codex whose program runs and has never produced a model
 // table for AIGW, and cannot, is no loop: each sync succeeds without a table,
 // the second writes nothing, and each check passes and names no repair, so
 // no check sends the operator to a sync that cannot carry it out. This pins

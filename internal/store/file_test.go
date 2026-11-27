@@ -312,12 +312,12 @@ retired = 'a field that no schema defines'
 	if !isLoad || loadErr.Phase != LoadPhaseValidate || !isVersion || unsupported.Version != 8 {
 		t.Fatalf("load error = %v", err)
 	}
-	for _, edit := range []string{
-		"set `version = 9`", "rename each client's `executable` to `program`", "delete `authentication` and `model_provider` wherever they appear",
-		"delete each client's `forwarding` and set it again with `--via <root>`",
-	} {
-		if !strings.Contains(unsupported.Edits(), edit) || !strings.Contains(err.Error(), edit) {
-			t.Errorf("the refusal %q does not name %q", err, edit)
+	if edits := unsupported.Edits(); edits == "" || !strings.Contains(err.Error(), edits) {
+		t.Errorf("the refusal %q does not name the edits %q", err, edits)
+	}
+	for _, key := range []string{fmt.Sprintf("`version = %d`", domain.ConfigVersion), "`executable`", "`authentication`", "`model_provider`", "`forwarding`"} {
+		if !strings.Contains(unsupported.Edits(), key) {
+			t.Errorf("the edits %q do not name %s, which the file holds", unsupported.Edits(), key)
 		}
 	}
 	if kept := readTestFile(t, path); string(kept) != schemaEight {
@@ -375,10 +375,11 @@ func TestSchemaNineRefusesAModelWithoutProtocols(t *testing.T) {
 }
 
 // A client's forwarding is one string, the root of the forwarding service. A
-// schema 8 table left in its place is refused as a value of the wrong type,
-// with the field and its line, rather than read as a root; a root that is not
-// HTTPS or loopback HTTP, or that carries user information, a query or a
-// fragment, is refused by the client's name.
+// schema 8 table left in its place, inline or under its own header, is
+// refused with the field, its line and the edit that replaces it, rather than
+// read as a root; another value of the wrong type is refused where it stands.
+// A root that is not HTTPS or loopback HTTP, or that carries user
+// information, a query or a fragment, is refused by the client's name.
 func TestSchemaNineHoldsForwardingAsARoot(t *testing.T) {
 	_, valid := schemaNineConfig(t)
 	lines := strings.Split(valid, "\n")
@@ -386,16 +387,33 @@ func TestSchemaNineHoldsForwardingAsARoot(t *testing.T) {
 	if index < 0 {
 		t.Fatalf("the fixture has no forwarding:\n%s", valid)
 	}
-	edited := slices.Clone(lines)
-	edited[index] = "forwarding = { endpoint = 'http://127.0.0.1:8792/dmxapi/v1', upstream = 'abc', protocol = 'responses' }"
-	_, err := decodeTOMLConfig([]byte(strings.Join(edited, "\n")), testAdmission())
-	loadErr, isLoad := errors.AsType[*LoadError](err)
-	mistyped, isDecode := errors.AsType[*toml.DecodeError](err)
-	if !isLoad || loadErr.Phase != LoadPhaseParse || !isDecode || strings.Join(mistyped.Key(), ".") != "clients.codex.forwarding" {
-		t.Fatalf("load error = %v, want clients.codex.forwarding on line %d", err, index+1)
+	inline := slices.Clone(lines)
+	inline[index] = "forwarding = { endpoint = 'http://127.0.0.1:8792/dmxapi/v1', upstream = 'abc', protocol = 'responses' }"
+	header := slices.Delete(slices.Clone(lines), index, index+1)
+	header = append(header, "[clients.codex.forwarding]", "endpoint = 'http://127.0.0.1:8792/dmxapi/v1'", "")
+	for name, test := range map[string]struct {
+		lines []string
+		line  int
+	}{"inline": {inline, index + 1}, "under a header": {header, len(header) - 2}} {
+		_, err := decodeTOMLConfig([]byte(strings.Join(test.lines, "\n")), testAdmission())
+		loadErr, isLoad := errors.AsType[*LoadError](err)
+		table, isTable := errors.AsType[*ForwardingTableError](err)
+		if !isLoad || loadErr.Phase != LoadPhaseValidate || !isTable || table.Client != ClientCodex || table.Line != test.line ||
+			!strings.Contains(err.Error(), "clients.codex.forwarding") || !strings.Contains(table.Edit(), "`aigw client edit codex --via <root>`") {
+			t.Errorf("%s: load error = %v, want clients.codex.forwarding on line %d", name, err, test.line)
+		}
+		if entry, named := domain.EntryOf(err); !named || !strings.Contains(entry, "clients.codex.forwarding") {
+			t.Errorf("%s: the refusal names the entry %q", name, entry)
+		}
 	}
-	if line, _ := mistyped.Position(); line != index+1 {
-		t.Fatalf("the refusal names line %d, want %d", line, index+1)
+	mistyped := slices.Clone(lines)
+	mistyped[index] = "forwarding = 8792"
+	_, err := decodeTOMLConfig([]byte(strings.Join(mistyped, "\n")), testAdmission())
+	if loadErr, isLoad := errors.AsType[*LoadError](err); !isLoad || loadErr.Phase != LoadPhaseParse {
+		t.Fatalf("a forwarding of another type = %v", err)
+	}
+	if decoded, ok := errors.AsType[*toml.DecodeError](err); !ok || strings.Join(decoded.Key(), ".") != "clients.codex.forwarding" {
+		t.Fatalf("a forwarding of another type = %v", err)
 	}
 	for name, root := range map[string]string{
 		"plain HTTP to another host": "http://proxy.test:8792",

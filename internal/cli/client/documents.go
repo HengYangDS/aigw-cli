@@ -10,8 +10,9 @@ import (
 // subcommands' JSON documents. list replaced the document of `aigw client
 // discover`, version 1, so it continued at 2, and is at 3 since its program
 // replaced its executable; enable and disable name their client files as
-// client_files, which replaced projections, so they continue at 2; edit, which
-// has no predecessor, is at 3 since its program and extensions replaced its
+// client_files, which replaced projections, so they continued at 2, and are
+// at 3 since they name the selections that they follow; edit, which has no
+// predecessor, is at 3 since its program and extensions replaced its
 // executable and its forwarding became the root of a forwarding service.
 const (
 	listSchemaVersion    = 3

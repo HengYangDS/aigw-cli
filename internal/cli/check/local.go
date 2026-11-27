@@ -221,6 +221,11 @@ func (c *checker) tokenCheck(r result) localCheck {
 
 // fileChecks observe whether the client's files match its selection, and
 // each file that the client's adapter inspected. A disabled client has none.
+// Activation decides, as for status, what a client that declares no program
+// waits for, from the inspection, which judges the files against AIGW's
+// record: files that AIGW has not written stand for themselves, and files
+// that match the record are listed after the step that gives the client its
+// program.
 func (c *checker) fileChecks(ctx context.Context, r *result, selected domain.Runtime, selectErr error) []localCheck {
 	name, label := r.spec.ID+":files", r.spec.Label+" client files"
 	binding := c.cfg.Clients[r.spec.ID]
@@ -230,22 +235,25 @@ func (c *checker) fileChecks(ctx context.Context, r *result, selected domain.Run
 	case selectErr != nil:
 		return []localCheck{skippedCheck(name, label, "No model resolves, so no client files can match it")}
 	}
-	// Activation decides which enabled clients wait for their program and
-	// names the same step for every readiness command.
-	if install := clientactivation.ProjectionPrerequisites(c.cfg)[r.spec.ID]; install != "" {
-		if discovered, err := c.deps.Discover(r.spec.ID); err == nil && discovered.Executable(r.spec.ID) != "" {
-			return []localCheck{failedCheck(name, label, r.spec.Label+" is installed, but AIGW has not written its files yet", "aigw sync", domainreadiness.Deferred)}
-		}
-		return []localCheck{failedCheck(name, label, r.spec.Label+" is not installed", install, domainreadiness.Deferred)}
-	}
 	status := c.deps.InspectClient(ctx, c.cfg, r.spec.ID, selected)
+	found := func() bool {
+		discovered, err := c.deps.Discover(r.spec.ID)
+		return err == nil && discovered.Executable(r.spec.ID) != ""
+	}
+	awaited := clientactivation.AwaitedFiles(c.cfg, r.spec.ID, status, found)
+	if awaited.Unwritten {
+		return []localCheck{failedCheck(name, label, awaited.Problem, awaited.Step, domainreadiness.Deferred)}
+	}
 	check := passedCheck(name, label, "Match the selection")
 	if status.NativeModelOverride {
 		r.native, r.nativeModel = true, status.NativeModel
 		check.Detail = "Match the selection; " + c.admission().ProductName(r.spec.ID) + " " + status.NativeModelNote("keeps its own")
 	}
-	if !status.Ready {
+	switch {
+	case !status.Ready:
 		check = failedCheck(name, label, status.Issue, status.RepairAction, domainreadiness.Invalid)
+	case awaited.Step != "":
+		check = failedCheck(name, label, awaited.Problem, awaited.Step, domainreadiness.Deferred)
 	}
 	return append([]localCheck{check}, observedChecks(r.spec, invocation.Home(c.deps.Dependencies), status.Checks)...)
 }

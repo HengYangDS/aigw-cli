@@ -53,10 +53,26 @@ func TestAdmissionKeepsOrderAndReturnsCopies(t *testing.T) {
 	}
 }
 
+// A specification is refused without an identifier, or with half of an
+// extension: an extension ID without the program's path inside it, or that
+// path without the ID, which could resolve no program.
 func TestAdmissionRefusesAnInvalidSpecification(t *testing.T) {
+	for name, extension := range map[string]ClientExtension{
+		"an extension without its program": {ID: "publisher.client"},
+		"a program without its extension":  {Program: "bin/client"},
+	} {
+		spec := ClientSpec{ID: "one", Extension: extension}
+		if err := spec.Validate(); err == nil || !strings.Contains(err.Error(), `client "one"`) {
+			t.Errorf("%s: Validate() = %v", name, err)
+		}
+	}
+	if err := (ClientSpec{ID: "one", Extension: ClientExtension{ID: "publisher.client", Program: "bin/client"}}).Validate(); err != nil {
+		t.Errorf("a whole extension is refused: %v", err)
+	}
 	for name, specs := range map[string][]ClientSpec{
 		"empty identifier":    {{ID: ""}},
 		"repeated identifier": {{ID: "one"}, {ID: "one"}},
+		"half an extension":   {{ID: "one", Extension: ClientExtension{ID: "publisher.client"}}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {

@@ -2,10 +2,12 @@
 package activation
 
 import (
+	"cmp"
 	"maps"
 	"slices"
 	"strings"
 
+	"aigw-cli/internal/adapter"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -188,8 +190,63 @@ func observeCredential(store secret.Store, observed map[string]credentialObserva
 	return observation, true
 }
 
-func projectionAction(spec domain.ClientSpec) string {
-	return "Install " + spec.Label + " if needed, then run `aigw sync`"
+// syncStep is the step of files that a sync writes.
+const syncStep = "aigw sync"
+
+// recorded ends the problem of a client whose files match AIGW's record.
+const recorded = "; its files match AIGW's record"
+
+// Awaited is what an enabled client waits for before AIGW keeps its files, as
+// AwaitedFiles decides it. Its zero value waits for nothing: the client's
+// inspection, which judges its files against AIGW's record, decides alone.
+type Awaited struct {
+	// Problem says why the client waits, and Step names the step that gives
+	// it its program: a sync, which adopts the program that discovery finds,
+	// or else the step of adapter.ProgramNotFound.
+	Problem, Step string
+	// Found marks a client whose program discovery finds.
+	Found bool
+	// Unwritten marks files that do not match AIGW's record, as those that
+	// AIGW never wrote do not, and that a sync writes once the client has its
+	// program: they count as not projected.
+	Unwritten bool
+}
+
+// AwaitedFiles decides, for status and the local check alike, what an enabled
+// client waits for from what AIGW observed of it: inspected, its inspection,
+// which judges its files against AIGW's record, and found, which tells
+// whether discovery finds its program and is asked only when the answer
+// matters. Whether the files count as projected follows from the enabled
+// state, the targets and AIGW's record, never from whether the configuration
+// holds a program path: the inspection decides alone for a client that
+// declares its program, by path or by extensions directory, and reports one
+// that its program stops as stopped, and for a client whose inspection names
+// a step of its own, such as for a file edited outside AIGW. A client that
+// declares no program and whose files either match AIGW's record or wait for
+// a sync waits for the step that gives it a program.
+func AwaitedFiles(cfg domain.Config, clientID string, inspected adapter.Status, found func() bool) Awaited {
+	binding := cfg.Clients[clientID]
+	// An inspection that names no step of its own names a sync, as readiness
+	// reads it too.
+	unwritten := !inspected.Ready && cmp.Or(inspected.RepairAction, syncStep) == syncStep
+	if !binding.Enabled || binding.DeclaresProgram() || !inspected.Ready && !unwritten {
+		return Awaited{}
+	}
+	awaited := Awaited{Found: found(), Unwritten: unwritten}
+	spec, _ := cfg.Admission().Spec(clientID)
+	switch {
+	case !awaited.Found:
+		stop := adapter.ProgramNotFound(cfg, clientID)
+		awaited.Problem, awaited.Step = stop.Error(), stop.NextAction()
+		if !unwritten {
+			awaited.Problem += recorded
+		}
+	case unwritten:
+		awaited.Problem, awaited.Step = spec.Label+" is installed, but AIGW has not written its files yet", syncStep
+	default:
+		awaited.Problem, awaited.Step = cfg.Admission().ProductName(clientID)+" declares no program, and a sync adopts the one that discovery finds"+recorded, syncStep
+	}
+	return awaited
 }
 
 // enableAction resumes a disabled client binding that keeps its selection;
@@ -206,13 +263,16 @@ func enableAction(spec domain.ClientSpec) string {
 	return action
 }
 
-// ProjectionPrerequisites derives pending native-client work from selected
-// bindings without reading credential metadata or claiming projection health:
-// an enabled client that declares no program has not been converged, since
-// convergence adopts the program that discovery finds, so it waits to be
-// installed and synchronized. Whether the files of a client that declares
-// one are projected is its adapter's and AIGW's record's to tell, and a
-// declared program that cannot be used stops the client instead.
+// ProjectionPrerequisites derives pending native-client work from the
+// configuration alone, without reading credential metadata, observing a
+// client or claiming projection health: an enabled client that declares no
+// program has not been converged since discovery last found it, since
+// convergence adopts the program that discovery finds, so it waits for the
+// step of adapter.ProgramNotFound, and so are its files taken to. A command
+// that observes the clients replaces this estimate with what AwaitedFiles
+// decides (see ObserveFiles). Whether the files of a client that declares a
+// program are projected is its inspection's to tell, against AIGW's record,
+// and a declared program that cannot be used stops the client instead.
 func ProjectionPrerequisites(cfg domain.Config) map[string]string {
 	prerequisites := map[string]string{}
 	for _, spec := range cfg.Admission().Specs() {
@@ -220,43 +280,81 @@ func ProjectionPrerequisites(cfg domain.Config) map[string]string {
 		if !binding.Enabled || binding.DeclaresProgram() {
 			continue
 		}
-		prerequisites[spec.ID] = projectionAction(spec)
+		prerequisites[spec.ID] = adapter.ProgramNotFound(cfg, spec.ID).NextAction()
 	}
 	return prerequisites
+}
+
+// ObserveFiles replaces the estimate of what the enabled clients wait for,
+// which AssessActivation makes from the configuration alone, with what an
+// observation of them found, as AwaitedFiles decides it for each client. The
+// state and the verification step follow the observation: the activation is
+// deferred while every enabled client's files are unwritten, not while a
+// client whose files match AIGW's record waits for its program.
+func (a *Activation) ObserveFiles(observed map[string]Awaited) {
+	if a == nil || a.EnabledClients == 0 {
+		return
+	}
+	a.ProjectionPrerequisites = map[string]string{}
+	unwritten := 0
+	for client, awaited := range observed {
+		if awaited.Step == "" {
+			continue
+		}
+		a.ProjectionPrerequisites[client] = awaited.Step
+		if awaited.Unwritten {
+			unwritten++
+		}
+	}
+	a.settleEnabled(unwritten)
+}
+
+// settleEnabled derives the state of an activation with enabled clients from
+// their prerequisites, of which unwritten clients' files are not written:
+// unavailable credential metadata stays so; when no enabled client's files
+// are written, the activation is deferred; when no enabled client waits for
+// anything, the next step verifies them.
+func (a *Activation) settleEnabled(unwritten int) {
+	if a.State == domainreadiness.Unavailable {
+		return
+	}
+	a.State, a.VerificationPrerequisite = "", ""
+	blocked := 0
+	for _, client := range a.admission.IDs() {
+		if a.ProjectionPrerequisites[client] != "" || a.ClientCredentialPrerequisites[client] != "" {
+			blocked++
+		}
+	}
+	switch {
+	case unwritten == a.EnabledClients:
+		a.State = domainreadiness.Deferred
+	case blocked == 0:
+		a.VerificationPrerequisite = "aigw check"
+	}
 }
 
 func assessEnabledProjection(cfg domain.Config, store secret.Store, result Activation) Activation {
 	result.ProjectionPrerequisites = ProjectionPrerequisites(cfg)
 	result.ClientCredentialPrerequisites = map[string]string{}
 	result.observedCredentials = map[string]credentialObservation{}
-	blocked := 0
-	metadataUnavailable := false
 	for _, spec := range cfg.Admission().Specs() {
 		if !cfg.Clients[spec.ID].Enabled {
 			continue
 		}
 		runtime, err := cfg.ResolveRuntime(spec.ID, domain.ModelRef{})
-		if err == nil && runtime.UsesAIGWCredentialStore() {
-			observation, observed := observeCredential(store, result.observedCredentials, runtime.ProviderID)
-			switch {
-			case !observed || observation.err != nil:
-				metadataUnavailable = true
-			case !observation.available:
-				result.ClientCredentialPrerequisites[spec.ID] = observation.recovery(store, runtime.ProviderID)
-			}
+		if err != nil || !runtime.UsesAIGWCredentialStore() {
+			continue
 		}
-		if result.ProjectionPrerequisites[spec.ID] != "" || result.ClientCredentialPrerequisites[spec.ID] != "" {
-			blocked++
+		observation, observed := observeCredential(store, result.observedCredentials, runtime.ProviderID)
+		switch {
+		case !observed || observation.err != nil:
+			result.State = domainreadiness.Unavailable
+			result.CredentialPrerequisite = "aigw check --depth local"
+		case !observation.available:
+			result.ClientCredentialPrerequisites[spec.ID] = observation.recovery(store, runtime.ProviderID)
 		}
 	}
-	if metadataUnavailable {
-		result.State = domainreadiness.Unavailable
-		result.CredentialPrerequisite = "aigw check --depth local"
-	} else if len(result.ProjectionPrerequisites) == result.EnabledClients {
-		result.State = domainreadiness.Deferred
-	} else if blocked == 0 {
-		result.VerificationPrerequisite = "aigw check"
-	}
+	result.settleEnabled(len(result.ProjectionPrerequisites))
 	return result
 }
 
@@ -282,11 +380,14 @@ func (assessment *inactiveClientAssessment) consider(client string, ref domain.M
 	if err != nil {
 		return false
 	}
-	spec, _ := assessment.cfg.Admission().Spec(client)
-	assessment.result.ProjectionPrerequisites[client] = projectionAction(spec)
 	if selected {
 		// Every binding is disabled here; synchronization skips a disabled selection.
+		spec, _ := assessment.cfg.Admission().Spec(client)
 		assessment.result.ProjectionPrerequisites[client] = enableAction(spec)
+	} else {
+		// A sync enables the recommended client and adopts the program that
+		// discovery finds; without one, it waits as an enabled client does.
+		assessment.result.ProjectionPrerequisites[client] = adapter.ProgramNotFound(assessment.cfg, client).NextAction()
 	}
 	if !candidate.UsesAIGWCredentialStore() {
 		delete(assessment.result.ClientCredentialPrerequisites, client)
@@ -430,7 +531,7 @@ func NextActionAfterProviderConnection(cfg domain.Config, accountID string) stri
 		case !binding.Enabled:
 			return enableAction(spec)
 		case !binding.DeclaresProgram():
-			return projectionAction(spec)
+			return adapter.ProgramNotFound(cfg, spec.ID).NextAction()
 		}
 		return "aigw check"
 	}

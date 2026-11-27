@@ -71,7 +71,30 @@ func (s System) Platform() Host {
 }
 
 // Executable returns the first runnable command with name on this host.
-func (s System) Executable(name string) string { return s.find(name) }
+func (s System) Executable(name string) string {
+	if candidates := s.Executables(name); len(candidates) > 0 {
+		return candidates[0]
+	}
+	return ""
+}
+
+// Executables returns every runnable command with name on this host's search
+// path, in its order, so that a client's discovery can pass over one that it
+// never adopts.
+func (s System) Executables(name string) []string {
+	var found []string
+	for _, dir := range filepath.SplitList(s.Path) {
+		path := filepath.Join(dir, name)
+		available, err := executableAvailable(path)
+		if err != nil || !available {
+			continue
+		}
+		if absolute, err := filepath.Abs(path); err == nil {
+			found = append(found, absolute)
+		}
+	}
+	return found
+}
 
 // Runnable reports whether path names a runnable executable on this host.
 func (s System) Runnable(path string) bool {
@@ -90,21 +113,6 @@ func (s System) FilePresent(path string) bool {
 // bit. It runs nothing.
 func ExecutableAvailable(path string) (bool, error) {
 	return executableAvailable(path)
-}
-
-func (s System) find(name string) string {
-	for _, dir := range filepath.SplitList(s.Path) {
-		path := filepath.Join(dir, name)
-		available, err := executableAvailable(path)
-		if err != nil || !available {
-			continue
-		}
-		absolute, err := filepath.Abs(path)
-		if err == nil {
-			return absolute
-		}
-	}
-	return ""
 }
 
 func executableAvailable(path string) (bool, error) {

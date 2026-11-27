@@ -31,7 +31,7 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	journey.run("setup", "--from", journey.candidateTeamFile())
 	// A predecessor of another schema cannot read the candidate's file, which
 	// keeps it unable to export without an injected field.
-	crossing := !journey.sourceReadsConfiguration()
+	crossing := !journey.firstProgramReadsConfiguration()
 	compatibility := exec.CommandContext(t.Context(), baseline, "config", "export")
 	compatibility.Env = journey.environment
 	_, compatibilityErr := compatibility.CombinedOutput()

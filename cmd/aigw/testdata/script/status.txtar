@@ -183,8 +183,8 @@ Next
       "state": "deferred",
       "model": "team/team-model",
       "provider": "team",
-      "detail": "The client is not installed",
-      "next_detail": "Install Codex if needed, then run `aigw sync`",
+      "detail": "Codex program was not found",
+      "next_detail": "Install Codex if needed, then run `aigw sync`, or declare its program: aigw client edit codex --program \u003cpath\u003e or --extensions \u003cdir\u003e",
       "client_files_deferred": true,
       "endpoint_configured": true,
       "transport": "external_loopback",
@@ -199,7 +199,7 @@ Next
   },
   "models": 1,
   "enabled_clients": 2,
-  "next_detail": "Install Codex if needed, then run `aigw sync`"
+  "next_detail": "Install Codex if needed, then run `aigw sync`, or declare its program: aigw client edit codex --program \u003cpath\u003e or --extensions \u003cdir\u003e"
 }
 -- connected.txt --
 AIGW  Configuration status
@@ -209,7 +209,7 @@ AIGW  Configuration status
 Clients
   · Claude             team/team-model · Configured
   · Claude Desktop     No model selected · Qualified: Chat, Cowork, Code · macOS
-  · Codex              team/team-model · Deferred · The client is not installed
+  · Codex              team/team-model · Deferred · Codex program was not found
   · Hermes             No model selected
 
 Transport
@@ -222,7 +222,7 @@ Optional diagnostics
   · team               Provider does not expose a balance probe
 
 Next
-  Install Codex if needed, then run `aigw sync`
+  Install Codex if needed, then run `aigw sync`, or declare its program: aigw client edit codex --program <path> or --extensions <dir>
 -- disabled.json --
 {
   "schema_version": 5,
@@ -328,7 +328,7 @@ AIGW  Configuration status
   Each client's model and readiness, and the smallest next action.
 
 Clients
-  · Claude             team/team-model · Deferred · The client is not installed
+  · Claude             team/team-model · Deferred · Claude Code program was not found
   · Claude Desktop     No model selected · Qualified: Chat, Cowork, Code · macOS
   · Codex              No model selected
   · Hermes             No model selected
@@ -346,7 +346,7 @@ Optional diagnostics
   · team               Provider does not expose a balance probe
 
 Next
-  Install Claude if needed, then run `aigw sync`
+  Install Claude if needed, then run `aigw sync`, or declare its program: aigw client edit claude --program <path> or --extensions <dir>
 -- installed.json --
 {
   "schema_version": 5,

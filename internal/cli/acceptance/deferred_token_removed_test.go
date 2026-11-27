@@ -68,7 +68,7 @@ func assertTokenRemovedJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer
 		result.State = result.Clients[codex.ID].State
 		checked, _ := decodeCheck(t, out).client(codex.ID)
 		files := slices.IndexFunc(checked.Checks, func(check checkedLocal) bool {
-			return check.Name == "codex:files" && check.State == "failed" && strings.HasPrefix(check.Detail, "Codex is not installed")
+			return check.Name == "codex:files" && check.State == "failed" && check.Detail == programNotFound(codex.ID).Error()
 		})
 		if files < 0 || !wantNext(result.Clients[codex.ID].NextAction, result.Clients[codex.ID].NextDetail, wantCommandAction) {
 			t.Fatalf("check selected Codex = %+v", checked)

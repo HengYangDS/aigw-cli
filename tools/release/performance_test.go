@@ -165,7 +165,7 @@ func nativePerformanceJourney(t *testing.T, program, credentialWorker, backend, 
 	if err := os.Symlink(shell, filepath.Join(j.clientBin, "sh")); err != nil {
 		t.Fatal(err)
 	}
-	manifest := []byte(nativeProbeTeamFile(j.sourceSchema, endpoint) + `
+	manifest := []byte(nativeProbeTeamFile(j.firstProgramSchema, endpoint) + `
 [[providers.models]]
 id = "claude-second"
 family = "claude-second"

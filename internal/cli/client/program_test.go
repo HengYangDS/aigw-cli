@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
@@ -67,7 +68,8 @@ func TestEnableWithoutADeclarationAdoptsTheDiscoveredProgram(t *testing.T) {
 			}
 			problem := terminal.ProblemFor(executeAdapter(t, runtime, args...))
 			if problem.Title != "Claude Code program was not found" || problem.Impact != impact ||
-				problem.Fix != "aigw client edit claude --program <path> or --extensions <dir>" {
+				problem.Fix != adapter.ProgramNotFound(adapterConfig(), claude.ID).NextAction() ||
+				!strings.Contains(problem.Fix, "aigw client edit claude --program <path> or --extensions <dir>") {
 				t.Fatalf("enable without a program = %+v", problem)
 			}
 			if _, err := os.Stat(claudeSettingsPath(t, runtime.Host)); !os.IsNotExist(err) {

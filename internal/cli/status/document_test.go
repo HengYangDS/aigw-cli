@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
@@ -73,8 +74,9 @@ func TestStatusNamesEachModelProviderModel(t *testing.T) {
 }
 
 // An enabled client whose files AIGW has not written is told apart by
-// discovery: an installed one names aigw sync, which writes them, and one that
-// is not installed names installing it first. Status names the same step.
+// discovery: an installed one names aigw sync, which writes them, and one
+// whose program discovery does not find names the step that installs it or
+// declares its program. Status names the same step.
 func TestStatusTellsAnInstalledClientFromOneThatIsNot(t *testing.T) {
 	runtime, cfg, out := configuredReadinessRuntime(t)
 	cfg.SetClientActivation(codex.ID, true, "", nil)
@@ -84,11 +86,12 @@ func TestStatusTellsAnInstalledClientFromOneThatIsNot(t *testing.T) {
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
+	missing := adapter.ProgramNotFound(cfg, codex.ID)
 	for _, test := range []struct {
 		found               foundExecutables
 		detail, action, why string
 	}{
-		{foundExecutables{}, "The client is not installed", "", "Install Codex if needed, then run `aigw sync`"},
+		{foundExecutables{}, missing.Error(), "", missing.NextAction()},
 		{foundExecutables{codex.ID: processtest.Program(t, "/opt/codex")}, "The client is installed, but AIGW has not written its files yet", "aigw sync", ""},
 	} {
 		runtime.Discovery = test.found

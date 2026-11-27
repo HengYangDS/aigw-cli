@@ -104,10 +104,16 @@ func MissingProgram(cfg domain.Config, clientID string, host discovery.Host) *St
 
 // ProgramNotFound is the stop of a client that declares no program and of
 // which discovery found none, as a command that names the client to use it,
-// such as enabling it, reports it.
+// such as enabling it, reports it, and as the readiness commands report a
+// client that waits for its program or that a sync would enable. Its fix is
+// either step: installing the client where discovery finds it, after which a
+// sync adopts its program, or declaring the program (see ProgramRepair),
+// which a program elsewhere, such as one that only an editor's extension
+// ships, needs, since discovery searches no extensions directory.
 func ProgramNotFound(cfg domain.Config, clientID string) *StopError {
 	spec, _ := cfg.Admission().Spec(clientID)
-	return NewStop(clientID, cfg.Admission().ProductName(clientID)+" program was not found", ProgramRepair(spec), nil)
+	install := "Install " + spec.Label + " if needed, then run `aigw sync`"
+	return NewStop(clientID, cfg.Admission().ProductName(clientID)+" program was not found", install+", or declare its program: "+ProgramRepair(spec), nil)
 }
 
 // missingFile is the stop of a program file that cannot run, and nil for one

@@ -197,7 +197,7 @@ func TestAnExtensionsDirectoryWithoutAProgramStopsTheClient(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			problem: "The extensions directory holds no installed Claude Code extension (anthropic.claude-code) for this host",
+			problem: "Claude Code's extensions directory does not exist",
 		},
 		"the highest version without its program": {
 			client: "codex", version: "26.10.0",
@@ -255,27 +255,26 @@ func TestAnExtensionsDirectoryWithoutAProgramStopsTheClient(t *testing.T) {
 	}
 }
 
-// A program inside an installed version of the client's extension, for any
-// platform, lies in that extensions directory; another program lies in none,
-// and so does every program of a client without an extension.
-func TestAProgramInsideAnInstalledVersionNamesItsExtensionsDirectory(t *testing.T) {
+// Discovery passes over a program inside an installed version of the client's
+// extension, which AIGW never adopts, and finds the next one on the search
+// path, or none when the extension's is the only one.
+func TestDiscoveryPassesOverAProgramInsideAnExtension(t *testing.T) {
 	codex, _ := clients.Admission().Spec("codex")
-	hermes, _ := clients.Admission().Spec("hermes")
-	directory := filepath.Join(string(filepath.Separator), "home", "user", ".vscode", "extensions")
-	for _, test := range []struct {
-		spec   domain.ClientSpec
-		path   string
-		want   string
-		inside bool
+	inside := install(t, t.TempDir(), codex.Extension.ID+"-26.10.0", "bin/codex")
+	outside := install(t, t.TempDir(), "bin", "codex")
+	for name, test := range map[string]struct {
+		path []string
+		want string
 	}{
-		{codex, filepath.Join(directory, "openai.chatgpt-26.10.0-darwin-arm64", "bin", "macos-aarch64", "codex"), directory, true},
-		{codex, filepath.Join(directory, "openai.chatgpt-26.10.0-linux-x64", "bin", "linux-x86_64", "codex"), directory, true},
-		{codex, filepath.Join(string(filepath.Separator), "usr", "local", "bin", "codex"), "", false},
-		{codex, filepath.Join(directory, "openai.chatgpt-latest", "codex"), "", false},
-		{hermes, filepath.Join(directory, "openai.chatgpt-26.10.0-darwin-arm64", "hermes"), "", false},
+		"only the extension's program":   {[]string{filepath.Dir(inside)}, ""},
+		"the extension's program first":  {[]string{filepath.Dir(inside), filepath.Dir(outside)}, outside},
+		"another program before the one": {[]string{filepath.Dir(outside), filepath.Dir(inside)}, outside},
 	} {
-		if got, inside := adapter.ExtensionsDirectoryOf(test.spec, test.path); got != test.want || inside != test.inside {
-			t.Errorf("ExtensionsDirectoryOf(%s, %s) = %q, %v; want %q, %v", test.spec.ID, test.path, got, inside, test.want, test.inside)
-		}
+		t.Run(name, func(t *testing.T) {
+			source := discovery.System{GOOS: "darwin", Home: t.TempDir(), Path: strings.Join(test.path, string(os.PathListSeparator))}
+			if got := adapter.NewDiscoverer(clients.Registry(), source).Discover("codex").Executable("codex"); got != test.want {
+				t.Fatalf("Discover(codex) = %q, want %q", got, test.want)
+			}
+		})
 	}
 }

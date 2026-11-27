@@ -84,7 +84,7 @@ func declaredProgram(runtime invocation.Context, spec domain.ClientSpec, options
 	switch {
 	case options.program != "":
 		program, _ := filepath.Abs(options.program)
-		if directory, inside := adapter.ExtensionsDirectoryOf(spec, program); inside {
+		if directory, inside := spec.ExtensionsDirectoryOf(program); inside {
 			fix := clientCommand(verb, spec.ID, slices.Concat([]string{"--extensions", directory}, after)...)
 			if fix == "" {
 				fix = "aigw client " + verb + " " + spec.ID + " --extensions <dir>"

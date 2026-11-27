@@ -17,9 +17,12 @@ func (err *UnsupportedTeamFileVersionError) Error() string {
 }
 
 // Edits names the edits that turn the team file into one that this AIGW
-// reads, the same as those of a configuration file of its version, and
-// nothing for a version other than the schema that ConfigVersion replaced.
-func (err *UnsupportedTeamFileVersionError) Edits() string { return schemaEdits(err.Version) }
+// reads, which concern its version and recommendations only, since a team
+// file holds no clients, and nothing for a version other than the schema
+// that ConfigVersion replaced.
+func (err *UnsupportedTeamFileVersionError) Edits() string {
+	return replacedSchemaEdits(err.Version, teamFileEdits)
+}
 
 // AdmitTeamFile validates a decoded team file, which is a configuration
 // without clients, and returns its normalized form: it recommends models only

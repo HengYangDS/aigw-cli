@@ -54,7 +54,8 @@ func TestSelectionAnExplicitReturnWithoutAProtocolAfterAChoiceOnAnotherProtocol(
 // choice whose provider has no Token: the stored selection and the record
 // move to the file together, and the file is left. The choice is an
 // Anthropic model, which a forwarding cannot carry, so an edit that forwards
-// Hermes is refused and changes nothing, naming the direct connection.
+// Hermes is refused and changes nothing, naming the selection to make first:
+// `--direct` would change nothing there.
 func TestSelectionANamedCommandRecordsAHermesChoiceWithoutAToken(t *testing.T) {
 	t.Parallel()
 	for _, command := range [][]string{
@@ -72,7 +73,7 @@ func TestSelectionANamedCommandRecordsAHermesChoiceWithoutAToken(t *testing.T) {
 	app, output, target, _ := waitingHermes(t)
 	before := ownedFileSnapshot(t, filepath.Dir(target), app.Config.Path())
 	err := selRun(t, app, output, "client", "edit", "hermes", "--via", "http://127.0.0.1:8792", "--json")
-	if problem := terminal.ProblemFor(err); err == nil || problem.Fix != "aigw client edit hermes --direct" {
+	if problem := terminal.ProblemFor(err); err == nil || problem.Fix != "aigw use hermes <provider/model>" {
 		t.Errorf("forwarding an Anthropic choice: err=%v, fix %q", err, problem.Fix)
 	}
 	if after := ownedFileSnapshot(t, filepath.Dir(target), app.Config.Path()); !equalSnapshots(after, before) {

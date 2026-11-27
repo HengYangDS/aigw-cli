@@ -171,12 +171,14 @@ func readTeamFile(runtime invocation.Context, path string) (domain.Config, error
 // teamFileRefusal presents the refusal of a team file that cannot be applied:
 // a version or a [clients] section by its own fix, a failure at one entry by
 // the entry to correct, and a document that does not parse as it is, with the
-// location it names.
+// location it names. A file of the schema that the current one replaced may
+// be edited instead of exported again.
 func teamFileRefusal(err error) error {
 	if version, ok := errors.AsType[*domain.UnsupportedTeamFileVersionError](err); ok {
-		fix := fmt.Sprintf("Use a team file of version %d, which `aigw config export` writes, then run the same command again.", domain.ConfigVersion)
+		export := fmt.Sprintf("a team file of version %d, which `aigw config export` writes", domain.ConfigVersion)
+		fix := "Use " + export + ", then run the same command again."
 		if edits := version.Edits(); edits != "" {
-			fix = "Edit the team file: " + edits + "; then run the same command again."
+			fix = "Edit the team file (" + edits + "), or use " + export + "; then run the same command again."
 		}
 		return terminal.ProblemError(version.Error(), "", "Nothing changed.", fix, err)
 	}

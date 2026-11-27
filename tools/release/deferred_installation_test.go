@@ -95,7 +95,7 @@ primary = {model = 'native-system-keyring-probe/gpt-test'}
 
 [recommendations.hermes]
 primary = {model = 'native-system-keyring-probe/claude-test', protocol = 'anthropic'}
-`, journey.endpoint, journey.sourceSchema)
+`, journey.endpoint, journey.firstProgramSchema)
 			if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 				t.Fatal(err)
 			}

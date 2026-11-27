@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter/codex"
 	clientverification "aigw-cli/internal/adapter/verification"
 	builtinclients "aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -67,11 +69,11 @@ func (j *journeyFixture) configurationSchema() int {
 	return schemaVersion(j.testing, readFile(j.testing, j.config))
 }
 
-// sourceReadsConfiguration reports whether the program that the journey
+// firstProgramReadsConfiguration reports whether the program that the journey
 // installed first reads aigw.toml as it is.
-func (j *journeyFixture) sourceReadsConfiguration() bool {
+func (j *journeyFixture) firstProgramReadsConfiguration() bool {
 	j.testing.Helper()
-	return j.configurationSchema() == j.sourceSchema
+	return j.configurationSchema() == j.firstProgramSchema
 }
 
 // teamFileIn returns data, a team file, in schema. A team file of the schema
@@ -111,7 +113,7 @@ func (j *journeyFixture) writeTeamFile(path string, cfg domain.Config) {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	if err := os.WriteFile(path, teamFileIn(j.testing, data, j.sourceSchema), 0o600); err != nil {
+	if err := os.WriteFile(path, teamFileIn(j.testing, data, j.firstProgramSchema), 0o600); err != nil {
 		j.testing.Fatal(err)
 	}
 }
@@ -121,7 +123,7 @@ func (j *journeyFixture) writeTeamFile(path string, cfg domain.Config) {
 // schema.
 func (j *journeyFixture) candidateTeamFile() string {
 	j.testing.Helper()
-	if j.sourceSchema == domain.ConfigVersion {
+	if j.firstProgramSchema == domain.ConfigVersion {
 		return j.manifest
 	}
 	path := filepath.Join(j.root, "team-candidate.toml")
@@ -181,12 +183,15 @@ func (j *journeyFixture) loadConfiguration() domain.Config {
 }
 
 // journeyState is what a refused command leaves as it was: the configuration
-// and its recovery state, the installed and retained programs, and every
-// client file that AIGW writes.
+// and its recovery state, the installed and retained programs, every file
+// under the folder of credential reader entrypoints, and the client files
+// that AIGW writes: each client's projection and the state record beside it,
+// the record of the Claude Code settings keys that AIGW owns, and Codex's
+// model catalog.
 type journeyState struct {
 	configuration store.Snapshot
 	programs      [2]platform.FileSnapshot
-	clients       map[string]map[string]string
+	files         map[string]platform.FileSnapshot
 }
 
 func (j *journeyFixture) captureState() journeyState {
@@ -195,16 +200,41 @@ func (j *journeyFixture) captureState() journeyState {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	state := journeyState{configuration: configuration, clients: make(map[string]map[string]string)}
+	state := journeyState{configuration: configuration, files: make(map[string]platform.FileSnapshot)}
 	for index, path := range []string{j.binary, program.RollbackPath(j.binary)} {
 		if state.programs[index], err = platform.CaptureFileSnapshot(path); err != nil {
 			j.testing.Fatal(err)
 		}
 	}
+	// A client's own configuration file comes first among its projection paths.
+	paths := []string{j.claudeOwnedKeysRecord(), j.clientProjectionPaths(codex.ID)[0] + ".aigw-model-catalog.json"}
 	for _, client := range deferredJourneyClientIDs() {
-		state.clients[client] = j.clientProjectionSnapshot(client)
+		paths = append(paths, j.clientProjectionPaths(client)...)
+	}
+	for _, path := range append(paths, j.credentialReaderFiles()...) {
+		if state.files[path], err = platform.CaptureFileSnapshot(path); err != nil {
+			j.testing.Fatal(err)
+		}
 	}
 	return state
+}
+
+// credentialReaderFiles lists every file under the folder that holds the
+// credential reader entrypoints, one folder for each program's digest.
+func (j *journeyFixture) credentialReaderFiles() []string {
+	j.testing.Helper()
+	var files []string
+	root := filepath.Dir(filepath.Dir(j.credentialEntrypoint()))
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err == nil && !entry.IsDir() {
+			files = append(files, path)
+		}
+		return err
+	})
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		j.testing.Fatal(err)
+	}
+	return files
 }
 
 // runRefused runs binary, which must exit non-zero on its own, and returns
@@ -263,7 +293,7 @@ func (j *journeyFixture) crossSchema(binary string) {
 // note tells an operator.
 func (j *journeyFixture) prepareProgramRollback() {
 	j.testing.Helper()
-	if j.sourceReadsConfiguration() {
+	if j.firstProgramReadsConfiguration() {
 		return
 	}
 	if len(j.keptConfiguration) == 0 {

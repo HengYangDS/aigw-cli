@@ -58,9 +58,8 @@ func TestCredentialViewServesEveryFingerprintThatTheProgramProjects(t *testing.T
 	}
 }
 
-// TestCredentialViewRefusesWhatItCannotServe refuses a disabled client, a
-// client that authenticates itself or with an unknown authentication, and a
-// fingerprint that no provider's endpoint has, by name. An endpoint serves
+// TestCredentialViewRefusesWhatItCannotServe refuses a disabled or absent
+// client, and a fingerprint that no provider's endpoint has, by name. An endpoint serves
 // its fingerprint whatever the provider's models declare, because the view
 // holds no model.
 func TestCredentialViewRefusesWhatItCannotServe(t *testing.T) {

@@ -20,6 +20,7 @@ import (
 
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/program"
 	"aigw-cli/internal/secret"
@@ -129,7 +130,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 		t.Fatalf("retry selection changed the credential reader's view: before=%+v after=%+v", before, after)
 	}
 	journey.requireCredential(retained, token)
-	journey.requireRetryRollbackAdmission(p.baseline)
+	journey.requireRetryRollbackAdmission(p.baseline, p.candidate)
 	path := filepath.Join(journey.root, "home", ".codex", "config.toml")
 	var native struct {
 		Provider  string `toml:"model_provider"`
@@ -163,25 +164,32 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 }
 
-// requireRetryRollbackAdmission rolls back to a retained baseline while a
-// retry policy is selected, then rolls back again to the candidate, and each
-// rollback swaps exactly the active and retained programs. A baseline of the
-// candidate's schema reads the same declaration as the candidate. A baseline
-// of the schema that the candidate replaced cannot: the rollback refuses and
-// changes nothing, the baseline is admitted with the copy of aigw.toml kept
-// before the schema edits, and the candidate with the file in which it
-// selected the policy, which the rest of the journey edits.
-func (j *journeyFixture) requireRetryRollbackAdmission(baseline string) {
+// requireRetryRollbackAdmission installs the candidate with the baseline
+// retained, as an update leaves them, rolls back to the baseline while a
+// retry policy is selected, then rolls back again to the candidate; each
+// rollback swaps exactly the active and retained programs, and each program
+// is admitted with a file that it reads. A baseline of the candidate's schema
+// reads the candidate's file. A baseline of the schema that the candidate
+// replaced cannot: the rollback refuses and changes nothing, the baseline is
+// admitted with the copy of aigw.toml kept before the schema edits, and the
+// candidate with the file in which it selected the policy, which the rest of
+// the journey edits.
+func (j *journeyFixture) requireRetryRollbackAdmission(baseline, candidate string) {
 	t := j.testing
 	t.Helper()
 	retained := program.RollbackPath(j.binary)
-	previous, active := readFile(t, baseline), readFile(t, j.binary)
-	if err := os.WriteFile(retained, previous, 0o700); err != nil {
-		t.Fatal(err)
+	previous, active := readFile(t, baseline), readFile(t, candidate)
+	if bytes.Equal(previous, active) {
+		t.Fatal("the baseline and the candidate are one program, so no rollback can swap them")
+	}
+	for path, data := range map[string][]byte{j.binary: active, retained: previous} {
+		if err := platform.WriteFileAtomic(path, data, 0o700); err != nil {
+			t.Fatal(err)
+		}
 	}
 	selected := readFile(t, j.config)
 	admissions := [2][]byte{selected, selected}
-	if !j.sourceReadsConfiguration() {
+	if !j.firstProgramReadsConfiguration() {
 		if len(j.keptConfiguration) == 0 {
 			t.Fatal("no copy of aigw.toml was kept before the schema edits")
 		}

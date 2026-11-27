@@ -181,9 +181,12 @@ type journeyFixture struct {
 	environment          []string
 	sensitiveInputs      []string
 	retainedProgramNames []string
-	// sourceSchema is the configuration schema of source, the program that
-	// the journey installs first, and so of the team files that it applies.
-	sourceSchema int
+	// firstProgramSchema is the configuration schema of the program that the
+	// journey installs first: the schema of the team files that the journey
+	// applies, and the one that a program rollback to that program needs. It
+	// does not follow source, which a journey points at the candidate before
+	// the candidate uninstalls.
+	firstProgramSchema int
 	// keptConfiguration is the copy of aigw.toml that the journey kept
 	// before its last schema edits, until a program rollback puts it back.
 	keptConfiguration []byte
@@ -274,7 +277,7 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 	}
 	journey.runWith(source, "self", "install", "--path", journey.binary)
 	journey.run("--version")
-	journey.sourceSchema = journey.installedSchema()
+	journey.firstProgramSchema = journey.installedSchema()
 	manifest := fmt.Sprintf(`version = %[5]d
 
 [[providers]]
@@ -305,7 +308,7 @@ label = "Claude Test"
 
 [recommendations.claude]
 primary = {model = %[4]q}
-`, endpoint, probeModel.ID(), probeFamily, probeModel.String(), journey.sourceSchema)
+`, endpoint, probeModel.ID(), probeFamily, probeModel.String(), journey.firstProgramSchema)
 	if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}

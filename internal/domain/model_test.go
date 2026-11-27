@@ -108,55 +108,6 @@ func testModel(label, account, model string, protocols ...EndpointProtocol) Mode
 	return Model{Label: label, Provider: account, ID: model, Family: model, Protocols: interfaces}
 }
 
-func TestValidateRejectsNonCanonicalSchemaVersion(t *testing.T) {
-	cfg := validConfig()
-	cfg.Version = 1
-	err := cfg.Validate()
-	var versionErr *UnsupportedConfigVersionError
-	if !errors.As(err, &versionErr) {
-		t.Fatalf("version 1 validation error = %v", err)
-	}
-	if versionErr.Version != 1 || versionErr.ExpectedVersion != ConfigVersion {
-		t.Fatalf("version error = %#v", versionErr)
-	}
-	if !strings.Contains(err.Error(), "unsupported config version 1") {
-		t.Fatalf("version error text = %q", err)
-	}
-}
-
-// The refusal of a file of the schema that this one replaced names the four
-// edits that bring it here, the same for a configuration and a team file;
-// any other version names none.
-func TestTheReplacedSchemaIsRefusedWithItsEdits(t *testing.T) {
-	edits := []string{
-		"set `version = 9`", "rename each client's `executable` to `program`", "delete `authentication` and `model_provider` wherever they appear",
-		"delete each client's `forwarding` and set it again with `--via <root>`",
-	}
-	configuration := &UnsupportedConfigVersionError{Version: 8, ExpectedVersion: ConfigVersion}
-	team := &UnsupportedTeamFileVersionError{Version: 8}
-	for _, got := range []string{configuration.Edits(), team.Edits(), configuration.Error()} {
-		for _, edit := range edits {
-			if !strings.Contains(got, edit) {
-				t.Errorf("%q does not name %q", got, edit)
-			}
-		}
-	}
-	for _, version := range []int{1, 7, ConfigVersion + 1} {
-		if edits := (&UnsupportedConfigVersionError{Version: version, ExpectedVersion: ConfigVersion}).Edits(); edits != "" {
-			t.Errorf("version %d names the edits %q", version, edits)
-		}
-		if edits := (&UnsupportedTeamFileVersionError{Version: version}).Edits(); edits != "" {
-			t.Errorf("team file version %d names the edits %q", version, edits)
-		}
-	}
-}
-
-func TestNewConfigUsesCurrentSchema(t *testing.T) {
-	if got := NewConfig(testAdmission()).Version; got != ConfigVersion {
-		t.Fatalf("new config version = %d, want %d", got, ConfigVersion)
-	}
-}
-
 func TestConfigCloneDoesNotShareMutableState(t *testing.T) {
 	original := validConfig()
 	account := original.Providers["dmx"]

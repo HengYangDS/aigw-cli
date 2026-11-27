@@ -63,7 +63,7 @@ func runNativeResourceCase(t *testing.T, program, client, mode string) {
 	}
 	journey.setEnvironment("TMPDIR", temporary)
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-resource-token")
-	if err := os.WriteFile(journey.manifest, []byte(nativeResourceManifest(journey.sourceSchema, client, journey.endpoint)), 0o600); err != nil {
+	if err := os.WriteFile(journey.manifest, []byte(nativeResourceManifest(journey.firstProgramSchema, client, journey.endpoint)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	journey.run("setup", "--from", journey.manifest)

@@ -406,7 +406,7 @@ func testHermesNativeClientInputs(t *testing.T) {
 	t.Setenv("AIGW_ACCEPTANCE_HERMES_HOME", installation)
 	journey := &journeyFixture{
 		testing: t, root: root, manifest: filepath.Join(root, "team.toml"),
-		endpoint: "http://127.0.0.1:1/v1", sourceSchema: domain.ConfigVersion,
+		endpoint: "http://127.0.0.1:1/v1", firstProgramSchema: domain.ConfigVersion,
 	}
 	err := journey.prepareNativeClient(hermes.ID, file, readFile(t, filepath.Join("..", "..", "manifests", "team.toml")))
 	home := environmentValues(journey.environment)["HERMES_HOME"]

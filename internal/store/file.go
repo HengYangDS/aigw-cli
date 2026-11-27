@@ -105,6 +105,25 @@ func (e *UndefinedFieldError) Error() string {
 	return fmt.Sprintf("schema %d does not define the field %s, on line %d", domain.ConfigVersion, e.Field, e.Line)
 }
 
+// ForwardingTableError is a client's `forwarding` that holds a table, as the
+// schema that the current one replaced wrote it, where the current schema
+// holds the root of a forwarding service, and the line that holds it.
+type ForwardingTableError struct {
+	Client string
+	Line   int
+}
+
+// Error names the field, its line and what the schema holds there. The edit
+// that replaces the table is Edit, a fix of the file: until it is made, no
+// command loads the configuration.
+func (e *ForwardingTableError) Error() string {
+	return fmt.Sprintf("the field clients.%s.forwarding on line %d holds a table, where schema %d holds the root of a forwarding service", e.Client, e.Line, domain.ConfigVersion)
+}
+
+// Edit is the edit that brings the field to the current schema, the same
+// that the refusal of a file of the replaced schema names for each client.
+func (e *ForwardingTableError) Edit() string { return domain.ForwardingEdit(e.Client) }
+
 // readVersion reads only the document's version.
 func readVersion(data []byte) (int, error) {
 	var header struct {
@@ -115,7 +134,8 @@ func readVersion(data []byte) (int, error) {
 }
 
 // decodeDocument decodes data strictly: a field that the schema does not
-// define is refused by its name.
+// define is refused by its name, and a client's forwarding table of the
+// schema that the current one replaced by the edit that replaces it.
 func decodeDocument(data []byte) (document, error) {
 	var decoded document
 	decoder := toml.NewDecoder(bytes.NewReader(data))
@@ -126,7 +146,26 @@ func decodeDocument(data []byte) (document, error) {
 		field := strings.Join(strict.Errors[0].Key(), ".")
 		return document{}, domain.NewEntryError(fmt.Sprintf("the field `%s` on line %d", field, line), &UndefinedFieldError{Field: field, Line: line})
 	}
+	if mistyped, ok := errors.AsType[*toml.DecodeError](err); ok {
+		if key := mistyped.Key(); len(key) == 3 && key[0] == "clients" && key[2] == "forwarding" && forwardingIsTable(data, key[1]) {
+			line, _ := mistyped.Position()
+			return document{}, domain.NewEntryError(fmt.Sprintf("the field `%s` on line %d", strings.Join(key, "."), line), &ForwardingTableError{Client: key[1], Line: line})
+		}
+	}
 	return decoded, err
+}
+
+// forwardingIsTable reports whether data gives client a `forwarding` table.
+// It reads data again only after the strict decoding failed there.
+func forwardingIsTable(data []byte, client string) bool {
+	var raw struct {
+		Clients map[string]map[string]any `toml:"clients"`
+	}
+	if toml.Unmarshal(data, &raw) != nil {
+		return false
+	}
+	_, table := raw.Clients[client]["forwarding"].(map[string]any)
+	return table
 }
 
 // config builds the configuration that the document describes, in its

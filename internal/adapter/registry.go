@@ -24,6 +24,7 @@ import (
 // capability.
 type DiscoverySource interface {
 	Executable(name string) string
+	Executables(name string) []string
 	Runnable(path string) bool
 	FilePresent(path string) bool
 	Platform() discovery.Host
@@ -201,6 +202,8 @@ func (registry Registry) Admission() domain.Admission { return registry.admissio
 
 // Discover observes the named clients through their adapters, or every
 // admitted client when none is named. An unknown client is observed as absent.
+// No adapter finds a program inside an installed version of its client's
+// extension (see outsideExtension).
 func (registry Registry) Discover(source DiscoverySource, clients ...string) discovery.Result {
 	result := discovery.Result{Executables: make(map[string]string)}
 	for _, id := range registry.ids {
@@ -208,7 +211,7 @@ func (registry Registry) Discover(source DiscoverySource, clients ...string) dis
 			continue
 		}
 		adapter := registry.byID[id]
-		observed := adapter.Discover(source)
+		observed := adapter.Discover(outsideExtension{DiscoverySource: source, spec: adapter.Spec()})
 		maps.Copy(result.Executables, observed.Executables)
 		result.Surfaces = append(result.Surfaces, observed.Surfaces...)
 	}

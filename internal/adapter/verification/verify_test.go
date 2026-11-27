@@ -178,8 +178,8 @@ func TestClientReportIsBoundedAndRedacted(t *testing.T) {
 }
 
 // A report is redacted with the session's credential or not given: a client
-// can print its credential in a form that no rule describes. A client that
-// authenticates itself, or through an external helper, leaves AIGW none.
+// can print its credential in a form that no rule describes. A client whose
+// Token an external credential helper supplies leaves AIGW none.
 func TestClientReportNeedsTheSessionsCredential(t *testing.T) {
 	failure, _ := errors.AsType[reportedError](Diagnostic("Client", []byte("warning: rejected key "+credential)))
 	for _, none := range []string{"", " \t"} {

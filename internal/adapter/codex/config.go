@@ -210,7 +210,7 @@ func validateCodexCatalog(path, text string, state codexState) error {
 		if state.CatalogClientVersion != "" {
 			producer = state.CatalogClientVersion
 		}
-		return &tableError{problem: "Codex's model table is stale: the configured executable could not produce one at the last sync, so AIGW withdrew the table that " + producer + " produced"}
+		return &tableError{problem: "Codex's model table is stale: Codex's program could not produce one at the last sync, so AIGW withdrew the table that " + producer + " produced"}
 	}
 	if err := validateCodexCatalogReference(path, text, state); err != nil {
 		return err

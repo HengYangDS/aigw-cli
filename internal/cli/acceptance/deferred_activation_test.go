@@ -309,7 +309,7 @@ func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T)
 	t.Parallel()
 	app, out, credentials, runner, httpClient := testApp(t, "fixture-token\n")
 	app.Discovery = fakeDiscovery{}
-	wantAction := "Install Hermes if needed, then run `aigw sync`"
+	wantAction := programNotFound(hermes.ID).NextAction()
 	selectUninstalledHermes(t, app, out, credentials, wantAction)
 	before, err := app.Config.CaptureSnapshot()
 	if err != nil {
@@ -386,7 +386,7 @@ func TestShippedTeamManifestMixedClientProjectionHasOneContinuation(t *testing.T
 	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
 		t.Fatalf("setup mixed clients: %v\n%s", err, out)
 	}
-	wantAction := "Install Claude if needed, then run `aigw sync`"
+	wantAction := programNotFound(claude.ID).NextAction()
 	var setup deferredActivationDocument
 	if err := json.Unmarshal(out.Bytes(), &setup); err != nil {
 		t.Fatalf("decode setup: %v\n%s", err, out)

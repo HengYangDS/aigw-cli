@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/claudedesktop"
 	"aigw-cli/internal/adapter/codex"
@@ -90,7 +91,7 @@ func useDocument(t *testing.T, runtime invocation.Context, args ...string) docum
 // any write with the closest listed ID, and an unreadable catalog with the
 // same command and --unlisted.
 func TestUseAddsAModelThatTheCatalogLists(t *testing.T) {
-	runtime, _ := addingRuntime(t)
+	runtime, cfg := addingRuntime(t)
 	runtime.HTTP = catalogServer(t, nil, "gpt-test", "gpt-fresh")
 	before, err := runtime.Config.CaptureSnapshot()
 	if err != nil {
@@ -115,7 +116,7 @@ func TestUseAddsAModelThatTheCatalogLists(t *testing.T) {
 	runtime.HTTP = catalogServer(t, nil, "gpt-test", "gpt-fresh")
 	result := useDocument(t, runtime, codex.ID, "gateway/gpt-fresh")
 	if !result.Added || result.CatalogChecked == nil || !*result.CatalogChecked || result.Family != "gpt-fresh" || result.Protocol != "responses" ||
-		!result.FilesDeferred || result.NextDetail != "Install Codex if needed, then run `aigw sync`" {
+		!result.FilesDeferred || result.NextDetail != adapter.ProgramNotFound(cfg, codex.ID).NextAction() {
 		t.Fatalf("an added model = %#v", result)
 	}
 	saved, err := runtime.Config.Load()

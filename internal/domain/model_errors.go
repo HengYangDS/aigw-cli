@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // RuntimeBindingUnselectedError reports that a client has no selected model.
@@ -15,24 +16,53 @@ func (e *RuntimeBindingUnselectedError) Error() string {
 	return fmt.Sprintf("no model selected for client %q", e.Client)
 }
 
-// previousConfigVersion is the schema that ConfigVersion replaced, and
-// previousSchemaEdits the edits that turn a file of it into one of
-// ConfigVersion. The text is fixed: AIGW reads nothing of such a file but its
-// version, keeps no reader of that schema and never rewrites the file.
-const (
-	previousConfigVersion = 8
-	previousSchemaEdits   = "set `version = 9`; rename each client's `executable` to `program`; delete `authentication` and `model_provider` wherever they appear; delete each client's `forwarding` and set it again with `--via <root>`"
-)
+// previousConfigVersion is the schema that ConfigVersion replaced, the only
+// one whose refusal names the edits that bring a file to ConfigVersion. The
+// edits are fixed text: AIGW reads nothing of such a file but its version,
+// keeps no reader of that schema and never rewrites the file.
+const previousConfigVersion = ConfigVersion - 1
 
-// schemaEdits names the edits that turn a file of version into one of
-// ConfigVersion: those of the schema that ConfigVersion replaced, and none
-// for any other version, whose file only the AIGW release that reads it
-// can use.
-func schemaEdits(version int) string {
-	if version == previousConfigVersion {
-		return previousSchemaEdits
+// versionEdit is the edit that sets a file's version to ConfigVersion.
+func versionEdit() string { return fmt.Sprintf("set `version = %d`", ConfigVersion) }
+
+// configurationEdits are the edits that turn an `aigw.toml` of the schema
+// that ConfigVersion replaced into one of ConfigVersion.
+func configurationEdits() []string {
+	return []string{
+		versionEdit(),
+		"rename each client's `executable` to `program`, or to `extensions` naming the editor's extensions directory where it lies inside a version of an editor extension",
+		"delete `authentication` and `model_provider` wherever they appear",
+		ForwardingEdit(""),
 	}
-	return ""
+}
+
+// ForwardingEdit is the edit that replaces a client's `forwarding` of the
+// schema that ConfigVersion replaced, a table, with the root of a forwarding
+// service that ConfigVersion holds there: for client, or for each client when
+// client is empty.
+func ForwardingEdit(client string) string {
+	whose, named := "each client's", "<client>"
+	if client != "" {
+		whose, named = "client "+client+"'s", client
+	}
+	return fmt.Sprintf("delete %s `forwarding` and set it again with `aigw client edit %s --via <root>`", whose, named)
+}
+
+// teamFileEdits are the edits that turn a team file of the schema that
+// ConfigVersion replaced into one of ConfigVersion. A team file holds no
+// clients, so only its version and its recommendations change.
+func teamFileEdits() []string {
+	return []string{versionEdit(), "delete `authentication` and `model_provider` from each recommendation"}
+}
+
+// replacedSchemaEdits joins edits for a file of version, the schema that
+// ConfigVersion replaced, and is empty for a file of any other version, which
+// only the AIGW release that reads it can use.
+func replacedSchemaEdits(version int, edits func() []string) string {
+	if version != previousConfigVersion {
+		return ""
+	}
+	return strings.Join(edits(), "; ")
 }
 
 // UnsupportedConfigVersionError reports a configuration schema newer or older than the one accepted by this build.
@@ -59,7 +89,9 @@ func (e *UnsupportedConfigVersionError) Error() string {
 // Edits names the edits that turn the refused file into one that this build
 // reads: those of the schema that ConfigVersion replaced, and nothing for any
 // other version.
-func (e *UnsupportedConfigVersionError) Edits() string { return schemaEdits(e.Version) }
+func (e *UnsupportedConfigVersionError) Edits() string {
+	return replacedSchemaEdits(e.Version, configurationEdits)
+}
 
 // RuntimeModelUnknownProviderError reports a model whose provider is absent.
 type RuntimeModelUnknownProviderError struct {

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
@@ -110,7 +111,7 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "Install Codex if needed, then run `aigw sync`"
+	want := adapter.ProgramNotFound(cfg, codex.ID).NextAction()
 	for _, args := range [][]string{{"status", "--json"}, {"sync", "--dry-run", "--json"}, {"check", "--json"}} {
 		t.Run(args[0], func(t *testing.T) {
 			out := &bytes.Buffer{}

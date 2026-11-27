@@ -35,9 +35,9 @@ func (failure *stubReportError) Remedy() string { return failure.remedy }
 
 // A client's own report reaches the check through the error that the adapter
 // returns, however it is wrapped. The check reads it with the Token that the
-// endpoint depth read, which is the session's credential; a client that
-// authenticates itself, or through an external helper, has none there, and
-// so no report. The fix is never `aigw check`, which starts no client and
+// endpoint depth read, which is the session's credential; a client whose
+// Token an external credential helper supplies has none there, and so no
+// report. The fix is never `aigw check`, which starts no client and
 // passes: it is what to change, when the verification names it; how to read
 // the report; once the output shows the report, to resolve it; and without a
 // report, to run the client itself.

@@ -1,6 +1,7 @@
 package status
 
 import (
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/claudedesktop"
 	"aigw-cli/internal/adapter/codex"
@@ -106,7 +107,7 @@ func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The continuation is prose, so the document gives it as next_detail.
-	want := "Install Claude if needed, then run `aigw sync`"
+	want := adapter.ProgramNotFound(cfg, claude.ID).NextAction()
 	if result.Clients[claude.ID].NextDetail != want || result.NextDetail != want || result.NextAction != "" {
 		t.Fatalf("mixed-client JSON continuation = %+v", result)
 	}

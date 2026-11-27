@@ -69,6 +69,8 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 		t.Fatalf("fixture did not produce a TOML decode error: %v", decodeErr)
 	}
 	line, column := syntax.Position()
+	table := &store.ForwardingTableError{Client: "codex", Line: 12}
+	edit, _, _ := strings.Cut(table.Edit(), "<")
 	for name, test := range map[string]struct {
 		err  error
 		want []string
@@ -91,6 +93,15 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 			err: &store.LoadError{Phase: store.LoadPhaseValidate, Err: fmt.Errorf("%s: %w", content, &store.UndefinedFieldError{Field: "providers.order", Line: 6})},
 			want: []string{"Cannot validate local configuration",
 				fmt.Sprintf("AIGW 9.8.7 stopped at the configuration validate stage: schema %d does not define the field providers.order, on line 6.", domain.ConfigVersion), "aigw config path"},
+		},
+		// A forwarding table that the replaced schema left is named with its
+		// line, and the fix is the edit in the file that replaces it, since
+		// the command that sets the forwarding again loads the file too. JSON
+		// escapes the edit's "<root>", so the edit is compared up to it.
+		"forwarding table": {
+			err: &store.LoadError{Phase: store.LoadPhaseValidate, Err: fmt.Errorf("%s: %w", content, table)},
+			want: []string{"Cannot validate local configuration", "stopped at the configuration validate stage: " + table.Error(),
+				"Edit the configuration file: " + edit, "aigw config path"},
 		},
 		// Two models that share a label are named, and the fix is the
 		// file's: a command that loads it would stop the same way.

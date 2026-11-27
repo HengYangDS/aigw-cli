@@ -103,13 +103,19 @@ func TestClientForwardingSurvivesEquivalentAutomaticProtocolSelection(t *testing
 	}
 }
 
+// A model holds no client concern, and a client's binding holds none of the
+// fields that the current schema removed: it declares its program as Program
+// or Extensions, and every client uses its provider's Token, so none
+// declares an authentication or a model provider of its own.
 func TestCurrentSchemaKeepsClientConcernsOutOfModels(t *testing.T) {
-	if ConfigVersion != 9 {
-		t.Fatalf("config version = %d, want 9", ConfigVersion)
-	}
-	for _, field := range []string{"Client", "ModelProvider", "Authentication", "UpstreamModel", "Purpose", "Lifecycle"} {
-		if _, exists := reflect.TypeFor[Model]().FieldByName(field); exists {
-			t.Errorf("Model still has %s", field)
+	for typ, fields := range map[reflect.Type][]string{
+		reflect.TypeFor[Model]():         {"Client", "ModelProvider", "Authentication", "UpstreamModel", "Purpose", "Lifecycle"},
+		reflect.TypeFor[ClientBinding](): {"Executable", "Authentication", "ModelProvider"},
+	} {
+		for _, field := range fields {
+			if _, exists := typ.FieldByName(field); exists {
+				t.Errorf("%s still has %s", typ.Name(), field)
+			}
 		}
 	}
 }
