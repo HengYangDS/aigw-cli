@@ -297,3 +297,48 @@ func nativePackageFixture(t *testing.T) (string, string, []byte) {
 	}
 	return root, strings.TrimSpace(string(output)), contents.Bytes()
 }
+
+// The predecessor in a native input package brings the matrix that its own manifest names, which may hold a
+// platform that the candidate's lacks; the matrix check after extraction judges its completeness.
+func TestNativePackageTakesThePredecessorsOwnMatrix(t *testing.T) {
+	pack := func(names ...string) *bytes.Buffer {
+		t.Helper()
+		var contents bytes.Buffer
+		writer := tar.NewWriter(&contents)
+		for _, name := range names {
+			if err := writer.WriteHeader(&tar.Header{Name: name, Mode: 0o600, Size: 1}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := io.WriteString(writer, "x"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return &contents
+	}
+	var names []string
+	for _, name := range artifact.Names("1.2.4") {
+		names = append(names, "candidate/"+name)
+	}
+	for _, name := range append(artifact.Names("1.2.3"), "aigw_1.2.3_windows_amd64.zip") {
+		names = append(names, "baseline/"+name)
+	}
+	workspace := t.TempDir()
+	if err := extractNativePackage(t.Context(), pack(append(names, "baseline/aigw_1.2.2_linux_arm64.tar.gz")...), workspace, "1.2.4", "1.2.3"); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(filepath.Join(workspace, "baseline"))
+	if err != nil || len(entries) != len(artifact.Names("1.2.3"))+1 {
+		t.Fatalf("predecessor files taken = %v, %v", entries, err)
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "baseline", "aigw_1.2.3_windows_amd64.zip")); err != nil {
+		t.Fatalf("the predecessor's earlier platform was not taken: %v", err)
+	}
+	unsigned := slices.DeleteFunc(slices.Clone(names), func(name string) bool { return name == "baseline/checksums.txt.sig" })
+	err = extractNativePackage(t.Context(), pack(unsigned...), t.TempDir(), "1.2.4", "1.2.3")
+	if err == nil || !strings.Contains(err.Error(), "missing baseline/checksums.txt.sig") {
+		t.Fatalf("a predecessor without its manifest signature = %v", err)
+	}
+}

@@ -78,7 +78,7 @@ type SourceTrust struct {
 func WriteProvenance(root, candidate, target, version, commit, tree string) error {
 	data, err := provenanceBytes(func(name string) ([]byte, error) {
 		return os.ReadFile(filepath.Join(root, name))
-	}, ".config/mise/config.toml", candidate, version, commit, tree)
+	}, ".config/mise/config.toml", candidate, version, artifact.ProvenanceSubjects(version), commit, tree)
 	if err != nil {
 		return err
 	}
@@ -90,15 +90,31 @@ func VerifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 	if tag == "" {
 		return errors.New("release provenance requires v<semver> tag")
 	}
-	return verifyProvenance(ctx, directory, tag, trust)
+	return verifyProvenance(ctx, directory, tag, trust, currentSubjects)
+}
+
+// VerifyPublishedProvenance binds a published predecessor to its signed tag, with the subjects that its
+// own signed manifest names, so a predecessor of another platform matrix rebuilds to its own bytes.
+func VerifyPublishedProvenance(ctx context.Context, directory, tag string, trust SourceTrust) error {
+	if tag == "" {
+		return errors.New("release provenance requires v<semver> tag")
+	}
+	return verifyProvenance(ctx, directory, tag, trust, func(version string) ([]string, error) {
+		return artifact.PublishedSubjects(directory, version)
+	})
 }
 
 // VerifyCandidateProvenance binds an untagged candidate to its explicit signed commit or current HEAD.
 func VerifyCandidateProvenance(ctx context.Context, directory string, trust SourceTrust) error {
-	return verifyProvenance(ctx, directory, "", trust)
+	return verifyProvenance(ctx, directory, "", trust, currentSubjects)
 }
 
-func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTrust) error {
+// currentSubjects names the subjects of the current release matrix.
+func currentSubjects(version string) ([]string, error) {
+	return artifact.ProvenanceSubjects(version), nil
+}
+
+func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTrust, subjectsOf func(string) ([]string, error)) error {
 	if trust.Repository == "" || trust.AllowedSigners == "" {
 		return errors.New("release source authorization requires repository and Git allowed-signers file")
 	}
@@ -144,7 +160,11 @@ func verifyProvenance(ctx context.Context, directory, tag string, trust SourceTr
 	if len(configs) != 1 {
 		return errors.New("release source requires one native mise configuration owner")
 	}
-	expected, err := provenanceBytes(readSource, configs[0], directory, version, commit, strings.TrimSpace(string(treeBytes)))
+	subjects, err := subjectsOf(version)
+	if err != nil {
+		return err
+	}
+	expected, err := provenanceBytes(readSource, configs[0], directory, version, subjects, commit, strings.TrimSpace(string(treeBytes)))
 	if err != nil {
 		return err
 	}
@@ -223,7 +243,7 @@ func admitCandidateVersion(git func(...string) ([]byte, error), declared string)
 	return version, nil
 }
 
-func provenanceBytes(readSource func(string) ([]byte, error), toolchain, candidate, version, commit, tree string) ([]byte, error) {
+func provenanceBytes(readSource func(string) ([]byte, error), toolchain, candidate, version string, names []string, commit, tree string) ([]byte, error) {
 	tools, err := readToolVersions(readSource, toolchain)
 	if err != nil {
 		return nil, err
@@ -242,7 +262,6 @@ func provenanceBytes(readSource func(string) ([]byte, error), toolchain, candida
 		sum := fmt.Sprintf("%x", sha256.Sum256(data))
 		dependencies = append(dependencies, resourceDescriptor{URI: "file:" + name, Digest: map[string]string{"sha256": sum}})
 	}
-	names := artifact.ProvenanceSubjects(version)
 	subjects := make([]subject, 0, len(names))
 	for _, name := range names {
 		sum, digestErr := platform.FileSHA256(filepath.Join(candidate, name))

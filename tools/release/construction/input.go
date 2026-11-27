@@ -105,13 +105,19 @@ func (input *NativeAcceptance) preparePackage(ctx context.Context, request build
 
 func extractNativePackage(ctx context.Context, file io.Reader, workspace, candidate, baseline string) error {
 	expected := make(map[string]bool)
-	for _, input := range []struct{ directory, version string }{{"candidate", candidate}, {"baseline", baseline}} {
-		if err := os.Mkdir(filepath.Join(workspace, input.directory), 0o700); err != nil {
+	for _, directory := range []string{"candidate", "baseline"} {
+		if err := os.Mkdir(filepath.Join(workspace, directory), 0o700); err != nil {
 			return err
 		}
-		for _, name := range artifact.Names(input.version) {
-			expected[input.directory+"/"+name] = false
-		}
+	}
+	for _, name := range artifact.Names(candidate) {
+		expected["candidate/"+name] = false
+	}
+	// The predecessor's matrix is the one that its own signed manifest names, which may list platforms
+	// that the candidate's does not. Its manifest and signature are required here; every other file of its
+	// version is taken once, and the matrix check that follows refuses a missing or unnamed one.
+	for _, name := range []string{"checksums.txt", "checksums.txt.sig"} {
+		expected["baseline/"+name] = false
 	}
 	reader := tar.NewReader(file)
 	for {
@@ -126,6 +132,9 @@ func extractNativePackage(ctx context.Context, file io.Reader, workspace, candid
 			return err
 		}
 		seen, selected := expected[header.Name]
+		if name, found := strings.CutPrefix(header.Name, "baseline/"); !selected && found && artifact.FileOf(name, baseline) {
+			selected = true
+		}
 		if !selected {
 			continue
 		}

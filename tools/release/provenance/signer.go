@@ -21,10 +21,20 @@ type SignatureTrust struct {
 // signer is the principal that the allowed-signers file authorizes in the
 // release namespace. ssh-keygen evaluates that file, the operator's trust input.
 func VerifyMatrix(ctx context.Context, directory, version string, trust SignatureTrust) error {
+	return verifyMatrix(ctx, directory, trust, func() error { return artifact.ValidateMatrix(directory, version) })
+}
+
+// VerifyPublishedMatrix authorizes a published predecessor by the matrix that its own signed manifest
+// names, which may list platforms that the current release no longer publishes.
+func VerifyPublishedMatrix(ctx context.Context, directory, version string, trust SignatureTrust) error {
+	return verifyMatrix(ctx, directory, trust, func() error { return artifact.ValidatePublishedMatrix(directory, version) })
+}
+
+func verifyMatrix(ctx context.Context, directory string, trust SignatureTrust, validate func() error) error {
 	if trust.AllowedSigners == "" || trust.Principal == "" {
 		return errors.New("release artifact authorization requires allowed-signers file and signer principal")
 	}
-	if err := artifact.ValidateMatrix(directory, version); err != nil {
+	if err := validate(); err != nil {
 		return err
 	}
 	manifest := filepath.Join(directory, "checksums.txt")

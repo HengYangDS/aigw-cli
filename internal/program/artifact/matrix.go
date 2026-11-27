@@ -37,10 +37,68 @@ func ProvenanceSubjects(version string) []string {
 	)
 }
 
+// PublishedNames returns the matrix that a published release's own checksum manifest names: its
+// checksummed files in the manifest's order, then the manifest and its signature. A predecessor is
+// verified by it, because an earlier release may have published platforms that Names no longer lists.
+// Every name must be a file of version, and the provenance must close the manifest, as
+// RewriteChecksums writes it.
+func PublishedNames(directory, version string) ([]string, error) {
+	manifest, err := os.ReadFile(filepath.Join(directory, "checksums.txt"))
+	if err != nil {
+		return nil, fmt.Errorf("published release matrix: %w", err)
+	}
+	if _, err := parseChecksums(manifest); err != nil {
+		return nil, fmt.Errorf("published release matrix: %w", err)
+	}
+	var names []string
+	for line := range strings.Lines(string(manifest)) {
+		_, name, _ := checksumLine(line)
+		if !FileOf(name, version) {
+			return nil, fmt.Errorf("published release matrix: %s is not a file of release %s", name, version)
+		}
+		names = append(names, name)
+	}
+	if provenance := "aigw_" + version + ".provenance.json"; len(names) == 0 || names[len(names)-1] != provenance {
+		return nil, fmt.Errorf("published release matrix: the manifest must end with %s", provenance)
+	}
+	return append(names, "checksums.txt", "checksums.txt.sig"), nil
+}
+
+// PublishedSubjects returns the provenance subjects of a published release: the names of its
+// manifest without the provenance itself, in the manifest's order.
+func PublishedSubjects(directory, version string) ([]string, error) {
+	names, err := PublishedNames(directory, version)
+	if err != nil {
+		return nil, err
+	}
+	return names[:len(names)-3], nil
+}
+
+// FileOf reports whether name is a file of the release version: a plain file name that begins with
+// aigw_<version> followed by "_" or ".".
+func FileOf(name, version string) bool {
+	prefix := "aigw_" + version
+	return !strings.ContainsAny(name, `/\`) && (strings.HasPrefix(name, prefix+"_") || strings.HasPrefix(name, prefix+"."))
+}
+
 // ValidateMatrix verifies membership, non-empty files, checksums and the signature
 // envelope. It does not decide whether the signer is authorized.
 func ValidateMatrix(directory, version string) error {
-	if _, err := verifiedDigests(directory, version); err != nil {
+	return validateMatrix(directory, Names(version))
+}
+
+// ValidatePublishedMatrix verifies a published release by the matrix that its own manifest names,
+// with the same checks as ValidateMatrix.
+func ValidatePublishedMatrix(directory, version string) error {
+	wanted, err := PublishedNames(directory, version)
+	if err != nil {
+		return err
+	}
+	return validateMatrix(directory, wanted)
+}
+
+func validateMatrix(directory string, wanted []string) error {
+	if _, err := verifiedDigests(directory, wanted); err != nil {
 		return err
 	}
 	manifest := filepath.Join(directory, "checksums.txt")
@@ -50,8 +108,10 @@ func ValidateMatrix(directory, version string) error {
 	return nil
 }
 
-func verifiedDigests(directory, version string) (map[string]string, error) {
-	wanted := Names(version)
+// verifiedDigests checks a directory against wanted, a matrix whose last two names are the manifest and
+// its signature, and returns the digest of each wanted file.
+func verifiedDigests(directory string, wanted []string) (map[string]string, error) {
+	checksummed := wanted[:len(wanted)-2]
 	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return nil, fmt.Errorf("release artifact matrix: %w", err)
@@ -84,12 +144,12 @@ func verifiedDigests(directory, version string) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("release artifact matrix: %w", err)
 	}
-	for _, name := range checksummedNames(version) {
+	for _, name := range checksummed {
 		if digests[name] != localDigests[name] {
 			return nil, fmt.Errorf("release artifact matrix: checksum mismatch for %s", name)
 		}
 	}
-	if len(digests) != len(checksummedNames(version)) {
+	if len(digests) != len(checksummed) {
 		return nil, errors.New("release artifact matrix: checksum manifest has unexpected entries")
 	}
 	return localDigests, nil
@@ -97,11 +157,11 @@ func verifiedDigests(directory, version string) (map[string]string, error) {
 
 // CompareMatrices verifies two complete matrices and compares their content.
 func CompareMatrices(left, right, version string) error {
-	leftDigests, err := verifiedDigests(left, version)
+	leftDigests, err := verifiedDigests(left, Names(version))
 	if err != nil {
 		return err
 	}
-	rightDigests, err := verifiedDigests(right, version)
+	rightDigests, err := verifiedDigests(right, Names(version))
 	if err != nil {
 		return err
 	}

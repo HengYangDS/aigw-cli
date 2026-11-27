@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/pem"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -228,7 +230,7 @@ func TestCompareMatricesComparesRawChecksumManifest(t *testing.T) {
 	if err := os.WriteFile(manifest, content, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := verifiedDigests(right, version); err != nil {
+	if _, err := verifiedDigests(right, Names(version)); err != nil {
 		t.Fatalf("equivalent checksum entries changed matrix validity: %v", err)
 	}
 	if err := CompareMatrices(left, right, version); err == nil || !strings.Contains(err.Error(), "differs across forge stages: checksums.txt") {
@@ -305,4 +307,82 @@ func signMatrix(t *testing.T, directory string, signer ssh.Signer, namespace str
 	if err := os.WriteFile(filepath.Join(directory, "checksums.txt.sig"), sshsig.Armor(signature), 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// A predecessor is verified by the matrix that its own signed manifest names, which may list
+// platforms that the current matrix no longer publishes.
+func TestPublishedMatrixIsTheOneItsOwnManifestNames(t *testing.T) {
+	version := "1.2.3"
+	signer := matrixSigner(t)
+	current := writeMatrix(t, version, signer)
+	if names, err := PublishedNames(current, version); err != nil || !slices.Equal(names, Names(version)) {
+		t.Fatalf("a current matrix's published names = %v, %v", names, err)
+	}
+	if err := ValidatePublishedMatrix(current, version); err != nil {
+		t.Fatal(err)
+	}
+	earlier := "aigw_" + version + "_windows_amd64.zip"
+	names := append([]string{earlier}, Names(version)[:len(Names(version))-2]...)
+	predecessor := writePublishedMatrix(t, names, signer, map[string]string{})
+	if err := ValidateMatrix(predecessor, version); err == nil {
+		t.Fatal("the current matrix accepted an earlier platform")
+	}
+	if err := ValidatePublishedMatrix(predecessor, version); err != nil {
+		t.Fatalf("a predecessor with an earlier platform: %v", err)
+	}
+	subjects, err := PublishedSubjects(predecessor, version)
+	if err != nil || !slices.Equal(subjects, names[:len(names)-1]) {
+		t.Fatalf("published subjects = %v, %v", subjects, err)
+	}
+	for _, refusal := range []struct {
+		name  string
+		names []string
+		extra map[string]string
+		want  string
+	}{
+		{"unnamed file beside the matrix", names, map[string]string{"aigw_1.2.3_plan9_amd64.tar.gz": "x"}, "unexpected or missing"},
+		{"file of another version", append([]string{"aigw_1.2.2_linux_arm64.tar.gz"}, names...), nil, "not a file of release 1.2.3"},
+		{"path in a name", append([]string{"nested/aigw_1.2.3_linux_arm64.tar.gz"}, names...), nil, "not a file of release 1.2.3"},
+		{"provenance not last", append(slices.Clone(names[1:]), earlier), nil, "must end with aigw_1.2.3.provenance.json"},
+	} {
+		t.Run(refusal.name, func(t *testing.T) {
+			directory := writePublishedMatrix(t, refusal.names, signer, refusal.extra)
+			if err := ValidatePublishedMatrix(directory, version); err == nil || !strings.Contains(err.Error(), refusal.want) {
+				t.Fatalf("published matrix refusal = %v", err)
+			}
+		})
+	}
+	unsigned := writePublishedMatrix(t, names, signer, nil)
+	if err := os.WriteFile(filepath.Join(unsigned, "checksums.txt.sig"), []byte("invalid\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidatePublishedMatrix(unsigned, version); err == nil || !strings.Contains(err.Error(), "signature") {
+		t.Fatalf("a published matrix with an invalid signature = %v", err)
+	}
+}
+
+// writePublishedMatrix writes the files that names lists, a manifest that names them in that order and
+// its signature, and the extra files that no manifest names.
+func writePublishedMatrix(t *testing.T, names []string, signer ssh.Signer, extra map[string]string) string {
+	t.Helper()
+	directory := t.TempDir()
+	var manifest strings.Builder
+	for _, name := range names {
+		content := []byte("fixture:" + name + "\n")
+		path := filepath.Join(directory, filepath.Base(name))
+		if err := os.WriteFile(path, content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		fmt.Fprintf(&manifest, "%x  %s\n", sha256.Sum256(content), name)
+	}
+	for name, content := range extra {
+		if err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(directory, "checksums.txt"), []byte(manifest.String()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	signMatrix(t, directory, signer, SignatureNamespace)
+	return directory
 }

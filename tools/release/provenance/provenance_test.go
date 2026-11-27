@@ -2,6 +2,7 @@ package provenance
 
 import (
 	"aigw-cli/internal/program/artifact"
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -133,5 +134,44 @@ func TestCurrentMiseToolchainIsRepresentableInProvenance(t *testing.T) {
 		return os.ReadFile(filepath.Join(root, name))
 	}, ".config/mise/config.toml"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// The rebuilt provenance of a published release takes its subjects from the release's own manifest: the
+// same bytes for a current matrix, and the earlier platform for a predecessor that published one.
+func TestPublishedProvenanceSubjectsFollowTheReleasesOwnManifest(t *testing.T) {
+	root, candidate := provenanceFixture(t)
+	commit, tree := strings.Repeat("a", 40), strings.Repeat("b", 40)
+	target := filepath.Join(candidate, "aigw_1.2.3.provenance.json")
+	if err := WriteProvenance(root, candidate, target, "1.2.3", commit, tree); err != nil {
+		t.Fatal(err)
+	}
+	if err := artifact.RewriteChecksums(candidate, "1.2.3"); err != nil {
+		t.Fatal(err)
+	}
+	read := func(name string) ([]byte, error) { return os.ReadFile(filepath.Join(root, name)) }
+	rebuild := func() []byte {
+		t.Helper()
+		subjects, err := artifact.PublishedSubjects(candidate, "1.2.3")
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := provenanceBytes(read, ".config/mise/config.toml", candidate, "1.2.3", subjects, commit, tree)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
+	}
+	published, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(rebuild(), published) {
+		t.Fatal("the manifest's subjects rebuilt other provenance bytes for a current matrix")
+	}
+	prependEarlierPlatform(t, candidate, "aigw_1.2.3_windows_amd64.zip")
+	predecessor := string(rebuild())
+	if !strings.Contains(predecessor, `"aigw_1.2.3_windows_amd64.zip"`) || strings.Index(predecessor, "windows_amd64") > strings.Index(predecessor, "darwin_arm64") {
+		t.Fatalf("a predecessor's provenance does not name its earlier platform first: %s", predecessor)
 	}
 }
