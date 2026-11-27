@@ -323,13 +323,7 @@ func (c Workload) Review(selected *Identity) error {
 	valid := false
 	switch c.Name {
 	case "projection":
-		if c.Mode == "forwarding" {
-			// The forwarded client selects the measured model; forwarding
-			// itself is the client's setting, not the command's.
-			valid = slices.Equal(args, []string{"use", c.Runtime.Client, c.Runtime.ProviderID + "/" + c.Runtime.UpstreamModel})
-		} else {
-			valid = len(args) == 3 && args[0] == "use" && args[1] != "" && strings.Contains(args[2], "/")
-		}
+		valid = len(args) == 3 && args[0] == "use" && args[1] != "" && strings.Contains(args[2], "/")
 	case "setup":
 		valid = len(args) == 3 && slices.Equal(args[:2], []string{"setup", "--from"}) && args[2] != ""
 	case "sync":
@@ -351,9 +345,12 @@ func (c Workload) Review(selected *Identity) error {
 	return nil
 }
 
+// reviewRuntime admits a workload without a binding, which diagnosis
+// measures, or one whose direct binding is resolved: the client reaches its
+// provider's own endpoint.
 func reviewRuntime(mode string, binding domain.Runtime) error {
-	if mode != "" && mode != "direct" && mode != "forwarding" {
-		return errors.New("performance mode is not direct or forwarding")
+	if mode != "" && mode != "direct" {
+		return errors.New("performance mode is not direct")
 	}
 	if mode == "" && binding.Equal(domain.Runtime{}) {
 		return nil
@@ -361,7 +358,7 @@ func reviewRuntime(mode string, binding domain.Runtime) error {
 	if binding.Client == "" || binding.Model.IsZero() || binding.ProviderID == "" || binding.Protocol == "" || binding.Endpoint == "" || binding.UpstreamEndpoint == "" {
 		return errors.New("performance mode lacks its resolved native binding")
 	}
-	if (binding.Endpoint != binding.UpstreamEndpoint) != (mode == "forwarding") {
+	if binding.Endpoint != binding.UpstreamEndpoint {
 		return errors.New("performance mode differs from its resolved native destination")
 	}
 	return nil
@@ -378,14 +375,10 @@ func (c Workload) Arguments(raw string) []string {
 
 // WorkloadNames declares the ordered workloads for a qualifying native scope.
 func WorkloadNames(scope string) []string {
-	switch scope {
-	case "full-performance":
-		return []string{"credential", "projection", "setup", "sync", "version", "help", "status", "export"}
-	case "forwarding-performance":
-		return []string{"credential", "projection", "sync", "status", "export"}
-	default:
+	if scope != "full-performance" {
 		return nil
 	}
+	return []string{"credential", "projection", "setup", "sync", "version", "help", "status", "export"}
 }
 
 // Budget is the original native workload ceiling; other cases are diagnostic.

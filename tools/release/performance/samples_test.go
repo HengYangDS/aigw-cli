@@ -117,49 +117,30 @@ func TestMeasurementRejectsWarningsAfterValidatingItsWorkload(t *testing.T) {
 	}
 }
 
-func TestPooledKeepsDirectAndForwardingBindingsSeparate(t *testing.T) {
-	var rows []Measurement
-	for _, mode := range []string{"direct", "forwarding"} {
-		binding := domain.Runtime{Client: claude.ID, Model: domain.NewModelRef("account", "route"), ProviderID: "account",
-			Protocol: domain.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "https://upstream.example/v1"}
-		if mode == "forwarding" {
-			binding.Endpoint = "http://127.0.0.1:18792/v1"
-		}
-		for block := 1; block <= 2; block++ {
-			times := make([]float64, 40)
-			for index := range times {
-				times[index] = 0.01
-			}
-			row := Measurement{Variant: "candidate", Backend: "env", Case: "status", Block: block,
-				P95: 0.01, Budget: Budget("status"), Samples: Samples{Times: times, ExitCodes: make([]int, 40)}, Mode: mode, Runtime: binding}
-			rows = append(rows, row)
-		}
-	}
-	pooled, err := Pooled(rows)
-	if err != nil || len(pooled) != 2 {
-		t.Fatalf("direct and forwarding blocks were merged: %#v, %v", pooled, err)
-	}
-}
-
 func TestMemoryRequiresOneResolvedMeasurementBinding(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		mutate func(*Summary)
 		reject bool
 	}{
-		{name: "resolved forwarding"},
+		{name: "resolved direct"},
 		{name: "candidate block drift", reject: true, mutate: func(summary *Summary) { summary.Memory[3].Runtime.ProviderID = "different-account" }},
 		{name: "predecessor block drift", reject: true, mutate: func(summary *Summary) { summary.Memory[1].Runtime.Model = domain.NewModelRef("different", "model") }},
 		{name: "timing differs from memory", reject: true, mutate: func(summary *Summary) {
 			for index := range summary.Memory {
 				if summary.Memory[index].Variant == "candidate" {
-					summary.Memory[index].Runtime.UpstreamEndpoint = "https://different-upstream.example/v1"
+					summary.Memory[index].Runtime.UpstreamModel = "different-model"
 				}
+			}
+		}},
+		{name: "retired forwarding", reject: true, mutate: func(summary *Summary) {
+			for index := range summary.Memory {
+				summary.Memory[index].Mode = "forwarding"
+				summary.Memory[index].Runtime.Endpoint = "http://127.0.0.1:18792/v1"
 			}
 		}},
 		{name: "status timing absent", reject: true, mutate: func(summary *Summary) { summary.Blocks = nil }},
 		{name: "historical direct", mutate: func(summary *Summary) {
-			summary.Scope = "full-performance"
 			for index := range summary.Memory {
 				summary.Memory[index].Mode, summary.Memory[index].Runtime, summary.Memory[index].Executable = "", domain.Runtime{}, nil
 			}
@@ -170,24 +151,18 @@ func TestMemoryRequiresOneResolvedMeasurementBinding(t *testing.T) {
 				"baseline":  {Variant: "baseline", SHA256: strings.Repeat("b", 64), Bytes: 100},
 				"candidate": {Variant: "candidate", SHA256: strings.Repeat("c", 64), Bytes: 200},
 			}
-			summary := Summary{Scope: "forwarding-performance"}
+			summary := Summary{Scope: "full-performance"}
 			for _, variant := range []string{"baseline", "candidate"} {
-				mode := "direct"
 				binding := domain.Runtime{Client: claude.ID, Model: domain.NewModelRef("account", "route"), ProviderID: "account",
 					Protocol: domain.ProtocolAnthropic, Endpoint: "https://upstream.example/v1", UpstreamEndpoint: "https://upstream.example/v1"}
-				if variant == "candidate" {
-					mode, binding.Endpoint = "forwarding", "http://127.0.0.1:18792/v1"
-				}
 				identity := Identity{SHA256: programs[variant].SHA256, Bytes: programs[variant].Bytes}
 				for block := 1; block <= 2; block++ {
 					observations := make([]uint64, 40)
 					for index := range observations {
 						observations[index] = 1 << 20
 					}
-					summary.Memory = append(summary.Memory, Memory{Variant: variant, Case: "status", Block: block, Mode: mode, Runtime: binding, Executable: &identity, Bytes: observations})
-					if variant == "candidate" {
-						summary.Blocks = append(summary.Blocks, Measurement{Variant: variant, Backend: "env", Case: "status", Block: block, Mode: mode, Runtime: binding})
-					}
+					summary.Memory = append(summary.Memory, Memory{Variant: variant, Case: "status", Block: block, Mode: "direct", Runtime: binding, Executable: &identity, Bytes: observations})
+					summary.Blocks = append(summary.Blocks, Measurement{Variant: variant, Backend: "env", Case: "status", Block: block, Mode: "direct", Runtime: binding})
 				}
 			}
 			if test.mutate != nil {
@@ -203,65 +178,40 @@ func TestMemoryRequiresOneResolvedMeasurementBinding(t *testing.T) {
 	}
 }
 
-func TestForwardingWorkloadsMatchTheirDeclaredScope(t *testing.T) {
-	programs := map[string]Program{"candidate": {Variant: "candidate"}}
-	var rows []Measurement
-	for _, name := range []string{"credential", "projection", "sync", "status", "export"} {
-		rows = append(rows, Measurement{Variant: "candidate", Backend: "env", Case: name, Mode: "forwarding", Budget: Budget(name)})
-	}
-	if err := reviewWorkloads(rows, programs, "forwarding-performance", []string{"env"}); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"setup", "version", "help", "unowned"} {
-		row := Measurement{Variant: "candidate", Backend: "env", Case: name, Mode: "forwarding", Budget: 0.1}
-		if err := reviewWorkloads(append(slices.Clone(rows), row), programs, "forwarding-performance", []string{"env"}); err == nil {
-			t.Fatalf("forwarding admission included an undeclared workload: %s", name)
-		}
-	}
-}
-
 func TestWorkloadReviewRequiresEverySelectedNativeBackend(t *testing.T) {
 	programs := map[string]Program{"baseline": {Variant: "baseline"}, "candidate": {Variant: "candidate"}}
 	backends := []string{"env", "file", "keyring"}
-	for _, scope := range []string{"full-performance", "forwarding-performance"} {
-		t.Run(scope, func(t *testing.T) {
-			variants := []string{"baseline", "candidate"}
-			names := []string{"credential", "projection", "setup", "sync", "version", "help", "status", "export"}
-			mode := "direct"
-			if scope == "forwarding-performance" {
-				variants, names, mode = []string{"candidate"}, []string{"credential", "projection", "sync", "status", "export"}, "forwarding"
+	const scope = "full-performance"
+	names := []string{"credential", "projection", "setup", "sync", "version", "help", "status", "export"}
+	var rows []Measurement
+	for _, variant := range []string{"baseline", "candidate"} {
+		for _, backend := range backends {
+			for _, name := range names {
+				rows = append(rows, Measurement{Variant: variant, Backend: backend, Case: name, Mode: "direct", Budget: Budget(name)})
 			}
-			var rows []Measurement
-			for _, variant := range variants {
-				for _, backend := range backends {
-					for _, name := range names {
-						rows = append(rows, Measurement{Variant: variant, Backend: backend, Case: name, Mode: mode, Budget: Budget(name)})
-					}
-				}
+		}
+	}
+	if err := reviewWorkloads(rows, programs, scope, backends); err != nil {
+		t.Fatalf("complete native workload selection was refused: %v", err)
+	}
+	for _, backend := range []string{"file", "keyring"} {
+		for _, name := range []string{"status", "export", ""} {
+			partial := slices.DeleteFunc(slices.Clone(rows), func(row Measurement) bool {
+				return row.Variant == "candidate" && row.Backend == backend && (name == "" || row.Case == name)
+			})
+			if err := reviewWorkloads(partial, programs, scope, backends); err == nil {
+				t.Errorf("summary admitted omitted %s/%s native work", backend, name)
 			}
-			if err := reviewWorkloads(rows, programs, scope, backends); err != nil {
-				t.Fatalf("complete native workload selection was refused: %v", err)
-			}
-			for _, backend := range []string{"file", "keyring"} {
-				for _, name := range []string{"status", "export", ""} {
-					partial := slices.DeleteFunc(slices.Clone(rows), func(row Measurement) bool {
-						return row.Variant == "candidate" && row.Backend == backend && (name == "" || row.Case == name)
-					})
-					if err := reviewWorkloads(partial, programs, scope, backends); err == nil {
-						t.Errorf("summary admitted omitted %s/%s native work", backend, name)
-					}
-				}
-			}
-			envRows := slices.DeleteFunc(slices.Clone(rows), func(row Measurement) bool { return row.Backend != "env" })
-			if err := reviewWorkloads(envRows, programs, scope, []string{"env"}); err != nil {
-				t.Fatalf("unselected optional backends became mandatory: %v", err)
-			}
-			for _, selection := range [][]string{nil, {"file"}, {"env", "env"}, {"env", "unknown"}, {"env"}} {
-				if err := reviewWorkloads(rows, programs, scope, selection); err == nil {
-					t.Errorf("summary admitted invalid or incomplete selection: %v", selection)
-				}
-			}
-		})
+		}
+	}
+	envRows := slices.DeleteFunc(slices.Clone(rows), func(row Measurement) bool { return row.Backend != "env" })
+	if err := reviewWorkloads(envRows, programs, scope, []string{"env"}); err != nil {
+		t.Fatalf("unselected optional backends became mandatory: %v", err)
+	}
+	for _, selection := range [][]string{nil, {"file"}, {"env", "env"}, {"env", "unknown"}, {"env"}} {
+		if err := reviewWorkloads(rows, programs, scope, selection); err == nil {
+			t.Errorf("summary admitted invalid or incomplete selection: %v", selection)
+		}
 	}
 }
 

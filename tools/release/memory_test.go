@@ -268,28 +268,18 @@ func TestNativeAttributionSummaryRetainsItsNonqualifyingScope(t *testing.T) {
 func (j *journeyFixture) measureMemory(variant string, block int) (performance.Memory, error) {
 	j.testing.Helper()
 	row := performance.Memory{Variant: variant, Case: "status", Block: block, Bytes: []uint64{}}
-	config, err := store.NewStore(j.config, clients.Admission()).Load()
-	if err != nil {
-		return row, err
-	}
-	row.Runtime, err = config.ResolveRuntime(claude.ID, domain.ModelRef{})
+	cfg := j.loadConfiguration()
+	var err error
+	row.Runtime, err = cfg.ResolveRuntime(claude.ID, domain.ModelRef{})
 	if err != nil {
 		return row, err
 	}
 	row.Runtime.CredentialCommand, row.Mode = "", "direct"
-	if row.Runtime.Endpoint != row.Runtime.UpstreamEndpoint {
-		row.Mode = "forwarding"
-	}
 	identity, err := performance.Identify(j.binary)
 	if err != nil {
 		return row, err
 	}
 	row.Executable = &identity
-	if row.Mode == "forwarding" {
-		if err := j.reviewPerformanceBinding(row.Runtime); err != nil {
-			return row, err
-		}
-	}
 	for sample := range 45 {
 		command := exec.CommandContext(j.testing.Context(), j.binary, "status", "--json")
 		command.Env, command.Dir = j.environment, j.root
@@ -305,9 +295,6 @@ func (j *journeyFixture) measureMemory(variant string, block int) (performance.M
 		if sample >= 5 {
 			row.Bytes = append(row.Bytes, peak)
 		}
-	}
-	if row.Mode == "forwarding" {
-		return row, j.reviewPerformanceBinding(row.Runtime)
 	}
 	return row, nil
 }

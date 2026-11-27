@@ -105,6 +105,8 @@ func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
 	const rotated = "native-system-keyring-rotated-after-rollback"
 	journey := state.journey
 	retained := append(prior, journey.retainedCredentials()...)
+	crossing := !journey.sourceReadsConfiguration()
+	journey.prepareProgramRollback()
 	journey.run("self", "rollback")
 	journey.requireVersion(predecessorVersion)
 	configurationBefore := readFile(t, journey.config)
@@ -118,7 +120,13 @@ func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
 	for _, credential := range retained {
 		journey.requireCredential(credential, rotated)
 	}
-	journey.runWith(state.candidate, "sync")
+	if crossing {
+		// Before the edits the candidate refuses the predecessor's schema,
+		// so it cannot project ahead of the update.
+		journey.requireSchemaRefusal(state.candidate)
+	} else {
+		journey.runWith(state.candidate, "sync")
+	}
 	if !bytes.Equal(configurationBefore, readFile(t, journey.config)) {
 		t.Fatal("candidate reader preprojection changed retained configuration")
 	}
@@ -126,6 +134,7 @@ func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
 	for _, credential := range retained {
 		journey.requireCredential(credential, rotated)
 	}
+	journey.crossSchema(journey.binary)
 	journey.run("sync")
 	journey.requireCredentialBackend(rotated, backend)
 	return rotated
@@ -133,10 +142,7 @@ func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
 
 func preprojectNativeCredentialJourney(t *testing.T, journey *journeyFixture, candidate, oldVersion, token string) []process.Plan {
 	t.Helper()
-	cfg, err := store.NewStore(journey.config, builtinclients.Admission()).Load()
-	if err != nil {
-		t.Fatal(err)
-	}
+	cfg := journey.loadConfiguration()
 	clients := cfg.EnabledClientIDs()
 	retained := make(map[string]process.Plan, len(clients))
 	predecessorReaders := make([]process.Plan, 0, len(clients))
@@ -154,20 +160,11 @@ func preprojectNativeCredentialJourney(t *testing.T, journey *journeyFixture, ca
 
 func configureNativeDiagnosticProbe(t *testing.T, journey *journeyFixture, accountID, endpoint string) {
 	t.Helper()
-	manifest, err := store.ParseTeamFile(readFile(t, journey.manifest), builtinclients.Admission())
-	if err != nil {
-		t.Fatal(err)
-	}
+	manifest := journey.readTeamFile()
 	account := manifest.Providers[accountID]
 	account.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: endpoint}
 	manifest.Providers[accountID] = account
-	data, err := store.ExportTeamFile(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(journey.manifest, data, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	journey.writeTeamFile(journey.manifest, manifest)
 }
 
 func finishNativeCredentialJourney(
@@ -412,6 +409,9 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 		{oldVersion, j.source, []string{"self", "rollback"}},
 		{newVersion, candidate, []string{"self", "update", "--archive", archive, "--checksums", checksums}},
 	} {
+		if step.version == oldVersion {
+			j.prepareProgramRollback()
+		}
 		configurationBefore := readFile(j.testing, j.config)
 		j.run(step.args...)
 		if !bytes.Equal(readFile(j.testing, j.config), configurationBefore) {
@@ -419,6 +419,9 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 		}
 		for _, credential := range retained {
 			j.requireCredential(credential, token)
+		}
+		if step.version == newVersion {
+			j.crossSchema(j.binary)
 		}
 		j.run("sync")
 		current := j.retainedCredentials()

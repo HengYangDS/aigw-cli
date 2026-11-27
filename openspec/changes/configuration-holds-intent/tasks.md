@@ -8,7 +8,7 @@
 
 ## 2. Schema 9 without the client-native path
 
-- [ ] 2.1 Move the configuration and team-file version to 9 and refuse version 8 before reading anything else, with the
+- [x] 2.1 Move the configuration and team-file version to 9 and refuse version 8 before reading anything else, with the
       fixed text that names the edits. Done when a store test pins the refusal of a version 8 file and of a
       version 9 file that still holds `executable`, `authentication` or `model_provider`, each by field and line.
 - [x] 2.2 Remove `authentication` and `model_provider` from the client and recommendation documents and the domain,
@@ -70,12 +70,17 @@
       the same Token from the version 9 file, a program rollback refuses until the kept copy is restored, and the
       re-upgrade repeats the migration. Done when the journey compiles with `-tags client_acceptance` and its
       source-baseline path passes in `mise run native`.
-- [ ] 5.2 Use `program` in every other release journey and fixture, so that no file under `tools/` names
-      `--executable`. Done when
+- [x] 5.2 Use `program` in every other release journey and fixture, and give each step that the published 0.11.0
+      runs its own flag through one helper, the only place under `tools/` that names `--executable`. Done when
       `go vet -tags client_acceptance ./tools/release/...` passes.
-- [ ] 5.3 Remove the `forwarding-performance` scope and the `--performance-forwarding` flag from the release tool,
+- [x] 5.3 Remove the `forwarding-performance` scope and the `--performance-forwarding` flag from the release tool,
       its samples and its documentation. Done when `go vet -tags performance_acceptance ./tools/release/...` passes
-      and no file outside the CHANGELOG and archived Changes names either.
+      and no file outside the CHANGELOG and the Changes names either.
+- [x] 5.4 Admit a program rollback whose retained program exports the configuration that it was given in that
+      file's own schema, so that a version 8 copy restored after the upgrade goes back to 0.11.0, as the accepted
+      program-lifecycle requirement asks, and name that copy in the refusal's repair. Done when the install tests admit
+      a restored version 8 file and refuse an export in another schema than the file's, and the rollback acceptance
+      test finds the copy in the repair.
 
 ## 6. Documents
 

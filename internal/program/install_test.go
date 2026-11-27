@@ -5,6 +5,7 @@ import (
 	"aigw-cli/internal/platform/process"
 	"archive/tar"
 	"bytes"
+	"cmp"
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
@@ -140,11 +141,17 @@ func TestRollbackRejectsUnrunnablePredecessorWithoutReplacingPrograms(t *testing
 func TestRollbackConfigurationVerdictsPreservePrograms(t *testing.T) {
 	for _, test := range []struct {
 		name       string
+		given      string
 		output     string
 		failure    error
 		compatible bool
 	}{
 		{name: "compatible", output: "version = 9\n\n[[providers]]\nid = 'team'\n", compatible: true},
+		// A file restored from before an upgrade that moved the schema goes
+		// back to the release that wrote it, which exports it in its schema.
+		{name: "a restored earlier schema", given: "version = 8\n", output: "version = 8\n", compatible: true},
+		{name: "an export in another schema than the file's", given: "version = 8\n", output: "version = 9\n"},
+		{name: "a file without a version", given: "[clients]\n", output: "version = 9\n"},
 		// A program of an earlier release reads no aigw.toml and exports its
 		// own empty configuration in its own schema.
 		{name: "an earlier schema", output: "version = 7\n"},
@@ -168,7 +175,8 @@ func TestRollbackConfigurationVerdictsPreservePrograms(t *testing.T) {
 				}
 				return []byte(test.output), test.failure
 			}}
-			_, err := (Updater{Executable: current, Runner: runner}).Rollback(t.Context(), []byte("version = 9\n"))
+			given := cmp.Or(test.given, "version = 9\n")
+			_, err := (Updater{Executable: current, Runner: runner}).Rollback(t.Context(), []byte(given))
 			if test.compatible && err != nil || !test.compatible && err == nil {
 				t.Fatalf("rollback admission: %v", err)
 			}

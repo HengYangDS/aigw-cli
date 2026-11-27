@@ -29,14 +29,19 @@ import (
 	builtinclients "aigw-cli/internal/clients"
 )
 
+// publishedNativeJourney is a lifecycle from a published predecessor to the
+// candidate. predecessor holds the configuration that the predecessor wrote,
+// and edited the same configuration as the candidate reads it: the copy that
+// the schema edits made of it, or its own bytes when the two programs share a
+// schema.
 type publishedNativeJourney struct {
-	journey                     *journeyFixture
-	baseline, candidate         string
-	archive, checksums, version string
-	predecessor, sessionBytes   []byte
-	session                     string
-	clients                     []string
-	retained                    map[string]process.Plan
+	journey                           *journeyFixture
+	baseline, candidate               string
+	archive, checksums, version       string
+	predecessor, edited, sessionBytes []byte
+	session                           string
+	clients                           []string
+	retained                          map[string]process.Plan
 }
 
 func TestNativePublishedPredecessorJourney(t *testing.T) {
@@ -67,7 +72,7 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 		clients: deferredJourneyClientIDs(),
 	}
 	predecessorVersion := journey.journey.predecessorVersion(version)
-	journey.prepare(t, nativeCurrentSchemaManifest(server.URL+"/v1"))
+	journey.prepare(t)
 	if runtime.GOOS == "darwin" {
 		journey.preprojectForLinkGap(t, "native-journey-token")
 	}
@@ -128,8 +133,9 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	})
 	journey := newNativeJourney(t, baseline, upstream.URL+"/v1", true)
 	state := publishedNativeJourney{journey: journey, baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version, clients: deferredJourneyClientIDs()}
-	state.prepare(t, nativeCurrentSchemaManifest(upstream.URL+"/v1"))
+	state.prepare(t)
 	journey.run("self", "update", "--archive", archive, "--checksums", checksums)
+	journey.crossSchema(journey.binary)
 	configStore := store.NewStore(journey.config, builtinclients.Admission())
 	before := capturePublishedSnapshot(t, configStore)
 	forwardingRoot := forwarding.URL
@@ -201,14 +207,33 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, forwarding
 	if err != nil || !restored.Config.Equal(selected.Config) {
 		t.Fatalf("configuration forward restore lost exact binding bytes: %v", err)
 	}
+	crossing := !journey.sourceReadsConfiguration()
+	journey.prepareProgramRollback()
 	journey.run("self", "rollback")
 	journey.requireProgramBytes(baseline)
 	for _, client := range state.clients {
 		journey.requireCredential(state.retained[client], "native-journey-token")
 	}
-	journey.runWith(state.candidate, "sync")
+	if crossing {
+		// Before the edits the candidate refuses the predecessor's schema,
+		// so it cannot project ahead of the update.
+		journey.requireSchemaRefusal(state.candidate)
+	} else {
+		journey.runWith(state.candidate, "sync")
+	}
 	journey.run("self", "update", "--archive", state.archive, "--checksums", state.checksums)
 	journey.requireProgramBytes(state.candidate)
+	journey.crossSchema(journey.binary)
+	if crossing {
+		// The copy kept before the edits predates the forwarding, so the
+		// edits leave none, and the client sets it again, as the last edit
+		// says.
+		cfg, err = configStore.Load()
+		if err != nil || cfg.Clients[codex.ID].ForwardingRoot != "" {
+			t.Fatalf("the edited copy kept a forwarding that it never held: %v", err)
+		}
+		journey.run("client", "edit", codex.ID, "--via", forwardingRoot)
+	}
 	cfg, err = configStore.Load()
 	if err != nil || cfg.Clients[codex.ID].ForwardingRoot != forwardingRoot {
 		t.Fatalf("program rollback and forward restore lost forwarding: %v", err)
@@ -219,8 +244,10 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, forwarding
 	journey.run("client", "edit", codex.ID, "--direct")
 }
 
-func nativeCurrentSchemaManifest(endpoint string) string {
-	return fmt.Sprintf(`version = 8
+// nativeProbeTeamFile is the team file of the published journeys in schema,
+// the schema of the program that applies it.
+func nativeProbeTeamFile(schema int, endpoint string) string {
+	return fmt.Sprintf(`version = %d
 
 [[providers]]
 id = "native-system-keyring-probe"
@@ -239,12 +266,12 @@ label = "Claude Test"
 
 [recommendations.claude]
 primary = {model = "native-system-keyring-probe/claude-test"}
-`, endpoint)
+`, schema, endpoint)
 }
 
-func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
+func (state *publishedNativeJourney) prepare(t *testing.T) {
 	journey := state.journey
-	if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
+	if err := os.WriteFile(journey.manifest, []byte(nativeProbeTeamFile(journey.sourceSchema, journey.endpoint)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	journey.prepareCodexLifecycle()
@@ -253,10 +280,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	}
 	journey.installClientFixture(hermes.ID)
 	journey.setEnvironment("HERMES_HOME", filepath.Join(journey.root, "home", ".hermes"))
-	configured, err := store.ParseTeamFile(readFile(t, journey.manifest), builtinclients.Admission())
-	if err != nil {
-		t.Fatal(err)
-	}
+	configured := journey.readTeamFile()
 	configured.Recommendations[hermes.ID] = domain.ClientRecommendation{
 		Primary: domain.ClientSelection{Model: probeModel, Protocol: domain.ProtocolAnthropic},
 	}
@@ -265,13 +289,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 			Primary: domain.ClientSelection{Model: probeModel},
 		}
 	}
-	data, err := store.ExportTeamFile(configured)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(journey.manifest, data, 0o600); err != nil {
-		t.Fatal(err)
-	}
+	journey.writeTeamFile(journey.manifest, configured)
 	if err := os.MkdirAll(filepath.Dir(journey.settings), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -289,22 +307,29 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest)
 	predecessor := readFile(t, journey.config)
-	if !bytes.HasPrefix(predecessor, []byte(fmt.Sprintf("version = %d\n", domain.ConfigVersion))) {
+	if !bytes.HasPrefix(predecessor, []byte(fmt.Sprintf("version = %d\n", journey.sourceSchema))) {
 		t.Fatal("published predecessor did not create its own schema")
 	}
+	t.Logf("predecessor schema %d; candidate schema %d", journey.sourceSchema, domain.ConfigVersion)
 	journey.run("check")
 	state.retained = make(map[string]process.Plan, len(state.clients))
 	for _, client := range state.clients {
 		state.retained[client] = journey.retainedCredential(client)
 		journey.requireCredential(state.retained[client], "native-journey-token")
 	}
-	state.predecessor = predecessor
+	state.predecessor, state.edited = predecessor, predecessor
 	state.session = session
 	state.sessionBytes = sessionBytes
 }
 
+// preprojectForLinkGap lets the candidate project its credential command
+// while the predecessor is still installed. A configuration of the schema
+// that the candidate replaced is edited first, which the predecessor's
+// credential commands still read.
 func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, token string) {
 	journey := state.journey
+	journey.crossSchema(state.candidate)
+	state.edited = readFile(t, journey.config)
 	journey.runWith(state.candidate, "sync")
 	for _, client := range state.clients {
 		predecessor := state.retained[client]
@@ -315,7 +340,7 @@ func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, token st
 		journey.requireCredential(predecessor, token)
 		journey.requireCredential(successor, token)
 	}
-	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
+	if !bytes.Equal(readFile(t, journey.config), state.edited) {
 		t.Fatal("candidate preprojection changed the published configuration")
 	}
 
@@ -345,6 +370,10 @@ func (state *publishedNativeJourney) preprojectForLinkGap(t *testing.T, token st
 	}
 }
 
+// upgrade installs the candidate over the predecessor. A configuration of the
+// schema that the candidate replaced is refused, keeps its bytes and is then
+// edited, unless the preprojection edited it already, and the predecessor's
+// credential commands return the same Token from the edited file.
 func (state *publishedNativeJourney) upgrade(t *testing.T) {
 	journey := state.journey
 	journey.run("self", "update", "--archive", state.archive, "--checksums", state.checksums)
@@ -353,8 +382,13 @@ func (state *publishedNativeJourney) upgrade(t *testing.T) {
 	}
 	journey.requireVersion(state.version)
 	journey.requireProgramBytes(state.candidate)
+	journey.crossSchema(journey.binary)
+	state.edited = readFile(t, journey.config)
+	for _, client := range state.clients {
+		journey.requireCredential(state.retained[client], "native-journey-token")
+	}
 	journey.run("sync")
-	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
+	if !bytes.Equal(readFile(t, journey.config), state.edited) {
 		t.Fatal("unchanged synchronization rewrote published configuration")
 	}
 	// The rollback that follows runs over the windows that this program wrote
@@ -367,12 +401,17 @@ func (state *publishedNativeJourney) upgrade(t *testing.T) {
 	}
 }
 
+// rollbackAndRecover rolls the program back to the predecessor and updates it
+// again. A rollback over the edited configuration refuses until the copy kept
+// before the edits is back, and the update then repeats the refusal and the
+// edits.
 func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecessorVersion string) {
 	journey := state.journey
 	successor := make(map[string]process.Plan, len(state.clients))
 	for _, client := range state.clients {
 		successor[client] = journey.retainedCredential(client)
 	}
+	journey.prepareProgramRollback()
 	ctx, cancel := context.WithTimeout(t.Context(), clientverification.ProtocolTimeout)
 	stdout, stderr, rollbackErr := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
 		Executable: journey.binary, Args: []string{"self", "rollback"}, Env: journey.environment,
@@ -409,12 +448,13 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 		journey.requireCredential(state.retained[client], "native-journey-token")
 		journey.requireCredential(successor[client], "native-journey-token")
 	}
+	journey.crossSchema(journey.binary)
 	journey.run("sync")
 	journey.requireHermesModelWindows()
 	journey.run("check")
 	journey.requireVersion(state.version)
 	journey.requireProgramBytes(state.candidate)
-	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {
+	if !bytes.Equal(readFile(t, journey.config), state.edited) {
 		t.Fatal("current-schema recovery rewrote the published configuration")
 	}
 	state.finish(t)

@@ -27,7 +27,11 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	journey.run("setup", "--from", journey.manifest)
 	original := readFile(t, journey.config)
 	journey.run("self", "update", "--archive", archive, "--checksums", checksums)
-	journey.run("setup", "--from", journey.manifest)
+	journey.crossSchema(journey.binary)
+	journey.run("setup", "--from", journey.candidateTeamFile())
+	// A predecessor of another schema cannot read the candidate's file, which
+	// keeps it unable to export without an injected field.
+	crossing := !journey.sourceReadsConfiguration()
 	compatibility := exec.CommandContext(t.Context(), baseline, "config", "export")
 	compatibility.Env = journey.environment
 	_, compatibilityErr := compatibility.CombinedOutput()
@@ -66,7 +70,9 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 		}
 	}
 	journey.requireInstalledProgramFiles()
-	if injected {
+	if injected || crossing {
+		// The predecessor reads the file that it wrote: the one before the
+		// injected field, or the copy kept before the schema edits.
 		if err := os.WriteFile(journey.config, original, 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -78,6 +84,12 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	journey.requireProgramBytes(baseline)
 	journey.run("self", "update", "--archive", archive, "--checksums", checksums)
 	journey.requireProgramBytes(candidate)
+	journey.crossSchema(journey.binary)
 	journey.run("config", "export")
+	if crossing {
+		// The predecessor cannot read the edited file that its uninstall
+		// would withdraw the clients from.
+		journey.source = candidate
+	}
 	journey.uninstallAndRequireInstallationRemoved()
 }

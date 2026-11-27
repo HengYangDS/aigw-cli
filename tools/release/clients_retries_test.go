@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -92,6 +93,8 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	journey.run("setup", "--from", p.baselineManifest(journey))
 	journey.enableNativeClient(codex.ID, executable)
 	retained := journey.retainedCredential(codex.ID)
+	// The candidate reads aigw.toml from here on.
+	journey.crossSchema(p.candidate)
 	journey.runWith(p.candidate, "sync")
 	// Selection may bind the successor's credential reader; establish that
 	// independent transition before measuring policy-only canonical preservation.
@@ -160,28 +163,45 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 }
 
-// requireRetryRollbackAdmission rolls back to a retained baseline that reads
-// retry policies while one is selected, then rolls back again to the candidate.
-// Both programs read the same declaration, and each rollback swaps exactly the
-// active and retained programs.
+// requireRetryRollbackAdmission rolls back to a retained baseline while a
+// retry policy is selected, then rolls back again to the candidate, and each
+// rollback swaps exactly the active and retained programs. A baseline of the
+// candidate's schema reads the same declaration as the candidate. A baseline
+// of the schema that the candidate replaced cannot: the rollback refuses and
+// changes nothing, the baseline is admitted with the copy of aigw.toml kept
+// before the schema edits, and the candidate with the file in which it
+// selected the policy, which the rest of the journey edits.
 func (j *journeyFixture) requireRetryRollbackAdmission(baseline string) {
 	t := j.testing
 	t.Helper()
-	admission, err := store.NewStore(j.config, clients.Admission()).RollbackConfiguration()
-	if err != nil {
-		t.Fatal(err)
-	}
 	retained := program.RollbackPath(j.binary)
 	previous, active := readFile(t, baseline), readFile(t, j.binary)
 	if err := os.WriteFile(retained, previous, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range [][2][]byte{{previous, active}, {active, previous}} {
-		ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-		_, err := (program.Updater{Executable: j.binary, Runner: process.Runner{}}).Rollback(ctx, admission)
-		cancel()
-		if err != nil {
-			t.Fatalf("a retained program that reads retry policies refused rollback: %v", err)
+	selected := readFile(t, j.config)
+	admissions := [2][]byte{selected, selected}
+	if !j.sourceReadsConfiguration() {
+		if len(j.keptConfiguration) == 0 {
+			t.Fatal("no copy of aigw.toml was kept before the schema edits")
+		}
+		before := j.captureState()
+		if err := j.rollbackProgram(); !errors.Is(err, program.ErrRollbackConfiguration) {
+			t.Fatalf("a retained program that cannot read aigw.toml did not refuse rollback: %v", err)
+		}
+		if !reflect.DeepEqual(before, j.captureState()) {
+			t.Fatal("the refused rollback changed the configuration, its recovery state, a program or a client file")
+		}
+		admissions[0] = j.keptConfiguration
+	}
+	for index, want := range [][2][]byte{{previous, active}, {active, previous}} {
+		if !bytes.Equal(readFile(t, j.config), admissions[index]) {
+			if err := os.WriteFile(j.config, admissions[index], 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := j.rollbackProgram(); err != nil {
+			t.Fatalf("a retained program that reads aigw.toml refused rollback: %v", err)
 		}
 		if !bytes.Equal(want[0], readFile(t, j.binary)) || !bytes.Equal(want[1], readFile(t, retained)) {
 			t.Fatal("rollback did not swap exactly the active and retained programs")
@@ -190,4 +210,18 @@ func (j *journeyFixture) requireRetryRollbackAdmission(baseline string) {
 	if err := os.Remove(retained); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// rollbackProgram rolls the installed program back to the retained one,
+// admitted with aigw.toml as it is.
+func (j *journeyFixture) rollbackProgram() error {
+	j.testing.Helper()
+	admission, err := store.NewStore(j.config, clients.Admission()).RollbackConfiguration()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(j.testing.Context(), 30*time.Second)
+	defer cancel()
+	_, err = (program.Updater{Executable: j.binary, Runner: process.Runner{}}).Rollback(ctx, admission)
+	return err
 }

@@ -73,7 +73,7 @@ func newRollbackCommand(runtime invocation.Context) *cobra.Command {
 					"Program rollback did not complete",
 					"The retained program did not complete the isolated configuration-read check.",
 					"The active program, retained program and configuration remain unchanged.",
-					"Keep a compatible program, or use `aigw config rollback` to restore the accepted configuration before you run it again; do not delete policy fields by hand.", err)
+					"Keep a compatible program, or give it a configuration that it reads before you run it again: the copy of aigw.toml kept before a schema change, or `aigw config rollback` for the accepted configuration; do not delete policy fields by hand.", err)
 			}
 			if err != nil {
 				return programProblem("Program rollback did not complete", "AIGW could not activate the retained previous program.",

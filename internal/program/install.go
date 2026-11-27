@@ -1,7 +1,6 @@
 package program
 
 import (
-	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/program/artifact"
@@ -101,13 +100,18 @@ func (u Updater) verifyProgram(ctx context.Context, binary []byte, version strin
 	}
 	// A program of an earlier release reads no aigw.toml, so it exports
 	// its own empty configuration in its own schema: only an export in the
-	// current schema shows that the program read the configuration it was
-	// given.
-	var manifest struct {
+	// schema of the configuration that it was given shows that it read it.
+	// That is the file's own version, not this program's, so that a file
+	// restored from before an upgrade that moved the schema goes back to the
+	// release that wrote it.
+	var given, manifest struct {
 		Version int `toml:"version"`
 	}
+	if err := toml.Unmarshal(config, &given); err != nil || given.Version == 0 {
+		return "", ErrRollbackConfiguration
+	}
 	parseErr = toml.Unmarshal(output, &manifest)
-	if parseErr != nil || manifest.Version != domain.ConfigVersion {
+	if parseErr != nil || manifest.Version != given.Version {
 		return "", ErrRollbackConfiguration
 	}
 	return reported, ctx.Err()

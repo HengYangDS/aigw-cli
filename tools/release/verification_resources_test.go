@@ -63,19 +63,21 @@ func runNativeResourceCase(t *testing.T, program, client, mode string) {
 	}
 	journey.setEnvironment("TMPDIR", temporary)
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-resource-token")
-	if err := os.WriteFile(journey.manifest, []byte(nativeResourceManifest(client, journey.endpoint)), 0o600); err != nil {
+	if err := os.WriteFile(journey.manifest, []byte(nativeResourceManifest(journey.sourceSchema, client, journey.endpoint)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	journey.run("setup", "--from", journey.manifest)
 	verifyNativeResourceCase(t, journey, temporary, client, mode)
 }
 
-func nativeResourceManifest(client, endpoint string) string {
+// nativeResourceManifest is the resource journey's team file for client in
+// schema, the schema of the program that applies it.
+func nativeResourceManifest(schema int, client, endpoint string) string {
 	protocol, capabilities := "chat", `["text"]`
 	if client == codex.ID {
 		protocol, capabilities = "responses", "[]"
 	}
-	return fmt.Sprintf(`version = 8
+	return fmt.Sprintf(`version = %[5]d
 
 [[providers]]
 id = "native-system-keyring-probe"
@@ -94,7 +96,7 @@ label = "Native Resource Model"
 
 [recommendations.%[1]s]
 primary = {model = "native-system-keyring-probe/native-resource-model"}
-`, client, protocol, capabilities, endpoint)
+`, client, protocol, capabilities, endpoint, schema)
 }
 
 func TestVerificationResourceCleanupStopsOwnedFixture(t *testing.T) {

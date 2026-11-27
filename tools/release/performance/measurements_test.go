@@ -25,7 +25,10 @@ import (
 	"aigw-cli/internal/platform/process"
 )
 
-func TestWorkloadAcceptsItsResolvedForwardingProjection(t *testing.T) {
+// A measured workload resolves its client directly to its provider's
+// endpoint: a binding through another endpoint, or a mode other than direct,
+// is refused.
+func TestWorkloadRefusesAForwardedBinding(t *testing.T) {
 	program, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
@@ -35,14 +38,19 @@ func TestWorkloadAcceptsItsResolvedForwardingProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	binding := domain.Runtime{Client: claude.ID, Model: domain.NewModelRef("account", "claude-selected"), ProviderID: "account", UpstreamModel: "claude-selected",
-		Protocol: domain.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "http://127.0.0.1:18792/v1"}
-	workload := Workload{Name: "projection", Command: []string{program, "use", "claude", "account/claude-selected"}, Mode: "forwarding", Runtime: binding}
+		Protocol: domain.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "https://upstream.example/v1"}
+	workload := Workload{Name: "projection", Command: []string{program, "use", "claude", "account/claude-selected"}, Mode: "direct", Runtime: binding}
 	if err := workload.Review(&selected); err != nil {
-		t.Fatalf("the declared native forwarding projection was refused: %v", err)
+		t.Fatalf("the direct native projection was refused: %v", err)
 	}
-	workload.Command[len(workload.Command)-1] = "account/another-model"
-	if err := workload.Review(&selected); err == nil {
-		t.Fatal("a forwarding command for another model than its binding qualified")
+	forwarded := workload
+	forwarded.Runtime.Endpoint = "http://127.0.0.1:18792/v1"
+	if err := forwarded.Review(&selected); err == nil {
+		t.Fatal("a binding through another endpoint than its provider's qualified")
+	}
+	forwarded.Mode = "forwarding"
+	if err := forwarded.Review(&selected); err == nil {
+		t.Fatal("a mode other than direct qualified")
 	}
 }
 

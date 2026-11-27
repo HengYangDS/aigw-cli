@@ -19,10 +19,6 @@ import (
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/platform/process"
 
-	"aigw-cli/internal/store"
-
-	"aigw-cli/internal/clients"
-
 	"github.com/pelletier/go-toml/v2"
 	"go.yaml.in/yaml/v4"
 )
@@ -112,10 +108,7 @@ func (j *journeyFixture) shellCredential(command string) process.Plan {
 }
 
 func (j *journeyFixture) retainedCredentials() []process.Plan {
-	cfg, err := store.NewStore(j.config, clients.Admission()).Load()
-	if err != nil {
-		j.testing.Fatal(err)
-	}
+	cfg := j.loadConfiguration()
 	credentials := make([]process.Plan, 0, len(cfg.Clients))
 	for _, client := range cfg.EnabledClientIDs() {
 		credentials = append(credentials, j.retainedCredential(client))

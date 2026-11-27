@@ -234,7 +234,7 @@ func TestClientDisablePreservesRetainedEntrypointAcrossReenable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	executable := cfg.Clients[claude.ID].Program
+	declared := cfg.Clients[claude.ID].Program
 	helper := journey.credentialEntrypoint()
 	retained := journey.retainedCredential(claude.ID)
 	journey.run("client", "disable", claude.ID)
@@ -243,7 +243,7 @@ func TestClientDisablePreservesRetainedEntrypointAcrossReenable(t *testing.T) {
 			t.Fatalf("disable removed a possible cached command %s: %v", path, err)
 		}
 	}
-	journey.run("client", "enable", claude.ID, "--executable", executable)
+	journey.run("client", "enable", claude.ID, "--program", declared)
 	journey.requireCredential(retained, "native-journey-token")
 	journey.requireCredential(journey.retainedCredential(claude.ID), "native-journey-token")
 }

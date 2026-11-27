@@ -56,7 +56,7 @@ func TestNativeClientInputs(t *testing.T) {
 	t.Run("isolated client capabilities", func(t *testing.T) {
 		journey := &journeyFixture{
 			testing: t, root: root, manifest: filepath.Join(root, "team.toml"),
-			endpoint: "http://127.0.0.1:1/v1",
+			endpoint: "http://127.0.0.1:1/v1", sourceSchema: domain.ConfigVersion,
 		}
 		team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
 		manifest, err := store.ParseTeamFile(team, clients.Admission())
@@ -184,6 +184,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	for _, step := range steps {
 		if !t.Run(step.name, func(t *testing.T) {
 			journey.testing = t
+			journey.enterStep(step, p.candidate)
 			configurationBefore := readFile(t, journey.config)
 			replacement := step.args[0] == "self" && step.args[1] == "update"
 			if replacement && step.program == p.candidate {
@@ -203,10 +204,13 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 			}
 			continueClient()
 			if step.synchronize {
-				journey.synchronizeWithCandidate(p.candidate, client, token, configurationBefore, retainedCredential)
+				// The candidate first judges the client files that the
+				// baseline wrote, after the schema edits that it asks for.
+				journey.crossSchema(p.candidate)
+				journey.synchronizeWithCandidate(p.candidate, client, token, readFile(t, journey.config), retainedCredential)
 			}
 			count := completions.Load()
-			journey.runWith(p.candidate, "check", client, "--depth", "client")
+			journey.runWith(journey.configurationReader(p.candidate), "check", client, "--depth", "client")
 			journey.requireNativePreferences(client)
 			if completions.Load() <= count {
 				t.Fatal("client returned without an authenticated streaming request")
@@ -305,6 +309,32 @@ func (p nativeClientJourneyPlan) clientLifecycle(journey *journeyFixture, client
 	}
 }
 
+// enterStep brings aigw.toml to the schema of the program that step leaves
+// installed: the candidate's, after the edits that the candidate asks for,
+// or, before a rollback to a first program that cannot read the candidate's
+// file, the copy kept before those edits. A file that both programs read
+// stays as it is.
+func (j *journeyFixture) enterStep(step lifecycleStep, candidate string) {
+	j.testing.Helper()
+	switch {
+	case step.program == candidate:
+		j.crossSchema(candidate)
+	case step.args[0] == "self" && step.args[1] == "rollback":
+		j.prepareProgramRollback()
+	}
+}
+
+// configurationReader is the program that judges a client while aigw.toml is
+// as it is: the candidate, or, while the file has the schema that the
+// candidate replaced, the installed program, which wrote it.
+func (j *journeyFixture) configurationReader(candidate string) string {
+	j.testing.Helper()
+	if j.configurationSchema() == domain.ConfigVersion {
+		return candidate
+	}
+	return j.binary
+}
+
 // baselineManifest is the team file that the baseline program applies. 0.10.0
 // refuses a model's context_window, which the shipped file declares since
 // 0.11.0, so a published predecessor applies a copy without the windows; a
@@ -315,22 +345,13 @@ func (p nativeClientJourneyPlan) baselineManifest(j *journeyFixture) string {
 	if !p.publishedBaseline {
 		return j.manifest
 	}
-	manifest, err := store.ParseTeamFile(readFile(j.testing, j.manifest), clients.Admission())
-	if err != nil {
-		j.testing.Fatal(err)
-	}
+	manifest := j.readTeamFile()
 	for ref, model := range manifest.Models {
 		model.ContextWindow = 0
 		manifest.Models[ref] = model
 	}
-	team, err := store.ExportTeamFile(manifest)
-	if err != nil {
-		j.testing.Fatal(err)
-	}
 	path := filepath.Join(j.root, "team-without-windows.toml")
-	if err := os.WriteFile(path, team, 0o600); err != nil {
-		j.testing.Fatal(err)
-	}
+	j.writeTeamFile(path, manifest)
 	return path
 }
 
@@ -361,7 +382,7 @@ func (p nativeClientJourneyPlan) requireDeclaredWindowSource(t *testing.T, provi
 func (p nativeClientJourneyPlan) requireHermesDeclaredWindows(j *journeyFixture, completions *atomic.Int64) {
 	j.testing.Helper()
 	if p.publishedBaseline {
-		j.run("setup", "--from", j.manifest)
+		j.run("setup", "--from", j.candidateTeamFile())
 		count := completions.Load()
 		j.run("check", hermes.ID, "--depth", "client")
 		if completions.Load() <= count {
@@ -474,13 +495,7 @@ terminal:
 		}
 		manifest.Providers[name] = account
 	}
-	data, err := store.ExportTeamFile(manifest)
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(j.manifest, data, 0o600); err != nil {
-		return err
-	}
+	j.writeTeamFile(j.manifest, manifest)
 	j.testing.Logf("client=%s executable=%s sha256=%x", client, executable, sha256.Sum256(readFile(j.testing, executable)))
 	return nil
 }
@@ -489,7 +504,7 @@ func (j *journeyFixture) enableNativeClient(client, executable string) {
 	j.testing.Helper()
 	path := strings.Join([]string{j.clientBin, os.Getenv("AIGW_ACCEPTANCE_CLIENT_PATH")}, string(os.PathListSeparator))
 	j.setEnvironment("PATH", strings.TrimRight(path, string(os.PathListSeparator)))
-	args := []string{"client", "enable", client, "--executable", executable}
+	args := []string{"client", "enable", client, j.sourceProgramFlag(), executable}
 	if client == codex.ID {
 		args = append(args, "--target", filepath.Join(j.root, "home", ".codex", "config.toml"))
 	}
@@ -505,4 +520,21 @@ func (j *journeyFixture) enableNativeClient(client, executable string) {
 		}
 	}
 	j.testing.Logf("client %s version=%s", client, version)
+}
+
+// sourceProgramFlag is the flag through which the program that the journey
+// installed first takes a client's program. 0.11.0, which writes the schema
+// that the candidate replaced, knows only `--executable`, which the
+// candidate's schema renamed `--program`. This is the one place under tools/
+// that names the old flag; it goes once no admissible predecessor writes that
+// schema.
+func (j *journeyFixture) sourceProgramFlag() string {
+	j.testing.Helper()
+	if j.sourceSchema == domain.ConfigVersion {
+		return "--program"
+	}
+	if candidateSchemaEdits(j.sourceSchema) == "" {
+		j.testing.Fatalf("a journey knows no flag for a client's program in schema %d", j.sourceSchema)
+	}
+	return "--executable"
 }

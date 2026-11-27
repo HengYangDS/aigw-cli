@@ -202,7 +202,7 @@ func (s Summary) Review() error {
 			return err
 		}
 	}
-	if (s.Scope != "full-performance" && s.Scope != "forwarding-performance") || s.OS == "" || s.Arch == "" || s.Tool == "" || s.IdentityScope == "" || s.MemoryScope == "" || s.ClientScope == "" || len(s.Programs) != 2 {
+	if s.Scope != "full-performance" || s.OS == "" || s.Arch == "" || s.Tool == "" || s.IdentityScope == "" || s.MemoryScope == "" || s.ClientScope == "" || len(s.Programs) != 2 {
 		return errors.New("performance summary lacks its complete native scope")
 	}
 	programs, err := reviewPrograms(s.Programs)
@@ -236,12 +236,8 @@ func reviewWorkloads(pooled []Measurement, programs map[string]Program, scope st
 			return errors.New("performance summary has an invalid native backend selection")
 		}
 	}
-	variants := []string{"baseline", "candidate"}
-	if scope == "forwarding-performance" {
-		variants = []string{"candidate"}
-	}
 	groups := make(map[string]bool)
-	for _, variant := range variants {
+	for _, variant := range []string{"baseline", "candidate"} {
 		for _, backend := range backends {
 			for _, name := range cases {
 				groups[variant+"/"+backend+"/"+name] = true
@@ -253,7 +249,7 @@ func reviewWorkloads(pooled []Measurement, programs map[string]Program, scope st
 			return errors.New("performance measurements are not qualified")
 		}
 		key := row.Variant + "/" + row.Backend + "/" + row.Case
-		if !groups[key] || scope == "forwarding-performance" && row.Mode != "forwarding" || scope == "full-performance" && row.Mode == "forwarding" {
+		if !groups[key] {
 			return errors.New("performance measurements differ from their declared scope")
 		}
 		delete(groups, key)
@@ -270,12 +266,6 @@ func (s Summary) reviewMemoryBindings(programs map[string]Program) error {
 		if err := reviewRuntime(row.Mode, row.Runtime); err != nil {
 			return err
 		}
-		if (row.Mode == "forwarding") != (s.Scope == "forwarding-performance" && row.Variant == "candidate") {
-			return errors.New("peak memory differs from the requested direct or forwarding scope")
-		}
-		if s.Scope == "forwarding-performance" && (row.Mode == "" || row.Executable == nil) {
-			return errors.New("forwarding memory requires explicit predecessor and candidate bindings")
-		}
 		if row.Executable != nil && (row.Executable.SHA256 != programs[row.Variant].SHA256 || row.Executable.Bytes != programs[row.Variant].Bytes) {
 			return errors.New("peak memory differs from its released program")
 		}
@@ -283,7 +273,7 @@ func (s Summary) reviewMemoryBindings(programs map[string]Program) error {
 			return errors.New("peak-memory blocks differ from their resolved native binding")
 		}
 		bindings[row.Variant] = row.Runtime
-		if row.Mode == "" || (s.Scope == "forwarding-performance" && row.Variant == "baseline") {
+		if row.Mode == "" {
 			continue
 		}
 		index := slices.IndexFunc(s.Blocks, func(measurement Measurement) bool {
@@ -356,7 +346,7 @@ func ReadSummary(directory, scope string) (Summary, error) {
 		}
 		return summary, nil
 	}
-	if !summary.Qualification || summary.Scope != scope || (scope != "full-performance" && scope != "forwarding-performance") {
+	if !summary.Qualification || summary.Scope != scope || scope != "full-performance" {
 		return summary, errors.New("performance acceptance requires a qualified summary for the exact requested scope")
 	}
 	for index := range summary.Blocks {

@@ -57,7 +57,7 @@ func runDeferredClientInstallation(t *testing.T, artifact func(*testing.T) strin
 	for _, clientID := range deferredJourneyClientIDs() {
 		t.Run(clientID, func(t *testing.T) {
 			journey := newNativeJourney(t, artifact(t), endpoint, false)
-			manifest := fmt.Sprintf(`version = 8
+			manifest := fmt.Sprintf(`version = %[2]d
 
 [[providers]]
 id = 'native-system-keyring-probe'
@@ -95,7 +95,7 @@ primary = {model = 'native-system-keyring-probe/gpt-test'}
 
 [recommendations.hermes]
 primary = {model = 'native-system-keyring-probe/claude-test', protocol = 'anthropic'}
-`, journey.endpoint)
+`, journey.endpoint, journey.sourceSchema)
 			if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 				t.Fatal(err)
 			}

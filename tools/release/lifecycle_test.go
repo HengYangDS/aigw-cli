@@ -122,10 +122,9 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	t.Logf("baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(t, baseline)), newVersion, sha256.Sum256(readFile(t, newArtifact)))
 	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest)
-	before, err := store.NewStore(journey.config, clients.Admission()).Load()
-	if err != nil {
-		t.Fatal(err)
-	}
+	// The predecessor's configuration, as the candidate reads it after the
+	// edits that a change of schema asks for.
+	before := journey.loadConfiguration()
 
 	journey.requireVersion(oldVersion)
 	journey.updateTo(archive, checksums, newVersion, newArtifact)
@@ -139,6 +138,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	}
 	journey.requireInvalidSuccessorPreservesInstallation(newVersion)
 	// Keep client projections active across rollback; disable/re-enable would test a different journey.
+	journey.prepareProgramRollback()
 	journey.run("self", "rollback")
 	journey.run("sync")
 	journey.requireHealthyVersion(oldVersion)
@@ -176,10 +176,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 func (j *journeyFixture) prepareCodexLifecycle() (string, string) {
 	j.testing.Helper()
 	j.installClientFixture("codex")
-	manifest, err := store.ParseTeamFile(readFile(j.testing, j.manifest), clients.Admission())
-	if err != nil {
-		j.testing.Fatal(err)
-	}
+	manifest := j.readTeamFile()
 	account := manifest.Providers["native-system-keyring-probe"]
 	account.Endpoints.Responses = j.endpoint
 	manifest.Providers["native-system-keyring-probe"] = account
@@ -189,13 +186,7 @@ func (j *journeyFixture) prepareCodexLifecycle() (string, string) {
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolResponses: {}},
 	}
 	manifest.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: domain.NewModelRef("native-system-keyring-probe", "gpt-test")}}
-	manifestData, err := store.ExportTeamFile(manifest)
-	if err != nil {
-		j.testing.Fatal(err)
-	}
-	if err := os.WriteFile(j.manifest, manifestData, 0o600); err != nil {
-		j.testing.Fatal(err)
-	}
+	j.writeTeamFile(j.manifest, manifest)
 	codexConfig := filepath.Join(environmentValues(j.environment)["HOME"], ".codex", "config.toml")
 	j.setEnvironment("CODEX_HOME", filepath.Dir(codexConfig))
 	originalCodex := "# User configuration\nmodel = 'user-selected'\nuser_preference = true\n"
@@ -259,6 +250,7 @@ func (j *journeyFixture) requireProgramBytes(expected string) {
 func (j *journeyFixture) updateTo(archive, checksums, version, program string) {
 	j.testing.Helper()
 	j.run("self", "update", "--archive", archive, "--checksums", checksums)
+	j.crossSchema(j.binary)
 	j.run("sync")
 	j.requireHealthyVersion(version)
 	j.requireCodexProjection()

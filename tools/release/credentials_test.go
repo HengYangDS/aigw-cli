@@ -185,7 +185,7 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	j.run("check", client, "--depth", "client")
 	j.run("client", "disable", client)
 	j.run("sync")
-	args := []string{"client", "enable", client, "--executable", executable}
+	args := []string{"client", "enable", client, "--program", executable}
 	if client == codex.ID {
 		args = append(args, "--target", filepath.Join(j.root, "home", ".codex", "config.toml"))
 	}

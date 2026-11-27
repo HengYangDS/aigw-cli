@@ -6,8 +6,6 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
-
-	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/performance"
 	"bytes"
 	"encoding/json"
@@ -24,17 +22,11 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/clients"
-
 	"github.com/pelletier/go-toml/v2"
 )
 
 func TestNativePerformance(t *testing.T) {
 	attribution := os.Getenv("AIGW_PERFORMANCE_ATTRIBUTION") == "1"
-	forwarding := os.Getenv("AIGW_PERFORMANCE_FORWARDING") == "1"
-	if forwarding && attribution {
-		t.Fatal("forwarding qualification cannot use diagnostic attribution")
-	}
 	if !attribution {
 		TestNativePeakMemory(t)
 	}
@@ -58,12 +50,6 @@ func TestNativePerformance(t *testing.T) {
 		_, _ = response.Write([]byte(`{"data":[]}`))
 	}))
 	t.Cleanup(server.Close)
-	forwardingEndpoint := ""
-	if forwarding {
-		destination := httptest.NewServer(server.Config.Handler)
-		t.Cleanup(destination.Close)
-		forwardingEndpoint = destination.URL
-	}
 	backends := []string{"env"}
 	if runtime.GOOS == "linux" {
 		backends = append(backends, "file")
@@ -82,14 +68,8 @@ func TestNativePerformance(t *testing.T) {
 		for _, index := range order {
 			program := programs[index]
 			for _, backend := range backends {
-				if forwarding && program.Variant == "baseline" && backend != "env" {
-					continue
-				}
 				if !t.Run(fmt.Sprintf("block-%d/%s/%s", block+1, program.Variant, backend), func(t *testing.T) {
 					journey := nativePerformanceJourney(t, program.Path, programs[1].Path, backend, server.URL)
-					if forwarding && program.Variant == "candidate" {
-						journey.run("client", "edit", "claude", "--via", forwardingEndpoint)
-					}
 					rows, observations := journey.measurePerformanceBlock(hyperfine, output, program.Variant, backend, block+1, attribution)
 					measurements = append(measurements, rows...)
 					memory = append(memory, observations...)
@@ -103,14 +83,10 @@ func TestNativePerformance(t *testing.T) {
 
 func (j *journeyFixture) measurePerformanceBlock(hyperfine, output, variant, backend string, block int, attribution bool) ([]performance.Measurement, []performance.Memory) {
 	j.testing.Helper()
-	var measurements []performance.Measurement
-	if os.Getenv("AIGW_PERFORMANCE_FORWARDING") != "1" || variant == "candidate" {
-		var err error
-		measurements, err = j.measurePerformance(hyperfine, output, variant, backend, block)
-		if err != nil {
-			j.testing.Error(err)
-			return measurements, nil
-		}
+	measurements, err := j.measurePerformance(hyperfine, output, variant, backend, block)
+	if err != nil {
+		j.testing.Error(err)
+		return measurements, nil
 	}
 	before, sidecar := readFile(j.testing, j.settings), readFile(j.testing, j.settings+".aigw-state.json")
 	j.run("sync")
@@ -147,9 +123,6 @@ func writeNativePerformanceSummary(t *testing.T, output, hyperfine string, summa
 	summary.IdentityScope = "Immutable selected files"
 	summary.MemoryScope = "Configured status: per-child wait4 on macOS, GNU time on Linux; bytes, no periodic sampling; calibrated against a large parent"
 	summary.ClientScope, summary.Pooled = "controlled client discovery; native projected helper; no Provider inference", pooled
-	if os.Getenv("AIGW_PERFORMANCE_FORWARDING") == "1" {
-		summary.Scope = "forwarding-performance"
-	}
 	verifier, err := os.Executable()
 	if err != nil {
 		t.Error(err)
@@ -192,7 +165,7 @@ func nativePerformanceJourney(t *testing.T, program, credentialWorker, backend, 
 	if err := os.Symlink(shell, filepath.Join(j.clientBin, "sh")); err != nil {
 		t.Fatal(err)
 	}
-	manifest := []byte(nativeCurrentSchemaManifest(endpoint) + `
+	manifest := []byte(nativeProbeTeamFile(j.sourceSchema, endpoint) + `
 [[providers.models]]
 id = "claude-second"
 family = "claude-second"
@@ -277,19 +250,13 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 }
 
 func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, backend, preparer, helperCommand string, block int) ([]performance.Measurement, error) {
-	config, err := store.NewStore(j.config, clients.Admission()).Load()
-	if err != nil {
-		return nil, err
-	}
-	resolved, err := config.ResolveRuntime(claude.ID, domain.ModelRef{})
+	cfg := j.loadConfiguration()
+	resolved, err := cfg.ResolveRuntime(claude.ID, domain.ModelRef{})
 	if err != nil {
 		return nil, err
 	}
 	resolved.CredentialCommand = ""
-	mode := "direct"
-	if resolved.Endpoint != resolved.UpstreamEndpoint {
-		mode = "forwarding"
-	}
+	const mode = "direct"
 	scope := resolved.CredentialProjectionFingerprint(claude.ID)
 	reader, err := secret.ExecutableFromCommand(helperCommand, claude.ID, scope)
 	if err != nil {
@@ -354,21 +321,12 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 		"status":     {Command: []string{j.binary, "status", "--json"}},
 		"export":     {Command: []string{j.binary, "config", "export"}},
 	}
-	scope := "full-performance"
-	if binding.Endpoint != binding.UpstreamEndpoint {
-		scope = "forwarding-performance"
-	}
 	var cases []performance.Workload
-	for _, name := range performance.WorkloadNames(scope) {
+	for _, name := range performance.WorkloadNames("full-performance") {
 		workload := commands[name]
 		workload.Name, workload.Budget, workload.Runtime = name, performance.Budget(name), binding
 		if !binding.Equal(domain.Runtime{}) {
 			workload.Mode = "direct"
-		}
-		if scope == "forwarding-performance" {
-			// Forwarding is the client's own, set before the measurement, and
-			// a model of the same provider keeps it.
-			workload.Mode = "forwarding"
 		}
 		if workload.Name == "projection" && !binding.Equal(domain.Runtime{}) {
 			workload.Runtime.Model, workload.Runtime.ModelLabel = domain.NewModelRef(binding.ProviderID, "claude-second"), "Performance Second"
@@ -379,38 +337,8 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 	return cases
 }
 
-func (j *journeyFixture) reviewPerformanceBinding(expected domain.Runtime) error {
-	config, err := store.NewStore(j.config, clients.Admission()).Load()
-	if err != nil {
-		return err
-	}
-	actual, err := config.ResolveRuntime(claude.ID, domain.ModelRef{})
-	actual.CredentialCommand = ""
-	if err != nil || !actual.Equal(expected) {
-		return errors.Join(err, errors.New("measured forwarding differs from its selected native binding"))
-	}
-	reader, err := claude.ObservedCredentialExecutable(j.settings, actual)
-	if err != nil {
-		return err
-	}
-	inspection, err := claude.InspectSettings(j.settings, actual, reader)
-	if err != nil || inspection.NativeModelOverride {
-		return errors.Join(err, errors.New("measured forwarding differs from its native projection"))
-	}
-	return nil
-}
-
 func (j *journeyFixture) measureNativeCommand(hyperfine, output string, row performance.Measurement, workload performance.Workload) (performance.Measurement, error) {
 	row.Command = slices.Clone(workload.Command)
-	if workload.Mode == "forwarding" {
-		j.run(workload.Prepare[1:]...)
-		if workload.Name == "projection" {
-			j.run(workload.Command[1:]...)
-		}
-		if err := j.reviewPerformanceBinding(workload.Runtime); err != nil {
-			return row, err
-		}
-	}
 	if os.Getenv("AIGW_PERFORMANCE_ATTRIBUTION") != "1" {
 		if err := workload.Review(row.Executable); err != nil {
 			return row, err
@@ -422,11 +350,7 @@ func (j *journeyFixture) measureNativeCommand(hyperfine, output string, row perf
 		return row, err
 	}
 	command.Measurement = row
-	row, err := performance.Measure(j.testing.Context(), command)
-	if workload.Mode == "forwarding" {
-		err = errors.Join(err, j.reviewPerformanceBinding(workload.Runtime))
-	}
-	return row, err
+	return performance.Measure(j.testing.Context(), command)
 }
 
 // Hyperfine shell=none uses shell_words on every OS.

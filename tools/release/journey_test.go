@@ -181,6 +181,12 @@ type journeyFixture struct {
 	environment          []string
 	sensitiveInputs      []string
 	retainedProgramNames []string
+	// sourceSchema is the configuration schema of source, the program that
+	// the journey installs first, and so of the team files that it applies.
+	sourceSchema int
+	// keptConfiguration is the copy of aigw.toml that the journey kept
+	// before its last schema edits, until a program rollback puts it back.
+	keptConfiguration []byte
 }
 
 func TestNativeJourneyCleanupSurvivesTestCancellation(t *testing.T) {
@@ -263,7 +269,13 @@ func newNativeJourney(t *testing.T, source, endpoint string, installClient bool)
 		"AIGW_SECRET_BACKEND": "env",
 		"NO_COLOR":            "1",
 	})
-	manifest := fmt.Sprintf(`version = 8
+	if installClient {
+		journey.installClientFixture("claude")
+	}
+	journey.runWith(source, "self", "install", "--path", journey.binary)
+	journey.run("--version")
+	journey.sourceSchema = journey.installedSchema()
+	manifest := fmt.Sprintf(`version = %[5]d
 
 [[providers]]
 id = "native-system-keyring-probe"
@@ -293,15 +305,10 @@ label = "Claude Test"
 
 [recommendations.claude]
 primary = {model = %[4]q}
-`, endpoint, probeModel.ID(), probeFamily, probeModel.String())
+`, endpoint, probeModel.ID(), probeFamily, probeModel.String(), journey.sourceSchema)
 	if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if installClient {
-		journey.installClientFixture("claude")
-	}
-	journey.runWith(source, "self", "install", "--path", journey.binary)
-	journey.run("--version")
 	return journey
 }
 
