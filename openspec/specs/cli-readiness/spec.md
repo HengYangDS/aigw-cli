@@ -119,7 +119,7 @@ named and none is enabled, and 0 otherwise.
 
 #### Scenario: A client authenticates natively
 
-- **WHEN** a checked client uses client-native or external-helper authentication
+- **WHEN** a checked client selects its own `credential_command`
 - **THEN** its `endpoint` and `model` depths SHALL be skipped with that reason
 - **AND** check SHALL validate its local configuration without reading AIGW
   Tokens or client-owned credentials, and its success SHALL remain local
@@ -442,10 +442,10 @@ writes for that model.
 
 #### Scenario: Another program produced the table
 
-- **GIVEN** the file at Codex's configured path changed after it produced the model table, and the new file can
-  produce one
+- **GIVEN** the file of Codex's program, declared or resolved from its extensions directory, changed after it
+  produced the model table, and the new file can produce one
 - **WHEN** `aigw check --depth local` runs
-- **THEN** Codex's problem SHALL say that its configured executable changed after it produced the table, and not that
+- **THEN** Codex's problem SHALL say that its program changed after it produced the table, and not that
   its file does not match the selected model.
 
 #### Scenario: The selected model changed after the last sync

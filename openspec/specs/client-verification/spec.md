@@ -157,10 +157,9 @@ named in the error.
 
 ### Requirement: A real Codex session proves the Codex client depth
 
-At the `client` depth, AIGW SHALL check Codex by running its configured Codex
-executable against one synchronized Codex configuration that AIGW wrote. A
-direct HTTP request made by AIGW itself MUST NOT be accepted as proof of the
-Codex client path.
+At the `client` depth, AIGW SHALL check Codex by running Codex's program, as its declaration resolves, against one
+synchronized Codex configuration that AIGW wrote. A direct HTTP request made by AIGW itself MUST NOT be accepted as
+proof of the Codex client path.
 
 #### Scenario: A synchronized Codex target is checked
 
@@ -192,9 +191,8 @@ Codex client path.
   execution time, or the response marker is absent
 - **THEN** the check SHALL fail with an actionable error scoped to that
   boundary
-- **AND** a missing configured executable SHALL stop the check at the `local`
-  depth, before any request, with the repair
-  `aigw client edit codex --executable <path>`
+- **AND** a missing declared program SHALL stop the check at the `local` depth, before any request, with a repair
+  that names `aigw client edit codex --program <path>`
 - **AND** SHALL NOT write client configuration, operator sessions,
   conversation history, model metadata or external gateway state.
 

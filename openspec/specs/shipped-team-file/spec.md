@@ -60,7 +60,7 @@ successor SHALL replace its predecessor on that provider only; explicit client s
 ### Requirement: The shipped team file is reviewed and directly usable
 
 The repository SHALL publish one token-free, reviewed `manifests/team.toml` in
-schema 8 that `aigw setup --from` applies without credentials or installed
+schema 9 that `aigw setup --from` applies without credentials or installed
 clients. It SHALL declare providers, models, families and recommendations, with
 stable lower-case family IDs and each model ID exactly as its provider serves
 it. A model SHALL enter it only with authenticated inference and client and
@@ -128,6 +128,12 @@ protocol evidence, and it SHALL hold no inferred model matrix or proxy endpoint.
   same label, explicit or derived, ignoring case
 - **THEN** AIGW SHALL refuse it, name both models and the label, and name a
   fix that does not first load the refused configuration.
+
+#### Scenario: The shipped team file is at schema 9
+
+- **WHEN** the repository ships its team file
+- **THEN** it SHALL hold `version = 9` and no recommendation SHALL hold `authentication` or `model_provider`
+- **AND** `aigw setup --from` of this release SHALL apply it.
 
 ### Requirement: The shipped team file declares a window only below the default
 

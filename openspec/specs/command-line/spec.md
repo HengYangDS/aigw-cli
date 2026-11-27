@@ -307,8 +307,9 @@ missing argument or flag, or the command's help, never an unrelated command.
 
 #### Scenario: A client command receives invalid arguments
 
-- **WHEN** `aigw client enable` or `aigw client edit` names an unknown client,
-  or receives a blank `--executable`, `--target` or `--via`
+- **WHEN** `aigw client enable` or `aigw client edit` names an unknown client, receives a blank `--program`,
+  `--extensions`, `--target` or `--via`, receives both `--program` and `--extensions`, or receives `--extensions` for
+  Claude Desktop or Hermes
 - **THEN** the command SHALL refuse before creating configuration storage,
   reading credentials or discovering clients.
 

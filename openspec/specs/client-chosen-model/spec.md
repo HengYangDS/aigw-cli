@@ -200,8 +200,8 @@ ahead of the next step. A report SHALL write nothing, and any other command SHAL
 
 #### Scenario: The choice ended a forwarding that Hermes's file still holds
 
-- **GIVEN** the stored selection of Hermes forwards, and the operator selected in Hermes a model of another upstream
-  endpoint, or of the same provider on another protocol
+- **GIVEN** the stored selection of Hermes forwards, and the operator selected in Hermes a model whose upstream the
+  forwarding grammar cannot name, such as a model on another protocol than Responses
 - **WHEN** `aigw status` or `aigw check hermes --depth local` runs
 - **THEN** the output SHALL name the followed selection with `forwarding_cleared`
 - **AND** the check SHALL report that Hermes's file differs from the selected model, with `aigw sync` as its step,
@@ -216,8 +216,9 @@ ahead of the next step. A report SHALL write nothing, and any other command SHAL
   `protocol` and `earlier_protocol`
 - **AND** it SHALL carry `returns_with`, the command that selects the earlier model again, while the configuration
   holds that model and a shell passes its ID unquoted
-- **AND** `forwarding_cleared` or `retries_cleared` SHALL be true when the client's forwarding or its retry budgets
-  ended with the earlier upstream endpoint or provider, and human output SHALL say so.
+- **AND** `forwarding_cleared` SHALL be true when the client's forwarding ended because the grammar cannot name the
+  followed model's upstream, and `retries_cleared` when its retry budgets ended with the earlier provider, and human
+  output SHALL say so.
 
 #### Scenario: A command that fails names none
 
@@ -326,7 +327,8 @@ changed.
 - **GIVEN** the stored selection forwards to a local address, and the operator then picked another model in the
   client
 - **WHEN** `aigw use` selects a model of another upstream for that client
-- **THEN** the result and its preview SHALL say that the forwarding ended, as they do without the choice.
+- **THEN** the forwarding SHALL stay with its destination following that upstream, or the selection SHALL be refused
+  naming `aigw client edit <client> --direct` when the grammar cannot name it, as without the choice.
 
 #### Scenario: An explicit selection over a model that AIGW has not added
 

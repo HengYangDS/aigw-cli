@@ -214,9 +214,10 @@ local and be reported.
 
 ### Requirement: Setup refuses a team file in another form
 
-`aigw setup --from` SHALL refuse, before any write, a team file that has a
-`[clients]` section or a `version` other than 8. The refusal for version 7 SHALL
-name that file's conversion path.
+`aigw setup --from` SHALL refuse, before any write, a team file that has a `[clients]` section or a `version` other
+than 9. The refusal for version 8 SHALL name a team file's own edits, which name no client field: set the version,
+delete `authentication` and `model_provider` from each recommendation, or use a team file that `aigw config export`
+writes. The refusal for version 7 SHALL name that file's conversion path.
 
 #### Scenario: A team file has a clients section
 
@@ -225,8 +226,9 @@ name that file's conversion path.
 
 #### Scenario: A team file has another version
 
-- **WHEN** a team file's `version` is not 8
-- **THEN** setup SHALL refuse before any write and name that version.
+- **WHEN** a team file's `version` is not 9
+- **THEN** setup SHALL refuse before any write and name that version
+- **AND** for version 8 the refusal SHALL also name the edits that schema 9 needs.
 
 ### Requirement: Team setup connects Tokens without requiring them
 
@@ -507,13 +509,13 @@ never be replaced.
 - **WHEN** Codex is installed after a team file was applied
 - **THEN** `aigw sync` SHALL write only AIGW's values into Codex's
   configuration
-- **AND** `aigw status` SHALL name explicit authentication as the next step
-  when Codex needs it
+- **AND** `aigw status` SHALL name the fix of the provider's Token as the next step when Codex's selected provider has
+  none
 - **AND** no unrelated provider Token SHALL be required.
 
 ### Requirement: Configuration export writes a team file
 
-`aigw config export` SHALL write the configuration as a schema 8 team file: its
+`aigw config export` SHALL write the configuration as a schema 9 team file: its
 providers without Tokens or balance credentials, models, families and
 recommendations, in configuration order, without a `[clients]` section, and
 `aigw setup --from` SHALL accept the result.
@@ -522,8 +524,8 @@ recommendations, in configuration order, without a `[clients]` section, and
 
 - **WHEN** `aigw config export` runs on a configuration with providers, models,
   families, recommendations and client selections
-- **THEN** its output SHALL hold the providers, models, families and
-  recommendations in configuration order
+- **THEN** its output SHALL hold `version = 9`, and the providers, models, families and recommendations in configuration
+  order
 - **AND** SHALL hold no `[clients]` section, Token or balance credential.
 
 #### Scenario: Apply an exported team file

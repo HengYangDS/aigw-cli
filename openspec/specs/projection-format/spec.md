@@ -197,7 +197,7 @@ rejected state.
 - **THEN** a retained credential reader SHALL still decode the configuration
   that it reads, including one restored from the verified snapshot, and
   resolve the same provider credential identity
-- **AND** the destination SHALL remain bound to its recorded upstream identity.
+- **AND** the destination SHALL follow that provider's own Responses endpoint.
 
 #### Scenario: Forwarding changes during verification or commit
 
@@ -380,28 +380,27 @@ relax the guard.
 
 ### Requirement: Credential commands match a provider endpoint
 
-Every Codex provider that uses a provider Token SHALL authenticate through the
-absolute AIGW command, whose fingerprint names its client, provider and
-endpoint. The command SHALL return the Token when that fingerprint matches an
-enabled client, a configured provider and an endpoint of one of that provider's
-models, and SHALL check no selection; `credential-continuity`'s frozen view owns
-this. AIGW SHALL neither invoke native login nor change client credentials.
+Codex SHALL receive one provider table, AIGW's own `aigw` provider, which SHALL authenticate through the absolute AIGW
+command, whose fingerprint names its client, provider and endpoint. The command SHALL return the Token when that
+fingerprint matches an enabled client, a configured provider and an endpoint of one of that provider's models, and
+SHALL check no selection; `credential-continuity`'s frozen view owns this. AIGW SHALL neither invoke native login nor
+change client credentials.
 
 #### Scenario: A Codex provider uses a provider Token
 
-- **WHEN** AIGW synchronizes a default or explicit Codex provider that uses a
-  provider Token
-- **THEN** the provider table declares `wire_api = "responses"`
+- **WHEN** AIGW synchronizes Codex's provider table
+- **THEN** the table SHALL be named `aigw` and declare `wire_api = "responses"`
 - **AND** its auth command invokes the absolute AIGW executable with
   `credential codex <fingerprint>`
 - **AND** no Token value is copied into client files.
 
 #### Scenario: Return to the default provider
 
-- **WHEN** Codex's selection changes from an explicit provider to the default
-  provider
-- **THEN** the old attributed provider table is removed transactionally
-- **AND** the declared authentication ownership is preserved.
+- **GIVEN** AIGW's record of a Codex configuration file names a provider table other than `aigw`, which an earlier
+  release wrote for an explicit `model_provider`
+- **WHEN** AIGW next synchronizes Codex
+- **THEN** that table SHALL be removed in the same transaction that writes the `aigw` table
+- **AND** Codex SHALL authenticate through the `aigw` table's credential command.
 
 #### Scenario: A running session outlives its client's move
 
@@ -604,8 +603,7 @@ them. For each Codex target, `aigw check codex` SHALL report the window that Cod
 
 #### Scenario: AIGW writes no table for a Codex target
 
-- **WHEN** a Codex target's configuration names a `model_catalog_json` that AIGW did not write, or the selected model
-  runs under one of Codex's own model providers
+- **WHEN** a Codex target's configuration names a `model_catalog_json` that AIGW did not write
 - **THEN** AIGW SHALL write no table for that target
 - **AND** `aigw check codex` SHALL report, in a check of its own that passes, that Codex is not given the declared
   window, with that reason.
@@ -618,39 +616,39 @@ them. For each Codex target, `aigw check codex` SHALL report the window that Cod
 
 ### Requirement: Codex's model table names the program that produced it
 
-AIGW's record of a Codex model table SHALL name the program that produced it: its path as configured, the SHA-256 of
-its file and the version that its package manifest declares, when one is readable. `aigw check --depth local` SHALL
-compare that program with the configured one by path, digest and manifest version, running no program while they
-agree, and SHALL fail with repair `aigw sync` on any difference that a sync can repair.
+AIGW's record of a Codex model table SHALL name the program that produced it: its path as resolved, the SHA-256 of its
+file and the version that its package manifest declares, when one is readable. `aigw check --depth local` SHALL
+compare that program with the one that Codex's declaration resolves to now by path, digest and manifest version,
+running no program while they agree, and SHALL fail with repair `aigw sync` on any difference that a sync can repair.
 
 #### Scenario: Sync records the producer
 
 - **WHEN** `aigw sync` writes Codex's model table
-- **THEN** AIGW's record SHALL name the configured path, the SHA-256 and the package manifest's version of the program
+- **THEN** AIGW's record SHALL name the resolved path, the SHA-256 and the package manifest's version of the program
   that produced the table.
 
 #### Scenario: The program changes in place
 
-- **GIVEN** a model table that the configured program produced
-- **WHEN** the file at the configured path is replaced by other bytes
+- **GIVEN** a model table that Codex's program produced
+- **WHEN** the file at the program's path is replaced by other bytes
 - **THEN** `aigw check --depth local` SHALL fail, saying that the table came from another program, with repair
   `aigw sync`
 - **AND** the check SHALL run no program but the read-only probes that tell whether a sync can produce a table.
 
 #### Scenario: Another program is configured
 
-- **WHEN** the configured path is not the one that AIGW's record names
+- **WHEN** the path that Codex's declaration resolves to is not the one that AIGW's record names
 - **THEN** `aigw check --depth local` SHALL fail with repair `aigw sync`.
 
 #### Scenario: A launcher keeps its bytes while its package changes
 
-- **GIVEN** the configured program's package manifest declared the version that AIGW's record holds
+- **GIVEN** the package manifest of Codex's program declared the version that AIGW's record holds
 - **WHEN** the manifest declares another version while the program's file keeps its bytes
 - **THEN** `aigw check --depth local` SHALL fail with repair `aigw sync`.
 
 #### Scenario: A program without a manifest
 
-- **WHEN** no package manifest of the configured program is readable
+- **WHEN** no package manifest of Codex's program is readable
 - **THEN** `aigw check --depth local` SHALL compare the program by path and digest only.
 
 #### Scenario: A record names no producer
@@ -658,3 +656,11 @@ agree, and SHALL fail with repair `aigw sync` on any difference that a sync can 
 - **WHEN** AIGW's record of a Codex model table names no producing program, as a record of an earlier release does
 - **THEN** `aigw check --depth local` SHALL fail with repair `aigw sync`
 - **AND** the next `aigw sync` SHALL write the producer into the record.
+
+#### Scenario: The editor installs a newer version of Codex's extension
+
+- **GIVEN** Codex declares `extensions`, and a sync wrote its model table with the program of the highest version then
+  installed
+- **WHEN** the editor installs a higher version
+- **THEN** `aigw check --depth local` SHALL fail with repair `aigw sync`
+- **AND** the next `aigw sync` SHALL write the table with the new version's program and name it in the record.

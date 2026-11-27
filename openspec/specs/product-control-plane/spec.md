@@ -341,13 +341,11 @@ gateway MUST NOT acquire AIGW state.
 
 ### Requirement: Providers, models, families and clients have distinct authority
 
-A provider SHALL own an ID, a label, one endpoint per protocol and its Token.
-A model SHALL belong to one provider and be named `provider/model`, where the
-part after the first `/` is the provider's own model ID, byte for byte and
-unique within that provider. A family SHALL group the models of one vendor
-model. Only `[clients.<id>]` SHALL own a client's selected model, protocol,
-authentication, `model_provider`, enabled intent and client-only options. Each
-capability requires separate proof.
+A provider SHALL own an ID, a label, one endpoint per protocol and its Token. A model SHALL belong to one provider and
+be named `provider/model`, where the part after the first `/` is the provider's own model ID, byte for byte and unique
+within that provider. A family SHALL group the models of one vendor model. Only `[clients.<id>]` SHALL own a client's
+selected model, protocol, program declaration, enabled intent and client-only options. Each capability requires
+separate proof.
 
 #### Scenario: A provider repeats a model ID
 
@@ -381,54 +379,12 @@ capability requires separate proof.
 - **AND** its selected model, its provider's Token and other clients SHALL
   remain intact.
 
-### Requirement: Every client selects a compatible model
-
-Commands and a team file's new providers SHALL declare only model protocols
-that the provider has an endpoint for; a model that a team file adds to a kept
-provider without one SHALL stay unusable on that protocol until
-`aigw provider edit --endpoint`. Every client's selection SHALL name one model
-and one protocol that the model declares, the client speaks and the provider
-serves. No global default or implicit inheritance SHALL take part in resolution,
-readiness or client configuration files.
-
-#### Scenario: A command declares a protocol that the provider lacks
-
-- **WHEN** a command, or a team file for a provider that it adds, declares a
-  model protocol for which the provider has no endpoint
-- **THEN** validation SHALL reject it before any write
-- **AND** the error SHALL name the model, the provider and the missing
-  protocol.
-
-#### Scenario: A selection needs an endpoint
-
-- **WHEN** configuration persistence receives a client's selection whose
-  provider has no endpoint for the selected protocol
-- **THEN** it rejects the change and preserves the existing configuration file.
-
-#### Scenario: Check every enabled client's model
-
-- **WHEN** Claude Code and Codex are enabled with different selected models
-- **THEN** `aigw check` SHALL derive each AIGW-owned authenticated request from
-  that client's selected protocol and authentication
-- **AND** SHALL NOT inspect an unselected model as a fallback
-- **AND** MAY share one authenticated request between clients only when
-  provider, endpoint, protocol, depth and any carried model ID are identical.
-
-#### Scenario: Inspect an endpoint address without probing it
-
-- **WHEN** `aigw status --json` reports a client whose provider has an endpoint
-  for the selected protocol
-- **THEN** it SHALL report that the endpoint is configured
-- **AND** SHALL NOT represent that configuration fact as endpoint or transport
-  health.
-
 ### Requirement: One configuration file holds providers, models and families
 
-AIGW SHALL keep its configuration in one credential-free `aigw.toml` with
-`version = 8`, holding providers with their models, families, recommendations
-and clients. Commands SHALL take their configuration only from that file.
-Array order SHALL be display order, and decoding SHALL refuse a
-field that schema 8 does not define. A team file SHALL use the same format
+AIGW SHALL keep its configuration in one credential-free `aigw.toml` with `version = 9`, holding providers with their
+models, families, recommendations and clients. Commands SHALL take their configuration only from that file. Array
+order SHALL be display order, and decoding SHALL refuse a field that schema 9 does not define. A version 8 file SHALL
+be refused before any other field is read, with the edits that schema 9 needs. A team file SHALL use the same format
 without `[clients]`.
 
 #### Scenario: Lists follow the order of the file
@@ -462,6 +418,25 @@ without `[clients]`.
 - **WHEN** `aigw.toml` or a team file contains a Token, password,
   authorization header, API key or equivalent credential field
 - **THEN** AIGW SHALL reject it without changing local configuration.
+
+#### Scenario: A version 8 file is refused with its edits
+
+- **WHEN** a command loads an `aigw.toml` that has `version = 8`
+- **THEN** it SHALL refuse before reading any other field and change no file
+- **AND** its fix SHALL name four edits: set `version = 9`; rename each client's `executable` to `program`, or to
+  `extensions` naming the editor's extensions directory where it lies inside a version of an editor extension; delete
+  `authentication` and `model_provider` wherever they appear; and delete each client's `forwarding` to set it again
+  with `aigw client edit <client> --via <root>`
+- **AND** that text SHALL be the same for every version 8 file, and no command SHALL rewrite the file
+- **AND** the credential reader, which ignores `version`, SHALL still serve Tokens from it.
+
+#### Scenario: A schema 8 key remains after the edits
+
+- **WHEN** an `aigw.toml` with `version = 9` still holds `executable`, `authentication` or `model_provider`, or a
+  client's `forwarding` as a table
+- **THEN** loading it SHALL fail, naming that field and its line, without changing any file
+- **AND** for a `forwarding` table it SHALL name the edit that sets it again with
+  `aigw client edit <client> --via <root>`.
 
 ### Requirement: Models declare their protocols and capabilities
 

@@ -412,20 +412,18 @@ AIGW SHALL NOT read or write another backend as a compatibility fallback.
 
 ### Requirement: Token availability is scoped to active demand
 
-Readiness SHALL require a provider's Token only for models that clients use,
-and client-native authentication SHALL remain independent. `aigw check` SHALL
-pass a client's `local` depth before reading its Token or probing an endpoint,
-and an unobserved Token SHALL NOT be reported as absent. `aigw model search`,
-catalog checks and `aigw provider balance` SHALL read a selected provider's
-Token when present.
+Readiness SHALL require a provider's Token only for models that clients use, and a client that selects its own
+`credential_command` SHALL need none. `aigw check` SHALL pass a client's `local` depth before reading its Token or
+probing an endpoint, and an unobserved Token SHALL NOT be reported as absent. `aigw model search`, catalog checks and
+`aigw provider balance` SHALL read a selected provider's Token when present.
 
 #### Scenario: A client's configuration files are not ready
 
-- **WHEN** `aigw check` finds a missing executable, missing target or invalid
+- **WHEN** `aigw check` finds a missing program, missing target or invalid
   client configuration file for an enabled client
 - **THEN** it reports that client's `local` failure and its fix
-- **AND** the fix of a missing configured executable SHALL be
-  `aigw client edit <client> --executable <path>`, never `aigw sync`
+- **AND** the fix of a missing declared program SHALL name `aigw client edit <client> --program <path>`, never
+  `aigw sync`
 - **AND** it reads no Token value and makes no authenticated request for that
   client, even if its Token is missing or unreadable.
 
@@ -434,8 +432,7 @@ Token when present.
 - **WHEN** the enabled client passes its `local` depth
 - **THEN** a client that uses a provider Token reads it once before its
   `endpoint` depth, retaining credential failure details when the read fails
-- **AND** client-owned authentication reads no AIGW credential and probes no
-  endpoint.
+- **AND** a client that selects its own `credential_command` reads no AIGW credential and probes no endpoint.
 
 #### Scenario: A team file contains unused providers
 

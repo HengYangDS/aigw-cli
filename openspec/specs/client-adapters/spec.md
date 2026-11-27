@@ -10,13 +10,11 @@ provider declarations and how the control plane converges each client.
 
 ### Requirement: Independently admitted native clients
 
-Codex and Claude Code SHALL be independent Adapters owning discovery,
-projection, authentication, rollback, verification, status, and withdrawal of
-AIGW state. Provider-Token credential commands MUST use an absolute qualified
-reader, never store Tokens in client files, and never rely on a package-manager
-CLI link. Client-native authentication and
-preferences SHALL remain client-owned. A new client MUST add an Adapter without
-changing provider policy or other Adapters.
+Codex and Claude Code SHALL be independent Adapters owning discovery, projection, authentication, rollback,
+verification, status, and withdrawal of AIGW state. Provider-Token credential commands MUST use an absolute qualified
+reader, never store Tokens in client files, and never rely on a package-manager CLI link. A client's own sign-in and
+preferences SHALL remain client-owned. A new client MUST add an Adapter without changing provider policy or other
+Adapters.
 
 #### Scenario: Verification uses synchronized settings
 
@@ -38,12 +36,12 @@ changing provider policy or other Adapters.
 
 #### Scenario: Codex authenticates an explicit native provider
 
-- **WHEN** Codex's enabled selection names an explicit native provider identity
-- **THEN** its declared authentication mode SHALL determine credential ownership
-- **AND** provider-Token authentication SHALL invoke the selected qualified
-  reader with the fingerprint of Codex's selected provider and endpoint
-- **AND** client-native authentication SHALL project no AIGW Token helper
-- **AND** neither mode SHALL write a plaintext Token to public configuration
+- **WHEN** a version 9 configuration or team file names, in `[clients.codex]` or a Codex recommendation, an explicit
+  native provider through `model_provider` or the client's own authentication through `authentication`
+- **THEN** loading the file SHALL refuse that field, which schema 9 does not define
+- **AND** Codex SHALL authenticate only through AIGW's own provider, whose credential command invokes the selected
+  qualified reader with the fingerprint of Codex's selected provider and endpoint
+- **AND** no plaintext Token SHALL be written to public configuration
 
 #### Scenario: Claude uses an Anthropic-compatible provider
 
@@ -98,43 +96,12 @@ changing provider policy or other Adapters.
 - **AND** AIGW SHALL NOT advertise support based only on a writable config
   path or a successful endpoint probe.
 
-### Requirement: Client-scoped Codex native provider
-
-The `[clients.codex]` table SHALL remain the sole owner of its optional native
-`model_provider`. A missing `model_provider` SHALL resolve to the canonical
-`aigw` provider. It SHALL NOT be inferred from a provider, endpoint, proxy
-implementation, or client-private state. Authentication ownership SHALL be
-independent of the `model_provider` name.
-
-#### Scenario: Explicit Codex provider
-
-- **WHEN** `[clients.codex]` declares a safe `model_provider`
-- **THEN** its resolved runtime carries that exact provider identity
-- **AND** Codex receives one attributed provider table using the endpoint of
-  the selected model's provider and the declared authentication mode.
-
-#### Scenario: Default Codex provider
-
-- **WHEN** `[clients.codex]` omits `model_provider`
-- **THEN** its runtime resolves the canonical `aigw` provider
-- **AND** provider-Token authentication uses the same command-helper contract
-  as an explicit provider.
-
-#### Scenario: Provider ownership is narrow
-
-- **WHEN** another client's table or an unsafe provider identifier declares
-  `model_provider`
-- **THEN** configuration validation fails before persistence or projection.
-
 ### Requirement: Composable extension boundary
 
-AIGW SHALL keep configuration and client projection separate from API traffic.
-Endpoints and models SHALL enter as provider data; existing client-native
-authentication SHALL be reused through explicit selections. New clients SHALL
-require complete Adapters, unsupported credential contracts SHALL require
-admission, and incompatible wire behavior SHALL remain in a separate data
-plane. Gateways SHALL remain optional endpoints. Dependencies MAY be admitted
-only when total owned complexity falls.
+AIGW SHALL keep configuration and client projection separate from API traffic. Endpoints and models SHALL enter as
+provider data. New clients SHALL require complete Adapters, unsupported credential contracts SHALL require admission,
+and incompatible wire behavior SHALL remain in a separate data plane. Gateways SHALL remain optional endpoints.
+Dependencies MAY be admitted only when total owned complexity falls.
 
 #### Scenario: Add a compatible Provider endpoint
 
@@ -185,11 +152,10 @@ projection, or make an optional product a dependency.
 
 #### Scenario: Add a client-native cloud model service
 
-- **WHEN** an AWS model service exposes an admitted client protocol and the
-  client already owns its credential chain and request signing
-- **THEN** its provider and models use the ordinary team-file path
-- **AND** that client's `[clients.<id>]` table declares client-native
-  authentication
+- **WHEN** an AWS model service exposes an admitted client protocol but needs the client's own credential chain and
+  request signing
+- **THEN** AIGW SHALL offer no configuration that hands the client's authentication to that chain, since schema 9
+  defines no `authentication` key in a client or a recommendation
 - **AND** AIGW neither stores the cloud credential nor implements a signing
   Adapter.
 
@@ -561,111 +527,3 @@ release wrote.
 - **THEN** synchronization, a command that projects Hermes and its inspection SHALL refuse it as an outside edit
   without changing configuration or client files
 - **AND** a command whose configuration changes the order of a provider's models SHALL write them in the new order.
-
-### Requirement: A configured client program is never replaced
-
-A client SHALL use its configured program whenever one is configured, and the program that discovery finds only when
-none is configured, whose path AIGW then writes into the configuration. AIGW SHALL NOT replace a configured program
-with another one in synchronization, the client list, a check or any other command, even when the configured program
-is gone.
-
-#### Scenario: The configured program is gone while discovery finds another
-
-- **GIVEN** Codex is enabled with a configured program that is then removed, and discovery finds another `codex`
-- **WHEN** `aigw sync` runs
-- **THEN** the configuration SHALL keep the configured path
-- **AND** AIGW SHALL NOT run the discovered program or write a file with it.
-
-#### Scenario: No program is configured
-
-- **WHEN** an enabled client has no configured program and discovery finds one
-- **THEN** `aigw sync` SHALL write the discovered program's path into the configuration and synchronize the client with
-  it.
-
-#### Scenario: Setup takes the configured program first
-
-- **WHEN** `aigw setup` decides which clients are installed while a client's configured program runs and discovery
-  finds none
-- **THEN** it SHALL count that client as installed.
-
-#### Scenario: The client list shows the configured program
-
-- **WHEN** `aigw client list` runs while a client's configured program is gone and discovery finds another
-- **THEN** the client's row SHALL name the configured path and say that it is missing
-- **AND** its JSON item SHALL carry that path as `executable` with `installed` false.
-
-### Requirement: A missing program stops its client
-
-When an enabled client's configured program is missing, or runs and cannot produce what AIGW writes for the client,
-such as Codex's model table, every command that would write that client's files SHALL write none of them, its model
-table or AIGW's record of them, apart from withdrawing a file that the change drops, SHALL write the rest of its
-change, and SHALL exit non-zero with the cause and fix that the client's local check gives, never `aigw sync`.
-
-#### Scenario: Codex's program is removed after a sync
-
-- **GIVEN** `aigw sync` wrote Codex's configuration file, its model table and AIGW's record with a program that is
-  then removed
-- **WHEN** `aigw sync` runs, and runs again
-- **THEN** each run SHALL leave the three files byte-identical and exit non-zero
-- **AND** each SHALL name the missing program and the repair `aigw client edit codex --executable <path>`.
-
-#### Scenario: The other clients continue
-
-- **GIVEN** Claude Code's program is present and Codex's configured program is missing
-- **WHEN** `aigw sync` runs
-- **THEN** it SHALL synchronize Claude Code's settings
-- **AND** it SHALL exit non-zero for Codex.
-
-#### Scenario: A check finds a missing program
-
-- **WHEN** `aigw check --depth local` finds that the configured program of Codex, Claude Code, Claude Desktop or Hermes
-  is missing
-- **THEN** that client's local depth SHALL fail with the missing program as its problem
-- **AND** its repair SHALL be `aigw client edit <client> --executable <path>`.
-
-#### Scenario: A runnable program ends the stop
-
-- **WHEN** `aigw client edit codex --executable <path>` names a runnable program
-- **THEN** AIGW SHALL synchronize Codex with that program.
-
-#### Scenario: Codex cannot produce its model table
-
-- **GIVEN** a sync wrote Codex's model table with a program whose file then changes into one that runs and prints no
-  table
-- **WHEN** `aigw sync` runs, and runs again
-- **THEN** each run SHALL leave Codex's file, AIGW's record and the table byte-identical and exit non-zero
-- **AND** each run and `aigw check --depth local` SHALL say that the configured executable cannot produce its model
-  table, with the fix that names another Codex executable.
-
-#### Scenario: A dropped file is withdrawn while the client is stopped
-
-- **WHEN** `aigw client edit codex --target <file>` runs while Codex's configured program is missing
-- **THEN** AIGW SHALL withdraw its settings, its record and its model table from the file that the edit drops
-- **AND** it SHALL write nothing to the new file and exit non-zero with the stop.
-
-#### Scenario: A selection meets a stopped client
-
-- **WHEN** `aigw use codex <provider/model>` runs while Codex's configured program is missing
-- **THEN** the selection SHALL be saved and Codex's files SHALL stay as they were
-- **AND** the command SHALL keep its own report, its JSON fields among them, and then exit non-zero with the missing
-  program, its fix and what became of Codex's files.
-
-#### Scenario: A rollback meets a stopped client
-
-- **WHEN** `aigw config rollback` runs while Codex's configured program is missing
-- **THEN** `aigw.toml` SHALL be restored and Codex's files SHALL stay as they were
-- **AND** the command SHALL exit non-zero, saying that `aigw.toml` was restored and that Codex's files were not
-  written.
-
-#### Scenario: A preview names the stopped clients
-
-- **WHEN** `aigw sync --dry-run`, or the preview of another command that writes client files, runs while Codex's
-  configured program is missing
-- **THEN** it SHALL report its own plan of the other clients' files and then Codex's problem and fix, write nothing and
-  exit non-zero.
-
-#### Scenario: The repair refuses a program that cannot run
-
-- **WHEN** `aigw client edit` or `aigw client enable` names an `--executable` that is not an existing regular file with
-  an execute bit
-- **THEN** it SHALL refuse before anything changes, without running that file.
