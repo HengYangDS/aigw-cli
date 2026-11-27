@@ -276,8 +276,9 @@ absolute HTTP(S), contain no user information and preserve HTTPS.
 When a peer's read-only release verification runs the native lifecycle against
 an existing release's published bytes, it SHALL consume an explicitly selected
 published predecessor of 0.7.0 or later from the same peer, verify that
-predecessor's signed matrix and source, and run the upgrade and rollback
-journeys from it. It SHALL NOT rebuild, retag, sign or publish either release.
+predecessor by its own signed matrix and its source, and run the upgrade and
+rollback journeys from it. Its own matrix SHALL be the files that its signed
+manifest names. It SHALL NOT rebuild, retag, sign or publish either release.
 
 #### Scenario: A maintainer selects a published predecessor
 
@@ -301,6 +302,18 @@ journeys from it. It SHALL NOT rebuild, retag, sign or publish either release.
   by tag, by artifacts or in an input archive
 - **THEN** it SHALL refuse that predecessor before product execution and name
   0.7.0 as the oldest one, because an older release cannot read `aigw.toml`.
+
+#### Scenario: The predecessor was published with another platform matrix
+
+- **WHEN** the selected predecessor's signed manifest names archives for
+  platforms that the current release no longer publishes
+- **THEN** native acceptance SHALL verify the predecessor against the files
+  that its manifest names, with their digests, its signature and its rebuilt
+  provenance, not against the current release's platform matrix
+- **AND** it SHALL refuse a predecessor whose manifest does not name at least
+  one platform archive of its version followed by its dependency reports and
+  its provenance, or whose directory holds a file that the manifest does not
+  name or lacks one that it names.
 
 ### Requirement: CI steps run one native command
 
