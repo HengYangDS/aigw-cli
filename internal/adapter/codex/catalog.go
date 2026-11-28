@@ -36,10 +36,11 @@ const (
 	codexCatalogByteLimit = 8 << 20
 )
 
-// codexBundledCatalog reads the installed client's own bundled model catalog.
-// It is a package seam so tests can supply a catalog without an installed
-// client; production reads the client itself.
-var codexBundledCatalog = ReadBundledCatalog
+// codexBundledCatalog reads the installed client's own bundled model catalog,
+// starting an unchanged program once per process (bundledCatalogOnce). It is a
+// package seam so tests can supply a catalog without an installed client;
+// production reads the client itself.
+var codexBundledCatalog = bundledCatalogOnce
 
 var removeCatalogProbe = robustio.RemoveAll
 

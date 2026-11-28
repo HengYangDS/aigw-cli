@@ -87,10 +87,12 @@ func newCodexProgram(t *testing.T, layout string) codexProgram {
 }
 
 // sync converges and applies Codex's files from the fixture's configuration
-// as `aigw sync` does, with the real reader of Codex's bundled table, and
-// returns the configuration that convergence kept.
+// as `aigw sync` does, with the real reader of Codex's bundled table, in a
+// process of its own (asNewProcess), and returns the configuration that
+// convergence kept.
 func (fixture codexProgram) sync(t *testing.T) (domain.Config, error) {
 	t.Helper()
+	asNewProcess()
 	registry := codexRegistry()
 	after, err := registry.Converge(fixture.deps, fixture.cfg, fixture.deps.Discovery.Discover(ID), ID)
 	if err != nil {
@@ -100,9 +102,11 @@ func (fixture codexProgram) sync(t *testing.T) (domain.Config, error) {
 	return after, err
 }
 
-// inspect checks Codex's files as `aigw check --depth local` does.
+// inspect checks Codex's files as `aigw check --depth local` does, in a
+// process of its own (asNewProcess).
 func (fixture codexProgram) inspect(t *testing.T, cfg domain.Config) adapter.Status {
 	t.Helper()
+	asNewProcess()
 	runtime, err := cfg.ResolveRuntime(ID, domain.ModelRef{})
 	if err != nil {
 		t.Fatal(err)

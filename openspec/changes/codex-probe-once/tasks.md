@@ -5,17 +5,17 @@
 
 ## 2. One probe per unchanged program
 
-- [ ] 2.1 Make the seam `codexBundledCatalog` a reader that keeps one probe per key of D1 for the process, failures
+- [x] 2.1 Make the seam `codexBundledCatalog` a reader that keeps one probe per key of D1 for the process, failures
       included, shares it between concurrent reads and returns a copy of the table (D1 to D5). Done when
       `TestAnUnchangedProgramIsProbedOncePerProcess`, `TestAChangedProgramIsProbedAgain`, `TestAFailedProbeIsKept`,
       `TestAnUnreadableProgramIsNotKept`, `TestConcurrentReadsOfOneProgramShareOneProbe` and
       `TestTheReturnedTableIsACopy` pass.
-- [ ] 2.2 Pin that a sync at the adapter layer starts an unchanged Codex once for its version and once for its table.
+- [x] 2.2 Pin that a sync at the adapter layer starts an unchanged Codex once for its version and once for its table.
       Done when `TestASyncStartsAnUnchangedCodexOnce` and the package tests of `internal/adapter/codex` pass.
 
 ## 3. Documents
 
-- [ ] 3.1 Add the change under `## [Unreleased]` in `CHANGELOG.md`. Done when
+- [x] 3.1 Add the change under `## [Unreleased]` in `CHANGELOG.md`. Done when
       `go run ./tools/release validate-changelog` passes.
 
 ## 4. Measurement

@@ -11,6 +11,16 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- A command starts each unchanged Codex program once to read its version and
+  model table, instead of once for each preparation of each Codex target in
+  its plan and again in its apply. The plan, the apply and the check of one
+  command now act on the same answer, a failure included. A program counts as
+  changed when its configured path, the file that the path resolves to, the
+  file's bytes or the version that its package manifest declares changes;
+  the next command reads it again in any case.
+
 ## [0.12.0] - 2026-11-28
 
 ### Changed

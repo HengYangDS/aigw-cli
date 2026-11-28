@@ -46,7 +46,11 @@ that AIGW records.
 
 **D2. The process is the scope.** AIGW runs one process per command and no daemon, so an answer cannot outlive the
 command that read it; the next command reads the program again, after an upgrade too. An answer kept on disk or across
-processes would need its own invalidation, which nothing here needs. Memory: one entry per distinct key read in the
+processes would need its own invalidation, which nothing here needs. A test process runs many commands, so a test that
+changes what the key does not cover between two commands starts the second as a new process would, with no probes:
+the fixture of the Codex adapter's producer tests starts every command so (`asNewProcess`), and
+`TestAnUnchangedLauncherWhoseProgramIsGoneStopsSyncWhileCheckPasses`, whose launcher loses its target between two
+syncs (D1, case 4), failed without it. Memory: one entry per distinct key read in the
 process, holding the table that the program printed (517,840 bytes for Codex 0.153.4, as `catalog.go` records); in a
 command that is one entry per configured Codex program, in a test process one per test program. The matrix's peak
 resident memory fell from 1.03 GB to 0.89 GB in the experiment of the proposal, because fewer forked processes were
