@@ -11,6 +11,8 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-28
+
 ### Changed
 
 - **Breaking:** Codex's model picker lists the models of the selected
