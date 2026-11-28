@@ -69,7 +69,7 @@ func TestEthosProofDelegatesStaticAnalysisToQualityOwner(t *testing.T) {
 // toolchain.
 var lockedExecution = []string{"mise", "exec", "--locked", "--"}
 
-const behaviorVerifier = "ethos.adapters.gates.code_quality:behavior_report"
+const behaviorVerifier = "provider.code-behavior"
 
 func readEthosProfile(t *testing.T) ethosProfile {
 	t.Helper()

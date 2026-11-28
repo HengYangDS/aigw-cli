@@ -33,7 +33,7 @@ command = [
   "--lcov-output",
   "{native_output}/go.lcov",
 ]
-verification_providers = ["ethos.adapters.gates.code_quality:behavior_report"]
+verification_providers = ["provider.code-behavior"]
 dimensions = ["behavior", "test", "coverage"]
 evidence_class = "proof"
 trust_bearing = true
@@ -73,7 +73,7 @@ command = [
   "tools/ci/test/text.test.mjs",
   "tools/ci/test/release-age.test.mjs",
 ]
-verification_providers = ["ethos.adapters.gates.code_quality:behavior_report"]
+verification_providers = ["provider.code-behavior"]
 dimensions = ["behavior", "test", "coverage"]
 evidence_class = "proof"
 trust_bearing = true
@@ -94,7 +94,7 @@ sessions = ["node"]
 id = "go-static-analysis"
 kind = "static"
 command = ["mise", "exec", "--locked", "--", "go", "run", "./tools/ci", "quality"]
-verification_providers = ["ethos.adapters.gates.code_quality:static_report"]
+verification_providers = ["provider.code-static"]
 dimensions = ["static-analysis", "architecture", "format", "governance", "release"]
 evidence_class = "proof"
 trust_bearing = true
