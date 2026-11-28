@@ -16,6 +16,10 @@ task 7.4). Its task 8.3.2 waits for an ETHOS identity and reference successor
 that ETHOS has not yet accepted. Both obligations move here so that Change can
 archive without claiming them.
 
+On 2026-11-28 GitLab stopped creating pipelines while it still accepted
+pushes. `codex-probe-once` then landed through GitHub alone, and its GitLab
+pipeline moved here on the same terms.
+
 ## What Changes
 
 - Publish the accepted branches and the attested release tags to GitLab
