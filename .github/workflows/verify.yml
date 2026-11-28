@@ -294,7 +294,7 @@ jobs:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
-        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.170.0 --claude 2.1.327 --hermes-commit ae2a81ccc00e9b7c06301523e5bb09608397149c --hermes-installer-sha256 c73dad4dcf7c9ecadb98578e28cc763d23d7be3fa1b513545319038795493214
+        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.172.0 --claude 2.1.332 --hermes-commit 8fc0374447313e276f6b9a2764bfc750190c966a --hermes-installer-sha256 c73dad4dcf7c9ecadb98578e28cc763d23d7be3fa1b513545319038795493214
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
         env:
@@ -435,7 +435,7 @@ jobs:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
-        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.170.0 --claude 2.1.327 --hermes-commit ae2a81ccc00e9b7c06301523e5bb09608397149c --hermes-installer-sha256 c73dad4dcf7c9ecadb98578e28cc763d23d7be3fa1b513545319038795493214
+        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.172.0 --claude 2.1.332 --hermes-commit 8fc0374447313e276f6b9a2764bfc750190c966a --hermes-installer-sha256 c73dad4dcf7c9ecadb98578e28cc763d23d7be3fa1b513545319038795493214
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
         env:

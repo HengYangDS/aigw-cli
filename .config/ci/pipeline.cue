@@ -12,10 +12,10 @@ import (
 #Claim:           "accepted-ref-parity" | "source-quality" | "go-source-compatibility" | "native-product-journey" | "lifecycle-acceptance" | "linux-secret-service" | "release-metadata" | "artifact-verification"
 
 #Job: {
-	name:  string
-	stage: "verify" | "release"
-	rank:  int & >=0
-	needs: [...#JobID]
+	name:   string
+	stage:  "verify" | "release"
+	rank:   int & >=0
+	needs:  [...#JobID]
 	claims: [#Claim, ...#Claim]
 }
 
@@ -49,7 +49,7 @@ miseMirror: {
 	metadataPattern:  "regex:^https://api[.]github[.]com/repos/([^/]+)/([^/]+)/releases/tags/([^/?]+)$"
 	metadataResource: "release-$1-$2-$3.json"
 	unixDirectory:    "$(pwd -P)/build/tmp/.aigw-mise-mirror-$CI_JOB_ID"
-	unixPrepare:      #"""
+	unixPrepare: #"""
 		set -eu
 		case "${AIGW_TOOL_SOURCE:-upstream}" in
 		  upstream) ;;
@@ -78,7 +78,7 @@ miseMirror: {
 		  *) printf '%s\n' 'AIGW_TOOL_SOURCE must be upstream or peer' >&2; exit 1 ;;
 		esac
 		"""#
-	unixCleanup:      #"""
+	unixCleanup: #"""
 		set -eu
 		if [ -n "${CI_JOB_ID:-}" ]; then
 		  mirror_dir="\#(unixDirectory)"
@@ -103,7 +103,7 @@ linuxToolchain: {
 	// The runnable Mise image is intentionally small. Declare the complete
 	// repository execution closure here so every Linux job inherits one owner.
 	runtimePackages: ["libatomic1", "openssh-client", "procps", "time"]
-	prepare: "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
+	prepare:         "set -eu\n\(linuxApt.update)\nDEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(strings.Join(runtimePackages, " "))"
 	// Native source qualification links with cgo; artifact journeys skip it.
 	compilerPackages: ["gcc", "libc6-dev"]
 }
@@ -121,7 +121,7 @@ linuxSecretService: {
 			AIGW_SECRET_SERVICE
 			"""#
 	}
-	journey: (session & {command: "mise exec --locked -- go test ./tools/release -run \"^TestNativeProductJourney/system_credential_store$\" -count=1 -v"}).run
+	journey:       (session & {command: "mise exec --locked -- go test ./tools/release -run \"^TestNativeProductJourney/system_credential_store$\" -count=1 -v"}).run
 	githubPrepare: "sudo -n \(linuxApt.update)\nsudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(packages)"
 	github:        "\(githubPrepare)\n\(journey)"
 	// The GitLab Mise image is root-owned; its shared before_script updates apt.
@@ -169,7 +169,7 @@ commands: {
 }
 
 toolchainTools: {
-	bootstrap: ["go", "node", "npm"]
+	bootstrap:   ["go", "node", "npm"]
 	performance: ["github:sharkdp/hyperfine"]
 	portableQuality: list.Concat([bootstrap, [
 		"cue",
@@ -185,7 +185,7 @@ toolchainTools: {
 		"taplo",
 		"typos",
 	]])
-	links: ["github:lycheeverse/lychee"]
+	links:   ["github:lycheeverse/lychee"]
 	quality: list.Concat([portableQuality, links])
 	// Native Go suites execute real glab against disposable GitLab origins.
 	native: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
@@ -196,8 +196,8 @@ toolchainTools: {
 		gitlab: ["go", "glab", "github:goreleaser/goreleaser"]
 	}
 	nativeClientSupply: ["node"]
-	secretService: ["go", "github:goreleaser/goreleaser"]
-	darwin: ["github:indygreg/apple-platform-rs"]
+	secretService:      ["go", "github:goreleaser/goreleaser"]
+	darwin:             ["github:indygreg/apple-platform-rs"]
 }
 
 goToolchain: MISE_ENABLE_TOOLS:      "go"
@@ -275,8 +275,8 @@ nativeEvidence: {
 		_runner: "macos-latest"
 		gitlab: {
 			protectedTags: [_runner, "protected"]
-			reviewTags: [_runner, "review"]
-			tags: protectedTags
+			reviewTags:    [_runner, "review"]
+			tags:          protectedTags
 		}
 		github: runner: _runner
 	}
@@ -285,22 +285,22 @@ nativeEvidence: {
 		gitlab: {
 			protectedTag: "ci-linux-arm64-container-protected"
 			reviewTag:    "ci-linux-arm64-container"
-			tags: ["$AIGW_CI_LINUX_RUNNER_TAG"]
+			tags:         ["$AIGW_CI_LINUX_RUNNER_TAG"]
 		}
 		github: runner: "ubuntu-24.04"
 	}
 }
 
 graph: {
-	[#JobID]: #Job
+	[#JobID]:              #Job
 	"accepted-ref-parity": {name: "Accepted ref parity", stage: "verify", rank: 0, needs: [], claims: ["accepted-ref-parity"]}
-	quality: {name: "Quality and governance", stage: "verify", rank: 0, needs: [], claims: ["source-quality"]}
+	quality:               {name: "Quality and governance", stage: "verify", rank: 0, needs: [], claims: ["source-quality"]}
 	for platform in productEvidence.native {
 		"native-\(platform)": {name: "Native \(nativeEvidence[platform].name) acceptance", stage: "verify", rank: 0, needs: [], claims: ["go-source-compatibility", "native-product-journey", "lifecycle-acceptance"]}
 	}
 	"linux-secret-service": {name: "Linux Secret Service", stage: "verify", rank: 0, needs: [], claims: ["linux-secret-service"]}
-	"release-version": {name: "Release version", stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
-	"release-assets": {name: "Verify published release artifacts", stage: "release", rank: 1, needs: list.Concat([["quality"], [for platform in productEvidence.native {"native-\(platform)"}], ["linux-secret-service", "release-version"]]), claims: ["artifact-verification"]}
+	"release-version":      {name: "Release version", stage: "verify", rank: 0, needs: [], claims: ["release-metadata"]}
+	"release-assets":       {name: "Verify published release artifacts", stage: "release", rank: 1, needs: list.Concat([["quality"], [for platform in productEvidence.native {"native-\(platform)"}], ["linux-secret-service", "release-version"]]), claims: ["artifact-verification"]}
 }
 
 // The same declared release dependencies name the GitHub tag jobs; the
@@ -390,12 +390,12 @@ macosRunnerMise: #"""
 // Official native clients for real-client acceptance, pinned once. Each GitHub
 // native job installs the clients its host declares.
 nativeClients: {
-	codex:  "0.170.0"
-	claude: "2.1.327"
+	codex:  "0.172.0"
+	claude: "2.1.332"
 	// The Hermes release commit with its tag, and the SHA-256 of that
 	// release's scripts/install.sh.
 	hermes: {
-		commit:    "ae2a81ccc00e9b7c06301523e5bb09608397149c" // v0.23.2
+		commit:    "8fc0374447313e276f6b9a2764bfc750190c966a" // v0.23.4
 		installer: "c73dad4dcf7c9ecadb98578e28cc763d23d7be3fa1b513545319038795493214"
 	}
 }
@@ -486,7 +486,7 @@ _gitLabEvidenceExpiry: "\(evidenceRetentionDays) days"
 	name:  "Retain native source evidence"
 	if:    "always()"
 	uses:  actions.upload
-	with: {name: _name, path: "\(workflowEvidencePath)\nbuild/verification/coverage", "if-no-files-found": "ignore", "retention-days": evidenceRetentionDays}
+	with:  {name: _name, path: "\(workflowEvidencePath)\nbuild/verification/coverage", "if-no-files-found": "ignore", "retention-days": evidenceRetentionDays}
 }
 
 #NativeGitHubJob: {
@@ -642,25 +642,25 @@ _gitLabEvidenceExpiry: "\(evidenceRetentionDays) days"
 
 #NativeGitLabJob: {
 	_platform: #OperatingSystem
-	tags: [string, ...string]
+	tags:      [string, ...string]
 	// Each admission condition first admits its artifact-only scopes.
 	_admission: [...string]
 	rules: list.Concat([for condition in _admission {
 		list.Concat([[for scope in nativeArtifactScope[_platform] {if: "(\(condition)) && \(scope.if)", variables: scope.variables}], [{if: condition}]])
 	}, [{when: "never"}]])
 	"after_script": [miseMirror.unixCleanup]
-	stage: graph["native-\(_platform)"].stage
+	stage:          graph["native-\(_platform)"].stage
 	variables: nativeToolchain[_platform] & {
 		GLAB_NO_PROMPT: "1"
 	}
 	artifacts: {
 		when:      "always"
 		expire_in: _gitLabEvidenceExpiry
-		paths: ["./{.config/mise/mise.lock,.config/mise/locks,build/verification}"]
+		paths:     ["./{.config/mise/mise.lock,.config/mise/locks,build/verification}"]
 	}
 	if _platform == "linux" {
 		interruptible: true
-		extends: [".linux-toolchain"]
+		extends:       [".linux-toolchain"]
 		variables: {
 			CGO_ENABLED:                  "1"
 			AIGW_LINUX_COMPILER_PACKAGES: strings.Join(linuxToolchain.compilerPackages, " ")
@@ -685,13 +685,13 @@ _nativeManualCondition: {
 
 _gitlabControlJob: {
 	_commands: [...string]
-	tags: nativeEvidence[gitlabControlPlatform].gitlab.tags
+	tags:      nativeEvidence[gitlabControlPlatform].gitlab.tags
 	if gitlabControlPlatform == "linux" {
 		extends: [".linux-toolchain"]
-		script: list.Concat([_commands, [miseMirror.unixCleanup]])
+		script:  list.Concat([_commands, [miseMirror.unixCleanup]])
 	}
 	if gitlabControlPlatform == "darwin" {
-		script: list.Concat([[macosRunnerMise, miseMirror.unixPrepare, commands.install], _commands, [miseMirror.unixCleanup]])
+		script:         list.Concat([[macosRunnerMise, miseMirror.unixPrepare, commands.install], _commands, [miseMirror.unixCleanup]])
 		"after_script": [miseMirror.unixCleanup]
 	}
 }
@@ -709,9 +709,9 @@ gitlab: {
 	}
 	stages: ["verify", "release"]
 	".linux-toolchain": {
-		_dataDirectory: "build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE"
+		_dataDirectory:    "build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE"
 		_cacheDirectories: ["installs", "cache"]
-		image: miseImage
+		image:             miseImage
 		variables: {
 			AIGW_MISE_DATA_ROOT: "$CI_PROJECT_DIR/\(_dataDirectory)"
 			MISE_DATA_DIR:       "$CI_PROJECT_DIR/\(_dataDirectory)"
@@ -719,20 +719,20 @@ gitlab: {
 		}
 		cache: {
 			key: {
-				files: [".config/mise/config.toml", ".config/mise/mise.lock"]
+				files:  [".config/mise/config.toml", ".config/mise/mise.lock"]
 				prefix: "mise-linux-\(strings.Split(miseImage, "@sha256:")[1])-\(strings.Join(strings.Split(_dataDirectory, "/"), "-"))-\(strings.Join(_cacheDirectories, "-"))-$CI_RUNNER_ID-$CI_JOB_NAME"
 			}
-			paths: [for directory in _cacheDirectories {"\(_dataDirectory)/\(directory)/"}]
+			paths:  [for directory in _cacheDirectories {"\(_dataDirectory)/\(directory)/"}]
 			policy: "pull-push"
 			when:   "always"
 		}
 		"before_script": [linuxToolchain.prepare, miseMirror.unixPrepare, commands.install]
-		"after_script": [miseMirror.unixCleanup]
+		"after_script":  [miseMirror.unixCleanup]
 	}
 	quality: {
 		interruptible: true
-		extends: [".linux-toolchain"]
-		tags: nativeEvidence[qualityPlatform].gitlab.tags
+		extends:       [".linux-toolchain"]
+		tags:          nativeEvidence[qualityPlatform].gitlab.tags
 		script: [
 			commands.bootstrap,
 			"export AIGW_RELEASE_ALLOWED_SIGNERS_FILE=\"$AIGW_RELEASE_ALLOWED_SIGNERS\"",
@@ -741,7 +741,7 @@ gitlab: {
 		]
 		artifacts: {when: "always", expire_in: _gitLabEvidenceExpiry, paths: [dependencyEvidencePath, workflowEvidencePath, "build/verification/coverage"]}
 
-		stage: graph.quality.stage
+		stage:     graph.quality.stage
 		variables: qualityToolchain & {CGO_ENABLED: "0"}
 		rules: [
 			{if: gitlabVerificationCondition.tag, variables: AIGW_COMMIT_BASE: "$CI_COMMIT_SHA^"},
@@ -801,14 +801,14 @@ gitlab: {
 	}
 	"linux-secret-service": {
 		interruptible: true
-		extends: [".linux-toolchain"]
-		stage: graph["linux-secret-service"].stage
-		tags:  nativeEvidence.linux.gitlab.tags
+		extends:       [".linux-toolchain"]
+		stage:         graph["linux-secret-service"].stage
+		tags:          nativeEvidence.linux.gitlab.tags
 		variables: {
 			MISE_ENABLE_TOOLS: strings.Join(toolchainTools.secretService, ",")
 			CGO_ENABLED:       "0"
 		}
-		rules: gitlab.quality.rules
+		rules:  gitlab.quality.rules
 		script: [linuxSecretService.gitlab, miseMirror.unixCleanup]
 	}
 	"release-version": _gitlabControlJob & {
@@ -855,7 +855,7 @@ githubVerify: {
 				required:    false
 				type:        "choice"
 				default:     "all"
-				options: ["all", for platform in productEvidence.native {platform}]
+				options:     ["all", for platform in productEvidence.native {platform}]
 			}
 			full_quality: {
 				description: "Qualify all repository quality tools on each native platform"

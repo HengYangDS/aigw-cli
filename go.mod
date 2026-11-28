@@ -8,7 +8,7 @@ require (
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.1.1
 	github.com/Masterminds/semver/v3 v3.5.0
-	github.com/charmbracelet/x/ansi v0.11.9
+	github.com/charmbracelet/x/ansi v0.12.0
 	github.com/godbus/dbus/v5 v5.2.4
 	github.com/gofrs/flock v0.13.2
 	github.com/hiddeco/sshsig v0.2.0

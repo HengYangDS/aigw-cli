@@ -42,17 +42,17 @@ go = "1.27.4"
 node = "26.13.1"
 npm = "12.2.3"
 # Native client acceptance only; not an AIGW runtime dependency.
-uv = "0.13.9"
+uv = "0.13.10"
 
 # Specification and CI modeling
-cue = "0.17.1"
+cue = "0.18.0"
 
 # Release transport conformance
-gh = "2.105.0"
-glab = "1.131.0"
+gh = "2.106.0"
+glab = "1.133.0"
 
 # Build and supply-chain evidence
-"github:goreleaser/goreleaser" = "2.20.2"
+"github:goreleaser/goreleaser" = "2.20.3"
 "github:anchore/syft" = "1.57.2"
 # Cross-host ad-hoc macOS artifact signing.
 "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]" = "0.29.0"
