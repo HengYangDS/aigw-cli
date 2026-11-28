@@ -44,7 +44,10 @@ that reads entries by slug keeps its metadata.
 - **Applies to:** a new `Listed` field of `domain.Runtime`, filled from `FamilyModels` when the selection is resolved,
   each with its model ID, family, name (the label without the provider) and declared window; the Codex projection reads
   it. A listed model with its own entry keeps that entry; one whose family has an entry gets an alias named and windowed
-  as the selected model's alias is today, in listing order; one with neither gets no entry.
+  as the selected model's alias is today, in listing order; one with neither gets no entry. `Runtime.Equal` leaves
+  `Listed` out: every adapter compares runtimes as the selected route, and a provider's other models leave that route
+  as it is (the first full proof of this Change failed two Hermes tests that pin this, 2026-11-28); Codex compares its
+  listing itself (D3).
 
 ### D2. Every other entry stays and is hidden
 

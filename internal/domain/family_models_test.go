@@ -169,3 +169,22 @@ func TestRuntimeListsTheSelectionsFamilyModels(t *testing.T) {
 		t.Fatalf("Claude's listed models = %#v", claude.Listed)
 	}
 }
+
+// The listed models are no part of the selected route: a runtime that lists
+// other models resolves the same route, and Equal says so.
+func TestRuntimeEqualityLeavesTheListedModelsOut(t *testing.T) {
+	route := Runtime{Client: "codex", Model: NewModelRef("gateway", "sol"), UpstreamModel: "sol", ContextWindow: DefaultContextWindow}
+	listing := route
+	listing.Listed = []ListedModel{{ID: "sol", Family: "sol", Name: "Sol", Window: DefaultContextWindow}, {ID: "terra", Family: "terra", Name: "Terra", Window: DefaultContextWindow}}
+	if !route.Equal(listing) || !listing.Equal(route) {
+		t.Fatal("a runtime that lists other models resolves another route")
+	}
+	moved := listing
+	moved.UpstreamModel = "terra"
+	if listing.Equal(moved) {
+		t.Fatal("a runtime with another upstream model resolves the same route")
+	}
+	if len(listing.Listed) != 2 {
+		t.Fatal("Equal changed the runtime that it compared")
+	}
+}

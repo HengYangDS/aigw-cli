@@ -184,7 +184,8 @@ type Runtime struct {
 	// that AIGW tells it (ClientSpec.ContextWindow), and zero for any other.
 	ContextWindow int `json:"-"`
 	// Listed holds the selection's FamilyModels, the selected model first: the
-	// models that a client which lists the provider's other models lists.
+	// models that a client which lists the provider's other models lists. It is
+	// no part of the selected route, so Equal leaves it out.
 	Listed []ListedModel `json:"-"`
 }
 
@@ -243,8 +244,12 @@ func (runtime Runtime) SameUpstream(other Runtime) bool {
 		runtime.CredentialProjectionFingerprint(runtime.Client) == other.CredentialProjectionFingerprint(other.Client)
 }
 
-// Equal reports whether two runtimes resolve the same binding in every field.
+// Equal reports whether two runtimes resolve the same selected route: every
+// field but Listed. The models that a client lists beside the selection change
+// with the provider's other models, which leave the route as it is; an adapter
+// that lists them compares its own listing.
 func (runtime Runtime) Equal(other Runtime) bool {
+	runtime.Listed, other.Listed = nil, nil
 	return reflect.DeepEqual(runtime, other)
 }
 
