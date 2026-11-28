@@ -28,8 +28,9 @@
 
 ## 5. Local gates
 
-- [ ] 5.1 Pass `mise run check` on the lane head, in the host queue.
-- [ ] 5.2 Pass `mise run native` on the macOS host on the lane head, in the host queue.
+- [x] 5.1 Pass `mise run check` on the lane head, in the host queue. `7b1e0a41e`, 13:50: statement coverage 95.84%.
+- [x] 5.2 Pass `mise run native` on the macOS host on the lane head, in the host queue. `7b1e0a41e`, 13:56: every
+      package ok.
 
 ## 6. Review
 
