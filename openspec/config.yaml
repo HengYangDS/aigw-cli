@@ -40,5 +40,7 @@ rules:
       design prose or a parallel ledger.
     - Separate implementation tasks from lifecycle preconditions and effects; a Change never records
       its own landing, archive or Lane retirement as a completed task.
-    - Separate local gates, exact-HEAD proof, hosted CI, publication, and housekeeping.
+    - Tasks hold the implementation and the local gates that close before the archive. The exact-HEAD
+      proof of the archive head, hosted CI and publication are landing gates that ETHOS and the
+      Forges enforce and record; a Change never records them as tasks.
     - Put each bounded action and its verification in a numbered checkbox; keep execution results with their verifier and design rationale in design.md.
