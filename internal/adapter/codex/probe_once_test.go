@@ -73,7 +73,21 @@ var oneProbe = []string{"--version", "debug models --bundled"}
 // process calls it before each, so that a change that a probe's key does not
 // cover, such as a launcher's target that goes, is seen as a new command sees
 // it. No test of this package runs in parallel.
-func asNewProcess() { bundledProbes = newBundledProbeSet() }
+func asNewProcess() {
+	bundledProbes.mu.Lock()
+	defer bundledProbes.mu.Unlock()
+	bundledProbes.byKey = map[bundledProbeKey]*bundledProbe{}
+}
+
+// holdProbes lets one test replace the probe (readBundledCatalog), to hold it
+// open or to choose its answer, restores it afterwards, and forgets every
+// probe before and after the test.
+func holdProbes(t *testing.T) {
+	t.Helper()
+	original := readBundledCatalog
+	t.Cleanup(func() { readBundledCatalog = original; asNewProcess() })
+	asNewProcess()
+}
 
 // Three reads of an unchanged program start it once for its version and once
 // for its table, and each read receives the identity and the table that the
@@ -207,16 +221,14 @@ func TestAnUnreadableProgramIsNotKept(t *testing.T) {
 // ends, every reader receives its answer.
 func TestConcurrentReadsOfOneProgramShareOneProbe(t *testing.T) {
 	c := newProbeCase(t)
-	original, originalProbes := readBundledCatalog, bundledProbes
-	t.Cleanup(func() { readBundledCatalog, bundledProbes = original, originalProbes })
-	bundledProbes = newBundledProbeSet()
+	holdProbes(t)
 	synctest.Test(t, func(t *testing.T) {
 		release := make(chan struct{})
 		var probes atomic.Int32
 		readBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 			probes.Add(1)
 			<-release
-			return ExecutableIdentity{Version: "codex-cli 1.0.0", SHA256: "digest"}, []byte("table"), errors.New("kept")
+			return ExecutableIdentity{Version: "codex-cli 1.0.0"}, []byte("table"), errors.New("kept")
 		}
 		type answer struct {
 			client ExecutableIdentity
@@ -241,6 +253,81 @@ func TestConcurrentReadsOfOneProgramShareOneProbe(t *testing.T) {
 			if got.client.Version != "codex-cli 1.0.0" || string(got.data) != "table" || got.err == nil || got.err.Error() != "kept" {
 				t.Fatalf("a reader received %+v, want the one probe's answer", got)
 			}
+		}
+	})
+}
+
+// A read of one program does not wait for the probe of another.
+func TestReadsOfDifferentProgramsDoNotWait(t *testing.T) {
+	held, other := newProbeCase(t), newProbeCase(t)
+	holdProbes(t)
+	synctest.Test(t, func(t *testing.T) {
+		release := make(chan struct{})
+		readBundledCatalog = func(program string) (ExecutableIdentity, []byte, error) {
+			if program == held.program {
+				<-release
+			}
+			return ExecutableIdentity{Version: "codex-cli 1.0.0"}, []byte(program), nil
+		}
+		done := make(chan struct{})
+		go func() {
+			_, _, _ = bundledCatalogOnce(held.program)
+			close(done)
+		}()
+		synctest.Wait()
+		if _, data, err := bundledCatalogOnce(other.program); err != nil || string(data) != other.program {
+			t.Fatalf("the other program's read = %q, %v; want its own answer while the first probe is held", data, err)
+		}
+		close(release)
+		<-done
+	})
+}
+
+// A probe that measured other bytes than the key's, because the file changed
+// between the two, is not kept: the next read probes again.
+func TestAProbeOfOtherBytesIsNotKept(t *testing.T) {
+	c := newProbeCase(t)
+	holdProbes(t)
+	probes := 0
+	readBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
+		probes++
+		return ExecutableIdentity{Version: "codex-cli 1.0.0", SHA256: "other bytes"}, []byte(windowedTable), nil
+	}
+	for range 2 {
+		if _, _, err := bundledCatalogOnce(c.program); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if probes != 2 {
+		t.Fatalf("%d probes, want one for each read", probes)
+	}
+}
+
+// A probe that ends without an answer, as a panic ends it, gives a read that
+// waited for it a failure, never an empty success.
+func TestAReadThatWaitedForAnUnfinishedProbeFails(t *testing.T) {
+	c := newProbeCase(t)
+	holdProbes(t)
+	synctest.Test(t, func(t *testing.T) {
+		release := make(chan struct{})
+		readBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
+			<-release
+			panic("the probe ends without an answer")
+		}
+		go func() {
+			defer func() { _ = recover() }()
+			_, _, _ = bundledCatalogOnce(c.program)
+		}()
+		synctest.Wait()
+		waited := make(chan error, 1)
+		go func() {
+			_, _, err := bundledCatalogOnce(c.program)
+			waited <- err
+		}()
+		synctest.Wait()
+		close(release)
+		if err := <-waited; !errors.Is(err, errUnfinishedProbe) {
+			t.Fatalf("the read that waited = %v, want %v", err, errUnfinishedProbe)
 		}
 	})
 }

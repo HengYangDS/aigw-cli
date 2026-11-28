@@ -8,8 +8,8 @@ producer differs starts it twice more. Each start of an unchanged program prints
 In the repository's test processes the repetition dominates the selection matrix, a part of the static gate that every
 proof waits for. On 2026-11-28 the matrix took 608 s with 5,207 s of system time; a profile put 92% of its mutex delay
 on the fork lock, which a test process of 1 to 1.5 GB holds while it starts a probe. The same matrix with the probe
-reused for an unchanged program took 267 s with 354 s of system time (`build/runtime/work/static-gate-20261128/` in the
-main checkout). For an operator the repetition costs a few program starts per command, and lets the plan and the apply
+reused for an unchanged program, in an experiment that keyed the program by its file's metadata, took 267 s with
+354 s of system time (`build/runtime/work/static-gate-20261128/` in the main checkout). For an operator the repetition costs a few program starts per command, and lets the plan and the apply
 of one command act on different answers when the program's output changes between them.
 
 ## What Changes
@@ -32,7 +32,7 @@ None.
 
 ### Modified Capabilities
 
-- `product-control-plane`: catalog observation reads an unchanged Codex program once per process.
+- `client-programs`: an operation reads an unchanged Codex program once per process, and a changed one again.
 
 ## Impact
 

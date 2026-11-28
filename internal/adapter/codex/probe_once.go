@@ -50,6 +50,17 @@ func (set *bundledProbeSet) entry(key bundledProbeKey) (probe *bundledProbe, cre
 	return probe, true
 }
 
+// forget removes the probe of key, so that the next read probes again.
+func (set *bundledProbeSet) forget(key bundledProbeKey) {
+	set.mu.Lock()
+	defer set.mu.Unlock()
+	delete(set.byKey, key)
+}
+
+// errUnfinishedProbe is what a read that waited for a probe receives when the
+// probe ended without an answer.
+var errUnfinishedProbe = errors.New("the Codex probe ended without an answer")
+
 // bundledProbes holds this process's probes. AIGW runs one process per
 // command, so nothing here outlives the command that read it.
 var bundledProbes = newBundledProbeSet()
@@ -64,18 +75,24 @@ var readBundledCatalog = ReadBundledCatalog
 // identity, a copy of the table and the failure that the one probe measured.
 // A program whose key cannot be read, because its path is empty or names no
 // readable file, is probed as before and nothing is kept; that probe starts
-// no program, since the program's file is read before it starts.
+// no program, since the program's file is read before it starts. A probe
+// that measured other bytes than the key's, because the file changed in
+// between, is not kept either.
 func bundledCatalogOnce(program string) (ExecutableIdentity, []byte, error) {
-	key, err := bundledProbeKeyOf(program)
-	if err != nil {
+	key, keyed := bundledProbeKeyOf(program)
+	if !keyed {
 		return readBundledCatalog(program)
 	}
 	probe, created := bundledProbes.entry(key)
 	if created {
 		func() {
 			defer close(probe.done)
+			probe.err = errUnfinishedProbe
 			probe.client, probe.data, probe.err = readBundledCatalog(program)
 		}()
+		if probe.client.SHA256 != "" && probe.client.SHA256 != key.digest {
+			bundledProbes.forget(key)
+		}
 	} else {
 		<-probe.done
 	}
@@ -83,18 +100,18 @@ func bundledCatalogOnce(program string) (ExecutableIdentity, []byte, error) {
 }
 
 // bundledProbeKeyOf reads the key of the program at program without starting
-// it.
-func bundledProbeKeyOf(program string) (bundledProbeKey, error) {
+// it, and reports whether it could.
+func bundledProbeKeyOf(program string) (bundledProbeKey, bool) {
 	if strings.TrimSpace(program) == "" {
-		return bundledProbeKey{}, errors.New("Codex executable is not configured")
+		return bundledProbeKey{}, false
 	}
 	resolved, err := filepath.EvalSymlinks(program)
 	if err != nil {
-		return bundledProbeKey{}, err
+		return bundledProbeKey{}, false
 	}
 	digest, err := fileSHA256(resolved)
 	if err != nil {
-		return bundledProbeKey{}, err
+		return bundledProbeKey{}, false
 	}
-	return bundledProbeKey{program: program, resolved: resolved, digest: digest, pkg: packageVersion(program)}, nil
+	return bundledProbeKey{program: program, resolved: resolved, digest: digest, pkg: packageVersion(program)}, true
 }

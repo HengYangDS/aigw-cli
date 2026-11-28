@@ -9,7 +9,7 @@ failure. Concurrent reads of one unchanged program SHALL wait for its one probe.
 #### Scenario: A sync plans and applies an unchanged Codex
 
 - **GIVEN** a Codex program that prints its version and its model table
-- **WHEN** `aigw sync` plans and applies Codex's files
+- **WHEN** one sync plans and then applies Codex's files
 - **THEN** the program SHALL have been started once with `--version` and once with `debug models --bundled`.
 
 #### Scenario: A probe fails

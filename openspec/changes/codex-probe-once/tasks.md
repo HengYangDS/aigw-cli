@@ -1,6 +1,6 @@
 ## 1. Specification
 
-- [ ] 1.1 Write the delta of `product-control-plane`. Done when `openspec validate codex-probe-once --strict` passes
+- [x] 1.1 Write the delta of `client-programs`. Done when `openspec validate codex-probe-once --strict` passes
       and the lane's archive rehearsal merges it.
 
 ## 2. One probe per unchanged program
@@ -8,8 +8,9 @@
 - [x] 2.1 Make the seam `codexBundledCatalog` a reader that keeps one probe per key of D1 for the process, failures
       included, shares it between concurrent reads and returns a copy of the table (D1 to D5). Done when
       `TestAnUnchangedProgramIsProbedOncePerProcess`, `TestAChangedProgramIsProbedAgain`, `TestAFailedProbeIsKept`,
-      `TestAnUnreadableProgramIsNotKept`, `TestConcurrentReadsOfOneProgramShareOneProbe` and
-      `TestTheReturnedTableIsACopy` pass.
+      `TestAnUnreadableProgramIsNotKept`, `TestConcurrentReadsOfOneProgramShareOneProbe`,
+      `TestReadsOfDifferentProgramsDoNotWait`, `TestAProbeOfOtherBytesIsNotKept`,
+      `TestAReadThatWaitedForAnUnfinishedProbeFails` and `TestTheReturnedTableIsACopy` pass.
 - [x] 2.2 Pin that a sync at the adapter layer starts an unchanged Codex once for its version and once for its table.
       Done when `TestASyncStartsAnUnchangedCodexOnce` and the package tests of `internal/adapter/codex` pass.
 
@@ -31,8 +32,9 @@
 
 ## 6. Review
 
-- [ ] 6.1 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
-      code or in the design.
+- [x] 6.1 A fresh review of the whole change by a reviewer who has not seen it. Done when its findings are answered in
+      code or in the design. Eight findings, no defect of correctness (`build/ethos/claude-210a1fe7/review.md` in the
+      lane), answered in code and in D1 to D5; its speed finding waits for 4.1.
 
 ## 7. Exact-HEAD proof
 

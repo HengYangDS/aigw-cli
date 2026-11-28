@@ -34,10 +34,17 @@ apply and the check of one command; concurrent reads that share the probe.
    changes the process environment: no call of `os.Setenv`, `os.Unsetenv` or `os.Clearenv` outside tests under
    `internal` or `cmd` (read on 2026-11-28). It is constant within a process.
 7. Load and time. A probe that misses its bound under load fails; D3 decides what a later read gets.
+8. What a run needs outside the package: the file's mode, the interpreter that a script's first line names (an npm
+   launcher, which also has no manifest beside it), the working directory and the operating system's admission of
+   the program. Not in the key. No production code changes the working directory (no call of `os.Chdir` or
+   `syscall.Chdir` outside tests under `internal` or `cmd`, read on 2026-11-28), and AIGW changes none of the others;
+   a change by another program while one command runs is not seen, and the next command reads the program again.
 
 The key is the configured path, the resolved path, the file's SHA-256 and the declared version. Reading it starts no
-program. Hashing is what every probe already does first; `missing-program-reported-truthfully` measured 131 to 154 ms
-for a 285 to 291 MB program with a warm cache, so a read that reuses a probe still costs one hash.
+program. The first read of a key hashes the file twice, for the key and inside the probe; a probe that measured other
+bytes than the key's, because the file changed in between, is not kept, so the next read probes again
+(`TestAProbeOfOtherBytesIsNotKept`). Every read costs one hash: `missing-program-reported-truthfully` measured 131 to
+154 ms for a 285 to 291 MB program with a warm cache.
 
 Alternative rejected: a key from file metadata (device, inode, size, modification and change times), which the
 experiment of the proposal used. It needs fields that differ per platform (`Mtimespec` on macOS, `Mtim` on Linux) and
@@ -50,11 +57,15 @@ processes would need its own invalidation, which nothing here needs. A test proc
 changes what the key does not cover between two commands starts the second as a new process would, with no probes:
 the fixture of the Codex adapter's producer tests starts every command so (`asNewProcess`), and
 `TestAnUnchangedLauncherWhoseProgramIsGoneStopsSyncWhileCheckPasses`, whose launcher loses its target between two
-syncs (D1, case 4), failed without it. Memory: one entry per distinct key read in the
-process, holding the table that the program printed (517,840 bytes for Codex 0.153.4, as `catalog.go` records); in a
-command that is one entry per configured Codex program, in a test process one per test program. The matrix's peak
-resident memory fell from 1.03 GB to 0.89 GB in the experiment of the proposal, because fewer forked processes were
-alive at once.
+syncs (D1, case 4), depends on it. Memory: one entry per distinct key read in the process, holding the table that the
+program printed (517,840 bytes for Codex 0.153.4, as `catalog.go` records); in a command that is one entry per
+configured Codex program, in a test process one per test program.
+
+The proposal's figures come from an experiment keyed by file metadata, which hashed nothing when it reused a probe;
+this reader hashes the file on every read, and the profile of the baseline put 105 s of samples in `fileSHA256`. Task
+4.1 measures this reader on the same matrix. If hashing takes back most of the gain, the key is revisited before the
+Change lands. In the experiment the matrix's peak resident memory fell from 1.03 GB to 0.89 GB; its cause was not
+measured.
 
 **D3. A failure is kept.** A probe that fails, because the program does not run, prints no version or no table,
 warns, or misses its bound, gives every later read of the same key in the process the same failure, with the identity
@@ -62,18 +73,24 @@ it measured; the accepted scenario of a catalog retrieval that fails after ident
 one probe, unchanged. Before this Change each read probed again: a sync could plan with one answer and apply with
 another, and a probe that missed its bound cost the 30-second bound again in every preparation. A program whose key
 cannot be read, because its configured path is empty or names no readable file, is not kept: the reader runs as
-before and returns its own error, and starts no program, because the hash fails before the first start.
+before and returns its own error, and starts no program, because the hash fails before the first start. A probe that
+ends without an answer, as a panic ends it, gives a read that waited for it a failure, never an empty success
+(`TestAReadThatWaitedForAnUnfinishedProbeFails`); nothing in production recovers a panic, so the process ends first.
 
 **D4. Concurrent reads share one probe.** The first read of a key creates its entry and runs the probe; a read that
 finds the entry waits until the probe has ended; reads of different keys do not wait for each other. The returned table
 is a copy, so a caller that changes it cannot change what another read receives.
 `TestConcurrentReadsOfOneProgramShareOneProbe` forces the order: in a `testing/synctest` bubble the probe blocks until
 every other reader is blocked waiting for it, the test then counts one probe, releases it, and every reader receives
-the same answer.
+the same answer. `TestReadsOfDifferentProgramsDoNotWait` holds one program's probe open in a bubble and reads another
+program meanwhile.
 
 **D5. One owner.** The reader that keeps a probe per key is the value of the seam `codexBundledCatalog` and wraps
 `ReadBundledCatalog`, which stays the fresh measurement for the repository's verification and the release tools. A
-test that replaces the seam replaces the reuse with it.
+test that replaces the seam replaces the reuse with it. The requirements belong to `client-programs`, which owns which
+program each client uses and what follows when a Codex program cannot produce its model table, so when a program
+counts as changed joins it there. `product-control-plane` keeps the lifetime of one probe; its 477 non-blank lines
+would pass the repository's limit of 500 for a specification with these 32.
 
 ## Risks / Trade-offs
 
