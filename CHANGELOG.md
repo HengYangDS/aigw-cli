@@ -11,6 +11,8 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-28
+
 ### Changed
 
 - **Breaking:** `aigw.toml` and team files move to `version = 9`. Every
