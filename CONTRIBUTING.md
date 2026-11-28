@@ -283,6 +283,10 @@ builds current-host archives through GoReleaser and exercises install, upgrade,
 invalid-successor rejection, rollback and uninstall in owned temporary state.
 It neither publishes nor needs signing credentials. Signed artifacts, published
 predecessors, real clients and performance remain separate `accept-native` scopes.
+`go run ./tools/ci native-tests` owns that invocation and its isolated
+environment. The source check's coverage gate and the exact-HEAD proof's
+behavior gate run it as well, so on a host whose proof passed, `mise run native`
+repeats only its source check.
 Complete tool qualification replaces, rather than repeats, the Go-only check:
 
 ```bash

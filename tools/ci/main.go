@@ -33,7 +33,7 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <project|source|quality|openspec|links|format|check-format|check-go|check-source-size|check-spelling|check-toml|check-markdown|check-secrets|release-age|check-release-age|native|native-clients|release-evidence|trust-input>")
+		return errors.New("usage: ci <project|source|quality|openspec|links|format|check-format|check-go|check-source-size|check-spelling|check-toml|check-markdown|check-secrets|release-age|check-release-age|native|native-tests|native-clients|release-evidence|trust-input>")
 	}
 	checks := map[string]func(string, commandRunner) error{
 		"links": checkLinks, "check-go": checkGo, "check-workflows": checkWorkflows,
@@ -84,6 +84,8 @@ func run(args []string, stdout io.Writer, runner commandRunner) error {
 		return projection.Reconcile(*root, *check)
 	case "native":
 		return runNative(args[1:], stdout, runner)
+	case "native-tests":
+		return runNativeTests(args[1:], stdout, runner)
 	case "native-clients":
 		return runNativeClients(args[1:], stdout, runner)
 	case "release-evidence":
@@ -329,19 +331,54 @@ func supportedNativePlatform(platform string) bool {
 	return platform == "darwin" || platform == "linux"
 }
 
+const nativeTestsUsage = "usage: ci native-tests [--junit-output <path>] [--lcov-output <path>]"
+
+// runNativeTests runs this host's one native Go test attempt in native
+// acceptance's isolated environment, writing the reports its caller names.
+func runNativeTests(args []string, stdout io.Writer, runner commandRunner) (result error) {
+	flags := flag.NewFlagSet("ci native-tests", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	junit := flags.String("junit-output", "", "write the attempt's JUnit report at this path")
+	lcov := flags.String("lcov-output", "", "write the attempt's LCOV report at this path")
+	if err := flags.Parse(args); err != nil || flags.NArg() != 0 {
+		return errors.New(nativeTestsUsage)
+	}
+	tests := nativeTestCommand(runtime.GOOS, *junit, *lcov)
+	workspace, err := os.MkdirTemp("", "aigw-native-source-*")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, robustio.RemoveAll(workspace)) }()
+	tests.Env = construction.NativeTestEnvironment(workspace, "", "")
+	return runCommands([]command{tests}, stdout, runner)
+}
+
 func nativeCommands(platform string) []command {
+	return []command{
+		{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}},
+		nativeTestCommand(platform, "", ""),
+	}
+}
+
+// nativeTestCommand is the host's native Go test attempt: every package under
+// the race detector and coverage, the native resource tests included. An empty
+// junit keeps the report in the coverage evidence folder.
+func nativeTestCommand(platform, junit, lcov string) command {
 	evidence := filepath.Join("build", "verification", "coverage")
+	if junit == "" {
+		junit = filepath.Join(evidence, "junit.xml")
+	}
 	tests := command{Name: "go", Args: []string{"run", "./tools/coverage", "--tags=native_resource_acceptance", "--race"}}
 	// The JUnit report names each test that never finished ("No result"), so a
 	// test binary that the platform ends without output still shows where it
 	// stopped; the workflow retains the folder whatever the outcome.
-	tests.Args = append(tests.Args, "--profile-output", filepath.Join(evidence, "profile.out"), "--junit-output", filepath.Join(evidence, "junit.xml"))
+	tests.Args = append(tests.Args, "--profile-output", filepath.Join(evidence, "profile.out"), "--junit-output", junit)
+	if lcov != "" {
+		tests.Args = append(tests.Args, "--lcov-output", lcov)
+	}
 	if platform == "linux" {
 		tests.Name = "dbus-run-session"
 		tests.Args = append([]string{"--", "env", "AIGW_VERIFY_LOCKED_SECRET_SERVICE=1", "AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE=ephemeral-host", "go"}, tests.Args...)
 	}
-	return []command{
-		{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}},
-		tests,
-	}
+	return tests
 }

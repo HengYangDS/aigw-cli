@@ -259,4 +259,13 @@ unchanged; no other exact-HEAD proof gate SHALL run that attempt's tests again.
 
 - **WHEN** the exact-HEAD proof evaluates the behavior of the Go sources
 - **THEN** it SHALL read the reports written by the coverage gate's own attempt
+- **AND** that attempt SHALL include the proving host's native resource tests, in native acceptance's isolated
+  environment
 - **AND** no other proof gate SHALL run that attempt's tests a second time.
+
+#### Scenario: A local source verification runs the native attempt once
+
+- **WHEN** the repository's source gate runs on a supported host
+- **THEN** its coverage attempt SHALL be the host's native test attempt, which native acceptance runs with the same
+  command and environment
+- **AND** the source gate SHALL run no second Go test attempt.
