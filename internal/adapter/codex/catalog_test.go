@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -59,7 +60,7 @@ func TestCodexCatalogProjectionYieldsToUserAuthoredCatalog(t *testing.T) {
 	}
 	base := "model_catalog_json = \"/home/user/own-catalog.json\"\n"
 	for _, model := range []string{"openai.gpt-5.5", "gpt-6.1-sol"} {
-		selected := domain.Runtime{UpstreamModel: model, ContextWindow: domain.DefaultContextWindow}
+		selected := listedAlone(domain.Runtime{UpstreamModel: model, ContextWindow: domain.DefaultContextWindow})
 		if plan, err := codexCatalogProjection(target, selected, base, codexState{}, platform.FileSnapshot{}); err != nil || !emptyCatalogPlan(plan) {
 			t.Fatalf("user catalog was not respected for %q: plan = %+v", model, plan)
 		}
@@ -199,10 +200,10 @@ func TestCodexCatalogShowsTheChannelByItsOwnName(t *testing.T) {
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 		return ExecutableIdentity{Version: "0.160.0", SHA256: "client-catalog"}, bundled, nil
 	}
-	runtime := domain.Runtime{
+	runtime := listedAlone(domain.Runtime{
 		ModelLabel: "DMXAPI · GPT-6.1 Sol · CDX", ProviderLabel: "DMXAPI", ProviderID: "dmxapi",
 		UpstreamModel: "gpt-6.1-sol-cdx", FamilyID: "gpt-6.1-sol", ContextWindow: domain.DefaultContextWindow,
-	}
+	})
 	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
 	plan, _ := codexCatalogProjection(target, runtime, "", codexState{}, platform.FileSnapshot{})
 	var projected struct {
@@ -229,11 +230,20 @@ func TestCodexCatalogGivesAModelThatIsItsOwnFamilyNoAlias(t *testing.T) {
 		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, bundled, nil
 	}
 	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
-	selected := domain.Runtime{UpstreamModel: model, FamilyID: model, ContextWindow: domain.DefaultContextWindow}
+	selected := listedAlone(domain.Runtime{UpstreamModel: model, FamilyID: model, ContextWindow: domain.DefaultContextWindow})
 	plan, _ := codexCatalogProjection(target, selected, "", codexState{}, platform.FileSnapshot{})
-	if plan.state != catalogStateProjected || string(plan.data) != string(bundled) {
+	if plan.state != catalogStateProjected || !sameCatalogEntries(plan.data, bundled) {
 		t.Fatalf("a model that is its own family got table metadata: plan = %+v", plan)
 	}
+}
+
+// sameCatalogEntries reports whether two tables hold the same entries in the
+// same order, whatever their encoding.
+func sameCatalogEntries(data, want []byte) bool {
+	var got, expected struct {
+		Models []map[string]any `json:"models"`
+	}
+	return json.Unmarshal(data, &got) == nil && json.Unmarshal(want, &expected) == nil && reflect.DeepEqual(got, expected)
 }
 
 func TestCopyProjectionRebasesOwnedCatalogReference(t *testing.T) {
@@ -351,6 +361,13 @@ func catalogTestRuntime(model string) domain.Runtime {
 	runtime.UpstreamModel = model
 	runtime.FamilyID = "gpt-5.6-sol"
 	runtime.ContextWindow = domain.DefaultContextWindow
+	return listedAlone(runtime)
+}
+
+// listedAlone gives runtime the listing that resolving it gives for a provider
+// of one family on its protocol: the selection alone.
+func listedAlone(runtime domain.Runtime) domain.Runtime {
+	runtime.Listed = []domain.ListedModel{{ID: runtime.UpstreamModel, Family: runtime.FamilyID, Name: runtime.ModelName(), Window: runtime.ContextWindow}}
 	return runtime
 }
 

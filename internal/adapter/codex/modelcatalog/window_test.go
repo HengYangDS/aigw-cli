@@ -3,6 +3,7 @@ package modelcatalog
 import (
 	"bytes"
 	"encoding/json"
+	"maps"
 	"slices"
 	"strconv"
 	"testing"
@@ -63,7 +64,7 @@ func TestProjectionGivesAnAliasTheDeclaredWindow(t *testing.T) {
 	bundled := testBundledCatalog(family, "gpt-6-luna")
 	document := mustParseCatalog(t, bundled)
 	for _, window := range []int{750_000, 300_000} {
-		projected, base := document.Project(model, family, "", window)
+		projected, base := project(document, model, family, "", window)
 		if projected == nil || base != family {
 			t.Fatalf("Project(window %d) = %q / %q, want an alias of %q", window, projected, base, family)
 		}
@@ -85,7 +86,7 @@ func TestProjectionGivesAModelThatIsAnEntryItsDeclaredWindow(t *testing.T) {
 	want := canonicalEntries(t, bundled)
 	for _, window := range []int{750_000, 300_000} {
 		for _, family := range []string{model, "", "no-such-model", "gpt-5.5"} {
-			projected, base := document.Project(model, family, "A label of AIGW's", window)
+			projected, base := project(document, model, family, "A label of AIGW's", window)
 			if projected == nil || base != model {
 				t.Fatalf("Project(family %q, window %d) = %q / %q, want the model's own entry", family, window, projected, base)
 			}
@@ -105,7 +106,7 @@ func TestProjectionGivesAModelThatIsAnEntryItsDeclaredWindow(t *testing.T) {
 func TestProjectionWritesTheWindowIntoAnEntryThatHadNone(t *testing.T) {
 	document := mustParseCatalog(t, []byte(`{"models":[{"slug":"base","display_name":"Base","instructions":"retain"}]}`))
 	for model, own := range map[string][]string{"provider.base": {"slug", "display_name"}, "base": nil} {
-		projected, _ := document.Project(model, "base", "", 640_000)
+		projected, _ := project(document, model, "base", "", 640_000)
 		if projected == nil {
 			t.Fatalf("Project(%q) returned no table for an entry without window fields", model)
 		}
@@ -113,14 +114,23 @@ func TestProjectionWritesTheWindowIntoAnEntryThatHadNone(t *testing.T) {
 	}
 }
 
-// TestProjectionRefusesAWindowThatIsNotAboveZero pins the caller's error: no
-// resolved selection has such a window, and it is never written into a table.
-func TestProjectionRefusesAWindowThatIsNotAboveZero(t *testing.T) {
+// TestProjectionKeepsTheClientsWindowWithoutAWindowAboveZero lists a model
+// that declares no window that AIGW tells the client with the window fields of
+// the entry that describes it.
+func TestProjectionKeepsTheClientsWindowWithoutAWindowAboveZero(t *testing.T) {
 	document := mustParseCatalog(t, testBundledCatalog("gpt-6.1-sol"))
 	for _, window := range []int{0, -1} {
-		for _, model := range []string{"gpt-6.1-sol-cdx", "gpt-6.1-sol"} {
-			if projected, base := document.Project(model, "gpt-6.1-sol", "", window); projected != nil || base != "" {
-				t.Fatalf("Project(%q, window %d) = %q / %q, want nothing", model, window, projected, base)
+		for model, own := range map[string][]string{"gpt-6.1-sol-cdx": {"slug", "display_name"}, "gpt-6.1-sol": nil} {
+			projected, base := project(document, model, "gpt-6.1-sol", "", window)
+			if base != "gpt-6.1-sol" {
+				t.Fatalf("Project(%q, window %d) lists no entry for it", model, window)
+			}
+			listed := mustParseCatalog(t, projected)
+			if window, ceiling := listed.ContextWindow(model); window != 400_000 || ceiling != 872_000 {
+				t.Fatalf("Project(%q, window %d) carries %d and %d, want the client's 400000 and 872000", model, window, window, ceiling)
+			}
+			if own == nil && !maps.EqualFunc(listed.Model(model), document.Model(model), func(x, y json.RawMessage) bool { return bytes.Equal(x, y) }) {
+				t.Fatalf("Project(%q, window %d) changed the model's own entry", model, window)
 			}
 		}
 	}

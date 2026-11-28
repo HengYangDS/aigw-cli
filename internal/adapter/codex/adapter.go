@@ -137,7 +137,7 @@ func (codexAdapter) ProjectionChanged(before, after domain.Config) bool {
 		beforeRuntime.ModelLabel != afterRuntime.ModelLabel ||
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
 		beforeRuntime.UpstreamModel != afterRuntime.UpstreamModel ||
-		(beforeRuntime.ContextWindow != afterRuntime.ContextWindow && windowReaches(afterBinding.Targets, afterRuntime))
+		listingReaches(afterBinding.Targets, beforeRuntime.Listed, afterRuntime.Listed)
 }
 
 func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime) adapter.Status {

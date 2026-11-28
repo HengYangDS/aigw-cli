@@ -111,3 +111,61 @@ func TestFamilyVariantsCoverTheListedModelOfEachFamily(t *testing.T) {
 		t.Fatalf("FamilyVariants = %v, want %v", runtime.FamilyVariants, want)
 	}
 }
+
+// A runtime lists the selection's FamilyModels in their order, each with its
+// family, its name without the provider's and, for a client that AIGW tells
+// a window, the window that the model declares or the default one.
+func TestRuntimeListsTheSelectionsFamilyModels(t *testing.T) {
+	cfg := NewConfig(testAdmission())
+	if err := cfg.AppendProvider("dmx", Provider{Label: "DMX", Endpoints: Endpoints{Anthropic: "https://dmx.test", Responses: "https://dmx.test/v1"}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, model := range []Model{
+		{ID: "gpt-6.2-sol", Family: "gpt-6.2-sol", Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}}},
+		{ID: "gpt-6.2-sol-cdx", Family: "gpt-6.2-sol", ContextWindow: 400_000, Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}}},
+		{ID: "claude-opus-5-5", Family: "claude-opus-5-5", Protocols: map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}},
+		{ID: "gpt-6.1-terra", Family: "gpt-6.1-terra", Label: "Terra", Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}}},
+		{ID: "deepseek-v4.1", Protocols: map[EndpointProtocol][]Capability{ProtocolResponses: {}}},
+	} {
+		model.Provider = "dmx"
+		if err := cfg.AppendModel(model); err != nil {
+			t.Fatal(err)
+		}
+	}
+	selected := NewModelRef("dmx", "gpt-6.2-sol-cdx")
+	cfg.SetSelectedModel(ClientCodex, selected, ProtocolResponses)
+	runtime, err := cfg.ResolveRuntime(ClientCodex, ModelRef{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, listed := range runtime.Listed {
+		ids = append(ids, listed.ID)
+	}
+	if !slices.Equal(ids, []string{"gpt-6.2-sol-cdx", "gpt-6.1-terra", "deepseek-v4.1"}) {
+		t.Fatalf("Listed models = %q, want the selection's FamilyModels on the Responses protocol", ids)
+	}
+	for index, ref := range cfg.FamilyModels(selected, ProtocolResponses) {
+		model := cfg.Models[ref]
+		want := ListedModel{ID: model.ID, Family: model.FamilyID(), Name: withoutProvider(modelLabel(model, cfg.Providers["dmx"], cfg.Families[model.Family]), Provider{ID: "dmx", Label: "DMX"}), Window: model.Window()}
+		if runtime.Listed[index] != want {
+			t.Errorf("Listed[%d] = %#v, want %#v", index, runtime.Listed[index], want)
+		}
+	}
+	if first := runtime.Listed[0]; first.Name != runtime.ModelName() || first.Window != runtime.ContextWindow || first.Family != runtime.FamilyID {
+		t.Fatalf("the first listed model %#v is not the selection %#v", first, runtime)
+	}
+	if runtime.Listed[1].Name != "Terra" || runtime.Listed[2].Family != "deepseek-v4.1" {
+		t.Fatalf("an explicit label or a model that is its own family is listed as %#v", runtime.Listed[1:])
+	}
+
+	// A client that AIGW tells no window lists none.
+	cfg.SetSelectedModel(ClientClaude, NewModelRef("dmx", "claude-opus-5-5"), ProtocolAnthropic)
+	claude, err := cfg.ResolveRuntime(ClientClaude, ModelRef{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(claude.Listed) != 1 || claude.Listed[0].Window != 0 || claude.Listed[0].ID != "claude-opus-5-5" {
+		t.Fatalf("Claude's listed models = %#v", claude.Listed)
+	}
+}

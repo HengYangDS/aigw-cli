@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"aigw-cli/internal/adapter/codex"
@@ -34,8 +35,9 @@ type modelProbe struct {
 // base, and holds no alias already; the client loads the generated catalog;
 // the entry that it rendered is the base's apart from the fields that the
 // digest leaves out, and carries the declared window in both window fields;
-// an alias is shown under a name no other entry has; and an unrelated unknown
-// id stays absent.
+// an alias is shown under a name no other entry has; the client lists that
+// entry alone, so every entry that the projection hid stays hidden; and an
+// unrelated unknown id stays absent.
 type verificationResult struct {
 	ClientVersion string `json:"client_version"`
 	ClientSHA256  string `json:"client_sha256"`
@@ -55,6 +57,9 @@ type verificationResult struct {
 	// SharedName lists the entries of the effective catalog that the client
 	// shows under an alias's name.
 	SharedName []string `json:"shared_name"`
+	// Listed holds the slugs of the entries that the effective catalog lists in
+	// the client's picker, in table order.
+	Listed []string `json:"listed"`
 }
 
 const unknownProbeModel = "aigw-model-catalog-verification-no-such-model"
@@ -85,6 +90,9 @@ func (v verificationResult) Check() error {
 	if v.Unknown.Present {
 		return fmt.Errorf("%q unexpectedly exists in the effective catalog", unknownProbeModel)
 	}
+	if !slices.Equal(v.Listed, []string{v.Model}) {
+		return fmt.Errorf("the effective catalog lists %q, want %q alone, with every entry that the projection hid hidden", v.Listed, v.Model)
+	}
 	return nil
 }
 
@@ -112,8 +120,9 @@ func verifyCatalog(executable, model, family, name string, window int) (verifica
 	if err != nil {
 		return verification, err
 	}
-	projected, base := bundledDocument.Project(model, family, name, window)
-	if projected == nil {
+	projected := bundledDocument.Project([]modelcatalog.Listing{{Model: model, Family: family, Name: name, Window: window}})
+	base := bundledDocument.DescribedBy(model, family)
+	if listed, err := modelcatalog.Parse(projected); base == "" || err != nil || listed.Model(model) == nil {
 		return verification, fmt.Errorf("family %q does not prove a Codex catalog entry for %q, so AIGW projects no alias for it", family, model)
 	}
 	verification.BaseSlug = base
@@ -143,6 +152,7 @@ func verifyCatalog(executable, model, family, name string, window int) (verifica
 	if alias {
 		verification.SharedName = effectiveDocument.SharingDisplayName(model)
 	}
+	verification.Listed = effectiveDocument.Listed()
 	verification.Unknown = catalogProbe(effectiveDocument, unknownProbeModel, own)
 	return verification, nil
 }

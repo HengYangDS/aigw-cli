@@ -281,6 +281,7 @@ func sampleVerification() verificationResult {
 		Unadapted:        fallback,
 		Adapted:          adapted,
 		Unknown:          unknown,
+		Listed:           []string{"openai.gpt-5.6-sol"},
 	}
 }
 

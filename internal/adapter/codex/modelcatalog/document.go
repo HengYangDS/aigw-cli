@@ -1,6 +1,7 @@
-// Package modelcatalog preserves Codex-owned model metadata while giving the
-// selected model's entry its declared context window, and adding an alias for
-// a model whose family the installed client's table holds.
+// Package modelcatalog preserves Codex-owned model metadata while listing the
+// models that AIGW lists for a client, each with its declared context window
+// and an alias for a model whose family the installed client's table holds,
+// and hiding every other entry from Codex's picker.
 package modelcatalog
 
 import (
@@ -18,7 +19,20 @@ const (
 	displayNameField = "display_name"
 	windowField      = "context_window"
 	ceilingField     = "max_context_window"
+	visibilityField  = "visibility"
+	// listVisibility is the one visibility that shows an entry in Codex's
+	// picker; hideVisibility is the one that AIGW gives an entry it does not list.
+	listVisibility = "list"
+	hideVisibility = "hide"
 )
+
+// Listing is one model that the table lists: its ID, its family, the name
+// that an alias of it shows (empty for the family's own), and its context
+// window in tokens (zero for the window that its entry already carries).
+type Listing struct {
+	Model, Family, Name string
+	Window              int
+}
 
 // Document is a validated client catalog, including fields AIGW does not own.
 type Document struct {
@@ -73,49 +87,90 @@ func (d Document) Model(slug string) map[string]json.RawMessage {
 	return entry
 }
 
-// Project returns the client's complete table in which the entry that
-// describes model carries window, in tokens, as its context_window and as its
-// max_context_window, together with the slug of the client's entry that this
-// entry's metadata comes from. A model that the table holds keeps its own
-// entry, and that slug is model. Any other model gets an alias of family's
-// entry, named model, and that slug is family. The two window fields are
-// written whether or not the client's entry had them; every other field of the
-// entry, every other entry and their order stay the client's. Metadata comes
-// only from the model's own entry or its family's, never from a prefix or
-// suffix of the model ID. An alias is shown as name, or as the family's name
-// when name is empty; a name that another entry already shows, ignoring case,
-// is followed by the model ID in parentheses, so that no two entries of the
-// table share a display name.
-//
-// Project returns nothing, so that the client keeps its own table: for a model
-// that the table does not hold and whose family is empty or not in the table
-// either; for an alias that has no name left to tell it apart; and for a
-// window that is not above zero, which is a caller's error, because every
-// resolved selection has one above zero.
-func (d Document) Project(model, family, name string, window int) ([]byte, string) {
-	base := d.DescribedBy(model, family)
-	if base == "" || window <= 0 {
-		return nil, ""
+// Project returns the client's table that lists models, in their order, and
+// hides every other entry that the client lists. A model is listed by the
+// entry that describes it (DescribedBy): its own, or an alias of its family's,
+// named model and appended. The listed entry carries the model's window as
+// its context_window and its max_context_window, where that window is above
+// zero. An alias is shown as the model's name, or as the family's name when
+// that is empty; a name that another entry already shows, hidden or not and
+// ignoring case, is followed by the model ID in parentheses, and a model with
+// no name left to tell it apart gets no alias. A model that the table
+// describes by neither entry gets none either: metadata comes only from the
+// model's own entry or its family's, never from a prefix or suffix of its ID.
+// An entry that the client hides stays hidden, and so does an alias of it.
+// Every other field of every entry, and the order of the client's entries,
+// stay the client's. Project returns nothing for no models.
+func (d Document) Project(models []Listing) []byte {
+	if len(models) == 0 {
+		return nil
 	}
-	entry, models := withWindow(d.Model(base), window), slices.Clone(d.models)
-	if base == model {
-		models[d.slugs[model]] = entry
-		return d.withModels(models), base
-	}
-	if name == "" {
-		_ = json.Unmarshal(entry[displayNameField], &name)
-	}
-	if name != "" {
-		if d.shows(name) {
-			name += " (" + model + ")"
+	table, listed := slices.Clone(d.models), map[string]bool{}
+	for _, model := range models {
+		base := d.DescribedBy(model.Model, model.Family)
+		if base == "" {
+			continue
 		}
-		if d.shows(name) {
-			return nil, ""
+		entry := d.Model(base)
+		if model.Window > 0 {
+			entry = withWindow(entry, model.Window)
 		}
-		entry[displayNameField], _ = json.Marshal(name)
+		if base == model.Model {
+			table[d.slugs[base]], listed[base] = entry, true
+			continue
+		}
+		name := model.Name
+		if name == "" {
+			_ = json.Unmarshal(entry[displayNameField], &name)
+		}
+		if name != "" {
+			if len(showing(table, name, "")) > 0 {
+				name += " (" + model.Model + ")"
+			}
+			if len(showing(table, name, "")) > 0 {
+				continue
+			}
+			entry[displayNameField], _ = json.Marshal(name)
+		}
+		entry[slugField], _ = json.Marshal(model.Model)
+		table, listed[model.Model] = append(table, entry), true
 	}
-	entry[slugField], _ = json.Marshal(model)
-	return d.withModels(append(models, entry)), base
+	for index, entry := range table {
+		if !listed[slugOf(entry)] && visibility(entry) == listVisibility {
+			hidden := maps.Clone(entry)
+			hidden[visibilityField], _ = json.Marshal(hideVisibility)
+			table[index] = hidden
+		}
+	}
+	return d.withModels(table)
+}
+
+// WithWindows returns the table in which the own entry of each of models
+// carries the model's window above zero in both window fields, and nothing else
+// changes; nothing when the table holds no entry of any of their IDs.
+func (d Document) WithWindows(models []Listing) []byte {
+	table, found := slices.Clone(d.models), false
+	for _, model := range models {
+		if index, present := d.slugs[model.Model]; present && model.Window > 0 {
+			table[index], found = withWindow(d.Model(model.Model), model.Window), true
+		}
+	}
+	if !found {
+		return nil
+	}
+	return d.withModels(table)
+}
+
+// Listed returns the slugs of the entries that the table shows in Codex's
+// picker, in table order.
+func (d Document) Listed() []string {
+	var slugs []string
+	for _, entry := range d.models {
+		if visibility(entry) == listVisibility {
+			slugs = append(slugs, slugOf(entry))
+		}
+	}
+	return slugs
 }
 
 // DescribedBy returns the slug of the entry of the table that describes model,
@@ -170,12 +225,6 @@ func (d Document) ContextWindow(slug string) (window, ceiling int) {
 	return read(windowField), read(ceilingField)
 }
 
-// shows reports whether an entry of the table has name as its display name,
-// ignoring case.
-func (d Document) shows(name string) bool {
-	return len(d.showing(name, "")) > 0
-}
-
 // SharingDisplayName returns the slugs of the other entries whose display
 // name is slug's, ignoring case, in table order.
 func (d Document) SharingDisplayName(slug string) []string {
@@ -183,21 +232,34 @@ func (d Document) SharingDisplayName(slug string) []string {
 	if index, present := d.slugs[slug]; !present || json.Unmarshal(d.models[index][displayNameField], &name) != nil || name == "" {
 		return nil
 	}
-	return d.showing(name, slug)
+	return showing(d.models, name, slug)
 }
 
-// showing returns the slugs of the entries but except whose display name is
-// name, ignoring case.
-func (d Document) showing(name, except string) []string {
+// showing returns the slugs of the entries of models but except whose display
+// name is name, ignoring case.
+func showing(models []map[string]json.RawMessage, name, except string) []string {
 	var slugs []string
-	for _, entry := range d.models {
-		var shown, slug string
-		_ = json.Unmarshal(entry[slugField], &slug)
-		if slug != except && json.Unmarshal(entry[displayNameField], &shown) == nil && strings.EqualFold(shown, name) {
+	for _, entry := range models {
+		var shown string
+		if slug := slugOf(entry); slug != except && json.Unmarshal(entry[displayNameField], &shown) == nil && strings.EqualFold(shown, name) {
 			slugs = append(slugs, slug)
 		}
 	}
 	return slugs
+}
+
+// slugOf is entry's slug, which Parse admits only as a string.
+func slugOf(entry map[string]json.RawMessage) string {
+	var slug string
+	_ = json.Unmarshal(entry[slugField], &slug)
+	return slug
+}
+
+// visibility is entry's visibility, or empty where it has none as a string.
+func visibility(entry map[string]json.RawMessage) string {
+	var value string
+	_ = json.Unmarshal(entry[visibilityField], &value)
+	return value
 }
 
 // withModels serializes the original document with its model table replaced.

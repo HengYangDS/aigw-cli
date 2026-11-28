@@ -317,8 +317,8 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
 	}
-	selected := domain.Runtime{UpstreamModel: "openai.gpt-5.5", ContextWindow: domain.DefaultContextWindow}
-	variant := domain.Runtime{UpstreamModel: "openai.gpt-5.5-cdx", FamilyID: selected.UpstreamModel, ContextWindow: domain.DefaultContextWindow}
+	selected := listedAlone(domain.Runtime{UpstreamModel: "openai.gpt-5.5", ContextWindow: domain.DefaultContextWindow})
+	variant := listedAlone(domain.Runtime{UpstreamModel: "openai.gpt-5.5-cdx", FamilyID: selected.UpstreamModel, ContextWindow: domain.DefaultContextWindow})
 	plan, _ := codexCatalogProjection(target, variant, "", state, before)
 	if plan.state != catalogStateProjected || string(plan.data) != string(owned) {
 		t.Fatalf("same client, a model without an entry: plan = %+v", plan)
@@ -418,7 +418,7 @@ func TestCodexCatalogProjectionKeepsAnExistingNativeWireModel(t *testing.T) {
 		return ExecutableIdentity{Version: "0.160.0", SHA256: "client-catalog"}, projectionCatalog(wire, "gpt-6-luna"), nil
 	}
 	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
-	selected := domain.Runtime{UpstreamModel: wire, FamilyID: canonical, ContextWindow: window}
+	selected := listedAlone(domain.Runtime{UpstreamModel: wire, FamilyID: canonical, ContextWindow: window})
 	plan, _ := codexCatalogProjection(target, selected, "", codexState{}, platform.FileSnapshot{})
 	document, err := modelcatalog.Parse(plan.data)
 	if err != nil {
