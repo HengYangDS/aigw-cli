@@ -1,7 +1,8 @@
 // Command catalogcheck verifies, against a real installed Codex client, that
 // the entry which describes a selected model is in the catalog that the client
-// renders, carries the model's declared context window in both window fields,
-// and otherwise has the metadata of the client's own bundled entry: its
+// renders alone in the client's picker, carries the model's declared context
+// window in both window fields, and otherwise has the metadata of the client's
+// own bundled entry: its
 // family's for a model that the client's table does not hold, whose alias must
 // also be shown under a name that no other entry has, and the model's own for
 // a model that the table holds. A model takes metadata only from its own entry
@@ -158,6 +159,6 @@ func report(out io.Writer, verification verificationResult, asJSON bool) error {
 	if len(verification.SharedName) > 0 {
 		shared = strings.Join(verification.SharedName, ", ")
 	}
-	_, err := fmt.Fprintf(out, "\nname shared with  %s\n", shared)
+	_, err := fmt.Fprintf(out, "\nname shared with  %s\nlisted            %s\n", shared, strings.Join(verification.Listed, ", "))
 	return err
 }

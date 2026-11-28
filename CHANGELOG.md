@@ -13,6 +13,20 @@ signing, and GA status remain separate evidence.
 
 ### Changed
 
+- **Breaking:** Codex's model picker lists the models of the selected
+  provider that Codex can describe, chosen by the rule that already chooses
+  the models of Claude Code and Claude Desktop: the selected model and the
+  first model of each other family on Codex's protocol, in configuration
+  order, where Codex's own table holds the model or its family. Each carries
+  its declared context window, AIGW's default of 1,000,000 tokens where it
+  declares none. Every other entry of Codex's table, its bundled models
+  included, stays in the table that AIGW projects but is hidden from the
+  picker, so Codex still finds the models it uses for review and memories by
+  their slugs. A bundled model that the configuration does not hold leaves the
+  picker until `aigw model add` adds it; a provider none of whose models Codex
+  can describe leaves the picker with no entry, while the selected model runs
+  as before. A change to the listed models or to a listed model's window now
+  updates Codex's table wherever that table describes the model.
 - A command starts each unchanged Codex program once to read its version and
   model table, instead of once for each preparation of each Codex target in
   its plan and again in its apply. The plan, the apply and the check of one

@@ -206,13 +206,13 @@ func noTableReason(ownLine string) string {
 }
 
 // codexCatalogProjection decides what AIGW owns for one target without writing
-// anything. For the selected model under AIGW's custom provider it pins the
-// installed client's complete table, even for a known base model: otherwise
-// Codex may try to decode the provider's standard /models response as its
-// private metadata format. The entry that describes the model, its own or an
-// alias of its family's, carries the model's declared context window; a model
-// that the table describes by neither keeps the client's fallback rather than
-// a guessed entry.
+// anything. Under AIGW's custom provider it pins the installed client's table,
+// even for a known base model: otherwise Codex may try to decode the
+// provider's standard /models response as its private metadata format. The
+// table lists the selection's listed models that it describes, each by its own
+// entry or an alias of its family's carrying the model's declared context
+// window, and hides every other entry; a model that the table describes by
+// neither keeps the client's fallback rather than a guessed entry.
 func codexCatalogProjection(target TargetRef, selected domain.Runtime, base string, state codexState, before platform.FileSnapshot) (codexCatalogPlan, error) {
 	// A user-authored model_catalog_json is the user's own client policy. AIGW
 	// replaces the bundled table wholesale, so adopting that key here would
@@ -225,11 +225,10 @@ func codexCatalogProjection(target TargetRef, selected domain.Runtime, base stri
 	live, bundled, err := codexBundledCatalog(target.Executable)
 	document, parseErr := modelcatalog.Parse(bundled)
 	if err == nil && parseErr == nil {
-		data, _ := document.Project(model, selected.FamilyID, selected.ModelName(), selected.ContextWindow)
+		data := document.Project(codexListings(selected, true))
 		if data == nil {
-			// Preserve Codex's native table for a model that neither its own
-			// entry nor its family's describes. Never invent metadata or leave
-			// Codex to query provider-specific /models.
+			// A selection that lists no model keeps Codex's native table. Never
+			// invent metadata or leave Codex to query provider-specific /models.
 			data = bundled
 		}
 		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, program: target.Executable, pkg: packageVersion(target.Executable), state: catalogStateProjected}, nil
@@ -241,12 +240,13 @@ func codexCatalogProjection(target TargetRef, selected domain.Runtime, base stri
 	recorded := ExecutableIdentity{Version: state.CatalogClientVersion, SHA256: state.CatalogClientSHA256}
 	if state.CatalogHash != "" && live.same(recorded) && before.Exists && platform.SHA256(before.Data) == state.CatalogHash {
 		data := before.Data
-		// The copy's own entry for the model still takes the declared window. No
-		// family is given, so a copy without that entry gets no alias from a
-		// table that the client did not just print, and stays as it is. An
-		// unchanged window gives the bytes that the same projection wrote.
+		// The copy's own entry for each listed model still takes its declared
+		// window, and the copy keeps what it lists: it cannot tell an entry that
+		// the client hides from one that AIGW hid, and gets no alias from a table
+		// that the client did not just print. An unchanged window gives the bytes
+		// that the same projection wrote.
 		if reused, err := modelcatalog.Parse(data); err == nil {
-			if windowed, _ := reused.Project(model, "", "", selected.ContextWindow); windowed != nil {
+			if windowed := reused.WithWindows(codexListings(selected, false)); windowed != nil {
 				data = windowed
 			}
 		}
@@ -263,6 +263,20 @@ func codexCatalogProjection(target TargetRef, selected domain.Runtime, base stri
 	// again nor prove to be its own: the client stops, and its table stays,
 	// rather than being withdrawn for a sync that cannot produce another.
 	return codexCatalogPlan{}, tableStop(target.Executable, live, err, parseErr)
+}
+
+// codexListings is selected's listed models as Codex's table lists them; without
+// families, a model is listed only by an entry of its own ID.
+func codexListings(selected domain.Runtime, families bool) []modelcatalog.Listing {
+	listings := make([]modelcatalog.Listing, 0, len(selected.Listed))
+	for _, model := range selected.Listed {
+		listing := modelcatalog.Listing{Model: model.ID, Name: model.Name, Window: model.Window}
+		if families {
+			listing.Family = model.Family
+		}
+		listings = append(listings, listing)
+	}
+	return listings
 }
 
 // codexCatalogDesiredSnapshot converts a catalog decision into the desired file

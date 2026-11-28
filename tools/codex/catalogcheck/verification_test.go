@@ -15,7 +15,7 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-const fakeBundledCatalog = `{"models":[{"slug":"gpt-5.6-sol","display_name":"Sol","priority":1},{"slug":"gpt-5.5","display_name":"Five","priority":2},{"slug":"gpt-6.1-sol","display_name":"Sol 6.1","context_window":500000,"reasoning_effort":"high","future":{"enabled":true}},{"slug":"gpt-6-luna","display_name":"Luna"}]}`
+const fakeBundledCatalog = `{"models":[{"slug":"gpt-5.6-sol","display_name":"Sol","priority":1,"visibility":"list"},{"slug":"gpt-5.5","display_name":"Five","priority":2,"visibility":"list"},{"slug":"gpt-6.1-sol","display_name":"Sol 6.1","context_window":500000,"reasoning_effort":"high","future":{"enabled":true},"visibility":"list"},{"slug":"gpt-6-luna","display_name":"Luna","visibility":"hide"}]}`
 
 const catalogFixturePath = "AIGW_TEST_CODEX_CATALOG"
 const catalogFixtureLoad = "AIGW_TEST_CODEX_CATALOG_LOAD"
@@ -240,7 +240,7 @@ func TestVerifyCatalogPreservesLargeModelMetadata(t *testing.T) {
 	executable := fakeCodexClient(t, true)
 	// A real client catalog contains model instructions, not just identifiers.
 	// Its structured response is larger than a diagnostic-output budget.
-	catalog := `{"models":[{"slug":"gpt-5.6-sol","instructions":"` + strings.Repeat("model metadata ", 40_000) + `"}]}`
+	catalog := `{"models":[{"slug":"gpt-5.6-sol","visibility":"list","instructions":"` + strings.Repeat("model metadata ", 40_000) + `"}]}`
 	if err := os.WriteFile(os.Getenv(catalogFixturePath), []byte(catalog), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -383,5 +383,17 @@ func TestCheckRejectsAnAliasShownUnderTheNameOfAnotherEntry(t *testing.T) {
 	err := verification.Check()
 	if err == nil || !strings.Contains(err.Error(), "under the name of gpt-6.2-sol") {
 		t.Fatalf("Check() error = %v", err)
+	}
+}
+
+// The client must list the verified entry alone: a projection whose hidden
+// entries the client shows, or that the client does not list, fails.
+func TestCheckRequiresTheVerifiedEntryListedAlone(t *testing.T) {
+	for _, listed := range [][]string{nil, {"openai.gpt-5.6-sol", "gpt-5.5"}, {"gpt-5.5"}} {
+		verification := sampleVerification()
+		verification.Listed = listed
+		if err := verification.Check(); err == nil || !strings.Contains(err.Error(), "alone") {
+			t.Fatalf("Check() with listed %q = %v, want a refusal", listed, err)
+		}
 	}
 }

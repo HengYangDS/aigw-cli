@@ -165,7 +165,7 @@ func TestUnknownModelPinsCompleteBundledCatalogWithoutInventingMetadata(t *testi
 				t.Fatalf("unknown model did not pin the native catalog: %s", projected)
 			}
 			data, err := os.ReadFile(codexCatalogPath(path))
-			if err != nil || string(data) != string(bundled) {
+			if err != nil || !sameCatalogEntries(data, bundled) {
 				t.Fatalf("unknown model catalog = %q, want the complete native catalog: %v", data, err)
 			}
 			if strings.Contains(string(data), test.family) || strings.Contains(string(data), test.wireModel) {

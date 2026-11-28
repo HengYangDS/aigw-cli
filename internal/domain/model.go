@@ -183,6 +183,20 @@ type Runtime struct {
 	// ContextWindow is the selected model's Window, in tokens, for a client
 	// that AIGW tells it (ClientSpec.ContextWindow), and zero for any other.
 	ContextWindow int `json:"-"`
+	// Listed holds the selection's FamilyModels, the selected model first: the
+	// models that a client which lists the provider's other models lists. It is
+	// no part of the selected route, so Equal leaves it out.
+	Listed []ListedModel `json:"-"`
+}
+
+// ListedModel is one model that a client lists for the selection's provider
+// and protocol: its ID, its family, its name without the provider's, and its
+// Window for a client that AIGW tells it, zero for any other.
+type ListedModel struct {
+	ID     string
+	Family string
+	Name   string
+	Window int
 }
 
 // ModelName is the model's label without the provider's name and its
@@ -190,15 +204,21 @@ type Runtime struct {
 // client that already shows the provider gives the model. A label that does
 // not begin with the provider's name is the name as it is.
 func (runtime Runtime) ModelName() string {
-	provider := runtime.ProviderLabel
-	if provider == "" {
-		provider = runtime.ProviderID
+	return withoutProvider(runtime.ModelLabel, Provider{ID: runtime.ProviderID, Label: runtime.ProviderLabel})
+}
+
+// withoutProvider is label without provider's name, its label or else its ID,
+// and the separator in front, compared without regard to case.
+func withoutProvider(label string, provider Provider) string {
+	name := provider.Label
+	if name == "" {
+		name = provider.ID
 	}
-	prefix := provider + " · "
-	if len(runtime.ModelLabel) > len(prefix) && strings.EqualFold(runtime.ModelLabel[:len(prefix)], prefix) {
-		return runtime.ModelLabel[len(prefix):]
+	prefix := name + " · "
+	if len(label) > len(prefix) && strings.EqualFold(label[:len(prefix)], prefix) {
+		return label[len(prefix):]
 	}
-	return runtime.ModelLabel
+	return label
 }
 
 // CredentialProjectionFingerprint hashes the client, provider and upstream
@@ -224,8 +244,12 @@ func (runtime Runtime) SameUpstream(other Runtime) bool {
 		runtime.CredentialProjectionFingerprint(runtime.Client) == other.CredentialProjectionFingerprint(other.Client)
 }
 
-// Equal reports whether two runtimes resolve the same binding in every field.
+// Equal reports whether two runtimes resolve the same selected route: every
+// field but Listed. The models that a client lists beside the selection change
+// with the provider's other models, which leave the route as it is; an adapter
+// that lists them compares its own listing.
 func (runtime Runtime) Equal(other Runtime) bool {
+	runtime.Listed, other.Listed = nil, nil
 	return reflect.DeepEqual(runtime, other)
 }
 
@@ -553,7 +577,24 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		CredentialCommand: c.Clients[client].CredentialCommand,
 		FamilyVariants:    c.familyVariants(ref, protocol),
 		ContextWindow:     window,
+		Listed:            c.listedModels(ref, protocol, provider, spec.ContextWindow),
 	}, nil
+}
+
+// listedModels describes selected's FamilyModels on protocol, in their order,
+// with each model's Window where windows is set.
+func (c *Config) listedModels(selected ModelRef, protocol EndpointProtocol, provider Provider, windows bool) []ListedModel {
+	refs := c.FamilyModels(selected, protocol)
+	listed := make([]ListedModel, 0, len(refs))
+	for _, ref := range refs {
+		model := c.Models[ref]
+		entry := ListedModel{ID: model.ID, Family: model.FamilyID(), Name: withoutProvider(modelLabel(model, provider, c.Families[model.Family]), provider)}
+		if windows {
+			entry.Window = model.Window()
+		}
+		listed = append(listed, entry)
+	}
+	return listed
 }
 
 // FamilyModels lists the models that a client shows for the provider of

@@ -89,9 +89,10 @@ func TestCheckHoldsTheWindowAndTheEntry(t *testing.T) {
 		Model: "gpt-6.1-sol-cdx", BaseSlug: "gpt-6.1-sol", DeclaredWindow: window, ContextWindow: window, MaxContextWindow: window,
 		Reference: base, Unadapted: modelProbe{Model: "gpt-6.1-sol-cdx"},
 		Adapted: modelProbe{Model: "gpt-6.1-sol-cdx", Present: true, MetadataSHA256: "base"}, Unknown: modelProbe{Model: unknownProbeModel},
+		Listed: []string{"gpt-6.1-sol-cdx"},
 	}
 	entry := alias
-	entry.Model, entry.Unadapted, entry.Adapted = "gpt-6.1-sol", base, base
+	entry.Model, entry.Unadapted, entry.Adapted, entry.Listed = "gpt-6.1-sol", base, base, []string{"gpt-6.1-sol"}
 	for name, test := range map[string]struct {
 		record func(verificationResult) verificationResult
 		want   string

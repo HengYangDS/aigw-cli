@@ -82,20 +82,38 @@ func carried(name string, tokens int) string {
 	return fmt.Sprintf("a %s of %d tokens", name, tokens)
 }
 
-// windowReaches reports whether a changed context window of the selected model
-// can change a file of Codex's at one of targets. It can where the table that
-// AIGW wrote for a target describes the model, by its ID or by its family, and
-// it is taken to where that table cannot be read, unless AIGW writes no table for
-// the target (see tableLeftOut); a table that describes the
-// model by neither carries no window for it.
-func windowReaches(targets []string, runtime domain.Runtime) bool {
-	return slices.ContainsFunc(targets, func(target string) bool {
+// listingReaches reports whether a change from the listed models before to
+// those after can change a file of Codex's at one of targets: a model added,
+// removed or moved, or one whose name or declared window changed. It can where
+// the table that AIGW wrote for a target describes such a model, by its ID or
+// by its family, and it is taken to where that table cannot be read, unless
+// AIGW writes no table for the target (see tableLeftOut); a table that
+// describes the model by neither gives it no entry. A changed name counts too
+// where the model is listed by its own entry, whose name the projection keeps:
+// the written table holds aliases beside own entries and does not tell them
+// apart, so such a change costs one more read of Codex's table and no write.
+func listingReaches(targets []string, before, after []domain.ListedModel) bool {
+	var changed []domain.ListedModel
+	for index := range max(len(before), len(after)) {
+		if index < len(before) && index < len(after) && before[index] == after[index] {
+			continue
+		}
+		if index < len(before) {
+			changed = append(changed, before[index])
+		}
+		if index < len(after) {
+			changed = append(changed, after[index])
+		}
+	}
+	return len(changed) > 0 && slices.ContainsFunc(targets, func(target string) bool {
 		table, owned := ownedCatalog(target)
 		if !owned {
-			// Where AIGW writes no table for the target, no window reaches it.
+			// Where AIGW writes no table for the target, no listing reaches it.
 			return tableLeftOut(target) == ""
 		}
-		return table.DescribedBy(runtime.UpstreamModel, runtime.FamilyID) != ""
+		return slices.ContainsFunc(changed, func(model domain.ListedModel) bool {
+			return table.DescribedBy(model.ID, model.Family) != ""
+		})
 	})
 }
 
