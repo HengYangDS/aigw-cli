@@ -62,13 +62,12 @@ func TestSourceRunsThePortableGateSequence(t *testing.T) {
 		{"go", "run", "./tools/ci", "check-source-size", "."},
 		{"go", "run", "./tools/ci", "check-go", "."},
 		{"go", "test", "-tags=client_acceptance", "./tools/release", "-run", "^(TestNativeClient(Inputs|StreamEnvelope|InferenceEnvelope|FilePreservation)|TestCodexToolLoopStopsAfterUnsuccessfulToolResult)$"},
-		{"go", "test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^TestVerificationResourceCleanupStopsOwnedFixture$"},
 		{"go", "test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|MemoryRetainsInterruptedObservations|PerformanceCases|Attribution(KeepsTheProjectedReaderBoundary|SummaryRetainsItsNonqualifyingScope))$"},
 		{"go", "test", "-tags=dependency_acceptance", "./tools/ci", "-run", "^TestNativeDependencyEvidenceRetainsFindings$"},
 		// The selection matrix's own command and bound are declared once.
 		append([]string{selectionMatrixCommand.Name}, selectionMatrixCommand.Args...),
 		{"go", "run", "./tools/ci", "check-workflows", "."},
-		{"go", "run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"},
+		{"go", "run", "./tools/ci", "native-tests"},
 	}
 	var got [][]string
 	runner := func(call command) error {
@@ -245,7 +244,7 @@ func TestSourceExtendsQualityWithCompleteCoverage(t *testing.T) {
 	if len(source) != len(quality)+1 || !reflect.DeepEqual(source[:len(quality)], quality) {
 		t.Fatalf("source gate does not extend quality exactly\nquality: %#v\nsource:  %#v", quality, source)
 	}
-	if call := source[len(quality)]; call.Name != "go" || !slices.Equal(call.Args, []string{"run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"}) {
+	if call := source[len(quality)]; call.Name != "go" || !slices.Equal(call.Args, []string{"run", "./tools/ci", "native-tests"}) {
 		t.Fatalf("source gate lacks complete coverage: %#v", source)
 	}
 

@@ -14,8 +14,8 @@ code_correctness_gates = [
 behavior = "go-behavior"
 static-analysis = "go-static-analysis"
 
-# The one Go test attempt writes its JUnit and LCOV reports for ETHOS to judge,
-# so no other gate runs that attempt's tests again.
+# The host's one native Go test attempt, the native resource tests included, writes
+# its JUnit and LCOV reports for ETHOS to judge, so no other gate runs its tests again.
 [[proof.gates]]
 id = "go-behavior"
 kind = "test"
@@ -26,10 +26,8 @@ command = [
   "--",
   "go",
   "run",
-  "./tools/coverage",
-  "--race",
-  "--profile-output",
-  "build/verification/coverage/profile.out",
+  "./tools/ci",
+  "native-tests",
   "--junit-output",
   "{native_output}/go-junit.xml",
   "--lcov-output",

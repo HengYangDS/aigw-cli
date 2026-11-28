@@ -100,18 +100,18 @@ var repositoryQualityGraph = qualityGraph{
 		{ID: "source-size", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-source-size", "."}}, Concerns: []qualityConcern{qualityArchitecture}},
 		{ID: "go-analysis", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-go", "."}}, Concerns: []qualityConcern{qualityFormat, qualityLint, qualityType, qualitySecurity}},
 		{ID: "client-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=client_acceptance", "./tools/release", "-run", "^(TestNativeClient(Inputs|StreamEnvelope|InferenceEnvelope|FilePreservation)|TestCodexToolLoopStopsAfterUnsuccessfulToolResult)$"}}, Concerns: []qualityConcern{qualityTest}},
-		{ID: "native-resource-fixture", Command: command{Name: "go", Args: []string{"test", "-tags=native_resource_acceptance", "./tools/release", "-run", "^TestVerificationResourceCleanupStopsOwnedFixture$"}}, Concerns: []qualityConcern{qualityTest}},
 		{ID: "performance-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=performance_acceptance", "./tools/release", "-run", "^TestNative(PeakMemoryBudget|MemoryRetainsInterruptedObservations|PerformanceCases|Attribution(KeepsTheProjectedReaderBoundary|SummaryRetainsItsNonqualifyingScope))$"}}, Concerns: []qualityConcern{qualityTest}},
 		{ID: "dependency-acceptance", Command: command{Name: "go", Args: []string{"test", "-tags=dependency_acceptance", "./tools/ci", "-run", "^TestNativeDependencyEvidenceRetainsFindings$"}}, Concerns: []qualityConcern{qualityTest, qualitySecurity}},
 		// The exhaustive tests of a client's own choice: every command in every state of the files. They run without
 		// the race detector and coverage, whose run they would carry past its package limit.
 		{ID: selectionMatrixGate, Command: selectionMatrixCommand, Concerns: []qualityConcern{qualityTest}},
 		{ID: "workflow-lint", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "check-workflows", "."}}, Concerns: []qualityConcern{qualityLint, qualitySchema, qualityWorkflow}},
-		{ID: "coverage", Command: command{Name: "go", Args: []string{"run", "./tools/coverage", "--race", "--profile-output", "build/verification/coverage/profile.out"}}, Concerns: []qualityConcern{qualityTest}, SourceOnly: true},
+		// The host's one native Go test attempt, the native resource tests included; the proof's go-behavior gate runs it.
+		{ID: "coverage", Command: command{Name: "go", Args: []string{"run", "./tools/ci", "native-tests"}}, Concerns: []qualityConcern{qualityTest}, SourceOnly: true},
 	},
 	CommonGates: []string{"text-layout", "secrets", "architecture"},
 	Carriers: []carrierQuality{
-		{Class: "go-source", Required: []qualityConcern{qualityFormat, qualityLint, qualityType, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"spelling", "go-analysis", "source-size", "client-acceptance", "native-resource-fixture", "performance-acceptance", "dependency-acceptance", selectionMatrixGate, "coverage"}},
+		{Class: "go-source", Required: []qualityConcern{qualityFormat, qualityLint, qualityType, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"spelling", "go-analysis", "source-size", "client-acceptance", "performance-acceptance", "dependency-acceptance", selectionMatrixGate, "coverage"}},
 		{Class: "acceptance-scripts", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"spelling", "coverage"}},
 		{Class: "pinned-bytes", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"spelling", "coverage"}},
 		{Class: "native-check-adapters", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "spelling", "npm-signatures", "node-source"}},
