@@ -40,15 +40,17 @@
 
 ## 7. Exact-HEAD proof
 
-- [ ] 7.1 Pass the ETHOS full proof of the lane head.
+- [x] 7.1 Pass the ETHOS full proof of the lane head. `945a77992`, 14:08: pass, proven; static gate 368.6 s.
 
 ## 8. Hosted CI
 
-- [ ] 8.1 Pass the proposal's GitHub checks `Native macOS acceptance`, `Native Linux acceptance`,
-      `Linux Secret Service` and `Quality and governance`.
-- [ ] 8.2 Pass the proposal's GitLab pipeline on the macOS and Linux runners.
+- [x] 8.1 Pass the proposal's GitHub checks `Native macOS acceptance`, `Native Linux acceptance`,
+      `Linux Secret Service` and `Quality and governance`. Pull request 294 at `945a77992`: 4 passed, 2 skipped.
+- [ ] 8.2 Pass the proposal's GitLab pipeline on the macOS and Linux runners. Waits for GitLab: it has created no
+      pipeline for any project seen since 12:15 on 2026-11-28; merge request !222 stayed "preparing" and was closed
+      until GitLab runs pipelines again.
 
 ## 9. Publication
 
-- [ ] 9.1 Publish the proven lane head as the lane's proposal branch on both forges. Done when each forge reads back
-      the exact head.
+- [x] 9.1 Publish the proven lane head as the lane's proposal branch on both forges. Done when each forge reads back
+      the exact head. Both read back `945a77992` (GitHub 14:10, GitLab 14:13).
