@@ -151,3 +151,32 @@ func sortedKeys(entry map[string]json.RawMessage) []string {
 	slices.Sort(keys)
 	return keys
 }
+
+// The reused copy gives each listed model's own entry its window, an alias's
+// included, and leaves every other entry, its window and its visibility as the
+// copy holds them.
+func TestWithWindowsGivesEveryListedEntryItsWindow(t *testing.T) {
+	document := codexTable(t)
+	copied := document.Project([]Listing{
+		{Model: "gpt-6.2-sol-cdx", Family: "gpt-6.2-sol", Name: "GPT-6.2 Sol · CDX", Window: 1_000_000},
+		{Model: "gpt-6.1-terra", Family: "gpt-6.1-terra", Window: 1_000_000},
+	})
+	written := mustParseCatalog(t, copied)
+	data := written.WithWindows([]Listing{
+		{Model: "gpt-6.2-sol-cdx", Family: "gpt-6.2-sol", Window: 400_000},
+		{Model: "gpt-6.1-terra", Family: "gpt-6.1-terra", Window: 500_000},
+		{Model: "deepseek-v4.1", Family: "deepseek-v4.1", Window: 600_000},
+	})
+	reused := mustParseCatalog(t, data)
+	for slug, want := range map[string]int{"gpt-6.2-sol-cdx": 400_000, "gpt-6.1-terra": 500_000, "gpt-6.2-sol": 272_000} {
+		if window, _ := reused.ContextWindow(slug); window != want {
+			t.Errorf("%s carries %d, want %d", slug, window, want)
+		}
+	}
+	if reused.Model("deepseek-v4.1") != nil {
+		t.Fatalf("the reused copy gained an entry for a model that it does not describe")
+	}
+	if got, want := visibilities(t, data), visibilities(t, copied); !maps.Equal(got, want) {
+		t.Fatalf("visibilities = %v, want the copy's own", got)
+	}
+}

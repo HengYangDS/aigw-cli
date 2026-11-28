@@ -76,7 +76,15 @@ and every entry that the projection hid is hidden there. Its command line does n
 
 - A provider whose listed models Codex describes by none gives a table with nothing listed → that is the truthful list
   for that configuration; Codex still loads it, because hidden entries remain, and the selected model runs as it does
-  today.
+  today. Codex 0.172.0 loaded such a table with all 14 entries hidden (2026-11-28); how its terminal picker and Codex
+  Desktop show a table that lists nothing was not observed.
+- A listed model's own entry takes its declared window, which is AIGW's default of 1,000,000 tokens where the model
+  declares none, also where Codex reads that slug for its own work: listing `gpt-6.1-terra` raises the window of the
+  model Codex uses for its memories from its bundled 272,000. This is the selected model's existing rule applied to
+  every listed model; an operator who wants another window declares it on the model.
+- A changed name of a model listed by its own entry counts as a changed projection although the written bytes keep the
+  client's name → the table that AIGW wrote cannot tell an alias from an own entry; the cost is one more read of
+  Codex's table, never a write.
 - An operator who picked a bundled model that the configuration does not hold loses it from the picker → it is not a
   model of the selected provider in AIGW's configuration; `aigw model add` brings it back.
 - Codex may read more entries by slug in later versions → they stay in the table, so a lookup keeps its metadata.

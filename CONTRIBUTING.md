@@ -139,8 +139,10 @@ unless the entry that Codex renders for the model carries that window as
 `context_window` and as `max_context_window` and equals the bundled metadata
 in the other fields: the family's, apart from `slug` and `display_name`, for
 an alias, whose name no other entry may show, and the model's own for a model
-that is itself an entry of Codex's table. Verify a model of each kind. Retain
-client version, executable checksum, entry digests and the two window numbers.
+that is itself an entry of Codex's table. It also fails unless the effective
+catalog lists that entry alone, every other entry hidden. Verify a model of
+each kind. Retain client version, executable checksum, entry digests, the two
+window numbers and the listed entries.
 Exit 2 means a missing client or unproved input, not acceptance.
 
 Live-client model qualification instead uses `aigw check codex --depth client`

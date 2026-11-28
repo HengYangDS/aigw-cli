@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync/atomic"
 	"testing"
 
@@ -53,8 +54,8 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	// The user's catalog names the model as AIGW's own projection would.
 	name := domain.Runtime{ModelLabel: p.manifest.ModelLabel(selection.Model), ProviderLabel: p.manifest.Providers[route.Provider].Label, ProviderID: route.Provider}.ModelName()
 	catalog := document.Project([]modelcatalog.Listing{{Model: route.ID, Family: route.Family, Name: name, Window: route.Window()}})
-	if catalog == nil {
-		t.Fatalf("the installed Codex catalog has no entry for %s", route.ID)
+	if projected, err := modelcatalog.Parse(catalog); err != nil || projected.Model(route.ID) == nil || !slices.Equal(projected.Listed(), []string{route.ID}) {
+		t.Fatalf("the installed Codex catalog does not list %s alone: %v", route.ID, err)
 	}
 	configPath := filepath.Join(journey.root, "home", ".codex", "config.toml")
 	catalogPath := filepath.Join(filepath.Dir(configPath), "user-catalog.json")

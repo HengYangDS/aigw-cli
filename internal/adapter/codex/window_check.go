@@ -88,7 +88,10 @@ func carried(name string, tokens int) string {
 // the table that AIGW wrote for a target describes such a model, by its ID or
 // by its family, and it is taken to where that table cannot be read, unless
 // AIGW writes no table for the target (see tableLeftOut); a table that
-// describes the model by neither gives it no entry.
+// describes the model by neither gives it no entry. A changed name counts too
+// where the model is listed by its own entry, whose name the projection keeps:
+// the written table holds aliases beside own entries and does not tell them
+// apart, so such a change costs one more read of Codex's table and no write.
 func listingReaches(targets []string, before, after []domain.ListedModel) bool {
 	var changed []domain.ListedModel
 	for index := range max(len(before), len(after)) {
