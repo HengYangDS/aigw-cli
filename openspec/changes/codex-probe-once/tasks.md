@@ -46,9 +46,6 @@
 
 - [x] 8.1 Pass the proposal's GitHub checks `Native macOS acceptance`, `Native Linux acceptance`,
       `Linux Secret Service` and `Quality and governance`. Pull request 294 at `945a77992`: 4 passed, 2 skipped.
-- [ ] 8.2 Pass the proposal's GitLab pipeline on the macOS and Linux runners. Waits for GitLab: it has created no
-      pipeline for any project seen since 12:15 on 2026-11-28; merge request !222 stayed "preparing" and was closed
-      until GitLab runs pipelines again.
 
 ## 9. Publication
 
