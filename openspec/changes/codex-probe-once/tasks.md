@@ -21,9 +21,10 @@
 
 ## 4. Measurement
 
-- [ ] 4.1 Measure the selection matrix (`-tags=selection_matrix ./internal/cli/acceptance`) on the lane head in the
+- [x] 4.1 Measure the selection matrix (`-tags=selection_matrix ./internal/cli/acceptance`) on the lane head in the
       host queue, as the proposal's 608 s were measured. Done when its wall time, system time and peak memory are
-      recorded beside the baseline in the lane's evidence.
+      recorded beside the baseline in the lane's evidence. `59f0c10e8`, 13:40: 252 s, 403 s system, 0.89 GB (D2;
+      `build/ethos/claude-210a1fe7/matrix.time` in the lane).
 
 ## 5. Local gates
 

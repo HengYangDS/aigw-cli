@@ -63,9 +63,9 @@ configured Codex program, in a test process one per test program.
 
 The proposal's figures come from an experiment keyed by file metadata, which hashed nothing when it reused a probe;
 this reader hashes the file on every read, and the profile of the baseline put 105 s of samples in `fileSHA256`. Task
-4.1 measures this reader on the same matrix. If hashing takes back most of the gain, the key is revisited before the
-Change lands. In the experiment the matrix's peak resident memory fell from 1.03 GB to 0.89 GB; its cause was not
-measured.
+4.1 measured this reader on the same matrix, alone in its host ticket, at `59f0c10e8`: 252 s wall and 403 s system
+time against the baseline's 608 s and 5,207 s, with 6,744 passing tests and none failing, so hashing on every read
+keeps the gain and the key stands. Peak resident memory fell from 1.03 GB to 0.89 GB; its cause was not measured.
 
 **D3. A failure is kept.** A probe that fails, because the program does not run, prints no version or no table,
 warns, or misses its bound, gives every later read of the same key in the process the same failure, with the identity
