@@ -232,8 +232,8 @@ atomically. Foreign or user-authored catalogs MUST remain untouched.
 
 - **WHEN** the client's own bundled model table holds the selected model's
   family but not its ID
-- **THEN** AIGW SHALL project the complete bundled table plus an alias named
-  with the model's ID, whose metadata is the family's entry apart from the two
+- **THEN** the table that AIGW projects SHALL hold an alias named with the
+  model's ID, whose metadata is the family's entry apart from the two
   window fields and whose display name is the model's AIGW label without its
   provider
 - **AND** no two entries of the projected table SHALL share a display name,
@@ -266,6 +266,8 @@ atomically. Foreign or user-authored catalogs MUST remain untouched.
 - **AND** for an alias SHALL take its display name as input, prove that no
   other entry of the effective catalog shows it, and prove that the bundled
   catalog did not already contain that alias
+- **AND** SHALL prove that the effective catalog lists that entry and no other,
+  and hides every entry that the projection hid
 - **AND** SHALL prove an unrelated unknown entry remains absent
 - **AND** SHALL send no model request and alter no persistent Codex home.
 
@@ -560,24 +562,22 @@ onto a second line. AIGW's ownership record SHALL have one form that a change of
 
 ### Requirement: Codex's model table carries the selected model's declared context window
 
-In the model table that AIGW projects for Codex, the entry that describes the selected model, its alias or the
-model's own entry, SHALL carry the model's declared context window as its `context_window` and as its
-`max_context_window`. Every other field of that entry and every other entry SHALL stay as the client's own table has
-them. For each Codex target, `aigw check codex` SHALL report the window that Codex is given, or why AIGW gives it none.
+In the model table that AIGW projects for Codex, the entry that describes each listed model, its alias or its own
+entry, SHALL carry that model's declared context window as its `context_window` and `max_context_window`. Every other
+field of a bundled entry except its visibility SHALL stay as the client's table has it. For each Codex target, `aigw check codex` SHALL report the window that Codex is given, or why AIGW gives it none.
 
 #### Scenario: An alias carries the declared window
 
 - **GIVEN** the client's bundled table holds the selected model's family but not its ID
 - **WHEN** AIGW projects Codex's files
 - **THEN** the alias that AIGW adds for the model SHALL carry the declared window in both fields
-- **AND** the family's own entry and every other entry SHALL be unchanged.
+- **AND** the family's own entry SHALL keep the client's window fields.
 
 #### Scenario: The selected model is an entry of the client's table
 
 - **WHEN** the selected model's ID is itself an entry of the client's bundled table
-- **THEN** AIGW SHALL project the complete bundled table with that entry's two window fields set to the model's
-  declared context window
-- **AND** nothing else of the table SHALL change.
+- **THEN** that entry's two window fields SHALL be the model's declared context window
+- **AND** no other field of the entry SHALL change.
 
 #### Scenario: A check reports the window that Codex is given
 
