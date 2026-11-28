@@ -39,12 +39,13 @@
       verifies each bundle's signatures, provenance and notarization and
       compares every uploaded link; records in the main checkout's
       `build/evidence/gitlab-backfill-20261102/`.
-- [ ] 1.6 Publish accepted `dev` to GitLab through ETHOS once GitLab creates
+- [x] 1.6 Publish accepted `dev` to GitLab through ETHOS once GitLab creates
       pipelines again, and pass its protected pipeline on the macOS and Linux
-      runners. GitLab has created no pipeline for any project seen since 12:15
-      on 2026-11-28, while it still accepts pushes; `codex-probe-once` landed
+      runners. GitLab created no pipeline between 13:19 and 14:13 on
+      2026-11-28 while it still accepted pushes; `codex-probe-once` landed
       through GitHub alone and moved its GitLab pipeline here, after its merge
-      request !222 stayed "preparing" and was closed unrun.
+      request !222 stayed "preparing" and was closed unrun. Dev pipelines
+      18837, 18886 and 18924 passed.
 
 ## 2. Qualify GitLab Peer Admission
 
